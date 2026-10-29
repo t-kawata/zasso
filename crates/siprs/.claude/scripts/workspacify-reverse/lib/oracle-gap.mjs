@@ -1,4 +1,4 @@
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 /**
  * R5.5 — is the oracle any good?
  *
@@ -29,7 +29,7 @@
  * bounded: an AST-normalised match under a *named* configuration, which is what
  * rung three claims and nothing more.
  */
-// [::TICKET::] P24-5, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5, P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
 import { UNKNOWN_LANGUAGE } from './analysis-tech.mjs';
 import {
   TCE_LADDER_STEPS,
@@ -100,7 +100,7 @@ const UNCLASSIFIED_REASON =
  * equivalence from the shape of the evidence would be guessing at something the
  * design says is undecidable.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function causeOf(mutant) {
   if (mutant.reached === false) return 'unreachable';
   if (mutant.reached !== true) return 'unclassified';
@@ -126,7 +126,7 @@ const CAUSE_REASON = Object.freeze({
 });
 
 /** One survivor, with the cause this stage derived and the cause the record claimed. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function classifySurvivor(mutant) {
   const cause = causeOf(mutant);
   return {
@@ -142,7 +142,7 @@ function classifySurvivor(mutant) {
 }
 
 /** Classify a survivor list that is already known to be non-empty. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function classifySurvivorList(survivors) {
   const results = survivors.map(classifySurvivor);
   const by_cause = {};
@@ -227,14 +227,14 @@ export function sourceFormOf(lineage) {
 }
 
 /** One span, or a list of them, normalised to a list. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function toSpans(value) {
   if (value === undefined || value === null) return [];
   return Array.isArray(value) ? value : [value];
 }
 
 /** How a generator's call sites map onto its expansions. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function relationOf(originCount, expansionCount) {
   if (originCount === 1 && expansionCount === 1) return 'one_to_one';
   if (originCount === 1) return 'one_to_many';
@@ -316,13 +316,13 @@ const NO_PAIR_PRESENTED =
  * refused would publish nothing at all, which reads as a broken instrument
  * rather than as a target with no language to compare.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function configurableLanguage(declared) {
   return declared === null || declared === undefined || declared === UNKNOWN_LANGUAGE ? null : declared;
 }
 
 /** One pair's language, refused when the pairs disagree about it. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function languageOfPairs(tcePairs) {
   const languages = [...new Set(tcePairs.map((pair) => pair?.language))];
   if (languages.length !== 1 || typeof languages[0] !== 'string') {
@@ -344,7 +344,7 @@ function languageOfPairs(tcePairs) {
  * handler raise the very error it was handling whenever the language was one no
  * grammar is declared for, so a per-row refusal became an abort of the run.
  */
-// [::TICKET::] P24-5, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5, P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
 function comparePairs(language, configuration, tcePairs) {
   return tcePairs.map((pair) => {
     const mutantId = pair?.mutant_id ?? null;
@@ -378,7 +378,7 @@ function comparePairs(language, configuration, tcePairs) {
  * reader asking which grammar this run compared under is asking a question the
  * run can answer even when it had nothing to compare.
  */
-// [::TICKET::] P24-5, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5, P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
 function buildTceBlock({ language, tcePairs }) {
   const pairs = Array.isArray(tcePairs) ? tcePairs : [];
   const compared = pairs.length === 0 ? null : configurableLanguage(languageOfPairs(pairs));
@@ -523,7 +523,7 @@ export function renderOracleGapReport(oracleGap) {
 }
 
 /** E13's half of the report: what was compared, under which grammar, and what was not. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function renderTceSection(tce) {
   if (tce === undefined || tce === null) return [];
 

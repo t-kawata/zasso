@@ -1,7 +1,7 @@
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-234 @verifies C004
 // PX-236 @verifies C006
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * One rule text in three files.
  *
@@ -32,7 +32,7 @@ const COMMAND_FILES = ['explain-seed', 'grill-me-for-rfc', 'drill-rfc-down'].map
 const read = (file) => readFileSync(file, 'utf8');
 
 /** The text between the two delimiters, or null when the file carries no pair. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function delimitedBlock(text) {
   const start = text.indexOf(BEGIN);
   const stop = text.indexOf(END);
@@ -41,7 +41,7 @@ function delimitedBlock(text) {
 }
 
 /** The first place two blocks disagree, as a line number and a line. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function firstDifference(block, reference) {
   const lines = block.split('\n');
   const referenceLines = reference.split('\n');
@@ -101,7 +101,7 @@ test('C004 invariant: the block is the same text the two commands act on, not a 
   assert.equal(block.includes('RFC-SEED.md'), false, 'the block speaks the vocabulary both commands share, not one command’s file names');
 });
 
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 test('C006 invariant: the block states that Done re-opens when the human brings a viewpoint', () => {
   const block = delimitedBlock(read(COMMAND_FILES[1]));
 

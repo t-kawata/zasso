@@ -3,11 +3,11 @@
  * explain-seed — one seed path in, the facts out, and an explanation maintained beside them.
  *
  * Usage:
- *   node .claude/scripts/explain-seed/run.mjs info    <path-to-RFC-SEED.md>
- *   node .claude/scripts/explain-seed/run.mjs next    <path-to-RFC-SEED.md> <axes>
- *   node .claude/scripts/explain-seed/run.mjs check   <path-to-RFC-SEED.md>
- *   node .claude/scripts/explain-seed/run.mjs answers <path-to-RFC-SEED.md>
- *   node .claude/scripts/explain-seed/run.mjs revise  <path-to-RFC-SEED.md> '<payload-json>'
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/explain-seed/run.mjs" info    <path-to-RFC-SEED.md>
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/explain-seed/run.mjs" next    <path-to-RFC-SEED.md> <axes>
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/explain-seed/run.mjs" check   <path-to-RFC-SEED.md>
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/explain-seed/run.mjs" answers <path-to-RFC-SEED.md>
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/explain-seed/run.mjs" revise  <path-to-RFC-SEED.md> '<payload-json>'
  *
  * The seed is the only input because the seed already knows everything else: its identity
  * block names the package and the three reference paths, and the workspace root is the
@@ -51,7 +51,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ExplainSeedError } from './lib/errors.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 import { readSeed, requireField } from './lib/seed-document.mjs';
 import { loadWorkspace } from './lib/workspace.mjs';
@@ -88,7 +88,7 @@ const EXIT_FAILURE = 1;
 const ERROR_PREFIX = '[explain-seed]';
 
 /** The things this command does, and nothing else. */
-// [::TICKET::] PX-221, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-229) --for-spec --no-implementation-order`.
 export const OPERATIONS = Object.freeze({ INFO: 'info', NEXT: 'next', CHECK: 'check', ANSWERS: 'answers', REVISE: 'revise' });
 
 /** What the refusal names, derived so the message cannot describe a parser that no longer exists. */
@@ -101,7 +101,7 @@ const OPERATION_NAMES = Object.freeze(Object.values(OPERATIONS));
  * derived from the same declaration that accepts the right one: `next` alone takes the number
  * of axes a round may put, and every other operation acts on the seed path alone.
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 const ARITY = Object.freeze({
   [OPERATIONS.INFO]: 1,
   [OPERATIONS.NEXT]: 2,
@@ -117,8 +117,8 @@ const ARITY = Object.freeze({
  * is assertable: the report falls back to the raw kind, and a raw kind in the report is a
  * message nobody wrote.
  */
-// [::TICKET::] PX-222, PX-226, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229|PX-230) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-229, PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226|PX-229|PX-230) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 export const FAULT_MESSAGES = Object.freeze({
   'open-marker': 'an explanation point has not been written yet',
   'missing-placeholder': 'there is no place for the human to write',
@@ -157,7 +157,7 @@ export const FAULT_MESSAGES = Object.freeze({
 });
 
 /** The operation, the seed path it acts on, and the round size only `next` takes. */
-// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 export function parseArguments(argv) {
   const [operation, ...positionals] = argv;
   const refused = () =>
@@ -228,7 +228,7 @@ export function produceInfo(seedPath) {
 }
 
 /** Where the two documents live, given the seed they describe. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function documentPaths(seedPath) {
   const beside = dirname(seedPath);
   return {
@@ -238,14 +238,14 @@ function documentPaths(seedPath) {
 }
 
 /** The section title a fault is about, or the section id when it is about none. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function sectionName(sectionId) {
   const section = FRAME_SECTIONS.find((candidate) => candidate.id === sectionId);
   return section === undefined ? `INFO ${String(sectionId).replace('I', '')}「${INFO_SECTION_TITLES[sectionId] ?? sectionId}」` : `${sectionId}「${section.title}」`;
 }
 
 /** What the run did to the explanation, and what it found wrong with the earlier one. */
-// [::TICKET::] PX-222, PX-225, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225|PX-229|PX-230) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-225, PX-229, PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-225|PX-229|PX-230) --for-spec --no-implementation-order`.
 function renderRunReport({ frame, unreadableNeighbours, ledger, rounds }) {
   const lines = [
     `explanation: kept ${frame.keptSections.length}, reopened ${frame.reopenedSections.length}`,
@@ -264,7 +264,7 @@ function renderRunReport({ frame, unreadableNeighbours, ledger, rounds }) {
 }
 
 /** The verdict of the gate, as the operator reads it. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function renderVerdict(verdict) {
   const balance = `${verdict.decidedForHuman} decided for the human, ${verdict.askedOfHuman} left to the human`;
   if (verdict.ok) {
@@ -290,7 +290,7 @@ function renderVerdict(verdict) {
 }
 
 /** Write the facts, maintain the explanation, and print the facts. */
-// [::TICKET::] PX-222, PX-225, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-225, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-225|PX-229) --for-spec --no-implementation-order`.
 function runInfo(seedPath) {
   const { info, facts } = produceInfo(seedPath);
   const { infoPath, explainPath } = documentPaths(seedPath);
@@ -320,7 +320,7 @@ function runInfo(seedPath) {
  * the explanation byte-identical and can never half-append it. The numbers continue from the
  * highest the document already holds, because a number a question was asked under never moves.
  */
-// [::TICKET::] PX-229, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-229|PX-236) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229, PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-229|PX-236) --for-spec --no-implementation-order`.
 function runNext(seedPath, size) {
   const explainText = readExplanationOrFail(seedPath);
   const { facts } = produceInfo(seedPath);
@@ -348,7 +348,7 @@ function runNext(seedPath, size) {
 }
 
 /** The explanation this run reads, or a failure naming the path it looked for. */
-// [::TICKET::] PX-226, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-231) --for-spec --no-implementation-order`.
 function readExplanationOrFail(seedPath) {
   const { explainPath } = documentPaths(seedPath);
   if (!existsSync(explainPath)) {
@@ -358,7 +358,7 @@ function readExplanationOrFail(seedPath) {
 }
 
 /** Decide whether the explanation may be reported. */
-// [::TICKET::] PX-222, PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
 function runCheck(seedPath) {
   const explainText = readExplanationOrFail(seedPath);
   const { facts } = produceInfo(seedPath);
@@ -378,7 +378,7 @@ function runCheck(seedPath) {
  * @param {string} explainText
  * @returns {{ asked: number, answered: number, unanswered: Array<string> }}
  */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 export function readAnswers(explainText) {
   const located = locateSections(explainText);
   if (located.missing.includes(HUMAN_SECTION_ID) || located.duplicates.includes(HUMAN_SECTION_ID)) {
@@ -396,7 +396,7 @@ export function readAnswers(explainText) {
 }
 
 /** What the round of questions has left to do, as the operator reads it. */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 export function renderAnswerVerdict({ asked, answered, unanswered, unsettled = [] }) {
   if (unanswered.length === 0 && unsettled.length === 0) {
     return asked === 0
@@ -419,7 +419,7 @@ export function renderAnswerVerdict({ asked, answered, unanswered, unsettled = [
  * question the AI has not settled from, or left unattached — so the verdict reads the ledger
  * as well as the placeholders and exits zero only when nothing is unsettled.
  */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function runAnswers(seedPath) {
   const explainText = readExplanationOrFail(seedPath);
   const reading = readAnswers(explainText);
@@ -439,7 +439,7 @@ function runAnswers(seedPath) {
  * — empty, carrying a newline, or carrying a marker this document reads — because a value that
  * changed what the readers count would be recorded as something other than what was said.
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function readRevision({ payloadArgument }) {
   let payload;
   try {
@@ -474,7 +474,7 @@ function readRevision({ payloadArgument }) {
  * so the recorded point is the whole mechanism that re-opens the run. Everything is validated
  * before the first byte, so a refused revision leaves the document exactly as it was.
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function runRevise(seedPath, payloadArgument) {
   const explainText = readExplanationOrFail(seedPath);
   const revision = readRevision({ payloadArgument });
@@ -500,7 +500,7 @@ function runRevise(seedPath, payloadArgument) {
   return EXIT_OK;
 }
 
-// [::TICKET::] PX-221, PX-222, PX-226, PX-229, PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-226|PX-229|PX-236) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-226, PX-229, PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-226|PX-229|PX-236) --for-spec --no-implementation-order`.
 function main(argv) {
   try {
     const { operation, seedPath, size, payload } = parseArguments(argv);
@@ -519,7 +519,7 @@ function main(argv) {
 }
 
 /** Whether this file is the program being run, rather than a module another file imported. */
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
 function isProgramRun() {
   return process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 }

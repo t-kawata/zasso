@@ -50,7 +50,7 @@ const EXIT_FAILURE = 1;
  * annotation back requires knowing the token is a comment at all — which is why
  * the token is a fact about the extension rather than a constant.
  */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 const COMMENT_TOKEN_BY_EXTENSION = Object.freeze({ ".py": "#", ".rb": "#" });
 const DEFAULT_COMMENT_TOKEN = "//";
 // A marker is a comment line, not a string literal that happens to contain the
@@ -65,11 +65,11 @@ const AMBIGUOUS_MARKER_PATTERN = /^\s*(?:\/\/|#)\s*\[::AMBIGUOUS::\]/;
  * never carries an annotation, so accepting the wider set costs nothing and is
  * what lets a `#` annotation be read back rather than reported missing.
  */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 const COMMENT_PREFIXES = Object.freeze([DEFAULT_COMMENT_TOKEN, "/*", "*", "#"]);
 
 /** The comment token for a file, from its extension. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function commentTokenFor(filePath) {
   return COMMENT_TOKEN_BY_EXTENSION[path.extname(filePath).toLowerCase()] ?? DEFAULT_COMMENT_TOKEN;
 }
@@ -77,11 +77,11 @@ function commentTokenFor(filePath) {
 /**
  * Build the annotation comment for a given ticket key.
  */
-// Implemented or modified under tickets: PX-60, PX-61, PX-62; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-63, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-63|P24-1) --for-spec --no-implementation-order`.
+// Implemented or modified under tickets: PX-60, PX-61, PX-62; for details, refer to the command `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-63, P24-1, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-63|P24-1|PX-341) --for-spec --no-implementation-order`.
 function buildAnnotation(ticketKey, commentToken = DEFAULT_COMMENT_TOKEN) {
   return (
-    `${commentToken} [::TICKET::] ${ticketKey} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `${commentToken} [::TICKET::] ${ticketKey} changes. Details: \`node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" ` +
     `--ticket-key=${ticketKey} --for-spec --no-implementation-order\`.`
   );
 }
@@ -89,13 +89,13 @@ function buildAnnotation(ticketKey, commentToken = DEFAULT_COMMENT_TOKEN) {
 /**
  * Build the multi-ticket annotation comment for merged hot-spot functions.
  */
-// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-341) --for-spec --no-implementation-order`.
 function buildMultiAnnotation(ticketKeys) {
   const keys = [...new Set(ticketKeys)];
   const keyList = keys.join(", ");
   const ticketKeyArg = keys.join("|");
   return (
-    `// [::TICKET::] ${keyList} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `// [::TICKET::] ${keyList} changes. Details: \`node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" ` +
     `--ticket-key=(${ticketKeyArg}) --for-spec --no-implementation-order\`.`
   );
 }
@@ -110,7 +110,7 @@ function buildMultiAnnotation(ticketKeys) {
  *
  * Returns { ticketKeys: string[], lineIndex: number } or null.
  */
-// [::TICKET::] PX-63, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-63|P24-1) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-63, P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-63|P24-1) --for-spec --no-implementation-order`.
 function detectAnnotationLine(line) {
   if (typeof line !== "string" || !COMMENT_PREFIXES.some((prefix) => line.trimStart().startsWith(prefix))) {
     return null;
@@ -161,7 +161,7 @@ function detectAnnotationAtLine(lines, defLine) {
  *
  * Returns [{ line, lineIndex }] in file order, lineIndex being 1-indexed.
  */
-// [::TICKET::] PX-208, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-208|P24-1) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208, P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-208|P24-1) --for-spec --no-implementation-order`.
 function findCommentBlockAbove(lines, definitionLine) {
   const block = [];
   for (let index = definitionLine - 2; index >= 0; index -= 1) {
@@ -186,7 +186,7 @@ function findCommentBlockAbove(lines, definitionLine) {
  *
  * Returns { ticketKeys: string[], lineIndex: number } or null.
  */
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 function detectAnnotationInCommentBlock(lines, defLine) {
   const block = findCommentBlockAbove(lines, defLine);
   for (let index = block.length - 1; index >= 0; index -= 1) {
@@ -208,7 +208,7 @@ function detectAnnotationInCommentBlock(lines, defLine) {
  * fresh one over a marker that was just resolved — which is how PX-207's frozen
  * fixture acquired a duplicate and failed fourteen downstream tests.
  */
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 function carriesMarkerFor(lines, ticketKey) {
   if (!Array.isArray(lines) || !ticketKey) return false;
   if (hasExistingAnnotation(lines, ticketKey)) return true;
@@ -257,7 +257,7 @@ function insertAnnotation(lines, lineIndex, comment) {
  *   Value: Set of 0-indexed line numbers that were changed/added, or "ALL"
  *          for new files (--- /dev/null → every line is new)
  */
-// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function parseGitDiffUnified0(gitDiffStdout) {
   const result = new Map();
   let currentFile = null;
@@ -327,7 +327,7 @@ function parseGitDiffUnified0(gitDiffStdout) {
  *   Key: definition startLine (0-indexed)
  *   Value: definition metadata
  */
-// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function changedLinesToDefinitions(lines, changedLines, ext) {
   const definitions = new Map();
 
@@ -376,14 +376,14 @@ function resolveGitPath(filePath, cwd) {
   return path.resolve(repoRoot, filePath);
 }
 
-// [::TICKET::] PX-62, PX-63, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-146) --for-spec --no-implementation-order`.
 /**
  * Prepend a comment line to source lines while preserving a leading shebang.
  * A shebang (`#!`) is only valid on line 1 of an executable script, so the
  * comment is inserted BELOW it; otherwise it is inserted at the top.
  * Returns a new array of lines (immutable).
  */
-// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-147 --for-spec --no-implementation-order`.
 function prependCommentPreservingShebang(lines, comment) {
   if (lines.length > 0 && lines[0].startsWith("#!")) {
     return [lines[0], comment, ...lines.slice(1)];
@@ -391,7 +391,7 @@ function prependCommentPreservingShebang(lines, comment) {
   return [comment, ...lines];
 }
 
-// [::TICKET::] PX-147, PX-208, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208|P24-1) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147, PX-208, P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-147|PX-208|P24-1) --for-spec --no-implementation-order`.
 function processFile(filePath, ticketKey, opts) {
   const verbose = opts && opts.verbose;
   const cwd = opts && opts.cwd ? opts.cwd : process.cwd();
@@ -479,7 +479,7 @@ function processFile(filePath, ticketKey, opts) {
  * filter by extension, annotate each file at its changed definitions.
  * Returns a summary object.
  */
-// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
 function annotateSourceFiles(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -554,7 +554,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
  * Verify that all changed source files have a ticket-key annotation at each
  * changed definition. Returns a verification report object.
  */
-// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
 function verifyAnnotations(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -690,7 +690,7 @@ function parseArgs() {
   return { ticketKey, verbose, verifyMode, checkAmbiguousMode };
 }
 
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function main() {
   const opts = parseArgs();
 
@@ -766,7 +766,7 @@ function main() {
  * @param {string[]} lines
  * @returns {number|null} — 1-indexed line number or null
  */
-// [::TICKET::] PX-147, PX-208, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208|P24-1) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147, PX-208, P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-147|PX-208|P24-1) --for-spec --no-implementation-order`.
 function detectFirstDefinition(lines) {
   if (!Array.isArray(lines)) return null;
   for (let i = 0; i < lines.length; i++) {

@@ -31,13 +31,13 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `shared-obligations` | `module` |
 | `smooth-sequences` | `module` |
 | `tickets` | `commonjs` |
-| `utils` | `unknown` |
+| `utils` | `commonjs` |
 | `workspacify-allocate` | `module` |
 | `workspacify-order` | `module` |
 | `workspacify-reverse` | `module` |
 | `workspacify-tree` | `module` |
 
-`unknown` is a verdict, not a gap: `utils` holds a single shell script and no module-bearing file, so it has no module system to state. A directory whose files all agree is reported with theirs.
+`utils` holds `commonjs` files, so its module system is stated by the files it carries. A directory whose files all agree is reported with theirs.
 
 Directories under `.claude/scripts/` that declare no `type` of their own inherit `.claude/package.json`, which is `commonjs`; `workspacify-reverse` declares no `type` at all and is ESM because every one of its files is `.mjs`. An earlier version of this file stated a two-way split that named `grill-me-for-rfc`, `conver` and `drill-rfc-down` as CommonJS when all three declare `module`, and named `node tests/run-all.js` as the test runner when no such path exists. A reviewer reading only that statement reported a convention violation in fourteen correct files. `make check-conventions` derives this table from the filesystem and compares it against this one, so the document cannot drift from the repository again.
 

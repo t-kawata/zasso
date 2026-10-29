@@ -38,7 +38,7 @@ const VALID_STATES = [
  * but malformed is not — a list a reader would silently walk as empty is worse
  * than one it reports.
  */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function validateMaterialPaths(status, errors) {
   if (status.materialPaths === undefined) return;
 
@@ -110,7 +110,7 @@ export function validateStatus(rfcDir) {
  * (materialsAddedAt, when a resume adds material), and read as a pair by the
  * re-entry signal in session-status.js.
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 const OPTIONAL_DATE_FIELDS = ["completedAt", "materialsAddedAt"];
 
 /**
@@ -125,7 +125,7 @@ const OPTIONAL_DATE_FIELDS = ["completedAt", "materialsAddedAt"];
  * @param {object} status — the parsed Status.json
  * @param {string[]} errors — accumulator the caller reports
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function validateOptionalDates(status, errors) {
   for (const optionalDate of OPTIONAL_DATE_FIELDS) {
     if (status[optionalDate] !== undefined && isNaN(Date.parse(status[optionalDate]))) {
@@ -139,7 +139,7 @@ function validateOptionalDates(status, errors) {
  * or above its floor. The floors differ because a distribution generation may be zero
  * (no render recorded yet) while a grill generation starts at one.
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function validateOptionalGeneration(status, field, floor, errors) {
   const value = status[field];
   if (value === undefined) return;
@@ -206,7 +206,7 @@ export function validateDesignTree(rfcDir) {
  * @param {string} path
  * @returns {string[]} error messages
  */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function traceEntryErrors(trace, path) {
   if (!Array.isArray(trace)) return [`${path}: must be a list of entries naming a record and the fact that leaves it open`];
 
@@ -230,7 +230,7 @@ function traceEntryErrors(trace, path) {
  * @param {Array<object>} blocks
  * @returns {string[]} error messages
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 export function validateQuestionBlocks(blocks) {
   const errors = [];
   const seenNumbers = new Set();
@@ -254,7 +254,7 @@ export function validateQuestionBlocks(blocks) {
   return errors;
 }
 
-// [::TICKET::] PX-234, PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234, PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-234|PX-235) --for-spec --no-implementation-order`.
 function validateNodeArray(nodes, pathPrefix, seenIds) {
   const errors = [];
   nodes.forEach((node, i) => {
@@ -286,7 +286,7 @@ function validateNodeArray(nodes, pathPrefix, seenIds) {
         // a decision nobody can name the undoing of is not a decision the run can
         // stand behind. A human resolution carries no ground and is not held to
         // this, because the answer the person gave is its own ground.
-        // [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+        // [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
         if (q.ground !== undefined && (typeof q.override !== "string" || q.override === "")) {
           errors.push(`${p}.questions[${qi}].override: required when a settlement carries a ground`);
         }

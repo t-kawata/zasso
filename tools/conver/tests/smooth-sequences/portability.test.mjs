@@ -13,7 +13,7 @@ import {
   rfcBody,
 } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 
 const DETECTOR_DIRECTORY = '.claude/scripts/smooth-sequences';
 // The four distinctive status names are rejected anywhere. "failed" is ordinary detector
@@ -22,8 +22,8 @@ const DETECTOR_DIRECTORY = '.claude/scripts/smooth-sequences';
 const FORBIDDEN_IN_DETECTOR = /gaia|soul_id|Core Operation|Procedure Registry|CONTRIBUTED_ROWS|CONTRIBUTED_OPERATION_KINDS|\/Users\/|\b(finalized|rejected|cancelled|expired)\b|["']failed["']/i;
 
 /** Every source file the detector ships, excluding tests. */
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function detectorSourceFiles() {
   return readdirSync(DETECTOR_DIRECTORY, { recursive: true })
     .filter((name) => name.endsWith('.mjs') || name.endsWith('.js'))
@@ -38,7 +38,7 @@ test('the detector sources carry no project vocabulary and no absolute path', ()
 });
 
 // @verifies C007
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 test('a workspace that declares grpc and closed is judged green', () => {
   const artifact = minimalV3Artifact();
   artifact.vocabulary = { terminalStatuses: ['closed'], requiredInterfaces: ['grpc'] };

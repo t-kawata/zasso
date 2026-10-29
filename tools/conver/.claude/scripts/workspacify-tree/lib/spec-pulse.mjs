@@ -1,4 +1,4 @@
-// [::TICKET::] PX-199 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-199 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-199 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-199 --for-spec --no-implementation-order`.
 // PX-199 @verifies C001
 /**
  * Specification pulse.
@@ -73,7 +73,7 @@ export function buildSpecPulse({ sourceText = '', headings = [], segments = [], 
  * `scanFenceStates` answers per line and a match index is an offset into the whole
  * document, so the offset is translated before the question is asked.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function lineOf(offsets, offset) {
   let low = 0;
   let high = offsets.length - 1;
@@ -91,13 +91,13 @@ function lineOf(offsets, offset) {
  * The same distinction the table filter already draws, extended to fences. Without it a
  * chapter that carries a published document reads as one that argues for it.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function proseOf(text) {
   return proseLines(text).join('\n');
 }
 
 /** The non-empty lines of a chapter that are its own prose, in order. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function proseLines(text) {
   const kept = text.split('\n').filter((line) => !TABLE_ROW_RE.test(line));
   const fenceStates = scanFenceStates(kept);
@@ -105,7 +105,7 @@ function proseLines(text) {
 }
 
 /** One view per segment: its text, its owned items and its line count. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function buildChapterViews({ sourceText, headings, segments, inventory }) {
   const ownedBySegment = new Map();
   for (const item of collectInventoryItems(inventory)) {
@@ -255,7 +255,7 @@ function detectTableProseMismatch(chapters) {
 }
 
 /** An identifier used once and defined nowhere. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function detectUndefinedReference({ sourceText, chapters, inventory }) {
   const defined = new Set();
   for (const chapter of chapters) {

@@ -1,5 +1,5 @@
 // PX-239 @verifies C002
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 /**
  * The workspace inventory, and the gate that makes full resolution binding.
  *
@@ -28,7 +28,7 @@ const TABLE_HEADER =
  * @param {object[]} rows — ledger rows, already shaped for the six columns
  * @returns {string} the package directory
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function writeDefectLedger(root, packageName, rows) {
   const dir = join(root, packageName);
   mkdirSync(dir, { recursive: true });
@@ -44,7 +44,7 @@ function writeDefectLedger(root, packageName, rows) {
 }
 
 /** A package whose RFC carries the appendix but no rows. */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function writeEmptyLedger(root, packageName, body) {
   const dir = join(root, packageName);
   mkdirSync(dir, { recursive: true });

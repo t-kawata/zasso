@@ -25,7 +25,7 @@ const ALLOWED_FIELDS = ['status', 'resolved_at', 'resolved_by_ticket', 'note'];
 // Allowed status values
 const ALLOWED_STATUSES = ['open', 'resolved', 'false_positive'];
 
-// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const rawId = process.argv[2];
   const field = process.argv[3];

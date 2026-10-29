@@ -14,7 +14,7 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const INIT = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/init.js');
 const UPDATE_STATUS = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/update-status.js');
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function freshSession() {
   const root = mkdtempSync(join(tmpdir(), 'px309-grill-'));
   const rfcDir = join(root, 'rfc');
@@ -26,17 +26,17 @@ function freshSession() {
   return { root, rfcDir, statusPath: join(rfcDir, 'Status.json') };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function setState(rfcDir, state) {
   execFileSync(process.execPath, [UPDATE_STATUS, rfcDir, 'set-state', state], { encoding: 'utf8' });
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function beginRun(rfcDir) {
   execFileSync(process.execPath, [UPDATE_STATUS, rfcDir, 'begin-run'], { encoding: 'utf8' });
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function readStatus(statusPath) {
   return JSON.parse(readFileSync(statusPath, 'utf8'));
 }

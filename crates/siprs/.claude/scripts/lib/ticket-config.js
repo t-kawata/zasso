@@ -72,7 +72,7 @@ function loadConfig() {
       // PX-90: Only programming-language source file extensions allowed.
       // Non-programming extensions (.json, .yaml, .yml, .toml, .md, .css, .scss)
       // are excluded to prevent self-referential crime cascade.
-      // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
+      // Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-90 --for-spec --no-implementation-order`
       targetExtensions: [
         '.rs', '.go', '.ts', '.tsx', '.js', '.jsx', '.cjs', '.mjs', '.vue',
         '.py', '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp',

@@ -47,7 +47,7 @@ const EXIT_FAILURE = 1;
  * @param {string[]} lines
  * @returns {Array<{line: number, name: string, kind: string}>}
  */
-// [::TICKET::] PX-64 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-64 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-64 --for-spec --no-implementation-order`.
 function listAllDefinitions(lines) {
   const definitions = [];
 
@@ -91,7 +91,7 @@ function listAllDefinitions(lines) {
  * Get git diff -U5 for the given file path.
  * Returns the diff string, or null if not in a git repo.
  */
-// [::TICKET::] PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-65 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-65 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-65 --for-spec --no-implementation-order`.
 function getGitDiffU5(filePath) {
   try {
     const { execFileSync } = require("child_process");
@@ -108,7 +108,7 @@ function getGitDiffU5(filePath) {
  * Build Markdown output for AI consumption.
  * Produces: diff context section + definitions table.
  */
-// [::TICKET::] PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-65 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-65 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-65 --for-spec --no-implementation-order`.
 function buildMarkdownOutput(definitions, diffOutput) {
   const lines = [];
 
@@ -146,7 +146,7 @@ function buildMarkdownOutput(definitions, diffOutput) {
  * Mode 1: Print Markdown with git diff context + definitions table to stdout.
  * Read-only — never mutates the file.
  */
-// [::TICKET::] PX-64, PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64, PX-65 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
 function listDefinitions(filePath, ticketKey) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
@@ -167,7 +167,7 @@ function listDefinitions(filePath, ticketKey) {
  * This keeps a leading shebang on line 1 after resolution.
  * Returns a new array of lines (immutable).
  */
-// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-147 --for-spec --no-implementation-order`.
 function cleanAmbiguousArtifacts(lines) {
   const result = [];
   for (let i = 0; i < lines.length; i++) {
@@ -193,7 +193,7 @@ function cleanAmbiguousArtifacts(lines) {
  * @param {number|number[]} definitionLines — 0-indexed line number(s) of target definitions
  * @returns {{success: boolean, error?: string, insertedAtLines?: number[]}}
  */
-// [::TICKET::] PX-64, PX-65, PX-147, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65|PX-147|P24-1) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64, PX-65, PX-147, P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-64|PX-65|PX-147|P24-1) --for-spec --no-implementation-order`.
 function injectAt(filePath, ticketKey, definitionLines) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
@@ -239,7 +239,7 @@ function injectAt(filePath, ticketKey, definitionLines) {
 // CLI
 // =============================================================================
 
-// [::TICKET::] PX-64 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-64 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-64 --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = { mode: null, file: null, ticketKey: null, definitionLine: null };
@@ -264,7 +264,7 @@ function parseArgs() {
   return opts;
 }
 
-// [::TICKET::] PX-64, PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64, PX-65 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
 function main() {
   const opts = parseArgs();
 

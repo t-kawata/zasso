@@ -150,7 +150,7 @@ echo "以下のコマンドで内容を表示し、下記「点検項目」を�
 echo ""
 
 for selected_id in "${SELECTED[@]}"; do
-  echo "node .claude/scripts/rfc-graph/get-node-for-check.js ${selected_id}"
+  echo "node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/get-node-for-check.js\" ${selected_id}"
 done
 
 echo ""

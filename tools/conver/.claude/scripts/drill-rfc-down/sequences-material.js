@@ -36,13 +36,13 @@ const SESSION_DIR_FLAG_PREFIX = '--session-dir=';
 const USAGE = 'usage: sequences-material.js <rfc-dir> [--session-dir=<path>]';
 
 /** The session directory a drill keeps, resolved from the package when none is named. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function resolveSessionDir(argument, rfcDir) {
   if (argument === undefined) return defaultSessionDirFor(path.join, rfcDir);
   return path.resolve(argument.slice(SESSION_DIR_FLAG_PREFIX.length));
 }
 
-// [::TICKET::] PX-256, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-270) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rfcDirArgument, ...rest] = argv;
   if (rfcDirArgument === undefined) {

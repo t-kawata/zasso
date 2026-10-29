@@ -21,7 +21,7 @@ const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs')
 const MD_PATH = join(CONVER_ROOT, '.claude/commands/workspacify-tree.md');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('doc C001 [@verifies C001]: Step 3 describes an information-raising iteration', () => {
   const md = readFileSync(MD_PATH, 'utf8');
   assert.match(md, /## Step 3/);

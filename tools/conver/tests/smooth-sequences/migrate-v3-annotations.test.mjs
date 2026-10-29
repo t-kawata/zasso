@@ -7,8 +7,8 @@ import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/worksp
 import { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspace-fixture.mjs';
 
 /** The input the migration reads. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function migrationInput(workspace) {
   const loaded = loadWorkspace(workspace.root);
   return {
@@ -20,13 +20,13 @@ function migrationInput(workspace) {
 }
 
 /** A cited fact on one step. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function citedFact(stepId, line, quote, factId, text) {
   return { factId, text, source: { step: stepId, line, quote } };
 }
 
 /** The annotation for the producer step. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function producerContract() {
   return {
     pre: [],
@@ -40,7 +40,7 @@ function producerContract() {
 }
 
 /** The annotation for the consumer step. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function consumerContract() {
   return {
     pre: [citedFact('A-1__ConsumeFact', 2, 'the consumer reads order_id', 'order_id', 'order_id is present')],
@@ -206,7 +206,7 @@ test('a cited ground is accepted and an uncited ground is refused', () => {
 });
 
 /** The complete annotations for the two-step fixture. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function completeAnnotations() {
   return {
     contracts: {

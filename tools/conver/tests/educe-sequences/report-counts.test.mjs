@@ -1,4 +1,4 @@
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 // The measured block the phase driver prints (PX-251, contracts C001, C003 and C004).
 //
 // `healthLines` is the driver's whole report, and the measured block inside it is the same
@@ -31,13 +31,13 @@ const GOLDEN_SPEC = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledg
 const TERM_KEYS = ['entries', 'sequences', 'steps', 'operations', 'placed', 'excused', 'sections', 'linesReached', 'census'];
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function goldenArtifact() {
   return JSON.parse(readFileSync(GOLDEN_ARTIFACT, 'utf8'));
 }
 
 /** The summary a completed run of the golden artifact produces. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function goldenSummary() {
   const spec = readSpecification(GOLDEN_SPEC);
   const { verdicts, summary } = checkAll({ specLines: spec.lines, artifact: goldenArtifact() });
@@ -52,7 +52,7 @@ function goldenSummary() {
  * rather than an expectation: this builder hands the block a like-for-like predecessor
  * instead of a record from another vocabulary.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function generation(overrides = {}) {
   const entries = overrides.entries ?? 8;
   const placed = overrides.placed ?? 2;
@@ -78,12 +78,12 @@ function generation(overrides = {}) {
 }
 
 /** Every line of the block that is one of the measured terms. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function measuredTerms(lines) {
   return lines.filter((line) => TERM_KEYS.some((key) => line.startsWith(`${key}=`)));
 }
 
-// [::TICKET::] PX-251, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-251|PX-260|PX-261) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251, PX-260, PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-251|PX-260|PX-261) --for-spec --no-implementation-order`.
 function blockLines(summary, { previous = null, inquest = null, demand = null } = {}) {
   const status = { phases: [], readings: {}, history: previous === null ? [] : [{ generation: 1, coverage: previous }] };
   return healthLines({ summary, status, inquest, demand });
@@ -227,7 +227,7 @@ test('C004 the measured block and the audit lines are never summed into one tota
 // ---------------------------------------------------------------------------
 
 /** The demand as the rail measures it: the facts, and the coverage over a workspace root. */
-// [::TICKET::] PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261) --for-spec --no-implementation-order`.
 function demandFixture() {
   return {
     facts: { candidateColumns: ['verb', 'route'], boundaryCount: 3, counts: { operations: 8, sequences: 4, boundaries: 3, surfaces: 2 } },

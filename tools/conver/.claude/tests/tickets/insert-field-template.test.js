@@ -14,7 +14,7 @@ function assert(condition, message) {
   else { failed++; process.stdout.write(`  ✗ ${message}\n`); }
 }
 
-// [::TICKET::] PX-76 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-76 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-76 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-76 --for-spec --no-implementation-order`.
 function assertEq(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
   else { failed++; process.stdout.write(`  ✗ ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}\n`); }

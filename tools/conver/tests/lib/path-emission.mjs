@@ -39,8 +39,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 
-/** Extensions the source scan reads. A path emitted from a shell script is out of reach. */
-const MODULE_SUFFIXES = Object.freeze(['.js', '.mjs', '.cjs']);
+/**
+ * Extensions the source scan reads. A path emitted from a shell script is out of
+ * reach, and the TypeScript tree is included because it is bundled into the
+ * shipped command.
+ */
+const MODULE_SUFFIXES = Object.freeze(['.js', '.mjs', '.cjs', '.ts']);
 
 /**
  * Directories never descended into.
@@ -94,7 +98,7 @@ const SINKS = Object.freeze([
 ]);
 
 /** Every module file beneath `root`, as paths relative to it. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function moduleFilesUnder(root) {
   const found = [];
   const walk = (directory) => {
@@ -102,6 +106,10 @@ function moduleFilesUnder(root) {
       if (entry.isDirectory()) {
         if (EXCLUDED_DIRECTORIES.includes(entry.name)) continue;
         walk(join(directory, entry.name));
+      } else if (entry.name.includes('.test.')) {
+        // A test writes fixtures under a temporary directory; it is not a writer
+        // of a committed artefact, so it is outside this rule.
+        continue;
       } else if (MODULE_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
         found.push(join(directory, entry.name));
       }
@@ -117,7 +125,7 @@ function moduleFilesUnder(root) {
  * Run to a fixed point because a name can be built from another: `const root = resolve(x)`
  * makes `root` absolute, and `const child = join(root, name)` makes `child` absolute too.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function absoluteNamesIn(lines) {
   const absolute = new Set();
   for (let pass = 0; pass < 4; pass += 1) {
@@ -137,7 +145,7 @@ function absoluteNamesIn(lines) {
 }
 
 /** Every `${...}` expression on a line, as written. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function interpolationsIn(line) {
   const expressions = [];
   const pattern = /\$\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g;
@@ -147,14 +155,14 @@ function interpolationsIn(line) {
 }
 
 /** The sink a line writes to, or null when the line writes to nothing outside. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function sinkOf(line) {
   const sink = SINKS.find((candidate) => candidate.pattern.test(line));
   return sink === undefined ? null : sink.name;
 }
 
 /** Whether an interpolation reaches its sink through a converter. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function isConverted(expression) {
   return CONVERTERS.some((converter) => expression.includes(converter));
 }
@@ -203,7 +211,7 @@ export function scanPathEmissions({ root }) {
 }
 
 /** The paths git tracks beneath `repositoryRoot`, relative to it. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function trackedFilesUnder(repositoryRoot) {
   const listed = spawnSync('git', ['ls-files', '-z'], { cwd: repositoryRoot, encoding: 'utf8' });
   if (listed.status !== 0) return null;

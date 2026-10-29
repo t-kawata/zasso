@@ -1,4 +1,4 @@
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 /**
  * R0 — whether this project affords the reverse rotation at all.
  *
@@ -179,7 +179,7 @@ export const DANGER_SIGNALS = Object.freeze([
 const SUBJECT_ROOT_PATH = '.';
 
 /** Whether a path is a test file, by the directory or the name it carries. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function isTestFile(relativePath) {
   const segments = relativePath.split('/');
   if (segments.some((segment) => TEST_DIRECTORY_NAMES.includes(segment))) return true;
@@ -187,7 +187,7 @@ function isTestFile(relativePath) {
 }
 
 /** How many files each language contributes, counted from the path alone. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function languageCountsOf(paths) {
   const counts = new Map();
   for (const relativePath of paths) {
@@ -206,7 +206,7 @@ function languageCountsOf(paths) {
  * alphabetically first language, so the answer does not depend on the order the
  * tree was walked in.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function dominantLanguageIn(paths) {
   const byAlphabet = [...languageCountsOf(paths).entries()]
     .sort((left, right) => compareText(left[0], right[0]));
@@ -223,7 +223,7 @@ function dominantLanguageIn(paths) {
  * `1` — every source file sits in the one place — so a flat project is visible
  * from the numbers rather than from a judgement about them.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function directoryFactsIn(sourceFiles) {
   const perDirectory = new Map();
   for (const artefact of sourceFiles) {
@@ -242,7 +242,7 @@ function directoryFactsIn(sourceFiles) {
 }
 
 /** The line a build manifest names the project on, and the reason when it does not. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function declarationLineIn(root, relativePath) {
   const pattern = MANIFEST_DECLARATION_PATTERNS[relativePath.split('/').pop()] ?? null;
   if (pattern === null) {
@@ -270,7 +270,7 @@ function declarationLineIn(root, relativePath) {
  * whole population and finds none. A file the scan cannot read is recorded with
  * its reason rather than counted as comment-free.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function scanForFirstComment(root, sourceFiles) {
   const unreadable = [];
   let scanned = 0;
@@ -295,7 +295,7 @@ function scanForFirstComment(root, sourceFiles) {
 }
 
 /** The material every condition and every signal is read from. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function populationOf({ artefacts, root, history }) {
   const considered = artefacts.filter(
     (artefact) => artefact.coverage !== 'out_of_scope' && artefact.readStatus === 'readable',
@@ -346,13 +346,13 @@ function populationOf({ artefacts, root, history }) {
 }
 
 /** An evidence entry citing the subject root itself, for a fact about the population as a whole. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function rootEvidence(note) {
   return { path: SUBJECT_ROOT_PATH, line: null, note };
 }
 
 /** The one manifest to name in prose: the first the tree declares, in the declared order. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function firstManifestIn(population) {
   return [...population.buildManifests]
     .sort((left, right) => {
@@ -369,7 +369,7 @@ function firstManifestIn(population) {
  * a bare path, so "this could not be read" stays distinguishable from "this is
  * not there" at the point a reader meets it.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function unreadableEvidence(artefact) {
   return {
     path: artefact.path,
@@ -380,7 +380,7 @@ function unreadableEvidence(artefact) {
 }
 
 /** The build condition, read from the manifests the tree declares. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readBuildCondition(condition, population) {
   const manifest = firstManifestIn(population);
   const unread = population.unreadableManifests.map(unreadableEvidence);
@@ -412,7 +412,7 @@ function readBuildCondition(condition, population) {
 }
 
 /** The tests condition, split into the half this channel reads and the half it does not. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readTestsCondition(condition, population) {
   const manifest = firstManifestIn(population);
   const testCommand = population.testFileCount > 0 && manifest !== null
@@ -441,7 +441,7 @@ function readTestsCondition(condition, population) {
 }
 
 /** The history condition: the repository's presence at R0, and R4's reading of its quality. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readHistoryCondition(condition, population) {
   const { history } = population;
   // R0 resolved this already, and `ANALYSIS-SCOPE.json` carries the same record.
@@ -478,7 +478,7 @@ function readHistoryCondition(condition, population) {
 }
 
 /** The analysable-language condition, read from the extension table and the grammar table. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readLanguageCondition(condition, population) {
   const { dominantLanguage, dominantLanguageCount } = population;
   const evidence = population.sourceFiles.map((artefact) => ({
@@ -507,7 +507,7 @@ function readLanguageCondition(condition, population) {
 }
 
 /** The structure condition: the directory count and the share the largest one holds. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readStructureCondition(condition, population) {
   const { directoryCount, largestDirectoryShare } = population.directoryFacts;
   const { sourceFileCount } = population;
@@ -538,7 +538,7 @@ function readStructureCondition(condition, population) {
 }
 
 /** The documentation-and-comments condition: a counted population and a located comment line. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readDocumentationCondition(condition, population) {
   const { documentationFileCount, comments } = population;
   const evidence = population.documentationFiles.map((path) => ({
@@ -600,7 +600,7 @@ const SIGNALS_BEARING_ON = Object.freeze({
 });
 
 /** The tests signal: the missing half is a fact, the failing half needs a run. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readTestsSignal(signal, population) {
   if (population.testFileCount === 0) {
     return {
@@ -626,7 +626,7 @@ function readTestsSignal(signal, population) {
 }
 
 /** The history signal: absent, or present with its quality unread. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readHistorySignal(signal, population) {
   const { history } = population;
   if (history?.commit === null || history?.commit === undefined) {
@@ -652,7 +652,7 @@ function readHistorySignal(signal, population) {
 }
 
 /** The generated-material signal: how much of the tree the analysis records rather than reads. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readGeneratedSignal(signal, population) {
   const fires = population.excludedCount > population.sourceFileCount;
   return {
@@ -669,7 +669,7 @@ function readGeneratedSignal(signal, population) {
 }
 
 /** The metaprogramming signal: the language half is read, the mechanism half is not. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readMetaprogrammingSignal(signal, population) {
   const dynamic = population.dominantLanguage !== null
     && DYNAMIC_LANGUAGES.includes(population.dominantLanguage);
@@ -696,7 +696,7 @@ function readMetaprogrammingSignal(signal, population) {
 }
 
 /** The knowledge signal: no machine channel reaches it at all. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readKnowledgeSignal(signal, population) {
   return {
     state: NOT_MEASURABLE,
@@ -708,7 +708,7 @@ function readKnowledgeSignal(signal, population) {
 }
 
 /** The size signal: the counted population against the repository's own declared marker. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function readSizeSignal(signal, population) {
   const fires = population.sourceFileCount > LARGE_TREE_FILE_COUNT;
   return {
@@ -806,7 +806,7 @@ export function readSignal(signal, population) {
  *   in `ANALYSIS-SCOPE.json`. It is not R4's reading of that history's quality,
  *   which has not happened yet.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 export function assessEligibility({
   artefacts,
   root,
@@ -849,20 +849,20 @@ const STATE_PROSE = Object.freeze({
  * them and says how many it did not, because a silent cap would read as the
  * whole of the evidence.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function renderEvidenceEntry(entry) {
   const location = entry.line === null ? `\`${entry.path}\`` : `\`${entry.path}:${entry.line}\``;
   return `- ${location} — ${entry.note}`;
 }
 
 /** Every evidence entry of a condition or signal, capped for the report and stated. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function renderEvidence(entries) {
   return renderCappedList(entries, renderEvidenceEntry);
 }
 
 /** The block one condition is rendered as. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function renderCondition(condition) {
   const lines = [
     `### ${condition.question}`,
@@ -882,7 +882,7 @@ function renderCondition(condition) {
 }
 
 /** The block one danger signal is rendered as. */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function renderSignal(signal) {
   const lines = [
     `- **${signal.question}** — ${STATE_PROSE[signal.state]} (\`${signal.state}\`).`,
@@ -903,7 +903,7 @@ function renderSignal(signal) {
  * the last of the three, and it is the same sentence the document's own `note`
  * carries, so the two forms cannot disagree about what the reader is being asked.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 export function renderEligibility(assessment) {
   return [
     '## Eligibility — the conditions, read before anything runs',

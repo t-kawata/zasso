@@ -1,7 +1,7 @@
 // @verifies C004
 // @verifies C005
 // @verifies C006
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 /**
  * The readings file as a file: how it is read, what an id is a function of, and what an
  * operator is told when it is refused.
@@ -57,7 +57,7 @@ const MEASURED = Object.freeze([
 ]);
 
 /** One sound reading, the shape the whole file is judged by. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function soundReading(overrides = {}) {
   return {
     scope: 'src/api',
@@ -70,7 +70,7 @@ function soundReading(overrides = {}) {
 }
 
 /** Every other cell of the single package, declined, so only the reading under test varies. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function declinesFor(exceptItem) {
   return SEMANTICS_ITEMS
     .filter((entry) => entry.key !== exceptItem)
@@ -78,7 +78,7 @@ function declinesFor(exceptItem) {
 }
 
 /** A file whose one reading is the entry handed over, and whose other cells are declined. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function fileWith(reading) {
   return { readings: [reading], declined: declinesFor(reading.item) };
 }

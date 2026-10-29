@@ -24,7 +24,7 @@
 
 const fs = require('fs');
 const path = require('path');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 const {
   resolveCanonicalPathOrExit,
@@ -96,7 +96,7 @@ function checkDependencyDirectionsField(dirsTree, errors) {
  * @param {object} dirsTree — Dirs-Tree.json object to validate
  * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function checkRequiredFields(dirsTree, errors) {
   checkSchemaVersion(dirsTree, errors);
   checkTreesField(dirsTree, errors);
@@ -114,7 +114,7 @@ function checkRequiredFields(dirsTree, errors) {
  * @param {object} dirsTree — Dirs-Tree.json object to validate
  * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function checkDistributionField(dirsTree, errors) {
   const distribution = dirsTree.distribution;
   if (distribution === undefined) return;
@@ -381,7 +381,7 @@ function collectAllDirectoryPaths(dirsTree) {
  * @param {string} graphPath — File path of the source graph JSON
  * @returns {{ok: boolean, errors?: string[]}} Validation result
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function validateFiles(dirsTreePath, graphPath) {
   const errors = [];
 
@@ -461,7 +461,7 @@ function validateFiles(dirsTreePath, graphPath) {
  *
  * @param {string[]} [testArgs] — Argument array for testing (defaults to process.argv)
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function validate(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
   const cwd = options.cwd || process.cwd();

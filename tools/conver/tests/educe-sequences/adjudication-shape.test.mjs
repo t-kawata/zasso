@@ -43,13 +43,13 @@ const golden = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger-sequences.json
 const RUN_INPUT = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger.run.json'), 'utf8'));
 
 /** The verdicts this check reports over an artifact, and nothing else's. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function verdictsFor(artifact) {
   return checkAll({ specLines: spec.lines, artifact }).verdicts.filter((verdict) => verdict.check === CHECK);
 }
 
 /** An artifact holding one more ruling, which names nothing. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function withANamelessRuling(artifact) {
   const [ruling] = artifact.adjudications;
   const appended = { subject: '', outcome: ruling.outcome, reader: ruling.reader };
@@ -57,14 +57,14 @@ function withANamelessRuling(artifact) {
 }
 
 /** An artifact with one adjudication patched, aimed at the row the check examines. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function withAdjudication(artifact, subject, patch) {
   const replace = (row) => (row.subject === subject ? { ...row, ...patch } : row);
   return { ...artifact, adjudications: artifact.adjudications.map(replace) };
 }
 
 /** The artifact the fixture's own readings compose, with the adjudications the caller names. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function composed(adjudications) {
   return buildArtifact({
     specPath: SPEC_PATH,
@@ -75,13 +75,13 @@ function composed(adjudications) {
 }
 
 /** The summary a run that refused nothing reports, so what it examined can be read off it. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function summaryFor(artifact) {
   return checkAll({ specLines: spec.lines, artifact }).summary;
 }
 
 /** A check that no run declares refuses nothing, which is not the same as finding nothing wrong. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function declaresTheCheck() {
   assert.equal(CHECKS.some((check) => check.id === CHECK), true, 'a check no run declares cannot refuse anything');
 }
@@ -264,7 +264,7 @@ test('C004 a ruling that answered nothing is refused for the limb it left empty'
 // ---------------------------------------------------------------------------
 
 /** The phase-12 gate over a scratch run directory holding the artifact the caller names. */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function phaseTwelveOver(adjudicateLines) {
   const directory = mkdtempSync(join(tmpdir(), 'px268-gate-'));
   const artifactPath = join(directory, 'ledger-sequences.json');
@@ -323,7 +323,7 @@ test('C005 every check that declares a selection reports what it examined, zero 
   assert.equal(examined[CHECK], golden.adjudications.length, 'the count is of the rows the check iterated');
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C005 the report prints a zero rather than omitting it', () => {
   const summary = summaryFor(golden);
   const examinedNothing = Object.entries(summary.examinations).filter(([, count]) => count === 0).map(([id]) => id);

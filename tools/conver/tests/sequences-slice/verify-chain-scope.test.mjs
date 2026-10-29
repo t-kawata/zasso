@@ -8,7 +8,7 @@ import { verifyChain } from '../../.claude/scripts/sequences-slice/verify-chain.
 import { declaredSequenceIds } from '../../.claude/scripts/sequences-slice/lib/distribution-map.mjs';
 import { multiPackageFixture } from './helpers/multi-package-fixture.mjs';
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 test('C001 a foreign artifact step and a foreign registry row produce no finding', () => {
   const result = verifyChain(multiPackageFixture());
   assert.deepEqual(result.findings, []);

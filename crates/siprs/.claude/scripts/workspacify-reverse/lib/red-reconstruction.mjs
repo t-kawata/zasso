@@ -1,4 +1,4 @@
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 /**
  * R6 — the Red reconstruction plan.
  *
@@ -224,14 +224,14 @@ export function buildCounterexamplePlanId(claim, technique) {
 }
 
 /** The anchor a plan points its carrier at, or the fact that none was recorded. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function anchorOf(claim) {
   const span = claim.evidence?.[0]?.source_span;
   return span ? { file: span.file, line: span.line } : { file: '(unrecorded)', line: 0 };
 }
 
 /** The gaps in the shape a caller may hold them: a list, or R5's classified record. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function gapList(gaps) {
   if (Array.isArray(gaps)) return gaps;
   return gaps?.gaps ?? [];
@@ -333,7 +333,7 @@ export function assertNoProductionTarget(entry, { declared = DEFAULT_GUARDED_REF
 }
 
 /** One plan entry, with every field the schema names and the environment's verdict. */
-// [::TICKET::] P22-7, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-7|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-7|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function buildEntry(claim, { selected, environment, guarded }) {
   const anchor = anchorOf(claim);
   const technique = selected.technique;
@@ -384,7 +384,7 @@ function buildEntry(claim, { selected, environment, guarded }) {
  * it. Summing them would produce the single number the design forbids, so the
  * separation is reported rather than left to a reader to work out from the rows.
  */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function countOracleIndependence(entries) {
   const counts = {};
   for (const independence of [...STRONG_ORACLE_INDEPENDENCE, ...WEAK_ORACLE_INDEPENDENCE]) counts[independence] = 0;

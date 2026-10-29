@@ -1,4 +1,4 @@
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 /**
  * The question gate: whether a point may become a question at all.
  *
@@ -51,7 +51,7 @@ const NO_GROUND_IN_RECORDS = 'the records read do not decide this point';
  * @param {Array<{ kind: string, evidence?: string }>} inferences
  * @returns {{ kind: string, evidence?: string } | null}
  */
-// [::TICKET::] PX-233, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-233|PX-234) --for-spec --no-implementation-order`.
 function firstRefusal(inferences) {
   for (const inference of inferences) {
     if (!REFUSAL_KINDS.has(inference.kind)) {

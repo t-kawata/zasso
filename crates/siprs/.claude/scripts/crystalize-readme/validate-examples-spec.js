@@ -25,7 +25,7 @@ const EXAMPLES_DIR_ARG_PREFIX = '--examples-dir=';
  * @returns {{ specPath: string, examplesDir: string }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   let specPath;
@@ -55,7 +55,7 @@ function parseArguments(args) {
  * @returns {Object} Spec object with a samples array
  * @throws {Error} If the file is unreadable or the shape is invalid
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function parseSpec(specPath) {
   const raw = fs.readFileSync(specPath, 'utf8');
   let spec;
@@ -77,7 +77,7 @@ function parseSpec(specPath) {
  * @param {string} examplesDir — Absolute examples directory
  * @returns {{ ok: boolean, unresolvableRefs: Array<{file, reason}> }}
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function validateExamplesSpec(spec, examplesDir) {
   const unresolvableRefs = [];
   for (const sample of spec.samples || []) {
@@ -96,7 +96,7 @@ function validateExamplesSpec(spec, examplesDir) {
 /**
  * main — CLI entry point.
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function main() {
   try {
     const { specPath, examplesDir } = parseArguments();

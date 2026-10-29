@@ -1,5 +1,5 @@
 // @verifies C002
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
 /**
  * genericity — no project name reaches the operational path as a runtime value.
  *
@@ -40,7 +40,7 @@ const closureModules = () =>
     .map((file) => ({ path: file, text: readFileSync(file, 'utf8') }));
 
 test('C002 precondition: the closure is computed in the same run the sweep reads, and the names swept are declared', () => {
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
   const modules = closureModules();
 
   assert.ok(modules.length > 40, 'the closure was computed over the library rather than over an empty walk');

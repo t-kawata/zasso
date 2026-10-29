@@ -36,7 +36,7 @@ const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
 /** Relative path to the scripts directory */
-const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
+const SCRIPTS_DIR = '$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph';
 
 /** Default number of search hops */
 const DEFAULT_HOPS = 3;
@@ -215,13 +215,14 @@ function graphExists(graphPath) {
  * @param {string} sourcePath — Path to the source file
  * @returns {string} query.js command string
  */
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 function generateCommand(nodeId, nodeTitleMap, graphPath, sourcePath) {
   const title = nodeTitleMap[nodeId] || '';
   const titleSuffix = title ? ` (${title})` : '';
   const graphFileName = path.basename(graphPath);
   const sourceFileName = path.basename(sourcePath);
 
-  return `- ${nodeId}${titleSuffix} → \`node ${SCRIPTS_DIR}/query.js --graph=${graphFileName} --source=${sourceFileName} --id=${nodeId} --hops=${DEFAULT_HOPS}\``;
+  return `- ${nodeId}${titleSuffix} → \`node "${SCRIPTS_DIR}/query.js" --graph=${graphFileName} --source=${sourceFileName} --id=${nodeId} --hops=${DEFAULT_HOPS}\``;
 }
 
 /**

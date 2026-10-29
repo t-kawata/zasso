@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
 // PX-193 @verifies C002
 // Section 1 and section 2 of a seed are machine-injected: the renderer builds them
 // from the manifest and the verified contracts, and AI text for either section is

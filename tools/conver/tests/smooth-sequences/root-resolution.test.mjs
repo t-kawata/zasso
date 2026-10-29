@@ -1,4 +1,4 @@
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-281 --for-spec --no-implementation-order`.
 /**
  * The workspace root contract.
  *
@@ -24,7 +24,7 @@ const QUIET = Object.freeze({ stdout: () => {}, stderr: () => {} });
 const RUN_DIRECTORY = 'smooth-sequences';
 
 /** Run the detector with `directory` as the process working directory. */
-// [::TICKET::] PX-276, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-276|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276, PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-276|PX-292|PX-293) --for-spec --no-implementation-order`.
 function runFrom(directory, argv = []) {
   const previousDirectory = process.cwd();
   process.chdir(directory);

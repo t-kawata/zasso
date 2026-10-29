@@ -1,8 +1,9 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * The entrance to the analysis: R0 fixes its boundary, R0.5 names what lies
  * outside it, and `analyzeProject` runs the measurement stages behind them.
@@ -67,7 +68,7 @@ import {
   renderWithholdingCounts,
   renderWithholdingNote,
 } from './packet.mjs';
-// [::TICKET::] P23-8: R7's two more lanes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8: R7's two more lanes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 import {
   assertAuthorityRecorded,
   assertLanesAreSeparate,
@@ -96,7 +97,7 @@ import { buildCapabilityProfile } from './capability-profile.mjs';
 import { assessEligibility, renderEligibility } from './eligibility.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
 // [::TICKET::] P23-11: R0's identification — which of the four declared patterns
-// the subject is. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// the subject is. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 import { PATTERN_FILE_NAME, detectPatternAt, renderPatternDetection } from './pattern-detection.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
 import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
@@ -115,7 +116,7 @@ import { measureDependencies, renderDependencyReport } from './dependencies.mjs'
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
 import { measureDynamicCoupling, renderDynamicCoupling } from './dynamic-coupling.mjs';
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 /**
@@ -347,7 +348,7 @@ export function renderDisagreements(reconciliation) {
       'Run it afterwards, against the frozen P22-2 bundle and never against the live tree:',
       '',
       '```bash',
-      'node .claude/scripts/workspacify-reverse/run.mjs spike reconcile --project-root .',
+      'node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" spike reconcile --project-root .',
       '```',
     );
     return lines.join('\n');
@@ -458,11 +459,11 @@ export function renderSpikeReport(measurement, { reconciliation = [], targetDige
  * nobody asked and look like a complete result.
  */
 export const ANALYSIS_STAGES = Object.freeze([
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
   'r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5', 'r4', 'r5', 'r5.5', 'r6', 'r6.5', 'r7', 'r8',
 ]);
 
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
 /**
  * The order the pipeline evaluates the stages in.
  *
@@ -542,9 +543,9 @@ const CONFIG_FILE_EXTENSIONS = Object.freeze([
 ]);
 
 /** Raised when the analysis boundary cannot be fixed. Names the cause and the path. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 export class AnalysisScopeError extends Error {
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
   constructor(message) {
     super(message);
     this.name = 'AnalysisScopeError';
@@ -558,7 +559,7 @@ export class AnalysisScopeError extends Error {
  * to "what could not be read", and a run that failed without saying what it
  * failed to read leaves the next reader with nothing to check.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function assertAnalysableRoot(root) {
   if (typeof root !== 'string' || root.length === 0) {
     throw new AnalysisScopeError(`an analysis root must be named by a non-empty path, but it was ${JSON.stringify(root)}`);
@@ -600,7 +601,7 @@ function assertAnalysableRoot(root) {
  * the record states where the commit came from and where the project sits
  * beneath it.
  */
-// [::TICKET::] P22-4, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|PX-231) --for-spec --no-implementation-order`.
 function readTargetCommit(root) {
   const owner = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' });
   if (owner.status !== 0) {
@@ -644,7 +645,7 @@ function readTargetCommit(root) {
  * @returns {object} the fixed scope, as `ANALYSIS-SCOPE.json` carries it
  */
 export function resolveScope(root, { permissions = READ_ONLY_PERMISSIONS } = {}) {
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
   assertAnalysableRoot(root);
   const resolvedRoot = realpathSync(root);
 
@@ -699,7 +700,7 @@ const SUBJECT_ARTEFACT_KINDS = Object.freeze(['handwritten', 'test', 'config']);
  *
  * @param {{root: string, scope: object|null, undeterminedPaths?: string[], artefacts?: Array<object>}} params
  */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 export function classifyArtefacts({ root, scope, undeterminedPaths = [], artefacts = null } = {}) {
   if (scope === null || scope === undefined) {
     throw new AnalysisScopeError(
@@ -844,7 +845,7 @@ export function renderBoundaryReport(boundary) {
 }
 
 /** The nearest existing ancestor of a path, resolved, with the missing tail re-attached. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function realpathOfNearestExisting(path) {
   const segments = [];
   let current = resolve(path);
@@ -869,7 +870,7 @@ function realpathOfNearestExisting(path) {
  * the target is refused, because the digest would move and the run that moved it
  * would be reporting on a tree it had changed.
  */
-// [::TICKET::] P22-4, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|PX-213|PX-214) --for-spec --no-implementation-order`.
 function assertOutputCannotChangeWhatIsMeasured(out, root) {
   const target = realpathOfNearestExisting(root);
   const destination = realpathOfNearestExisting(out);
@@ -892,13 +893,13 @@ function assertOutputCannotChangeWhatIsMeasured(out, root) {
  * migrated here: they read the same, and moving them would bury this ticket's
  * change in a rename.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 function stageResult(stagesRun, name, produce, runStage) {
   return stagesRun.includes(name) ? runStage(name, produce) : null;
 }
 
 /** Write every document the run produced, canonically so a re-run is byte-identical. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * The language most of the analysed population is written in.
  *
@@ -914,7 +915,7 @@ function stageResult(stagesRun, name, produce, runStage) {
  * its own language: `unknown` is the absence of a reading, and letting it win a
  * tie would name the population after the instrument's own gap.
  */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function languageCountsOf(paths) {
   const counts = new Map();
   for (const relativePath of paths) {
@@ -932,7 +933,7 @@ function languageCountsOf(paths) {
  * towards the alphabetically first language, so the answer does not depend on
  * the order the tree was walked in.
  */
-// [::TICKET::] P22-6, P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-6|P22-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6, P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-6|P22-7) --for-spec --no-implementation-order`.
 function dominantLanguageOf(paths) {
   const byAlphabet = [...languageCountsOf(paths).entries()]
     .sort((left, right) => compareText(left[0], right[0]));
@@ -941,8 +942,8 @@ function dominantLanguageOf(paths) {
     .language;
 }
 
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function replacePublishedDocuments(out, documents) {
   // The destination holds what this run published and nothing else. Four documents
   // are published only when present, so a run over a tree that changed — which is
@@ -969,7 +970,7 @@ export function replacePublishedDocuments(out, documents) {
  * writes into it rather than copying it; the name says what happens and the call
  * reads as the sentence it is.
  */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function publishWhenPresent(documents, name, value) {
   if (value !== null) documents[name] = value;
 }
@@ -984,7 +985,7 @@ function publishWhenPresent(documents, name, value) {
  * readable as the sentence it is, rather than as a spread that widens every
  * time a stage is added.
  */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 export function buildAnalysisAttemptLedger({ structure, dependencies, surface, semantics, dynamicCoupling }) {
   return buildAttemptLedger([
     ...(structure?.attempts ?? []),
@@ -1004,7 +1005,7 @@ export function buildAnalysisAttemptLedger({ structure, dependencies, surface, s
  * should.
  */
 export function renderAnalysisReport(run) {
-// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-7 --for-spec --no-implementation-order`.
   const {
     scope,
     pattern = null,
@@ -1132,7 +1133,7 @@ export function renderAnalysisReport(run) {
  * (ABOUT-REVERSE 11.5 R-3: an invariant that cannot be classified into a known
  * category cannot be made into a property-based test).
  */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function propertyInvariantsIn(ledger) {
   return (ledger?.candidates ?? [])
     .filter((candidate) => candidate.kind === 'assert')
@@ -1165,8 +1166,8 @@ function propertyInvariantsIn(ledger) {
  * @param {object} params.reconstruction - how R6.5 executes, as `{ executor, runProperty }`
  * @param {string} params.language - the language this run measured, for the property engine
  */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 async function runR65({ root, ledger, redPlan, reconstruction, language }) {
   const { executor = null, runProperty = null } = reconstruction;
   const derived = deriveCounterexamples({ redPlan, ledger });
@@ -1214,7 +1215,7 @@ async function runR65({ root, ledger, redPlan, reconstruction, language }) {
   };
 }
 
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
 /**
  * R0 through R2.5 in series, published outside the target.
  *
@@ -1237,8 +1238,8 @@ async function runR65({ root, ledger, redPlan, reconstruction, language }) {
 // The default is the last declared stage, derived rather than named. A hardcoded
 // name here went stale the moment a stage was added after it, and the library
 // entry point then silently ran a different prefix from the command line's.
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 /** The names the old cycle's partition keeps when its cycle is interrupted: left where it is, and read as material. */
 const DIRS_TREE_FILE = 'RFC-ROOT-Dirs-Tree.json';
 
@@ -1284,7 +1285,7 @@ export const LOGICAL_PARTITION_STATES = Object.freeze({
 });
 
 /** The prior partition as a sorted list, so it serialises and compares in one order. */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function logicalPartitionOf(dirsTree) {
   return [...mapDirNodes(dirsTree).entries()]
     .map(([path, mappedNodeIds]) => ({ path, mappedNodeIds }))
@@ -1304,7 +1305,7 @@ function logicalPartitionOf(dirsTree) {
  * Treating it as absent would allow a broken prior to pass as a project that
  * never had one, which is a statement the run cannot make.
  */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function readPriorPartition(root) {
   const path = resolvePriorPartitionPath(root);
   if (!existsSync(path)) {
@@ -1365,7 +1366,7 @@ function readPriorPartition(root) {
  * record is `source_static` and every lane claim is therefore blocked; the day a
  * channel observes behaviour, this predicate admits the claim without a second rule.
  */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function buildSecurityLane(ledger) {
   const classification = classifySecurityLane(ledger);
   // Run on the classification that is about to be published, so a document that
@@ -1411,7 +1412,7 @@ function buildSecurityLane(ledger) {
  * question the card asks, and a card that arrives already answered is the
  * machine taking a judgement reserved for the reader (ABOUT-REVERSE 6.2 item 1).
  */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function singleAdjudicationState(candidates) {
   const states = [...new Set(candidates.map((candidate) => candidate.adjudication))];
   if (states.length !== 1) {
@@ -1425,7 +1426,7 @@ function singleAdjudicationState(candidates) {
 }
 
 /** How many mismatches of each declared kind, zeros included. */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function countMismatchesByKind(mismatches) {
   return Object.fromEntries(
     MISMATCH_KINDS.map((kind) => [kind, mismatches.filter((mismatch) => mismatch.kind === kind).length]),
@@ -1444,7 +1445,7 @@ function countMismatchesByKind(mismatches) {
  * the card of the directory they belong to, so the count the document states and
  * the entries a reader can see are the same list rather than two derivations of it.
  */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function buildAdjudication({ structure, dependencies, prior }) {
   const physical = physicalPartition(structure);
   const priorFacts = {
@@ -1512,7 +1513,7 @@ function buildAdjudication({ structure, dependencies, prior }) {
 }
 
 /** R7's security lane as the Markdown a human reads before holding authority. */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function renderSecurityLaneMarkdown(lane) {
   return [
     renderLaneReport(lane.classification),
@@ -1538,7 +1539,7 @@ function renderSecurityLaneMarkdown(lane) {
 }
 
 /** R7's adjudication cards as the Markdown that puts the two partitions side by side. */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function renderAdjudicationMarkdown(adjudication) {
   if (adjudication.empty) {
     return [
@@ -1600,11 +1601,11 @@ function renderAdjudicationMarkdown(adjudication) {
 }
 
 export async function analyzeProject({
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
   root,
   out,
   through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],

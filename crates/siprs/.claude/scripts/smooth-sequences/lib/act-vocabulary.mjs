@@ -14,7 +14,7 @@ export const DEFAULT_ACT_PATTERNS = Object.freeze([
 ]);
 
 /** Whether a value is a non-empty list of non-empty strings. */
-// [::TICKET::] PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
 function isActPatternList(value) {
   return Array.isArray(value)
     && value.length > 0

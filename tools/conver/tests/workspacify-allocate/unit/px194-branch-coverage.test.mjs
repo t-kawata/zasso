@@ -1,4 +1,4 @@
-// [::TICKET::] PX-194 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-194 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-194 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-194 --for-spec --no-implementation-order`.
 // PX-194 @verifies C001 C002 C003 C004
 // Branch hardening: the violation classes and the order/proof rejection paths that
 // the behaviour suites reach only through one example each.

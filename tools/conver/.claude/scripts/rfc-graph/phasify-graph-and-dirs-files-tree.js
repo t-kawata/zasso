@@ -104,7 +104,7 @@ const { validateAll } = require('./validate-phasify.js');
  * @param {string[]} argv — Equivalent to process.argv.slice(2)
  * @returns {CliOptions}
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseArguments(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
   const positionalArgs = [];
@@ -191,7 +191,7 @@ function resolveTicketsPath(graphPath, dirsTreePath) {
  *
  * @param {string} dirsTreePath — Absolute path to Dirs-Tree.json
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function checkDirsTreeExists(dirsTreePath) {
   if (!fs.existsSync(dirsTreePath)) {
     console.error('[ERROR] Dirs-Tree.json not found: ' + dirsTreePath);
@@ -281,7 +281,7 @@ function logVerbose(message, verbose) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function runPhasify(opts) {
   logVerbose('Loading GRAPH.json...', opts.verbose);
   const graphData = JSON.parse(fs.readFileSync(opts.graphPath, 'utf8'));

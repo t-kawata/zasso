@@ -14,7 +14,7 @@ import { finding } from './index.mjs';
 import { routeForPackage, routeForWorkspaceFinding } from './repair-route.mjs';
 
 /** One high-severity finding in the shape the smooth report already renders. */
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function distributionFinding(code, unitId, message) {
   return { severity: 'high', code, unitId, layer: 'rfc', message };
 }
@@ -85,8 +85,8 @@ export function checkDistributionMap({ view = null, rfc = null } = {}) {
  * @param {Array<{ packageId: string, units: Array<object> }>} maps
  * @returns {{ ok: boolean, code?: string, unitId?: string, findings?: Array<object> }}
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 export function checkOwnerRoles(maps, { roleCandidates = null, activeOperationUnits: activeUnits = null } = {}) {
   const byUnit = new Map();
   for (const map of maps ?? []) {
@@ -140,7 +140,7 @@ export function checkOwnerRoles(maps, { roleCandidates = null, activeOperationUn
  * `consumer` as the only answer the renderer had, so that row is not a claim an author
  * made and cannot be judged as one.
  */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function declaredRoleCandidates(packages) {
   const candidates = new Map();
   for (const pkg of packages ?? []) {
@@ -154,7 +154,7 @@ function declaredRoleCandidates(packages) {
 }
 
 /** The operation units the artifact marks active: only those order an act an implementer owes. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function activeOperationUnits(artifact) {
   const active = new Set();
   for (const operation of artifact?.operations ?? []) {
@@ -171,7 +171,7 @@ function activeOperationUnits(artifact) {
  * cannot answer which package it belongs to; the tree inventory can, because it names
  * the package that owns each object type the operation produces.
  */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function operationOwnerPackages(index) {
   const objects = Array.isArray(index?.treeManifest?.inventory?.objects)
     ? index.treeManifest.inventory.objects
@@ -197,7 +197,7 @@ function operationOwnerPackages(index) {
  * @param {Array<{ packageId: string, units: Array<object>, residuals?: Array<object> }>} maps
  * @returns {Array<{ checkId: string, subject: string, className: string, why: string, fix: string }>}
  */
-// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
 export function checkActiveOperationResiduals(index, maps) {
   const residuals = new Set();
   for (const map of maps ?? []) {

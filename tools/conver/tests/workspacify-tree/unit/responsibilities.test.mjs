@@ -1,4 +1,4 @@
-// [::TICKET::] PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-192 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-192 --for-spec --no-implementation-order`.
 // PX-192 @verifies C004
 // Package responsibilities are the source of the seed's "role in the whole
 // system". Counting them is not enough: an empty list must fail the run.
@@ -16,7 +16,7 @@ import { buildValidTreeManifest } from '../helpers/build-valid-tree-manifest.mjs
 
 const RUN_SCRIPT = fileURLToPath(new URL('../../../.claude/scripts/workspacify-tree/run.mjs', import.meta.url));
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C004 an empty or absent responsibilities list fails validation by package id', () => {
   const empty = validatePackageResponsibilities([
     { id: 'pkg-a', name: 'alpha', path: 'crates/alpha', layer: 'protocol', kind: 'production-library', responsibilities: [] },

@@ -8,8 +8,8 @@ import { classifyVerdict } from '../../.claude/scripts/smooth-sequences/lib/verd
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
 
 /** One inquest row. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
 function inquest(subject, lens, answer, line = 1) {
   return { subject, lens, answer, line, quote: 'quote' };
 }
@@ -54,7 +54,7 @@ test('the unresolved subject list is capped and the overflow is stated', () => {
 });
 
 test('a workspace with no readings directory reports absent, never clean', () => {
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const workspace = materializeSmoothWorkspace();
   try {
     const summary = summarizeReadings(workspace.root);

@@ -1,5 +1,6 @@
 const fs = require('fs'), path = require('path');
 const { validateTickets } = require('../lib/validate-tickets');
+const { toHomeRelativeDeep } = require('../lib/path-utils.js');
 
 /**
  * Bulk-add multiple batches of tickets to an existing Tickets.json (non-destructive: discards changes on validation failure).
@@ -9,6 +10,8 @@ const { validateTickets } = require('../lib/validate-tickets');
  * @returns {{ success: boolean, added: number, tickets?: Array, error?: string, errors?: Array }}
  */
 function bulkAddTickets(data, batches) {
+  // A committed ticket names no machine, including a path embedded in prose.
+  batches = toHomeRelativeDeep(batches);
   const added = [];
   for (const batch of batches) {
     const idSpecified = typeof batch.phaseId === 'number' && Number.isInteger(batch.phaseId);

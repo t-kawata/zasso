@@ -37,19 +37,19 @@ const MAX_SLUG_LENGTH = 25;
 const LOW_OVERLAP_THRESHOLD = 1;
 
 /** Tokenize a string into significant (length >= 4) lowercase tokens. */
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
 function tokenize(text) {
   return new Set((String(text).toLowerCase().match(TOKEN_PATTERN) || []));
 }
 
 /** Derive a snake_case slug from a node title (schema: ^[a-z][a-z0-9_]*$). */
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
 function slugify(title) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
 /** Highest N<number> present in the node id set (0 when none). */
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
 function maxNodeNumber(nodes) {
   let max = 0;
   for (const node of nodes) {
@@ -60,20 +60,20 @@ function maxNodeNumber(nodes) {
 }
 
 /** Strip the leading markdown heading markers from a heading line. */
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
 function headingTitle(heading) {
   return heading.replace(/^#{1,6}\s+/, '').trim();
 }
 
 /** The markdown heading level (number of leading '#') of a heading line. */
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
 function headingLevel(heading) {
   const match = String(heading || '').match(/^(#{1,6})/);
   return match ? match[1].length : 0;
 }
 
 /** The full section text (heading + body) as a single string. */
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
 function sectionText(section) {
   return (section.lines || []).join('\n');
 }
@@ -82,7 +82,7 @@ function sectionText(section) {
  * Validate the generated candidates structure and return English error messages.
  * Returns an empty array when valid.
  */
-// [::TICKET::] PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function validateCandidates(candidates) {
   const errors = [];
   const requireFields = (items, pathPrefix, required) => {
@@ -101,7 +101,7 @@ function validateCandidates(candidates) {
 }
 
 /** A danger finding: a new node slug collides with an existing node slug. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagSlugCollisions(newNodes, graph) {
   const existingSlugs = new Set((graph.nodes || []).map((n) => n.slug));
   return (newNodes || [])
@@ -110,7 +110,7 @@ function flagSlugCollisions(newNodes, graph) {
 }
 
 /** An omission finding: two delta sections share the same heading text + level. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagDuplicateHeadings(sections) {
   const seen = new Map();
   for (const section of sections || []) {
@@ -131,7 +131,7 @@ function flagDuplicateHeadings(sections) {
 }
 
 /** An omission finding: a modify candidate rests on a very weak token overlap. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagLowOverlap(modifiedNodes) {
   return (modifiedNodes || [])
     .filter((mod) => typeof mod.overlap === 'number' && mod.overlap <= LOW_OVERLAP_THRESHOLD)
@@ -139,7 +139,7 @@ function flagLowOverlap(modifiedNodes) {
 }
 
 /** A contradiction finding: surface the Step 1 contradiction candidates. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function surfaceContradictionCandidates(delta) {
   return (delta.contradictionCandidates || []).map((candidate) => ({
     message: `contradiction candidate: ${candidate.kind} ${candidate.target} "${candidate.context || ''}" matched by ${(candidate.matchedBy || []).join(', ')}`,
@@ -147,7 +147,7 @@ function surfaceContradictionCandidates(delta) {
 }
 
 /** A deficiency finding: a delta section exceeds the 本家 100-line threshold. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagOversizedSections(sections) {
   return (sections || [])
     .filter((section) => (section.lines || []).length > LONG_SECTION_THRESHOLD)
@@ -155,7 +155,7 @@ function flagOversizedSections(sections) {
 }
 
 /** A deficiency finding: a new node slug is invalid or exceeds the max length. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagInvalidSlugs(newNodes) {
   return (newNodes || [])
     .filter((n) => !SLUG_FORMAT_PATTERN.test(n.slug) || n.slug.length > MAX_SLUG_LENGTH)
@@ -167,7 +167,7 @@ function flagInvalidSlugs(newNodes) {
  * contradiction / deficiency) as an advisory for the AI. Advisory-only: the
  * findings never block promote.
  */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function inspectCandidates(delta, candidates, graph) {
   const advisory = emptyAdvisory();
   advisory.danger = flagSlugCollisions(candidates.newNodes, graph);
@@ -187,7 +187,7 @@ function inspectCandidates(delta, candidates, graph) {
  * Propose the GRAPH evolution candidates deterministically from delta.json.
  * Returns { newNodes, modifiedNodes, newEdges }.
  */
-// [::TICKET::] PX-160, PX-161, PX-162, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function proposeCandidates(delta, graph) {
   const nodes = graph.nodes || [];
   const newNodes = [];
@@ -259,7 +259,7 @@ function proposeCandidates(delta, graph) {
   return { newNodes, modifiedNodes, newEdges, report: { edgeMatches } };
 }
 
-// [::TICKET::] PX-160, PX-161, PX-162, PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162|PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162, PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162|PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let deltaPath = '';

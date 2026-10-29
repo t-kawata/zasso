@@ -97,7 +97,7 @@ const STATUS_ERROR = 'error';
  * @returns {{ statusPath: string, subcommand: string, stepNumber: number|null }}
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-313, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-313|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-334) --for-spec --no-implementation-order`.
 function parseArguments(argv = process.argv.slice(2)) {
   const args = [...argv];
 
@@ -197,7 +197,7 @@ function readStatus(statusPath) {
  * @param {string} statusPath — Path to the status file
  * @returns {StatusData} Default status
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function createDefaultStatus(statusPath) {
   const dir = path.dirname(statusPath);
   const filename = path.basename(statusPath);
@@ -265,14 +265,14 @@ function executeStartStep(status, n) {
  * @param {StatusData} status — Status data to update
  * @param {number} n — Step number to finish
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function executeBeginRun(status, runId) {
   const next = beginRun(status, runId ?? `${Date.now()}-${process.pid}`);
   Object.assign(status, next);
   console.log(JSON.stringify({ runs: status.runs, runId: status.runId }));
 }
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function executeEndStep(status, n, { audit = false } = {}) {
   status.steps[String(n)] = STATUS_DONE;
   status.currentStep = n + 1;
@@ -349,7 +349,7 @@ function executeStatus(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function executeCleanup(status) {
   const removed = [];
 
@@ -399,7 +399,7 @@ function executeCleanup(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function executeBackup(status) {
   const graphFile = fromHomeRelative(status.graphFile);
   const bakPath = graphFile + '.bak';
@@ -408,11 +408,12 @@ function executeBackup(status) {
       fs.unlinkSync(bakPath);
     }
     fs.copyFileSync(graphFile, bakPath);
-    console.log(`backup: ${graphFile} → ${bakPath}`);
+    // A path leaving the process names no machine, so the display form is home-relative.
+    console.log(`backup: ${toHomeRelative(graphFile)} → ${toHomeRelative(bakPath)}`);
   } catch (err) {
     exitWithError(
       `Backup creation failed: ${err.message}`,
-      `graphFile=${graphFile}`,
+      `graphFile=${toHomeRelative(graphFile)}`,
       'Check disk space and write permissions.'
     );
   }
@@ -490,7 +491,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * Main processing: parse arguments, dispatch subcommand, write file
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function main() {
   let parsed;
 

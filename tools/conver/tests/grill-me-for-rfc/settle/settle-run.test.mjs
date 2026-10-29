@@ -1,8 +1,8 @@
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-234 @verifies C001
 // PX-234 @verifies C002
 // PX-234 @verifies C003
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * The question-gate driver, against a real package directory.
  *
@@ -35,7 +35,7 @@ const bind = (dir, number, block) =>
 const settle = (dir, nodeId, settlement) =>
   runCommand(GRILL_UPDATE_TREE, [dir, 'settle', nodeId, JSON.stringify(settlement)]);
 
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 postcondition: prior records the scan and prints what the artifacts decide', () => {
   const fixture = materializeGrillFixture({ withPriorArtifacts: true, withNodes: 3 });
   try {

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 // A v3 artifact carries the typed step contract, so deleting it is the mutation
 // `step-carries-four-fields` exists to catch. Shape validation must not pre-empt that
 // check: an unattributable mutation is a check the falsifier cannot prove, and phase 16
@@ -30,7 +30,7 @@ const EMPTY_CONTRACT = Object.freeze({
 });
 
 /** The v2 golden artifact, promoted to the v3 shape without changing its readings. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function v3Golden() {
   const artifact = structuredClone(golden);
   artifact.schema_version = 3;

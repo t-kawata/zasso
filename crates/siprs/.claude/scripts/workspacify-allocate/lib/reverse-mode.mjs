@@ -1,4 +1,4 @@
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 /**
  * Reverse mode for /workspacify-allocate: the A1 to A6 gates and the safety inversion.
  *
@@ -57,7 +57,7 @@ export const EXCLUDED_DIRECTORY_NAMES = MEASURED_TREE_EXCLUSIONS;
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
 /** One gate record, in the shape every gate in this repository reports. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function gateRecord(gateId, status, counts, reasons, extra = {}) {
   return { gateId, status, counts, reasons, ...extra };
 }
@@ -448,7 +448,7 @@ export function runReverseAllocateGates(input = {}) {
  * One record rather than one per seed, because the operator repairs the renderer
  * once, not each document: a fifteenth heading in any seed is the same defect.
  */
-// [::TICKET::] P22-12, P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|P23-10) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12, P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-12|P23-10) --for-spec --no-implementation-order`.
 function judgeEverySeed(input) {
   const records = (input.seedTexts ?? []).map((seedText) => assertSectionOneIndex({ seedText, mode: input.mode }));
   const compatibilityFindings = records.flatMap((record) => record.compatibilityFindings ?? []);
@@ -555,7 +555,7 @@ export function renderReverseAllocateReport(records) {
  * @param {Array<object>} records - the gate records, in the order they were judged
  * @returns {string[]} the report's lines for this section
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function renderSeedCompatibilitySection(records) {
   const findings = records.flatMap((record) => record.compatibilityFindings ?? []);
   const lines = [`## ${SEED_COMPATIBILITY_FILE_NAME}`, ''];
@@ -639,7 +639,7 @@ export function sidecarReferenceOf(manifest) {
  * @param {string} root - the project root
  * @returns {string[]} root-relative POSIX directory paths, sorted
  */
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 export function measureExistingDirectories(root) {
   const directories = [];
   const visit = (abs, rel) => {
@@ -723,14 +723,14 @@ export function readPackageImplementations(root, manifest) {
 }
 
 /** Whether a path is inside the write allow-list: a seed file, or the manifest. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function isAllowedWrite(relPath) {
   const normalised = toPosix(relPath);
   return normalised === ALLOCATE_MANIFEST_FILE_NAME || path.posix.basename(normalised) === SEED_FILE_NAME;
 }
 
 /** Pair the entries that vanished with the entries that appeared: a rename, named. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function pairRenames(vanished, appeared) {
   const pairs = [];
   const pairCount = Math.max(vanished.length, appeared.length);
@@ -741,7 +741,7 @@ function pairRenames(vanished, appeared) {
 }
 
 /** Whether the machine section of the format under check carries the reverse index. */
-// [::TICKET::] P22-12, P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|P23-10) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12, P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-12|P23-10) --for-spec --no-implementation-order`.
 function machineSectionCarriesReverseIndex(headings, format) {
   const machineSection = headings.find((heading) => heading.index === format.machineSectionIndex);
   if (!machineSection) {
@@ -752,7 +752,7 @@ function machineSectionCarriesReverseIndex(headings, format) {
 }
 
 /** The JSON block of a machine section, or null when it is absent or unparseable. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function parseSectionJson(body) {
   const match = /```json\n([\s\S]*?)```/.exec(body);
   if (!match) {
@@ -766,7 +766,7 @@ function parseSectionJson(body) {
 }
 
 /** Append one parity failure class as a readable sentence. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function appendParityReason(reasons, entries = [], description) {
   if (entries.length > 0) {
     reasons.push(`${description}: ${entries.join(', ')}`);
@@ -774,7 +774,7 @@ function appendParityReason(reasons, entries = [], description) {
 }
 
 /** Collect the hand-written files of one package directory. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function collectSourceFiles(absDir) {
   const files = [];
   const visit = (abs) => {
@@ -806,7 +806,7 @@ function collectSourceFiles(absDir) {
  * @param {string} abs - absolute directory to list
  * @returns {Array<{name: string, absolute: string}>} child directories
  */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function readDirectories(abs) {
   return readNames(abs).reduce((directories, name) => {
     const absolute = path.join(abs, name);
@@ -822,7 +822,7 @@ function readDirectories(abs) {
 }
 
 /** The regular files directly inside one directory, name-sorted. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function readFileEntries(abs) {
   return readNames(abs).reduce((files, name) => {
     const absolute = path.join(abs, name);
@@ -838,7 +838,7 @@ function readFileEntries(abs) {
 }
 
 /** The entry names of one directory, sorted, or none when it cannot be read. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function readNames(abs) {
   try {
     return readdirSync(abs).sort();
@@ -848,7 +848,7 @@ function readNames(abs) {
 }
 
 /** A path with POSIX separators, whatever the host uses. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function toPosix(value) {
   return String(value).split(path.sep).join('/');
 }

@@ -18,13 +18,13 @@ const OPERATIONS = [{ id: 'R-0001', verb: 'object.get' }, { id: 'R-0002', verb: 
 const SEQUENCES = [{ id: 'S-0001', outcome: 'direct' }];
 
 /** An artifact with no census borrowed, which is the state the live workspace is in. */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function artifactWithoutCensus() {
   return { spec: { lines: 40 }, sections: [], sequences: SEQUENCES, operations: OPERATIONS, pins: { sourceEnumerations: [] } };
 }
 
 /** The same artifact with both roles borrowed, in the shape the rail's pin carries. */
-// [::TICKET::] PX-262, PX-263, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263|PX-288) --for-spec --no-implementation-order`.
 function artifactWithCensus() {
   return {
     ...artifactWithoutCensus(),
@@ -38,7 +38,7 @@ function artifactWithCensus() {
 }
 
 /** A tree manifest declaring boundaries, and a registry that may or may not carry them. */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function manifests({ declared = 2, registered = 2, declaredInterfaces = null } = {}) {
   return {
     treeManifest: declared === null ? null : { stage2_handoff: { contract_boundaries: Array.from({ length: declared }, (unused, index) => ({ id: `B-${index + 1}` })) } },
@@ -49,7 +49,7 @@ function manifests({ declared = 2, registered = 2, declaredInterfaces = null } =
   };
 }
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C001 an artifact borrowing no census reports the operations and entries roles as unstated', () => {
   const denominator = denominatorOf({ artifact: artifactWithoutCensus(), ...manifests(), views: [] });
 
@@ -57,7 +57,7 @@ test('C001 an artifact borrowing no census reports the operations and entries ro
   assert.deepEqual(denominator.sequences, { axis: 'sequences', source: 'unstated', members: 0, borrowed: false });
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C001 a borrowed census states the axis with the member count the pin lists', () => {
   const denominator = denominatorOf({ artifact: artifactWithCensus(), ...manifests(), views: [] });
 
@@ -68,7 +68,7 @@ test('C001 a borrowed census states the axis with the member count the pin lists
   assert.equal(denominator.sequences.members, 1);
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C001 the boundaries axis is stated when the registry accounts for every declared boundary', () => {
   const stated = denominatorOf({ artifact: artifactWithoutCensus(), ...manifests({ declared: 84, registered: 84 }), views: [] });
   assert.deepEqual(stated.boundaries, { axis: 'boundaries', source: 'registry', members: 84, borrowed: true });
@@ -83,7 +83,7 @@ test('C001 the boundaries axis is stated when the registry accounts for every de
   assert.equal(emptyRegistry.boundaries.source, 'registry', 'a registry that declares nothing states that there are no boundaries');
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C001 the surfaces axis is stated by a declaration and unstated without one', () => {
   const declared = denominatorOf({
     artifact: artifactWithoutCensus(),
@@ -105,7 +105,7 @@ test('C001 the surfaces axis is stated by a declaration and unstated without one
   assert.equal(none.surfaces.members, 0);
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C001 the function is total: every input yields exactly the four axes with a source in the vocabulary', () => {
   const inputs = [
     { artifact: null, allocateManifest: null, treeManifest: null, views: [] },
@@ -127,7 +127,7 @@ test('C001 the function is total: every input yields exactly the four axes with 
   }
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C001 a pin whose members are absent is borrowed and empty rather than unstated', () => {
   const denominator = denominatorOf({
     artifact: { ...artifactWithoutCensus(), pins: { sourceEnumerations: [{ role: 'operations', name: 'census-operations' }] } },
@@ -140,7 +140,7 @@ test('C001 a pin whose members are absent is borrowed and empty rather than unst
   assert.equal(denominator.operations.members, 0);
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('gapsIn names every unstated axis and nothing else', () => {
   const allStated = denominatorOf({ artifact: artifactWithCensus(), ...manifests({ declaredInterfaces: { 'pkg-a': [{ column: 'verb' }] } }), views: [] });
   assert.deepEqual(gapsIn(allStated, {}), []);
@@ -150,7 +150,7 @@ test('gapsIn names every unstated axis and nothing else', () => {
   assert.deepEqual(gapsIn(noneStated, counts).map((gap) => gap.axis), ['operations', 'sequences', 'boundaries', 'surfaces']);
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('gapsIn skips a surfaces axis that asks about nothing, and never skips the two census axes', () => {
   const unstated = denominatorOf({ artifact: artifactWithoutCensus(), allocateManifest: null, treeManifest: null, views: [] });
 
@@ -158,7 +158,7 @@ test('gapsIn skips a surfaces axis that asks about nothing, and never skips the 
   assert.deepEqual(gapsIn(unstated, { operations: 0, sequences: 0, boundaries: 0, surfaces: 1 }).map((gap) => gap.axis), ['operations', 'sequences', 'boundaries', 'surfaces']);
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('gapsIn names the missing structure and how to supply it, and never leaves either empty', () => {
   for (const gap of gapsIn(denominatorOf({ artifact: artifactWithoutCensus(), ...manifests({ declared: 84, registered: 82 }), views: [] }), { surfaces: 1 })) {
     assert.ok(gap.why.trim().length > 0, `${gap.axis} says why`);
@@ -172,7 +172,7 @@ test('gapsIn names the missing structure and how to supply it, and never leaves 
 // ---------------------------------------------------------------------------
 
 /** An artifact whose pins carry a closed vocabulary, and whose one operation instantiates it. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function artifactWithPinnedVocabulary() {
   return {
     spec: { lines: 40 },

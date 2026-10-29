@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { toHomeRelativeDeep } = require('../lib/path-utils.js');
 const { isUnitId } = require('../rfc-graph/lib/unit-ids.mjs');
 const {
   boundaryClauseDigest,
@@ -39,7 +40,7 @@ const { crossedBoundaryIds } = require('./lib/contract-facts');
 /**
  * Parse CLI arguments
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-318, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-318|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-318, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-318|PX-334) --for-spec --no-implementation-order`.
 function parseArgs(argv = process.argv.slice(2), options = {}) {
   const cwd = options.cwd || process.cwd();
   const args = argv.filter((entry) => !entry.startsWith('--registry=') && !entry.startsWith('--step-sidecar='));
@@ -74,7 +75,7 @@ function parseArgs(argv = process.argv.slice(2), options = {}) {
 }
 
 /** The contract rows an allocate manifest declares, or an empty list without a manifest. */
-// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-312|PX-313) --for-spec --no-implementation-order`.
 function registryContracts(registryPath) {
   if (registryPath === null || !fs.existsSync(registryPath)) return [];
   const document = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
@@ -84,7 +85,7 @@ function registryContracts(registryPath) {
 /**
  * Atomic write using temp file + rename
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-314) --for-spec --no-implementation-order`.
 function atomicWrite(targetPath, serializedTickets) {
   const tmpPath = targetPath + '.tmp.' + process.pid;
   fs.writeFileSync(tmpPath, serializedTickets, 'utf8');
@@ -104,7 +105,7 @@ function atomicWrite(targetPath, serializedTickets) {
  * @param {Object} graph — Graph JSON with edges[].contracts
  * @returns {Array} — Tickets with updated contracts fields
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-312|PX-313) --for-spec --no-implementation-order`.
 /** A registry entry may be a full row or a legacy boundary id. */
 function normalizeRegistryContracts(registry) {
   return (registry ?? []).map((entry) => (typeof entry === 'string'
@@ -119,7 +120,7 @@ function normalizeRegistryContracts(registry) {
  * `boundaryId` / `boundary`). The id is the whole obligation: the step does not carry the
  * clauses, so the ticket must receive the registry row for it.
  */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function crossedBoundaryIdsOfStep(step) {
   return crossedBoundaryIds(step?.contract?.crosses);
 }
@@ -131,7 +132,7 @@ function crossedBoundaryIdsOfStep(step) {
  * which receives the same registry row through its own local step, so rendering or gating
  * the contract here would duplicate another ticket's obligation.
  */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function crossedBoundaryIdsOfTicket(ticket) {
   const boundaryIds = new Set();
   for (const unit of ticket?.distribution?.units ?? []) {
@@ -143,7 +144,7 @@ function crossedBoundaryIdsOfTicket(ticket) {
 }
 
 /** The registry contracts a ticket owes for the ctr units it carries or the boundaries its steps cross. */
-// [::TICKET::] PX-312, PX-313, PX-326, PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-326|PX-331) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-326, PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-326|PX-331) --for-spec --no-implementation-order`.
 function registryContractsForTicket(ticket, registry) {
   const unitIds = [
     ...(ticket.nodeIds ?? []),
@@ -181,8 +182,8 @@ function registryContractsForTicket(ticket, registry) {
  * @param {Array<object|string>} registryContracts
  * @returns {Array<object>}
  */
-// [::TICKET::] PX-312, PX-313, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const edges = graph.edges || [];
 
@@ -275,7 +276,7 @@ function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = nu
  * @param {string[]} [registryBoundaryIds]
  * @returns {Array<{code: string, ticketId: number|null, boundaryId?: string, contractId?: string}>}
  */
-// [::TICKET::] PX-306, PX-312, PX-313, PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-306|PX-312|PX-313|PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313, PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-312|PX-313|PX-318|PX-322) --for-spec --no-implementation-order`.
 function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const findings = [];
   const edgeLabels = new Set((graph.edges || []).map((edge) => edge.from + '→' + edge.to));
@@ -364,7 +365,7 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], s
   return findings;
 }
 
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318) --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, graphPath, registryPath, stepSidecarPath } = parseArgs();
 
@@ -409,7 +410,7 @@ function main() {
   }
 
   // Atomic write
-  atomicWrite(ticketsPath, JSON.stringify(ticketsData, null, 2));
+  atomicWrite(ticketsPath, JSON.stringify(toHomeRelativeDeep(ticketsData), null, 2));
 
   // Report summary
   let totalContracts = 0;

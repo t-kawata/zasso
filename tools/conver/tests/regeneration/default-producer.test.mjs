@@ -1,4 +1,4 @@
-// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -31,7 +31,7 @@ import {
 } from './helpers/real-workspace-fixture.mjs';
 
 /** Seed the live debt baseline from the staged artifact, as a real repair would. */
-// [::TICKET::] PX-288, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-288|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288, PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-288|PX-292|PX-293) --for-spec --no-implementation-order`.
 function seedLiveBaseline(workspace, opened) {
   runCommand([opened.stagingRoot, '--legacy'], { stdout: () => {}, stderr: () => {} });
   mkdirSync(join(workspace.root, 'smooth-sequences'), { recursive: true });
@@ -43,7 +43,7 @@ function seedLiveBaseline(workspace, opened) {
 
 // @verifies C001
 test('open stages the candidate without copying a package document into the derivation root', () => {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const workspace = materializeRealWorkspace();
   try {
     const before = snapshotDesignTree(workspace.root);

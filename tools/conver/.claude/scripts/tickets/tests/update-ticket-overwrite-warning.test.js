@@ -19,19 +19,19 @@ const os = require('os');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function assertIncludes(text, substring, message) {
   if (text.includes(substring)) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected "' + substring + '" not found in output\n'); }
 }
 
-// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function assertNotIncludes(text, substring, message) {
   if (!text.includes(substring)) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — unexpected "' + substring + '" found in output\n'); }
@@ -43,7 +43,7 @@ console.log('\n━━━ update-ticket-overwrite-warning.test.js (PX-85) — RED
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px85-test-'));
 const ticketsPath = path.join(tmpDir, 'Tickets.json');
 
-// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function makeTestTicket(notesValue) {
   const data = {
     title: 'test',
@@ -59,7 +59,7 @@ function makeTestTicket(notesValue) {
 
 const updateTicketJs = path.resolve(__dirname, '..', 'update-ticket.js');
 
-// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function runUpdate(inputJson) {
   // Use shell command with separate stderr capture via temp file
   const errFile = path.join(tmpDir, 'stderr.txt');

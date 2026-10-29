@@ -35,7 +35,7 @@ const LEDGER_PATH = fileURLToPath(
 );
 
 /** The ledger names its own population root; the anchors are read from there. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function loadRealLedger() {
   const ledger = JSON.parse(readFileSync(LEDGER_PATH, 'utf8'));
   return { ledger, subjectAvailable: existsSync(ledger.root) };

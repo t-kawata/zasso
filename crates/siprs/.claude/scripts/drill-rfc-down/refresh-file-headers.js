@@ -30,7 +30,7 @@ const TICKET_LINE_RE = /^\s*\/\/ \[::TICKET::\]/;
 const STUB_MARKER_RE = /\[::STUB::\]/;
 
 /** Walk a Dirs-Tree branch, visiting every node with its Dirs-Tree-relative path. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function walkTree(node, prefix, visit) {
   const relPath = prefix ? `${prefix}/${node.name}` : node.name;
   visit(relPath, node);
@@ -38,7 +38,7 @@ function walkTree(node, prefix, visit) {
 }
 
 /** Build nodeId → file path and nodeId → directory maps from the Dirs-Tree. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function buildNodeFileMaps(dirsTree) {
   const nodeToFilePath = {};
   const nodeToDir = {};
@@ -59,7 +59,7 @@ function buildNodeFileMaps(dirsTree) {
 }
 
 /** Locate the Dirs-Tree file node by a Dirs-Tree-relative path. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function findFileNodeByPath(dirsTree, relPath) {
   const segments = relPath.split('/').filter(Boolean);
   for (const tree of Object.values(dirsTree.trees || {})) {
@@ -75,7 +75,7 @@ function findFileNodeByPath(dirsTree, relPath) {
 }
 
 /** The language tree owning a Dirs-Tree-relative path (defaults to rust). */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function langOf(dirsTree, relPath) {
   const rootName = relPath.split('/')[0];
   for (const [lang, tree] of Object.entries(dirsTree.trees || {})) {
@@ -85,7 +85,7 @@ function langOf(dirsTree, relPath) {
 }
 
 /** Derive the Dirs-Tree-relative paths of files whose mapped nodes changed per the delta. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function deriveRefreshTargets(graphDelta, dirsTree) {
   const changedNodeIds = new Set([
     ...(graphDelta.newNodes || []).map((node) => node.id),
@@ -103,7 +103,7 @@ function deriveRefreshTargets(graphDelta, dirsTree) {
 }
 
 /** Split a file into preHeader / headerRegion / body; null when not a refreshable header-carrying file. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function parseHeaderRegions(content) {
   const lines = content.split('\n');
   const firstSep = lines.findIndex((line) => SEPARATOR_RE.test(line));
@@ -121,20 +121,20 @@ function parseHeaderRegions(content) {
 }
 
 /** Whether the body after the closing separator is only stubs/comments (template state). */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function isTemplateStateFile(body) {
   const significant = body.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
   return significant.every((line) => line.startsWith('//') || STUB_MARKER_RE.test(line));
 }
 
 /** Extract [::TICKET::] annotation lines so they survive the header refresh. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function extractTicketAnnotations(text) {
   return text.split('\n').filter((line) => TICKET_LINE_RE.test(line));
 }
 
 /** Header-context fields shared by every refresh operation. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function buildHeaderContext(dirsTreePath, graphPath, dirsTree) {
   const graphAbs = path.resolve(graphPath);
   return {
@@ -153,7 +153,7 @@ function buildHeaderContext(dirsTreePath, graphPath, dirsTree) {
  * @param {Map<string, {title?: string}>} graphNodeMap — current node metadata
  * @returns {object} the declared mapping with nodeId and title resolved
  */
-// [::TICKET::] PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-338 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-338 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-338 --for-spec --no-implementation-order`.
 function preserveMappedNode(mapping, graphNodeMap) {
   const declaredMapping = typeof mapping === 'object' ? mapping : {};
   const nodeId = typeof mapping === 'string' ? mapping : mapping.nodeId;
@@ -166,7 +166,7 @@ function preserveMappedNode(mapping, graphNodeMap) {
 }
 
 /** Regenerate the provenance header for one file at fullPath, using the graph's current node metadata. */
-// [::TICKET::] PX-171, PX-172, P22-15, PX-336, PX-337, PX-338 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172|P22-15|PX-336|PX-337|PX-338) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172, P22-15, PX-336, PX-337, PX-338 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172|P22-15|PX-336|PX-337|PX-338) --for-spec --no-implementation-order`.
 function regenerateHeader(fullPath, node, designContext) {
   const { graphNodeMap, crossReferences, context, lang } = designContext;
   const headerPaths = resolveHeaderPaths(fullPath, context.graphDirAbs);
@@ -175,7 +175,7 @@ function regenerateHeader(fullPath, node, designContext) {
 }
 
 /** Insert the current kind/language declaration stub before a template-state body's stub markers. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function refreshTemplateStub(body, kind, lang) {
   const autoStub = getDeclarationStub(kind, lang);
   if (!autoStub) return body;
@@ -187,7 +187,7 @@ function refreshTemplateStub(body, kind, lang) {
 }
 
 /** Atomic write (temp + rename) so a crash never leaves a half-written file. */
-// [::TICKET::] PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-171|PX-172) --for-spec --no-implementation-order`.
 function atomicWrite(filePath, data) {
   const tmpPath = `${filePath}.tmp.${process.pid}`;
   fs.writeFileSync(tmpPath, data, 'utf8');

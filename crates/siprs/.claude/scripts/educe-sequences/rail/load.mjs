@@ -1,5 +1,5 @@
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // reading the specification, the artifact and the schema (PX-240, contracts C001, C008, C013).
 //
 // Two rules are load-bearing here. A specification is read as bytes so the digest is
@@ -22,7 +22,7 @@ export const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), 'artifa
  * are not, because a document that ends with a blank line has a blank last line and
  * pretending otherwise would shift every citation after it.
  */
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
 export function splitLines(text) {
   const lines = text.split('\n');
   if (lines.length > 1 && lines.at(-1) === '') lines.pop();
@@ -69,7 +69,7 @@ export function readArtifact(artifactPath) {
  * than writing into it — but a hand, a half-finished copy or an older run can still leave
  * one, and neither of those is a reason to fail a verification that has already passed.
  */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 export function readJsonOrNull(filePath) {
   if (!existsSync(filePath)) return null;
   try {
@@ -92,7 +92,7 @@ export function readArtifactSchema() {
 // that can disagree. They sit here rather than in `engine.mjs` because `engine.mjs` imports
 // `coverage.mjs`, so a vocabulary declared there cannot be read by the measurement without
 // an import cycle.
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 
 /** The schema generation that carries typed step contracts. */
 export const SCHEMA_V3 = 3;
@@ -128,7 +128,7 @@ export const ENTRY_OUTCOMES = Object.freeze(readArtifactSchema().outcomes);
  * rail never asked. The field a ruling answers with is not repeated here — it is declared once,
  * in `predicateRulings.field`, and allowed on these rows from there.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 export const ADJUDICATION_FIELDS = Object.freeze(readArtifactSchema().adjudications.required);
 
 /**
@@ -151,7 +151,7 @@ export const NO_LIMB_APPLIES = readArtifactSchema().predicateRulings.noLimbAppli
  * counting that as carrying a value would let an entry answer for nothing while reading as if
  * it had named what it answers with.
  */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 export function carriesValue(entry, key) {
   const value = entry?.[key];
   return typeof value === 'string' ? value.trim() !== '' : value !== undefined && value !== null;
@@ -235,7 +235,7 @@ export function spanCensusProblem({ members, lineCount }) {
 }
 
 /** The keys a record is missing, given the keys it must carry. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function missingKeys(record, required) {
   return required.filter((key) => record?.[key] === undefined);
 }

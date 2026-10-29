@@ -18,17 +18,17 @@ const CONSISTENCY_ID = 'CENSUS:CONSISTENCY:operations';
 const SUPPLIED_DIRECTORY = join('educe-sequences', 'supplied');
 const CENSUS_FILE = 'operations-census.md';
 
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function censusRow(overrides = {}) {
   return { kind: 'OpA', disposition: 'active', purpose: 'a', ...overrides };
 }
 
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function artifactOperation(overrides = {}) {
   return { id: 'OpA', kind: 'OpA', disposition: 'active', purpose: 'a', ...overrides };
 }
 
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function consistencyObligation() {
   return {
     id: CONSISTENCY_ID,
@@ -39,7 +39,7 @@ function consistencyObligation() {
   };
 }
 
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function pinFor(digest) {
   return {
     source: { file: CENSUS_FILE, sha256: digest },
@@ -47,7 +47,7 @@ function pinFor(digest) {
   };
 }
 
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function writeCensus(root, body) {
   const directory = join(root, SUPPLIED_DIRECTORY);
   mkdirSync(directory, { recursive: true });
@@ -55,7 +55,7 @@ function writeCensus(root, body) {
   return createHash('sha256').update(body).digest('hex');
 }
 
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function temporaryRoot() {
   const root = mkdtempSync(join(tmpdir(), 'px303-census-'));
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
@@ -105,7 +105,7 @@ test('C107 a census-only and an artifact-only operation are both reported', () =
 });
 
 // @verifies C001 (PX-304 contract)
-// [::TICKET::] PX-304 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-304 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-304 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-304 --for-spec --no-implementation-order`.
 test('C001 an active operation placed only by an operation unit is not reported', () => {
   const { mismatches } = compareOperationCensus({
     censusRows: [censusRow({ disposition: 'active' })],

@@ -28,7 +28,7 @@ export const CANDIDATE_SPEC_TEXT = LIVE_SPEC_TEXT.replace(
 );
 
 /** Run one producer script inside a workspace root and fail loudly on refusal. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function runProducerCli(cwd, script, args) {
   const result = spawnSync(process.execPath, [join(CONVER_ROOT, '.claude/scripts', script), ...args], {
     cwd,
@@ -41,7 +41,7 @@ export function runProducerCli(cwd, script, args) {
 }
 
 /** Write a v3 artifact whose spec digest is the raw digest of the given spec. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function writeArtifactForSpec(root, specPath, fileName = 'spec-sequences.json') {
   // The empty artifact is the clean fixture: the detector has no sequence to judge, so
   // the CLI integration test exercises the transaction rather than a finding.
@@ -63,7 +63,7 @@ export function writeArtifactForSpec(root, specPath, fileName = 'spec-sequences.
 }
 
 /** Build a populated live workspace with the real tree and allocate producers. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function materializeRealWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'regeneration-real-'));
   const specPath = join(root, 'spec.md');
@@ -85,7 +85,7 @@ export function materializeRealWorkspace() {
 }
 
 /** Write a candidate specification that changes only prose inside an existing chapter. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function writeCandidateSpec(workspace) {
   const candidatePath = join(workspace.root, 'regeneration/candidates/spec.md');
   mkdirSync(dirname(candidatePath), { recursive: true });
@@ -94,7 +94,7 @@ export function writeCandidateSpec(workspace) {
 }
 
 /** Write an allocate decisions candidate that changes only the semantic approver. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function writeCandidateAllocateDecisions(workspace) {
   const sourcePath = join(workspace.root, 'workspacify/allocate/DECISIONS.json');
   const decisions = JSON.parse(readFileSync(sourcePath, 'utf8'));
@@ -106,7 +106,7 @@ export function writeCandidateAllocateDecisions(workspace) {
 }
 
 /** Write a tree decisions candidate that the candidate specification accepts. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function writeCandidateTreeDecisions(workspace) {
   const candidatePath = join(workspace.root, 'regeneration/candidates/TREE-DECISIONS.json');
   mkdirSync(dirname(candidatePath), { recursive: true });

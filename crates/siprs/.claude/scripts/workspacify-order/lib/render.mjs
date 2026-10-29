@@ -95,13 +95,13 @@ export function maxLineWidth(text) {
 }
 
 /** Pad a string with spaces to a terminal column, never truncating it. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function padToDisplayWidth(text, width) {
   const padding = width - displayWidth(text);
   return padding > 0 ? `${text}${' '.repeat(padding)}` : text;
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function renderLevelHeader(index, memberCount) {
   const number = String(index).padStart(LEVEL_NUMBER_WIDTH);
   const word = (memberCount === 1 ? ALONE_LABEL : PARALLEL_LABEL).padEnd(LEVEL_WORD_WIDTH);
@@ -118,37 +118,37 @@ function renderLevelHeader(index, memberCount) {
  * is used when the producer recorded one; when it did not, the field prints `?` so the line
  * keeps one shape and never invents a number.
  */
-// [::TICKET::] PX-282, PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-282|PX-309) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282, PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-282|PX-309) --for-spec --no-implementation-order`.
 function generationCell(generation, glyph, label) {
   return generation === null || generation === undefined
     ? null
     : { glyph, text: `${label}:${generation}` };
 }
 
-// [::TICKET::] PX-309, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
 function artifactCell(present, glyph, label, generation) {
   if (!present) return null;
   return generationCell(generation, glyph, label) ?? { glyph, text: `${label}:${UNKNOWN_COUNT}` };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function educationCell(model) {
   return generationCell(model.rootCounters.edu, EDU_GLYPH, 'EDU');
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function explanationCell(model, id) {
   return model.explainedIds.has(id) ? { glyph: EXPLANATION_GLYPH, text: EXPLANATION_TEXT } : null;
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function grillCell(model, id) {
   const generation = generationCell(model.grillGenerations.get(id), GRILL_GLYPH, 'GRI');
   if (generation !== null) return generation;
   return model.grilledIds.has(id) ? { glyph: GRILL_GLYPH, text: `GRI:${UNKNOWN_COUNT}` } : null;
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function sequenceCell(model, id) {
   const verdict = model.sequenceVerdicts.get(id);
   const judged = verdict?.state === SEQUENCE_VERDICT_COMPLETE || verdict?.state === SEQUENCE_VERDICT_FAILED;
@@ -159,12 +159,12 @@ function sequenceCell(model, id) {
   return { glyph, text: `SEQ:${value}` };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function smoothCell(model) {
   return generationCell(model.rootCounters.smo, SMOOTH_GLYPH, 'SMO');
 }
 
-// [::TICKET::] PX-309, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
 function cellFor(model, id, key) {
   switch (key) {
     case 'edu': return educationCell(model);
@@ -186,7 +186,7 @@ function cellFor(model, id, key) {
  * present field, so an absent middle field keeps the later columns aligned. A field absent
  * everywhere is omitted rather than reserving three blank columns for a glyph no line owns.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function buildFieldLayout(model) {
   const widths = new Map();
   for (const id of model.levels.flat()) {
@@ -207,7 +207,7 @@ export function buildFieldLayout(model) {
  * its own width. The final `trimEnd` in renderPackageLine removes the last cell's padding,
  * preserving the no-trailing-whitespace contract.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function renderFields(model, id, layout) {
   const active = FIELD_SEQUENCE.filter((key) => layout.widths.has(key));
   const cells = active.map((key) => ({ key, cell: cellFor(model, id, key), width: layout.widths.get(key) }));
@@ -232,7 +232,7 @@ function renderFields(model, id, layout) {
  * A line with no fields ends at its path and carries no padding, which keeps a workspace
  * with no counters byte-identical to the output before this field existed.
  */
-// [::TICKET::] PX-223, PX-228, PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228|PX-282) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223, PX-228, PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-223|PX-228|PX-282) --for-spec --no-implementation-order`.
 function renderPackageLine(model, id, layout) {
   const marker = model.criticalChain.includes(id) ? CRITICAL_MARKER : ' ';
   const prefix = `${ITEM_INDENT}${marker} `;
@@ -243,7 +243,7 @@ function renderPackageLine(model, id, layout) {
   return `${linePrefix}${padding}${fields}`.trimEnd();
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function renderWidthRow(model) {
   const counts = model.levels.map((level) => level.length);
   const columnWidth = Math.max(MINIMUM_COLUMN_WIDTH, String(Math.max(...counts)).length);
@@ -257,7 +257,7 @@ function renderWidthRow(model) {
   ].join('\n');
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function renderChainRow(model) {
   const names = model.criticalChain.map((id) => model.nameOf.get(id));
   const label = 'critical chain'.padEnd(FOOTER_LABEL_WIDTH);
@@ -285,7 +285,7 @@ function renderChainRow(model) {
  * the defect this line exists to prevent: the two are equal only when the artifact states no
  * prerequisite the DAG does not already contain.
  */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 export function renderOrderSource(model) {
   if (model.orderSource !== 'implementation') {
     return 'order source: build order (stage-1 dependency DAG); implementation order not yet derivable';
@@ -320,7 +320,7 @@ export function renderPlan(model) {
   return blocks.join('\n');
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function renderRelated(model, ids) {
   // Earliest level first, so a reader sees when each related directory comes, not the
   // order the manifest happened to assign its ids.
@@ -333,7 +333,7 @@ function renderRelated(model, ids) {
   );
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function renderRelatedSection(model, title, ids, explanation = '') {
   return [`${ITEM_INDENT}${title} (${ids.length})${explanation}`, ...renderRelated(model, ids)];
 }

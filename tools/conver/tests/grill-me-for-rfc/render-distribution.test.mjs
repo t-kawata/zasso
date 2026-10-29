@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import { renderDistribution } from '../../.claude/scripts/grill-me-for-rfc/render-distribution.mjs';
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureView() {
   return {
     packageId: 'pkg-1',
@@ -35,7 +35,7 @@ function fixtureView() {
   };
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureRfc(rows) {
   return [
     '# Package RFC',
@@ -169,7 +169,7 @@ test('C002 the CLI exits 1 and writes nothing when a gate fails', () => {
   assert.equal(fs.readFileSync(rfcPath, 'utf8'), before);
 });
 
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-317 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 test('C002 an undecided operation is rendered without a consumer role', () => {
   const view = fixtureView();
   view.ownedOperationUnits[0] = {

@@ -1,6 +1,6 @@
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // What a generation measured (PX-245, contracts C002-C005).
 //
 // A generation used to be refused when it repeated over an unchanged set, and the only
@@ -47,13 +47,13 @@ const GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/
 const GOLDEN_SPEC = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function goldenArtifact() {
   return JSON.parse(readFileSync(GOLDEN_ARTIFACT, 'utf8'));
 }
 
 /** Every integer from `first` to `last`, or none when either end is not one. */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function range(first, last) {
   if (!Number.isInteger(first) || !Number.isInteger(last)) return [];
   const lines = [];
@@ -62,7 +62,7 @@ function range(first, last) {
 }
 
 /** The lines the artifact declares, computed here so the assertion is independent. */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function declaredLinesIn(artifact) {
   return [
     ...artifact.sequences.flatMap((sequence) => range(sequence.firstLine, sequence.lastLine)),
@@ -255,7 +255,7 @@ test('C002 a borrowed census prints its own denominator beside the declared one'
  * it is an input rather than an expectation: this builder is what lets a test hand the
  * block a like-for-like predecessor instead of a record from another vocabulary.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function generation(overrides = {}) {
   const entries = overrides.entries ?? 8;
   const placed = overrides.placed ?? 2;
@@ -281,7 +281,7 @@ function generation(overrides = {}) {
 }
 
 /** The summary a completed run of the golden artifact produces. */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function goldenSummary() {
   const spec = readSpecification(GOLDEN_SPEC);
   const { verdicts, summary } = checkAll({ specLines: spec.lines, artifact: goldenArtifact() });
@@ -444,8 +444,8 @@ test('C003 a version-1 predecessor yields mapped deltas and names what it never 
 // C004 — the checks never decide on coverage
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   const spec = readSpecification(GOLDEN_SPEC);
   const artifact = goldenArtifact();
@@ -460,7 +460,7 @@ test('C004 attaching a coverage value to an artifact moves no verdict', () => {
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31, 'PX-246 through PX-268 each added checks, and none of them is a growth gate');
 });
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C002 an unreadable file answers "nothing on record" rather than stopping the run', () => {
   // Both reads this ticket added ask the same kind of question — what does this file
   // say — and for that question a file that cannot be read and a file that is not there

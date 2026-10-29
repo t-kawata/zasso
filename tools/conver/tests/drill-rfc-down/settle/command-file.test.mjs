@@ -1,6 +1,6 @@
 // PX-234 @verifies C004
 // PX-234 @verifies C005
-// [::TICKET::] PX-234 changes: details in the command contexts. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes: details in the command contexts. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * What the drill edit must add, and what it must leave alone.
  *
@@ -22,7 +22,7 @@ const COMMAND = join(PROJECT_ROOT, '.claude/commands/drill-rfc-down.md');
 const commandText = () => readFileSync(COMMAND, 'utf8');
 
 /** A sub-step section, from its heading to the next `#### ` heading. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function subStep(label) {
   const text = commandText();
   const start = text.indexOf(`#### ${label}.`);

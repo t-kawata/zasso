@@ -287,7 +287,7 @@ function buildNodeIdToPathMap(dirsTree) {
  * @param {string|{nodeId?: string}} entry — one element of a mappedNodeIds array
  * @returns {string|null}
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function mappedNodeIdOf(entry) {
   if (typeof entry === 'string') return entry;
   if (entry !== null && typeof entry === 'object' && typeof entry.nodeId === 'string') return entry.nodeId;
@@ -301,7 +301,7 @@ function mappedNodeIdOf(entry) {
  * @param {string} parentPath — Accumulated path from parent directory
  * @param {Object<string, string>} map — Target map to write to
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function traverseTree(node, parentPath, map) {
   const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
 
@@ -568,7 +568,7 @@ function appendToSpec(specPath, section) {
 /**
  * Display usage information
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(
     'dump-node-context-to-spec.js — Auto-write design context to spec\n' +
@@ -614,7 +614,7 @@ function printUsage() {
  *
  * All errors are output to stderr using the 3-line template and exit with code 1.
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function main() {
   let ticketsPath, graphPath, dirsTreePath, ticketKeys;
 

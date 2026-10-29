@@ -1,4 +1,4 @@
-// [::TICKET::] PX-200 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-200 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-200 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-200 --for-spec --no-implementation-order`.
 // PX-200 @verifies C001 C002
 /**
  * Dependency and boundary review.

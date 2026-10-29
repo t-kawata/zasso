@@ -23,23 +23,23 @@ import { pinnedColumnGroundingProblems } from '../../.claude/scripts/educe-seque
 import { resolveActPatterns } from '../../.claude/scripts/smooth-sequences/lib/act-vocabulary.mjs';
 import { validateWorklistDigest } from '../../.claude/scripts/smooth-sequences/lib/worklist.mjs';
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 // The evidence is authored inside the open regeneration transaction, so the staging
 // root takes precedence: a run against it proves the ticket without touching live data.
 const GAIA_ROOT = process.env.STAGING_ROOT || process.env.GAIA_ROOT || null;
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const SKIP = GAIA_ROOT === null ? 'STAGING_ROOT or GAIA_ROOT is not set' : false;
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const SPEC_NAME = 'GaiaSekkeiShiyousho_v32.md';
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const ARTIFACT_NAME = 'GaiaSekkeiShiyousho_v32-sequences.json';
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 function readJson(root, relative) {
   return JSON.parse(readFileSync(join(root, relative), 'utf8'));
 }
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 function readJsonl(root, relative) {
   const path = join(root, relative);
   if (!existsSync(path)) return [];
@@ -49,7 +49,7 @@ function readJsonl(root, relative) {
     .map((line) => JSON.parse(line));
 }
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 function subjectOf(obligationId) {
   const parts = String(obligationId ?? '').split(':');
   // FALSIFY carries one part after the prefix; JUDGE, DIST and READ carry two
@@ -62,7 +62,7 @@ function subjectOf(obligationId) {
   return String(obligationId ?? '');
 }
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 function loadContext() {
   const artifact = readJson(GAIA_ROOT, ARTIFACT_NAME);
   const allocate = readJson(GAIA_ROOT, 'WORKSPACIFY-ALLOCATE-MANIFEST.json');
@@ -81,7 +81,7 @@ function loadContext() {
   };
 }
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 function currentReceiptDigests(root) {
   const digests = {
     spec: sha256File(join(root, SPEC_NAME)),
@@ -94,23 +94,23 @@ function currentReceiptDigests(root) {
   return digests;
 }
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const context = loadContext();
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const judgments = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-judgment.jsonl'));
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const attacks = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-attack.jsonl'));
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const inquest = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-inquest.jsonl'));
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const uncovered = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-uncovered.jsonl'));
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const status = readJson(GAIA_ROOT, join('educe-sequences', 'status.json'));
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const generation = status.generation;
 
 // @verifies C001
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C001 every judgment basis resolves and carries the current generation', { skip: SKIP }, () => {
   assert.ok(judgments.length > 0, 'no judgment records were read');
   for (const record of judgments) {
@@ -127,7 +127,7 @@ test('C001 every judgment basis resolves and carries the current generation', { 
 });
 
 // @verifies C002
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C002 every non-adversarial attack is blind, literal and independent', { skip: SKIP }, () => {
   const reader = `educe-sequences/generation-${generation}`;
   const attackReader = `${reader}/attack`;
@@ -146,7 +146,7 @@ test('C002 every non-adversarial attack is blind, literal and independent', { sk
 });
 
 // @verifies C003
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C003 every inquest answer is current-generation and cites its line', { skip: SKIP }, () => {
   assert.ok(inquest.length > 0, 'no inquest rows were read');
   for (const row of inquest) {
@@ -158,7 +158,7 @@ test('C003 every inquest answer is current-generation and cites its line', { ski
 });
 
 // @verifies C004
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C004 every uncovered row is a grounded escape', { skip: SKIP }, () => {
   const actPatterns = resolveActPatterns(context.artifact);
   for (const row of uncovered) {
@@ -172,7 +172,7 @@ test('C004 every uncovered row is a grounded escape', { skip: SKIP }, () => {
 });
 
 // @verifies C005
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C005 receipts and worklist match the final artifact', { skip: SKIP }, () => {
   const manifest = readJson(GAIA_ROOT, join('educe-sequences', 'EVIDENCE-MANIFEST.json'));
   const receipts = validateManifestReceipts(manifest, currentReceiptDigests(GAIA_ROOT));
@@ -190,7 +190,7 @@ test('C005 receipts and worklist match the final artifact', { skip: SKIP }, () =
 });
 
 // @verifies C006
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C006 the final certificate is schema 3 and every v3 counter is clean', { skip: SKIP }, () => {
   const certificate = readJson(GAIA_ROOT, join('smooth-sequences', 'COMPLETION-CERTIFICATE.json'));
   assert.equal(certificate.schemaVersion, 3);
@@ -210,7 +210,7 @@ test('C006 the final certificate is schema 3 and every v3 counter is clean', { s
   }
 });
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('subjectOf keeps the whole subject for every obligation prefix', () => {
   assert.equal(subjectOf('FALSIFY:CreateForum'), 'CreateForum');
   assert.equal(subjectOf('JUDGE:ERRORS:boundary-018'), 'boundary-018');
@@ -219,7 +219,7 @@ test('subjectOf keeps the whole subject for every obligation prefix', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C001 every empty pinned column is grounded absent, not an open property obligation', { skip: SKIP }, () => {
   const properties = propertyObligations(context.artifact);
   assert.equal(properties.length, 106);
@@ -233,7 +233,7 @@ test('C001 every empty pinned column is grounded absent, not an open property ob
 });
 
 // @verifies C001
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C001 an unresolved basis names the field, the quote or the shape it lacks', () => {
   const phantom = validateBasisEntry(
     { source: 'artifact', id: 'NoSuchOperation', field: 'required_proof_classes', quote: 'x' },
@@ -254,7 +254,7 @@ test('C001 an unresolved basis names the field, the quote or the shape it lacks'
 });
 
 // @verifies C002
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C002 every Tier 1 subject carries a held attack that names the subject', { skip: SKIP }, () => {
   const tierOne = new Set([
     ...(context.artifact.operations ?? [])
@@ -272,7 +272,7 @@ test('C002 every Tier 1 subject carries a held attack that names the subject', {
 });
 
 // @verifies C002
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C002 an attack by the judgment reader or copied from the basis is refused', () => {
   const item = {
     obligationId: 'FALSIFY:CreateForum',
@@ -317,7 +317,7 @@ test('C002 an attack by the judgment reader or copied from the basis is refused'
 });
 
 // @verifies C003
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C003 a stale or inherited inquest answer reopens its obligation', () => {
   const base = {
     subject: '@object:AssetScore',
@@ -354,13 +354,13 @@ test('C003 a stale or inherited inquest answer reopens its obligation', () => {
 });
 
 // @verifies C004
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C004 no active pinned column is empty without a per-column grounding', { skip: SKIP }, () => {
   assert.deepEqual(pinnedColumnGroundingProblems(context.artifact, context.linesByPath[SPEC_NAME]), []);
 });
 
 // @verifies C005
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C005 the manifest names the artifact digest it receipts', { skip: SKIP }, () => {
   const manifest = readJson(GAIA_ROOT, join('educe-sequences', 'EVIDENCE-MANIFEST.json'));
   assert.equal(manifest.generation, generation);
@@ -371,7 +371,7 @@ test('C005 the manifest names the artifact digest it receipts', { skip: SKIP }, 
 });
 
 // @verifies C005
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C005 a receipt that names another artifact digest is stale', { skip: SKIP }, () => {
   const manifest = readJson(GAIA_ROOT, join('educe-sequences', 'EVIDENCE-MANIFEST.json'));
   // The receipt, not the manifest header, is what binds a phase to an artifact.
@@ -388,7 +388,7 @@ test('C005 a receipt that names another artifact digest is stale', { skip: SKIP 
 });
 
 // @verifies C006
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C006 an open obligation forces an incomplete certificate', () => {
   const forced = buildCertificate({
     obligations: [{ id: 'JUDGE:ERRORS:boundary-018', kind: 'judgment', class: 'semantic', state: 'open' }],

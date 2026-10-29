@@ -1,4 +1,4 @@
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // C005: an active operation's pinned column is present or grounded per column.
 //
 // The rail checked the declared columns but never an operation value. 112 active
@@ -17,7 +17,7 @@ const GOLDEN_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta
 const specLines = ['the proof classes are designer supplied'];
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function artifact(operation) {
   return {
     pins: { columns: [{ name: COLUMN, decidedBy: 'literalInLine' }] },
@@ -25,7 +25,7 @@ function artifact(operation) {
   };
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function grounded(overrides = {}) {
   return {
     classification: 'designer_supplied',

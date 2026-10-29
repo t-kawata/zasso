@@ -25,7 +25,7 @@ const CONTRACT_ID_RE = /^C\d{3}$/;
  * Parse CLI arguments
  * @returns {{ graphPath: string }}
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   for (const a of args) {
@@ -42,7 +42,7 @@ function parseArgs() {
  * @param {object} edgeOrGraph — Single edge object or full graph
  * @returns {Array<{edge: string, detail: string}>}
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function validateEdgeContracts(edgeOrGraph) {
   const errors = [];
   const edges = Array.isArray(edgeOrGraph.edges) ? edgeOrGraph.edges : [edgeOrGraph];
@@ -93,7 +93,7 @@ function validateEdgeContracts(edgeOrGraph) {
   return errors;
 }
 
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function main() {
   const { graphPath } = parseArgs();
   if (!fs.existsSync(graphPath)) {

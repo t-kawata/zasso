@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-98: 完了済み実装状況検査対象コマンドリスト生成スクリプト. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98: 完了済み実装状況検査対象コマンドリスト生成スクリプト. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
 
 /**
  * create-check-target-tickets-cmds.test.js — Tests for create-check-target-tickets-cmds.js
@@ -26,17 +26,17 @@ let failed = 0;
 
 let CB;
 
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-102 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function assert(condition, message) {
-// [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-103 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-103 --for-spec --no-implementation-order`.
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
@@ -96,7 +96,7 @@ try {
   assert(keys[0] === 'P0-1', 'key is P0-1');
 })();
 
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC001Invariant() {
   console.log('  ── C001 Invariant ──');
   const mockTickets = { phases: [
@@ -116,7 +116,7 @@ try {
 // PX-141: PX phase (phaseId=-1) is excluded from the inspection queue.
 // The PX backlog is out of scope for /find-omissions; it must never be
 // re-inspected or round-marked. @verifies C001
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC001PxExcluded() {
   console.log('  ── C001 PX phase excluded ──');
   const mockTickets = { phases: [
@@ -129,7 +129,7 @@ try {
   assert(keys.length === 0, 'no PX tickets collected (reviewed or remanded)');
 })();
 
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC001PxBoundaryPhaseIdSource() {
   console.log('  ── C001 PX excluded via ticket.phaseId or phase.id ──');
   const viaTicketField = { phases: [{ id: -1, tickets: [{ id: 1, phaseId: -1, status: 'reviewed' }] }] };

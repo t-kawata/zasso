@@ -31,7 +31,7 @@ import { CommandTimeoutError } from "./error.js";
  * runCommand / shutdownChildProcess は proc.once / proc.off / proc.exitCode を
  * 使うため、EventEmitter を基底にしたモックが必要。
  */
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
 function mockProc(overrides?: Record<string, unknown>): any {
   const proc = new EventEmitter() as any;
   proc.exitCode = null;
@@ -43,7 +43,7 @@ function mockProc(overrides?: Record<string, unknown>): any {
 }
 
 /** AcpSession モックを生成する */
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
 function mockSession(overrides?: Partial<AcpSession>): AcpSession {
   return {
     proc: mockProc(),
@@ -242,10 +242,10 @@ describe("runCommand", () => {
       proc,
       session: {
         sessionId: "s",
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
         prompt() {},
         nextUpdate: () => new Promise(() => {}), // stop を返さずハングする
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
         dispose() {},
       } as any,
     });
@@ -269,10 +269,10 @@ describe("runCommand", () => {
       proc,
       session: {
         sessionId: "s",
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
         prompt() {},
         nextUpdate: () => new Promise(() => {}),
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
         dispose() {},
       } as any,
     });
@@ -295,10 +295,10 @@ describe("runCommand", () => {
       proc: mockProc({ exitCode: 3 }),
       session: {
         sessionId: "s",
-// [::TICKET::] PX-149, PX-150, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150, PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150|PX-151) --for-spec --no-implementation-order`.
         prompt() { promptCalled = true; },
         nextUpdate: () => new Promise(() => {}),
-// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
         dispose() {},
       } as any,
     });
@@ -508,7 +508,7 @@ describe("shutdownChildProcess", () => {
 // （デフォルト実 spawn）で受け取った env を検証する。
 
 describe("buildSpawnEnv", () => {
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
   function callEnv(overrides?: Partial<SessionConfig>): NodeJS.ProcessEnv {
     return buildSpawnEnv({
       apiKey: "sk-test",
@@ -607,7 +607,7 @@ describe("buildSpawnEnv", () => {
 });
 
 describe("spawnAgent", () => {
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
   function captureSpawnEnv(config: SessionConfig): NodeJS.ProcessEnv {
     let captured: NodeJS.ProcessEnv = {};
     const mockSpawn = ((

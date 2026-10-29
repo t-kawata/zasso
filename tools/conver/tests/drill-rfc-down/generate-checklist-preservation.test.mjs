@@ -1,4 +1,4 @@
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // @verifies C002
 // @verifies C004
 /**
@@ -48,7 +48,7 @@ const DESIGN_TREE = {
 };
 
 /** A directory holding a valid session, with a CheckList.md written by the PRE-fix generator. */
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 function makeSessionWithLegacyFile({ withChecklist = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'px208-gen-'));
   writeFileSync(join(dir, 'Status.json'), JSON.stringify(STATUS, null, 2), 'utf8');
@@ -73,7 +73,7 @@ function makeSessionWithLegacyFile({ withChecklist = true } = {}) {
  */
 const normaliseGenerationTimestamp = (text) => text.replace(/^生成日時: .*$/m, '生成日時: <timestamp>');
 
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-208 --for-spec --no-implementation-order`.
 function runGenerator(script, dir) {
   const run = spawnSync(process.execPath, [join(PROJECT_ROOT, script), dir, '--no-backup'], {
     cwd: PROJECT_ROOT,

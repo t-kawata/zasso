@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-118: remove-stub.js test suite — deterministic STUB marker line removal.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 
 /**
  * remove-stub.test.js — Tests for remove-stub.js
@@ -29,13 +29,13 @@ let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-118: test helpers mirror insert-stub.test.js.
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   const pass = actual === expected;
   if (pass) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
@@ -53,7 +53,7 @@ function assertStrictEqual(actual, expected, message) {
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'remove-stub-test-'));
 const MARKER = '// [::STUB::] P0-1: pending -- replace with real logic';
 
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
 function writeFixture(name, content) {
   const filePath = path.join(tmpDir, name);
   fs.writeFileSync(filePath, content);
@@ -89,9 +89,9 @@ process.stdout.write('[C001] Single-line marker removal\n');
     assert(result.line === 2, 'returns the removed line number');
     const content = fs.readFileSync(filePath, 'utf8');
     const after = content.replace(/\n$/, '').split('\n');
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
     assertStrictEqual(after[0], 'fn main() {}', 'first line preserved');
-// [::TICKET::] PX-118 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-118 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-118 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-118 --for-spec --no-implementation-order`.
     assertStrictEqual(after[1], 'fn helper() {}', 'third line preserved');
     assert(after.length === 2, 'line count decreased by exactly 1');
     assert(!content.includes('[::STUB::]'), 'no marker remains in file');

@@ -23,12 +23,12 @@ const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-order/ru
 const ONE_PACKAGE = { id: 'pkg-0001', name: 'package-1', path: 'crates/protocol/package-1', layer: 'protocol' };
 
 /** Run the command and keep both sinks as text. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function runOrder(argv, { cwd } = {}) {
   return spawnSync(process.execPath, [RUN, ...argv], { cwd, encoding: 'utf8' });
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function threePackageWorkspace(t) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -42,7 +42,7 @@ function threePackageWorkspace(t) {
   return workspace;
 }
 
-// [::TICKET::] PX-223, PX-228, PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-223|PX-228|PX-323) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223, PX-228, PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-223|PX-228|PX-323) --for-spec --no-implementation-order`.
 function expectedPlan(workspace) {
   return [
     // The command opens the plan with a blank line and a Markdown H1, so the expected bytes
@@ -175,7 +175,7 @@ test('IT: tests/check-conventions.mjs names this directory with the module syste
  * documents, any pair, all three or none, and the expected stdout of each shape is written
  * out in full.
  */
-// [::TICKET::] PX-228, PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-228|PX-269) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228, PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-228|PX-269) --for-spec --no-implementation-order`.
 function markedWorkspace(t, { documents = {} } = {}) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -191,10 +191,10 @@ function markedWorkspace(t, { documents = {} } = {}) {
 }
 
 /** Every entry below a directory with its size, so two digests prove a run wrote nothing. */
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-228 --for-spec --no-implementation-order`.
 function digestTree(root) {
   const entries = [];
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-228 --for-spec --no-implementation-order`.
   (function walk(directory) {
     const children = readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name));
     for (const child of children) {
@@ -463,9 +463,9 @@ test('IT: a failed verdict prints its mark, writes nothing to stderr and exits 0
   assert.equal(result.stdout.includes('🟡 SEQ:?'), false);
 });
 
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 test('IT: the counters render on the package line and the command still writes nothing', (t) => {
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001'],
     levels: [['pkg-0001']],

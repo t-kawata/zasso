@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-98: 完了済み実装状況検査対象コマンドリスト生成スクリプト. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98: 完了済み実装状況検査対象コマンドリスト生成スクリプト. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
 
 /**
  * create-check-target-tickets-cmds.js — find-omissions Step 2
@@ -20,7 +21,7 @@ const path = require('path');
 
 // -- Constants --
 
-const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-context.js --ticket-key=KEY --for-spec --no-implementation-order';
+const SHOW_TICKET_CMD_TEMPLATE = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=KEY --for-spec --no-implementation-order';
 
 // -- Pure functions (exported for testing) --
 
@@ -34,7 +35,7 @@ const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-conte
  * @param {object} ticketsData — Parsed Tickets.json { phases[] }
  * @returns {string[]} — Reviewed/remanded ticket key strings
  */
-// [::TICKET::] PX-98, PX-102, PX-103, PX-114, PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-98|PX-102|PX-103|PX-114|PX-141) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98, PX-102, PX-103, PX-114, PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-98|PX-102|PX-103|PX-114|PX-141) --for-spec --no-implementation-order`.
 function collectReviewedTicketKeys(ticketsData) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return [];
@@ -63,8 +64,8 @@ function collectReviewedTicketKeys(ticketsData) {
  * @param {string} ticketKey — e.g. "P3-2" or "PX-53"
  * @returns {string} — Shell command string
  */
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
 function buildCommand(ticketKey) {
   return SHOW_TICKET_CMD_TEMPLATE.replace('KEY', ticketKey);
 }
@@ -75,7 +76,7 @@ function buildCommand(ticketKey) {
  * @param {string[]} ticketKeys — Array of ticket key strings
  * @returns {Array<{done: boolean, cmd: string}>}
  */
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
 function buildEntries(ticketKeys) {
   return ticketKeys.map(key => ({
     done: false,
@@ -89,7 +90,7 @@ function buildEntries(ticketKeys) {
  * @param {string} outputPath — Absolute path to output file
  * @param {Array} entries — Command entries array
  */
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
 function writeOutput(outputPath, entries) {
   fs.writeFileSync(outputPath, JSON.stringify(entries, null, 2), 'utf8');
 }
@@ -98,7 +99,7 @@ function writeOutput(outputPath, entries) {
  * Format current timestamp as YYYYMMDDhhmmss.
  * @returns {string} — 14-digit timestamp
  */
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
 function formatTimestamp() {
   const now = new Date();
   const y = now.getFullYear();
@@ -112,7 +113,7 @@ function formatTimestamp() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-98 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketsPath = 'Tickets.json';

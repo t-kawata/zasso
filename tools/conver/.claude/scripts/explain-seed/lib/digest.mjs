@@ -21,7 +21,7 @@ import { INFO_SECTION_TITLES } from './render.mjs';
  * list that can be extended in one place and forgotten in the other, and the failure that
  * follows is silent — a section nothing digests never reopens.
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export const INFO_SECTION_IDS = Object.freeze(Object.keys(INFO_SECTION_TITLES));
 
 /**
@@ -55,7 +55,7 @@ export const DIGEST_BLOCK_CLOSE = '-->';
 export const DIGEST_SCHEMA = 'explain-seed-facts-v1';
 
 /** The digest of one piece of text. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function digestText(text) {
   return sha256Hex(Buffer.from(String(text), 'utf8'));
 }
@@ -90,7 +90,7 @@ export function computeFrameDigests(sections) {
 }
 
 /** Whether a parsed block is the shape this module writes, rather than any JSON at all. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function isDigestRecord(parsed) {
   if (parsed === null || typeof parsed !== 'object' || parsed.schema !== DIGEST_SCHEMA) return false;
   if (parsed.sections === null || typeof parsed.sections !== 'object') return false;

@@ -36,13 +36,13 @@ const PASSING_SPEC_TEXT = '# spec\n\nthe producer derives order_id and reads it\
 const CANDIDATE_PASSING_TEXT = '# spec\n\nthe producer derives order_id, reads it and logs it\n';
 
 /** A cited fact on one fixture step. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function citedFact(stepId, line, quote, factId, text) {
   return { factId, text, source: { step: stepId, line, quote } };
 }
 
 /** The complete annotations for the two smooth fixture steps. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function completeAnnotations() {
   return {
     contracts: {
@@ -75,7 +75,7 @@ function completeAnnotations() {
 }
 
 /** A smooth workspace whose artifact carries the spec digest and a spec file. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function materializeAuthoringStaging(annotations) {
   const artifact = minimalV2Artifact();
   const workspace = materializeSmoothWorkspace({ artifact });
@@ -90,7 +90,7 @@ function materializeAuthoringStaging(annotations) {
 }
 
 /** Rewrite a smooth workspace's chain for one specification. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function writePassingChain(root, specPath) {
   const treePath = join(root, 'WORKSPACIFY-TREE-MANIFEST.json');
   const tree = JSON.parse(readFileSync(treePath, 'utf8'));
@@ -123,7 +123,7 @@ function writePassingChain(root, specPath) {
 }
 
 /** A smooth workspace whose chain verifies and whose detector passes. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function materializePassingWorkspace() {
   const workspace = materializeSmoothWorkspace();
   const specPath = join(workspace.root, 'spec.md');
@@ -133,7 +133,7 @@ function materializePassingWorkspace() {
 }
 
 /** A producer that rewrites the chain and views for the candidate specification. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function passingProducer({ root, stagingRoot, candidateSpec }) {
   copyFileSync(join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json'));
   copyFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), join(stagingRoot, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'));
@@ -147,7 +147,7 @@ function passingProducer({ root, stagingRoot, candidateSpec }) {
 }
 
 /** The real detector over one root. */
-// [::TICKET::] PX-287, PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-287|PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287, PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-287|PX-292|PX-293) --for-spec --no-implementation-order`.
 function realDetector({ root }) {
   const result = runCommand([root, '--legacy'], { stdout: () => {}, stderr: () => {} });
   return {

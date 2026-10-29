@@ -41,37 +41,37 @@ const ANALYZER = path.join(SCRIPT_DIR, 'split-delta-analyzer.js');
 const { validateTickets } = require(path.resolve(SCRIPT_DIR, '../lib/validate-tickets.js'));
 
 /** Spawn a node script and return the result. */
-// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function runNode(script, args) {
   return spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
 }
 
 /** The staging copy path the AI designs with add-ticket/update-ticket before --approve. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function stagingPathOf(ticketsPath) {
   return `${ticketsPath}.staging.json`;
 }
 
 /** The candidates file path written by --stage for the AI to consult. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function candidatesPathOf(ticketsPath) {
   return `${ticketsPath}.candidates.json`;
 }
 
 /** The pipeline handoff path written by --approve (Step 5 verify consumes it). */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function deltaPathOf(ticketsPath) {
   return `${ticketsPath}.delta.json`;
 }
 
 /** A stable identity for a ticket across phases (used by the delta derivation). */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function ticketKeyOf(ticket) {
   return `${ticket.phaseId}-${ticket.id}`;
 }
 
 /** Collect every ticket (phaseId + ticket) from a Tickets.json. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function collectTickets(tickets) {
   const acc = [];
   for (const phase of tickets.phases || []) {
@@ -83,7 +83,7 @@ function collectTickets(tickets) {
 }
 
 /** Surface existing ticket statuses (pre-promote) so preservation is recorded. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function surfaceExistingStatuses(tickets) {
   return collectTickets(tickets).map(({ ticket }) => ({ id: ticket.id, status: ticket.status || 'todo' }));
 }
@@ -94,7 +94,7 @@ function surfaceExistingStatuses(tickets) {
  * is deterministic: it records exactly what the AI designed via add-ticket /
  * update-ticket, never the analyzer output.
  */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function deriveTicketsDelta(beforeTickets, stagedTickets) {
   const beforeMap = new Map(collectTickets(beforeTickets).map(({ ticket }) => [ticketKeyOf(ticket), ticket]));
   const newTickets = [];
@@ -127,7 +127,7 @@ function deriveTicketsDelta(beforeTickets, stagedTickets) {
 }
 
 /** Format the candidate report from a candidates object (AI judgment aid). */
-// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function formatTicketsDeltaReport(candidates) {
   const lines = ['## /drill-rfc-down Step 4 Split Stage', ''];
   lines.push('### New ticket candidates (analyzer information, not the plan)');
@@ -158,7 +158,7 @@ function formatTicketsDeltaReport(candidates) {
 }
 
 /** Emit an English Error/Cause/Action message and exit with status 1. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function failWithEnglishError(error, cause, action) {
   console.error(`[ERROR] split-step: ${error}`);
   console.error(`Cause: ${cause}`);
@@ -167,13 +167,13 @@ function failWithEnglishError(error, cause, action) {
 }
 
 /** Copy the real Tickets.json to the staging path so the AI can design. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function createStagingCopy(ticketsPath) {
   fs.copyFileSync(ticketsPath, stagingPathOf(ticketsPath));
 }
 
 /** Run the analyzer to write the candidates file and return the parsed candidates. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function produceCandidates(ticketsPath, dtdPath) {
   const outPath = candidatesPathOf(ticketsPath);
   const analyzerResult = runNode(ANALYZER, [`--dirs-tree-delta=${dtdPath}`, `--tickets=${ticketsPath}`, `--out=${outPath}`]);
@@ -185,7 +185,7 @@ function produceCandidates(ticketsPath, dtdPath) {
 }
 
 /** Validate the staging Tickets.json with validate-tickets. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function verifyStagingTickets(ticketsPath) {
   const staged = JSON.parse(fs.readFileSync(stagingPathOf(ticketsPath), 'utf8'));
   const validation = validateTickets(staged);
@@ -199,14 +199,14 @@ function verifyStagingTickets(ticketsPath) {
 }
 
 /** Promote the staging copy to the real Tickets.json (the only promote path). */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function promoteStagingToReal(ticketsPath) {
   fs.copyFileSync(stagingPathOf(ticketsPath), ticketsPath);
   fs.rmSync(stagingPathOf(ticketsPath), { force: true });
 }
 
 /** Discard the staging copy, leaving the real Tickets.json untouched. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function discardStaging(ticketsPath) {
   fs.rmSync(stagingPathOf(ticketsPath), { force: true });
 }
@@ -216,12 +216,12 @@ function discardStaging(ticketsPath) {
  * committed (--approve) or discarded (--reject), the candidates are stale and
  * regenerable; the delta (.delta.json) is the persistent record and is kept.
  */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function removeCandidates(ticketsPath) {
   fs.rmSync(candidatesPathOf(ticketsPath), { force: true });
 }
 
-// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketsPath = '';

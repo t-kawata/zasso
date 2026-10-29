@@ -1,6 +1,6 @@
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 /**
  * R3.5 — the claim ledger, and the evidence independence it is built to refuse.
  *
@@ -79,7 +79,7 @@ const LEDGER_FIXTURE_FILES = Object.freeze({
 });
 
 /** The evidence record shape the ledger stores, built through the real factory. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function evidenceOf(evidenceId, span, lineageEdges) {
   return { ...buildEvidence(span, 'impl', evidenceId), lineage_edges: lineageEdges };
 }
@@ -440,13 +440,13 @@ test('the ledger carries no undefined field, so it can be serialised', () => {
 // ---------------------------------------------------------------------------
 
 /** A mechanism in the shape R2.5's surface emits. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 function couplingMechanism(kind, file, line) {
   return { id: `${kind}:${file}:${line}`, kind, file, line, spelling: '', note: '' };
 }
 
 /** A claim anchored at one source span, in the shape the ledger's families build. */
-// [::TICKET::] P23-6, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-6|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P23-6|P25-6) --for-spec --no-implementation-order`.
 function anchoredClaim({ id, type = 'observed', file, line, options = {} }) {
   const { basis = [], grillQuestion = '', mechanisms = null } = options;
   const claim = {

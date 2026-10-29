@@ -1,5 +1,5 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-190 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-190 --for-spec --no-implementation-order`.
 // PX-193 @verifies C002 C006
 /**
  * RFC-SEED.md model.
@@ -82,7 +82,7 @@ export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
  * format's position and index coincide; that is a property of this format, not a
  * rule the parser may assume of every one.
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 export const SEED_ALLOCATION_SECTION_POSITION = 3;
 
 /** Where the segment-addressed traceability table sits, as an ordinal within any format's list. */

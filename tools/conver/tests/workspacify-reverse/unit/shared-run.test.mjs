@@ -45,7 +45,7 @@ const EARLY_STAGE = 'r0.5';
 const LATE_STAGE = 'r2.5';
 
 /** The names of the entries the shared root holds for one measured root. */
-// [::TICKET::] P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
 function entriesNaming(root) {
   const directory = sharedRoot();
   if (!existsSync(directory)) return [];
@@ -63,7 +63,7 @@ function entriesNaming(root) {
 }
 
 /** The tree's own bytes, with no entry for the marker a shared run adds. */
-// [::TICKET::] P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
 function publishedBytes(directory) {
   const hashes = hashTree(directory);
   delete hashes[MARKER_FILE_NAME];
@@ -78,7 +78,7 @@ const REQUEST_IN_WORKER = `
   parentPort.postMessage(run.root);
 `;
 
-// [::TICKET::] P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-5|P25-6) --for-spec --no-implementation-order`.
 function requestFromWorker(root, through) {
   const helper = new URL('../helpers/shared-run.mjs', import.meta.url).href;
   const source = new URL(`data:text/javascript,${encodeURIComponent(REQUEST_IN_WORKER)}`);

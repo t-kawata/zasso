@@ -33,7 +33,7 @@ const DECIDED = [
   '<!-- 人間の判断 -->',
 ].join('\n');
 
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 test('C001 precondition: the headings this module splits on are the ones the frame writes', () => {
   assert.equal(HUMAN_ITEM_HEADING, '### 判断');
   assert.equal(PREDECIDED_ITEM_HEADING, '### 先に決めた');
@@ -98,21 +98,21 @@ test('C001 invariant: a heading without the reference separator names no record'
   assert.equal(referenceOf('### 判断 H1'), null);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 postcondition: the number of a question is read from its heading, by value and not by text', () => {
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q7`), 7);
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q12`), 12, 'a two-digit number is read as one number, not as its first character');
   assert.notEqual(questionNumberOf(`${HUMAN_ITEM_HEADING} Q12`), questionNumberOf(`${HUMAN_ITEM_HEADING} Q2`));
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C007 boundary: a heading whose text after the separator names a record yields no question number', () => {
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q1 — residual-000001`), null, 'the heading an earlier frame wrote is not a question this frame asks');
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} H1 — boundary-001`), null, 'and neither is one that names no number at all');
   assert.equal(questionNumberOf(`${HUMAN_ITEM_HEADING} Q1 の話`), null, 'a heading that mentions a number but is not one is not a question heading');
 });
 
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 boundary: a heading belongs to the token only when the token ends there', () => {
   // One rule, both tokens: a heading that continues the token's characters is another
   // heading, and reading it as this one would open an item the frame never wrote.
@@ -124,7 +124,7 @@ test('C001 boundary: a heading belongs to the token only when the token ends the
   }
 });
 
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 invariant: the number of an indented question is read, because the item is', () => {
   // Both readers normalise leading whitespace the same way, so an indented heading
   // cannot be one reader's item and no reader's question.

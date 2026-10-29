@@ -55,7 +55,7 @@ const APPEND_SIDE_EFFECT = Object.freeze({
 });
 
 /** Create a throwaway sandbox over a synthetic target. */
-// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function createSandboxOver(filesByPath = CARGO_TARGET, options = {}) {
   const target = createSyntheticTree(filesByPath, { prefix: 'wsp-p22-18-reset-target-' });
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-reset-scratch-' });
@@ -77,7 +77,7 @@ function createSandboxOver(filesByPath = CARGO_TARGET, options = {}) {
 }
 
 /** The number of lines a side-effect file holds inside the sandbox, or zero when it is absent. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function sideEffectCount(handle) {
   const log = join(handle.sandboxRoot, 'side-effects.log');
   if (!existsSync(log)) return 0;

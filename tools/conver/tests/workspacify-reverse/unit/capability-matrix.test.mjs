@@ -46,7 +46,7 @@ const SYNTACTIC_ITEMS = Object.freeze(['E1', 'E2', 'E3', 'E4', 'E5', 'E6']);
  * fixture that gets it wrong is a fixture whose rows the derivation cannot
  * place — which is the failure the unattributable report exists for.
  */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function attemptRow(options) {
   const {
     target, tool, status, extractedCount = 0, reason = null, phase = 'parse',
@@ -62,7 +62,7 @@ function attemptRow(options) {
 }
 
 /** The language a row's target names, read from the extension the test itself knows. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function languageOfTarget(target) {
   if (target.endsWith('.rs')) return 'rust';
   if (target.endsWith('.ts')) return 'typescript';
@@ -79,7 +79,7 @@ function languageOfTarget(target) {
  * The channel table is restated here on purpose: the derivation's own table
  * could drift, and a test that read it would drift with it.
  */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function rowsAttributedTo(ledger, language, item) {
   const channel = FAMILY_CHANNELS[item];
   if (channel === undefined) return [];
@@ -93,7 +93,7 @@ function rowsAttributedTo(ledger, language, item) {
 }
 
 /** The value those rows imply, by the three rules the contract states. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function valueImpliedBy(rows) {
   if (rows.length === 0) return 'not_attempted';
   if (rows.some((row) => row.status === 'failed')) return 'failed';
@@ -114,7 +114,7 @@ const EXTENSION_BY_LANGUAGE = Object.freeze({
 });
 
 /** A ledger carrying a successful parse per language through both layers. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function ledgerWithEveryLanguage() {
   return buildAttemptLedger(TARGET_LANGUAGES.flatMap((language) => [
     attemptRow({ target: `src/a.${EXTENSION_BY_LANGUAGE[language]}`, tool: `tree-sitter-${language}`, status: 'success', extractedCount: 5 }),
@@ -332,7 +332,7 @@ test('C004 invariant — the served matrix carries no verdict, and no field carr
 
   const FORBIDDEN = ['eligible', 'score', 'verdict', 'recommendation'];
   const offenders = [];
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
   (function walk(value, path) {
     if (Array.isArray(value)) { value.forEach((entry, index) => walk(entry, path + '[' + index + ']')); return; }
     if (value === null || typeof value !== 'object') return;

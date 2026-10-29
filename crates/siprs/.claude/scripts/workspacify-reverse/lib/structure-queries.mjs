@@ -33,7 +33,7 @@ export const STRUCTURE_FAMILIES = Object.freeze(['E1', 'E2', 'E3', 'E4']);
  * module that turns nodes into locations; `structure.mjs` re-exports both so a
  * consumer of the syntax layer finds them where it always did.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function lineOf(node) {
   return node.startPosition.row + 1;
 }
@@ -156,7 +156,7 @@ const ERROR_SIGNAL_READERS = Object.freeze({
 });
 
 /** The names a type declaration's heritage names, whether written as a node or a field. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function baseNamesOf(node, descriptor) {
   const heritage = descriptor.nodeType
     ? node.namedChildren.find((child) => child.type === descriptor.nodeType)
@@ -178,7 +178,7 @@ function baseNamesOf(node, descriptor) {
  * `E3.typeKinds` selects the type declarations out of E2's items, and
  * `E3.variantBodyNodeType` the body whose children are a type's variants.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export const QUERIES_BY_LANGUAGE = Object.freeze({
   rust: Object.freeze({
     E1: Object.freeze({ moduleNodeTypes: Object.freeze(['mod_item']) }),
@@ -371,7 +371,7 @@ export function declaredNameOf(node, nameFields = ['name']) {
 }
 
 /** The first identifier inside a declarator chain. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function identifierWithin(node) {
   if (IDENTIFIER_NODE_TYPES.includes(node.type)) return node.text;
   for (const child of node.namedChildren) {
@@ -382,7 +382,7 @@ function identifierWithin(node) {
 }
 
 /** The item kind a node declares, resolved through its `type` field where the node's own type cannot say. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function itemKindOf(node, descriptor) {
   const declared = descriptor.itemKinds[node.type];
   if (declared === undefined) return null;
@@ -399,20 +399,20 @@ function itemKindOf(node, descriptor) {
 }
 
 /** True when a declarator chain wraps a node of this type, which is how C tells a prototype from a variable. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function containsNodeType(node, type) {
   if (node.type === type) return true;
   return node.namedChildren.some((child) => containsNodeType(child, type));
 }
 
 /** The visibility a declaration writes, or null when it writes none. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function visibilityOf(node, symbol, descriptor) {
   return VISIBILITY_BY_KIND[descriptor.kind]({ node, symbol, descriptor });
 }
 
 /** True when the declaration sits under a construct that takes it out of module scope. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function outOfModuleScope(node, descriptor) {
   if (descriptor.skipWhenParentTypes.includes(node.parent?.type)) return true;
   for (let parent = node.parent; parent !== null; parent = parent.parent) {
@@ -422,7 +422,7 @@ function outOfModuleScope(node, descriptor) {
 }
 
 /** One declaration, with the node it was read from so a later item can ask it more. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function readDeclaration(node, symbol, itemKind, context) {
   const { relativePath, descriptor, root } = context;
   return {
@@ -442,7 +442,7 @@ function readDeclaration(node, symbol, itemKind, context) {
 }
 
 /** Every declaration one file writes, private ones included. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function declarationsIn(language, tree, relativePath) {
   const descriptor = QUERIES_BY_LANGUAGE[language].E2;
   const root = tree.rootNode;
@@ -480,13 +480,13 @@ function declarationsIn(language, tree, relativePath) {
  * item is externally reachable, because deciding that needs name resolution
  * this layer does not have.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectItems(language, tree, relativePath) {
   return declarationsIn(language, tree, relativePath).map(({ node, ...record }) => record);
 }
 
 /** The public surface: the items whose declaration states a reachability, plus the statements that publish one. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectPublicSurface(language, tree, relativePath) {
   const descriptor = QUERIES_BY_LANGUAGE[language].E2;
   const declared = declarationsIn(language, tree, relativePath)
@@ -496,7 +496,7 @@ export function collectPublicSurface(language, tree, relativePath) {
 }
 
 /** The type definitions a file declares, whatever their reachability. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectTypeDefinitions(language, tree, relativePath) {
   const typeKinds = QUERIES_BY_LANGUAGE[language].E3.typeKinds;
   return declarationsIn(language, tree, relativePath)
@@ -517,7 +517,7 @@ export function collectTypeDefinitions(language, tree, relativePath) {
  * Rust and Go state one in the file; the other four leave a file's module
  * identity to its path, which E1's package grouping already carries.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectModules(language, tree, relativePath) {
   const { moduleNodeTypes } = QUERIES_BY_LANGUAGE[language].E1;
   const descriptor = QUERIES_BY_LANGUAGE[language].E2;
@@ -538,7 +538,7 @@ export function collectModules(language, tree, relativePath) {
 }
 
 /** Go writes the package name on a child rather than in a field of its own. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function moduleNameOf(node, language) {
   if (language === 'go') {
     const [name] = node.namedChildren;
@@ -556,7 +556,7 @@ function moduleNameOf(node, language) {
  * statement that performs it, which is the only location the tree can offer —
  * the construct is visible even where the name it publishes is not.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function publishedNamesIn(language, tree, relativePath, descriptor) {
   if (descriptor.exportSyntax === 'none') return [];
   const published = [];
@@ -569,7 +569,7 @@ function publishedNamesIn(language, tree, relativePath, descriptor) {
 }
 
 /** The names an `export` statement publishes. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function esmExportsOf(node, relativePath) {
   if (node.type !== 'export_statement') return [];
   const source = node.childForFieldName?.('source');
@@ -600,7 +600,7 @@ function esmExportsOf(node, relativePath) {
 }
 
 /** The names a CommonJS assignment publishes. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function commonJsExportsOf(node, relativePath) {
   if (node.type !== 'expression_statement') return [];
   const [assignment] = node.namedChildren;
@@ -643,7 +643,7 @@ function commonJsExportsOf(node, relativePath) {
 }
 
 /** The variants a type declaration writes, each with its own location. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function variantsOf(declaration, language) {
   const { variantBodyNodeType } = QUERIES_BY_LANGUAGE[language].E3;
   if (variantBodyNodeType === null) return [];
@@ -663,7 +663,7 @@ export function variantsOf(declaration, language) {
  * call one. R1 records the signals and hands the classification to a reader, as
  * the design requires for every contract-shaped finding.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectErrorTypes(language, tree, relativePath, context) {
   const { signals, errorBase, errorMethod } = QUERIES_BY_LANGUAGE[language].E4;
   const typeKinds = QUERIES_BY_LANGUAGE[language].E3.typeKinds;
@@ -697,7 +697,7 @@ export function collectErrorTypes(language, tree, relativePath, context) {
 }
 
 /** The types that declare the language's error method, which is how Go makes one. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function errorMethodTypesIn(tree, descriptor) {
   const types = new Set();
   if (descriptor === undefined) return types;
@@ -713,7 +713,7 @@ function errorMethodTypesIn(tree, descriptor) {
 }
 
 /** Every use declaration a Rust file makes, before any name resolution. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectUseDeclarations(tree, relativePath) {
   const uses = [];
   walkNamed(tree.rootNode, (node) => {
@@ -736,7 +736,7 @@ export function collectUseDeclarations(tree, relativePath) {
  * resolution is out of reach: the text says the trait's name, and that much is
  * a fact about the source.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectImplementations(tree, relativePath) {
   const implementations = [];
   walkNamed(tree.rootNode, (node) => {
@@ -754,7 +754,7 @@ export function collectImplementations(tree, relativePath) {
 }
 
 /** Every type name that appears in the error position of a Rust `Result`. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectResultErrorTypes(tree) {
   const names = new Set();
   walkNamed(tree.rootNode, (node) => {

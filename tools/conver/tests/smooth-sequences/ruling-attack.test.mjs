@@ -11,7 +11,7 @@ const OBLIGATION = Object.freeze({
   required: true,
 });
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function ruling(overrides = {}) {
   return {
     subject: 'S2',
@@ -22,7 +22,7 @@ function ruling(overrides = {}) {
   };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function attack(overrides = {}) {
   return {
     obligationId: 'READ:ADVERSARIAL:S2',
@@ -35,8 +35,8 @@ function attack(overrides = {}) {
   };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-303 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-303 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-303 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-303 --for-spec --no-implementation-order`.
 function resolve({ rulings = [ruling()], attacks = [], artifactDigest = 'art-1' } = {}) {
   return resolveReadingsObligations([OBLIGATION], {
     readings: { adversarial: rulings, attack: attacks },
@@ -45,7 +45,7 @@ function resolve({ rulings = [ruling()], attacks = [], artifactDigest = 'art-1' 
 }
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a ruling without an attack does not close the adversarial obligation', () => {
   const result = resolve();
   assert.equal(result.state, 'open');
@@ -53,7 +53,7 @@ test('a ruling without an attack does not close the adversarial obligation', () 
 });
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a held ruling attack closes it, while broken and unresolved attacks do not', () => {
   assert.equal(resolve({ attacks: [attack()] }).state, 'closed');
   const broken = resolve({ attacks: [attack({ outcome: 'broken', counterexample: { source: 'spec', line: 2, quote: 'counter' } })] });
@@ -65,7 +65,7 @@ test('a held ruling attack closes it, while broken and unresolved attacks do not
 });
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 // @verifies C102
 test('C102 a held ruling attack with a degenerate quote is invalid', () => {
   const result = resolve({

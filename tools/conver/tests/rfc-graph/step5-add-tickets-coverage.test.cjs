@@ -20,7 +20,7 @@ const { validateTickets } = require('../../.claude/scripts/lib/validate-tickets.
 // ============================================================
 
 const SAMPLE_NODE_IDS = ['N0001', 'N0002', 'N0003'];
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 
 function createTestTicketsData(overrides) {
   const data = {
@@ -106,7 +106,7 @@ describe('verifyNodeCoverage', () => {
     assert.equal(result.ticketsWithoutNodeIds, 1);
   });
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
   it('should report nodeIds outside the phase as extraNodeIds', () => {
     const phase = {
       nodeIds: ['N0001'],
@@ -124,7 +124,7 @@ describe('verifyNodeCoverage', () => {
 // verifyTicketUnits (PX-306 @verifies C002)
 // ============================================================
 
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-315 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-315 --for-spec --no-implementation-order`.
 describe('verifyTicketUnits', () => {
   it('reports a graph unit no ticket carries', () => {
     const phase = { nodeIds: ['N0001'], tickets: [{ nodeIds: ['N0001'] }] };

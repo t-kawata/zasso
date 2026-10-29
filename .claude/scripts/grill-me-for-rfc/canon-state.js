@@ -29,7 +29,7 @@
  */
 import fs from "fs";
 import path from "path";
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const EXIT_SUCCESS = 0;
@@ -60,7 +60,7 @@ const rfcDir = path.resolve(rfcDirArg);
  * @param {string} directory — absolute path of the package
  * @returns {string[]} the artifact filenames found, empty when the canon stands alone
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function derivedArtifactsIn(directory) {
   if (!fs.existsSync(directory)) return [];
   return fs

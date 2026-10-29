@@ -11,7 +11,7 @@ import {
   rfcBody,
 } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 
 function indexOf(input) {
   const workspace = materializeSmoothWorkspace(input);

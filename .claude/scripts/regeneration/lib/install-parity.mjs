@@ -14,7 +14,7 @@ const SCRIPTS_RELATIVE = '.claude/scripts';
 const SKIPPED_NAMES = new Set(['node_modules', '.git', '.DS_Store']);
 
 /** Every file under one directory, as paths relative to it. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function walkFiles(root, directory = root, acc = []) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     if (SKIPPED_NAMES.has(entry.name)) continue;
@@ -29,7 +29,7 @@ function walkFiles(root, directory = root, acc = []) {
 }
 
 /** The sha256 of one file. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function digestOf(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
@@ -63,7 +63,7 @@ export function assertInstallParity({ sourceRoot, targetRoot, scriptsRelative = 
 }
 
 /** Parse `--source=`, `--target=` and `--scripts=`. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function parse(argv) {
   const options = {};
   for (const argument of argv) {

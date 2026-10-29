@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { checkUnitCoverage } from '../../.claude/scripts/sequences-slice/lib/unit-provenance.mjs';
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 test('C001 a view unit declared as a residual is accounted for at the rfc layer', () => {
   const findings = checkUnitCoverage({
     viewUnitIds: ['op-A', 'op-@object:Thing'],
@@ -19,7 +19,7 @@ test('C001 a view unit declared as a residual is accounted for at the rfc layer'
   assert.deepEqual(findings, []);
 });
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 test('C001 an undeclared view unit is still reported when a residual list is supplied', () => {
   const findings = checkUnitCoverage({
     viewUnitIds: ['op-A', 'op-Ghost'],

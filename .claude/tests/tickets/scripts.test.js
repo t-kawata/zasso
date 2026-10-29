@@ -24,18 +24,18 @@ function assertEq(actual, expected, message) {
   else { failed++; process.stdout.write(`  ✗ ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}\n`); }
 }
 
-// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-106, PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function assertOk(value, message) {
-// [::TICKET::] PX-112 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-112 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-112 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-112 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-111 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-111 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-110 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-110 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-109 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-109 --for-spec --no-implementation-order`.
   if (value) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
   else { failed++; process.stdout.write(`  ✗ ${message} — got ${JSON.stringify(value)}\n`); }
 }
 
-// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-106, PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 function runScript(scriptName, args, stdin) {
   const scriptPath = path.join(SCRIPTS_DIR, scriptName);
   const cmd = `node ${scriptPath} ${args || ''}`;
@@ -510,7 +510,7 @@ try {
     const appended = addModule.appendTicket(mockData, mockTicket);
     // PX-119: appendTicket appends to the max real phase (creates phase 0 when only the PX
     // phase exists) — locate the ticket by title instead of assuming the PX phase.
-    // [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-119 --for-spec --no-implementation-order`.
     const addedTicket = appended.phases.flatMap(p => p.tickets).find(t => t.title === 'Test Ticket');
     assertOk(addedTicket.background !== undefined, 'appendTicket preserves background');
     // The sentinel guard should NOT prepend a second sentinel
@@ -914,7 +914,7 @@ try {
   }
 
   // ===============================================
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   // PX-142: script self-defense regression tests
   // ===============================================
 

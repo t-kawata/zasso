@@ -5,8 +5,8 @@ import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { gaiaShapedWorkspace } from './helpers/gaia-shaped-fixture.mjs';
 
 /** The findings of one check id in a result. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function countOf(result, checkId) {
   return result.report.findings.filter((finding) => finding.checkId === checkId).length;
 }

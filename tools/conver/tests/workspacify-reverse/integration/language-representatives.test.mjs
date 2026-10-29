@@ -53,7 +53,7 @@ const PUBLISHED_DOCUMENTS = Object.freeze([
 
 const declaration = loadLanguageRepresentatives({ projectRoot: PROJECT_ROOT });
 
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(tmpdir(), 'p24-languages-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
@@ -184,7 +184,7 @@ test('C001 IT — the declaration is the one place the population is named, and 
 });
 
 /** Every file beneath a root, as paths relative to that root. */
-// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 function listFilesUnder(root) {
   const collected = {};
   const walk = (directory, prefix) => {

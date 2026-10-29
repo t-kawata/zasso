@@ -126,7 +126,7 @@ register('data:text/javascript,' + encodeURIComponent(loaderSource));
  * against the same walk, and "the plan is produced without starting anything" is
  * a claim about the module rather than about one of its functions.
  */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function runDetectionWithThrowingStubs(subjectRoot) {
   const loader = createSyntheticTree({ 'throwing-stubs.mjs': THROWING_STUB_LOADER_SOURCE }, { prefix: 'wsp-p23-5-loader-' });
   const probe = createSyntheticTree(
@@ -495,7 +495,7 @@ test('UT-C003-inv detection leaves the subject byte-identical', () => {
  * The generation is deterministic — a property that held only on a random draw
  * would not be reproducible, and a Red that cannot be reproduced is not evidence.
  */
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
 function generatedArtefactSets(count) {
   const sets = [];
   for (let index = 0; index < count; index += 1) {

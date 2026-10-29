@@ -45,7 +45,7 @@ const PX_PREFIX = "PX-";
  * @param {string} content — Full marker line (indentation allowed)
  * @returns {{key: string, reason: string, plan: string}|null}
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function parseMarker(content) {
   const m = content.match(/\[::STUB::\]\s+(.+?)\s*:\s*(.*?)\s*--\s*(.*)$/);
   if (!m) return null;
@@ -57,7 +57,7 @@ function parseMarker(content) {
  * @param {string} content — Full marker line
  * @returns {string|null} — Unit id, e.g. "U1"
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function extractUnitId(content) {
   const m = (content || "").match(/\[::UNIT::([^\]]+)::\]/);
   return m ? m[1].trim() : null;
@@ -73,7 +73,7 @@ function extractUnitId(content) {
  * @param {string|null} [unitId] — Unit membership tag (optional)
  * @returns {string}
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function buildMarkerLine(current, key, reason, plan, unitId) {
   const leading = (current.match(/^\s*/) || [""])[0];
   const unitTag = unitId ? " [::UNIT::" + unitId + "::]" : "";
@@ -87,7 +87,7 @@ function buildMarkerLine(current, key, reason, plan, unitId) {
  * @param {object} ticketsData
  * @returns {{ok: boolean, error?: string}}
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function validateResolveKey(key, ticketsData) {
   if (!key || key === "MUST RESOLVE") {
     return { ok: false, error: "MUST RESOLVE is not a valid resolve target; specify an existing ticket key" };
@@ -110,7 +110,7 @@ function validateResolveKey(key, ticketsData) {
  * @param {string} markerText
  * @returns {{ok: boolean, error?: string}}
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function validateResolvePlan(markerText) {
   const excuseHit = EXCUSE_PATTERNS.some((re) => re.test(markerText));
   const workItem = WORK_ITEM_VERB_RE.test(markerText);
@@ -131,7 +131,7 @@ function validateResolvePlan(markerText) {
  * @param {string} params.ticketsPath — Path to Tickets.json
  * @returns {{success: boolean, error?: string, file?: string, line?: number, content?: string}}
  */
-// [::TICKET::] PX-130, PX-131, PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131|PX-132|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131, PX-132, PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131|PX-132|PX-135) --for-spec --no-implementation-order`.
 function updateStub({ file, line, resolveByTicket, stubReason, resolvePlan, unitId, ticketsPath, dryRun = false }) {
   if (!file || !Number.isInteger(line) || line < 1) {
     return { success: false, error: "--file and a positive integer --line are required" };
@@ -214,7 +214,7 @@ function updateStub({ file, line, resolveByTicket, stubReason, resolvePlan, unit
  * @param {Array} markers — [{file, line, content}]
  * @returns {{kept: Array, removed: Array}}
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function mergeTrueDuplicates(markers) {
   const byFile = {};
   for (const m of markers) {
@@ -250,7 +250,7 @@ function mergeTrueDuplicates(markers) {
  * @param {string} covered — Comma-separated covered locations
  * @returns {string}
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function annotateCoveredLines(content, covered) {
   const m = content.match(/^(.*?)\s*--\s*(.*)$/);
   if (m) return m[1] + " (covers " + covered + ") -- " + m[2];
@@ -262,7 +262,7 @@ function annotateCoveredLines(content, covered) {
  * @param {object} unit — {markers:[{file,line,content,resolveByTicket?}], resolveByTicket?}
  * @returns {object} — unit with every marker carrying the same resolveByTicket
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function normalizeUnitKey(unit) {
   const first = unit.markers[0];
   const key = unit.resolveByTicket || (first && (first.resolveByTicket || (parseMarker(first.content) || {}).key)) || null;
@@ -276,7 +276,7 @@ function normalizeUnitKey(unit) {
  * @param {Array} units — [{markers:[{file,line,content}]}]
  * @returns {Array} — [{sourceKey, stubs:[{file,line,content}]}]
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function emitHandoffManifest(units) {
   return units.map((unit) => {
     const normalized = normalizeUnitKey(unit);
@@ -292,7 +292,7 @@ function emitHandoffManifest(units) {
 // ---------------------------------------------------------------------------
 
 /** Parse CLI arguments. Tickets.json is always ./Tickets.json — --tickets-path is rejected. @returns {{file: string|null, line: number|null, resolveByTicket: string|null, stubReason: string|null, resolvePlan: string|null, unitId: string|null, error?: string}} */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function parseCliArgs(argv) {
   const opts = { file: null, line: null, resolveByTicket: null, stubReason: null, resolvePlan: null, unitId: null };
   for (const arg of argv) {
@@ -308,7 +308,7 @@ function parseCliArgs(argv) {
 }
 
 /** @returns {string} — stdin text (empty when nothing piped) */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function readStdin() {
   try {
     return fs.readFileSync(0, "utf8");
@@ -318,7 +318,7 @@ function readStdin() {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
 function main() {
   const args = readStdin()
     ? parseCliArgs(readStdin().trim().split(/\s+/))

@@ -3,7 +3,7 @@
  * migrate-v3 — add the typed step contract and the v3 operation fields to a v2 artifact.
  *
  * Usage:
- *   node .claude/scripts/smooth-sequences/migrate-v3.mjs [workspace-root] [--dry-run]
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/migrate-v3.mjs" [workspace-root] [--dry-run]
  *
  * The argument, or the current directory when omitted, is the workspace root itself; the
  * migration never walks up to a parent. The migration is deterministic and idempotent:
@@ -22,14 +22,14 @@ const EXIT_OK = 0;
 const EXIT_MISUSE = 2;
 
 /** The digest of the artifact bytes, before the migration. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function digestOf(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
 /** One line describing what the migration will add. */
-// [::TICKET::] PX-274, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-274|PX-286) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-274, PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-274|PX-286) --for-spec --no-implementation-order`.
 function summaryOf(artifact, migrated) {
   const authoredSteps = (migrated.steps ?? []).filter((step) => step.contract?.authored !== undefined).length;
   return [
@@ -45,7 +45,7 @@ function summaryOf(artifact, migrated) {
 }
 
 /** Run the migration. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function main(argv) {
   const dryRun = argv.includes('--dry-run');
   const annotationsArgument = argv.find((argument) => argument.startsWith('--annotations='));

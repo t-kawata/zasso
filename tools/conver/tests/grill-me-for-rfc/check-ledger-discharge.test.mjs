@@ -17,7 +17,7 @@ const DISCHARGE_GATE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rf
 const LEDGER_HEADER = '| Unit | Kind | Owner | RFC location | Ground |';
 
 /** A ledger appendix as the parser requires it: canonical, headed, with resolving rows. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function ledgerAppendix(rows) {
   return [
     '# Package RFC',
@@ -34,7 +34,7 @@ function ledgerAppendix(rows) {
 }
 
 /** A workspace root holding one package whose view distributes the given units. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function workspaceWith(units, { rfc = null, packageName = 'pkg-a' } = {}) {
   const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px261-discharge-'));
   const packageDir = path.join(root, 'crates', packageName);
@@ -51,7 +51,7 @@ function workspaceWith(units, { rfc = null, packageName = 'pkg-a' } = {}) {
   return root;
 }
 
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function runDischarge(root) {
   const result = spawnSync(process.execPath, [DISCHARGE_GATE, root], { encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
@@ -165,7 +165,7 @@ test('C006 the ledger is parsed by the slice own reader and not by a second impl
 // PX-263 — a ledger location resolves inside the document it cites
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function rfcWithSection(label, cited = label) {
   // The ledger is the appendix and comes last: a heading between its title and its header row
   // would leave the parser reading a body that carries two headings.

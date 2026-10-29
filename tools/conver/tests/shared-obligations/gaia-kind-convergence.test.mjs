@@ -1,4 +1,4 @@
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // C001 + C004 over the gaia shape: 84 boundaries, 10 connection kinds, and the
 // 19 boundaries of the three kinds that had no scope row.
 import test from 'node:test';
@@ -18,13 +18,13 @@ const SCOPED_KINDS = CONNECTION_KINDS.filter((kind) => !MINIMAL_KINDS.includes(k
  * The gaia distribution: 19 boundaries carry the three kinds that had no scope
  * row, and the remaining 65 cycle the seven kinds that already had one.
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function kindAt(index) {
   if (index < 19) return MINIMAL_KINDS[index % MINIMAL_KINDS.length];
   return SCOPED_KINDS[(index - 19) % SCOPED_KINDS.length];
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function contractClausesForScope(scope) {
   const clauses = {};
   for (const clause of scope) {
@@ -41,7 +41,7 @@ function contractClausesForScope(scope) {
   return clauses;
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function gaiaShape() {
   const boundaries = Array.from({ length: BOUNDARY_COUNT }, (_, index) => {
     const kind = kindAt(index);
@@ -62,7 +62,7 @@ function gaiaShape() {
   return { boundaries, contracts };
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function obligationsFor(shape) {
   return deriveObligations({
     census: { operations: [], entries: [], sections: [] },

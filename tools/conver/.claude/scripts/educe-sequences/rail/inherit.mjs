@@ -38,7 +38,7 @@ export const INVALIDATION_PRIMITIVES = Object.freeze([
 ]);
 
 /** The files a run inherits, in the order the phases produce them. */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 export function inheritedFileNames() {
   // The rail-exit store is inherited like anything else a run produced: recording a new
   // ad-hoc check changes what the next generation starts from, so it must change the
@@ -53,7 +53,7 @@ export function inheritedFileNames() {
  * phase table does not name: the modules a scaffold adds, and the readings a later
  * generation moved aside. Both are inherited, so both are part of the digest.
  */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 function filesInDirectory(directory, name) {
   const held = join(directory, name);
   return existsSync(held)
@@ -71,7 +71,7 @@ function filesInDirectory(directory, name) {
  * read nothing yet inherits nothing. The list is sorted so the digest is a function of
  * the set rather than of the directory's iteration order.
  */
-// [::TICKET::] PX-242, PX-243, PX-244, PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-254) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-254) --for-spec --no-implementation-order`.
 function inheritedFilesIn(directory) {
   const present = inheritedFileNames().filter((name) => existsSync(join(directory, name)));
   return [
@@ -95,7 +95,7 @@ export function assetDigestOf(directory) {
 }
 
 /** The lines a reading presupposes, wherever it records them. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function presupposedLines(reading) {
   const lines = [];
   if (Number.isInteger(reading?.presupposition)) lines.push(reading.presupposition);
@@ -117,7 +117,7 @@ function presupposedLines(reading) {
  * it was read from, is invalidated for the same reason a pin is: the citation has to
  * still resolve to what it claimed.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function whyReadingDoesNotCarry(reading, specLines) {
   const lines = presupposedLines(reading);
   if (lines.length === 0) return 'the reading cites no line, so nothing carries it across the edit';
@@ -131,7 +131,7 @@ function whyReadingDoesNotCarry(reading, specLines) {
 }
 
 /** One invalidation, in the one shape every entry is reported in. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function invalidated(asset, name, primitive, why) {
   return { asset, name, primitive, why };
 }
@@ -147,7 +147,7 @@ function invalidated(asset, name, primitive, why) {
  * @returns {{kept: {declaration: object, readings: object}, invalidated: Array<{asset: string, name: string, primitive: string, why: string}>}}
  */
 export function survivingAssets({ declaration, readings = {}, specLines }) {
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
   const invalidations = [];
   // The level the declaration partitions at, not the default: a section that survives an
   // edit is one the same rule still delimits, and taking the partition at another level

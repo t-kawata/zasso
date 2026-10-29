@@ -41,7 +41,7 @@ const MANIFEST_LINE_END_FIELD = 'line_end';
  * @param {Array<{ id?: string, line_start?: number, line_end?: number }>} manifestSegments
  * @returns {Array<{ id: string, lineStart: number, lineEnd: number }>}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function normalizeStructureSegments(manifestSegments) {
   return manifestSegments.map((segment) => {
     if (typeof segment?.id !== 'string' || segment.id.length === 0) {
@@ -67,7 +67,7 @@ export function normalizeStructureSegments(manifestSegments) {
  * @param {string} rfcSeedText
  * @returns {string[]|null}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function readSourceSegments(rfcSeedText) {
   if (typeof rfcSeedText !== 'string') return null;
 
@@ -98,7 +98,7 @@ export function readSourceSegments(rfcSeedText) {
  * @param {Map<string, { id: string, lineStart: number, lineEnd: number }>} segmentsById
  * @returns {Array<{ id: string, lineStart: number, lineEnd: number }>}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function resolveSegmentLineRanges(segmentIds, segmentsById) {
   return segmentIds
     .filter((id) => segmentsById.has(id))
@@ -115,7 +115,7 @@ export function resolveSegmentLineRanges(segmentIds, segmentsById) {
  * @param {Map<string, unknown>} segmentsById
  * @returns {string[]}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function findUnknownSegmentIds(segmentIds, segmentsById) {
   return segmentIds.filter((id) => !segmentsById.has(id));
 }
@@ -143,7 +143,7 @@ export function findUnknownSegmentIds(segmentIds, segmentsById) {
  *   packagesWithNoSegments: Array<{ packagePath: string, segmentIds: string[] }>,
  * }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function measureLineRangeJoin({ packageSegments, structureSegments, specLines }) {
   const segmentsById = new Map(structureSegments.map((segment) => [segment.id, segment]));
   const claimantsByLine = new Map();
@@ -184,7 +184,7 @@ export function measureLineRangeJoin({ packageSegments, structureSegments, specL
  * @param {string} packageRoot
  * @returns {Array<{ packagePath: string, segmentIds: string[] }>}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function readPackageSegments(packageRoot) {
   if (!fs.existsSync(packageRoot)) return [];
 

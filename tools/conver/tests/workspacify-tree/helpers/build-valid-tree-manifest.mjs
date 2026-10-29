@@ -1,4 +1,4 @@
-// [::TICKET::] PX-192, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-192|PX-202) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-192, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-192|PX-202) --for-spec --no-implementation-order`.
 // PX-192 @verifies C001 C003 C004 C005
 // Fixtures for the stage-1 hand-off proofs: a manifest that carries the DAG
 // proof, the frozen contract scopes, a total segment partition, segment-addressed
@@ -47,7 +47,7 @@ export function segmentIdForOffset(segments, byteOffset) {
 }
 
 /** The two-package protocol workspace used by the hand-off tests. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export function buildValidTreeManifest(overrides = {}) {
   const { segments, sourceBytes, sourceHash } = segmentSpecification();
   const packages = [

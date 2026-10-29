@@ -28,7 +28,7 @@ import { appendAddedPoint, authorExplanation } from '../helpers/fill-frame.mjs';
 const HUMAN_NOTE = '人間の判断: ここは現場の感覚では拒否のほうが自然だと考える。';
 
 /** Put a person's own note under one placeholder, the way an operator would. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function withHumanNote(documentText, note = HUMAN_NOTE) {
   const lines = [];
   let written = false;
@@ -44,13 +44,13 @@ function withHumanNote(documentText, note = HUMAN_NOTE) {
 }
 
 /** An authored EXPLAIN: a round of questions, a note written under the first placeholder. */
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
 function authoredExplanation() {
   return withHumanNote(authorExplanation({ facts: syntheticFacts(), boundIds: syntheticOpenIds() }));
 }
 
 /** The same facts, with one INFO section moved, so only the sections resting on it reopen. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function factsWithMovedPosition() {
   return syntheticFacts({
     infoSections: syntheticInfoSections({ I2: '## 2. 全体の中での位置\n\n全体は 3 パッケージで構成されています。\n' }),
@@ -138,7 +138,7 @@ test('C008 invariant: no previous document reopens everything and raises no faul
   assert.deepEqual(frame.faults, [], 'a first run is not a damaged document');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 normal: an info run keeps the human section, carrying the added-point blocks with it', () => {
   const facts = syntheticFacts();
   const previous = appendAddedPoint(authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) }), {

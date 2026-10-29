@@ -1,4 +1,4 @@
-// [::TICKET::] PX-175 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-175 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-175 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-175 --for-spec --no-implementation-order`.
 /**
  * ATX heading parsing and outline tree construction (§7.1).
  *
@@ -40,7 +40,7 @@ export function parseAtxHeading(line) {
  *   byte range/parent_id/children
  */
 export function buildHeadingTree(lines, fenceStates, { sourceText } = {}) {
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
   const states = fenceStates ?? scanFenceStates(lines);
   const offsets = sourceText !== undefined ? lineStartOffsets(sourceText) : null;
   const textLength = sourceText !== undefined ? sourceText.length : null;

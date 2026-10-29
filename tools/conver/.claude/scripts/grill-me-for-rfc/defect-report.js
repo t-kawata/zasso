@@ -50,7 +50,7 @@ const USAGE = 'usage: defect-report.js <root> [--gate] [--json]';
  * @param {string} root
  * @returns {string[]} absolute paths
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function collectRfcPaths(root) {
   const found = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -68,7 +68,7 @@ function collectRfcPaths(root) {
  * @param {string[]} row — the six cells
  * @returns {string|null}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function findRowFailure(row) {
   const [defect, defectClass, target, disposition, evidence, ground] = row;
 
@@ -96,7 +96,7 @@ function findRowFailure(row) {
  * @param {string} rfcPath
  * @returns {{ rfcPath: string, hasLedger: boolean, rows: string[][], failure: string|null }}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function readPackageLedger(rfcPath) {
   const rfc = readFileSync(rfcPath, 'utf8');
   const ledger = findSectionByTitleSuffix(rfc, LEDGER_TITLE_SUFFIX);

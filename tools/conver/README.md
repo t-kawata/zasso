@@ -460,7 +460,7 @@ RFC グラフを入力に「使い方 README」をセクション単位で検証
 ```bash
 node dist/conver.js -k <DeepSeek_API_Key> -s <Slack_Webhook_URL> [options]
 # .claude/scripts/conver/ に配置されたバンドルからも実行可能
-node .claude/scripts/conver/conver.js -k <api_key> -s <slack_url>
+node "$(git rev-parse --show-toplevel)/.claude/scripts/conver/conver.js" -k <api_key> -s <slack_url>
 ```
 
 ### CLI オプション
@@ -1050,7 +1050,7 @@ install.js -t /path/to/target/.claude
 - **既存実装がある（パターン1・2・3）**: `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` の順に実行し、`ORIGIN-LONG-SPEC` から manifest を作り、全パッケージディレクトリへ `RFC-SEED.md` を置きます
 - **空＋仕様書（パターン4）**: `/workspacify-tree <仕様書パス>` → `/workspacify-allocate <TREEマニフェストパス>` の2つだけです（逆回転は不要）
 
-分割が確定したら、**ワークスペースルート**で `node .claude/scripts/workspacify-order/run.mjs` を実行し、表示された実装順が安全であることを確認します。仕様書がある場合は、続けて `/educe-sequences <仕様書パス>` で全シーケンス・全オペレーションの台帳を作ります。
+分割が確定したら、**ワークスペースルート**で `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、表示された実装順が安全であることを確認します。仕様書がある場合は、続けて `/educe-sequences <仕様書パス>` で全シーケンス・全オペレーションの台帳を作ります。
 
 以後の手順2は**パッケージディレクトリごと**に、手順3は**ワークスペースルート**で、手順4〜7は**パッケージディレクトリごと**に実行します（ルートも path `.` の1パッケージです）。
 
@@ -1094,12 +1094,12 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 > 適合ループを回す場合、手順1の「モジュール単位に切る」は `/workspacify-tree` → `/workspacify-allocate` が機械的に行い、訓練は**各ディレクトリに `RFC-SEED.md` が置かれた状態**から始まります（手順2以降は、指定された実行ディレクトリで実行します）。
 
 1. ターゲットの開発をモジュール単位に設計として切る（必ず安全な I/O 境界で切り、ディレクトリが独立する単位）
-2. ワークスペースルートで `node .claude/scripts/workspacify-order/run.mjs` を実行し、実装順を確認する。仕様書があるなら `/educe-sequences <仕様書パス>` で全シーケンス・全オペレーションを台帳化する
+2. ワークスペースルートで `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、実装順を確認する。仕様書があるなら `/educe-sequences <仕様書パス>` で全シーケンス・全オペレーションを台帳化する
 3. /explain-seed で RFC-SEED.md を説明させ（事実と説明の2文書）、続いて /grill-me-for-rfc でモジュール単位の RFC を生成 -> RFC を必ず全部読め。
 4. 全パッケージの grill が終わったら、ワークスペースルートで /smooth-sequences を実行し、`pass` になるまで修復する
 5. /graphify-rfc -> /boundify-graph -> /split-to-tickets（上流パイプライン）を手動で実行し、
 6. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
-7. `node .claude/scripts/tickets/list-phases-and-tickets.js` でチケット一覧を目視せよ。
+7. `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/list-phases-and-tickets.js"` でチケット一覧を目視せよ。
 8. 一つ一つのチケットに対して、/make-ticket -> /plan-ticket -> /start-ticket -> /review-ticket（実装パイプライン）を手動実行。各コマンドの冒頭で前提ゲートが走ることを確認せよ
 9. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
 10. 3チケットくらいの単位で /resolve-ticket を手動実行
@@ -1109,7 +1109,7 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 
 ->>> これで１周のラウンドが完了。  
 ->>> /find-omissions によって Tickets.json にチケットが追加されている場合は、  
-->>> `node .claude/scripts/tickets/list-phases-and-tickets.js` で確認できる。  
+->>> `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/list-phases-and-tickets.js"` で確認できる。  
 ->>> 未済チケットがあるならば、「２周目が必要かもしれない」という「示唆」。  
 ->>> あくまで「示唆」である。絶対に「AIに判断させよう」とするな！  
 ->>> 「２周目が必要かどうか」は、人間である自分が完全に判断せよ。  

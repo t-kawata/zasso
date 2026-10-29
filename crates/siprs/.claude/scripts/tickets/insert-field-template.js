@@ -97,7 +97,7 @@ const TEMPLATES = {
  * @param {string} str - The string to search
  * @returns {string[]} Array of marker names
  */
-// [::TICKET::] PX-73, PX-76 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-73|PX-76) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-73, PX-76 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-73|PX-76) --for-spec --no-implementation-order`.
 function extractStubNames(str) {
   // Convert objects to JSON string so stub markers in property values are searchable
   if (typeof str === "object" && str !== null) {
@@ -120,7 +120,7 @@ function extractStubNames(str) {
  * @param {string|string[]} templateDef - Template definition
  * @returns {boolean}
  */
-// [::TICKET::] PX-76 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-76 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-76 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-76 --for-spec --no-implementation-order`.
 function hasAllTemplateStubs(fieldValue, templateDef) {
   const fieldStr = typeof fieldValue === "string"
     ? fieldValue
@@ -154,7 +154,7 @@ function hasAllTemplateStubs(fieldValue, templateDef) {
  * All stub markers present → Skip (true, deduplication prevention)
  * Missing stubs exist → Merge target (false)
  */
-// [::TICKET::] PX-76 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-76 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-76 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-76 --for-spec --no-implementation-order`.
 function shouldSkipField(value, templateDef) {
   // Field does not exist → insert target
   if (value === undefined || value === null) return false;
@@ -262,7 +262,7 @@ function writeFields(ticketsPath, ticketKey, updates) {
   });
 }
 
-// [::TICKET::] PX-76 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-76 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-76 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-76 --for-spec --no-implementation-order`.
 function main() {
   const ticketsPath = process.argv[2];
   const ticketKey = process.argv[3];

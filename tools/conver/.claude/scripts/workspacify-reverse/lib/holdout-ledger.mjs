@@ -1,4 +1,4 @@
-// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-2 --for-spec --no-implementation-order`.
 /**
  * The holdout ledger: which projects generality is measured against.
  *
@@ -42,7 +42,7 @@ export const PROTOCOL_VERSION = 1;
  * the reverse tree, and both later stages need this name; declaring it in the tree
  * is what keeps that edge pointing the permitted way.
  */
-// [::TICKET::] PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-213, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
 import {
   RESERVED_ALLOCATE_SUBDIRECTORY,
   RESERVED_DECISIONS_FILE_NAME,
@@ -55,7 +55,7 @@ import {
   reservedReverseDirectory,
   reservedTreeDecisionsPath,
 } from '../../workspacify-tree/lib/reserved-root.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 export {
@@ -83,7 +83,7 @@ export {
  * a dotted leaf name would cast, and it is why `ANALYSIS-SCOPE.json` records the
  * excluded names: a blind spot that is written down is not a silent one.
  */
-// [::TICKET::] PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
 export const NEVER_WALKED_DIRECTORY_NAMES = Object.freeze([
   'target',
   '.git',
@@ -223,7 +223,7 @@ export const LARGE_TREE_FILE_COUNT = 20000;
  * about what a test file is — the drift that made the capability matrix's Rust
  * row false.
  */
-// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-4 --for-spec --no-implementation-order`.
 export const TEST_DIRECTORY_NAMES = Object.freeze(['test', 'tests', '__tests__']);
 export const TEST_FILE_PATTERN = /(^|[._-])(test|spec)[._-]|_test\.|\.test\.|\.spec\./;
 
@@ -254,7 +254,7 @@ function sha256File(filePath) {
  * that root. Excluded directories are not descended into.
  */
 export function listTreeFiles(root, { excludedDirectoryNames = NEVER_WALKED_DIRECTORY_NAMES, onUnreadable = null } = {}) {
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
   const excluded = new Set(excludedDirectoryNames);
   const files = [];
   const walk = (dir) => {
@@ -307,7 +307,7 @@ export function listTreeFiles(root, { excludedDirectoryNames = NEVER_WALKED_DIRE
  * distinguishable, and the result is one value that can be compared cheaply.
  */
 export function digestTree(root, { excludedDirectoryNames = NEVER_WALKED_DIRECTORY_NAMES, tolerateUnreadable = false } = {}) {
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
   const unreadable = [];
   const files = listTreeFiles(root, {
     excludedDirectoryNames,
@@ -371,7 +371,7 @@ function hasFileNamed(root, names) {
  * for every candidate at once. ABOUT-REVERSE 3.6 asks whether *this* project has
  * history, which is only answerable when the project is its own repository.
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function readHistory(root) {
   const owner = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' });
   if (owner.status !== 0) {

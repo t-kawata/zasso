@@ -41,8 +41,8 @@ export function digestStepContract(step) {
 }
 
 /** The prose of one fact array, or an empty string. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function factText(facts) {
   return (Array.isArray(facts) ? facts : [])
     .map((fact) => (typeof fact === 'string' ? fact : (fact?.text ?? fact?.factId ?? '')))
@@ -51,7 +51,7 @@ function factText(facts) {
 }
 
 /** The operation ids this package declares locally, from ownership or an obligation. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function localOperationUnitIds(view) {
   const ids = new Set();
   for (const unit of Array.isArray(view?.ownedOperationUnits) ? view.ownedOperationUnits : []) {
@@ -81,7 +81,7 @@ export function localOperationUnitIds(view) {
  * @param {object} view
  * @returns {Array<{ unit: object, step: object }>}
  */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function localStepRecords(view) {
   const local = localOperationUnitIds(view);
   const records = [];
@@ -100,13 +100,13 @@ function localStepRecords(view) {
 }
 
 /** The edge key the boundary projection also uses. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function edgeKeyOf(edge) {
   return `${edge.from}→${edge.to}(${edge.type})`;
 }
 
 /** The edge a row may bind to: an incident edge, preferring one already carrying a note. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function edgeForRow(graph, row) {
   const incident = (graph?.edges ?? []).filter((edge) =>
     (row.nodeIds ?? []).includes(edge.from) || (row.nodeIds ?? []).includes(edge.to));
@@ -114,14 +114,14 @@ export function edgeForRow(graph, row) {
 }
 
 /** Whether a note already carries a step or step-sidecar part. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function isStepNote(note) {
   return note.split(NOTE_PART_SEPARATOR).some((part) =>
     part.trim().startsWith('step:') || part.trim().startsWith(`${STEP_SIDECAR_NOTE_PREFIX};`));
 }
 
 /** Group row indexes by the edge they bind to. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function assignRowsToEdges(graph, rows) {
   const groups = new Map();
   for (const [index, row] of (rows ?? []).entries()) {
@@ -136,7 +136,7 @@ export function assignRowsToEdges(graph, rows) {
 }
 
 /** The digest that binds the rows of one edge. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function digestStepRows(rows) {
   return createHash('sha256')
     .update(JSON.stringify((rows ?? [])
@@ -146,26 +146,26 @@ export function digestStepRows(rows) {
 }
 
 /** The bounded pointer note an edge carries for its rows. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function stepSidecarNote(rows) {
   return `${STEP_SIDECAR_NOTE_PREFIX};digest:${digestStepRows(rows)}`;
 }
 
 /** The digest a note carries, or null when the note is not a step pointer. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function parseStepSidecarNote(note) {
   const match = String(note ?? '').match(/step-sidecar;digest:([0-9a-f]{64})/);
   return match === null ? null : { digest: match[1] };
 }
 
 /** The edge a sidecar edge key names, or undefined. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function edgeByKey(graph, key) {
   return (graph?.edges ?? []).find((edge) => edgeKeyOf(edge) === key);
 }
 
 /** The note each edge must carry for the sidecar rows it binds. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 export function stepNotesByEdge(graph, sidecar) {
   const rows = Array.isArray(sidecar?.steps) ? sidecar.steps : [];
   const notes = new Map();
@@ -193,7 +193,7 @@ export function stepNotesByEdge(graph, sidecar) {
  * @param {number} index
  * @returns {object}
  */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-318 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-318 --for-spec --no-implementation-order`.
 export function stepContractEntry(row, index) {
   if (!Number.isInteger(index) || index < 0 || index >= STEP_CONTRACT_ID_COUNT) {
     throw new Error(`STEP_CONTRACT_ID_EXHAUSTED: sidecar row ${index} has no C5xx id`);
@@ -219,7 +219,7 @@ export function stepContractEntry(row, index) {
 }
 
 /** The nodes that carry the operation a step names. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 function operationNodes(graph, operationId) {
   return (graph?.nodes ?? [])
     .filter((node) => (node.unitIds ?? []).includes(`op-${operationId}`))
@@ -232,7 +232,7 @@ function operationNodes(graph, operationId) {
  * @param {{ view: object, graph: object }} input
  * @returns {{ ok: boolean, sidecar: object, findings: Array<object> }}
  */
-// [::TICKET::] PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
 export function projectStepContracts({ view, graph } = {}) {
   const findings = [];
   const steps = [];
@@ -282,13 +282,13 @@ export function projectStepContracts({ view, graph } = {}) {
 }
 
 /** Whether an edge is incident to the row's operation node. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function edgeIsIncident(edge, nodeIds) {
   return (nodeIds ?? []).includes(edge.from) || (nodeIds ?? []).includes(edge.to);
 }
 
 /** Whether one row is bound by an inline note or a pointer note on an incident edge. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function rowIsBound({ graph, sidecar, row, index, rows }) {
   const incident = (graph?.edges ?? []).filter((edge) => edgeIsIncident(edge, row.nodeIds));
   for (const edge of incident) {
@@ -309,7 +309,7 @@ function rowIsBound({ graph, sidecar, row, index, rows }) {
 }
 
 /** The findings the sidecar edges map must satisfy. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function verifyEdgeMap(sidecar, rows) {
   const findings = [];
   if (sidecar?.edges === undefined || sidecar.edges === null || typeof sidecar.edges !== 'object') return findings;
@@ -343,7 +343,7 @@ function verifyEdgeMap(sidecar, rows) {
  * @param {{ view: object, graph: object, sidecar: object|null }} input
  * @returns {Array<{code: string, subject: string|null, message: string}>}
  */
-// [::TICKET::] PX-318, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318|PX-322) --for-spec --no-implementation-order`.
 export function verifyStepContracts({ view, graph, sidecar } = {}) {
   const findings = [];
   if (sidecar === null || sidecar === undefined) {
@@ -389,7 +389,7 @@ export function verifyStepContracts({ view, graph, sidecar } = {}) {
 }
 
 /** The sidecar document, or null when it is absent or unreadable. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 export function readStepContractSidecar(sidecarPath) {
   if (sidecarPath === null || sidecarPath === undefined || !existsSync(sidecarPath)) return null;
   try {
@@ -400,7 +400,7 @@ export function readStepContractSidecar(sidecarPath) {
 }
 
 /** Write the sidecar atomically beside its target. */
-// [::TICKET::] PX-318 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 export function writeStepContractSidecar(sidecarPath, sidecar) {
   const staged = `${sidecarPath}.partial.${process.pid}`;
   writeFileSync(staged, `${JSON.stringify(sidecar, null, 2)}\n`, 'utf8');

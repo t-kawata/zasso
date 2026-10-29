@@ -1,7 +1,7 @@
 // @verifies C010
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // @verifies C013
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /**
  * The locator, and the two properties that make it a tool rather than an oracle.
  *
@@ -47,7 +47,7 @@ const MEASURED = Object.freeze([
 ]);
 
 /** One authored reading, carried the way the merge carries it. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function authoredClaim(scope, item) {
   return {
     claim_id: `clm-design-${scope.replace(/\W/g, '')}${item}`.slice(0, 24),
@@ -62,9 +62,9 @@ function authoredClaim(scope, item) {
 }
 
 /** A spec built the way a run builds one, over the tree the evidence points at. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /** A spec carrying the declines the run recorded, in the shape the section publishes. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function specWithDeclines(declinedCells) {
   const tree = createSyntheticTree(TREE);
   const spec = validateOriginSpec(
@@ -95,7 +95,7 @@ function specWithDeclines(declinedCells) {
   return { spec, tree };
 }
 
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function specOver({ written = [['src/api', 'identity']], packages = ['src/api', 'src/state'] } = {}) {
   const tree = createSyntheticTree(TREE);
   const spec = validateOriginSpec(

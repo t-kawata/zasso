@@ -4,7 +4,7 @@
  * Test framework: Node.js standard node:test + node:assert/strict
  */
 
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -527,7 +527,7 @@ function captureStdout(fn) {
 // ============================================================
 
 describe('PX-339 run accounting', () => {
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
   it('C002 preserves runs, runId, generation, lastOutputDigest and coverage across the step-2 write', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px339-status-'));
     try {

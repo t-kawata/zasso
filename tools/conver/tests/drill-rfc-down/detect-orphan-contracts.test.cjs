@@ -134,7 +134,7 @@ describe('detect-orphan-contracts.js (orphaned edge-contract detection)', () => 
     assert.ok(orphans[0].connectingTickets.every((t) => typeof t.status === 'string'), 'status surfaced for every connecting ticket');
   });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
   it('C004: verify-consistencies reports a high-severity orphan finding when orphans exist', () => {
     const graph = buildGraph();
     const tickets = buildTickets(); // orphans present
@@ -154,7 +154,7 @@ describe('detect-orphan-contracts.js (orphaned edge-contract detection)', () => 
     fs.rmSync(fixtureRoot, { recursive: true, force: true });
   });
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
   it('C004: verify-consistencies reports no orphan finding when all contracts are covered', () => {
     const graph = buildGraph();
     const tickets = buildTickets({ t1Contracts: [{ id: 'C001', sourceEdge: 'N0002→N0003', precondition: 'p', postcondition: 'q', invariant: 'r' }] });

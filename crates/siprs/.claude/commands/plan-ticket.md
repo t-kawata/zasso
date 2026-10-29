@@ -12,6 +12,16 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 # /plan-ticket
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## First-Class Rule — [::STUB::] Marker is an Absolute Obligation
 
 Invariant:
@@ -92,14 +102,14 @@ Invariants:
 ### Step 0: Status gate — verify ticket is ready for planning
 
 ```bash
-node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=plan
+node "$CLAUDE_DIR/scripts/tickets/check-ticket-status.js" --ticket-key="$ARGUMENTS" --phase=plan
 ```
 
 - exit 0; status `made` → the prerequisite gate below.
 - exit 1; status mismatch/error → follow output; reply exactly: `Status gate blocked: /plan-ticket cannot proceed until the ticket status is 'made'. Run /make-ticket first.`; stop
 
 ```bash
-node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/tickets/check-ticket-prerequisites.js" --ticket-key="$ARGUMENTS"
 ```
 
 - exit 0, or `skipped:no-prerequisites` / `skipped:ticket-not-found` → Step 1.
@@ -108,7 +118,7 @@ node .claude/scripts/tickets/check-ticket-prerequisites.js --ticket-key="$ARGUME
 ### Step 1: Existence check + retrieve ticket information
 
 ```bash
-node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --plan
+node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --plan
 ```
 
 - output starts `# {ticketKey}: Not Found` → follow output; reply exactly: `The ticket does not exist, so /plan-ticket is interrupted.`; stop
@@ -119,13 +129,13 @@ node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" 
 Read Step 1 context. For every `Related RFC graph NODE-ID to check`, use its `Usage of query.js`; judge required drill depth. Source-code analysis must substantiate every obtained design fact included in the plan.
 
 ```bash
-node .claude/scripts/rfc-graph/query.js --graph="</path/to/?-GRAPH.json>" --source="</path/to/RFC-?.md>" --dirs-tree="</path/to/?-Dirs-Tree.json>" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
+node "$CLAUDE_DIR/scripts/rfc-graph/query.js" --graph="</path/to/?-GRAPH.json>" --source="</path/to/RFC-?.md>" --dirs-tree="</path/to/?-Dirs-Tree.json>" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 ```
 
 As needed, explore `Related Tickets`; judge required drill depth; substantiate included facts with actual source-code analysis.
 
 ```bash
-node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order
+node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order
 ```
 
 Then Step 3.
@@ -141,7 +151,7 @@ Read `Malfeasance.json`; inspect unresolved crimes. Plan approval requires eithe
 
 ```bash
 # Execute crime scan (auto-initializes on first run)
-.claude/scripts/tickets/scan-crimes.sh
+"$CLAUDE_DIR/scripts/tickets/scan-crimes.sh"
 ```
 
 Condition B: state resolution steps for each crime clearly in the plan.
@@ -163,7 +173,7 @@ Inspect plan-relevant `[::STUB::]`:
 - `--tickets-path`: `Tickets.json` path
 
 ```bash
-node .claude/scripts/tickets/insert-stub.js \
+node "$CLAUDE_DIR/scripts/tickets/insert-stub.js" \
   --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
   --stub-reason="P1-3 blocked: User::role changed to enum, login(&str) signature incompatible" \
   --resolve-plan="Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test" \
@@ -176,13 +186,13 @@ Heal-loop insert-stub:
 - never abort command because `insert-stub.js` failed
 
 ```bash
-node .claude/scripts/tickets/review/find-all-stubs.js .
+node "$CLAUDE_DIR/scripts/tickets/review/find-all-stubs.js" .
 ```
 
 Active exploration: in plan-targeted source, find incomplete implementations. Missing `[::STUB::]` → `insert-stub.js` + `malfeasance-create.js`; never edit source directly. Reflect results in plan `Risks` or `Boy Scout Improvements`.
 
 ```bash
-node .claude/scripts/tickets/scan-incomplete-implementations.js --dir=.
+node "$CLAUDE_DIR/scripts/tickets/scan-incomplete-implementations.js" --dir=.
 ```
 
 Then Step 3.5.
@@ -198,7 +208,7 @@ Before plan formulation, translate every Contract Precondition/Postcondition/Inv
 | Invariant | predicate checks: `assert!`, `debug_assert!`, property-based predicates |
 
 ```bash
-echo '{"planTestCode":["UT: [Normal] Input validation test\n  ```rust\n  let input = \"valid@example.com\";\n  let result = validate(&input);\n  assert!(result.is_ok());\n  ```"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+echo '{"planTestCode":["UT: [Normal] Input validation test\n  ```rust\n  let input = \"valid@example.com\";\n  let result = validate(&input);\n  assert!(result.is_ok());\n  ```"]}' | node "$CLAUDE_DIR/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 - Every Contract element: at least one `testUnit` entry containing actual code, not prose.
@@ -260,7 +270,7 @@ Green without Red, test-modified Green, or stub Green → violation and incomple
 Gate P-1: every Contract has actual, non-prose test-code patterns in dedicated `planTestCode`.
 
 ```bash
-node .claude/scripts/tickets/verify-plan-contracts.js \
+node "$CLAUDE_DIR/scripts/tickets/verify-plan-contracts.js" \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
@@ -270,7 +280,7 @@ node .claude/scripts/tickets/verify-plan-contracts.js \
 Gate P-2: every `targetStub` has complete code-level `resolutionPlan`.
 
 ```bash
-node .claude/scripts/tickets/validate-ticket-targets.js \
+node "$CLAUDE_DIR/scripts/tickets/validate-ticket-targets.js" \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
@@ -290,14 +300,14 @@ Order:
 
 ```bash
 mkdir -p specs && \
-node .claude/scripts/tickets/show-ticket-context.js \
+node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
 #### 5-2: Update ticket status
 
 ```bash
-echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+echo '{"status":"planned"}' | node "$CLAUDE_DIR/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 Reply with the full Step 4 plan in Markdown. Conclude exactly:

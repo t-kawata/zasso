@@ -27,7 +27,7 @@
 import { DIAGRAMMED_OUTCOMES, UNREACHED_ESCAPES } from './load.mjs';
 
 /** Every integer from `first` to `last`, or none when the ends are not a range. */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function linesBetween(first, last) {
   if (!Number.isInteger(first) || !Number.isInteger(last) || last < first) return [];
   const lines = [];
@@ -42,7 +42,7 @@ function linesBetween(first, last) {
  * presupposes. A record that names neither contributes nothing rather than raising:
  * the shape of a thin artifact is a fact to report, not an error to throw.
  */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function declaredLinesIn(artifact) {
   const fromSequences = (artifact.sequences ?? []).flatMap((sequence) => linesBetween(sequence.firstLine, sequence.lastLine));
   const fromOperations = (artifact.operations ?? []).map((operation) => operation.grounding?.presupposition);
@@ -50,7 +50,7 @@ function declaredLinesIn(artifact) {
 }
 
 /** The line numbers of the document at least one span covers. */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 function coveredLinesIn(spans, lineCount) {
   const covered = new Set();
   for (const span of spans ?? []) {
@@ -68,13 +68,13 @@ function coveredLinesIn(spans, lineCount) {
  * has must cost the document's length: materialising it first raises on a large enough
  * typo, inside a gate that runs on every phase.
  */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 function linesOfSpanInside(span, lineCount) {
   return linesBetween(Math.max(span?.firstLine ?? Number.NaN, 1), Math.min(span?.lastLine ?? Number.NaN, lineCount));
 }
 
 /** The maximal runs of 1..lineCount that no covered line falls in, ascending. */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 function runsOfLinesNotIn(covered, lineCount) {
   const runs = [];
   for (let line = 1; line <= lineCount; line += 1) {
@@ -103,7 +103,7 @@ export function uncoveredRanges({ spans, lineCount }) {
 }
 
 /** The declared lines that lie inside the specification, each counted once. */
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 function reachedLinesIn(artifact) {
   const specLines = artifact.spec?.lines ?? 0;
   return new Set(declaredLinesIn(artifact).filter((line) => Number.isInteger(line) && line >= 1 && line <= specLines));
@@ -116,7 +116,7 @@ function reachedLinesIn(artifact) {
  * implement, the entries a reading must adjudicate — and the rail selects by role rather
  * than by file name, so no project's registry is named anywhere in this module.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function borrowedMembersOf(artifact, role) {
   const pin = (artifact.pins?.sourceEnumerations ?? []).find((entry) => entry.role === role);
   return pin === undefined ? null : [...(pin.members ?? [])];
@@ -129,7 +129,7 @@ function borrowedMembersOf(artifact, role) {
  * members were realized by a step and which were excused by a grounded escape. Null when no
  * census is borrowed: a denominator nobody supplied must not be printed as a zero.
  */
-// [::TICKET::] PX-248, PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-251) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-251) --for-spec --no-implementation-order`.
 function operationAccountingIn(artifact) {
   const members = borrowedMembersOf(artifact, 'operations');
   if (members === null) return { operationsEnumerated: null, operationsReached: null, operationsExcused: null };
@@ -153,11 +153,11 @@ function operationAccountingIn(artifact) {
  * whether two generations may be compared and how, and it is why no comparison is drawn by
  * field name alone.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export const COVERAGE_VERSION = 2;
 
 /** Whether a stored generation was measured in the vocabulary this module spells. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function isComparableCoverage(coverage) {
   return coverage?.coverage_version === COVERAGE_VERSION;
 }
@@ -168,7 +168,7 @@ export function isComparableCoverage(coverage) {
  * The class names come from the records and the schema rather than from this module, so a
  * vocabulary that gains a member gains it in every partition without an edit here.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function countBy(records, classOf) {
   const counts = {};
   for (const record of records) {
@@ -186,7 +186,7 @@ function countBy(records, classOf) {
  * a measured zero is a fact rather than something to omit. An empty partition prints
  * nothing, because `()` would read as a member with no name.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 function partition(counts) {
   const members = Object.entries(counts ?? {}).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
   if (members.length === 0) return '';
@@ -202,14 +202,14 @@ function partition(counts) {
  * than stood in for. A census that was supplied and is empty is a different fact from one
  * that was never supplied, and the two print differently.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function censusSpelling(coverage) {
   if (typeof coverage?.operationsEnumerated !== 'number') return 'none';
   return `${coverage.operationsEnumerated} (reached ${coverage.operationsReached ?? 0}, excused ${coverage.operationsExcused ?? 0})`;
 }
 
 /** The nine sets the measured line reports, in the order it reports them. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 const MEASURED_TERMS = Object.freeze([
   'entries',
   'sequences',
@@ -235,7 +235,7 @@ const MEASURED_TERMS = Object.freeze([
  *            operationsByPosition: object, placed: number, excused: number, sections: number,
  *            linesReached: number, specLines: number}}
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function coverageOf(artifact) {
   const entries = artifact.sequences ?? [];
   const steps = artifact.steps ?? [];
@@ -271,7 +271,7 @@ export function coverageOf(artifact) {
  * path prints is these terms joined, so a term cannot reach one surface without reaching
  * the other and the two can never disagree about the same measurement.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function coverageTerms(coverage) {
   const measured = coverage ?? {};
   const elsewhere = (measured.steps ?? 0) - (measured.stepsDrawn ?? 0);
@@ -295,7 +295,7 @@ export function coverageTerms(coverage) {
  * spelling would be a second thing to keep in step with the first. The product path prints
  * this line and no block, so every composition the block carries is carried here too.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function coverageLine(coverage) {
   return coverageTerms(coverage).map((term) => term.text).join(' ');
 }
@@ -310,7 +310,7 @@ export function coverageLine(coverage) {
  * the placement, the drawn split and both partitions — were never measured, and are declared
  * null here so that a reader is told they were not recorded rather than shown a zero.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 const PREDECESSOR_FIELD_FOR = Object.freeze({
   entries: 'sequences',
   entriesByKind: null,
@@ -328,7 +328,7 @@ const PREDECESSOR_FIELD_FOR = Object.freeze({
 });
 
 /** The word a term prints when the generation before it never measured that set. */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export const NOT_MEASURED = 'not measured';
 
 /**
@@ -340,7 +340,7 @@ export const NOT_MEASURED = 'not measured';
  * something else. A term the predecessor never measured answers null, which is the same
  * answer as "there is no predecessor" and is told apart by the caller.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function predecessorValueFor(key, coverage) {
   if (coverage === null || coverage === undefined) return null;
   if (isComparableCoverage(coverage)) {
@@ -370,7 +370,7 @@ export function predecessorValueFor(key, coverage) {
  * every step of that generation as unplaced. The scalars are what the two generations can
  * be compared on, so the scalars are what this spells.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function predecessorLine(coverage) {
   if (coverage === null || coverage === undefined) return null;
   return MEASURED_TERMS
@@ -390,7 +390,7 @@ export function predecessorLine(coverage) {
  * renamed comparison from reading as a like-for-like one; a predecessor in the current
  * vocabulary needs no note, and no predecessor needs none either.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export function mappingNote(coverage) {
   if (coverage === null || coverage === undefined || isComparableCoverage(coverage)) return null;
   const renamed = [];

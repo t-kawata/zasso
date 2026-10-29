@@ -126,7 +126,7 @@ function checkSchema() {
  *
  * @param {object} result
  */
-// [::TICKET::] PX-140 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-140 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-140 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-140 --for-spec --no-implementation-order`.
 function output(result) {
   // Emit exactly one JSON line on stdout — the CLI contract consumed by scripts.
   process.stdout.write(JSON.stringify(result) + '\n');
@@ -146,7 +146,7 @@ function output(result) {
  * @returns {{added: number, skipped: number, total: number, saved: boolean}}
  */
 // [::TICKET::] PX-82: syncMalfeasance — targetCrime → Malfeasance sync
-// [::TICKET::] PX-82, PX-83, PX-140 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83|PX-140) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-82, PX-83, PX-140 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-82|PX-83|PX-140) --for-spec --no-implementation-order`.
 function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
   const ticket = findTicket(ticketsData, ticketKey);
   if (!ticket) {
@@ -219,18 +219,18 @@ function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
  *
  * PX-92: Ensures paths stored in Malfeasance records are portable
  * across machines.
- * Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-92 --for-spec --no-implementation-order`
+ * Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-92 --for-spec --no-implementation-order`
  *
  * @param {string} filePath — Raw file path from input
  * @param {string} [projectRoot] — Project root directory (default: process.cwd())
  * @returns {string} — Normalized relative path
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function normalizePath(filePath, projectRoot) {
   // A path already stored home-relative names no machine, which is the whole point of
   // storing it that way. Resolving it here would manufacture a directory called tilde
   // beneath the project root and bury the record inside it.
-  // [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   if (filePath === '~' || filePath.startsWith('~/')) return filePath;
 
   const root = projectRoot ? path.resolve(projectRoot) : process.cwd();

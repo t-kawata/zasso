@@ -1,5 +1,5 @@
 // @verifies C001
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 /**
  * R7 — serving, and the refusals that keep a claim honest.
  *
@@ -55,7 +55,7 @@ const EVIDENCE_TREE = Object.freeze({
 });
 
 /** A claim in the shape the ledger produces, with every field the design names. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function claimOf(overrides) {
   return {
     claim_id: 'clm-api-login-001',
@@ -72,7 +72,7 @@ function claimOf(overrides) {
 }
 
 /** A ledger carrying the claims a run would hand over. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function ledgerOf(claims) {
   return { root: '/tmp/nowhere', claims };
 }
@@ -333,7 +333,7 @@ test('C001: the four provenance values are the ledger vocabulary, not a second c
 // --- The layered packet ------------------------------------------------------------
 
 /** One unresolved claim in a named scope, of a named subject kind. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function claimInScope({ scope, subjectKind, index, overrides = {} }) {
   return claimOf({
     claim_id: `clm-${scope.replace(/[^a-z0-9]+/gi, '-')}-${subjectKind}-${index}`,
@@ -344,13 +344,13 @@ function claimInScope({ scope, subjectKind, index, overrides = {} }) {
 }
 
 /** `count` unresolved contract claims in one scope: the level a boundary governs. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function unresolvedContracts(scope, count) {
   return Array.from({ length: count }, (_, index) => claimInScope({ scope, subjectKind: 'invariant', index }));
 }
 
 /** A scope's boundary claim, settled or not. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function boundaryOf(scope, index, claimType) {
   return claimInScope({
     scope,
@@ -361,7 +361,7 @@ function boundaryOf(scope, index, claimType) {
 }
 
 /** Twenty ledgers whose unresolved counts and scope shapes vary without a random source. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function generatedLedgers() {
   return Array.from({ length: 20 }, (_, seed) => {
     const scopes = ['src/api', 'src/db', 'src/model'].slice(0, (seed % 3) + 1);

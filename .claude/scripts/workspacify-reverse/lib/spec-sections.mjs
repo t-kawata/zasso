@@ -1,4 +1,4 @@
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 /**
  * The spec's sections — the one declaration that makes absorption checkable.
  *
@@ -29,7 +29,7 @@
  * spec exists, because a spec that held claims and reported no packages would be
  * describing its own content as a stage that never ran.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function section({ key, heading, stage, projects = [], always = false }) {
   return Object.freeze({ key, heading, stage, projects: Object.freeze([...projects]), always });
 }

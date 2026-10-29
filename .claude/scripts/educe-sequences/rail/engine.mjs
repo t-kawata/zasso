@@ -46,7 +46,7 @@ import {
  * as well as re-exported, because this module reads them below — a bare `export … from`
  * would re-export them without binding them here.
  */
-// [::TICKET::] PX-251 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
 export { DIAGRAMMED_OUTCOMES, OPERATION_POSITIONS, UNREACHED_ESCAPES };
 
 /** The classes a declared column may be placed in, and what evidence each class needs. */
@@ -60,7 +60,7 @@ export const COLUMN_DECIDERS = Object.freeze(['borrowedVocabulary', 'literalInLi
  * same vocabulary: `renderSequenceDiagram` draws exactly these and the drawability check
  * refuses a step missing any one of them.
  */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 export const DIAGRAM_FIELDS = Object.freeze(['subject', 'object', 'operation']);
 
 /**
@@ -70,7 +70,7 @@ export const DIAGRAM_FIELDS = Object.freeze(['subject', 'object', 'operation']);
  * ruling and ask a question both take their extra subjects from here rather than each
  * deciding for itself which operations those are.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 export function escapedOperationsOf(artifact) {
   return (artifact.operations ?? [])
     .filter((operation) => UNREACHED_ESCAPES.includes(operation.position))
@@ -78,13 +78,13 @@ export function escapedOperationsOf(artifact) {
 }
 
 /** The borrowed census pin holding a role, or null when nothing is borrowed for it. */
-// [::TICKET::] PX-248, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-266) --for-spec --no-implementation-order`.
 function borrowedCensusPinOf(context, role) {
   return (context.artifact.pins?.sourceEnumerations ?? []).find((entry) => entry.role === role) ?? null;
 }
 
 /** The members of the borrowed census holding a role, or null when nothing is borrowed. */
-// [::TICKET::] PX-248, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-266) --for-spec --no-implementation-order`.
 function borrowedCensusOf(context, role) {
   const pin = borrowedCensusPinOf(context, role);
   return pin === null ? null : [...(pin.members ?? [])];
@@ -98,7 +98,7 @@ function borrowedCensusOf(context, role) {
  * line, the literal or the vocabulary that measures it. Without the evidence half the
  * classification would be satisfied by relabelling.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function columnClassOf(column, context) {
   if (!COLUMN_DECIDERS.includes(column?.decidedBy)) return { bucket: column?.decidedBy, evidence: '' };
   const inside = Number.isInteger(column.line) && column.line >= 1 && column.line <= context.specLines.length;
@@ -129,7 +129,7 @@ function columnClassOf(column, context) {
  * bound to nothing. An artifact that borrows no census has no denominator, so both checks
  * are silent rather than wrong.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 const everyEnumeratedOperationAccountedFor = agreeOn(
   { id: 'every-enumerated-operation-accounted-for', defect: 'an operation list complete against nothing but itself, so fourteen operations a specification names were absent from the artifact and every gate passed', refuses: 'a member the borrowed census names that no operation record declares, and an operation record the census does not name', scope: 'every artifact, over its operations and the census borrowed for the operations role' },
   {
@@ -152,7 +152,7 @@ const everyEnumeratedOperationAccountedFor = agreeOn(
  * right — which is the judgement no check in this library may make. What is refused is the
  * silence: a censused entry the artifact carries no outcome for reads here as absent.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 const ENTRY_CENSUS_CONTRACT = Object.freeze({
   id: 'every-censused-entry-adjudicated',
   defect: 'a census of regions that had to be ruled on, held against an artifact that was allowed to carry a region with no outcome',
@@ -161,13 +161,13 @@ const ENTRY_CENSUS_CONTRACT = Object.freeze({
 });
 
 /** The adjudicated entries of an artifact: the ones a reading gave an outcome. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function adjudicatedEntriesOf(artifact) {
   return artifact.sequences.filter((entry) => entry.outcome !== null && entry.outcome !== undefined);
 }
 
 /** Whether a censused span holds an entry inside it, which is what a coordinate comparison is. */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function spanHoldsEntry(span, entry) {
   return span.first <= entry.firstLine && entry.lastLine <= span.last;
 }
@@ -181,7 +181,7 @@ function spanHoldsEntry(span, entry) {
  * side has to name the other, which is the whole reason this coordinate exists — the span is
  * read off the specification and the entry is placed in it by where they lie.
  */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function spanCensusVerdicts(context, census) {
   const verdicts = [];
   const entries = adjudicatedEntriesOf(context.artifact);
@@ -235,7 +235,7 @@ const everyCensusedEntryAdjudicated = checkOf(ENTRY_CENSUS_CONTRACT, (context) =
 });
 
 /** Every declared column is placed in exactly one class, and that class carries its evidence. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 const everyDeclaredColumnHasADecider = placeEach(
   { id: 'every-declared-column-has-a-decider', defect: 'a column list in which a column nobody can measure sat beside measured ones and read as measured itself', refuses: 'a column outside the decider vocabulary, and a column whose class carries no evidence', scope: 'every artifact, over the columns the caller declares' },
   {
@@ -254,7 +254,7 @@ const everyDeclaredColumnHasADecider = placeEach(
  * and no other. An empty requirement enforces nothing extra and is the honest state of a
  * caller who has not decided yet.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 const everyRequiredColumnIsMeasured = coverEvery(
   { id: 'every-required-column-is-measured', defect: 'a column the caller requires measured, declared unmeasured, so the interface was planned from a record that never carried it', refuses: 'a column the required-measured list names that is declared unmeasured or placed nowhere', scope: 'every artifact, over the required-measured list the caller declares' },
   {
@@ -272,13 +272,13 @@ const everyRequiredColumnIsMeasured = coverEvery(
 const ACTIVE_OPERATION_DISPOSITION = 'active';
 
 /** Whitespace collapsed, so a quote broken across a line break is still comparable. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function collapseWhitespace(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** Whether a pinned column carries no value at all. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function isEmptyPinnedValue(value) {
   return value === undefined
     || value === null
@@ -287,7 +287,7 @@ function isEmptyPinnedValue(value) {
 }
 
 /** Why one column grounding does not answer for its empty column, or null when it does. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function groundingProblem(ground, specLines) {
   if (ground === undefined || ground === null || typeof ground !== 'object') {
     return 'the column is empty and carries no column grounding';
@@ -345,7 +345,7 @@ export function pinnedColumnGroundingProblems(artifact, specLines = []) {
 }
 
 /** The active operation and pinned column pairs the check reads. */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function activePinnedColumns(artifact) {
   const columns = (artifact?.pins?.columns ?? [])
     .map((column) => column?.name)
@@ -375,7 +375,7 @@ const everyPinnedColumnIsPresentOrGrounded = checkOf(
  * performs an act and names no actor or no target is a gap in the record, not a rendering
  * detail. A region ruled not a sequence is owed no diagram and is not asked for one.
  */
-// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 const everySequenceIsDrawable = coverEvery(
   { id: 'every-sequence-is-drawable', defect: 'an artifact whose steps carried what a diagram needs while nothing ever drew one, so the sufficiency of the record was never tested', refuses: 'a sequence whose step carries no subject, no object or no operation, so the diagram would name a participant or an act that was never read', scope: 'every artifact, over the sequences that claim to be sequences' },
   {
@@ -398,7 +398,7 @@ const everySequenceIsDrawable = coverEvery(
  * whether every step was given a sequence that can — and together they say that every
  * step appears in exactly one diagram.
  */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 const everyStepBelongsToADrawnSequence = coverEvery(
   { id: 'every-step-belongs-to-a-drawn-sequence', defect: 'an artifact holding a step whose sequence was ruled not a sequence, so the record carried the step and nothing drew it', refuses: 'a step whose sequence is not one the artifact draws', scope: 'every artifact, over every step' },
   {
@@ -411,7 +411,7 @@ const everyStepBelongsToADrawnSequence = coverEvery(
 );
 
 /** Every field the consumer of the artifact reads is carried by every operation record. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 const everyOperationRecordCarriesTheConsumerFields = coverEvery(
   { id: 'every-operation-record-carries-the-consumer-fields', defect: 'an artifact whose operation records carried what the rail needed and not what the implementer needed, so the interface was planned from fields nothing had checked', refuses: 'a field the caller names as one the consumer reads that an operation record does not carry', scope: 'every artifact, over the consumer fields the caller declares' },
   {
@@ -432,7 +432,7 @@ const blockRangeInsideSpecification = {
   originatingDefect: 'a block range read past the end of the specification, so a citation resolved to nothing',
   refuses: 'a block whose last line is beyond the specification, or whose first line is below one',
   scope: 'every artifact, against the specification it names',
-  // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
   run(context) {
     return context.artifact.pins.blocks
       .filter((block) => block.lastLine > context.specLines.length || block.firstLine < 1)
@@ -450,7 +450,7 @@ const stepCarriesFourFields = {
   originatingDefect: 'a step file in which every step carried all four fields, the ordering held and the bijection held, and none of it was a reading',
   refuses: 'a step missing any of subject, predicate, object or contract',
   scope: 'every artifact, over its steps',
-  // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
   run(context) {
     return context.artifact.steps.flatMap((step) =>
       STEP_FIELDS
@@ -481,7 +481,7 @@ const neighbourCitesInsideSpan = citeFrom(
 });
 
 /** The supplied rows: the ones whose grounding was written by a designer rather than read. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function suppliedRows(context) {
   return context.artifact.operations.filter((operation) => operation.grounding?.classification === 'designer_supplied');
 }
@@ -499,7 +499,7 @@ const suppliedRuleHasNoDefiningSection = {
   originatingDefect: 'a row keeping a defining_section that a designer-supplied rule supersedes',
   refuses: 'a supplied row whose presupposition is not an integer line naming it, or that keeps a section the rule supersedes',
   scope: 'every artifact, over its operations',
-  // [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
   run(context) {
     const ungrounded = groundIn(
       { id: 'supplied-rule-has-no-defining-section', defect: 'a supplied rule whose presupposition names no line that carries it', refuses: 'a supplied row whose presupposition is not an integer line naming it' },
@@ -521,7 +521,7 @@ const suppliedRuleHasNoDefiningSection = {
 };
 
 /** Where an operation stands, and the evidence its position rests on. */
-// [::TICKET::] PX-241, PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-246) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-241|PX-246) --for-spec --no-implementation-order`.
 function placementOf(operation, context) {
   if (operation.position === 'positioned') {
     const carrier = context.artifact.steps.find((step) => step.operation === operation.id);
@@ -548,13 +548,13 @@ function placementOf(operation, context) {
 }
 
 /** The operations a step's entry derives, which is the only place the relation is kept. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function derivedOperations(entry, context) {
   return [...new Set(context.artifact.steps.filter((step) => step.sequence === entry.id).map((step) => step.operation))];
 }
 
 /** The entries: a neighbour is a place an act may be found, not an entry to adjudicate. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function entriesOf(context) {
   return context.artifact.sequences.filter((entry) => entry.kind === 'entry');
 }
@@ -569,13 +569,13 @@ function entriesOf(context) {
  * "an audit was opened and answered nothing" are different findings and only one of them
  * is incompleteness. An empty array is the second.
  */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function answersOf(context) {
   return context.inquest ?? [];
 }
 
 /** The subjects the artifact puts to the audit: its sections and its entries. */
-// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-248) --for-spec --no-implementation-order`.
 function inquestSubjectsOf(context) {
   // The escapes are asked because an operation no step performs is the one thing a reading
   // could excuse and then forget. The set is the escapes alone: a real operation is already
@@ -589,7 +589,7 @@ function inquestSubjectsOf(context) {
 }
 
 /** A pair, written the way every verdict about it writes it. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function pairLabel(pair) {
   return `${pair.subject} · ${pair.lens}`;
 }
@@ -684,7 +684,7 @@ const censusEverySectionExplained = coverEvery(
  * document while every gate passed. Measured on the golden fixture at 51 of 60 lines
  * belonging to nobody, which is the defect this check exists to name.
  */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 const everyLineBelongsToAnEntry = coverEveryLine(
   { id: 'every-line-belongs-to-an-entry', defect: 'a document that was partitioned and adjudicated while its body was never read, so a run could finish with most of the specification belonging to no entry', refuses: 'a line of the specification that no entry spans, so nothing was read there', scope: 'every artifact, over its sequences and its specification line count' },
   {
@@ -737,7 +737,7 @@ const stepCitesInsideItsEntrySpan = citeInside(
  * that records its rulings somewhere else, or words its other rows differently: a selection by
  * name and by a hand-written list examined nothing at all on such a project and reported green.
  */
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 function rulingsOf(artifact) {
   return [...(artifact.sequences ?? []), ...(artifact.adjudications ?? [])]
     .filter((row) => LIMB_RULING_OUTCOMES.includes(row.outcome));
@@ -773,7 +773,7 @@ const adjudicationCitesADeclaredLimb = coverEvery(
  * selectors are the ones `run` already called, and a selector that throws has produced a verdict
  * by now — this runs only on the path where nothing was refused.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function selectionCounts(checks, context) {
   return {
     examinations: Object.fromEntries(
@@ -797,7 +797,7 @@ function selectionCounts(checks, context) {
  * merge keeps the name of a region it dropped (`vanishedRefusal`). What the row owes is a name,
  * which is what `carriesValue` asks of every declared field.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function answersInTheDeclaredShape(row) {
   const allowed = new Set([...ADJUDICATION_FIELDS, PREDICATE_LIMB_FIELD]);
   if (!ADJUDICATION_FIELDS.every((field) => carriesValue(row, field))) return false;
@@ -813,7 +813,7 @@ function answersInTheDeclaredShape(row) {
  * "schema_block" rather than on a ruling. The subjects are the artifact's adjudications, whatever
  * a project calls them, and the vocabulary is the one the schema declares.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 const everyAdjudicationIsInTheDeclaredShape = coverEvery(
   { id: 'every-adjudication-is-in-the-declared-shape', defect: 'an adjudication rode into the artifact as whatever the reader wrote, so a word outside the declared vocabulary and a key the schema does not declare were carried unread and decided by no check', refuses: 'an adjudication outside the declared shape: a word outside the declared vocabulary, a key the schema does not declare, or a declared field left empty', scope: 'every artifact, over its adjudications' },
   {
@@ -832,7 +832,7 @@ const everyAdjudicationIsInTheDeclaredShape = coverEvery(
  * a reading of the document, and every ruling saying so while no limb was ever cited is a
  * declaration that is not being used.
  */
-// [::TICKET::] PX-246, PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-246|PX-267) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246, PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-246|PX-267) --for-spec --no-implementation-order`.
 function limbCensus(artifact) {
   const limbs = artifact.pins?.predicate?.limbs ?? [];
   const cited = new Set(
@@ -860,7 +860,7 @@ const everyOperationPlaced = placeEach(
  * work. An entry whose steps derive no operation is a third finding, because an entry
  * that realizes nothing is not a sequence.
  */
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 const everyOperationReached = reachEvery(
   { id: 'every-operation-reached', defect: 'a sequence to operation surjection that did not exist, so an entry could name an operation no step performed and an operation could be reached by nothing', refuses: 'a step naming an operation the artifact does not declare, an operation no step reaches and no escape covers, or an entry that derives no operation', scope: 'every artifact, over its steps and its operations' },
   {
@@ -973,8 +973,8 @@ export const ENGINE_DECLARED_CHECK_COUNT = CHECKS.length;
  *
  * @returns {{verdicts: Array<object>, summary: object|null}}
  */
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
 export function checkAll({ specLines, artifact, rederivePins = true, recorded = {} }) {
   // Everything the run recorded beside the artifact is one input, because the checks read
   // it as one thing: the rail exits a scaffold left, the audit a reader answered, and the

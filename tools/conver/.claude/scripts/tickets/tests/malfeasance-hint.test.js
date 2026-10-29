@@ -16,7 +16,7 @@ const fs = require('fs');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -24,7 +24,7 @@ function assert(condition, message) {
 
 console.log('\n━━━ malfeasance-hint.test.js (PX-86) — RED PHASE ━━━\n');
 
-// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function runWithStderrCapture(scriptName, args) {
   const scriptPath = path.resolve(__dirname, '..', scriptName);
   const errFile = '/tmp/px86-stderr-' + Date.now() + '.txt';

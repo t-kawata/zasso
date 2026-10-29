@@ -1,6 +1,6 @@
 // @verifies C001
 // @verifies C002
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 /**
  * The decisions input driven against the representative that can carry one.
  *
@@ -67,7 +67,7 @@ const OUTPUT_BUFFER_BYTES = 64 * 1024 * 1024;
 // not see before and every positional candidate id moved with them. The fixture was
 // re-authored from the new spec by `writeDecisions`, which derives every entry from the
 // spec and the measured tree rather than from this file.
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 const PINNED_DECISIONS_DIGEST = 'ad893f48502403f840b3f5adc3c3e7e7de12652c91162f8876441bfd11e562a5';
 
 /**
@@ -88,7 +88,7 @@ const ZERO_CLAIM = join('tests', 'workspacify-reverse', 'fixtures', 'patterns', 
  * buffer is sized for the real output rather than the default, and a buffer
  * that filled anyway is raised instead of parsed as truncated JSON.
  */
-// [::TICKET::] P24-9, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-9|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9, PX-213, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-9|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
 function runChain(command, args, { cwd = PROJECT_ROOT } = {}) {
   const result = spawnSync(process.execPath, [join(COMMAND_ROOT, command), ...args], {
     cwd,
@@ -103,7 +103,7 @@ function runChain(command, args, { cwd = PROJECT_ROOT } = {}) {
 }
 
 /** Publish the origin spec of a representative from a scratch copy, and hand back where it landed. */
-// [::TICKET::] P24-9, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-9|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9, PX-213, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-9|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
 function publishOriginSpec(representative) {
   const subject = join(PROJECT_ROOT, representative);
   const source = createScratchFrom(subject);

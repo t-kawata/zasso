@@ -37,7 +37,7 @@ const ALLOCATE_MANIFEST_FILENAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 const JSON_FLAG = '--json';
 
 /** A failure the operator can act on: it names the path and says what was wrong with it. */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 class InputError extends Error {}
 
 /**
@@ -46,7 +46,7 @@ class InputError extends Error {}
  * @param {string[]} argv
  * @returns {{ artifactPath: string, asJson: boolean }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const positional = argv.filter((argument) => argument !== JSON_FLAG);
   const asJson = argv.includes(JSON_FLAG);
@@ -63,7 +63,7 @@ function parseArguments(argv) {
  * @param {string} filePath
  * @returns {string}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function readTextOrFail(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
@@ -78,7 +78,7 @@ function readTextOrFail(filePath) {
  * @param {string} filePath
  * @returns {unknown}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function readJsonOrFail(filePath) {
   const text = readTextOrFail(filePath);
   try {
@@ -99,7 +99,7 @@ function readJsonOrFail(filePath) {
  * @param {string} artifactPath
  * @returns {object}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function readArtifactOrFail(artifactPath) {
   try {
     return parseSequencesArtifact(readTextOrFail(artifactPath), artifactPath);
@@ -109,7 +109,7 @@ function readArtifactOrFail(artifactPath) {
   }
 }
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function main() {
   try {
     const { artifactPath, asJson } = parseArguments(process.argv.slice(2));

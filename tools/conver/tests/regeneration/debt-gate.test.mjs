@@ -19,8 +19,8 @@ import {
 const SEPARATOR = '\u0000';
 
 /** A live report and its readings file. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function writeLiveDebt(root, { findings = [], blocked = [], yes = [] }) {
   mkdirSync(join(root, 'smooth-sequences'), { recursive: true });
   writeFileSync(join(root, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'), `${JSON.stringify({
@@ -37,7 +37,7 @@ function writeLiveDebt(root, { findings = [], blocked = [], yes = [] }) {
 }
 
 /** A detector stub with the debt the caller names. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function detector({ findings = [], blocked = [], yes = 0, withheld = [] } = {}) {
   return () => ({
     exitCode: 4,
@@ -48,7 +48,7 @@ function detector({ findings = [], blocked = [], yes = 0, withheld = [] } = {}) 
 }
 
 /** Open a transaction on a candidate spec. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function openOnCandidate(workspace) {
   return openTransaction({
     root: workspace.root,
@@ -58,7 +58,7 @@ function openOnCandidate(workspace) {
 }
 
 /** Derive through the educe handoff, write the artifact, and derive the views. */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function deriveToArtifact(workspace, opened) {
   deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
   writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));

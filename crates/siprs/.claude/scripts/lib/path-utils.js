@@ -67,9 +67,62 @@ function fromHomeRelative(homeRelPath) {
  * @param {string} baseDirectory — the directory a relative stored path is relative to
  * @returns {string}
  */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function resolveStoredPath(storedPath, baseDirectory) {
   return path.resolve(baseDirectory, fromHomeRelative(storedPath));
 }
 
-module.exports = { toHomeRelative, fromHomeRelative, resolveStoredPath };
+/**
+ * Rewrite every home-directory path inside a text, not only the one at its start.
+ *
+ * A ticket field is prose: an absolute path can sit in the middle of a sentence, a
+ * file list or a Markdown table, where `toHomeRelative` cannot see it because that
+ * function asks whether the whole value is a path. The committed artefact rule is
+ * about any occurrence, so the text form is a replacement rather than a check.
+ *
+ * The separator after the home directory is required, so a sibling such as
+ * `/home/alice2` is not mistaken for the home directory itself.
+ *
+ * @param {string} text — prose that may embed absolute paths
+ * @returns {string} the same text with every `$HOME` prefix rendered as `~`
+ */
+function toHomeRelativeText(text) {
+  if (typeof text !== 'string' || text === '') return text;
+  const homedir = os.homedir();
+  if (!homedir) return text;
+  // Rewriting the filesystem root would turn every absolute path into ~/.
+  if (homedir === path.parse(homedir).root) return text;
+  const escaped = homedir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`${escaped}[/\\\\]`, 'g'), '~/');
+}
+
+/**
+ * Apply `toHomeRelativeText` to every string in a JSON-shaped value.
+ *
+ * A ticket update is an object graph, and the writer persists it whole. Converting
+ * the graph before serialisation covers a path in a nested array or a contract
+ * object without teaching every writer which field holds a path.
+ *
+ * @param {unknown} value — a JSON-shaped value
+ * @returns {unknown} a new value with every string converted; non-strings are unchanged
+ */
+function toHomeRelativeDeep(value) {
+  if (typeof value === 'string') return toHomeRelativeText(value);
+  if (Array.isArray(value)) return value.map(toHomeRelativeDeep);
+  if (value !== null && typeof value === 'object') {
+    const converted = {};
+    for (const [key, entry] of Object.entries(value)) {
+      converted[key] = toHomeRelativeDeep(entry);
+    }
+    return converted;
+  }
+  return value;
+}
+
+module.exports = {
+  toHomeRelative,
+  fromHomeRelative,
+  resolveStoredPath,
+  toHomeRelativeText,
+  toHomeRelativeDeep,
+};

@@ -6,7 +6,7 @@ const path = require('path');
 let mod;
 try { mod = require('../.claude/scripts/tickets/verify-final-contracts.js'); } catch (e) { mod = null; }
 const stats = { passed: 0, failed: 0, total: 0 };
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function test(n, fn) { stats.total++; try { fn(); stats.passed++; console.log('  ✅', n); } catch (e) { stats.failed++; console.log('  ❌', n); console.error('     ' + e.message); } }
 
 console.log('\n--- verify-final-contracts tests ---\n');

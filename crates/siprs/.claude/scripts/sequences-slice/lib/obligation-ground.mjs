@@ -62,7 +62,7 @@ const TRAILING_DIGITS = /^(.*?)(\d+)$/;
  * @param {{ sections?: object[], operations?: object[], sequences?: object[] }} artifact
  * @returns {{ sections: Set<string>, operations: Set<string>, sequences: Set<string> }}
  */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function identifiersOf(artifact) {
   const idsOf = (field) => new Set((artifact?.[field] ?? []).map((entry) => String(entry?.id ?? '')).filter((id) => id.length > 0));
   return { sections: idsOf('sections'), operations: idsOf('operations'), sequences: idsOf('sequences') };
@@ -80,7 +80,7 @@ function identifiersOf(artifact) {
  * @param {{ sections: Set<string>, operations: Set<string>, sequences: Set<string> }} identifiers
  * @returns {string[]}
  */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function familiesOf(identifiers) {
   const families = new Set();
   for (const ids of Object.values(identifiers)) {
@@ -93,7 +93,7 @@ function familiesOf(identifiers) {
 }
 
 /** Every line reference a ground carries, with the line it names and the way it writes it. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function lineReferencesIn(ground) {
   const references = [];
   for (const match of String(ground).matchAll(LINE_REFERENCE)) {
@@ -111,13 +111,13 @@ function lineReferencesIn(ground) {
 }
 
 /** Whether an index falls inside one of the line references already found. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function insideALineReference(index, lineReferences) {
   return lineReferences.some((reference) => index >= reference.index && index < reference.index + reference.span);
 }
 
 /** Whether a line reference names a line the artifact has. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function resolvesLine(reference, lineCount) {
   if (!Number.isInteger(lineCount)) return false;
   return reference.first >= 1 && reference.last >= reference.first && reference.last <= lineCount;
@@ -137,7 +137,7 @@ function resolvesLine(reference, lineCount) {
  * @param {string[]} families
  * @returns {'held'|'dangling'|'prose'}
  */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function classifyToken(token, identifiers, families, sections = null) {
   if (identifiers.sections.has(token) || identifiers.operations.has(token) || identifiers.sequences.has(token)) return 'held';
 
@@ -169,7 +169,7 @@ function classifyToken(token, identifiers, families, sections = null) {
  * @param {object} artifact
  * @returns {Array<{ text: string, verdict: 'held'|'dangling' }>}
  */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function scanReferences(ground, artifact, sources = null) {
   const identifiers = identifiersOf(artifact);
   const sections = sources?.sections instanceof Set ? sources.sections : null;
@@ -199,7 +199,7 @@ function scanReferences(ground, artifact, sources = null) {
  * @param {object} artifact
  * @returns {string[]}
  */
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export function findReferences(ground, artifact, sources = null) {
   return scanReferences(ground, artifact, sources).map((reference) => reference.text);
 }
@@ -220,7 +220,7 @@ export function findReferences(ground, artifact, sources = null) {
  * @param {string} documentText
  * @returns {Set<string>}
  */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 export function sectionIdentifiersOf(documentText) {
   const labels = new Set();
   for (const line of String(documentText ?? '').split('\n')) {
@@ -234,7 +234,7 @@ export function sectionIdentifiersOf(documentText) {
 }
 
 /** A section number and every prefix of it, so a citation of an ancestor resolves. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function ancestorLabelsOf(sectionNumber) {
   const levels = sectionNumber.split('.');
   return levels.map((unused, index) => levels.slice(0, index + 1).join('.'));
@@ -254,7 +254,7 @@ function ancestorLabelsOf(sectionNumber) {
  * @param {{ spec?: { lines?: number }, sections?: object[], operations?: object[], sequences?: object[] }} artifact
  * @returns {{ resolved: boolean, unresolved: string[] }}
  */
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export function resolveGround(ground, artifact, sources = null) {
   const references = scanReferences(ground, artifact, sources);
   const unresolved = references.filter((reference) => reference.verdict !== 'held').map((reference) => reference.text);

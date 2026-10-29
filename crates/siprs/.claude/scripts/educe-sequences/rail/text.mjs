@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 /**
  * text.mjs — read a sequence artifact at a console.
  *
@@ -164,7 +164,7 @@ const MODE_DESCRIPTION = Object.freeze({
  * survives in order. Characters are counted rather than bytes, so a message carrying a
  * multi-byte character is measured by what a reader sees.
  */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 export function foldMessage(text, budget) {
   const width = Math.max(1, Math.floor(budget));
   const collapsed = String(text).replace(/\s+/g, ' ').trim();
@@ -213,7 +213,7 @@ export function foldMessage(text, budget) {
  * and the ideographs and pictographs above the basic plane are Wide while lying outside every
  * range a basic-plane table would carry.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 const WIDE_RANGES = Object.freeze([
   [0x1100, 0x115f], [0x2e80, 0x303e], [0x3041, 0x33ff], [0x3400, 0x4dbf],
   [0x4e00, 0x9fff], [0xa000, 0xa4cf], [0xa960, 0xa97f], [0xac00, 0xd7a3],
@@ -223,7 +223,7 @@ const WIDE_RANGES = Object.freeze([
 ]);
 
 /** The columns one character occupies: two when a terminal draws it wide, one otherwise. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function characterColumns(character) {
   const code = character.codePointAt(0);
   return WIDE_RANGES.some(([low, high]) => code >= low && code <= high) ? 2 : 1;
@@ -238,7 +238,7 @@ function characterColumns(character) {
  * doing so: the drawn mode is fitted by them, and measuring it differently would move every
  * diagram this command has ever printed.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 export function displayColumns(text) {
   return [...String(text)].reduce((total, character) => total + characterColumns(character), 0);
 }
@@ -254,7 +254,7 @@ export function displayColumns(text) {
  *
  * @returns {number[]} the indices a line may be cut at, each exclusive of the cut character
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function breakPointsOf(characters) {
   const points = [];
   for (let index = 0; index < characters.length - 1; index += 1) {
@@ -295,7 +295,7 @@ function breakPointsOf(characters) {
  * width. That is what keeps `... ContentAccessGrant` / `等のサービス結果を発行する` from
  * becoming `... ContentAccessGrant等` / `のサービス結果を発行する`, a line opening on a particle.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 export function foldToBreak(text, budget) {
   const characters = [...String(text)];
   // A character cannot be split across lines, so a budget narrower than the widest one is
@@ -360,7 +360,7 @@ export function foldToBreak(text, budget) {
  *
  * @returns {number|null} the index to cut at, or null when no cut improves the balance
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function balancedCut(characters, points, [from, to], columns) {
   const candidates = points
     .filter((at) => at > from && at < to)
@@ -381,7 +381,7 @@ function balancedCut(characters, points, [from, to], columns) {
  * impossibility. It is refused by name the way a mistyped id is, and never by a stack trace:
  * a crash says the tool is broken, and what is actually broken is the argument.
  */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function missingArtifactFields(document) {
   // `operations` is required by the schema, and the tree counts the operations no step names —
   // the one reading that reads the array. A document without it is refused by name like any
@@ -390,13 +390,13 @@ function missingArtifactFields(document) {
 }
 
 /** The steps one sequence owns, in the order the artifact records them. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function stepsOf(artifact, id) {
   return artifact.steps.filter((step) => step.sequence === id);
 }
 
 /** One line per sequence: what it is, where it came from, and how much it carries. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function sequenceListLines(artifact) {
   return artifact.sequences.map((entry) => {
     const steps = stepsOf(artifact, entry.id);
@@ -411,25 +411,25 @@ function sequenceListLines(artifact) {
  * artifact's participant names are full noun phrases, so the drawing carries the identifiers
  * and the names are printed underneath it.
  */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function legendLines(steps) {
   return participantsOf(steps).map((name, index) => `P${index + 1} = ${name}`);
 }
 
 /** The sequences whose steps name one operation, which is what makes an act a shared one. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function namingSequences(artifact, operation) {
   return [...new Set(artifact.steps.filter((step) => step.operation === operation).map((step) => step.sequence))];
 }
 
 /** A count with its noun, so a line about one thing does not read as a line about many. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function counted(count, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
 /** Pad to a column width, which is not a character count. */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function padTo(text, width) {
   return `${text}${' '.repeat(Math.max(0, width - displayColumns(text)))}`;
 }
@@ -442,7 +442,7 @@ function padTo(text, width) {
  * sets are the entries ruled not a sequence and the operations no step names, which are the
  * two the rail already counts elsewhere rather than two this reading invents.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function notDrawnLine(artifact) {
   const drawn = new Set(artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome)).map((entry) => entry.id));
   const named = new Set(artifact.steps.map((step) => step.operation));
@@ -465,7 +465,7 @@ function notDrawnLine(artifact) {
  * The name column is padded to the widest operation of this sequence, so the labels of one
  * sequence begin in one column and the reading is scannable down the names.
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 function sequenceBlockLines(artifact, entry, steps, width) {
   const heading = `${TREE_HEAD} ${entry.id}   ${entry.outcome ?? 'unread'} · lines ${entry.firstLine}–${entry.lastLine} · ${counted(steps.length, 'step', 'steps')}`;
   if (steps.length === 0) {
@@ -528,7 +528,7 @@ function sequenceBlockLines(artifact, entry, steps, width) {
  *   here. An empty list is the reading of the whole artifact, not of nothing.
  * @returns {string} the reading, which is every line the caller writes
  */
-// [::TICKET::] PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-252 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-252 --for-spec --no-implementation-order`.
 export function treeReading(artifact, ids, width) {
   const chosen = ids.length === 0
     ? artifact.sequences.filter((entry) => DIAGRAMMED_OUTCOMES.includes(entry.outcome))
@@ -540,7 +540,7 @@ export function treeReading(artifact, ids, width) {
 }
 
 /** The width of the widest line of a rendering, counted as a reader sees it. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 function widestLine(text) {
   return Math.max(0, ...String(text).split('\n').map((line) => [...line].length));
 }
@@ -560,7 +560,7 @@ function widestLine(text) {
  *
  * @returns {Promise<{ok: true, text: string, note: string}|{ok: false, reason: string}>}
  */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 async function drawSequence({ artifact, id, width, useAscii, render }) {
   const entry = artifact.sequences.find((sequence) => sequence.id === id);
   const steps = stepsOf(artifact, id);
@@ -605,7 +605,7 @@ async function drawSequence({ artifact, id, width, useAscii, render }) {
 }
 
 /** The renderer the drawn mode uses when no other is given, reaching the library when it runs. */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 async function renderMermaidText(source, { useAscii }) {
   let renderMermaidASCII;
   try {
@@ -626,7 +626,7 @@ async function renderMermaidText(source, { useAscii }) {
  * accepting `--width` beside `--mermaid` would let the reader believe the printed source was
  * folded, when the raw source is deliberately the unfolded bytes the fence carries.
  */
-// [::TICKET::] PX-250, PX-252 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-250|PX-252) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250, PX-252 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-250|PX-252) --for-spec --no-implementation-order`.
 function parseTextArguments(tokens) {
   const [artifactPath, ...rest] = tokens;
   if (artifactPath === undefined) {
@@ -690,7 +690,7 @@ function parseTextArguments(tokens) {
  *   reason is stderr, carrying why a refusal happened or what a drawing that could not be
  *   made to fit actually reached
  */
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 export async function textCommand(tokens, { render = renderMermaidText, columns } = {}) {
   const parsed = parseTextArguments(tokens);
   if (!parsed.ok) {
@@ -751,7 +751,7 @@ export async function textCommand(tokens, { render = renderMermaidText, columns 
   return { exitCode: TEXT_EXIT.OK, output: `${drawn.join('\n\n')}\n`, reason: notes.join('\n') };
 }
 
-// [::TICKET::] PX-250 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
 async function main() {
   const answer = await textCommand(process.argv.slice(2), { columns: process.stdout.columns });
   if (answer.output !== '') {

@@ -27,7 +27,7 @@ export const MATERIAL_FILE = 'material.md';
  * The bytes are read rather than the name being hashed, because two different hints may
  * share a name across invocations and the digest has to be able to tell them apart.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function digestOfFile(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
@@ -56,7 +56,7 @@ export function suppliedFilesOf(directory) {
  * that lives outside it — and the set is re-extracted from these bytes on every run, so a
  * file that moved is caught rather than compared with itself.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 export function suppliedDocumentsOf(directory) {
   const supplied = join(directory, SUPPLIED_DIRECTORY);
   if (!existsSync(supplied)) return {};
@@ -75,7 +75,7 @@ export function suppliedDocumentsOf(directory) {
  * Counting it as material would refuse every run that was given a hint, which is how a
  * rule that exists to make an omission loud would instead make supplying anything loud.
  */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 export function pinnableSuppliedFiles(directory) {
   return suppliedFilesOf(directory).filter((file) => file.name !== MATERIAL_FILE);
 }

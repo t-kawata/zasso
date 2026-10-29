@@ -1,6 +1,6 @@
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 /**
  * The spec's sections, and the reading order that makes a package readable.
  *
@@ -33,7 +33,7 @@ const SPEC_TREE = Object.freeze({
 });
 
 /** One located claim per scope, so the grouping has something to group. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function ledgerClaims() {
   return [
     {
@@ -67,7 +67,7 @@ function ledgerClaims() {
 }
 
 /** A spec built the way the run builds one, over the tree the evidence points at. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function specOver(claims, { sections = {} } = {}) {
   const tree = createSyntheticTree({
     ...SPEC_TREE,

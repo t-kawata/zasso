@@ -1,4 +1,4 @@
-// [::TICKET::] PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-189 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-189 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-189 --for-spec --no-implementation-order`.
 // PX-189 @verifies C001 C002 C003 C004 C005
 // Branch-coverage hardening: exercises the remaining reachable branches of the
 // four lib modules that the behaviour tests above do not already visit.
@@ -31,7 +31,7 @@ test('tree-manifest-input: valid JSON loads; broken JSON throws', () => {
   }
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('tree-manifest-input: contract boundary without a normal edge is reported', () => {
   const manifest = buildValidManifest({
     dependencies: {

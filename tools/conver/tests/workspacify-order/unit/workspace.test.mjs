@@ -18,7 +18,7 @@ import {
 import { WorkspacifyOrderError } from '../../../.claude/scripts/workspacify-order/lib/errors.mjs';
 import { ancestorsOf, loadWorkspace, resolveWorkspaceRoot } from '../../../.claude/scripts/workspacify-order/lib/workspace.mjs';
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function scratchDirectory(t, prefix) {
   const directory = mkdtempSync(join(tmpdir(), prefix));
   t.after(() => rmSync(directory, { recursive: true, force: true }));

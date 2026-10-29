@@ -27,7 +27,7 @@ const SCAN_ARG = "--scan";
  * @param {string|null|undefined} content — The string to validate
  * @returns {{valid: boolean, errors: string[]}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function validateStubFormat(content) {
   const errors = [];
 
@@ -107,7 +107,7 @@ function validateStubFormat(content) {
  * @param {string} dir — Directory to scan
  * @returns {{total: number, pass: number, fail: number, failures: Array}}
  */
-// [::TICKET::] PX-134, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-134|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-134, PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-134|PX-135) --for-spec --no-implementation-order`.
 function scanValidate(dir) {
   const scanner = path.resolve(__dirname, "review/find-all-stubs.js");
   const stdout = execFileSync("node", [scanner, path.resolve(dir)], { encoding: "utf8" });
@@ -134,14 +134,14 @@ function scanValidate(dir) {
  * Dispatch the CLI: --scan <dir> runs a tree-wide format gate; otherwise the
  * original single-string mode validates one marker line.
  */
-// [::TICKET::] PX-134, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-134|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-134, PX-135, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-134|PX-135|PX-341) --for-spec --no-implementation-order`.
 function main() {
   const scanIndex = process.argv.indexOf(SCAN_ARG);
   if (scanIndex !== -1) {
     const dir = process.argv[scanIndex + 1];
     if (!dir) {
       console.error("[ERROR] --scan requires a directory argument");
-      console.error("Action: Run: node .claude/scripts/tickets/validate-stub-format.js --scan <directory>");
+      console.error("Action: Run: node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-stub-format.js\" --scan <directory>");
       process.exit(1);
     }
     const result = scanValidate(path.resolve(dir));
@@ -153,7 +153,7 @@ function main() {
   if (!input) {
     console.error('[ERROR] Missing input string');
     console.error('Cause: No argument provided');
-    console.error('Action: Run: node .claude/scripts/tickets/validate-stub-format.js "<stub-marker-string>"');
+    console.error('Action: Run: node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-stub-format.js\" "<stub-marker-string>"');
     process.exit(1);
   }
 

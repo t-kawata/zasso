@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
 // PX-193 @verifies C006
 // The decisions payload is the AI's only writing surface. The shared schema
 // validator supports enum/pattern/required but not propertyNames, so the payload
@@ -19,7 +19,7 @@ function schema() {
   return JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function contractEdge(overrides = {}) {
   return {
     contract_id: 'contract-boundary-001',

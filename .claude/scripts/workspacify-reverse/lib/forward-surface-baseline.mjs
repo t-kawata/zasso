@@ -1,4 +1,4 @@
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 /**
  * forward-surface-baseline — a frozen value for every forward surface P22 modified.
  *
@@ -345,7 +345,7 @@ export function normaliseChecklistOutput(raw) {
 }
 
 /** Read one of this module's fixtures. */
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function readFixtureJson(projectRoot, name) {
   return JSON.parse(readFileSync(join(projectRoot, FORWARD_SURFACE_FIXTURES, name), 'utf8'));
 }
@@ -446,7 +446,7 @@ export function checkForwardSurfaces({ baseline, projectRoot, producers }) {
 }
 
 /** The fixture a surface's producer takes, when it declares one. */
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function fixtureInputFor(projectRoot, surface) {
   if (surface.inputPath === undefined || !surface.inputPath.endsWith('.json')) return undefined;
   return readFixtureJson(projectRoot, surface.inputPath.split('/').pop());

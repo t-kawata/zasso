@@ -1,5 +1,5 @@
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 // The supplied census: material that carries a census but is read by no pin (PX-264).
 //
 // The rail's three census shapes work, and a document of the stated shape is read. What
@@ -53,7 +53,7 @@ const REGISTRY_PIN = Object.freeze({
  * occurs nowhere — so a scratch declaration would fail the gate for a reason this file
  * is not about.
  */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-census-'));
   const specPath = join(root, 'ledger.md');
@@ -69,20 +69,20 @@ function scratchRun() {
  * row schema as well as the census, and a declaration holding only a census would fail
  * for a reason this file is not about.
  */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 function declarationWith(sourceEnumerations) {
   return { ...RUN_INPUT.declaration, sourceEnumerations };
 }
 
 /** Write the run's declaration, with whatever census pins this case is about. */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 function writeDeclaration(directory, sourceEnumerations) {
   const declaration = { ...RUN_INPUT.declaration, sourceEnumerations };
   writeFileSync(join(directory, 'declaration.json'), `${JSON.stringify(declaration, null, 2)}\n`);
 }
 
 /** File material beside the specification, the way an invocation's material is filed. */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 function writeSupplied(directory, documents) {
   const supplied = join(directory, 'supplied');
   mkdirSync(supplied, { recursive: true });
@@ -90,7 +90,7 @@ function writeSupplied(directory, documents) {
 }
 
 /** The phase-4 gate, driven the way the driver drives it. */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 function evaluatePhaseFour({ specPath, spec, directory, status }) {
   return evaluateGate(4, buildContext({ specPath, spec, run: { directory, status }, recorded: {} }));
 }

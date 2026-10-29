@@ -1,4 +1,4 @@
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 // PX-222 @verifies C002
 // PX-222 @verifies C003
 //
@@ -36,13 +36,13 @@ const INANIMATE_ANTECEDENT = /\b(tables?|sections?|items?|entries?|documents?|fa
 const BARE_READER = /\b(?:the|a) reader\b/i;
 
 /** A document's sentences, so a pronoun is judged against the words of its own sentence. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function sentencesOf(documentText) {
   return documentText.split(/(?<=[.!?])\s+/);
 }
 
 /** Every module of the implementation that builds the two documents. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function implementationFiles() {
   const directory = fileURLToPath(new URL('../../../.claude/scripts/explain-seed/', import.meta.url));
   return readdirSync(directory, { recursive: true })
@@ -103,7 +103,7 @@ test('C003 invariant: the command file quotes the section titles the frame actua
   }
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C002 invariant: each document says which of the two agents it is for', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
 

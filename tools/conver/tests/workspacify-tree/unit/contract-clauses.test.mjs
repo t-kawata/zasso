@@ -1,5 +1,5 @@
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-192 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-192 --for-spec --no-implementation-order`.
 // PX-192 @verifies C002
 // The contract-clause vocabulary is the seam stage 2 relies on: it must be a
 // closed, frozen set with five mandatory core clauses, and every dependency
@@ -75,7 +75,7 @@ test('C002 validateContractScope rejects unknown, duplicate and missing core cla
   assert.deepEqual(valid.duplicates, []);
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 const GRAPH_KINDS = Object.freeze([
   'value_only',
   'typed_protocol_input',
@@ -89,7 +89,7 @@ const GRAPH_KINDS = Object.freeze([
   'conformance',
 ]);
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C001 checkpoint-reference, adapter-implementation and conformance add errors and tests', () => {
   for (const kind of ['checkpoint-reference', 'adapter-implementation', 'conformance']) {
     assert.deepEqual(
@@ -100,7 +100,7 @@ test('C001 checkpoint-reference, adapter-implementation and conformance add erro
   }
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C001 every connection kind the graph emits is an explicit map entry', () => {
   assert.equal(CONNECTION_KINDS.length, GRAPH_KINDS.length);
   assert.deepEqual([...CONNECTION_KINDS].sort(), [...GRAPH_KINDS].sort());
@@ -111,7 +111,7 @@ test('C001 every connection kind the graph emits is an explicit map entry', () =
   }
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C001 an unregistered kind is reached only through the named fallback and the census names it', () => {
   assert.deepEqual(
     buildBoundaryContractScope('new-kind'),

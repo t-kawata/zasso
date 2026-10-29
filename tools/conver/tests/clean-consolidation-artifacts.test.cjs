@@ -7,7 +7,7 @@
  *       manifests/CONSOLIDATED-MANIFEST-*.json and manifests/ROLLBACK-*.json,
  *       removes manifests/ itself iff empty, is idempotent (exit 0 when nothing
  *       to remove), and never touches other files.
- * [::TICKET::] PX-138 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-138 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-138 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-138 --for-spec --no-implementation-order`.
  */
 
 const test = require("node:test");

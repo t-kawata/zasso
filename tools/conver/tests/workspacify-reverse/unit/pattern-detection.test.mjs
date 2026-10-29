@@ -1,6 +1,6 @@
 // @verifies C001
 // @verifies C002
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 /**
  * Pattern detection, measured against one representative per declared pattern.
  *
@@ -86,7 +86,7 @@ const SYNTHETIC_REPRESENTATIVE_FILES = Object.freeze({
 /** The synthetic trees, built once and disposed of with the file. */
 const syntheticRepresentatives = new Map();
 
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function representativeRoot(patternId) {
   if (REPRESENTATIVES[patternId]) return REPRESENTATIVES[patternId];
   if (!syntheticRepresentatives.has(patternId)) {
@@ -100,19 +100,19 @@ after(() => {
 });
 
 /** The detection over a real root: the walk is the caller's, the answer is the function's. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function detect(root) {
   return detectPattern({ root, artefacts: listArtefacts(root) });
 }
 
 /** An artefact record in `listArtefacts`'s shape, so the detection can be handed a fabricated list. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function artefact(path, { size = 64, readStatus = 'readable', exclusion = false, kind = 'file' } = {}) {
   return { path, kind, size, readStatus, exclusion, reason: null };
 }
 
 /** A throwaway directory for a subject that must not be written into the project tree. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function scratchDirectory(prefix) {
   const root = mkdtempSync(join(tmpdir(), prefix));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };

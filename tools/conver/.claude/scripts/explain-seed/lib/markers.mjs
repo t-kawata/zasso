@@ -25,7 +25,7 @@ const MARKER_LITERAL = MUST_FILL_MARKER.replace(/[[\]]/g, '\\$&');
 const MARKER_LINE = new RegExp(`^[ \\t]*${MARKER_LITERAL}`);
 
 /** The lines of a document, in order. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function linesOf(documentText) {
   return String(documentText).split('\n');
 }

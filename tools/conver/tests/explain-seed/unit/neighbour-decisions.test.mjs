@@ -51,7 +51,7 @@ const UNDECIDED_BY_BETA = [
 ].join('\n');
 
 /** Every file under a root with its bytes, so a run that writes can be told from one that does not. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function fingerprint(root) {
   return Object.fromEntries(
     readdirSync(root, { recursive: true, withFileTypes: true })
@@ -74,7 +74,7 @@ test('C001 postcondition: a placeholder with nothing under it is not a decision'
   assert.equal(readSettledDecisions({ documentText: UNDECIDED_BY_BETA }).size, 0);
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 postcondition: a question of the current shape names its boundary on its bound-points line', () => {
   const currentShape = [
     '## 人間が決めること（ここだけ）',

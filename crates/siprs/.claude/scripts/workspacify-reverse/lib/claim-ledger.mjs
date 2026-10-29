@@ -1,6 +1,6 @@
-// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 /**
  * R3.5 — the claim ledger, and the evidence independence it is built to refuse.
  *
@@ -77,7 +77,7 @@ export const RULE_ID = 'R-1';
 export const CLAIM_FAMILY_UNREADABLE_CODE = 'CLAIM_FAMILY_FILE_UNREADABLE';
 
 /** The directory a source member at the top of the project belongs to. */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export const PROJECT_ROOT_DIRECTORY = '.';
 
 /** A `crate::` reference from one top-level module into another. */
@@ -100,7 +100,7 @@ const CFG_ATTRIBUTE = /#\[\s*cfg\(/;
  * package `build.r`, which no measurement ever named. The root is `.`, which is
  * what R1 records for the directory holding the build script.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export function directoryOf(relativePath) {
   const separator = relativePath.lastIndexOf('/');
   return separator === -1 ? PROJECT_ROOT_DIRECTORY : relativePath.slice(0, separator);
@@ -142,7 +142,7 @@ export function resolveSourceMember(root, moduleName) {
  * from `src/api` to `src/api` would then be reported as a boundary crossing —
  * a decision card asking whether the module may call itself.
  */
-// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export function owningDirectoryOf(member) {
   return isFilePath(member) ? directoryOf(member) : member;
 }
@@ -157,7 +157,7 @@ export function owningDirectoryOf(member) {
  * package holds — was reported as belonging to a package named after itself.
  * A directory whose name contains a dot is not a case this tree has.
  */
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
 function isFilePath(member) {
   const lastSegment = member.split('/').pop() ?? member;
   return lastSegment.includes('.') && !lastSegment.startsWith('.');
@@ -227,7 +227,7 @@ export function formatClaimAnchor(claim) {
 }
 
 /** A boundary crossing read out of a `crate::` reference. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildBoundaryClaim({ seed, lineNumber, moduleName, providerMember, gated }) {
   const anchor = formatAnchor(seed, lineNumber);
   const provider = providerMember ?? `${SOURCE_DIRECTORY}/${moduleName}`;
@@ -254,7 +254,7 @@ function buildBoundaryClaim({ seed, lineNumber, moduleName, providerMember, gate
 }
 
 /** A condition read out of an assertion. Inferred, because an assert proves only that a check exists. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildInvariantClaim({ seed, lineNumber, gated }) {
   const anchor = formatAnchor(seed, lineNumber);
   return {
@@ -278,7 +278,7 @@ function buildInvariantClaim({ seed, lineNumber, gated }) {
 }
 
 /** A failure path read out of an error return. Inferred, for the same reason. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildFailureClaim({ seed, lineNumber, gated }) {
   const anchor = formatAnchor(seed, lineNumber);
   return {
@@ -343,7 +343,7 @@ export function classifyClaim(claim) {
 }
 
 /** The files whose source text the three claim families are read from. */
-// [::TICKET::] P22-5, P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-5|P23-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5, P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-5|P23-6) --for-spec --no-implementation-order`.
 function claimFamiliesIn(root, { seeds, excludedPaths }) {
   const files = Array.isArray(seeds) && seeds.length > 0
     ? [...seeds]

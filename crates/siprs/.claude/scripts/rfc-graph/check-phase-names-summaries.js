@@ -21,7 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artifacts');
 
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const ticketsPath = args.length >= 1

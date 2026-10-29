@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * Writing the six decisions, through the schema the gate reads.
  *
@@ -11,7 +12,7 @@
  * than none: the gate would report the answers it does contain as present and the run
  * would proceed on five.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -89,5 +90,5 @@ export function renderDecisionWritingAdvice(findings, { path }) {
 
 /** The verdict written when the six decisions are recorded. */
 export function renderDecisionWritingVerdict({ path }) {
-  return `The six decisions are recorded at ${path}. Run the gate to check them: node .claude/scripts/workspacify-reverse/run.mjs gate\n`;
+  return `The six decisions are recorded at ${path}. Run the gate to check them: node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" gate\n`;
 }

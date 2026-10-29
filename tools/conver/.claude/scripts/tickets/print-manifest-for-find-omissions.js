@@ -35,7 +35,7 @@ const UNIT_TAG_RE = /\[::UNIT::[^\]]*::\]/;
  * @param {string} dir — Directory to scan
  * @returns {Array<{file: string, line: number, content: string}>}
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function scanStubs(dir) {
   const script = path.resolve(__dirname, "review/find-all-stubs.js");
   const stdout = execFileSync("node", [script, path.resolve(dir)], { encoding: "utf8" });
@@ -48,7 +48,7 @@ function scanStubs(dir) {
  * @param {string} content — Marker line
  * @returns {string} — Clean marker line
  */
-// [::TICKET::] PX-131, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-131|PX-135) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131, PX-135 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-131|PX-135) --for-spec --no-implementation-order`.
 function stripUnitTag(content) {
   // Collapse every 2+ whitespace run (the tag removal leaves a gap before the
   // covers annotation) — not just the first, which would be the leading indent.
@@ -60,7 +60,7 @@ function stripUnitTag(content) {
  * @param {string} dir — Directory to scan
  * @returns {Array<{file: string, line: number, content: string, unitId: string}>}
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function scanTaggedMarkers(dir) {
   return scanStubs(dir)
     .filter((s) => extractUnitId(s.content))
@@ -72,7 +72,7 @@ function scanTaggedMarkers(dir) {
  * @param {Array} taggedMarkers — [{file,line,content,unitId}]
  * @returns {Array} — [{unitId, sourceKey, stubs:[{file,line,content}]}] with clean content
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function groupByUnitId(taggedMarkers) {
   const byUnit = new Map();
   for (const m of taggedMarkers) {
@@ -90,7 +90,7 @@ function groupByUnitId(taggedMarkers) {
  * Current timestamp as YYYYMMDDhhmmss (used for the manifest filename).
  * @returns {string}
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function timestamp() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -111,7 +111,7 @@ function timestamp() {
  * @param {string} cwd — Root directory (manifests/ lives here)
  * @returns {{ok: boolean, manifestPath?: string, error?: string}}
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function writeManifestFile(manifest, cwd) {
   const manifestsDir = path.join(cwd, MANIFESTS_DIR);
   try {
@@ -131,7 +131,7 @@ function writeManifestFile(manifest, cwd) {
  * Strip the [::UNIT::<id>::] tag from every tagged source marker in place.
  * @param {Array} taggedMarkers — [{file,line,content,unitId}]
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function stripUnitTags(taggedMarkers) {
   const byFile = {};
   for (const m of taggedMarkers) {
@@ -156,7 +156,7 @@ function stripUnitTags(taggedMarkers) {
  * @param {string|null} [dir] — Directory to scan (defaults to cwd)
  * @returns {{ok: boolean, manifestPath?: string, markers?: number, units?: number, error?: string}}
  */
-// [::TICKET::] PX-131, PX-137 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-131|PX-137) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131, PX-137 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-131|PX-137) --for-spec --no-implementation-order`.
 function runPrinter(dir) {
   const root = dir ? path.resolve(dir) : process.cwd();
   let tagged;
@@ -191,7 +191,7 @@ function runPrinter(dir) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-131 --for-spec --no-implementation-order`.
 function main() {
   const dir = process.argv[2] || ".";
   const res = runPrinter(dir);

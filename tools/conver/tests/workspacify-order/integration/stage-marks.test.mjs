@@ -12,7 +12,7 @@ import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const RUN = join(PROJECT_ROOT, '.claude/scripts/workspacify-order/run.mjs');
 
-// [::TICKET::] PX-309, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
 function workspace(t, { artifacts }) {
   const materialized = materializeOrderWorkspace({
     packages: ['pkg-0001'],

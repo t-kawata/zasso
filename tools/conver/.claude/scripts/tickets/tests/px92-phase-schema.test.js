@@ -168,7 +168,7 @@ console.log('\n## C002 — path normalization\n');
 
 console.log('\n## PX-140 — syncMalfeasance path normalization\n');
 
-// [::TICKET::] PX-140 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-140 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-140 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-140 --for-spec --no-implementation-order`.
 (function testPX140SyncNormalizesAbsolutePath() {
   // C001-Post: an absolute-path targetCrime is stored project-root-relative.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c1-'));

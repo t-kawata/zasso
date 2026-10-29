@@ -324,5 +324,5 @@
       }
     }
   },
-  "$comment": "[::TICKET::] PX-193, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-190|PX-193|PX-201) --for-spec --no-implementation-order`."
+  "$comment": "[::TICKET::] PX-193, PX-201 changes. Details: `node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js\" --ticket-key=(PX-190|PX-193|PX-201) --for-spec --no-implementation-order`."
 }

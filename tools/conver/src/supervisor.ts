@@ -18,11 +18,11 @@ import { COMPLETION_TEMPLATE, completionPolicy } from "./completion-policy.js";
 import type { SessionConfig } from "./session.js";
 
 /** 生成された指示の種別。1〜2回目は template、3回目以降は generated */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export type InstructionKind = "template" | "generated";
 
 /** 既に送った指示の記録。同じ指示の繰り返しを避けるために supervisor へ渡す */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export interface PriorInstruction {
   attempt: number;
   kind: InstructionKind;
@@ -30,7 +30,7 @@ export interface PriorInstruction {
 }
 
 /** チケットから supervisor に渡す文脈。すべて切り詰め済み */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export interface SupervisorTicketContext {
   title: string;
   acceptanceCriteria: string;
@@ -39,7 +39,7 @@ export interface SupervisorTicketContext {
 }
 
 /** supervisor に渡す完成済みリクエスト */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export interface SupervisorRequest {
   command: string;
   ticketId: string;
@@ -59,7 +59,7 @@ export interface SupervisorRequest {
  * リクエストの素材。runner.ts が Tickets.json と自プロセスから集める生の値で、
  * 切り詰めは buildSupervisorRequest が行う（runner は切り詰め幅を知らなくてよい）。
  */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export interface SupervisorIngredients {
   command: string;
   ticketId: string;
@@ -79,14 +79,14 @@ export interface SupervisorIngredients {
 }
 
 /** 輸送層の応答。非2xx でも reject せず、呼び出し側が分岐する */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export interface HttpResponse {
   statusCode: number;
   body: string;
 }
 
 /** 輸送層の注入シーム。テストは偽の実装を渡し、モジュールモックを要さない */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export type HttpPostJson = (
   url: string,
   body: unknown,
@@ -131,13 +131,13 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const MESSAGES_PATH = "/v1/messages";
 
 /** 先頭から limit 文字に切り詰める */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function truncateHead(text: string, limit: number): string {
   return text.slice(0, limit);
 }
 
 /** 末尾から limit 文字に切り詰める — 直近の状態ほど判断に効くため後ろを残す */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function truncateTail(text: string, limit: number): string {
   return text.length <= limit ? text : text.slice(-limit);
 }
@@ -284,7 +284,7 @@ export function postJsonHttps(
  * ことがあり、content[0] を読む実装は常に失敗して定型文へ縮退する（PX-212 で実測）。
  * 位置ではなく type で選ぶため、ブロック構成が変わっても壊れない。
  */
-// [::TICKET::] PX-211, PX-212 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-211|PX-212) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211, PX-212 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-211|PX-212) --for-spec --no-implementation-order`.
 function extractInstruction(responseBody: string): string | null {
   let parsed: { content?: Array<{ type?: string; text?: string }> };
   try {
@@ -305,7 +305,7 @@ function extractInstruction(responseBody: string): string | null {
 }
 
 /** 縮退を観測可能にしつつ定型文を返す — 失敗を黙って飲み込まない */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function degradeToTemplate(
   request: SupervisorRequest,
   failureKind: string,

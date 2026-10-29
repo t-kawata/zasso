@@ -16,7 +16,7 @@ import {
   viewDigest,
 } from '../../.claude/scripts/sequences-slice/lib/distribution-map.mjs';
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureView() {
   return {
     packageId: 'pkg-1',
@@ -63,7 +63,7 @@ const RFC = [
   '',
 ].join('\n');
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureMap(view) {
   return {
     schemaVersion: 1,
@@ -143,7 +143,7 @@ test('C002 validateMapAgainstView reports missing, invented and a stale view dig
   assert.equal(validateMapAgainstView(stale, view).code, 'STALE_DISTRIBUTION_MAP');
 });
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 test('C002 a residual may account for a view unit the map does not distribute', () => {
   const view = fixtureView();
   const map = fixtureMap(view);
@@ -155,7 +155,7 @@ test('C002 a residual may account for a view unit the map does not distribute', 
   assert.equal(validateMapAgainstView(declaring, view).ok, true);
 });
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 test('C002 a unit declared both distributed and residual is refused', () => {
   const view = fixtureView();
   const map = fixtureMap(view);

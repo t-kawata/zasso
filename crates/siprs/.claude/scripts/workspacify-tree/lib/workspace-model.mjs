@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-177|PX-180) --for-spec --no-implementation-order`.
 /**
  * Workspace model vocabulary and catalog validation (§9.1, §11.2).
  *

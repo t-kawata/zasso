@@ -12,7 +12,7 @@ import path from "node:path";
 import os from "node:os";
 
 /** 単一チケットの情報 */
-// [::TICKET::] PX-145, PX-146, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146|PX-211) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-211) --for-spec --no-implementation-order`.
 export interface Ticket {
   id: number;
   phaseId: number;
@@ -43,7 +43,7 @@ export interface Phase {
 }
 
 /** Tickets.json のルート構造 */
-// [::TICKET::] PX-114, PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-114|PX-116) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-114|PX-116) --for-spec --no-implementation-order`.
 export interface TicketsJson {
   title?: string;
   /** 処理ラウンド番号（新規作成時は 1、サイクル完了ごとにインクリメント） */
@@ -129,7 +129,44 @@ export function clearForNextRound(ticketsPath: string): void {
       delete ticket.forNextRound;
     }
   }
-  writeFileSync(ticketsPath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+  // The file is committed, so every home path in it is stored in the portable form.
+  writeFileSync(ticketsPath, JSON.stringify(toHomeRelativeDeep(data), null, 2) + "\n", "utf-8");
+}
+
+/**
+ * 文字列中の $HOME 配下の絶対パスを ~/ に置き換える。
+ *
+ * `.claude/scripts/lib/path-utils.js` の toHomeRelativeText と同じ規則を、
+ * バンドルされる TypeScript 側でも適用する。区切り文字を要求するため、
+ * `/Users/alice2` のような兄弟ディレクトリはホームと誤認しない。
+ * @param text 絶対パスを含みうる文字列
+ * @returns $HOME 前置部を ~ にした文字列
+ */
+function toHomeRelativeText(text: string): string {
+  const home = os.homedir();
+  if (!home || home === path.parse(home).root) return text;
+  const escaped = home.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`${escaped}[/\\\\]`, "g"), "~/");
+}
+
+/**
+ * JSON 形状の値の全文字列に toHomeRelativeText を適用する。
+ * @param value JSON 形状の値
+ * @returns 文字列だけを変換した新しい値
+ */
+function toHomeRelativeDeep<T>(value: T): T {
+  if (typeof value === "string") return toHomeRelativeText(value) as unknown as T;
+  if (Array.isArray(value)) {
+    return value.map((entry) => toHomeRelativeDeep(entry)) as unknown as T;
+  }
+  if (value !== null && typeof value === "object") {
+    const converted: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      converted[key] = toHomeRelativeDeep(entry);
+    }
+    return converted as T;
+  }
+  return value;
 }
 
 /** GRAPH ファイル名の接尾辞 — graphify の命名規約（<source>.md → <source>-GRAPH.json） */
@@ -142,7 +179,7 @@ const GRAPH_FILE_SUFFIX = "-GRAPH.json";
  * @param p チルダ付きの可能性があるパス
  * @returns チルダ展開済みのパス
  */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-116 --for-spec --no-implementation-order`.
 function expandTilde(p: string): string {
   return p.startsWith("~") ? path.join(os.homedir(), p.slice(1)) : p;
 }
@@ -152,8 +189,8 @@ function expandTilde(p: string): string {
  * @param source RFC markdown のパス（metadata.source）
  * @returns 導出したパス。source が無ければ undefined
  */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
 function deriveGraphPath(source?: string): string | undefined {
   if (!source) return undefined;
   return source.replace(/\.md$/, "") + GRAPH_FILE_SUFFIX;

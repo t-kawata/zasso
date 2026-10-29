@@ -1,4 +1,4 @@
-// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-2 --for-spec --no-implementation-order`.
 /**
  * Isolation: ground truth reachable from a reverse-rotation target.
  *
@@ -282,7 +282,7 @@ test('a switch after the isolation root does not consume it', () => {
   }
 });
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('a subcommand that measures a subject refuses a root it was handed', () => {
   // `detect`, `scrub` and `verify` measure the directory the command is run
   // in, so a root is not a thing they take. Handing one is refused by name rather

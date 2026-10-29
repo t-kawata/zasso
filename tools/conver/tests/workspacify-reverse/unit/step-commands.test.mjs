@@ -1,4 +1,4 @@
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /**
  * The six subcommands that perform a Step's mechanical half.
  *
@@ -9,7 +9,7 @@
  * the library call over the same tree, never a fixture string, because a fixture string
  * would pass a handler that had quietly reformatted the library's answer.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
 // @verifies C001 — the pattern handler is wiring over the library, not a second implementation
 // @verifies C002 — the four read-only subcommands leave the tree digest identical
@@ -69,7 +69,7 @@ const SIX_ANSWERS = Object.freeze({
  * call that did not name one would measure whatever the harness happens to be standing
  * in — this repository.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runCli(args, { cwd } = {}) {
   return spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
 }

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The phase driver (PX-240).
 //
 // @verifies C016
@@ -32,7 +32,7 @@ import { loopsFor, phaseState, readingOf, runDirectoryFor } from '../../.claude/
 import { pathToFileURL } from 'node:url';
 
 const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 const GOLDEN_SOURCE = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 const TAGS = Object.values(PHASE_TAGS);
@@ -41,7 +41,7 @@ const TAGS = Object.values(PHASE_TAGS);
 const TOOL_ROOT = new URL('../../.claude/scripts/educe-sequences', import.meta.url).pathname;
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function scratch() {
   const root = mkdtempSync(join(tmpdir(), 'educe-phases-'));
   const specPath = join(root, 'ledger.md');
@@ -50,7 +50,7 @@ function scratch() {
 }
 
 /** Seed a run's reading files from the recorded run input. */
-// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-243, PX-244, PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
 function seed(run) {
   writeFileSync(join(run.directory, 'declaration.json'), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
@@ -64,7 +64,7 @@ function seed(run) {
 }
 
 /** Open a run over the scratch specification. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function open({ seeded = true } = {}) {
   const { specPath } = scratch();
   const spec = readSpecification(specPath);
@@ -173,7 +173,7 @@ test('a manifest-bearing run refuses a reading from a previous generation', () =
 });
 
 // @verifies C005
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 test('without a manifest a named previous generation keeps the legacy behavior', () => {
   const { context } = open();
   runThrough(context, 7);
@@ -186,7 +186,7 @@ test('without a manifest a named previous generation keeps the legacy behavior',
 });
 
 // @verifies C001
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 test('phase 9 preserves a v3 artifact that is already present', () => {
   const { context } = open();
   runThrough(context, 8);
@@ -209,7 +209,7 @@ test('phase 9 preserves a v3 artifact that is already present', () => {
   assert.equal(preserved.operations[0].registry_contribution, 'required');
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('phase 9 refuses an ungrounded pinned column before writing the artifact', () => {
   const { context } = open();
   const declarationPath = join(context.directory, 'declaration.json');
@@ -308,7 +308,7 @@ test('C015 the run directory is a pure function of the specification path', () =
   assert.equal(run.resumed, false);
 });
 
-// [::TICKET::] PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-244 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
 test('C015 a run writes nothing beneath the tool, including the run that scaffolds a check', async () => {
   const toolTree = digestOfTree(TOOL_ROOT);
   const { context } = open();
@@ -392,7 +392,7 @@ test('the next phase is the first that is not done', () => {
 // ---------------------------------------------------------------------------
 
 /** The recorded declaration with its weakest link pointing wherever a test needs. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function declarationTightenedBy(tightenedBy) {
   return {
     ...RUN_INPUT.declaration,
@@ -401,7 +401,7 @@ function declarationTightenedBy(tightenedBy) {
 }
 
 /** A run driven to phase 12 with the weakest link the test names. */
-// [::TICKET::] PX-241, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-241|PX-243|PX-244) --for-spec --no-implementation-order`.
 function runUpToChecks(tightenedBy) {
   const { context } = open();
   writeFileSync(join(context.directory, 'declaration.json'), `${JSON.stringify(declarationTightenedBy(tightenedBy), null, 2)}\n`);

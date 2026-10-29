@@ -1,4 +1,4 @@
-// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -30,10 +30,10 @@ import {
   snapshotDesignTree,
 } from './helpers/chain-fixture.mjs';
 
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 
 /** Open, derive and verify a transaction with deterministic fixtures. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function verifiedTransaction(workspace) {
   const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'test' });
   deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
@@ -159,7 +159,7 @@ test('a derivation failure leaves the live tree byte-identical and the transacti
 
 // @verifies C002
 test('derive remembers setupDone and resumes after a verify failure', () => {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const workspace = materializeChainWorkspace();
   try {
     const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'setup once' });
@@ -241,7 +241,7 @@ test('verify passes only when the chain, the grounds and the detector agree', ()
 
 // @verifies C003
 test('a broken staging chain keeps commit unverified', () => {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const workspace = materializeChainWorkspace();
   try {
     const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'chain' });
@@ -317,7 +317,7 @@ test('status reports the state and the next action', () => {
 
 // @verifies C002
 test('the derive-failed next action names abort and open', () => {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const workspace = materializeChainWorkspace();
   try {
     const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'fail' });

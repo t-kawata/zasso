@@ -235,7 +235,7 @@ test('IT: the run\'s own before-and-after digest and this suite\'s independent o
 const UNRECORDED_LANGUAGE = 'unknown';
 
 /** Every ticket key `Tickets.json` holds, as `P{phase}-{ticket}`. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function ticketKeys(tickets) {
   const keys = new Set();
   const pending = [tickets];

@@ -19,13 +19,13 @@ const SCRIPT = path.resolve(__dirname, '../.claude/scripts/tickets/ensure-ticket
 const { resolveStoredPath } = require('../.claude/scripts/lib/path-utils');
 
 /** A home directory no machine has, made fresh for each test that needs one. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function makeInjectedHome() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'px231-home-'));
 }
 
 /** An empty Tickets.json inside `home`, so the writer's own directory lies beneath the home. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function makeTicketsUnder(home) {
   const ticketsPath = path.join(home, 'Tickets.json');
   fs.writeFileSync(
@@ -42,7 +42,7 @@ function makeTicketsUnder(home) {
 }
 
 /** Run the writer with the home it will read, and answer with what it stored. */
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 function storedSpecPathFor({ home, ticketsPath, ticketKey }) {
   execFileSync(process.execPath, [SCRIPT, `--ticket-key=${ticketKey}`, '--title=Stored path', `--tickets=${ticketsPath}`], {
     encoding: 'utf8',
@@ -52,9 +52,9 @@ function storedSpecPathFor({ home, ticketsPath, ticketKey }) {
   return tickets.phases[0].tickets[0].specPath;
 }
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 describe('PX-231 a stored path names no machine', function () {
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   it('C003 postcondition: the writer stores a spec path beneath the home it ran under, written as a tilde path', function () {
     const home = makeInjectedHome();
     try {
@@ -68,7 +68,7 @@ describe('PX-231 a stored path names no machine', function () {
     }
   });
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   it('C003 postcondition: the reader expands a stored tilde path beneath the home it is read under', function () {
     const readingHome = makeInjectedHome();
     const previousHome = process.env.HOME;
@@ -84,7 +84,7 @@ describe('PX-231 a stored path names no machine', function () {
     }
   });
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   it('C003 invariant: a record written before this change still resolves', function () {
     const readingHome = makeInjectedHome();
     const previousHome = process.env.HOME;
@@ -99,7 +99,7 @@ describe('PX-231 a stored path names no machine', function () {
     }
   });
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   it('C003 invariant: a relative stored path is still resolved against the tickets directory', function () {
     const readingHome = makeInjectedHome();
     const previousHome = process.env.HOME;
@@ -115,7 +115,7 @@ describe('PX-231 a stored path names no machine', function () {
     }
   });
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   it('C003 invariant: an expanded path never reaches path.resolve as a bare tilde', function () {
     const readingHome = makeInjectedHome();
     const previousHome = process.env.HOME;

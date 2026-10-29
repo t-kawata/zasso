@@ -22,7 +22,7 @@ const {
   renderObligationValue,
 } = require('./show-ticket-context.js');
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -30,19 +30,19 @@ function argumentFor(argv, name) {
   return index === -1 ? null : argv[index + 1] ?? null;
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function readJson(filePath) {
   return filePath !== null && fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : null;
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function readRegistry(filePath) {
   const document = readJson(filePath);
   if (document === null) return [];
   return Array.isArray(document) ? document : document.contract_registry ?? [];
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function formatSteps(record) {
   return (record?.steps ?? [])
     .slice()
@@ -51,7 +51,7 @@ function formatSteps(record) {
     .join(' -> ') || '(no steps)';
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function formatClauses(row) {
   const clauses = row?.clauses ?? {};
   return [
@@ -63,7 +63,7 @@ function formatClauses(row) {
 }
 
 /** The phase node ids a phase names, or every graph node when the phase names none. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function phaseNodes(phase, graph) {
   const named = new Set(Array.isArray(phase?.nodeIds) ? phase.nodeIds : []);
   return (graph?.nodes ?? []).filter((node) => named.size === 0 || named.has(node.id));
@@ -75,7 +75,7 @@ function phaseNodes(phase, graph) {
  * @param {{ phase: object, view: object, graph: object, dirsTree?: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {string}
  */
-// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
 function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
@@ -146,7 +146,7 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
   return `${lines.join('\n')}\n`;
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function findPhase(tickets, phaseArg) {
   const phases = tickets?.phases ?? [];
   const match = phases.find((phase) => phase.id === -1 && phaseArg === 'PX')
@@ -154,7 +154,7 @@ function findPhase(tickets, phaseArg) {
   return match ?? null;
 }
 
-// [::TICKET::] PX-312, PX-313, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   let ticketsPath = argumentFor(argv, 'tickets');
   const phaseArg = argumentFor(argv, 'phase');

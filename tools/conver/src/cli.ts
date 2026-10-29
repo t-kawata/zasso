@@ -18,7 +18,7 @@ export function normalizeBaseUrl(rawUrl: string): string {
   return trimmed === "" ? DEFAULT_BASE_URL : trimmed.replace(/\/+$/, "");
 }
 
-// [::TICKET::] PX-145, PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151) --for-spec --no-implementation-order`.
 export interface CliOptions {
   apiKey: string;
   model: string;
@@ -38,7 +38,7 @@ export interface CliOptions {
   watcherConfig?: string;
 }
 
-// [::TICKET::] PX-145, PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151) --for-spec --no-implementation-order`.
 function showUsage(): void {
   process.stdout.write(`conver.js ${VERSION} — ACP-based ticket processing pipeline (provider-agnostic)
 

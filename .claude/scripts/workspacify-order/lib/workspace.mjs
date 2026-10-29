@@ -24,11 +24,11 @@ export const SEED_FILE_NAME = 'RFC-SEED.md';
  * the order that does. Its absence means the build order is the only order available, not
  * that the build order is the implementation order.
  */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 export const IMPLEMENTATION_ORDER_FILE_NAME = 'WORKSPACIFY-IMPLEMENTATION-ORDER.json';
 
 /** The root sequences artifact, or null when there is none or more than one. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 export function findRootArtifact(root) {
   let entries;
   try {
@@ -41,7 +41,7 @@ export function findRootArtifact(root) {
 }
 
 /** One package's projected view, or null when it is absent or unreadable. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 export function loadPackageView(root, packagePath) {
   const path = join(root, packagePath, 'SEQUENCES.json');
   if (!existsSync(path)) return null;
@@ -53,7 +53,7 @@ export function loadPackageView(root, packagePath) {
 }
 
 /** The operation roles the package ledger declares, or an empty map. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 export function loadPackageRoles({ root, packagePath }) {
   const roles = new Map();
   const rfcPath = join(root, packagePath, RFC_FILE_NAME);
@@ -70,7 +70,7 @@ export function loadPackageRoles({ root, packagePath }) {
 }
 
 /** The unit ids a package's distribution map declares as residuals, or an empty set. */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 export function loadPackageResidualUnits({ root, packagePath }) {
   const residuals = new Set();
   const rfcPath = join(root, packagePath, RFC_FILE_NAME);
@@ -87,7 +87,7 @@ export function loadPackageResidualUnits({ root, packagePath }) {
 }
 
 /** Read the implementation-order sidecar, or null when it is absent or unreadable. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 export function loadImplementationOrder(root) {
   const path = join(root, IMPLEMENTATION_ORDER_FILE_NAME);
   if (!existsSync(path)) return null;
@@ -105,7 +105,7 @@ export function loadImplementationOrder(root) {
  * the digest, marker, item and render machinery for the sake of one string, and this tool
  * family already declares its own file names rather than reaching across scripts.
  */
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
 
 /**
@@ -119,22 +119,22 @@ export const EXPLAIN_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
 export const RFC_FILE_NAME = 'RFC.md';
 
 /** The graph `/graphify-rfc` writes beside its source document. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const GRAPH_ARTIFACT_SUFFIX = '-GRAPH.json';
 
 /** The directory tree `/boundify-graph` writes beside the graph. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const DIRS_TREE_ARTIFACT_SUFFIX = '-Dirs-Tree.json';
 
 /** The ticket file `/split-to-tickets` writes in the design directory. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const TICKETS_FILE_NAME = 'Tickets.json';
 
 /** The stem every artifact is named after: the design document without its extension. */
 const RFC_STEM = RFC_FILE_NAME.replace(/\.md$/, '');
 
 /** The entries of a directory, or none when it cannot be read. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function entriesOf(directory) {
   try {
     return readdirSync(directory);
@@ -144,7 +144,7 @@ function entriesOf(directory) {
 }
 
 /** Whether either artifact a graph stage writes exists for this stem. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function carriesStageArtifact(directory, stem) {
   return existsSync(join(directory, `${stem}${GRAPH_ARTIFACT_SUFFIX}`))
     || existsSync(join(directory, `${stem}${DIRS_TREE_ARTIFACT_SUFFIX}`));
@@ -157,7 +157,7 @@ function carriesStageArtifact(directory, stem) {
  * artifacts were produced from another document answers that single stem; two candidates
  * are an ambiguity this display does not settle, so it answers null and shows no mark.
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function artifactStem({ root, packagePath }) {
   const directory = join(root, packagePath);
   if (carriesStageArtifact(directory, RFC_STEM)) return RFC_STEM;
@@ -169,21 +169,21 @@ export function artifactStem({ root, packagePath }) {
 }
 
 /** Whether the package carries the graph `/graphify-rfc` wrote. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function holdsGraphArtifact({ root, packagePath }) {
   const stem = artifactStem({ root, packagePath });
   return stem !== null && holds(join(root, packagePath), `${stem}${GRAPH_ARTIFACT_SUFFIX}`);
 }
 
 /** Whether the package carries the directory tree `/boundify-graph` wrote. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function holdsBoundifyArtifact({ root, packagePath }) {
   const stem = artifactStem({ root, packagePath });
   return stem !== null && holds(join(root, packagePath), `${stem}${DIRS_TREE_ARTIFACT_SUFFIX}`);
 }
 
 /** Whether the package carries the ticket file `/split-to-tickets` wrote. */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function holdsSplitArtifact({ root, packagePath }) {
   return holds(join(root, packagePath), TICKETS_FILE_NAME);
 }
@@ -200,7 +200,7 @@ export function ancestorsOf(startDirectory) {
   }
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function holds(candidate, fileName) {
   return existsSync(join(candidate, fileName));
 }
@@ -212,7 +212,7 @@ function holds(candidate, fileName) {
  * explanation counts as present, and a directory that cannot be read answers false rather
  * than failing a plan that is only meant to describe the workspace.
  */
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export function holdsExplanation({ root, packagePath }) {
   return holds(join(root, packagePath), EXPLAIN_FILE_NAME);
 }
@@ -232,7 +232,7 @@ export function holdsRfc({ root, packagePath }) {
 
 /** The one ancestor directory holding both manifests. */
 export function resolveWorkspaceRoot(startDirectory) {
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
   const ancestors = ancestorsOf(startDirectory);
   const complete = ancestors.filter(
     (candidate) => holds(candidate, TREE_MANIFEST_FILE_NAME) && holds(candidate, ALLOCATE_MANIFEST_FILE_NAME),
@@ -262,7 +262,7 @@ export function resolveWorkspaceRoot(startDirectory) {
 }
 
 /** Read one manifest, or say which file could not be read or parsed. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function readManifest(absolutePath, fileName) {
   let text;
   try {

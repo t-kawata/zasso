@@ -21,13 +21,13 @@
 const AXES = ['danger', 'omission', 'contradiction', 'deficiency'];
 
 /** A fresh advisory with four empty axes. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function emptyAdvisory() {
   return { danger: [], omission: [], contradiction: [], deficiency: [] };
 }
 
 /** Capitalize the first letter of an axis name for a section header. */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function axisHeader(axis) {
   return axis.charAt(0).toUpperCase() + axis.slice(1);
 }
@@ -37,7 +37,7 @@ function axisHeader(axis) {
  * a natural-language English `message`. An empty axis renders 'none'.
  * Deterministic: identical findings yield byte-identical output.
  */
-// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function buildAdvisoryReport(findings) {
   const lines = ['## Advisory Report', ''];
   for (const axis of AXES) {

@@ -1,5 +1,5 @@
 // PX-239 @verifies C003
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 /**
  * The seed divergence ledger's structural gate.
  *
@@ -32,7 +32,7 @@ const TABLE_HEADER =
  * @param {object[]} rows — ledger rows
  * @param {{ withNode?: boolean, nodeStatus?: string, withHeader?: boolean }} [options]
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function writeDivergenceLedger(dir, rows, { withNode = true, nodeStatus = 'resolved', withHeader = true } = {}) {
   const body = rows
     .map((row) => `| ${row.artifact} | ${row.location} | ${row.says} | ${row.decides} | ${row.ground} |`)

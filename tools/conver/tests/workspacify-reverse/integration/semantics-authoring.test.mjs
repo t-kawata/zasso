@@ -3,7 +3,7 @@
 // @verifies C008
 // @verifies C009
 // @verifies C012
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /**
  * The authoring route, driven through the entrance rather than through the library.
  *
@@ -51,7 +51,7 @@ const TREE = Object.freeze({
 });
 
 /** Run the entrance and return what it did. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function runRunner(args, cwd) {
   return spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
 }
@@ -66,7 +66,7 @@ const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
  * operator owns: a package with no measurements of its own is still a row, and the run
  * cannot know it was meant to be one.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function answers() {
   return {
     package_boundary: {
@@ -85,7 +85,7 @@ function answers() {
 const FILE_IN = Object.freeze({ 'src/api': 'src/api/login.rs', 'src/model': 'src/model.rs' });
 
 /** Every cell of every package, written, resting on a measured crossing of its own scope. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function readingsFor({ ledger, packages = PACKAGES }) {
   const crossings = new Map();
   for (const claim of ledger.claims) {
@@ -102,7 +102,7 @@ function readingsFor({ ledger, packages = PACKAGES }) {
 }
 
 /** A scratch tree with a run behind it, and the paths the sequence needs. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function prepared() {
   const tree = createSyntheticTree(TREE);
   const scratch = createSyntheticTree({});
@@ -113,7 +113,7 @@ function prepared() {
     scratch,
     answersPath,
     readingsPath: join(scratch.root, 'readings.json'),
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
     dispose() { tree.dispose(); scratch.dispose(); },
   };
 }

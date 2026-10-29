@@ -1,4 +1,4 @@
-// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-3 --for-spec --no-implementation-order`.
 // @verifies C003
 /**
  * The R-7 instrument: how much a slice actually costs, and what the whole

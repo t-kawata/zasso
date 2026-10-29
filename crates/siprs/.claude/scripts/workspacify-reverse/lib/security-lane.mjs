@@ -1,4 +1,4 @@
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 /**
  * Phase 4 — the security lane, and the human authority it requires.
  *
@@ -170,7 +170,7 @@ export const LANE_POLICY = Object.freeze([
 const CHAR_LITERAL = /'(?:\\.|[^'\\])'/g;
 
 /** One lower-case word segment of an identifier or path, keeping SCREAMING_SNAKE whole. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function segmentsOf(word) {
   return word
     // The look-behind splits camelCase only where a lower-case or digit meets an
@@ -182,7 +182,7 @@ function segmentsOf(word) {
 }
 
 /** Whether one text names any term of a vocabulary, as a whole segment or a whole identifier. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function namesAnyTerm(text, vocabulary) {
   for (const word of String(text).split(/[^A-Za-z0-9]+/)) {
     if (word.length === 0) continue;
@@ -194,7 +194,7 @@ function namesAnyTerm(text, vocabulary) {
 }
 
 /** The declared risk categories a text names. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function categoriesNamedIn(text) {
   const named = new Set();
   if (typeof text !== 'string' || text.length === 0) return named;
@@ -205,7 +205,7 @@ function categoriesNamedIn(text) {
 }
 
 /** The categories a declared risk surface assigns to a path or provider. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function surfaceCategoriesOf(text) {
   const named = new Set();
   if (typeof text !== 'string' || text.length === 0) return named;
@@ -223,7 +223,7 @@ function surfaceCategoriesOf(text) {
  * the code performs. The two are returned separately so the caller can classify on
  * the one and report the other, instead of reading a message as a behaviour.
  */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function splitAnchorLine(line) {
   const scan = line.replace(CHAR_LITERAL, ' ');
   let code = '';
@@ -261,7 +261,7 @@ function splitAnchorLine(line) {
 }
 
 /** Whether a resolved path is inside the population it was resolved against. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function isWithinRoot(root, absolutePath) {
   const rootPath = resolve(root);
   return absolutePath === rootPath || absolutePath.startsWith(`${rootPath}${sep}`);
@@ -276,19 +276,19 @@ function isWithinRoot(root, absolutePath) {
  * would allow a claim about something outside the corpus to be classified from
  * its own path, which reads as a measurement while being none.
  */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function createAnchorReader(root) {
   const byPath = new Map();
 
   return {
     /** Whether the anchor names a member of the population. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
     contains(relativePath) {
       return isWithinRoot(root, resolve(root, relativePath));
     },
 
     /** The anchor line, or null when it cannot be read. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
     lineAt(relativePath, lineNumber) {
       const absolutePath = resolve(root, relativePath);
       if (!isWithinRoot(root, absolutePath)) return null;
@@ -310,7 +310,7 @@ function createAnchorReader(root) {
 }
 
 /** The lane a single claim belongs to, with the reason when it could not be settled. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function classifyClaimRisk(claim, anchorReader) {
   const span = claim?.evidence?.[0]?.source_span ?? null;
   const anchorPath = typeof span?.file === 'string' ? span.file : '';
@@ -590,7 +590,7 @@ export function isStrongFalsification(claim, falsificationPlan = []) {
  * @param {Array<{ channel: string, evidence_mode: string }>} falsificationPlan
  * @returns {{ falsification_stated: boolean, channelsFound: number, channelsRequired: number, observesBehaviour: boolean, strong: boolean }}
  */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 export function measureFalsification(claim, falsificationPlan = []) {
   const falsificationStated = typeof claim?.falsification === 'string' && claim.falsification.trim().length > 0;
   const modes = new Set(
@@ -680,7 +680,7 @@ export function blockCanonisation(claim, { authorityRecord = null, falsification
  * claim, and a hidden lane claim is the failure this whole module exists to
  * prevent.
  */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function renderCategoryRows(categories) {
   return RISK_CATEGORIES.map((category) => {
     const found = categories[category] ?? 0;
@@ -693,7 +693,7 @@ function renderCategoryRows(categories) {
 }
 
 /** The section listing the lane claims and what each one still needs. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function renderLaneClaims(security) {
   if (security.length === 0) return ['The security lane is empty.'];
   const lines = [];
@@ -706,7 +706,7 @@ function renderLaneClaims(security) {
 }
 
 /** The section listing the claims that could not be settled, with the reason. */
-// [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-22 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function renderReported(reported) {
   if (reported.length === 0) return ['No claim needed reporting: every claim was settled into one of the two lanes.'];
   const lines = [];

@@ -35,7 +35,7 @@ const SECOND_OBJECT = 'y'.repeat(32);
 const byteLength = (text) => Buffer.byteLength(text, 'utf8');
 
 /** An in-scope file beside an excluded subtree nested deeper than one level. */
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
 function treeWithExcludedSubtree() {
   return createSyntheticTree({
     'Cargo.toml': CARGO_MANIFEST,

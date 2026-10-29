@@ -1,4 +1,4 @@
-// [::TICKET::] PX-195 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-195 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-195 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-195 --for-spec --no-implementation-order`.
 // PX-195 @verifies C004
 // Cleanup is mechanical and conservative: it removes only what the run created and
 // leaves the published set — tree, seeds, allocate manifest — plus whatever

@@ -52,7 +52,7 @@ import {
 import { REPRESENTATIVE_ROOTS } from '../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-// [::TICKET::] PX-220 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-220 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-220 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-220 --for-spec --no-implementation-order`.
 const ANALYSIS_TECH_DOC = join(PROJECT_ROOT, 'docs', 'archive', 'P22-ANALYSIS-TECH.md');
 
 /** The six languages, in the order the matrix renders them. */
@@ -165,32 +165,32 @@ const SHAPE_FIXTURES = Object.freeze({
 });
 
 /** Measure one language's representative. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function measureRepresentative(language) {
   return measureStructure({ root: join(PROJECT_ROOT, REPRESENTATIVE_ROOTS[language]) });
 }
 
 /** Parse one representative file, so a collector can be called the way the measurement calls it. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function parseRepresentativeFile(language, relativePath) {
   return parseSourceFile(join(PROJECT_ROOT, REPRESENTATIVE_ROOTS[language]), relativePath);
 }
 
 /** The distinct field names a list of records carries. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function fieldNames(records) {
   return [...new Set(records.flatMap((record) => Object.keys(record)))].sort();
 }
 
 /** Order records the way a reader would go to them, for a comparison that ignores walk order. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function byLocation(left, right) {
   return `${left.file}:${String(left.line).padStart(6, '0')}:${left.symbol}`
     .localeCompare(`${right.file}:${String(right.line).padStart(6, '0')}:${right.symbol}`);
 }
 
 /** The reason attached to one language's cell for one item. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function reasonFor(language, item) {
   const gap = findCapabilityGaps(CAPABILITY_MATRIX).find(
     (candidate) => candidate.language === language && candidate.item === item,
@@ -200,7 +200,7 @@ function reasonFor(language, item) {
 }
 
 /** Every E1-E4 record of a structure result, keyed by the family that produced it. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function recordsOf(structure) {
   return { E1: structure.packages, E2: structure.publicItems, E3: structure.types, E4: structure.errorTypes };
 }
@@ -260,7 +260,7 @@ test('UT: [Normal] C001 postcondition — TypeScript E1, E2, E3 and E4 are produ
 });
 
 test('UT: [Normal] C001 postcondition — JavaScript, Go, Python and C/C++ each produce their four items', () => {
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
   const javascript = measureRepresentative('javascript');
   assert.ok(javascript.publicItems.some((item) => item.symbol === 'Widget' && item.file === 'src/widget.js'), 'JS E2 reads module.exports');
   assert.ok(javascript.publicItems.some((item) => item.symbol === 'loadModule'), 'JS E2 reads the second module');
@@ -464,8 +464,8 @@ test('UT: [Error] C002 invariant — a declaration naming a language with no que
 });
 
 test('UT: [Boundary] C002 invariant — a family with no extractor reads not_attempted, which is not ran-and-found-nothing', () => {
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
   // P24-3 wrote the E5 and E6 extractors for the five, P24-4 did the same for
   // E7-E11, and P24-5 for E12 and E14, once each language's material had been
   // read over its own representative. E15 is where a family with no reader still
@@ -489,8 +489,8 @@ test('UT: [Boundary] C002 invariant — a family with no extractor reads not_att
 });
 
 test('UT: [Invariant] no cell of the 96 reads success, and unsupported_in_principle is E13 alone', () => {
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
   const cells = TARGET_LANGUAGES.flatMap((language) => EXTRACTION_ITEMS.map((item) => [language, item, CAPABILITY_MATRIX[language][item]]));
   assert.equal(cells.length, TARGET_LANGUAGES.length * EXTRACTION_ITEMS.length);
   assert.deepEqual(cells.filter(([, , value]) => value === 'success').map(([language, item]) => `${language}/${item}`), []);

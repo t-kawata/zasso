@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { compareObligationClosure } from '../../.claude/scripts/smooth-sequences/lib/evidence-ledger.mjs';
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('unchanged input cannot reopen a closed obligation', () => {
   const baseline = { inputDigest: 'd1', closed: ['MESH:b/A'], evidenceDigests: { 'MESH:b/A': 'e1' } };
   const staging = { inputDigest: 'd1', open: ['MESH:b/A'], evidenceDigests: { 'MESH:b/A': 'e1' } };
@@ -13,7 +13,7 @@ test('unchanged input cannot reopen a closed obligation', () => {
   assert.equal(result.code, 'EVIDENCE_REGRESSION');
 });
 
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 test('new evidence is not a regression', () => {
   const baseline = { inputDigest: 'd1', closed: ['MESH:b/A'], evidenceDigests: { 'MESH:b/A': 'e1' } };
   const staging = { inputDigest: 'd1', open: ['MESH:b/A'], evidenceDigests: { 'MESH:b/A': 'e2' } };

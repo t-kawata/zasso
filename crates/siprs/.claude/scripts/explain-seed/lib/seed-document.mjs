@@ -9,14 +9,14 @@
 import { readFileSync } from 'node:fs';
 
 import { ExplainSeedError } from './errors.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** A fenced JSON block, which is how every machine-written seed section is carried. */
 const JSON_BLOCK = /```json\s*\n([\s\S]*?)\n```/g;
 
 /** Read the seed text, or say which path could not be read. */
-// [::TICKET::] PX-221, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
 function readSeedText(seedPath) {
   try {
     return readFileSync(seedPath, 'utf8');
@@ -26,7 +26,7 @@ function readSeedText(seedPath) {
 }
 
 /** Parse one fenced block, or say which block in which seed is not JSON. */
-// [::TICKET::] PX-221, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-231) --for-spec --no-implementation-order`.
 function parseBlock(blockText, seedPath) {
   try {
     return JSON.parse(blockText);

@@ -1,7 +1,7 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-1 --for-spec --no-implementation-order`.
 // @verifies C001
 /**
  * derived-artefacts — the files a run produces stop being tracked, and the removal
@@ -55,7 +55,7 @@ const measure = () => measureDerivedArtefacts({ repositoryRoot: REPOSITORY_ROOT 
 // ---------------------------------------------------------------------------
 
 test('C001 the derived artefacts are declared by name, and every name exists on disk', () => {
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
   assert.ok(REPOSITORY_ROOT, 'the tree under test belongs to a repository, or nothing here can be measured');
   assert.deepStrictEqual(DERIVED_ARTEFACT_PREFIXES, ['tools/conver/tmp/'], 'one directory of run output');
   assert.strictEqual(BYTECODE_CACHE_PATHS.length, 3, 'three trees carry a bytecode cache');

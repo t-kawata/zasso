@@ -35,19 +35,19 @@ const RUN_DECLARATION = JSON.parse(readFileSync(join(PROJECT_ROOT, 'tests/educe-
 const spec = readSpecification(SPEC_PATH);
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
 
 /** The predicate as a brief receives it: the line, its text, and the limbs to decide by. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function predicate() {
   return predicateFor(golden().pins.predicate.limbs, spec.lines);
 }
 
 /** A ruling that something is not an operation, with the limb it names. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function ruling(predicateLimb) {
   return {
     subject: 'admission', outcome: 'notASequence', category: 'document_description',
@@ -57,7 +57,7 @@ function ruling(predicateLimb) {
 }
 
 /** Apply one ruling to a scratch artifact and report the refusal, if any. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function applyOne(reading) {
   const artifactPath = join(mkdtempSync(join(tmpdir(), 'px246-predicate-')), 'ledger-sequences.json');
   writeArtifact(artifactPath, golden());

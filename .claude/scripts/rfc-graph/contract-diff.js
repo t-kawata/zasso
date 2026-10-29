@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 
 /**
  * contract-diff.js — GF2, reconciling contract candidates against the RFC's contracts (§6.6, §6.14.4).
@@ -37,7 +37,7 @@
 
 const fs = require('fs');
 const path = require('path');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 
 /** The gate vocabulary, declared locally for the reason `grounding-check.js` gives. */
@@ -93,19 +93,19 @@ const OUT_ARG_PREFIX = '--out=';
 const CONTRACT_DIFF_FILE_NAME = 'CONTRACT-DIFF.json';
 
 /** The 3-element template every `rfc-graph/` CLI uses, so a failure reads the same way. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function formatError(problem, cause, remedy) {
   return `[ERROR] ${problem}\nCause: ${cause}\nAction: ${remedy}`;
 }
 
 /** A name is usable when it is a non-empty string. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function asName(value) {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
 /** Order two records by a string field, so two runs over one input cannot disagree. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function byText(field) {
   return (left, right) => (left[field] < right[field] ? -1 : left[field] > right[field] ? 1 : 0);
 }
@@ -123,7 +123,7 @@ function byText(field) {
  * @param {object} graph - a parsed GRAPH document
  * @returns {Array<{contractId: string, edge: object, precondition: string, postcondition: string, invariant: string}>}
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function extractRfcContracts(graph) {
   const edges = graph?.edges;
   if (!Array.isArray(edges)) {
@@ -177,7 +177,7 @@ function extractRfcContracts(graph) {
  * @param {{candidates?: Array<object>, rfcContracts?: Array<object>, correspondences?: Array<object>}} input
  * @returns {{matched: Array<object>, differences: Array<object>, counts: object}}
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function reconcileContracts({ candidates = [], rfcContracts = [], correspondences = [] } = {}) {
   const candidateById = new Map(candidates.map((candidate) => [asName(candidate?.candidate_id), candidate]));
   const contractById = new Map(rfcContracts.map((contract) => [contract.contractId, contract]));
@@ -257,7 +257,7 @@ function reconcileContracts({ candidates = [], rfcContracts = [], correspondence
 }
 
 /** The key a difference and its record share, so the two can be matched without relying on order. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function differenceKey(difference) {
   const name = difference?.direction === DIFFERENCE_DIRECTIONS.UNIMPLEMENTED
     ? difference?.contractId
@@ -266,13 +266,13 @@ function differenceKey(difference) {
 }
 
 /** A classification is a human's word; anything that is not one leaves the entry unclassified. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function classificationOf(value) {
   return asName(value) ?? UNCLASSIFIED_DIFFERENCE;
 }
 
 /** An optional list of identifiers, copied so a later writer cannot reach back into the caller's array. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function identifierList(value) {
   if (value === null || value === undefined) {
     return [];
@@ -294,7 +294,7 @@ function identifierList(value) {
  * @param {object} [options]
  * @returns {object} the omission or RESIDUE candidate
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function recordDifference(difference, options = {}) {
   const {
     classification,
@@ -360,7 +360,7 @@ function recordDifference(difference, options = {}) {
  * @param {{differences?: Array<object>, recorded?: Array<object>, comparisonExists?: boolean}} input
  * @returns {{gateId: string, status: string, counts: object, reasons: string[], unrecorded: string[]}}
  */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function assertEveryDifferenceRecorded({ differences = [], recorded = [], comparisonExists = false } = {}) {
   const recordedKeys = new Set(recorded.map((entry) => differenceKey({
     direction: entry?.direction,
@@ -403,13 +403,13 @@ function assertEveryDifferenceRecorded({ differences = [], recorded = [], compar
 }
 
 /** One GF2 gate record, in the shape the reverse-rotation gates already report. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function gateRecord(status, counts, reasons, unrecorded) {
   return { gateId: GF2_GATE_ID, status, counts, reasons, unrecorded };
 }
 
 /** The comparison as the Markdown a human or an AI reads before deciding anything. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function renderContractDiffReport(record, { differences = [], recorded = [] } = {}) {
   const lines = [
     '# GF2 — contract reconciliation',
@@ -452,7 +452,7 @@ function renderContractDiffReport(record, { differences = [], recorded = [] } = 
 }
 
 /** Read a JSON document, naming the path when it cannot be read. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function readJson(documentPath, description) {
   try {
     return JSON.parse(fs.readFileSync(documentPath, 'utf8'));
@@ -462,7 +462,7 @@ function readJson(documentPath, description) {
 }
 
 /** Parse the CLI arguments. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const read = (prefix) => argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length) ?? null;
 
@@ -475,7 +475,7 @@ function parseArguments(argv) {
   };
 }
 
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function printUsage() {
   process.stderr.write(
     'Usage: node contract-diff.js --graph=<path> --candidates=<path> --out=<dir> '
@@ -484,7 +484,7 @@ function printUsage() {
 }
 
 /** The candidates an R3 run produced, from the ledger or from a candidate document. */
-// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function readCandidates(document) {
   if (Array.isArray(document)) {
     return document;
@@ -495,7 +495,7 @@ function readCandidates(document) {
   throw new Error('the candidate document must be a list, or carry a "candidates" list');
 }
 
-// [::TICKET::] P22-14, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-14|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-14, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-14|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const options = parseArguments(process.argv.slice(2));
   if (!options.graphPath || !options.candidatesPath || !options.outPath) {

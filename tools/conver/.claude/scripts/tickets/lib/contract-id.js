@@ -18,7 +18,7 @@ const CONTRACT_ID_REGEX = new RegExp(CONTRACT_ID_PATTERN);
  * @param {unknown} value
  * @returns {boolean}
  */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function isContractId(value) {
   return typeof value === 'string' && CONTRACT_ID_REGEX.test(value);
 }

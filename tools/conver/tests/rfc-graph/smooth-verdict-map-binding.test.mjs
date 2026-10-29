@@ -18,7 +18,7 @@ import {
   writeWorkspaceManifests,
 } from '../sequences-slice/helpers/multi-package-fixture.mjs';
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function createWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'px321-map-'));
   writeWorkspaceManifests(root);

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 // PX-222 @verifies C003
 // PX-222 @verifies C008
 // PX-225 @verifies C005
@@ -91,7 +91,7 @@ test('C008 postcondition: the moved facts are named, so a reopened section can s
   assert.deepEqual(movedFactNames({ recorded, computed: recorded }), {});
 });
 
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 test('C005 postcondition: a moved neighbour decision reopens exactly the three sections that rest on it', () => {
   const recorded = computeFrameDigests(syntheticInfoSections({ I10: '## 10.\n\n- boundary-001: refuse with a coded error\n' }));
   const computed = computeFrameDigests(syntheticInfoSections({ I10: '## 10.\n\n- boundary-001: clamp and accept\n' }));

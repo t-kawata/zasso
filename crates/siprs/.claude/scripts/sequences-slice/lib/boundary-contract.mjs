@@ -20,12 +20,12 @@ export const BOUNDARY_CONTRACT_PREFIX = 'contract-';
  * one whose type states a dependency and, when several remain, the one whose contract
  * already matches the registry row.
  */
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-315 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-315 --for-spec --no-implementation-order`.
 export const BOUNDARY_EDGE_TYPES = Object.freeze(['depends_on', 'constrains', 'conflicts_with']);
 
 /** The canonical text of one clause array; an absent array projects to the empty string. */
 export function canonicalClauseJoin(values) {
-// [::TICKET::] PX-312 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-312 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
   return (Array.isArray(values) ? values : []).map((value) => String(value)).join('\n');
 }
 
@@ -55,7 +55,7 @@ export function boundaryNote(row) {
  * One row keeps its single-row digest; several rows bind the ordered pair of id and
  * digest so a note cannot name one row and carry another row's digest.
  */
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 export function combinedBoundaryDigest(rows) {
   const ids = (rows ?? []).map((row) => row.boundary_id).sort();
   return ids.length === 1
@@ -125,7 +125,7 @@ export function projectionMatches(contract, row) {
  * @param {{ direction?: string|null }} [options]
  * @returns {object|undefined|null} the edge, `undefined` when none, `null` when ambiguous
  */
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-315 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-315 --for-spec --no-implementation-order`.
 export function carryingEdgeFor(graph, ctrNodes, row, { direction = null } = {}) {
   const ctrNodeIds = new Set((ctrNodes ?? []).map((node) => node.id));
   const touching = (graph?.edges ?? []).filter(

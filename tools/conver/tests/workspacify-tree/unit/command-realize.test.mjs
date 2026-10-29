@@ -50,7 +50,7 @@ function extractStep3DecisionJson(markdownText) {
   assert.fail('no Step 3 decision JSON block containing workspace was found');
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('command C001 [@verifies C001]: the command markdown exists, is written in English, and carries the required contract', () => {
   assert.equal(existsSync(MD_PATH), true);
   const md = readFileSync(MD_PATH, 'utf8');

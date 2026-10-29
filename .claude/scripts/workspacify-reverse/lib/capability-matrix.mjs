@@ -106,13 +106,13 @@ export const ATTEMPT_TO_CAPABILITY = Object.freeze({
 });
 
 /** The tool spelling a row carries for one language's syntax layer. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function syntaxToolFor(language) {
   return `tree-sitter-${language}`;
 }
 
 /** True when a tool spelling names the syntax layer at all, whatever language. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function isSyntaxLayerTool(tool) {
   return typeof tool === 'string' && tool.startsWith(`${SEMANTIC_LAYER_TOOL}-`);
 }
@@ -125,7 +125,7 @@ function isSyntaxLayerTool(tool) {
  * file it read. A row neither names is left unattributed rather than given to a
  * default, since a default would move a cell the attempt does not belong to.
  */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function languageOfRow(row) {
   const named = TARGET_LANGUAGES.find((language) => row.tool === syntaxToolFor(language));
   if (named !== undefined) return named;
@@ -134,7 +134,7 @@ function languageOfRow(row) {
 }
 
 /** True when a row's tool and phase are the channel one family's attempts use. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function rowIsOnChannel(row, channel, language) {
   if (row.phase !== channel.phase) return false;
   if (channel.tool === SEMANTIC_LAYER_TOOL) {
@@ -144,7 +144,7 @@ function rowIsOnChannel(row, channel, language) {
 }
 
 /** The rows each cell's value rests on, and the rows no cell could claim. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function attributeRows(ledger) {
   const byCell = new Map();
   const unattributable = [];
@@ -172,7 +172,7 @@ function attributeRows(ledger) {
 }
 
 /** The value a cell's rows imply, and whether two of them disagree. */
-// [::TICKET::] P24-7, P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7, P24-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-7|P24-8) --for-spec --no-implementation-order`.
 function valueFor(rows) {
   const holds = (capability) => rows.some((row) => ATTEMPT_TO_CAPABILITY[row.status] === capability);
   if (holds('failed')) return { value: 'failed', contradictory: holds('partial') };

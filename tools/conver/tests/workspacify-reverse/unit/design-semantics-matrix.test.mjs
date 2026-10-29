@@ -2,7 +2,7 @@
 // @verifies C003
 // @verifies C004
 // @verifies C005
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /**
  * The matrix, and the four ways a file fails to close it.
  *
@@ -63,7 +63,7 @@ const MEASURED = Object.freeze([
 const MEASURED_IDS = MEASURED.map((claim) => claim.claim_id);
 
 /** The crossings the run measured in one scope, which the boundary cell has to account for. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function crossingsIn(scope) {
   return MEASURED.filter((claim) => claim.scope === scope && claim.claim_id.includes('boundary_crossing'))
     .map((claim) => claim.claim_id);
@@ -76,7 +76,7 @@ function crossingsIn(scope) {
  * every one of them and a fixture that gave every cell the same basis would be asserting
  * against a file no author would write.
  */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function reading(scope, item, overrides = {}) {
   return {
     scope,
@@ -89,13 +89,13 @@ function reading(scope, item, overrides = {}) {
 }
 
 /** Every cell of every package, written. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function closedReadings() {
   return PACKAGES.flatMap((scope) => SEMANTICS_ITEMS.map((entry) => reading(scope, entry.key)));
 }
 
 /** Every cell of every package, declined with a reason. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 function closedDeclines(reason = 'this package holds nothing to state here') {
   return PACKAGES.flatMap((scope) => SEMANTICS_ITEMS.map((entry) => ({ scope, item: entry.key, reason })));
 }

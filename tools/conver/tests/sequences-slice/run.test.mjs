@@ -26,7 +26,7 @@ import { buildSyntheticTriple, removeSyntheticTriple } from './fixtures/syntheti
 const ARTIFACT_FILENAME = 'SyntheticSpec-sequences.json';
 
 /** A synthetic workspace whose tree manifest names packages at the recorded paths. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function workspaceWithNamedPackages() {
   const root = buildSyntheticTriple();
   const manifestPath = path.join(root, 'WORKSPACIFY-TREE-MANIFEST.json');
@@ -38,7 +38,7 @@ function workspaceWithNamedPackages() {
   return root;
 }
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function runWriter(root, packageDir) {
   const result = spawnSync(process.execPath, [RUN, path.join(root, ARTIFACT_FILENAME), path.join(root, packageDir)], { encoding: 'utf8' });
   let report = null;
@@ -50,8 +50,8 @@ function runWriter(root, packageDir) {
   return { status: result.status, stdout: result.stdout, stderr: result.stderr, report };
 }
 
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 test('PX-260 a record the run cannot read leaves the package declaring nothing, and the refusal is reported', () => {
   const root = workspaceWithNamedPackages();
   try {
@@ -73,7 +73,7 @@ test('PX-260 a record the run cannot read leaves the package declaring nothing, 
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the writer produces exactly the two view files inside the named package', () => {
   const root = workspaceWithNamedPackages();
   try {
@@ -89,7 +89,7 @@ test('C003 the writer produces exactly the two view files inside the named packa
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 no file outside the named package directory is written', () => {
   const root = workspaceWithNamedPackages();
   try {
@@ -110,7 +110,7 @@ test('C003 no file outside the named package directory is written', () => {
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 two runs over unchanged inputs produce identical bytes', () => {
   const root = workspaceWithNamedPackages();
   try {
@@ -125,7 +125,7 @@ test('C003 two runs over unchanged inputs produce identical bytes', () => {
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a missing tree manifest writes nothing and exits 0 with the path named', () => {
   const root = buildSyntheticTriple({ omitTreeManifest: true });
   try {
@@ -142,7 +142,7 @@ test('C003 a missing tree manifest writes nothing and exits 0 with the path name
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a missing allocate manifest writes nothing and exits 0 with the path named', () => {
   const root = buildSyntheticTriple({ omitAllocateManifest: true });
   try {
@@ -157,7 +157,7 @@ test('C003 a missing allocate manifest writes nothing and exits 0 with the path 
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a directory that names no package writes nothing and exits 0 with the path named', () => {
   const root = buildSyntheticTriple();
   try {
@@ -172,7 +172,7 @@ test('C003 a directory that names no package writes nothing and exits 0 with the
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 an artifact that does not parse writes nothing and exits 0 with the path named', () => {
   const root = buildSyntheticTriple();
   try {
@@ -188,7 +188,7 @@ test('C003 an artifact that does not parse writes nothing and exits 0 with the p
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a workspace whose packages carry no seed writes nothing and exits 0 with the path named', () => {
   const root = buildSyntheticTriple({ omitCratesTree: true });
   try {
@@ -206,7 +206,7 @@ test('C003 a workspace whose packages carry no seed writes nothing and exits 0 w
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 a package root that cannot be walked writes nothing and exits 0 with the path named', () => {
   const root = buildSyntheticTriple({ omitCratesTree: true });
   try {
@@ -223,7 +223,7 @@ test('C003 a package root that cannot be walked writes nothing and exits 0 with 
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C003 the view names the same package the calibration counted, and the reachable packages agree', () => {
   const root = workspaceWithNamedPackages();
   try {
@@ -255,13 +255,13 @@ test('C003 the view names the same package the calibration counted, and the reac
 // the view, never inside it, so the counter cannot make every later projection look new.
 
 /** The record path for one package of a synthetic workspace. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function recordPath(root, packageDir) {
   return path.join(root, packageDir, DISTRIBUTIONS_FILE_NAME);
 }
 
 /** The sha256 of the view JSON the projection just wrote. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function viewDigest(root, packageDir) {
   return createHash('sha256').update(fs.readFileSync(path.join(root, packageDir, VIEW_JSON_NAME))).digest('hex');
 }

@@ -1,4 +1,4 @@
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 /**
  * R6.5 — the reverse edge: a counterexample flows back into the claim ledger.
  *
@@ -110,7 +110,7 @@ export const COUNTEREXAMPLE_CAVEAT =
   + 'into a verdict.';
 
 /** The claim a counterexample names, or a refusal naming what was missing. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function findClaim(ledger, claimId) {
   const claim = ledger.claims.find((item) => item.claim_id === claimId);
   if (!claim) {
@@ -123,7 +123,7 @@ function findClaim(ledger, claimId) {
 }
 
 /** A counterexample whose required fields are all present. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function assertWellFormed(counterexample) {
   if (counterexample === null || typeof counterexample !== 'object') {
     throw new Error('a counterexample must be a record naming the claim it bears on; it was given none');
@@ -145,7 +145,7 @@ function assertWellFormed(counterexample) {
  * remains to be checked and losing it would be the opposite of a revision. One
  * that names nothing beyond the observation retracts the claim outright.
  */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function reviseClaim(claim, counterexample) {
   const revision = counterexample.narrowed_to ? 'split' : 'retracted';
   const revised = { ...claim, revision, revised_by: counterexample.counterexample_plan_id };
@@ -169,7 +169,7 @@ function reviseClaim(claim, counterexample) {
 }
 
 /** The record a revision leaves behind, carrying the observation and nothing more. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-7 --for-spec --no-implementation-order`.
 function revisionRecord(claim, counterexample, revision) {
   return {
     claim_id: claim.claim_id,
@@ -220,7 +220,7 @@ export function applyCounterexample(counterexample, ledger) {
  * A record that has lost these would be indistinguishable from a claim about
  * nothing, so they are copied rather than referenced.
  */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function describeCounterexample(counterexample) {
   return {
     claim_id: counterexample.claim_id,
@@ -232,7 +232,7 @@ function describeCounterexample(counterexample) {
 }
 
 /** A counterexample that could not be executed, staying in the set with its reason. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function refuseCounterexample(counterexample, reasonCode, detail) {
   return {
     ...describeCounterexample(counterexample),
@@ -253,7 +253,7 @@ function refuseCounterexample(counterexample, reasonCode, detail) {
  * `executed` with no verdict, or a refusal carrying one, would put a statement
  * into the published document that the run never made.
  */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function assertRecord(record) {
   if (typeof record !== 'object' || record === null) {
     throw new Error('a counterexample record must be an object naming what happened; it was given none');

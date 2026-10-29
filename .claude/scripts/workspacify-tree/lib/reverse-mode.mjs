@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 /**
  * Reverse mode for /workspacify-tree: mode resolution, T6, and the six-gate runner.
  *
@@ -25,11 +25,11 @@ import {
   assertStructureParity,
   measureImplementationOrder,
 } from './structure-parity.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The two rotations. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 export const TREE_MODES = Object.freeze({ FORWARD: 'forward', REVERSE: 'reverse' });
 
 /** Every gate of the reverse rotation, in the order they are judged. */
@@ -170,7 +170,7 @@ export function assertProvenanceRecorded({ mode, reverseProvenance, sidecarFiles
  * @param {object} input - the reverse input assembled by the entry point
  * @returns {Array<object>} six gate records in T1 to T6 order
  */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 export function runReverseGates(input = {}) {
   const manifest = input.manifest ?? {};
   const packages = manifest.workspace?.packages ?? [];

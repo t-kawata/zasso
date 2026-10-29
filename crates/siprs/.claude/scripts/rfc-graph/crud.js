@@ -77,7 +77,7 @@ const GRAPH_SCHEMA_FILE = 'graph.schema.json';
  * @param {string} mainLanguage — Primary implementation language (e.g. rust)
  * @returns {Object} Empty graph root carrying both required root facts
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function createEmptyGraph(sourceFile, mainLanguage) {
   return {
     sourceFile: toHomeRelative(sourceFile || ''),
@@ -97,7 +97,7 @@ function createEmptyGraph(sourceFile, mainLanguage) {
  * @returns {{ graphPath: string, subcommand: string, nodeId: string|null, filePath: string|null, sourcePath: string|null, mainLanguage: string|null }}
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function parseArguments() {
   const args = process.argv.slice(2);
 
@@ -206,7 +206,7 @@ function parseArguments() {
  * @returns {Object} Graph data
  * @throws {Error} On file read error, or when a first creation lacks sourcePath or mainLanguage
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function readGraph(graphPath, sourcePath, mainLanguage = null) {
   if (!fs.existsSync(graphPath)) {
     if (!sourcePath) {
@@ -287,7 +287,7 @@ function validateWithSchema(data, schemaFileName, description) {
  * @param {Object[]} nodesData — Array of nodes to add
  * @throws {Error} On validation failure
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeCreateNodes(graph, nodesData) {
   // Step 1: Schema validate all nodes
   // Temporarily set headingRefs refId to a dummy value for validation to pass
@@ -352,7 +352,7 @@ function executeCreateNodes(graph, nodesData) {
  *
  * @param {Object} graph — Graph data
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeListNodeIds(graph) {
   process.stdout.write(JSON.stringify(graph.nodes, null, 2) + '\n');
 }
@@ -364,7 +364,7 @@ function executeListNodeIds(graph) {
  * @param {string} nodeId — ID of the node to get
  * @throws {Error} If node not found
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeGetNode(graph, nodeId) {
   const node = graph.nodes.find((n) => n.id === nodeId);
   if (!node) {
@@ -387,7 +387,7 @@ function executeGetNode(graph, nodeId) {
  * @param {Object} patchData — Update content
  * @throws {Error} On validation failure
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeUpdateNode(graph, nodeId, patchData) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
   if (nodeIndex === -1) {
@@ -415,7 +415,7 @@ function executeUpdateNode(graph, nodeId, patchData) {
  * @param {string} nodeId — ID of the node to delete
  * @throws {Error} If node not found
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeDeleteNode(graph, nodeId) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
   if (nodeIndex === -1) {
@@ -440,7 +440,7 @@ function executeDeleteNode(graph, nodeId) {
  * @param {Object[]} edgesData — Array of edges to add
  * @throws {Error} On validation failure
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeCreateEdges(graph, edgesData) {
   // Step 1: Schema validation for all edges
   for (const edge of edgesData) {
@@ -481,7 +481,7 @@ function executeCreateEdges(graph, edgesData) {
  * @param {Object} patchData — Contains from, to, type, and optionally contracts
  * @throws {Error} If edge not found or schema validation fails
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function executeUpdateEdge(graph, patchData) {
   const index = graph.edges.findIndex(
     (e) => e.from === patchData.from && e.to === patchData.to && e.type === patchData.type
@@ -511,7 +511,7 @@ function executeUpdateEdge(graph, patchData) {
  * @param {Object} graph — Graph data
  * @param {Object[]} edgesData — Edge specifications to delete (containing from, to, type)
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function executeDeleteEdges(graph, edgesData) {
   let removedCount = 0;
   for (const target of edgesData) {
@@ -537,7 +537,7 @@ function executeDeleteEdges(graph, edgesData) {
  * @param {string} reason — Why it happened
  * @param {string} action — Next action to take
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
   console.error('Cause: ' + reason);
@@ -548,7 +548,7 @@ function exitWithError(message, reason, action) {
 /**
  * Displays usage instructions
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(`
 crud.js — Graph file CRUD operations
@@ -593,7 +593,7 @@ All write operations execute atomic writes after passing schema validation.
  *
  * All errors are caught in this function and output to stderr in 3-section template.
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-333) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {

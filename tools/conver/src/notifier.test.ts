@@ -190,7 +190,7 @@ describe("sendSlackError エラー種別", () => {
 
 // sendFindOutcomeNotification のペイロード検証（HTTP サーバーで受信内容を捕捉）
 describe("sendFindOutcomeNotification", () => {
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
   async function capturePayload(
     ctx: FindOutcomeContext,
   ): Promise<{ text: string; statusCode: number }> {

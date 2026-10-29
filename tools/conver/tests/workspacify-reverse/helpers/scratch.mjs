@@ -1,6 +1,6 @@
-// [::TICKET::] PX-203 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-203 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-203 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-203 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 /**
  * Shared test helpers for the workspacify-reverse suite.
  *
@@ -92,7 +92,7 @@ export function sha256(text) {
  * strong as it was: every readable file must hash the same.
  */
 export function hashTree(root) {
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
   const hashes = {};
   const walk = (dir) => {
     for (const entry of readdirSync(dir).sort()) {
@@ -150,7 +150,7 @@ export function writeSyntheticTree(root, filesByPath) {
  * without its extension because the callers' rules speak in file names, not in paths.
  */
 export function createThrowawayFile(name, lines, { prefix = 'wsp-file-' } = {}) {
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
   const dir = mkdtempSync(path.join(os.tmpdir(), prefix));
   const filePath = path.join(dir, name);
   writeFileSync(filePath, lines.join('\n'), 'utf8');
@@ -284,19 +284,19 @@ export const ORACLE_FIXTURE_FILES = Object.freeze({
   'src/audio/mod.rs': [
     '// =================================================================',
     '// Initial Design Artifact — RFC-driven Implementation',
-    '// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1`',
+    '// [::TICKET::] P0-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P0-1`',
     '// =================================================================',
     'pub fn a() -> u8 { 1 }',
     '',
   ].join('\n'),
   'tests/verify_feature.rs': [
-    '// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1`',
+    '// [::TICKET::] P0-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P0-1`',
     'pub fn shared() -> u8 { 7 }',
     '',
   ].join('\n'),
   'tests/verify_spec_p0_1.rs': [
     '// @verifies C001',
-    '// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1`',
+    '// [::TICKET::] P0-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P0-1`',
     'pub fn read_spec() -> u8 { 1 }',
     '',
     'pub fn rfc_source_referenced() {',
@@ -307,7 +307,7 @@ export const ORACLE_FIXTURE_FILES = Object.freeze({
   ].join('\n'),
   'tests/verify_spec_p7_3.rs': [
     '// @verifies C002',
-    '// [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3`',
+    '// [::TICKET::] P7-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P7-3`',
     'pub fn ordered() -> u8 { 2 }',
     '',
   ].join('\n'),
@@ -336,7 +336,7 @@ export const SUBJECT_FIXTURE_FILES = Object.freeze({
   'tests/verify_spec_26d77120.rs': ['pub fn ordered() -> u8 { 2 }', ''].join('\n'),
 });
 
-// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-3 --for-spec --no-implementation-order`.
 
 /**
  * A vertical slice that crosses a boundary: `src/api/login.rs` names the slice,
@@ -407,7 +407,7 @@ const GATED_LOCAL_COUNT = 3;
  * `provider` names the partition member the module refers to, and is omitted for
  * a scope that crosses nothing.
  */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function gatedModules({ prefix, count, provider = null }) {
   const modules = [];
   for (let index = 0; index < count; index += 1) {

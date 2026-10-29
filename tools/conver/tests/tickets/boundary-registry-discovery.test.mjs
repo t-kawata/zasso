@@ -12,7 +12,7 @@ import {
   verifyGraphContracts,
 } from '../../.claude/scripts/tickets/verify-graph-contracts.js';
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function withWorkspace(body) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px308-registry-'));
   try {
@@ -28,7 +28,7 @@ function withWorkspace(body) {
   }
 }
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function withIsolatedDirectory(body) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px308-no-workspace-'));
   try {

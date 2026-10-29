@@ -1,5 +1,5 @@
-// [::TICKET::] PX-193, PX-194, PX-201, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-193|PX-194) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-191, PX-190, PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-189|PX-190|PX-191) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193, PX-194, PX-201, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-193|PX-194) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-191, PX-190, PX-189 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-189|PX-190|PX-191) --for-spec --no-implementation-order`.
 /**
  * Test helper: build a stage-1 manifest that carries the hand-off proofs stage 2
  * relies on (dependency proof with an implementation order, boundary contract
@@ -102,7 +102,7 @@ export function defaultTree() {
  * @param {object} [overrides] - partial manifest sections merged over defaults
  * @returns {{ manifest: object, specText: string, sourceHash: string }}
  */
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 export function buildValidManifest(overrides = {}) {
   const { segments, sourceBytes, sourceHash } = segmentSpecification();
   const packages = defaultPackages();

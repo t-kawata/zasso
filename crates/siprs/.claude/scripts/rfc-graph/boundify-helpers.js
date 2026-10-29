@@ -508,6 +508,11 @@ const HEADER_WARNING_EN_TEXT = [
 /** The fixed artifact names every boundify artifact derives from. */
 const ARTIFACT_NAMES = require('./lib/artifact-names.json');
 
+/** The anchor builder keeps one command shape for every generated header. */
+const { buildAnchoredCommand } = require('../utils/repo-root.cjs');
+/** The display converter keeps a committed header from naming one machine's home. */
+const { toHomeRelative } = require('../lib/path-utils.js');
+
 /** The two design-source files a split package carries beside its graph. */
 const DESIGN_SOURCE_FILES = Object.freeze({
   view: ARTIFACT_NAMES.view,
@@ -523,7 +528,7 @@ const DESIGN_SOURCE_FILES = Object.freeze({
  * @param {string} graphDirAbs - absolute directory holding the graph
  * @returns {{view: string|null, stepContracts: string|null}}
  */
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 function resolveDesignSourceBasenames(graphDirAbs) {
   const fs = require('fs');
   const path = require('path');
@@ -547,8 +552,8 @@ function resolveDesignSourceBasenames(graphDirAbs) {
  *   { relDirToGraph, graphRelPath, dirsTreeRelPath, sourceRelPath, cdCommandPrefix,
  *     viewRelPath?, stepContractsRelPath? }
  */
-// [::TICKET::] PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-336|PX-337) --for-spec --no-implementation-order`.
-function resolveHeaderPaths(generatedFilePath, graphDirAbs) {
+// [::TICKET::] PX-336, PX-337, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-336|PX-337|PX-341) --for-spec --no-implementation-order`.
+function resolveHeaderPaths(generatedFilePath, graphDirAbs, anchor = {}) {
   const path = require('path');
   const fileDir = path.dirname(generatedFilePath);
   const rawRel = path.relative(fileDir, graphDirAbs);
@@ -561,7 +566,8 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs) {
     graphRelPath: relPathOf(ARTIFACT_NAMES.graph),
     dirsTreeRelPath: relPathOf(ARTIFACT_NAMES.dirsTree),
     sourceRelPath: relPathOf(ARTIFACT_NAMES.source),
-    cdCommandPrefix: `(cd ${relDir} &&`,
+    graphDirDisplay: anchor.graphDirDisplay ?? toHomeRelative(graphDirAbs),
+    claudeDirDisplay: anchor.claudeDirDisplay ?? '$(git rev-parse --show-toplevel)/.claude',
     ...(designSources.view === null ? {} : { viewRelPath: relPathOf(designSources.view) }),
     ...(designSources.stepContracts === null ? {} : { stepContractsRelPath: relPathOf(designSources.stepContracts) }),
   };
@@ -584,11 +590,11 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs) {
  * @param {string} lang - Language ('rust' | 'go' | 'typescript')
  * @returns {string} Header comment string (including newlines)
  */
-// [::TICKET::] P22-15, PX-319, PX-336, PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-15|PX-319|PX-336|PX-337) --for-spec --no-implementation-order`.
-function generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang) {
+// [::TICKET::] P22-15, PX-319, PX-336, PX-337, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-15|PX-319|PX-336|PX-337|PX-341) --for-spec --no-implementation-order`.
+function generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang, anchor = {}) {
   const path = require('path');
   const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
-  const L = syntax.line;
+  const commentPrefix = syntax.line;
   const lines = [];
   const sourceBasename = path.basename(headerPaths.sourceRelPath);
   const graphFlagForCmd = '--graph="' + path.basename(headerPaths.graphRelPath) + '"';
@@ -601,85 +607,95 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang
     headerPaths.viewRelPath ? null : ARTIFACT_NAMES.view,
     headerPaths.stepContractsRelPath ? null : ARTIFACT_NAMES.stepContracts,
   ].filter(Boolean);
+  const graphDirDisplay = anchor.graphDirDisplay ?? headerPaths.graphDirDisplay ?? '.';
+  const claudeDirDisplay = anchor.claudeDirDisplay ?? headerPaths.claudeDirDisplay ?? '$(git rev-parse --show-toplevel)/.claude';
+  const commandFor = (script, args) => buildAnchoredCommand({ cwdDisplay: graphDirDisplay, claudeDirDisplay, script, args });
+  const queryCommand = (nodeId, hops) => commandFor('rfc-graph/query.js', [
+    graphFlagForCmd,
+    `--source="${sourceBasename}"`,
+    dirsTreeFlagForCmd,
+    `--id=${nodeId}`,
+    `--hops=${hops}`,
+  ]);
 
   // Opening separator line
-  lines.push(L + ' ' + HEADER_SEPARATOR);
-  lines.push(L + ' ' + HEADER_MARKER_TEXT);
+  lines.push(commentPrefix + ' ' + HEADER_SEPARATOR);
+  lines.push(commentPrefix + ' ' + HEADER_MARKER_TEXT);
 
   // Deletion prohibition warning (heart of design traceability)
-  for (let wi = 0; wi < HEADER_WARNING_EN_TEXT.length; wi++) {
-    lines.push(L + ' ' + HEADER_WARNING_EN_TEXT[wi]);
+  for (let warningIndex = 0; warningIndex < HEADER_WARNING_EN_TEXT.length; warningIndex++) {
+    lines.push(commentPrefix + ' ' + HEADER_WARNING_EN_TEXT[warningIndex]);
   }
 
-  lines.push(L + ' ' + HEADER_SEPARATOR);
+  lines.push(commentPrefix + ' ' + HEADER_SEPARATOR);
 
   // Node definition
-  lines.push(L + ' ' + NODE_DEFINITION_EN_TEXT);
+  lines.push(commentPrefix + ' ' + NODE_DEFINITION_EN_TEXT);
 
   // Path information
-  lines.push(L + '');
-  lines.push(L + ' Graph:        ' + headerPaths.graphRelPath);
-  lines.push(L + ' Directory:    ' + headerPaths.dirsTreeRelPath);
-  lines.push(L + ' Original RFC: ' + headerPaths.sourceRelPath);
-  if (headerPaths.viewRelPath) lines.push(L + ' Sequences view: ' + headerPaths.viewRelPath);
-  if (headerPaths.stepContractsRelPath) lines.push(L + ' Step contracts: ' + headerPaths.stepContractsRelPath);
+  lines.push(commentPrefix + '');
+  lines.push(commentPrefix + ' Graph:        ' + headerPaths.graphRelPath);
+  lines.push(commentPrefix + ' Directory:    ' + headerPaths.dirsTreeRelPath);
+  lines.push(commentPrefix + ' Original RFC: ' + headerPaths.sourceRelPath);
+  if (headerPaths.viewRelPath) lines.push(commentPrefix + ' Sequences view: ' + headerPaths.viewRelPath);
+  if (headerPaths.stepContractsRelPath) lines.push(commentPrefix + ' Step contracts: ' + headerPaths.stepContractsRelPath);
 
   // Mapped nodes
-  lines.push(L + '');
+  lines.push(commentPrefix + '');
   if (mappedNodeIds && mappedNodeIds.length > 0) {
-    lines.push(L + ' Mapped node(s):');
-    for (let i = 0; i < mappedNodeIds.length; i++) {
-      const entry = mappedNodeIds[i];
+    lines.push(commentPrefix + ' Mapped node(s):');
+    for (let nodeIndex = 0; nodeIndex < mappedNodeIds.length; nodeIndex++) {
+      const entry = mappedNodeIds[nodeIndex];
       const nid = (typeof entry === 'string') ? entry : entry.nodeId;
       const titleStr = (typeof entry === 'object' && entry.title) ? (' ' + entry.title) : '';
-      lines.push(L + '   - NODE_ID=' + nid + ': ' + titleStr);
-      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + nid + ' --hops=2)');
+      lines.push(commentPrefix + '   - NODE_ID=' + nid + ': ' + titleStr);
+      lines.push(commentPrefix + '     → To show details: ' + queryCommand(nid, 2));
       if (hasDesignSources) {
-        lines.push(L + '     → For the implementation brief (contracts, forbidden, order): ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=' + nid + ')');
+        lines.push(commentPrefix + '     → For the implementation brief (contracts, forbidden, order): ' + commandFor('rfc-graph/show-node-contracts.mjs', [`--id=${nid}`]));
       }
     }
     if (!hasDesignSources) {
-      lines.push(L + '   - Implementation brief: unavailable (' + missingDesignSources.join(', ') + ' not present beside ' + ARTIFACT_NAMES.graph + ')');
+      lines.push(commentPrefix + '   - Implementation brief: unavailable (' + missingDesignSources.join(', ') + ' not present beside ' + ARTIFACT_NAMES.graph + ')');
     }
   } else {
-    lines.push(L + ' Mapped node(s):');
-    lines.push(L + '   - No direct node mapping');
+    lines.push(commentPrefix + ' Mapped node(s):');
+    lines.push(commentPrefix + '   - No direct node mapping');
   }
 
   const unitIds = [...new Set((mappedNodeIds ?? []).flatMap((entry) =>
     (typeof entry === 'object' && Array.isArray(entry.unitIds) ? entry.unitIds : [])))];
   if (unitIds.length > 0) {
     const firstNodeId = typeof mappedNodeIds[0] === 'string' ? mappedNodeIds[0] : mappedNodeIds[0]?.nodeId;
-    lines.push(L + ' units: ' + unitIds.join(', '));
-    lines.push(L + '   → To show the node and its contract edges: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + firstNodeId + ' --hops=1)');
+    lines.push(commentPrefix + ' units: ' + unitIds.join(', '));
+    lines.push(commentPrefix + '   → To show the node and its contract edges: ' + queryCommand(firstNodeId, 1));
   }
 
   // Cross-references (prose node information)
   if (crossRefs && crossRefs.length > 0) {
-    lines.push(L + '');
-    lines.push(L + ' Cross-referenced design context:');
-    for (let i = 0; i < crossRefs.length; i++) {
-      const cr = crossRefs[i];
+    lines.push(commentPrefix + '');
+    lines.push(commentPrefix + ' Cross-referenced design context:');
+    for (let crossReferenceIndex = 0; crossReferenceIndex < crossRefs.length; crossReferenceIndex++) {
+      const cr = crossRefs[crossReferenceIndex];
       const headingInfo = cr.headingRef ? (' § ' + cr.headingRef) : '';
-      lines.push(L + '   - ' + cr.kind + '/' + cr.title + ' [NODE_ID=' + cr.nodeId + ']' + headingInfo);
+      lines.push(commentPrefix + '   - ' + cr.kind + '/' + cr.title + ' [NODE_ID=' + cr.nodeId + ']' + headingInfo);
       if (cr.connections && cr.connections.length > 0) {
-        for (let j = 0; j < cr.connections.length; j++) {
-          const conn = cr.connections[j];
-          lines.push(L + '     (' + conn.edgeType + ' ' + conn.direction + ' ' + conn.toFile + ')');
+        for (let connectionIndex = 0; connectionIndex < cr.connections.length; connectionIndex++) {
+          const conn = cr.connections[connectionIndex];
+          lines.push(commentPrefix + '     (' + conn.edgeType + ' ' + conn.direction + ' ' + conn.toFile + ')');
         }
       }
-      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=' + cr.nodeId + ' --hops=2)');
+      lines.push(commentPrefix + '     → ' + queryCommand(cr.nodeId, 2));
     }
   }
 
   // Full graph exploration command
-  lines.push(L + '');
-  lines.push(L + ' Full graph exploration:');
-  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-graph-summary-markdown.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '")');
-  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + dirsTreeFlagForCmd + ' --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)');
+  lines.push(commentPrefix + '');
+  lines.push(commentPrefix + ' Full graph exploration:');
+  lines.push(commentPrefix + '   ' + commandFor('rfc-graph/show-graph-summary-markdown.js', [graphFlagForCmd, `--source="${sourceBasename}"`]));
+  lines.push(commentPrefix + '   ' + commandFor('rfc-graph/query.js', [graphFlagForCmd, `--source="${sourceBasename}"`, dirsTreeFlagForCmd, '--id=Nxxxx (e.g. N0001)', '--hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)']));
 
   // Closing separator line
-  lines.push(L + ' ' + HEADER_SEPARATOR);
+  lines.push(commentPrefix + ' ' + HEADER_SEPARATOR);
 
   return lines.join('\n') + '\n';
 }

@@ -123,7 +123,7 @@ export function replaceFile(target, contents) {
  * @param {string} contents
  * @returns {void}
  */
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 
 /** Write a run's status, replacing the record rather than writing into it. */
 export function writeStatus(directory, status) {
@@ -143,8 +143,8 @@ export function writeStatus(directory, status) {
  * specification's run — and that case remains a refusal, because no generation can make
  * one specification's declaration a reading of another's text.
  */
-// [::TICKET::] PX-241, PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-241|PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241, PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-241|PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function whyNotResumed(existing, specPath, spec) {
   if (existing.spec?.path !== basename(specPath)) {
     return {
@@ -236,7 +236,7 @@ export function appendHistory(status, entry) {
  * Once a manifest exists, a done phase without a valid receipt is reopened: a verdict is
  * evidence only while the bytes it was measured over are still the bytes on disk.
  */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
 function carryPhaseRecords(phases, receipts, currentDigests) {
   return phases.map((record) => {
     if (!Array.isArray(receipts) || currentDigests === null) return { ...record, loops: 0 };
@@ -257,10 +257,10 @@ function carryPhaseRecords(phases, receipts, currentDigests) {
  * refused, which is the one thing a reader needs to repair it; and the status is carried
  * because a phase that never passed must still not satisfy the phases that require it.
  */
-// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-245 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-242 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function beginGeneration(status, options = {}) {
   const { spec, digest, inquest = null, coverage = null, receipts = null, currentDigests = null } = options;
   const superseded = generationOf(status);
@@ -307,7 +307,7 @@ export function beginGeneration(status, options = {}) {
  * `phases[]`, and `entered` is deliberately not set: re-opening a phase is the
  * generation's own act, not evidence that a reader has done anything.
  */
-// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-242 --for-spec --no-implementation-order`.
 export function reopenPhases(status, ids) {
   let next = status;
   for (const id of ids) {
@@ -331,7 +331,7 @@ export function phaseState(status, id) {
  * is kept beside it because a halt repeats the last refusal verbatim, and the writer that
  * produced it is the only place that text exists.
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 function writePhase(status, record) {
   status.phases = [...status.phases.filter((phase) => phase.id !== record.id), record].sort((left, right) => left.id - right.id);
   return status;
@@ -370,7 +370,7 @@ export function noteLoop(status, id, tag, verdict) {
 }
 
 /** Record that a reader has done something in this generation. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function markEntered(status) {
   status[ENTERED_FIELD] = true;
   return status;

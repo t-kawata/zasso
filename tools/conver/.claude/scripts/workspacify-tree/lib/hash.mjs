@@ -1,4 +1,4 @@
-// [::TICKET::] PX-175 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-175 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-175 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-175 --for-spec --no-implementation-order`.
 /**
  * SHA-256 helper over bytes. The design fixes SHA-256 (lowercase hex) as the
  * only content hash so no extra dependency is needed and results are

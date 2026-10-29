@@ -19,13 +19,13 @@ const BOUNDARY_FACT_PREFIX = 'boundary:';
 const AUTHORED_CONTRACT_FIELD = 'authored';
 
 /** The id of a typed or authored fact. */
-// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
 function readFactId(fact) {
   return typeof fact === 'string' ? fact : fact?.factId;
 }
 
 /** Whether an authored contract carries at least one typed fact. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function hasAuthoredFacts(authored) {
   if (authored === null || typeof authored !== 'object') return false;
   return ['pre', 'post', 'consumes', 'produces', 'errors']
@@ -33,7 +33,7 @@ function hasAuthoredFacts(authored) {
 }
 
 /** The authored contract of a step, or null when the step carries only a projection. */
-// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
 export function readAuthoredContract(step) {
   if (['synthesized', 'projected'].includes(step.contract?.contract_origin)) return null;
   const authored = step.contract?.[AUTHORED_CONTRACT_FIELD];
@@ -41,13 +41,13 @@ export function readAuthoredContract(step) {
 }
 
 /** Whether a step preserves the authored prose contract. */
-// [::TICKET::] PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-284 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 function hasContractProse(step) {
   return typeof step.contract_prose === 'string' && step.contract_prose.trim() !== '';
 }
 
 /** The boundaries a non-empty ground covers. */
-// [::TICKET::] PX-284, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
 function readBoundaryGrounds(index) {
   const grounds = new Map();
   for (const entry of index.artifact.boundary_grounds ?? []) {
@@ -62,7 +62,7 @@ function readBoundaryGrounds(index) {
 }
 
 /** One finding with its route already resolved. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function addFinding(findings, checkId, subject, entry) {
   findings.push(finding(checkId, entry.className, subject, {
     ...entry.route,
@@ -72,13 +72,13 @@ function addFinding(findings, checkId, subject, entry) {
 }
 
 /** Whether a typed fact is a boundary clause fact rather than an operation-envelope fact. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-274 --for-spec --no-implementation-order`.
 function isBoundaryFact(factId) {
   return typeof factId === 'string' && factId.startsWith(BOUNDARY_FACT_PREFIX);
 }
 
 /** Whether a fact belongs to the boundary currently being compared. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-274 --for-spec --no-implementation-order`.
 function belongsToBoundary(factId, boundaryId) {
   return isBoundaryFact(factId) && factId.startsWith(`${BOUNDARY_FACT_PREFIX}${boundaryId}/`);
 }
@@ -89,7 +89,7 @@ function belongsToBoundary(factId, boundaryId) {
  * The detector itself now reports blocked sub-checks; this wrapper keeps older callers
  * on the same observable value without restoring a second source of truth.
  */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function layerBWithheld(index) {
   if (index.schemaVersion !== V3) return [{ layer: 'B', reason: 'v3 step contract absent' }];
   const blocked = buildFamilySubChecks('meshing', index).filter((entry) => entry.status === 'blocked');
@@ -97,13 +97,13 @@ export function layerBWithheld(index) {
 }
 
 /** The packages a step's operation belongs to. */
-// [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
 function readOwners(index, operationId) {
   return index.operationOwners.get(operationId) ?? new Set();
 }
 
 /** The steps that cross one boundary. */
-// [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273, PX-274, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-273|PX-274|PX-285) --for-spec --no-implementation-order`.
 function groupStepsByBoundary(index) {
   const byBoundary = new Map();
   for (const step of index.artifact.steps ?? []) {
@@ -121,8 +121,8 @@ function groupStepsByBoundary(index) {
  * @param {object} index
  * @returns {Array<object>} findings
  */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 export function collectCrossingContracts(index) {
   if (index.schemaVersion !== V3) {
     return {
@@ -147,20 +147,20 @@ export function collectCrossingContracts(index) {
 const CITED_CONTRACT_FIELDS = Object.freeze(['pre', 'post', 'invariants']);
 
 /** Whitespace-normalized text for a quote comparison. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-286 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-286 --for-spec --no-implementation-order`.
 function normalizeQuote(text) {
   return String(text ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** The operation row a fact cites, or the step's own operation. */
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function operationForFact(index, fact, step) {
   const operationId = fact?.source?.operationId ?? step?.operation;
   return (index?.artifact?.operations ?? []).find((row) => row?.id === operationId);
 }
 
 /** Whether a fact cites the step line and a quote the step actually carries. */
-// [::TICKET::] PX-286, PX-306, PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-306|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-306, PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-306|PX-310) --for-spec --no-implementation-order`.
 function isCitedFact(fact, step, index) {
   if (fact === null || typeof fact !== 'object' || Array.isArray(fact)) return false;
   const source = fact.source;
@@ -179,7 +179,7 @@ function isCitedFact(fact, step, index) {
 }
 
 /** One finding for every authored assertion that cites no matching step quote. */
-// [::TICKET::] PX-286, PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286|PX-306) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-306) --for-spec --no-implementation-order`.
 function checkAuthoredSources(index, findings) {
   for (const step of index.artifact.steps ?? []) {
     const authored = step?.contract?.authored;
@@ -201,7 +201,7 @@ function checkAuthoredSources(index, findings) {
 }
 
 /** One finding for a step that carries no authored contract at all. */
-// [::TICKET::] PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-284|PX-285) --for-spec --no-implementation-order`.
 function collectProjectionOnly(index, findings) {
   for (const step of index.artifact.steps ?? []) {
     if (readAuthoredContract(step) !== null || hasContractProse(step)) continue;
@@ -215,7 +215,7 @@ function collectProjectionOnly(index, findings) {
 }
 
 /** One finding for a declared boundary that no step crosses and no ground covers. */
-// [::TICKET::] PX-284, PX-285, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-284, PX-285, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-284|PX-285|PX-288) --for-spec --no-implementation-order`.
 function collectBoundaryCoverage(index, findings) {
   const crossed = new Set(groupStepsByBoundary(index).keys());
   const grounded = readBoundaryGrounds(index);
@@ -264,7 +264,7 @@ export function checkCrossingContracts(index) {
 }
 
 /** Every crossed boundary the step names must exist in the tree manifest. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 function checkCrossingDeclarations(index, findings) {
   for (const step of index.artifact.steps ?? []) {
     for (const boundary of step.contract?.crosses ?? []) {
@@ -280,7 +280,7 @@ function checkCrossingDeclarations(index, findings) {
 }
 
 /** One boundary: both sides exist, and every consumer contract is met by the provider. */
-// [::TICKET::] PX-277, PX-284, PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284|PX-285|PX-286) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284, PX-285, PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-284|PX-285|PX-286) --for-spec --no-implementation-order`.
 function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
   for (const step of steps) {
     const owners = readOwners(index, step.operation);
@@ -339,7 +339,7 @@ function checkBoundaryMeshing(index, boundaryId, steps, contract, findings) {
 }
 
 /** One consumer: its authored preconditions, consumed facts and expected errors against the provider. */
-// [::TICKET::] PX-277, PX-284, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-284|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-284, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-284|PX-285) --for-spec --no-implementation-order`.
 function checkConsumerContracts(index, boundaryId, consumer, provider, findings) {
   const authored = readAuthoredContract(consumer);
   const { providerFacts, providerErrors } = provider;

@@ -71,7 +71,7 @@ export function findSectionByTitlePrefix(text, key) {
 }
 
 /** The index of the first line after `start` that closes a heading of `level`. */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function sectionEnd(lines, start, level) {
   for (let index = start + 1; index < lines.length; index += 1) {
     const heading = matchHeading(lines[index]);
@@ -111,7 +111,7 @@ export function isTableRow(line) {
 }
 
 /** Whether a line is a table's `|---|` separator. */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function isSeparator(line) {
   return typeof line === 'string' && /^\s*\|[\s:|-]+\|\s*$/.test(line) && line.includes('-');
 }
@@ -124,7 +124,7 @@ function isSeparator(line) {
  * @param {string} cell
  * @returns {string}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function unwrapCodeSpan(cell) {
   const match = /^`(.*)`$/.exec(cell);
   return match ? match[1].trim() : cell;

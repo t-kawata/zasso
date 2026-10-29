@@ -29,7 +29,7 @@ import { syntheticFacts, syntheticProjection } from '../helpers/synthetic-facts.
 const JAPANESE = /[぀-ヿ一-鿿]/;
 
 /** The same value with every non-ASCII character replaced, so any Japanese left is the tool's. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function asciiOnly(value) {
   if (typeof value === 'string') return value.replace(/[^\x20-\x7e]/g, '#');
   if (Array.isArray(value)) return value.map(asciiOnly);
@@ -40,7 +40,7 @@ function asciiOnly(value) {
 }
 
 /** Facts whose every value is ASCII, so the tool is the only possible source of Japanese. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function asciiFacts() {
   return syntheticFacts({ projection: asciiOnly(syntheticProjection()) });
 }

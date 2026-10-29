@@ -12,7 +12,7 @@ import { main as verifyChainMain, verifyChain } from '../../.claude/scripts/sequ
 import { mapDigest, viewDigest } from '../../.claude/scripts/sequences-slice/lib/distribution-map.mjs';
 
 /** A view that distributes no unit. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function emptyView() {
   return {
     packageId: 'pkg-1',

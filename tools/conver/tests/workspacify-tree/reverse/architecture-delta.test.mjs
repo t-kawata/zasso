@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 // P22-11 @verifies C002
 // T5: the logical architecture is held as a layer of its own above the physical
 // layout. Agreement is not the pass condition — a mismatch that nobody wrote
@@ -17,7 +17,7 @@ import {
   recordArchitectureDelta,
 } from '../../../.claude/scripts/workspacify-tree/lib/architecture-delta.mjs';
 
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 test('T5 names the artefact it records into', () => {
   assert.equal(ARCHITECTURE_DELTA_FILE_NAME, 'ARCHITECTURE-DELTA.json');
 });

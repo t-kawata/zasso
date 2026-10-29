@@ -1,4 +1,4 @@
-// [::TICKET::] PX-175, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-175|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-175, PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-175|PX-192) --for-spec --no-implementation-order`.
 /**
  * Chapter segmentation and reconstruction verification (§7.2).
  *
@@ -34,7 +34,7 @@ const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
  * @throws {WorkSpacifyTreeError} gateId "G1.3" when no ATX heading exists
  */
 export function segmentAtHeadings({ sourceText, headings }, { segmentLevel = DEFAULT_SEGMENT_LEVEL } = {}) {
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
   if (!headings || headings.length === 0) {
     throw new WorkSpacifyTreeError('cannot segment: no ATX heading found', { gateId: 'G1.3' });
   }
@@ -194,7 +194,7 @@ export function verifyReconstruction({ sourceBytes, sourceHash, segments }) {
   };
 }
 
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-221 --for-spec --no-implementation-order`.
 function buildSegment(segmentSpec, sourceText, offsets) {
   const { id, heading_id, title, level, byte_start, byte_end, subheading_ids } = segmentSpec;
   const segmentText = sourceText.slice(byte_start, byte_end);
@@ -215,7 +215,7 @@ function buildSegment(segmentSpec, sourceText, offsets) {
 }
 
 /** Decode normalised bytes as UTF-8, recording rather than hiding a decoding failure. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-221 --for-spec --no-implementation-order`.
 function decodeUtf8(sourceBytes, reasons) {
   try {
     return UTF8_DECODER.decode(sourceBytes);
@@ -226,7 +226,7 @@ function decodeUtf8(sourceBytes, reasons) {
 }
 
 /** Index of the line whose start offset is the greatest offset <= textOffset. */
-// [::TICKET::] PX-221 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-221 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-221 --for-spec --no-implementation-order`.
 function lineIndexOfOffset(offsets, textOffset) {
   let low = 0;
   let high = offsets.length - 1;

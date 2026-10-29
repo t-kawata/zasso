@@ -1,4 +1,4 @@
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 // The workspace slice: one invocation reaching every package the allocation names (PX-264).
 //
 // The single-package projection is what the grill command calls per directory, so it stays
@@ -24,7 +24,7 @@ const ARTIFACT_FILENAME = 'SyntheticSpec-sequences.json';
 const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
 /** The workspace form is the one-argument form: the artifact path names the workspace. */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 function runWorkspace(root) {
   const result = spawnSync(process.execPath, [RUN, path.join(root, ARTIFACT_FILENAME)], { encoding: 'utf8' });
   let report = null;
@@ -37,7 +37,7 @@ function runWorkspace(root) {
 }
 
 /** The packages the tree manifest names, which is the set the workspace form must reach. */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 function allocatedPackages(root) {
   return JSON.parse(fs.readFileSync(path.join(root, TREE_MANIFEST_FILENAME), 'utf8')).workspace.packages;
 }
@@ -113,7 +113,7 @@ test('PX-264 C003 a workspace whose material cannot be read is reported, and not
 // its distribution record. A re-run that rewrote a record would turn "already present" into
 // a new distribution claim.
 
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 test('C003 invariant: a second workspace run reports every package present and changes no record', () => {
   const root = buildSyntheticTriple();
   try {

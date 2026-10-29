@@ -1,4 +1,4 @@
-// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 /**
  * The AI's design semantics — an expert reading, admitted only as an inference, and
  * only once every package has one.
@@ -306,7 +306,7 @@ export function validateDesignSemantics({ authored, claims, packages } = {}) {
 }
 
 /** The coverage the spec's Design semantics section carries, per package. */
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
 export function summariseCoverage({ authored, packages }) {
   const readings = Array.isArray(authored?.[READINGS_FILE_KEY]) ? authored[READINGS_FILE_KEY] : [];
   const declined = Array.isArray(authored?.[DECLINED_FILE_KEY]) ? authored[DECLINED_FILE_KEY] : [];

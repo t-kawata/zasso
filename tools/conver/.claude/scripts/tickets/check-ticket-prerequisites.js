@@ -30,7 +30,7 @@ const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const TICKETS_FILE_NAME = 'Tickets.json';
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -39,7 +39,7 @@ function argumentFor(argv, name) {
 }
 
 /** Every ticket in a Tickets.json document, in phase order. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function flattenTickets(document) {
   return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
     ...ticket,
@@ -48,7 +48,7 @@ function flattenTickets(document) {
 }
 
 /** The ticket a key names, or null. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function findTicket(document, key) {
   const parsed = parseTicketKey(key);
   if (parsed === null) return null;
@@ -56,25 +56,25 @@ function findTicket(document, key) {
 }
 
 /** Whether a ticket implements at least one operation. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function implementsOperation(ticket) {
   return (ticket?.distribution?.units ?? []).some((unit) => unit?.kind === 'operation' && unit?.obligation?.mode === 'implement');
 }
 
 /** Whether a ticket carries any distribution work, not only an operation implementation. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function carriesDistributionWork(ticket) {
   return (ticket?.distribution?.units ?? []).some((unit) => unit?.obligation?.mode !== undefined);
 }
 
 /** The status of every ticket in one package, keyed by its public ticket key. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function statusesOf(document) {
   return new Map(flattenTickets(document).map((ticket) => [ticketKeyOf(ticket), ticket.status]));
 }
 
 /** The implementer statuses of one package, or null when its Tickets.json is unreadable. */
-// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function packageStatusesOf(packagePath) {
   const ticketsPath = path.join(packagePath, TICKETS_FILE_NAME);
   if (!fs.existsSync(ticketsPath)) return null;
@@ -92,14 +92,14 @@ function packageStatusesOf(packagePath) {
 }
 
 /** The package path named by the workspace tree manifest, or null. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function packagePathOf(treeManifest, packageId) {
   const pkg = (treeManifest?.workspace?.packages ?? []).find((candidate) => candidate?.id === packageId);
   return pkg?.path ?? null;
 }
 
 /** The workspace root from an explicit path or the nearest allocate manifest. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function resolveWorkspaceRoot(explicitRoot, ticketsPath) {
   if (explicitRoot !== null && explicitRoot !== '') return path.resolve(explicitRoot);
   const manifestPath = findAllocateManifest(path.dirname(path.resolve(ticketsPath)));
@@ -107,7 +107,7 @@ function resolveWorkspaceRoot(explicitRoot, ticketsPath) {
 }
 
 /** Read the statuses of every prerequisite package a ticket names. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function collectPackageStatuses({ prerequisites, workspaceRoot }) {
   const statuses = new Map();
   const packages = [...new Set((prerequisites ?? []).map((entry) => entry?.package).filter((value) => typeof value === 'string'))];
@@ -130,7 +130,7 @@ function collectPackageStatuses({ prerequisites, workspaceRoot }) {
  *
  * @returns {{ code: number, verdict: object, findings: Array<object> }}
  */
-// [::TICKET::] PX-323, PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
 function run(argv = process.argv.slice(2)) {
   const ticketKey = argumentFor(argv, 'ticket-key');
   if (ticketKey === null) {
@@ -184,7 +184,7 @@ function run(argv = process.argv.slice(2)) {
 }
 
 /** The CLI entry point. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const result = run(argv);
   for (const finding of result.findings) {

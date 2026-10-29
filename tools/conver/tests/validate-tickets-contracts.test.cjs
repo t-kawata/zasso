@@ -222,7 +222,7 @@ test('invariant: ALLOWED statuses union R-pattern covers every status a script c
 // PX-326: registry boundary contract ids
 // ============================================================
 
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function makeRegistryContract(overrides) {
   return {
     id: 'contract-boundary-001',

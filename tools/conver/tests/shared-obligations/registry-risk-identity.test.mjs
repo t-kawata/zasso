@@ -1,4 +1,4 @@
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // C006: one open obligation per (operation, artifact field).
 //
 // idempotency and replay both read idempotency_scope. Emitting one obligation
@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { deriveObligations } from '../../.claude/scripts/shared-obligations/registry.mjs';
 import { riskFieldForClass } from '../../.claude/scripts/shared-obligations/risk-fields.mjs';
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function riskInputs(operation) {
   return {
     census: { operations: [operation.id], entries: [], sections: [] },

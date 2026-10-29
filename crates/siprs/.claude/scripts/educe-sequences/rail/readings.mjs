@@ -1,4 +1,4 @@
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // The files the reading phases exchange (PX-240, the phase driver).
 //
 // A reading phase is where a machine cannot go, so what it hands back has to be a
@@ -26,7 +26,7 @@ export const DECLARATION_FILE = 'declaration.json';
  * declared in `phases.mjs` could not be imported by `gates.mjs` without a cycle, and a
  * second copy of it would be a second thing to drift.
  */
-// [::TICKET::] PX-242 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-242 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-242 --for-spec --no-implementation-order`.
 export const PINS_FILE = 'pins.json';
 export const WORKLIST_FILE = 'worklist.txt';
 
@@ -38,7 +38,7 @@ export const WORKLIST_FILE = 'worklist.txt';
  * so a worklist cannot select by coverage. This one is a list of names, and mixing the two
  * would mean loosening that gate.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 export const UNCOVERED_WORKLIST_FILE = 'worklist-uncovered.txt';
 
 /** The required keys of a declaration and of one entry of it. */
@@ -79,7 +79,7 @@ export const INQUEST_FILE = readingsFileName('inquest');
  * move is a rename, so nothing is deleted and the previous generation's answers stay
  * readable at one path, which is what a re-read is made against.
  */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 export const ARCHIVE_DIRECTORY = 'archive';
 
 /**
@@ -89,7 +89,7 @@ export const ARCHIVE_DIRECTORY = 'archive';
  * drift from the reading it archives: the generation goes before the final extension,
  * which is the one place in the name that is not the file's identity.
  */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 export function archivedFileName(fileName, generation) {
   return fileName.replace(/(\.[^.]*)$/, `.g${generation}$1`);
 }
@@ -105,7 +105,7 @@ export function archivedFileName(fileName, generation) {
  *   directory, the generation being superseded, and the files it wrote
  * @returns {string[]} — the archived names, in the order the files were given
  */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 export function archiveReadings({ directory, generation, files }) {
   const present = files.filter((name) => existsSync(join(directory, name)));
   if (present.length === 0) return [];
@@ -195,7 +195,7 @@ export const STEP_GROUNDING_FIELDS = Object.freeze(['line', 'quote']);
 
 /** The grounding fields one step leaves absent or empty, by field name. */
 export function missingStepFields(step) {
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
   return absentFields(step, STEP_GROUNDING_FIELDS);
 }
 
@@ -210,7 +210,7 @@ export function readJsonFile(path) {
 }
 
 /** The keys a record is missing from a required list. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function missingFrom(record, required) {
   return required.filter((key) => record?.[key] === undefined);
 }
@@ -293,7 +293,7 @@ export function resolveGenerationNumber(reader) {
  * neither. A reader name without a generation suffix is a legacy reader and is one family,
  * because the older files never carried the generation directory.
  */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export function readerGenerationsOf(rows) {
   const generations = new Set();
   for (const row of rows) {
@@ -316,7 +316,7 @@ export function readerGenerationsOf(rows) {
  * `currentGeneration` is supplied only by a run that carries an evidence manifest; a
  * legacy workspace has no generation to compare against and keeps the old behavior.
  */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export function assertSingleReader(rows, { currentGeneration = null } = {}) {
   const generations = readerGenerationsOf(rows);
   const legacyPresent = rows.some((row) => resolveGenerationNumber(row?.reader) === null);
@@ -344,14 +344,14 @@ export function assertSingleReader(rows, { currentGeneration = null } = {}) {
 }
 
 /** The line at a 1-indexed position, or an empty string when the position is absent. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function lineAt(spec, line) {
   if (!Number.isInteger(line) || line < 1) return '';
   return typeof spec?.lines?.[line - 1] === 'string' ? spec.lines[line - 1] : '';
 }
 
 /** Whether a quote is present in a line, after whitespace normalization. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function quoteIsIn(quote, text) {
   if (typeof quote !== 'string' || quote.trim() === '') return false;
   const normalizedQuote = quote.replace(/\s+/g, ' ').trim();
@@ -437,7 +437,7 @@ export function validateUncoveredRecord(record) {
  * the object, or carry an explicit anchor quote that does. The gate verifies existence and
  * the naming; it does not judge whether the answer is semantically right.
  */
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 export function validateInquestRecord(record, { specLines = [], subject = record?.subject } = {}) {
   const problems = [];
   if (typeof subject !== 'string' || !subject.startsWith('@object:')) return problems;
@@ -472,7 +472,7 @@ export function inquestShapeOf(reading) {
 }
 
 /** The fields a record leaves absent or empty; an empty string answers nothing. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
 function absentFields(record, required) {
   return required.filter((key) => record?.[key] === undefined || record?.[key] === '');
 }
@@ -498,7 +498,7 @@ export function inquestVocabularyProblems(reading) {
  * the line they were found on, so a reader learns which claim to redo rather than that
  * something somewhere is wrong.
  */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export function readReadingsFile(path, { currentGeneration = null } = {}) {
   if (!existsSync(path)) return { ok: false, problems: [`${path} does not exist — the brief has not reported`] };
 
@@ -543,7 +543,7 @@ export function readReadingsFile(path, { currentGeneration = null } = {}) {
  * answered nothing is incomplete. Collapsing the two would make a specification with no
  * run directory beside it indistinguishable from one whose reader never reported.
  */
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
 export function inquestBeside(directory) {
   const read = readInquestFile(join(directory, INQUEST_FILE));
   return read.ok ? read.readings : null;
@@ -574,7 +574,7 @@ export function previousInquestRecordsIn(directory) {
 }
 
 /** Read and validate the file the audit is answered in. */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export function readInquestFile(path, options = {}) {
   if (!existsSync(path)) return { ok: false, problems: [`${path} does not exist — the audit has not been answered`] };
   return readReadingsFile(path, options);
@@ -590,7 +590,7 @@ export function readInquestFile(path, options = {}) {
  *
  * @param {{sections?: Array<object>, entries?: Array<object>, escaped?: string[]}} input
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 export function inquestSubjects({ sections = [], entries = [], escaped = [] }) {
   return [...[...sections, ...entries].map((record) => record.id), ...escaped];
 }
@@ -647,7 +647,7 @@ export function signedCount(readings) {
 }
 
 /** Write a readings file, one reading per line. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 export function writeReadingsFile(path, readings) {
   writeFileSync(path, `${readings.map((reading) => JSON.stringify(reading)).join('\n')}\n`);
   const directory = dirname(path);

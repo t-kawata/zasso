@@ -25,7 +25,7 @@ const {
 } = require('../../.claude/scripts/tickets/show-ticket-distribution.js');
 
 /** The one-package artifact whose two operations both produce Thing1. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function onePackageArtifact() {
   return {
     spec: { lines: 10 },
@@ -41,7 +41,7 @@ function onePackageArtifact() {
   };
 }
 
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function onePackageTreeManifest() {
   return {
     inventory: { objects: [{ canonical_name: 'Thing1', owner_package: 'pkg-1' }] },
@@ -50,14 +50,14 @@ function onePackageTreeManifest() {
 }
 
 /** The unit ids a view distributes, in view order. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function viewUnits(view) {
   return ['ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits', 'obligationUnits']
     .flatMap((field) => (Array.isArray(view?.[field]) ? view[field] : []));
 }
 
 /** The map, graph and aggregate around populated phases. */
-// [::TICKET::] PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
 function chainAround({ view, graph, phases }) {
   const map = {
     schemaVersion: 1,

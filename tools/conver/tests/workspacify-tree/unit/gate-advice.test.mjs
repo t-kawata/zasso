@@ -1,4 +1,4 @@
-// [::TICKET::] PX-198, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-198|PX-201) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-198, PX-201 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-198|PX-201) --for-spec --no-implementation-order`.
 // PX-198 @verifies C001 C002
 // Every gate failure must read as kind advice: what happened, why it matters, and
 // the concrete steps that make verification pass.

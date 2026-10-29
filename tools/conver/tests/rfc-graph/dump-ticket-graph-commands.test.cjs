@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * dump-ticket-graph-commands.test.cjs — Tests for dump-ticket-graph-commands.js
  *
@@ -279,7 +280,7 @@ describe('dump-ticket-graph-commands.js', () => {
           ticketKey: 'P0-1',
           nodeIds: ['N0001'],
           commands: [
-            '- N0001 (Auth API Definition) → `node .claude/scripts/rfc-graph/query.js --graph=graph.json --source=source.md --id=N0001 --hops=3`',
+            '- N0001 (Auth API Definition) → `node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/query.js" --graph=graph.json --source=source.md --id=N0001 --hops=3`',
           ],
         },
       ];

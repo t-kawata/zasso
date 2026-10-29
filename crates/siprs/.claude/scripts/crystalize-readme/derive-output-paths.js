@@ -27,7 +27,7 @@ const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 const { readGraphFile } = require('./validate-graph-arg.js');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 
 /** CLI argument prefix specifying the graph file path */
@@ -55,7 +55,7 @@ const CRYSTALIZE_STATUS_FILENAME = 'CRYSTALIZE-Status.json';
  * @returns {{ graphPath: string, field: string|undefined }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   let graphPath = null;
@@ -85,7 +85,7 @@ function parseArguments(args) {
  * @returns {{ rfcDir, examplesDir, readmePath }}
  * @throws {Error} If sourceFile is missing or not a non-empty string
  */
-// [::TICKET::] PX-152, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-156) --for-spec --no-implementation-order`.
 function deriveOutputPaths(graph) {
   const sourceFile = graph && graph.sourceFile;
   if (typeof sourceFile !== 'string' || sourceFile.trim() === '') {
@@ -114,7 +114,7 @@ function deriveOutputPaths(graph) {
  * @returns {string} The resolved absolute sourceFile path
  * @throws {Error} If sourceFile is missing, not a non-empty string, or absent on disk
  */
-// [::TICKET::] PX-153, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-153|PX-231) --for-spec --no-implementation-order`.
 function assertSourceFileExists(graph) {
   const sourceFile = graph && graph.sourceFile;
   if (typeof sourceFile !== 'string' || sourceFile.trim() === '') {
@@ -137,7 +137,7 @@ function assertSourceFileExists(graph) {
  * @param {{ readmeExists: boolean, statusExists: boolean }} flags — Artifact existence
  * @returns {'fresh'|'refine'} Run mode
  */
-// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-155 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-155 --for-spec --no-implementation-order`.
 function detectMode({ readmeExists, statusExists }) {
   return readmeExists || statusExists ? 'refine' : 'fresh';
 }
@@ -150,7 +150,7 @@ function detectMode({ readmeExists, statusExists }) {
  * @param {{ readmeExists: boolean, statusExists: boolean }} flags — Artifact existence
  * @returns {string} Markdown report
  */
-// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-155 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-155 --for-spec --no-implementation-order`.
 function formatPreflightMarkdown(paths, mode, flags) {
   const modeLine = mode === 'fresh'
     ? '**Mode: fresh** — No previous run was detected (no README.md or CRYSTALIZE-Status.json). This execution will start from scratch.'
@@ -186,7 +186,7 @@ function formatPreflightMarkdown(paths, mode, flags) {
 /**
  * main — CLI entry point (Preflight).
  */
-// [::TICKET::] PX-152, PX-153, PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-155) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-155 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-155) --for-spec --no-implementation-order`.
 function main() {
   try {
     const { graphPath, field } = parseArguments();

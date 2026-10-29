@@ -1,4 +1,4 @@
-// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 // Write the rendering beside the specification (PX-248, PX-249).
 //
 // `run.mjs` has told the reader to run this module since the rendering path was declared,
@@ -27,7 +27,7 @@ export const RENDER_EXIT = Object.freeze({ OK: 0, REFUSED: 1, MISUSED: 2 });
  * @param {{railExits?: unknown[], inquest?: unknown[]}} options — the records a test supplies
  * @returns {Promise<{exitCode: number, renderingPath: string|null, reason: string}>}
  */
-// [::TICKET::] PX-248, PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 export async function renderCommand(argv, options = {}) {
   const parsed = parseSpecArgument(argv);
   if (!parsed.ok) return { exitCode: RENDER_EXIT.MISUSED, renderingPath: null, reason: parsed.reason };

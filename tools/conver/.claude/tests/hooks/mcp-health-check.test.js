@@ -175,7 +175,7 @@ function waitForHttpReady(urlString, timeoutMs = 5000) {
   });
 }
 
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 async function runTests() {
   console.log('\n=== Testing mcp-health-check.js ===\n');
 

@@ -24,7 +24,7 @@ const REGISTRY = [{
 }];
 
 /** One local step that crosses a boundary the ticket does not carry as a ctr unit. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function crossingStep(stepId = 'S__s1') {
   return {
     stepId,
@@ -35,7 +35,7 @@ function crossingStep(stepId = 'S__s1') {
 }
 
 /** A ticket that implements the crossing step but owns no ctr boundary node. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function crossingTicket(overrides = {}) {
   return {
     id: 1,
@@ -57,7 +57,7 @@ function crossingTicket(overrides = {}) {
 }
 
 /** The step contract merge attaches from the step sidecar. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function stepContract() {
   return {
     id: 'C500',
@@ -74,7 +74,7 @@ function stepContract() {
 }
 
 /** The graph the split reads. The ticket's node carries the operation, not the boundary. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function graph() {
   return {
     nodes: [{ id: 'N1', unitIds: ['op-A'] }],
@@ -83,7 +83,7 @@ function graph() {
 }
 
 /** The package view that declares the crossed sequence and its step. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function view() {
   return {
     packageId: 'pkg-0002',
@@ -98,7 +98,7 @@ function view() {
 }
 
 /** The ticket document the delivery gate reads for owner resolution. */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function ticketsDocument(ticket) {
   return { phases: [{ id: 0, tickets: [ticket] }] };
 }

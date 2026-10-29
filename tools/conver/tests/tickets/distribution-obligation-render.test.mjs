@@ -11,7 +11,7 @@ import {
 } from '../../.claude/scripts/tickets/show-ticket-distribution.js';
 import { renderPhaseDistribution } from '../../.claude/scripts/tickets/show-phase-distribution.js';
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function ticketWithObligation() {
   return {
     id: 1,

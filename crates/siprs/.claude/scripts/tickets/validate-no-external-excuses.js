@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-120: validate-no-external-excuses — generic no-excuse validator.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-120 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-120 --for-spec --no-implementation-order`.
 
 /**
  * validate-no-external-excuses.js — generic 3-check validator for [::STUB::] markers.
@@ -76,7 +76,7 @@ const COMPLETED_STATUS_RE = /^(reviewed|done|R[1-9]\d*)$/;
  * @param {string} content — Full marker line
  * @returns {string|null}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function extractTicketKey(content) {
   const match = content.match(STUB_TICKET_KEY_RE);
   return match ? match[1] : null;
@@ -88,7 +88,7 @@ function extractTicketKey(content) {
  * @param {string} ticketKey — e.g. "P3-2" or "PX-53"
  * @returns {object|null} — The ticket object or null
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function findTicket(ticketsData, ticketKey) {
   if (!ticketsData || !Array.isArray(ticketsData.phases) || !ticketKey) return null;
   const match = ticketKey.match(/^P(-?\d+|X)-(\d+)$/);
@@ -112,7 +112,7 @@ function findTicket(ticketsData, ticketKey) {
  * @param {boolean} [forConsolidate] — Accept completed-key references
  * @returns {{passed: boolean, reason: string}}
  */
-// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
 function checkKeyValidity(ticketKey, ticketsData, forConsolidate) {
   if (!ticketKey) {
     return { passed: false, reason: 'Marker has no ticket key (MUST RESOLVE) — keyless markers fail Check C' };
@@ -136,7 +136,7 @@ function checkKeyValidity(ticketKey, ticketsData, forConsolidate) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{passed: boolean, fail: boolean, key: string|null, checks: Array}}
  */
-// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
 function classifyVerdict(markerContent, ticketsData, forConsolidate) {
   const excuseHit = EXCUSE_PATTERNS.some(re => re.test(markerContent || ''));
   const workItem = WORK_ITEM_VERB_RE.test(markerContent || '');
@@ -184,7 +184,7 @@ function classifyVerdict(markerContent, ticketsData, forConsolidate) {
  * @param {string} dir — Directory to scan
  * @returns {Array<{file: string, line: number, content: string}>}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function scanStubs(dir) {
   const script = path.resolve(__dirname, 'review/find-all-stubs.js');
   const stdout = execFileSync('node', [script, path.resolve(dir)], { encoding: 'utf8' });
@@ -198,7 +198,7 @@ function scanStubs(dir) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{total: number, pass: number, fail: number, failures: Array}}
  */
-// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
 function validateStubs(dir, ticketsData, forConsolidate) {
   const stubs = scanStubs(dir);
   const failures = [];
@@ -216,7 +216,7 @@ function validateStubs(dir, ticketsData, forConsolidate) {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
 function main() {
   // The pipeline always runs from the directory containing Tickets.json, so the
   // scan root and the Tickets.json path are fixed to the current directory.

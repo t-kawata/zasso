@@ -13,7 +13,7 @@ import {
 import { verifyAllTicketCoverage } from '../../.claude/scripts/tickets/verify-all-ticket-coverage.js';
 import { collectViewUnits } from '../../.claude/scripts/sequences-slice/lib/distribution-map.mjs';
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function phaseWithUnits(chain) {
   const ids = [...collectViewUnits(chain.view).keys()];
   return {
@@ -26,7 +26,7 @@ function phaseWithUnits(chain) {
   };
 }
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 async function populatedCoverage(chain) {
   const { ids, phase } = phaseWithUnits(chain);
   const populated = await populateTicketDistribution(phase, chain.graph, chain.dirsTree, chain.view, chain.map);

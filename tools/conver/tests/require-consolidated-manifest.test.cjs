@@ -7,7 +7,7 @@
  *   C002 no manifest + 1+ stubs -> exit 2 with a stderr BLOCKED cause/action
  *   C003 a CONSOLIDATED-MANIFEST-*.json exists -> exit 0 (legacy unchanged)
  *   C004 a throwing stub scan is never treated as 0 stubs -> decision 'block' (exit 2)
- * [::TICKET::] PX-148 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-148 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-148 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-148 --for-spec --no-implementation-order`.
  */
 
 const test = require("node:test");

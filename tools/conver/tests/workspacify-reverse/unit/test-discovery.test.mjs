@@ -48,7 +48,7 @@ import {
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /** A scratch tree holding the two roots discovery walks, so a fixture is independent of this repository. */
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function makeScratchTree(files) {
   const root = mkdtempSync(join(tmpdir(), 'px204-discovery-'));
   for (const relative of files) {

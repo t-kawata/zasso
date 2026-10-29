@@ -15,7 +15,7 @@ import {
 import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/workspace.mjs';
 import { materializeSmoothWorkspace, minimalV2Artifact } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function migrationInput(workspace) {
   const loaded = loadWorkspace(workspace.root);
   return {
@@ -28,7 +28,7 @@ function migrationInput(workspace) {
 
 const step = { id: 'A-1__ProduceFact', line: 1, quote: 'the producer derives order_id' };
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function contract(post) {
   return { pre: [], post, invariants: [], consumes: [], produces: [], errors: [], crosses: [] };
 }

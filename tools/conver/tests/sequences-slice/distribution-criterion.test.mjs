@@ -20,7 +20,7 @@ import {
 const GATE_SOURCE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/check-obligation-coverage.js');
 
 /** A context in which every runtime clause holds. */
-// [::TICKET::] PX-263, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-263|PX-270) --for-spec --no-implementation-order`.
 function holdingContext(overrides = {}) {
   const axis = { assigned: [{ id: 'R-0001', by: 'owns' }], exempt: [], unassigned: [] };
   return {
@@ -161,7 +161,7 @@ test('PX-263 every declared claim maps to a clause that exists, so a declaration
 // consults to decide whether the sweep is done, so an answer it cannot support is worse than none.
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C004 the reach clause holds only when every named package holds a view written with the carriage', () => {
   const findings = criterionFindings(holdingContext());
   const k8 = findings.find((finding) => finding.id === 'K8');
@@ -170,7 +170,7 @@ test('C004 the reach clause holds only when every named package holds a view wri
   assert.equal(k8.detail, null);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C004 a named package holding a view that predates the carriage leaves the clause short, and the finding names it', () => {
   const findings = criterionFindings(holdingContext({
     packages: { named: ['pkg-a', 'pkg-b'], withView: ['pkg-a', 'pkg-b'], carried: ['pkg-a'], untransported: ['pkg-b'] },
@@ -181,7 +181,7 @@ test('C004 a named package holding a view that predates the carriage leaves the 
   assert.match(k8.detail, /pkg-b/);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C004 a named package holding no view at all is still short, so the two absences are both named', () => {
   const findings = criterionFindings(holdingContext({
     packages: { named: ['pkg-a', 'pkg-b'], withView: ['pkg-a'], carried: ['pkg-a'], untransported: ['pkg-b'] },
@@ -192,7 +192,7 @@ test('C004 a named package holding no view at all is still short, so the two abs
   assert.match(k8.detail, /pkg-b/);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C004 the reworded clause is still covered by a declared claim, so the closure finds nothing uncovered', () => {
   const rewritten = 'guarantees: every package the allocation names holds a view projected with the obligation carriage, so the distribution reached every directory rather than most of them';
 

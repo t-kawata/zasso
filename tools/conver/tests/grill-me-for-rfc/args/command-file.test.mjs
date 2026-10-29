@@ -2,7 +2,7 @@
 // PX-235 @verifies C006
 // PX-238 @verifies C003
 // PX-238 @verifies C004
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 /**
  * The grill command file's argument surface.
  *
@@ -25,7 +25,7 @@ const COMMANDS = join(REPO_ROOT, '.claude/commands');
 const read = (name) => readFileSync(join(COMMANDS, `${name}.md`), 'utf8');
 
 /** The section beginning at `from` and ending where `to` begins, or at the file's end. */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function section(text, from, to) {
   const start = text.indexOf(from);
   assert.notEqual(start, -1, `${from} is present`);
@@ -34,7 +34,7 @@ function section(text, from, to) {
 }
 
 /** The text between the question-gate delimiters, which three files must share. */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function sharedRuleBlock(text) {
   const start = text.indexOf('<!-- question-gate:begin -->');
   const end = text.indexOf('<!-- question-gate:end -->');
@@ -72,8 +72,8 @@ test('C001 postcondition: use states the zero-or-more material form', () => {
 test('C001 postcondition: STEP 0 initialises with the package directory and the material list', () => {
   const step0 = section(read('grill-me-for-rfc'), '### STEP 0', '### STEP 1');
 
-  assert.match(step0, /init\.js "\$RFC_DIR" \$ARGUMENTS/, 'init.js takes the package dir and the material list');
-  assert.match(step0, /settle-run\.js "\$RFC_DIR" prior/, 'the prior scan is still the first thing run');
+  assert.match(step0, /init\.js"?\s+"\$RFC_DIR" \$ARGUMENTS/, 'init.js takes the package dir and the material list');
+  assert.match(step0, /settle-run\.js"?\s+"\$RFC_DIR" prior/, 'the prior scan is still the first thing run');
   assert.doesNotMatch(step0, /\$RESEARCH_PATH|\$RFC_OUTPUT_PATH/);
 });
 
@@ -107,7 +107,7 @@ test('C006 invariant: the command file still carries what PX-234 froze', () => {
   }
 });
 
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 test('C004 invariant: STEP 0 refuses a materialised canon and names the command that owns it', () => {
   const step0 = section(read('grill-me-for-rfc'), '### STEP 0', '### STEP 1');
 
@@ -115,14 +115,14 @@ test('C004 invariant: STEP 0 refuses a materialised canon and names the command 
   assert.match(step0, /drill-rfc-down/, 'the refusal points at the command whose job the evolution is');
 });
 
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 test('C003 invariant: STEP 5 takes a copy of the RFC before it writes', () => {
   const step5 = section(read('grill-me-for-rfc'), '### STEP 5', '### STEP 6');
 
   assert.match(step5, /backup-rfc\.js/, 'the pre-rewrite copy is part of the step, not a suggestion');
 });
 
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 test('PX-238 invariant: the added sentences leave the shared rule block untouched', () => {
   const grill = sharedRuleBlock(read('grill-me-for-rfc'));
 

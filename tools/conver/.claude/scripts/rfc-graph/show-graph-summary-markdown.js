@@ -60,13 +60,13 @@ function exitWithError(summary, cause, action) {
 // Argument parsing
 // ============================================================
 
-/** Script directory (relative path) */
-const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
+/** Script directory anchored at the git root, so an example runs from any package. */
+const SCRIPTS_DIR = '$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph';
 
 /** Default hop count for traversal */
 const DEFAULT_HOPS = 2;
 
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseArguments(argv, options = {}) {
   const args = argv.slice(2);
   const cwd = options.cwd || process.cwd();
@@ -303,13 +303,13 @@ function generateCliExamples(graphPath, sourcePath, firstNodeId) {
     "",
     "```bash",
     "# 1-hop (direct connections only)",
-    "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=1",
+    "node \"" + SCRIPTS_DIR + "/query.js\" --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=1",
     "",
     "# 2-hop (includes children and grandchildren)",
-    "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=2",
+    "node \"" + SCRIPTS_DIR + "/query.js\" --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=2",
     "",
     "# 3-hop (deeper relationships)",
-    "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=3",
+    "node \"" + SCRIPTS_DIR + "/query.js\" --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=3",
     "```",
   ];
 }

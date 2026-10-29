@@ -1,4 +1,4 @@
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 // A name cannot break the drawing, and a rendering is written only from a verification
 // that passed (PX-249, C001-C006).
 //
@@ -47,13 +47,13 @@ const SUPPLIED = suppliedDocumentsOf(join(CENSUS, 'educe-sequences'));
 const PLAIN = join(FIXTURES, 'spec');
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(join(CENSUS, 'ledger-sequences.json'), 'utf8'));
 }
 
 /** The golden artifact of the fixture the product paths are driven over. */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function plainGolden() {
   return JSON.parse(readFileSync(join(PLAIN, 'ledger-sequences.json'), 'utf8'));
 }
@@ -65,7 +65,7 @@ function plainGolden() {
  * written has to start from a state where nothing is there, and copying the committed bytes
  * in would make every such assertion pass for the wrong reason.
  */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function scratch(fixture) {
   const root = mkdtempSync(join(tmpdir(), `px249-${fixture}-`));
   cpSync(join(FIXTURES, fixture), root, { recursive: true });
@@ -74,7 +74,7 @@ function scratch(fixture) {
 }
 
 /** An artifact whose first step names no target, which is what the drawability check refuses. */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function undrawable(artifact) {
   return { ...artifact, steps: artifact.steps.map((step, index) => (index === 0 ? { ...step, object: '' } : step)) };
 }
@@ -127,7 +127,7 @@ const HOSTILE_NAMES = Object.freeze([
 ]);
 
 /** One step per hostile name, each naming the next as its object. */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function hostileSteps() {
   return HOSTILE_NAMES.map((name, index) => ({
     id: `s${index}`,
@@ -140,7 +140,7 @@ function hostileSteps() {
 }
 
 /** The lines of a block that declare a participant, with the identifier each declares. */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function declaredIdentifiers(block) {
   return block
     .split('\n')
@@ -149,7 +149,7 @@ function declaredIdentifiers(block) {
 }
 
 /** The message lines of a block, as the sender and receiver identifiers. */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function messagePairs(block) {
   return block
     .split('\n')
@@ -242,7 +242,7 @@ test('C002 the message count equals the step count and a sequence ruled out is d
 const BELONGS = 'every-step-belongs-to-a-drawn-sequence';
 
 /** The verdicts one check raised over an artifact, read with the material it was read beside. */
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
 function verdictsOf(artifact, check) {
   return checkAll({ specLines: CENSUS_SPEC.lines, artifact, recorded: { supplied: SUPPLIED } })
     .verdicts.filter((verdict) => verdict.check === check);
@@ -269,7 +269,7 @@ test('C003 a step naming no sequence at all is refused rather than counted', () 
   assert.equal(verdictsOf(detached, BELONGS).length, artifact.steps.length);
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C003 the registry declares the new check once and the stated count is the registry length', () => {
   assert.equal(CHECKS.filter((check) => check.id === BELONGS).length, 1);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);

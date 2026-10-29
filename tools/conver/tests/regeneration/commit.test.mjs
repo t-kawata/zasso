@@ -28,11 +28,11 @@ import {
   snapshotDesignTree,
 } from './helpers/chain-fixture.mjs';
 
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 
 /** Open, derive and verify a transaction. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function verifiedTransaction(workspace, runDetector = fixtureDetectorOk) {
   const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'commit test' });
   deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
@@ -47,7 +47,7 @@ function verifiedTransaction(workspace, runDetector = fixtureDetectorOk) {
 }
 
 /** A fileSystem that fails the first rename to a path ending with the given suffix. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function failingRenameOnce(suffix) {
   let failed = false;
   return {
@@ -238,7 +238,7 @@ test('recoverCommit completes a verifying journal whose live chain is valid', ()
 
 // @verifies C004
 test('the post-commit detector may run while its own transaction is committing', () => {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const workspace = materializeChainWorkspace();
   try {
     const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'committing' });

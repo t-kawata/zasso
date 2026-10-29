@@ -15,20 +15,20 @@ import {
   operationRow,
 } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 
 const ARTIFACT_PATH = '/tmp/example-sequences.json';
 const QUIET = Object.freeze({ stdout: () => {}, stderr: () => {} });
 const DETECTOR_DIRECTORY = '.claude/scripts/smooth-sequences';
 
 /** The vocabulary a bare artifact and manifest state, with no workspace on disk. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function vocabularyOf(artifact, allocateManifest = {}) {
   return loadVocabulary({ artifact, artifactPath: ARTIFACT_PATH, allocateManifest });
 }
 
 /** An artifact without the producer-written vocabulary, so every check derives. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function artifactWithoutVocabulary() {
   const artifact = minimalV3Artifact();
   delete artifact.vocabulary;
@@ -36,7 +36,7 @@ function artifactWithoutVocabulary() {
 }
 
 /** The workspace and the index the detector would judge. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function indexOfWorkspace(input) {
   const workspace = materializeSmoothWorkspace(input);
   return { workspace, index: indexArtifact(loadWorkspace(workspace.root)) };
@@ -133,7 +133,7 @@ test('declared_interfaces wins over the pinned columns instead of merging with t
 });
 
 // @verifies C003
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 test('a required column stays required when one active operation lacks it', () => {
   const artifact = artifactWithoutVocabulary();
   artifact.operations[1].grpc = undefined;

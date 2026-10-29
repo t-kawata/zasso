@@ -1,4 +1,4 @@
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 /**
  * Evidence independence — the fold that stops a count of records being read as
  * a count of support.
@@ -58,7 +58,7 @@ export function buildEvidence(span, sourceKind, evidenceId) {
 }
 
 /** The key that identifies a syntax span for the purpose of joining two records. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function spanKey(span) {
   return `${span.file}${GROUP_KEY_SEPARATOR}${span.line}`;
 }
@@ -72,7 +72,7 @@ function spanKey(span) {
  * text similarity is exactly the inference the design forbids. A caller that has
  * them declares them on the edge.
  */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function relationsFromSpans(evidence) {
   const byKey = new Map();
   for (const item of evidence) {
@@ -134,7 +134,7 @@ export function historyFromGit(root, { files } = {}) {
 
   return {
     /** The commit that last touched the file a span names, or null when unknown. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
     commitOf(span) {
       return commits.get(span.file) ?? null;
     },
@@ -142,7 +142,7 @@ export function historyFromGit(root, { files } = {}) {
 }
 
 /** The relations the commit channel establishes between records. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function relationsFromHistory(evidence, history) {
   if (history === null || history === undefined) return [];
 

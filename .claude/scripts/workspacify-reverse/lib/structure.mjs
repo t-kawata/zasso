@@ -1,5 +1,5 @@
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 /**
  * Layer B — the common syntax layer — and R1's measurement of the static
  * skeleton.
@@ -49,7 +49,7 @@ import { groupKey } from './provenance.mjs';
  * would drift on spelling and the drift would be silent, because each consumer's
  * tests would pass against its own copy.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 export const GRAMMAR_BY_LANGUAGE = Object.freeze({
   rust: { packageName: 'tree-sitter-rust', wasmName: 'tree-sitter-rust.wasm' },
   typescript: { packageName: 'tree-sitter-typescript', wasmName: 'tree-sitter-typescript.wasm' },
@@ -78,7 +78,7 @@ export { LANGUAGES_WITH_EXTRACTORS };
  * measurement in its own data. Re-exported so a consumer of the syntax layer
  * finds the queries where the extractors are.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export {
   QUERIES_BY_LANGUAGE,
   STRUCTURE_FAMILIES,
@@ -141,7 +141,7 @@ const requireFromHere = createRequire(import.meta.url);
  * packages version independently — and it must surface as a limitation on the
  * result rather than as a crash that leaves no record of what was attempted.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 async function loadGrammar(language) {
   const entry = GRAMMAR_BY_LANGUAGE[language];
   if (!entry) return { language, grammar: null, failure: `no grammar is declared for ${language}` };
@@ -164,7 +164,7 @@ async function loadGrammar(language) {
  * Reading the version from the installed package rather than repeating it here
  * keeps the declaration and the artefacts from drifting apart.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 const GRAMMAR_VERSION_BY_PACKAGE = (() => {
   const versions = {};
   for (const entry of Object.values(GRAMMAR_BY_LANGUAGE)) {
@@ -185,7 +185,7 @@ const GRAMMAR_VERSION_BY_PACKAGE = (() => {
  * than a guess. An unversioned configuration is a weaker claim, and it should
  * read as one.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 export function grammarIdentityFor(language) {
   const entry = GRAMMAR_BY_LANGUAGE[language];
   if (!entry) return null;
@@ -258,31 +258,31 @@ export function syntaxRecoveryDiagnostic(tree) {
 // ---------------------------------------------------------------------------
 
 /** Every item one Rust file declares, as the syntax layer can see them. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustItems(tree, relativePath) {
   return collectItems('rust', tree, relativePath);
 }
 
 /** Every module a Rust file declares, as `mod name;` or `pub mod name;`. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustModules(tree, relativePath) {
   return collectModules('rust', tree, relativePath);
 }
 
 /** Every use declaration a Rust file makes, before any name resolution. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustUses(tree, relativePath) {
   return collectUseDeclarations(tree, relativePath);
 }
 
 /** Every `impl ... for Type` a Rust file contains. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustImpls(tree, relativePath) {
   return collectImplementations(tree, relativePath);
 }
 
 /** Every type name that appears in the error position of a `Result`. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustResultErrorTypes(tree) {
   return collectResultErrorTypes(tree);
 }
@@ -331,7 +331,7 @@ export function parseSourceFile(root, relativePath, { grammar } = {}) {
  * run must not change what it measures. The reading is the same one
  * `parseSourceFile` performs — only the source of the text differs.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 export function parseSourceText(text, language) {
   if (parserFailure !== null) {
     return { ok: false, language, reason: 'grammar_unavailable', message: parserFailure };
@@ -363,7 +363,7 @@ export function parseSourceText(text, language) {
  * paths the boundary marked `out_of_scope`, so that a run which measures only
  * part of a tree still records the whole of it.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function syntaxPopulation(root, { excludedPaths = [] } = {}) {
   const excluded = new Set(excludedPaths);
   return listArtefacts(root)
@@ -382,7 +382,7 @@ function syntaxPopulation(root, { excludedPaths = [] } = {}) {
  *
  * @param {ReadonlyArray<object>} artefacts - a walk from `listArtefacts`
  */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function configManifestsIn(artefacts) {
   return artefacts
     .filter((artefact) => !artefact.exclusion && artefact.readStatus === 'readable')
@@ -392,7 +392,7 @@ function configManifestsIn(artefacts) {
 }
 
 /** The packages the source population forms, grouped by the directory that owns each file. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function packagesFrom(files, modules) {
   const byDirectory = new Map();
   for (const file of files) {
@@ -490,7 +490,7 @@ export function measureStructure({ root, excludedPaths = [], grammar, configurat
  * the row its language names, so this function holds no branch on the language
  * and adding a seventh language is adding a row.
  */
-// [::TICKET::] P24-2, P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-2|P24-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2, P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-2|P24-6) --for-spec --no-implementation-order`.
 function buildStructureItems({ root, files, grammar, queries, configurationName }) {
   const attempts = [];
   const parseable = new Set();
@@ -581,13 +581,13 @@ function buildStructureItems({ root, files, grammar, queries, configurationName 
 }
 
 /** True when the declaration names this language as carrying this family. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function carries(family, language) {
   return LANGUAGES_WITH_EXTRACTORS[family].includes(language);
 }
 
 /** The implementation sites a language's error signals and mechanism family ask for. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function implementationsFor(language, tree, file, signals) {
   const wanted = carries('E6', language) || signals.includes('implements_error_trait');
   return wanted ? collectImplementations(tree, file) : [];
@@ -601,7 +601,7 @@ function implementationsFor(language, tree, file, signals) {
  * noise. The scope names the extensions the population actually carried rather
  * than the language identifier: a reader who globs for `.c_cpp` finds no file.
  */
-// [::TICKET::] P24-2, P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-2|P24-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2, P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-2|P24-6) --for-spec --no-implementation-order`.
 function limitationsOf({ files, attempts, discovery, carriesCCpp }) {
   const limitations = [];
 
@@ -658,7 +658,7 @@ function limitationsOf({ files, attempts, discovery, carriesCCpp }) {
 }
 
 /** The file extensions the population actually carried for one language. */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 function extensionsFor(files, language) {
   const extensions = files
     .filter((file) => syntaxLanguageOf(file) === language)
@@ -667,7 +667,7 @@ function extensionsFor(files, language) {
 }
 
 /** Order findings by the location a reader would go to, not by the order they were walked. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function byLocation(left, right) {
   return compareText(`${left.file}:${String(left.line).padStart(6, '0')}`, `${right.file}:${String(right.line).padStart(6, '0')}`);
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-120: preflight-stub-cleanup — 4-class classification of every STUB marker.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-120 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-120 --for-spec --no-implementation-order`.
 
 /**
  * preflight-stub-cleanup.js — find-omissions Step 1 pre-cleanup gate.
@@ -48,7 +48,7 @@ const CLASS_NAMES = ['resolvedCandidates', 'pendingObligations', 'orphans', 'exc
 // so a surviving marker is a candidate for the resolved-but-stale sweep.
 const COMPLETED_STATUS_RE = /^(reviewed|done|R[1-9]\d*)$/;
 
-// [::TICKET::] PX-126: resolvedCandidates [ACTION] message. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-126 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-126: resolvedCandidates [ACTION] message. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-126 --for-spec --no-implementation-order`.
 // Directs both branches of the resolved-but-stale sweep: a resolved defect is
 // removed, a NOT-resolved defect gets a new resolving ticket (create-resolving-ticket.js).
 // Kept single-line and self-contained per the find-omissions.md Output message convention.
@@ -64,7 +64,7 @@ const RESOLVED_CANDIDATES_ACTION_MESSAGE =
  * @param {string} dir — Directory to scan
  * @returns {Array<{file: string, line: number, content: string}>}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function scanStubs(dir) {
   const script = path.resolve(__dirname, 'review/find-all-stubs.js');
   const stdout = execFileSync('node', [script, path.resolve(dir)], { encoding: 'utf8' });
@@ -82,7 +82,7 @@ function scanStubs(dir) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{resolvedCandidates: Array, pendingObligations: Array, orphans: Array, excuses: Array}}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function classifyStubs(stubs, ticketsData) {
   const result = { resolvedCandidates: [], pendingObligations: [], orphans: [], excuses: [] };
   for (const stub of stubs) {
@@ -129,9 +129,9 @@ function classifyStubs(stubs, ticketsData) {
  * @param {{file:string,line:number}} stub — Stub entry
  * @returns {string} — Ready-to-run command
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-341) --for-spec --no-implementation-order`.
 function buildRemoveCommand(stub) {
-  return 'node .claude/scripts/tickets/remove-stub.js --file=' + stub.file + ' --line=' + stub.line;
+  return 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/remove-stub.js" --file=' + stub.file + ' --line=' + stub.line;
 }
 
 /**
@@ -140,7 +140,7 @@ function buildRemoveCommand(stub) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{classification: object, removeCommands: Array}}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function preflight(dir, ticketsData) {
   const stubs = scanStubs(dir);
   const classification = classifyStubs(stubs, ticketsData);
@@ -157,7 +157,7 @@ function preflight(dir, ticketsData) {
  * the directory containing Tickets.json). Exits with an Action directive on failure.
  * @returns {object} — Parsed Tickets.json
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function readTickets() {
   try {
     return JSON.parse(fs.readFileSync(path.resolve('Tickets.json'), 'utf8'));
@@ -168,7 +168,7 @@ function readTickets() {
   }
 }
 
-// [::TICKET::] PX-120, PX-121, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-126|PX-127) --for-spec --no-implementation-order`.
 function main() {
   // The pipeline always runs from the directory containing Tickets.json, so the
   // scan root and the Tickets.json path are fixed to the current directory.

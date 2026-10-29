@@ -1,4 +1,4 @@
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 // A risk obligation's id names the risk class; the artifact row names the field that
 // carries it. An anchor that repeats the class name puts every risk judgment out of
 // scope, so the obligation stays open even when the judgment cites the right value.

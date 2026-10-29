@@ -1,4 +1,4 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
 /**
  * genericity — the project names this repository carries, and where they are allowed to be.
  *
@@ -26,7 +26,7 @@
  * guessing about the thing it exists to check.
  */
 export const REPOSITORY_MATERIAL_NAMES = Object.freeze([
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
   'siprs-for-reverse',
   'siprs-with-4layers',
 ]);
@@ -53,7 +53,7 @@ const COMMENT_LINE = /^\s*(\/\/|\*|\/\*)/;
  * @param {{ modules: Array<{path: string, text: string}>, names: readonly string[] }} input
  * @returns {Array<{ path: string, line: number, name: string }>} in module order, then line order
  */
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
 export function projectNameValuesIn({ modules, names }) {
   const findings = [];
 

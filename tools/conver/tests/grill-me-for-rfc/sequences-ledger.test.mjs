@@ -93,7 +93,7 @@ function runReport(root, stage = 'upstream') {
 }
 
 /** The verdict lines of a report, which are the lines the machine vocabulary begins. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function verdictLines(stdout) {
   return stdout.split('\n').filter((line) => /^(proved|not proved|undeclared):/.test(line));
 }
@@ -150,7 +150,7 @@ test('C002 the report discharges the units the ledger rows, and only those', () 
   });
 });
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 test('C003 the report names a missing ledger and discharges a present one, and the empty case is unchanged', () => {
   withPackage((root) => {
     writePackage(root, {

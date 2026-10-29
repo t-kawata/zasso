@@ -90,7 +90,7 @@ const CONFIDENCE_BY_STATUS = Object.freeze({
  * way would hand out an absence claim nobody made, which is the failure this
  * whole module exists to prevent.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function resolveUnobservedChannels(declared) {
   if (Array.isArray(declared)) return [...declared];
   return [...UNOBSERVED_CHANNEL_KINDS];
@@ -103,7 +103,7 @@ function resolveUnobservedChannels(declared) {
  * symbol was never stated counts as unresolved, because a construct nobody
  * could name is not a construct that was resolved.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function observationIsUnresolved(observation) {
   if (typeof observation?.unresolved === 'boolean') return observation.unresolved;
   if (observation?.kind === 'reflective_name') return (observation.symbol ?? null) === null;
@@ -155,7 +155,7 @@ export function describeDynamicConstruct({ kind, specifier = null, symbol = null
 }
 
 /** Expand an observation into the stored shape, deriving a statement when none was given. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function expandObservation(observation) {
   return {
     kind: observation.kind,
@@ -177,7 +177,7 @@ function expandObservation(observation) {
  * it exercised, and reading only the observations would let such a run report
  * an absence it had already disproved.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function deriveDynamicSurfaceStatus(observations, unobservedChannelCount, runs) {
   const atRuntime =
     observations.some((observation) => observation.evidence_mode === 'runtime_dynamic') ||
@@ -198,7 +198,7 @@ function deriveDynamicSurfaceStatus(observations, unobservedChannelCount, runs) 
 }
 
 /** The status a set of observations, channels and runs amounts to. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function statusOfEvidence(observations, unobservedChannelCount, runs) {
   const normalised = observations.map((observation) => ({
     evidence_mode: observation?.evidence_mode ?? 'source_static',

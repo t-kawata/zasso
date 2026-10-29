@@ -6,6 +6,11 @@ const {
   readFrontmatterFromFile,
   updateFrontmatterFields,
 } = require('../lib/tickets');
+const {
+  fromHomeRelative,
+  toHomeRelative,
+  toHomeRelativeText,
+} = require('../lib/path-utils');
 
 const TYPES = { plan: 'plan_path', implementation: 'implementation_path', review: 'review_report_path' };
 
@@ -49,23 +54,31 @@ function main() {
     console.log(JSON.stringify({ success: false, error: 'No content provided via stdin' }));
     process.exit(1);
   }
+  // The artifact is committed: a home path in its prose must name no machine.
+  content = toHomeRelativeText(content);
 
   // Check existing frontmatter path; fall back to constructing from contextDir
   const { attrs } = readFrontmatterFromFile(paths.specPath);
   const existingPath = attrs?.[field];
   let artifactPath;
-  if (existingPath && fs.existsSync(existingPath)) {
-    artifactPath = path.isAbsolute(existingPath) ? existingPath : path.resolve(existingPath);
-  } else {
+  if (existingPath) {
+    // The frontmatter stores the portable form, so expand ~/ before asking the filesystem.
+    const expandedPath = fromHomeRelative(existingPath);
+    if (fs.existsSync(expandedPath)) {
+      artifactPath = path.isAbsolute(expandedPath) ? expandedPath : path.resolve(expandedPath);
+    }
+  }
+  if (!artifactPath) {
     artifactPath = path.join(paths.contextDir, `${type}.md`);
   }
 
-  // Save file + update frontmatter
+  // Save file + update frontmatter with the portable path, not one naming this machine.
   fs.mkdirSync(path.dirname(artifactPath), { recursive: true });
   fs.writeFileSync(artifactPath, content);
-  updateFrontmatterFields(paths.specPath, { [field]: artifactPath });
+  const storedArtifactPath = toHomeRelative(artifactPath);
+  updateFrontmatterFields(paths.specPath, { [field]: storedArtifactPath });
 
-  console.log(JSON.stringify({ success: true, ticketId, type, path: artifactPath }));
+  console.log(JSON.stringify({ success: true, ticketId, type, path: storedArtifactPath }));
 }
 
 if (require.main === module) main();

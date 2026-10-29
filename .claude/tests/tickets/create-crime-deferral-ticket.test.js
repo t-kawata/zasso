@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-128: Create create-crime-deferral-ticket.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-128: Create create-crime-deferral-ticket.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-128 --for-spec --no-implementation-order`.
 
 /**
  * create-crime-deferral-ticket.test.js — Tests for create-crime-deferral-ticket.js
@@ -21,13 +21,13 @@ const path = require('path');
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-128 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-128 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-128 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-128 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-128 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-128 --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
@@ -49,7 +49,7 @@ try {
 }
 
 // Fixture: source ticket (P0-1) with two targetCrimes; max non-PX phase 2.
-// [::TICKET::] PX-128 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-128 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-128 --for-spec --no-implementation-order`.
 function makeData() {
   return {
     title: 'T',
@@ -119,7 +119,7 @@ function makeData() {
 // C005: start-ticket.md no-external-excuse wiring
 
 (function testC005StartTicketWiring() {
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const md = fs.readFileSync(path.resolve(__dirname, '../../commands/start-ticket.md'), 'utf8');
   assert(md.includes('create-crime-deferral-ticket.js'), 'C005: start-ticket.md references create-crime-deferral-ticket.js');
   assert(!md.includes('create a new ticket via `/make-ticket`'), 'C005: /make-ticket removed from the escape hatch');
@@ -130,7 +130,7 @@ function makeData() {
 // parseArgs
 
 (function testParseArgs() {
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const args = ['--source-key=P0-1', '--crime-id=TC-1'];
   const parsed = parseArgs(args);
   assertStrictEqual(parsed.sourceKey, 'P0-1', 'parseArgs: sourceKey parsed');

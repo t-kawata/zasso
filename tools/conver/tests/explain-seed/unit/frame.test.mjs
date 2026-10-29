@@ -79,7 +79,7 @@ const E5_TITLE = FRAME_SECTIONS[4].title;
 const E6_TITLE = FRAME_SECTIONS[5].title;
 
 /** The body under one section heading, up to the next heading of the same level. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function sectionBody(documentText, title) {
   const start = documentText.indexOf(`## ${title}`);
   assert.notEqual(start, -1, `the frame carries the section ${title}`);
@@ -89,7 +89,7 @@ function sectionBody(documentText, title) {
 }
 
 /** How many items a section holds, counted from the heading that opens each one. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function itemsUnder(documentText, title, heading) {
   return sectionBody(documentText, title)
     .split('\n')
@@ -97,19 +97,19 @@ function itemsUnder(documentText, title, heading) {
 }
 
 /** A frame holding a round of questions, which is the shape every question test judges. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function questionFrame({ facts = syntheticFacts(), size = 1 } = {}) {
   return appendQuestionRound({ documentText: buildFrame({ facts, previous: null }).text, size });
 }
 
 /** An authored explanation whose one question binds every recorded point. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function authored(facts = syntheticFacts()) {
   return authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) });
 }
 
 /** The first question of the human's section, heading included. */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function firstHumanItem(frameText) {
   const start = frameText.indexOf(HUMAN_ITEM_HEADING);
   assert.notEqual(start, -1, 'the fixture asks the human at least one question');
@@ -124,7 +124,7 @@ function firstHumanItem(frameText) {
  * The answer goes under a placeholder *line*: the document's own header explains what the
  * placeholder is for, and an answer written into that sentence is an answer to nothing.
  */
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 function withNoteUnderFirstPlaceholder(documentText, note) {
   const lines = [];
   let written = false;
@@ -138,7 +138,7 @@ function withNoteUnderFirstPlaceholder(documentText, note) {
 }
 
 /** The labels whose blocks the frame that asked for directions added, in one list for both surgeries below. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 const DIRECTION_LABELS = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL];
 
 /**
@@ -148,7 +148,7 @@ const DIRECTION_LABELS = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_RE
  * `labelledLines` reads — so a document stripped here is one where the gate finds the label
  * absent rather than emptied, which is what a document written by an earlier frame looks like.
  */
-// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
 function withoutLabelBlocks(documentText, labels) {
   const kept = [];
   let skipping = false;
@@ -294,7 +294,7 @@ test('C006 postcondition: a package that owns no open item says so in full rathe
 });
 
 test('C002 postcondition: the position section asks for the serial and parallel axes separately', () => {
-// [::TICKET::] PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
   const frame = buildFrame({ facts: syntheticFacts(), previous: null });
   const position = sectionBody(frame.text, FRAME_SECTIONS[1].title);
 
@@ -356,7 +356,7 @@ test('C003 postcondition: a long glossary is trimmed with an explicit remainder'
 });
 
 /** The facts document for one projection, rendered the way `run.mjs` renders it. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 function renderFactsFor(projection) {
   const facts = syntheticFacts({ projection });
   return renderInfo({
@@ -455,7 +455,7 @@ test('C004 invariant: with facts that are entirely ASCII, the tenth section carr
   );
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 postcondition: every question offers directions and a recommendation, in the order a person reads them', () => {
   const item = firstHumanItem(questionFrame());
   const positions = [OPTIONS_LABEL, RECOMMENDATION_LABEL, RECOMMENDATION_REASON_LABEL, RECOMMENDATION_OVERRIDE_LABEL].map(
@@ -474,7 +474,7 @@ test('C001 postcondition: every question offers directions and a recommendation,
   }
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 postcondition: the new instructions are whole-line markers the counter can see', () => {
   const item = firstHumanItem(questionFrame());
   // Keyed on the instructions' own openings rather than on any mention of 推奨: the context
@@ -490,7 +490,7 @@ test('C001 postcondition: the new instructions are whole-line markers the counte
   }
 });
 
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 test('C001 invariant: an instruction behind a label is not an instruction, which is why every new one opens its own line', () => {
   assert.equal(
     markerOffsetInLine(`- ${RECOMMENDATION_LABEL}: ${MUST_FILL_MARKER} 記号を1つだけ`),
@@ -503,7 +503,7 @@ test('C001 invariant: an instruction behind a label is not an instruction, which
   );
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the directions add no second place for the human to write', () => {
   const item = firstHumanItem(questionFrame());
 
@@ -514,7 +514,7 @@ test('C001 invariant: the directions add no second place for the human to write'
   );
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: a human section written before this command asked for directions is reset rather than kept', () => {
   const facts = syntheticFacts();
   const legacy = withoutLabelBlocks(authored(facts), DIRECTION_LABELS);
@@ -532,7 +532,7 @@ test('C001 invariant: a human section written before this command asked for dire
   );
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C007 error case: a reset reports the notes it could not carry, naming their anchors', () => {
   const facts = syntheticFacts();
   const note = '人間の判断: 現場では拒否のほうが自然だと考える。';
@@ -546,7 +546,7 @@ test('C007 error case: a reset reports the notes it could not carry, naming thei
   assert.ok(!merged.text.includes(note), 'and the reset does not pretend to have kept it');
 });
 
-// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 postcondition: every question opens with its own context, above every line of the record', () => {
   const item = firstHumanItem(questionFrame());
   const contextAt = item.indexOf(`- ${CONTEXT_LABEL}:`);
@@ -561,7 +561,7 @@ test('C001 postcondition: every question opens with its own context, above every
   assert.equal(item.split(RECORD_REFERENCE_NOTICE).length - 1, 1, 'and one notice per question');
 });
 
-// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the notice never stands over nothing', () => {
   const frame = questionFrame({ size: 2 });
   const items = splitItems(locateSections(frame).bodies[HUMAN_SECTION_ID], HUMAN_ITEM_HEADING);
@@ -578,7 +578,7 @@ test('C001 invariant: the notice never stands over nothing', () => {
   }
 });
 
-// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the notice closes the context, so the context value is the prose and not the line below it', () => {
   const facts = syntheticFacts();
   const authoredText = authored(facts);
@@ -596,7 +596,7 @@ test('C001 invariant: the notice closes the context, so the context value is the
   );
 });
 
-// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: a human section written before this command carried the context is reset rather than kept', () => {
   const facts = syntheticFacts();
   const legacy = withoutLabelBlocks(authored(facts), [CONTEXT_LABEL]);
@@ -614,7 +614,7 @@ test('C001 invariant: a human section written before this command carried the co
   assert.ok(locateSections(merged.text).bodies[HUMAN_SECTION_ID].includes(ABSENT_RESIDUALS_STATEMENT), 'the section is reset');
 });
 
-// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: every label the merge requires is one this frame writes', () => {
   const facts = syntheticFacts();
   const authoredText = authored(facts);
@@ -629,7 +629,7 @@ test('C001 invariant: every label the merge requires is one this frame writes', 
   }
 });
 
-// [::TICKET::] PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-229) --for-spec --no-implementation-order`.
 test('C001 invariant: the person the question is written for is one formula, and the earlier one is gone', () => {
   const item = firstHumanItem(questionFrame());
   const writtenForThem = findOpenMarkers(item).filter((marker) => /何を決めるのか|案[AB] —|推奨の理由 —/.test(marker.text));
@@ -645,7 +645,7 @@ test('C001 invariant: the person the question is written for is one formula, and
   );
 });
 
-// [::TICKET::] PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
 test('C001 postcondition: every question is numbered, and the number is the one it is asked under', () => {
   const facts = syntheticFacts();
   const frame = questionFrame({ facts, size: 3 });
@@ -661,7 +661,7 @@ test('C001 postcondition: every question is numbered, and the number is the one 
   );
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C007 postcondition: the human section keeps its body byte for byte when its facts moved, and the run reports it reopened', () => {
   const facts = syntheticFacts();
   const published = appendQuestionRound({ documentText: buildFrame({ facts, previous: null }).text, size: 1 });
@@ -680,7 +680,7 @@ test('C007 postcondition: the human section keeps its body byte for byte when it
   assert.deepEqual(readQuestionNumbers(second.text), readQuestionNumbers(published), 'no question is renumbered');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C007 boundary: a human section whose headings carry a record reference is reset to the absent statement', () => {
   const facts = syntheticFacts();
   const legacy = [
@@ -704,12 +704,12 @@ test('C007 boundary: a human section whose headings carry a record reference is 
 const ADDED_POINT = { id: 'added-001', origin: '「監査ログは残せない」', statement: '監査ログを残すかどうか' };
 
 /** A published frame with one empty question round, before any block is appended. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function framedWithOneRound() {
   return appendQuestionRound({ documentText: buildFrame({ facts: syntheticFacts(), previous: null }).text, size: 1 });
 }
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 normal: an added-point block is read with its id, its origin and its one-line statement', () => {
   const plain = framedWithOneRound();
   const documentText = appendAddedPoint(plain, ADDED_POINT);
@@ -718,7 +718,7 @@ test('C002 normal: an added-point block is read with its id, its origin and its 
   assert.deepEqual(readAddedPoints({ documentText: plain }), [], 'a document with no block reads as no added points');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 normal: the writer and the reader are one format, so a written block round-trips', () => {
   const rendered = renderAddedPointBlock(ADDED_POINT);
 
@@ -734,7 +734,7 @@ test('C002 normal: the writer and the reader are one format, so a written block 
   assert.deepEqual(readAddedPoints({ documentText: rendered }), [ADDED_POINT]);
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 boundary: the reserved id is the prefix followed by three digits and nothing else', () => {
   assert.equal(ADDED_POINT_ID_PREFIX, 'added-');
   assert.equal(RESERVED_POINT_ID.test('added-001'), true);
@@ -743,7 +743,7 @@ test('C002 boundary: the reserved id is the prefix followed by three digits and 
   assert.equal(RESERVED_POINT_ID.test('residual-000001'), false, 'a recorded id is not reserved');
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 boundary: a line that mentions the added-point marker inside prose is not a block', () => {
   const plain = framedWithOneRound();
   const prose = plain.replace(
@@ -754,7 +754,7 @@ test('C002 boundary: a line that mentions the added-point marker inside prose is
   assert.deepEqual(readAddedPoints({ documentText: prose }), []);
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 normal: the blocks are read in document order, so a later round reads the round before it', () => {
   const first = appendAddedPoint(framedWithOneRound(), { id: 'added-002', origin: '「その2」', statement: '論点2' });
   const later = appendAddedPoint(first, { id: 'added-001', origin: '「その1」', statement: '論点1' });
@@ -762,7 +762,7 @@ test('C002 normal: the blocks are read in document order, so a later round reads
   assert.deepEqual(readAddedPoints({ documentText: later }).map((point) => point.id), ['added-002', 'added-001']);
 });
 
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 test('C002 boundary: a shape-carrying human section with an added-point block still reopens when its facts moved, carrying the block', () => {
   const facts = syntheticFacts();
   const previous = appendAddedPoint(authorExplanation({ facts, boundIds: syntheticOpenIds(facts.projection) }), ADDED_POINT);

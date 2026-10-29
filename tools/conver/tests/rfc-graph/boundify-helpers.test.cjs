@@ -1,5 +1,6 @@
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
 /**
  * boundify-helpers.test.cjs — boundify-helpers.js unit tests
  *
@@ -27,6 +28,7 @@ const {
   COMMENT_SYNTAX,
   HEADER_SEPARATOR,
 } = require('../../.claude/scripts/rfc-graph/boundify-helpers.js');
+const { toHomeRelative } = require('../../.claude/scripts/lib/path-utils.js');
 
 // ============================================================
 // SCHEMA constants
@@ -475,7 +477,17 @@ describe('resolveHeaderPaths', () => {
     assert.strictEqual(result.graphRelPath, '../RFC-GRAPH.json');
     assert.strictEqual(result.dirsTreeRelPath, '../RFC-Dirs-Tree.json');
     assert.strictEqual(result.sourceRelPath, '../RFC.md');
-    assert.strictEqual(result.cdCommandPrefix, '(cd .. &&');
+    assert.strictEqual(result.graphDirDisplay, toHomeRelative(GRAPH_DIR));
+    assert.strictEqual(result.claudeDirDisplay, '$(git rev-parse --show-toplevel)/.claude');
+  });
+
+  it('should carry the repo-root .claude display anchor when one is supplied', () => {
+    const result = resolveHeaderPaths('/Users/kawata/shyme/project/src/main.rs', GRAPH_DIR, {
+      graphDirDisplay: '~/shyme/project',
+      claudeDirDisplay: '~/shyme/project/.claude',
+    });
+    assert.strictEqual(result.graphDirDisplay, '~/shyme/project');
+    assert.strictEqual(result.claudeDirDisplay, '~/shyme/project/.claude');
   });
 
   it('should derive every fixed name for a two-level deep file', () => {
@@ -489,7 +501,7 @@ describe('resolveHeaderPaths', () => {
     const result = resolveHeaderPaths('/Users/kawata/shyme/project/some.rs', GRAPH_DIR);
     assert.strictEqual(result.relDirToGraph, '.');
     assert.strictEqual(result.graphRelPath, './RFC-GRAPH.json');
-    assert.strictEqual(result.cdCommandPrefix, '(cd . &&');
+    assert.strictEqual(result.graphDirDisplay, toHomeRelative(GRAPH_DIR));
   });
 
   it('should derive the design-source paths from graphDirAbs, not from an argument', () => {
@@ -532,7 +544,8 @@ describe('generateHeaderComment', () => {
     graphRelPath: '../RFC-GRAPH.json',
     dirsTreeRelPath: '../RFC-Dirs-Tree.json',
     sourceRelPath: '../RFC.md',
-    cdCommandPrefix: '(cd .. &&',
+    graphDirDisplay: '~/shyme/project',
+    claudeDirDisplay: '~/shyme/project/.claude',
   };
   const withSources = {
     ...headerPaths,
@@ -623,8 +636,8 @@ describe('generateHeaderComment', () => {
       'rust',
     );
 
-    assert.ok(comment.includes('(cd .. && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0005)'));
-    assert.ok(comment.includes('(cd .. && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0006)'));
+    assert.ok(comment.includes('(cd ~/shyme/project && node ~/shyme/project/.claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0005)'));
+    assert.ok(comment.includes('(cd ~/shyme/project && node ~/shyme/project/.claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0006)'));
     assert.ok(!comment.includes('show-node-contracts.mjs --id=N0005 --graph'));
     assert.ok(comment.includes('Sequences view: ../SEQUENCES.json'));
     assert.ok(comment.includes('Step contracts: ../RFC-STEP-CONTRACTS.json'));

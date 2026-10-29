@@ -1,6 +1,6 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
 /**
  * module-closure — the modules an entry point can reach, computed from the files.
  *
@@ -46,7 +46,7 @@ const MODULE_SUFFIX = '.mjs';
  * @returns {string[]} absolute paths, sorted
  */
 export function importsOf(file) {
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
   const found = new Set();
   for (const match of readFileSync(file, 'utf8').matchAll(RELATIVE_IMPORT)) {
     const target = resolve(dirname(file), match[1]);
@@ -68,7 +68,7 @@ export function importsOf(file) {
  * @param {string} directory - absolute path of the library to measure
  * @returns {{ reached: Set<string>, unreachable: string[] }} unreachable holds basenames, sorted
  */
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
 export function readModuleClosure(entry, directory) {
   const reached = new Set();
   const pending = [resolve(entry)];
@@ -99,7 +99,7 @@ export function readModuleClosure(entry, directory) {
  * @param {string} directory
  * @returns {string[]}
  */
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
 export function unreachableModulesFrom(entry, directory) {
   return readModuleClosure(entry, directory).unreachable;
 }

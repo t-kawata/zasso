@@ -50,15 +50,15 @@ const RUN_INPUT = JSON.parse(readFileSync(RUN_INPUT_PATH, 'utf8'));
 const COMMAND = readFileSync(COMMAND_PATH, 'utf8');
 
 /** The span reading the fixture's declaration is read with, in the shape a run records it. */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function spanReading() {
   const [first, ...rest] = RUN_INPUT.readings.sequences;
   return [{ ...first, steps: RUN_INPUT.readings.steps, operations: RUN_INPUT.readings.operations }, ...rest];
 }
 
 /** A run directory's own path, with nothing written into it yet. */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'px254-regen-'));
   const specPath = join(root, 'ledger.md');
@@ -67,7 +67,7 @@ function scratchRun() {
 }
 
 /** The declaration and the readings the fixture states, written into a run directory. */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 function writeFixtureReadings(directory) {
   writeFileSync(join(directory, DECLARATION_FILE), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
   writeReadingsFile(join(directory, readingsFileName('span')), spanReading());
@@ -76,13 +76,13 @@ function writeFixtureReadings(directory) {
 }
 
 /** The files a new generation must move aside, in the order the phase table names them. */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 function readingsOfThisRun() {
   return [DECLARATION_FILE, readingsFileName('span'), readingsFileName('adjudicate'), readingsFileName('inquest')];
 }
 
 /** A run whose first generation has read: the directory is opened, then the files are written. */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 function seededRun() {
   const run = scratchRun();
   beginRun({ specPath: run.specPath, spec: run.spec });
@@ -91,13 +91,13 @@ function seededRun() {
 }
 
 /** Open the next generation over a run directory. */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 function openNextGeneration(run) {
   return beginRun({ specPath: run.specPath, spec: run.spec });
 }
 
 /** The archived names a run directory holds, sorted. */
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 function archivedNames(directory) {
   const archive = join(directory, ARCHIVE_DIRECTORY);
   return existsSync(archive) ? readdirSync(archive).sort() : [];

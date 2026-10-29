@@ -1,4 +1,4 @@
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 // Red tests for the canonical path default and the argument-free commands.
 // @verifies C001
 // @verifies C002
@@ -54,7 +54,7 @@ const MINIMAL_TICKETS = Object.freeze({
 });
 
 /** Create a canonical package directory for the tests. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function makeCanonicalPackage() {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'px334-package-'));
   fs.writeFileSync(path.join(cwd, 'RFC.md'), '# Fixture RFC\n\n## Purpose\n\nThe fixture proves the canonical default.\n');
@@ -65,7 +65,7 @@ function makeCanonicalPackage() {
   return cwd;
 }
 
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function run(script, args, options = {}) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd: options.cwd,

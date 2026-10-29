@@ -11,7 +11,7 @@ const OBLIGATION = Object.freeze({
   required: true,
 });
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function row(overrides = {}) {
   return {
     subject: 's1',
@@ -26,7 +26,7 @@ function row(overrides = {}) {
   };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function resolve(rows, artifactDigest = 'art-1') {
   return resolveReadingsObligations([OBLIGATION], {
     readings: { inquest: rows },
@@ -35,7 +35,7 @@ function resolve(rows, artifactDigest = 'art-1') {
 }
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a Yes answer is a finding until the same generation records a fixed resolution', () => {
   const open = resolve([row({ answer: 'Yes' })]);
   assert.equal(open.state, 'open');
@@ -54,7 +54,7 @@ test('a Yes answer is a finding until the same generation records a fixed resolu
 });
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a Yes with a resolution from another artifact generation stays open', () => {
   const result = resolve([row({
     answer: 'Yes',
@@ -69,7 +69,7 @@ test('a Yes with a resolution from another artifact generation stays open', () =
 });
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a stale or legacy row never answers the current artifact', () => {
   const stale = resolve([row({ artifactDigest: 'art-0' })]);
   assert.equal(stale.state, 'open');
@@ -80,7 +80,7 @@ test('a stale or legacy row never answers the current artifact', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a No answer closes only with a citation and a known answer vocabulary', () => {
   const cited = resolve([row()]);
   assert.equal(cited.state, 'closed');

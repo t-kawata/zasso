@@ -62,7 +62,7 @@ const INCLUDE_FLAG_JOINED = /^-I(.+)$/;
 const INCLUDE_FLAG_SEPARATE = '-I';
 
 /** The name a path is known by, for the search over the walk's entries. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function fileNameOf(relativePath) {
   const cut = relativePath.lastIndexOf('/');
   return cut === -1 ? relativePath : relativePath.slice(cut + 1);
@@ -75,7 +75,7 @@ function fileNameOf(relativePath) {
  * its database where its output goes, and a search that skipped excluded
  * directories would report a configured project as an unconfigured one.
  */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function databaseEntryIn(artefacts) {
   for (const name of BUILD_DATABASE_NAMES) {
     const entry = artefacts.find((artefact) => fileNameOf(artefact.path) === name && artefact.readStatus === 'readable');
@@ -85,7 +85,7 @@ function databaseEntryIn(artefacts) {
 }
 
 /** The flags one recorded command carries, split into include paths and the rest. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function splitCommand(command) {
   const includePaths = [];
   const compileFlags = [];
@@ -106,7 +106,7 @@ function splitCommand(command) {
 }
 
 /** The directory a database sits in, root-relative, so its entries resolve against it. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function directoryOf(relativePath) {
   const cut = relativePath.lastIndexOf('/');
   return cut === -1 ? '' : relativePath.slice(0, cut);
@@ -120,7 +120,7 @@ function directoryOf(relativePath) {
  * `/tmp/subject-2` beside `/tmp/subject` — would otherwise pass a bare prefix
  * test, and a flag set recorded for another project would be replayed here.
  */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function isInsideSubject(file, root) {
   if (typeof file !== 'string' || file.length === 0) return false;
   const resolved = isAbsolute(file) ? file : join(root, file);

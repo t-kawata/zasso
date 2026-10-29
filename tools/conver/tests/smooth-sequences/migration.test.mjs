@@ -13,7 +13,7 @@ import {
   minimalV2Artifact,
 } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 
 function migrationInput(workspace) {
   const loaded = loadWorkspace(workspace.root);
@@ -56,7 +56,7 @@ test('C002 a second migration run is byte-identical', () => {
 });
 
 // @verifies C001
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 test('C001 the v2 prose contract is preserved beside the typed contract', () => {
   const workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });
   try {

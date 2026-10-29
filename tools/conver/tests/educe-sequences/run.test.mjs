@@ -1,6 +1,6 @@
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The command (PX-240, contracts C010, C011, C013, and the first integration test).
 //
 // The run happens in a throwaway directory holding one copy of the specification, so
@@ -23,7 +23,7 @@ const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.js
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 
 /** A directory holding one copy of the specification, so a write never reaches the fixture. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function scratchSpec() {
   const directory = mkdtempSync(join(tmpdir(), 'educe-run-'));
   const specPath = join(directory, 'ledger.md');
@@ -32,7 +32,7 @@ function scratchSpec() {
 }
 
 /** A run whose output is captured rather than printed. */
-// [::TICKET::] PX-240, PX-241, PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
 async function quietly(argv, runInput) {
   const out = [];
   const err = [];
@@ -43,14 +43,14 @@ async function quietly(argv, runInput) {
 const digestOf = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
 /** The path the demand record is written to for a scratch specification directory. */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 function recordPath(directory) {
   return join(directory, 'educe-sequences', 'demand.json');
 }
 
 
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 
 test('C013 a rebuild refuses an adjudication outside the declared vocabulary, and writes nothing', async () => {
   // The phase path proves the adjudicate readings before it composes; the rebuild path reads
@@ -70,7 +70,7 @@ test('C013 a rebuild refuses an adjudication outside the declared vocabulary, an
   }
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C010 a run with one argument writes the artifact beside the specification', async () => {
   const { specPath, artifactPath } = scratchSpec();
 
@@ -83,7 +83,7 @@ test('C010 a run with one argument writes the artifact beside the specification'
   assert.match(result.out, /pinsRederived=5 of 5/);
 });
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C011 a pin that no longer re-derives is refused by its pin, and a check names its subject', async () => {
   const { specPath, artifactPath } = scratchSpec();
   assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
@@ -158,8 +158,8 @@ test('C013 a verification whose specification digest no longer matches is refuse
   assert.match(result.err, /no signed reading|records spec sha256/);
 });
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C013 a verification of an existing artifact needs only the specification path', async () => {
   const { specPath } = scratchSpec();
   await quietly([specPath], RUN_INPUT);
@@ -170,7 +170,7 @@ test('C013 a verification of an existing artifact needs only the specification p
   assert.match(result.out, /checksRun=31 of 31/);
 });
 
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 test('PX-260 the artifact states the demand, and names no package that owes it', async () => {
   const { specPath, artifactPath } = scratchSpec();
   assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
@@ -185,7 +185,7 @@ test('PX-260 the artifact states the demand, and names no package that owes it',
   assert.equal(JSON.stringify(artifact.demand).includes('package'), false, 'the rail emits, never assigns');
 });
 
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 test('PX-261 a passing run records what the workspace still owes, beside the specification and never in the artifact', async () => {
   const { directory, specPath, artifactPath } = scratchSpec();
   const recordPath = join(directory, 'educe-sequences', 'demand.json');
@@ -224,7 +224,7 @@ test('PX-261 a refused run writes no demand record', async () => {
   assert.equal(existsSync(join(directory, 'educe-sequences', 'demand.json')), false);
 });
 
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 test('PX-260 a second run over an unchanged specification states the same demand, byte for byte', async () => {
   const { specPath, artifactPath } = scratchSpec();
   assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);

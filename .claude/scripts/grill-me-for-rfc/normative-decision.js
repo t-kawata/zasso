@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 /**
  * G4 and G5 — the record of a normative choice, and the authority behind it.
  *
@@ -538,7 +538,7 @@ export function assertNoApprovalWaiting(payload) {
 }
 
 /** Every string of a payload, with the path that locates it. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function collectStrings(value, path = 'payload') {
   if (typeof value === 'string') {
     return [{ path, text: value }];
@@ -561,7 +561,7 @@ function collectStrings(value, path = 'payload') {
  * the record emits is therefore refused here unless it is a value G5 admits, so a
  * personal name and an empty value cannot reach the RFC by either route.
  */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function assertRecordedAuthority(authority) {
   if (authority === null || typeof authority !== 'object') {
     throw new WorkSpacifyTreeError(
@@ -587,7 +587,7 @@ function assertRecordedAuthority(authority) {
 }
 
 /** The subject a decision is about: the claim when there is one, otherwise the residual. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function assertDecisionSubject({ claimId, residualId }) {
   const subjectId = nonEmptyStringOrNull(claimId) ?? nonEmptyStringOrNull(residualId);
   if (subjectId === null) {
@@ -600,7 +600,7 @@ function assertDecisionSubject({ claimId, residualId }) {
 }
 
 /** A required string, refused with the reason it is required. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function assertNonEmptyString(value, reason) {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new WorkSpacifyTreeError(`${reason}`, { gateId: GATE_IDS.G4 });
@@ -608,19 +608,19 @@ function assertNonEmptyString(value, reason) {
 }
 
 /** A string that carries something, or null. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function nonEmptyStringOrNull(value) {
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
 }
 
 /** The short form of an identifier: `clm-x` and `nd-x` share the `x`. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function shortIdOf(identifier) {
   return String(identifier).replace(/^(?:clm|nd|nrm|residual|rev-res)-/, '');
 }
 
 /** The CLI layer: read the decision input, print what was recorded or why it was refused. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function runCli(argv) {
   const [subcommand, ...options] = argv;
   try {
@@ -651,7 +651,7 @@ function runCli(argv) {
 }
 
 /** Record every decision in a payload and describe the outcome in plain English. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function narrateDecisions(input) {
   const { decisions } = recordAllDecisions(input);
   const bySource = decisions.filter((decision) => decision.selection_source === SELECTION_SOURCES.default);
@@ -665,7 +665,7 @@ function narrateDecisions(input) {
 }
 
 /** The value of a `--name=value` option. */
-// [::TICKET::] P22-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-13 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-13 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-13 --for-spec --no-implementation-order`.
 function optionValue(options, name) {
   const match = options.find((option) => option.startsWith(`${name}=`));
   if (match === undefined) {

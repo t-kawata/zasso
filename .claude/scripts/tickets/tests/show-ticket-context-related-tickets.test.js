@@ -11,7 +11,7 @@
  * "[relation] P0-1 (description)" (square-bracket relation tag) and therefore
  * matched nothing in the real data, suppressing the whole section.
  *
- * Run: node .claude/scripts/tickets/tests/show-ticket-context-related-tickets.test.js
+ * Run: node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/tests/show-ticket-context-related-tickets.test.js"
  */
 
 const { execSync } = require('child_process');

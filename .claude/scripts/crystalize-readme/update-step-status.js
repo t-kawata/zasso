@@ -85,7 +85,7 @@ const STATUS_ERROR = 'error';
  * @returns {{ statusPath: string|null, graphPath: string|null, subcommand: string, stepNumber: number|null }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
 
@@ -136,7 +136,7 @@ function parseArguments(args) {
  * @param {{ statusPath: string|null, graphPath: string|null }} parsed — Parsed arguments
  * @returns {string} Absolute status file path
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function resolveStatusPath(parsed) {
   if (parsed.statusPath) return parsed.statusPath;
   const graph = readGraphFile(parsed.graphPath);
@@ -150,7 +150,7 @@ function resolveStatusPath(parsed) {
  * @param {string} graphPath — Graph file path
  * @returns {Object} Default status data
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
 function createDefaultStatus(graphPath) {
   const graph = readGraphFile(graphPath);
   const sourceFile = path.resolve(fromHomeRelative(graph.sourceFile));
@@ -174,7 +174,7 @@ function createDefaultStatus(graphPath) {
  * @param {string} graphPath — Graph file path (used for the default)
  * @returns {Object} Status data
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
 function readStatus(statusPath, graphPath) {
   if (!fs.existsSync(statusPath)) {
     return createDefaultStatus(graphPath);
@@ -216,13 +216,13 @@ function readStatus(statusPath, graphPath) {
  * @param {number} n — Step number
  * @returns {boolean} true when valid
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function validateStepNumber(n) {
   return Number.isInteger(n) && n >= MIN_STEP && n <= MAX_STEP;
 }
 
 /** start-step <N>: mark a step running and advance currentStep. */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function executeStartStep(status, n) {
   status.steps[String(n)] = STATUS_RUNNING;
   status.currentStep = n;
@@ -236,13 +236,13 @@ function executeStartStep(status, n) {
  * @param {number} n — Step number
  * @returns {boolean} true when the step can be ended
  */
-// [::TICKET::] PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-153 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-153 --for-spec --no-implementation-order`.
 function canEndStep(status, n) {
   return n !== 1 || isTocComplete(status);
 }
 
 /** end-step <N>: mark a step done and advance currentStep to N+1. */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
 function executeEndStep(status, n) {
   if (!canEndStep(status, n)) {
     throw new Error('Step 1 cannot end while the TOC grill is incomplete (not every proposed heading id is confirmed).');
@@ -253,14 +253,14 @@ function executeEndStep(status, n) {
 }
 
 /** fail-step <N>: mark a step error without moving currentStep. */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function executeFailStep(status, n) {
   status.steps[String(n)] = STATUS_ERROR;
   process.stdout.write(`Step ${n} terminated abnormally. Status: ${STATUS_ERROR}.\n`);
 }
 
 /** reset-to-step <N>: reset steps after N to pending. */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function executeResetToStep(status, n) {
   for (let i = n + 1; i <= MAX_STEP; i++) {
     status.steps[String(i)] = STATUS_PENDING;
@@ -276,7 +276,7 @@ function executeResetToStep(status, n) {
  * @param {Object} status — Status data
  * @returns {boolean} true when every node is confirmed
  */
-// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
 function isTocComplete(status) {
   const nodes = status.grill.toc.nodes;
   return nodes.length > 0 && nodes.every((node) => node.status === 'confirmed');
@@ -291,7 +291,7 @@ function isTocComplete(status) {
  * @param {Object} proposal — {id, heading}
  * @throws {Error} If id/heading are missing or the parent node is absent
  */
-// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
 function executeProposeHeading(status, proposal) {
   const { id, heading } = proposal || {};
   if (typeof id !== 'string' || id.trim() === '') {
@@ -325,7 +325,7 @@ function executeProposeHeading(status, proposal) {
  * @param {Object} confirmation — {id, confirmedContent}
  * @throws {Error} If the id was never proposed
  */
-// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
 function executeConfirmHeading(status, confirmation) {
   const { id, confirmedContent } = confirmation || {};
   if (typeof id !== 'string' || id.trim() === '') {
@@ -352,7 +352,7 @@ function executeConfirmHeading(status, confirmation) {
  * @param {string} parentId — Ancestor id
  * @returns {boolean} true when id is a child/grandchild of parentId
  */
-// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-155 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-155 --for-spec --no-implementation-order`.
 function isDescendant(id, parentId) {
   return id.startsWith(parentId + '-');
 }
@@ -364,7 +364,7 @@ function isDescendant(id, parentId) {
  * @param {Object} request — {id}
  * @throws {Error} If the id is not in the tree
  */
-// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-155 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-155 --for-spec --no-implementation-order`.
 function executeDeleteHeading(status, request) {
   const { id } = request || {};
   if (typeof id !== 'string' || id.trim() === '') {
@@ -382,7 +382,7 @@ function executeDeleteHeading(status, request) {
 }
 
 /** reset-toc: clear the per-heading TOC grill state. */
-// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
 function executeResetToc(status) {
   status.grill.toc.nodes = [];
   status.grill.tocApproved = false;
@@ -394,7 +394,7 @@ function executeResetToc(status) {
  * re-analysis. Called right after the Step 1 skeleton is re-emitted (refine mode
  * included), because the re-emitted README marks every section TEMPLATE again.
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function executeResetSections(status) {
   status.grill.sections = [];
   status.grill.examplesApproved = false;
@@ -402,7 +402,7 @@ function executeResetSections(status) {
 }
 
 /** approve-toc: derive tocApproved from the per-heading confirmation state. */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
 function executeApproveToc(status) {
   status.grill.tocApproved = isTocComplete(status);
   process.stdout.write(status.grill.tocApproved ? 'TOC grill approved (tocApproved=true).\n' : 'TOC grill incomplete (tocApproved=false).\n');
@@ -430,7 +430,7 @@ function confirmedContentOf(status, id) {
  * @param {Object} request — {id, heading}
  * @throws {Error} If id or heading are missing
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function executeResolveSection(status, request) {
   const { id, heading } = request || {};
   if (typeof id !== 'string' || id.trim() === '') {
@@ -459,7 +459,7 @@ function executeResolveSection(status, request) {
  * @param {Object} request — {id, heading}
  * @throws {Error} If id or heading are missing
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function executeMarkResidue(status, request) {
   const { id, heading } = request || {};
   if (typeof id !== 'string' || id.trim() === '') {
@@ -481,13 +481,13 @@ function executeMarkResidue(status, request) {
 }
 
 /** status: output the current status as formatted JSON. */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function executeStatus(status) {
   process.stdout.write(JSON.stringify(status, null, 2) + '\n');
 }
 
 /** cleanup: remove known temporary/backup files (idempotent). */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function executeCleanup(status) {
   const removed = [];
   const candidates = [
@@ -516,7 +516,7 @@ function executeCleanup(status) {
 }
 
 /** backup: create a .bak of the status file (idempotent). */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function executeBackup(status) {
   const statusPath = status.statusFilePath;
   if (!statusPath || !fs.existsSync(statusPath)) {
@@ -534,7 +534,7 @@ function executeBackup(status) {
  * @param {string} targetPath — Target file path
  * @param {string} data — UTF-8 content to write
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function atomicWrite(targetPath, data) {
   const tmpPath = `${targetPath}.tmp.${process.pid}`;
   fs.writeFileSync(tmpPath, data, 'utf8');
@@ -548,7 +548,7 @@ function atomicWrite(targetPath, data) {
  * @param {string} reason — Why it happened
  * @param {string} action — Next action
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function exitWithError(message, reason, action) {
   console.error(`[ERROR] ${message}`);
   console.error(`Cause: ${reason}`);
@@ -559,7 +559,7 @@ function exitWithError(message, reason, action) {
 /**
  * Display usage instructions.
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(`
 update-step-status.js — CRYSTALIZE-Status.json management
@@ -598,7 +598,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * main — parse arguments, dispatch subcommand, write atomically.
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {

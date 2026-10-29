@@ -27,13 +27,13 @@ import { syntheticFacts } from '../helpers/synthetic-facts.mjs';
 const COMMAND_FILE = fileURLToPath(new URL('../../../.claude/commands/explain-seed.md', import.meta.url));
 
 /** A frame holding one question, because the frame itself now carries none until `next` runs. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function questionFrame() {
   return appendQuestionRound({ documentText: buildFrame({ facts: syntheticFacts(), previous: null }).text, size: 1 });
 }
 
 /** The marker instructions in one section of a fresh frame. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function instructionsIn(frameText, title) {
   const start = frameText.indexOf(`## ${title}`);
   const rest = frameText.slice(start + title.length + 3);
@@ -43,7 +43,7 @@ function instructionsIn(frameText, title) {
 }
 
 /** The body of one human-decision item in a fresh frame. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function firstHumanItem(frameText) {
   const start = frameText.indexOf(HUMAN_ITEM_HEADING);
   const rest = frameText.slice(start);
@@ -52,7 +52,7 @@ function firstHumanItem(frameText) {
 }
 
 /** One numbered item of the command file's flow, up to the next item. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function flowItem(commandFile, number) {
   const flowStart = commandFile.indexOf('\n## Flow');
   assert.notEqual(flowStart, -1, 'the command file has a flow to read');
@@ -65,7 +65,7 @@ function flowItem(commandFile, number) {
 }
 
 /** The `## ` section carrying a given block — found by the block, not by the section's own name. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function sectionAround(commandFile, token) {
   const at = commandFile.indexOf(token);
   assert.notEqual(at, -1, `the command file carries ${token}`);
@@ -111,7 +111,7 @@ test('C003 invariant: every instruction says what an unacceptable answer looks l
   assert.equal(markers.length, withStandard.length, 'every instruction carries a standard, not just a topic');
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-227 --for-spec --no-implementation-order`.
 test('C003 invariant: the context instruction names the reader and forbids presupposing the records', () => {
   const item = firstHumanItem(questionFrame());
   const [instruction] = findOpenMarkers(item).filter((marker) => marker.text.includes(CONTEXT_LABEL));
@@ -130,7 +130,7 @@ test('C003 invariant: the context instruction names the reader and forbids presu
   );
 });
 
-// [::TICKET::] PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-227 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-227 --for-spec --no-implementation-order`.
 test('C003 invariant: the command file states the reader where the question is written and where it is asked', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
 

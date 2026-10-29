@@ -26,6 +26,16 @@ Downstream (role, not name): per-package RFC canonicalizer and implementation wo
 - consumes: published seed + allocate manifest.
 - expects: exact seed format, verified allocation/contracts/order, source traceability.
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## Language Protocol
 
 | Context | Language |
@@ -110,7 +120,7 @@ Machine verifies structure, transfer fidelity, coupling completeness; never pros
 Purpose: lock manifest + co-located spec; invalid lock invalidates later source trace.
 
 ```bash
-node .claude/scripts/workspacify-allocate/run.mjs validate "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" validate "$ARGUMENTS"
 ```
 
 pass: exit 0; `{status:"PASS", workspaceRoot, sourceHash, manifestHash, gateSummary}`.
@@ -121,7 +131,7 @@ fail: stop; do not enter later Steps.
 Purpose: accept, never decide: segment→owner coverage; inventory→package allocation; edge→boundary→mandatory-clause table; implementation-order outline; path/fresh-workspace preliminary check.
 
 ```bash
-node .claude/scripts/workspacify-allocate/run.mjs plan "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" plan "$ARGUMENTS"
 ```
 
 pass: exit 0; `{status:"PASS", plannedDirectoryCount, relativeDirs}`.
@@ -135,7 +145,7 @@ Purpose: write each `seed_required: true` semantic body as machine-verifiable de
 ### 3-1: obtaining the authoring packet
 
 ```bash
-node .claude/scripts/workspacify-allocate/run.mjs packet "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" packet "$ARGUMENTS"
 # only a specific package: --package=pkg-0001
 ```
 
@@ -194,7 +204,7 @@ Artifacts:
 ## Step 4: the gate loop (G3/G4/G5/order)
 
 ```bash
-node .claude/scripts/workspacify-allocate/run.mjs gate "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" gate "$ARGUMENTS"
 ```
 
 pass: exit 0; `{status:"COMPLETE", gateSummary}`.
@@ -215,7 +225,7 @@ Heal-loop gate:
 ## Step 5: building the canonical artefact and publishing it atomically (G6)
 
 ```bash
-node .claude/scripts/workspacify-allocate/run.mjs finalize "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" finalize "$ARGUMENTS"
 ```
 
 precondition: all gates PASS; `semantic_review.status === "APPROVED"`; else non-zero, never COMPLETE.
@@ -302,13 +312,13 @@ Allocation Index grammar:
 ## Appendix C: examples of run.mjs output
 
 ```text
-$ node .claude/scripts/workspacify-allocate/run.mjs validate ./WORKSPACIFY-TREE-MANIFEST.json
+$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" validate ./WORKSPACIFY-TREE-MANIFEST.json
 {"status":"PASS","workspaceRoot":"/work/specs","sourceHash":"ab12…","manifestHash":"cd34…","gateSummary":"G0:PASS G1:PASS"}
 
-$ node .claude/scripts/workspacify-allocate/run.mjs gate ./WORKSPACIFY-TREE-MANIFEST.json
+$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" gate ./WORKSPACIFY-TREE-MANIFEST.json
 {"status":"COMPLETE","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS semantic:APPROVED"}
 
-$ node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json
+$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" finalize ./WORKSPACIFY-TREE-MANIFEST.json
 {"published":true,"workspaceRoot":"/work/specs","allocateManifestPath":"/work/specs/WORKSPACIFY-ALLOCATE-MANIFEST.json","allocateManifestHash":"ef56…","residue":["WORKSPACIFY-ALLOCATE-MANIFEST.json","WORKSPACIFY-TREE-MANIFEST.json","crates","spec.md","workspacify"],"inputManifestHash":"cd34…","directoryCount":7,"packageCount":3,"seedCount":3,"contractCount":2,"waveCount":2,"segmentCoverage":"5/5","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS G6:PASS semantic:APPROVED"}
 ```
 

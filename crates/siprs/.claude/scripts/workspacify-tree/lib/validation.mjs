@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177, PX-192, PX-200, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-192, PX-200, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-177|PX-180|PX-181|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
 /**
  * Gate pipeline orchestration (§3).
  *
@@ -383,7 +383,7 @@ function evaluateDag(dependenciesData, packages) {
  * @returns {{ raw_sql_count: number, db_type_leak_count: number,
  *             migration_atomicity_misuse_count: number, details: Array<string> }}
  */
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function evaluateDatabase(adapters, packages) {
   const adapterPolicy = adapters?.databasePolicy;
   if (!adapterPolicy) {
@@ -410,14 +410,14 @@ function evaluateDatabase(adapters, packages) {
  * @param {Array<object>} normalizationDecisions - `{ from, to }` merge records
  * @returns {Array<{ name: string, alias: string }>}
  */
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function aliasPairsFrom(normalizationDecisions) {
   return (normalizationDecisions ?? [])
     .filter((decision) => decision.from !== decision.to)
     .map((decision) => ({ name: decision.from, alias: decision.to }));
 }
 
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function countReviewRequired(inventoryData) {
   let count = 0;
   const listKeys = ['objects', 'claims', 'terms', 'invariants', 'stateMachines', 'errorCodes', 'requiredTests'];
@@ -445,7 +445,7 @@ function applyParentGating(checks) {
   return gates;
 }
 
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function buildFinalAudit(aggregate) {
   const { gates, ownershipResult, dagResult, dbResult, reviewRequiredCount, unresolvedCandidates, responsibilityResult } = aggregate;
   const passed = gates.every((gate) => gate.status === GATE_STATUS.PASS);

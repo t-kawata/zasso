@@ -1,4 +1,4 @@
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // One gate per phase (PX-240, the phase driver).
 //
 // A phase is not "done" because its text was read; it is done when a command says so.
@@ -53,8 +53,8 @@ export const PHASE_TAGS = Object.freeze({ DET: 'det', READ: 'read', ADHOC: 'ad-h
  * repeating a Step and stopping the run, so the choice is a named field rather than a
  * reading of the refusal's prose.
  */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function refuse(reason, extra = {}) {
   return { ok: false, reason, ...extra };
 }
@@ -67,13 +67,13 @@ function refuse(reason, extra = {}) {
  * "zero claims", because a phase that legitimately found nothing and a phase whose
  * reader never reported must not print the same, and only one of them is incompleteness.
  */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function prove(reason, extra = {}) {
   return { ok: true, reason, ...extra };
 }
 
 /** The generation a manifest-bearing run is currently reading, or null for a legacy run. */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 function resolveCurrentReaderGeneration(ctx) {
   return existsSync(join(ctx.directory, 'EVIDENCE-MANIFEST.json'))
     ? generationOf(ctx.status)
@@ -81,13 +81,13 @@ function resolveCurrentReaderGeneration(ctx) {
 }
 
 /** The readings a brief reported, or a refusal naming the file. */
-// [::TICKET::] PX-240, PX-241, PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-294) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-294) --for-spec --no-implementation-order`.
 function readBrief(directory, briefName, options = {}) {
   return readReadingsFile(join(directory, `readings-${briefName}.jsonl`), options);
 }
 
 /** The declaration a run read, or a refusal naming the file. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function readDeclaration(directory) {
   return readDeclarationFile(join(directory, DECLARATION_FILE));
 }
@@ -99,7 +99,7 @@ function readDeclaration(directory) {
  * the two gates that require a verdict read only the entries. Counting a neighbour as an
  * unadjudicated entry would make every run refuse on work that does not exist.
  */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function entriesOf(artifact) {
   return artifact.sequences.filter((entry) => entry.kind === 'entry');
 }
@@ -111,8 +111,8 @@ function entriesOf(artifact) {
  * whole purpose of the ad-hoc surface, so the registry the gate reads is the union of
  * the declared checks and the modules the run has scaffolded.
  */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function declaredCheckIds(ctx) {
   return new Set([...CHECKS.map((check) => check.id), ...ctx.recorded.adhocChecks.map((check) => check.id)]);
 }
@@ -124,7 +124,7 @@ function declaredCheckIds(ctx) {
  * has to hand them over: a re-derivation against no file would refuse a run whose material
  * is sitting where it was filed.
  */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function suppliedBeside(ctx) {
   return suppliedDocumentsOf(ctx.directory);
 }
@@ -138,7 +138,7 @@ function suppliedBeside(ctx) {
  * the specification puts the repair where the material is, rather than leaving it to a
  * coverage report that says only that a denominator was never stated.
  */
-// [::TICKET::] PX-264 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
 export function unpinnedSuppliedFiles(ctx, pins) {
   const named = new Set((pins ?? []).map((pin) => pin.source?.file));
   return pinnableSuppliedFiles(ctx.directory)
@@ -147,7 +147,7 @@ export function unpinnedSuppliedFiles(ctx, pins) {
 }
 
 /** The entries whose outcome is missing or outside the declared vocabulary. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function entriesWithoutOutcome(artifact) {
   return entriesOf(artifact).filter((entry) => entry.outcome === null || !ADJUDICATION_OUTCOMES.includes(entry.outcome));
 }
@@ -158,8 +158,8 @@ function entriesWithoutOutcome(artifact) {
  * `requires` is the entry gate: the phases whose verdict must already be `done`. It is
  * data rather than prose so the driver can refuse a phase that was entered out of order.
  */
-// [::TICKET::] PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-243 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-247, PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-247|PX-288) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-243 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247, PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-247|PX-288) --for-spec --no-implementation-order`.
 /**
  * The uncovered worklist as bare operation ids.
  *
@@ -167,7 +167,7 @@ function entriesWithoutOutcome(artifact) {
  * the id, and treating the instruction word as part of the id would ask about nothing the
  * artifact names.
  */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function uncoveredMembersIn(directory) {
   const path = join(directory, UNCOVERED_WORKLIST_FILE);
   if (!existsSync(path)) return [];
@@ -186,8 +186,8 @@ function uncoveredMembersIn(directory) {
  * position. Duplicate and absent records are refused because neither can be counted.
  */
 export function gateUncovered({ worklist = [], span = [], artifact = {}, records = [] }) {
-// [::TICKET::] PX-291 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-291 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-291 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-291 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
   const members = worklist.map((line) => String(line).trim().split(/\s+/)[0]).filter((member) => member.length > 0);
   if (members.length === 0) return prove('the uncovered worklist is empty, so there is no escape to account for', { vacuous: true });
   // A span step is mechanical evidence that the operation is performed. Only the members
@@ -263,7 +263,7 @@ export function gateInquestResolutions({ previous = [], current = [], artifact =
 }
 
 export const PHASES = Object.freeze([
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
   {
     id: 1, name: 'identity', tag: PHASE_TAGS.DET, requires: [], backTo: null, maxLoops: 1,
     exit: (ctx) => (ctx.status.spec.sha256 === ctx.spec.sha256 && ctx.status.spec.lines === ctx.spec.lineCount
@@ -317,7 +317,7 @@ export const PHASES = Object.freeze([
   },
   {
     id: 5, name: 'blocks', tag: PHASE_TAGS.READ, requires: [1], backTo: 1, maxLoops: 3,
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
     exit: (ctx) => {
       const declared = readDeclaration(ctx.directory);
       if (!declared.ok) return refuse(declared.problems.join('; '));
@@ -625,7 +625,7 @@ export function phaseById(id) {
 }
 
 /** One phase's recorded state, so a reader of this file needs no import to find it. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function recordOf(status, id) {
   return status.phases.find((record) => record.id === id) ?? null;
 }
@@ -645,7 +645,7 @@ function recordOf(status, id) {
  * failed. Reporting the count and the last refusal is the whole repair available to a run
  * that cannot change its own input, so a halt is a stop and not a retry.
  */
-// [::TICKET::] PX-240 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-240 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-240 --for-spec --no-implementation-order`.
 export function entryGate(phase, status) {
   const missing = phase.requires.filter((id) => !status.phases.some((record) => record.id === id && record.status === 'done'));
   if (missing.length > 0) return refuse(`phase ${missing[0]} is not done`);
@@ -689,7 +689,7 @@ export function evaluateGate(phaseId, context) {
  *
  * @returns {string|null} the notice, naming the phase, its loops and the generation
  */
-// [::TICKET::] PX-242, PX-245 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-245) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-245) --for-spec --no-implementation-order`.
 export function unchangedRepeatReason(status, { assetDigest, specSha256 }) {
   if (status === null || status === undefined) return null;
   // A recorded digest that differs means the run inherits something new, which is not an

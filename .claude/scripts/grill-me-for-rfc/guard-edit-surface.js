@@ -34,7 +34,7 @@ const JUDGMENT_RECORD_BASENAMES = [OBLIGATION_RECORD_BASENAME];
 
 /** The basenames that are stage-1 inputs, matched by name at any depth. */
 const FROZEN_BASENAMES = [
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
   'RFC-SEED.md',
   'INFO-RFC-SEED.md',
   'EXPLAIN-RFC-SEED.md',
@@ -65,7 +65,7 @@ const USAGE = 'usage: guard-edit-surface.js <path> [--why] [--json]';
  * @param {string} name
  * @returns {{ allowed: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-239, PX-260, PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-239|PX-260|PX-261) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239, PX-260, PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-239|PX-260|PX-261) --for-spec --no-implementation-order`.
 function classifyBasename(name) {
   if (GENERATED_BASENAMES.includes(name)) {
     return { allowed: true, rule: 'generated', detail: 'a file this command generates' };
@@ -83,7 +83,7 @@ function classifyBasename(name) {
  * @param {string[]} argv
  * @returns {{ target: string, why: boolean, json: boolean }}
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   return {
     target: argv.find((arg) => !arg.startsWith('--')) ?? '',

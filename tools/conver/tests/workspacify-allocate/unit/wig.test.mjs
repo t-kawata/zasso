@@ -1,4 +1,4 @@
-// [::TICKET::] PX-194 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-194 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-194 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-194 --for-spec --no-implementation-order`.
 // PX-194 @verifies C002
 // The Workspace Integration Graph turns the extracted contracts into a workspace
 // level proof: unknown packages, self loops, undeclared or forbidden edges, layer
@@ -13,7 +13,7 @@ import { buildBoundaryContractScope } from '../../../.claude/scripts/workspacify
 import { runDagChecks } from '../../../.claude/scripts/workspacify-tree/lib/dag.mjs';
 import { buildValidManifest, contractEdgesForPackage, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 
-// [::TICKET::] PX-218 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-218 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-218 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-218 --for-spec --no-implementation-order`.
 function fixture(overrides = {}) {
   const { manifest } = buildValidManifest(overrides);
   const parsedByPackage = new Map();
@@ -154,7 +154,7 @@ const CONTRADICTION_CLAUSE = { proof_verification: 'the verifier is named here (
  * it here. Passing `extraClauses` alone would make that case vacuous: the clause under
  * test would be present, and nothing would ever be reported for it.
  */
-// [::TICKET::] PX-218 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-218 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-218 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-218 --for-spec --no-implementation-order`.
 function scopeFixture({ scope, connectionKind = 'value_only', extraClauses = {}, omitClauses = [] }) {
   const { manifest: base } = buildValidManifest();
   const boundaries = [{
@@ -289,7 +289,7 @@ const LAYER_PACKAGES = [
 const INTERFACES_RULE = [{ from_layer: 'interfaces', forbidden_to: ['protocol', 'ports', 'adapters'] }];
 
 /** A workspace of the four layer packages coupled by the given edges. */
-// [::TICKET::] PX-218 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-218 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-218 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-218 --for-spec --no-implementation-order`.
 function layerFixture({ edges, forbiddenLayerRules }) {
   const { manifest: base } = buildValidManifest();
   const boundaries = edges.map((edge, index) => ({

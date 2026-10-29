@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let ticketKey, ticketsPath;
@@ -41,8 +41,8 @@ function parseArgs() {
  * @param {object} ticket — Ticket object with contracts, testUnit, testExceptions
  * @returns {Array<{ticket: number, contract: string|null, detail: string}>}
  */
-// [::TICKET::] PX-69, PX-70, PX-71, PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-73) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-73 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71|PX-73) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function verifyMakeContracts(ticket) {
   const errors = [];
   const contracts = ticket.contracts || [];
@@ -119,7 +119,7 @@ function verifyMakeContracts(ticket) {
  * @param {{ticket: number, detail: string}} err — testException error object
  * @returns {string[]} — [errorLine, causeLine, actionLine]
  */
-// [::TICKET::] PX-69, PX-84, PX-123, PX-124, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-84|PX-123|PX-124|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-84, PX-123, PX-124, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-84|PX-123|PX-124|PX-127) --for-spec --no-implementation-order`.
 function buildTestExceptionErrorLines(err) {
   return [
     '[ERROR] Ticket ' + err.ticket + ': ' + err.detail,
@@ -128,7 +128,7 @@ function buildTestExceptionErrorLines(err) {
   ];
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-84, PX-85, PX-86, PX-87, PX-89, PX-123, PX-124, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-84|PX-85|PX-86|PX-87|PX-89|PX-123|PX-124|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-84, PX-85, PX-86, PX-87, PX-89, PX-123, PX-124, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71|PX-84|PX-85|PX-86|PX-87|PX-89|PX-123|PX-124|PX-127) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 

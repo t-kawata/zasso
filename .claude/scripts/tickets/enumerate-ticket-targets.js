@@ -14,13 +14,13 @@ const path = require('path');
 const { findTicket, ticketExists, ticketIsDone } = require('../lib/find-ticket');
 const { syncMalfeasance } = require('../lib/malfeasance-utils');
 const { containsStubMarker, isStubInQuotes, FIXTURE_STORAGE_DIR } = require('../lib/stub-marker-scan');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 
 // [::TICKET::] PX-90: Extensions to scan for STUB markers
 // Only programming-language source file extensions.
 // Non-programming extensions excluded to prevent self-referential cascade.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-90 --for-spec --no-implementation-order`
 const TARGET_EXTENSIONS = new Set([
   '.rs', '.go', '.ts', '.tsx', '.js', '.jsx', '.cjs', '.mjs', '.vue',
   '.py', '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp',
@@ -29,7 +29,7 @@ const TARGET_EXTENSIONS = new Set([
 
 // PX-90: Excluded data files whose JSON content contains STUB text strings.
 // Scanning these creates a self-referential crime cascade.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-90 --for-spec --no-implementation-order`
 const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
 
 // [::TICKET::] PX-77: Directories to skip during scan
@@ -40,13 +40,13 @@ const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
 // [::TICKET::] PX-139: `fixtures` is skipped EXCEPTIONALLY — it is the storage
 // directory for test fixture files (test INPUTS), not production code. This matches
 // review/find-all-stubs.js so both scanners agree; it is NOT a blanket tests/ exclusion.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-139 --for-spec --no-implementation-order`.
 const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', 'dist', 'build', FIXTURE_STORAGE_DIR]);
 
 // Generate a unique STUB id
 let stubCounter = 0;
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-88, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-88|PX-89) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-88, PX-89 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-88|PX-89) --for-spec --no-implementation-order`.
 function generateStubId() {
   stubCounter++;
   return 'TS-' + String(stubCounter).padStart(3, '0');
@@ -60,9 +60,9 @@ function generateStubId() {
  * @param {string} ownTicketKey — The ticket key of the current ticket
  * @returns {{category: string, ticketRef: string, crimeType?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-93: Changed final else to return null instead of targetStub.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-93 --for-spec --no-implementation-order`.
 function classifyStubs(targetRef, ticketsData, ownTicketKey) {
   // Normalize: handle "MUST RESOLVE" as "own ticket"
   if (targetRef === 'MUST RESOLVE') {
@@ -85,7 +85,7 @@ function classifyStubs(targetRef, ticketsData, ownTicketKey) {
 
   // PX-93: Other active tickets STUBs are not this tickets responsibility.
   // Return null so scanFile skips the entry entirely.
-  // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`
+  // Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-93 --for-spec --no-implementation-order`
   return null;
 }
 
@@ -94,7 +94,7 @@ function classifyStubs(targetRef, ticketsData, ownTicketKey) {
  * @param {string} line — The source line containing [::STUB::]
  * @returns {string|null} — The ticket key, e.g. "PX-77" or "MUST RESOLVE", or null
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function extractTicketRef(line) {
   const m = line.match(/\[::STUB::\]\s+((?:P[A-Z0-9]+-\d+|MUST\s+RESOLVE))/);
   return m ? m[1] : null;
@@ -107,12 +107,12 @@ function extractTicketRef(line) {
  * @param {string} ownTicketKey — Current ticket key
  * @returns {{targetStubs: Array, targetCrimes: Array}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function scanDirectory(dirPath, ticketsData, ownTicketKey) {
   const targetStubs = [];
   const targetCrimes = [];
 
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
   function walk(currentPath) {
     let entries;
     try {
@@ -152,10 +152,10 @@ function scanDirectory(dirPath, ticketsData, ownTicketKey) {
  * @param {Array} targetStubs — Accumulator
  * @param {Array} targetCrimes — Accumulator
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-93: Added null guard for classifyStubs returning null.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-139, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-139|PX-231) --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-93 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-139|PX-231) --for-spec --no-implementation-order`.
 function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes) {
   let content;
   try {
@@ -214,7 +214,7 @@ function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes
  * @param {Array} targetCrimes
  * @returns {boolean} — true if written successfully
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function writeTargetsToTickets(ticketsPath, ticketKey, targetStubs, targetCrimes) {
   const data = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const ticket = findTicket(data, ticketKey);
@@ -236,7 +236,7 @@ function writeTargetsToTickets(ticketsPath, ticketKey, targetStubs, targetCrimes
  * @param {string} [ticketsPath] — Path to Tickets.json (for writing). If omitted, skip writing.
  * @returns {object|null} — {targetStubs, targetCrimes, isEmpty, verifiedEmpty} or null on error
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function enumerateTargets(dirPath, ownTicketKey, ticketsData, ticketsPath) {
   if (!dirPath || !ownTicketKey || !ticketsData) {
     return null;
@@ -272,7 +272,7 @@ function enumerateTargets(dirPath, ownTicketKey, ticketsData, ticketsPath) {
   return result;
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81, PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81|PX-82|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81, PX-82, PX-83, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81|PX-82|PX-83|PX-341) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dirPath, ticketKey, ticketsPath;
@@ -286,14 +286,14 @@ function main() {
   if (!dirPath || !ticketKey) {
     console.error('[ERROR] --dir=<path> and --ticket-key=<key> are required');
     console.error('Cause: Missing required arguments');
-    console.error('Action: Run: node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=<path> --ticket-key=<key> --tickets=<Tickets.json>');
+    console.error('Action: Run: node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/enumerate-ticket-targets.js" --dir=<path> --ticket-key=<key> --tickets=<Tickets.json>');
     process.exit(1);
   }
 
   if (!ticketsPath) {
     console.error('[ERROR] --tickets=<Tickets.json path> is required');
     console.error('Cause: Missing --tickets argument');
-    console.error('Action: Run: node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=<path> --ticket-key=<key> --tickets=<path>');
+    console.error('Action: Run: node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/enumerate-ticket-targets.js" --dir=<path> --ticket-key=<key> --tickets=<path>');
     process.exit(1);
   }
 

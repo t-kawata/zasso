@@ -37,7 +37,7 @@ const SESSION_DIR_FLAG_PREFIX = '--session-dir=';
 const USAGE = 'usage: sequences-material.js <rfc-dir> [--session-dir=<path>]';
 
 /** The answer for a command line that named no directory. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function usageAnswer() {
   return {
     present: false,
@@ -52,7 +52,7 @@ function usageAnswer() {
   };
 }
 
-// [::TICKET::] PX-256, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-256|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-270) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rfcDirArgument, ...rest] = argv;
   if (rfcDirArgument === undefined) {

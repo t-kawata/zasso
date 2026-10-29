@@ -1,4 +1,4 @@
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -44,8 +44,8 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 const FIXTURES = 'tests/rfc-graph/fixtures/forward-surfaces';
 const BASELINE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
 
-// [::TICKET::] PX-336 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-336 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-336 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-336 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function readJson(relativePath) {
   return JSON.parse(readFileSync(join(PROJECT_ROOT, relativePath), 'utf8'));
 }
@@ -55,7 +55,7 @@ function readJson(relativePath) {
  * that repairs the repository under measurement is the side effect this whole
  * phase exists to remove. The real baseline is asserted read-only at its own path.
  */
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function scratchBaseline() {
   const scratch = mkdtempSync(join(tmpdir(), 'px207-baseline-'));
   const copy = join(scratch, 'manifest-hashes.json');
@@ -63,7 +63,7 @@ function scratchBaseline() {
   return copy;
 }
 
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function digestTree(root) {
   const digest = createHash('sha256');
   const walk = (directory) => {
@@ -205,7 +205,7 @@ test('C003 the emitted header carries the protected marker and every declared in
   assert.ok(header.includes(input.headerPaths.stepContractsRelPath));
   for (const node of input.mappedNodeIds) {
     assert.ok(header.includes(node.nodeId), `${node.nodeId} must appear`);
-    assert.ok(header.includes(`show-node-contracts.mjs --id=${node.nodeId})`), `${node.nodeId} must carry a brief command`);
+    assert.ok(header.includes(`show-node-contracts.mjs" --id=${node.nodeId})`), `${node.nodeId} must carry a brief command`);
   }
 });
 

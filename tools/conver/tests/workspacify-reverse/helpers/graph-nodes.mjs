@@ -1,4 +1,4 @@
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-10 --for-spec --no-implementation-order`.
 /**
  * The graph node set a reverse run hands to `--graph`.
  *
@@ -50,7 +50,7 @@ export function buildGraphNodes({ specPath }) {
 }
 
 /** A node id that names the file it grounds, so a T3 failure is readable on its own. */
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-10 --for-spec --no-implementation-order`.
 function nodeIdFor(file) {
   return `grounded-${file}`;
 }

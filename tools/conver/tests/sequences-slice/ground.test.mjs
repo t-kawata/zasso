@@ -18,14 +18,14 @@ import {
 } from '../../.claude/scripts/sequences-slice/lib/obligation-ground.mjs';
 
 /** An artifact whose identifiers a ground can name, at the shapes the live corpus writes. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 /** The identifiers a fixture artifact holds, named rather than spelled at the parameter list. */
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 const FIXTURE_SECTIONS = Object.freeze([{ id: 's1', firstLine: 1, lastLine: 9 }]);
 const FIXTURE_OPERATIONS = Object.freeze([{ id: 'CreateForum' }]);
 const FIXTURE_SEQUENCES = Object.freeze([{ id: 'G-1' }]);
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function artifactWith({ lines = 15971, sections = FIXTURE_SECTIONS, operations = FIXTURE_OPERATIONS, sequences = FIXTURE_SEQUENCES } = {}) {
   return { spec: { lines, path: 'SyntheticSpec.md' }, sections, operations, sequences };
 }
@@ -133,7 +133,7 @@ test('C002 an id is matched as a whole token, so a longer name is never read as 
 // PX-263 — a section citation resolves against the document that carries it
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 test('C001 a heading number is a label the document carries, and a citation of it resolves', () => {
   const document = ['# 3 Acceptance', '', '### 3.4.3 The boundary', 'text'].join('\n');
   const artifact = { spec: { lines: 10 }, sections: [], operations: [], sequences: [] };

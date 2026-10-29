@@ -33,7 +33,7 @@ const MINUTES_PER_HOUR = 60;
  * scheduler.stop();
  * ```
  */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 export class CronScheduler {
   /** node-cron のジョブタスク（未起動時は null） */
   #cronTask: ScheduledTask | null = null;

@@ -19,7 +19,7 @@ import {
   rfcBody,
 } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 
 function indexOf(input) {
   const workspace = materializeSmoothWorkspace(input);
@@ -53,7 +53,7 @@ test('S3 rejects an initial status outside the transition graph', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 test('S3 rejects a transition out of a declared terminal status', () => {
   const artifact = minimalV3Artifact();
   artifact.operations[0] = operationRow('ProduceFact', {
@@ -86,7 +86,7 @@ test('S3 never treats an undeclared status name as terminal', () => {
 });
 
 // @verifies C003
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 test('S3 rejects a declared required interface that the operation does not map', () => {
   const artifact = minimalV3Artifact();
   artifact.vocabulary = { terminalStatuses: ['closed'], requiredInterfaces: ['grpc'] };

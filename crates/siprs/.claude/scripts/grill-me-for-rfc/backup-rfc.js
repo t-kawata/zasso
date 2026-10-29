@@ -24,7 +24,7 @@
  */
 import fs from "fs";
 import path from "path";
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const EXIT_SUCCESS = 0;
@@ -59,7 +59,7 @@ if (!fs.existsSync(rfcPath)) {
  * @param {string} sourcePath — the RFC being copied
  * @returns {string} absolute path of the copy
  */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function backupPathFor(sourcePath) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const extension = path.extname(sourcePath);

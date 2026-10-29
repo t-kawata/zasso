@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
 // PX-193 @verifies C001 C003 C004 C005
 // Branch hardening for the coupling-first modules: the rejection paths that the
 // behaviour suites exercise only through one example each.
@@ -25,7 +25,7 @@ function boundary() {
   return buildValidManifest().manifest.dependencies.boundaries[0];
 }
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function edge(overrides = {}) {
   return buildContractEdge({
       boundaryId: 'boundary-001',
@@ -40,7 +40,7 @@ function edge(overrides = {}) {
     });
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('contract-model C003: seed-level validation reports every defect class', () => {
   const boundariesById = indexBoundariesByContractId(buildValidManifest().manifest);
   assert.equal(validateSeedContractEdges({ contractEdges: [edge()], boundariesById, packageId: 'pkg-b' }).ok, true);

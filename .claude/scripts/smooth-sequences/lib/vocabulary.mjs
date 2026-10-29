@@ -21,13 +21,13 @@ const DECLARED_INTERFACES_FIELD = 'declared_interfaces';
 const WITHHELD_LAYER = 'vocabulary';
 
 /** One withheld-surface record, shaped the same way every other withheld entry is. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function buildWithheldEntry(check, reason) {
   return { layer: WITHHELD_LAYER, check, reason };
 }
 
 /** The error a declaration that violates its shape raises. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function invalidVocabulary(artifactPath, detail) {
   return new SmoothSequencesError(`${VOCABULARY_FIELD} is not valid in ${artifactPath}: ${detail}`, {
     code: 'INVALID_VOCABULARY',
@@ -37,7 +37,7 @@ function invalidVocabulary(artifactPath, detail) {
 }
 
 /** A declared list of non-empty strings, de-duplicated in first-seen order, or null. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function readDeclaredNames(value, fieldName, artifactPath) {
   if (value === undefined || value === null) return null;
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string' || entry.trim() === '')) {
@@ -52,7 +52,7 @@ function readDeclaredNames(value, fieldName, artifactPath) {
 }
 
 /** The two declared lists, each null when the field is absent or null. */
-// [::TICKET::] PX-276, PX-297 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-276|PX-297) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276, PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-276|PX-297) --for-spec --no-implementation-order`.
 function readDeclaredVocabulary(artifact, artifactPath) {
   const declared = artifact?.[VOCABULARY_FIELD];
   if (declared === undefined || declared === null) {
@@ -75,7 +75,7 @@ function readDeclaredVocabulary(artifact, artifactPath) {
  * the check non-circular: if one operation ends at a status and another leaves it, the
  * second is the contradiction, and deriving per operation would never see it.
  */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function deriveTerminalStatuses(artifact) {
   const names = [];
   let sawStatusGraph = false;
@@ -92,7 +92,7 @@ function deriveTerminalStatuses(artifact) {
 }
 
 /** The interface columns the allocate manifest declares, in first-seen order. */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function declaredInterfaceColumns(allocateManifest) {
   const declared = allocateManifest?.[DECLARED_INTERFACES_FIELD];
   if (declared === null || typeof declared !== 'object' || Array.isArray(declared)) return [];
@@ -118,7 +118,7 @@ function declaredInterfaceColumns(allocateManifest) {
  * it. Neither source ever consults whether an operation carries the column, so a missing
  * mapping stays a finding rather than shrinking the required set.
  */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function deriveRequiredInterfaces(artifact, allocateManifest) {
   const declared = declaredInterfaceColumns(allocateManifest);
   if (declared.length > 0) return declared;
@@ -138,7 +138,7 @@ function deriveRequiredInterfaces(artifact, allocateManifest) {
  * out rather than guessed, so the check falls back to non-emptiness only where the
  * workspace states no vocabulary.
  */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function deriveInterfaceVocabulary(artifact) {
   const enumerations = new Map((artifact?.pins?.enumerations ?? [])
     .filter((entry) => typeof entry?.name === 'string' && Array.isArray(entry.members))
@@ -170,7 +170,7 @@ export function normalizeInterfaceValue(value) {
  * @returns {{ terminalStatuses: string[]|null, requiredInterfaces: string[]|null,
  *   actPatterns: string[]|null, withheld: Array<{layer: string, check: string, reason: string}> }}
  */
-// [::TICKET::] PX-276 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function loadVocabulary({ artifact, artifactPath, allocateManifest }) {
   const declared = readDeclaredVocabulary(artifact, artifactPath);
   const terminalStatuses = declared.terminalStatuses ?? deriveTerminalStatuses(artifact);

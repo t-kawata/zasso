@@ -45,13 +45,13 @@ const COMMAND = readFileSync(COMMAND_PATH, 'utf8');
 const RUN_INPUT = JSON.parse(readFileSync(RUN_INPUT_PATH, 'utf8'));
 
 /** The artifact the fixture's own readings compose, read fresh so no test mutates it. */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
 
 /** The artifact with one operation left out, which is a merge that dropped a name. */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function withoutOperation(artifact, id) {
   return { ...artifact, operations: artifact.operations.filter((operation) => operation.id !== id) };
 }
@@ -64,7 +64,7 @@ function withoutOperation(artifact, id) {
  * declared operation is unreached. Every check the artifact is held to today is silent on
  * it, which is what makes it the case the new rule exists for.
  */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function mergedReadings({ dropped, kept, ruling = null }) {
   const steps = RUN_INPUT.readings.steps.map((step) => (step.operation === dropped ? { ...step, operation: kept } : step));
   const operations = RUN_INPUT.readings.operations.filter((operation) => operation.id !== dropped);
@@ -73,7 +73,7 @@ function mergedReadings({ dropped, kept, ruling = null }) {
 }
 
 /** A ruling whose subject is the name the merge dropped. */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function rulingOn(subject, reason) {
   return { subject, outcome: 'notASequence', category: 'merged', reason, reader: 'span', predicateLimb: 'none-applies' };
 }
@@ -84,7 +84,7 @@ function rulingOn(subject, reason) {
  * Phase 9 requires phase 8, so a run entered directly at the phase under test would be
  * refused for its order rather than for the name that left.
  */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'px253-merge-'));
   copyFileSync(SPEC_PATH, join(root, 'ledger.md'));
@@ -103,7 +103,7 @@ function scratchRun() {
  * The driver reads a span reading's steps and operations from the reading itself, which is
  * where a run records them; the fixture keeps them beside the readings instead.
  */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function writeGeneration(run, readings = null) {
   const { steps, operations, adjudications } = readings ?? RUN_INPUT.readings;
   const [first, ...rest] = RUN_INPUT.readings.sequences;
@@ -115,7 +115,7 @@ function writeGeneration(run, readings = null) {
 }
 
 /** The readings the product path reads, in the shape it takes them on stdin. */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function runInputFor(readings = null) {
   const { steps, operations, adjudications } = readings ?? RUN_INPUT.readings;
   const [first, ...rest] = RUN_INPUT.readings.sequences;
@@ -132,7 +132,7 @@ function runInputFor(readings = null) {
 }
 
 /** The subject a refusal sentence names, or null when it names none. */
-// [::TICKET::] PX-253 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
 function subjectNamedIn(text) {
   return /([A-Za-z][A-Za-z0-9_]*) was named by the artifact this generation replaces/.exec(text)?.[1] ?? null;
 }

@@ -1,5 +1,5 @@
 // @verifies C002
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 // R5 enumerates gaps and contradictions. Discovery and classification are separate
 // so each can be tested alone, and a small number of gaps is never read as quality.
 import { test } from 'node:test';
@@ -25,7 +25,7 @@ import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 // --- The vocabulary -------------------------------------------------------------
 
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 test('C002 postcondition: the gap kinds are exactly the six the contract names', () => {
   assert.deepEqual(
     [...GAP_KINDS].sort(),
@@ -149,7 +149,7 @@ test('UT-2: findAbsentRed reports a public surface with no test that could fail 
   assert.match(gaps[0].evidence.join(' '), /no test file/i);
 });
 
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 test('UT-2: findAbsentRed matches identifiers whole, so a short symbol is not shadowed by a longer one', () => {
   // A substring test reports `id` as covered because a test says `valid`, and
   // `get` because one says `forget`. Short public names would then be

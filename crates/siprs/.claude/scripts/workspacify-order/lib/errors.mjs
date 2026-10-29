@@ -8,13 +8,13 @@
 
 export const ERROR_PREFIX = '[workspacify-order]';
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 export class WorkspacifyOrderError extends Error {
   /**
    * @param {string} message — what went wrong, in the terms of the workspace being read
    * @param {{ artefact?: string | null }} [context] — the file or field the message is about
    */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
   constructor(message, { artefact = null } = {}) {
     super(message);
     this.name = 'WorkspacifyOrderError';

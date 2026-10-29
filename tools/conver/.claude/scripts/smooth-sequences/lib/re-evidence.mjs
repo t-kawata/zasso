@@ -1,4 +1,4 @@
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 /**
  * The one-time migration from the PX-290 generated evidence to an honest re-read.
  *
@@ -49,7 +49,7 @@ export const REMOVE_FILES = Object.freeze([
 ]);
 
 /** Write JSONL with one object per line. */
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 function writeJsonLines(path, rows) {
   writeFileSync(path, `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`);
 }
@@ -60,7 +60,7 @@ function writeJsonLines(path, rows) {
  * A failed copy or a digest mismatch returns with nothing removed, so a caller can retry
  * without losing the evidence it was trying to preserve.
  */
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 export function archiveGeneratedEvidence(root, { directory = join(root, ARCHIVE_DIRECTORY) } = {}) {
   mkdirSync(directory, { recursive: true });
   const files = [];
@@ -105,7 +105,7 @@ export function archiveGeneratedEvidence(root, { directory = join(root, ARCHIVE_
  * answer; the archive keeps the generated form. A row without `originalReader` keeps its
  * reader and is reported rather than relabelled.
  */
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 export function restoreInquestReaders(root) {
   const path = join(root, INQUEST_FILE);
   if (!existsSync(path)) return { total: 0, restored: 0, withoutOriginal: 0 };
@@ -131,7 +131,7 @@ export function restoreInquestReaders(root) {
  * Deleting the manifest would make the receipt list null and preserve the carried status;
  * an empty array is the value that says "no phase has a current receipt".
  */
-// [::TICKET::] PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-293 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
 export function resetManifestReceipts(root) {
   const directory = join(root, MANIFEST_DIRECTORY);
   const manifest = readManifestAt(directory);

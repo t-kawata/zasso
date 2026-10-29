@@ -2,7 +2,7 @@
 // The contract-id grammar and the operation-field classification are declared once.
 // The validator, the Gate S/R scanner and the JSON schema must accept the same ids, and
 // every operation field must belong to exactly one delivery class.
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';

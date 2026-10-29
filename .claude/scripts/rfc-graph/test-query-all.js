@@ -167,7 +167,7 @@ function validateAllHeadingRefs(graph, sourceLines) {
  * @param {{ heading: number, texts: string[] }} ref — headingRef object
  * @returns {{ diagnosis: string, score: number, details: Object, summary: string, remedyHint: string, remedyCommand: string }}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function diagnoseBrokenRef(sourceLines, ref) {
   const { heading, texts } = ref;
 
@@ -265,7 +265,7 @@ function diagnoseBrokenRef(sourceLines, ref) {
  * @param {number} heading — Heading level (0 through 6)
  * @returns {Array<{ line: number, text: string }>}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function collectHeadingLines(sourceLines, heading) {
   if (heading > 0) {
     return extractHeadingsOutsideFences(sourceLines)
@@ -378,7 +378,7 @@ function checkOtherHeadingLevels(sourceLines, originalHeading, texts) {
  *   Diagnosis evidence and operator guidance
  * @returns {Object}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function buildDiagnosisResult(diagnosis, score, texts, evidence) {
   const {
     bestLine = null,

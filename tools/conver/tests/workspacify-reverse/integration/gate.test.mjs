@@ -51,7 +51,7 @@ const SUBJECT_TREE = Object.freeze({
 const EARLY_STAGE = 'r0.5';
 
 /** Every judgement item, answered. */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function completeDecisions() {
   return {
     package_boundary: { packages: [{ path: '.', name: 'root' }], rationale: 'the measured layout' },
@@ -64,7 +64,7 @@ function completeDecisions() {
 }
 
 /** Run the entrance as an operator would, and capture what they would see. */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runEntrance(args, cwd) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
@@ -78,7 +78,7 @@ function runEntrance(args, cwd) {
  * the entrance's job and is measured by its own suite. What is under test here is
  * whether the gate reports a missing one by name.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function subjectWith({ decisions = completeDecisions(), material = 'all' } = {}) {
   const tree = createSyntheticTree(SUBJECT_TREE);
   const out = reservedReverseDirectory(tree.root);

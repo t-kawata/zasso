@@ -12,7 +12,7 @@ import { digestOf } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { sha256File } from '../../.claude/scripts/shared-obligations/evidence.mjs';
 import { readArtifactAndEvidenceCurrency } from '../../.claude/scripts/regeneration/lib/transaction.mjs';
 
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function workspaceWithArtifact({ specDigest = null, manifestSha, readingsDigest }) {
   const root = mkdtempSync(join(tmpdir(), 'px310-currency-'));
   const specPath = join(root, 'spec.md');

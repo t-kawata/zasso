@@ -18,7 +18,7 @@
 
 const { loadRecords, saveRecords, checkSchema, output, normalizePath } = require('../lib/malfeasance-utils');
 
-// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const file = process.argv[2];
   const rawLine = process.argv[3];
@@ -36,7 +36,7 @@ function main() {
   }
 
   // PX-92: Normalize file path to project-root-relative for cross-machine portability.
-  // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-92 --for-spec --no-implementation-order`
+  // Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-92 --for-spec --no-implementation-order`
   const normalizedFile = normalizePath(file);
 
   const line = Number(rawLine);

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { verifyNodeCoverage } from '../../.claude/scripts/tickets/add-tickets-for-phase.js';
 import { checkPhase } from '../../.claude/scripts/tickets/verify-all-ticket-coverage.js';
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function phaseWith(nodeIds, ticketNodeIds) {
   return { id: 0, nodeIds, tickets: [{ id: 1, phaseId: 0, nodeIds: ticketNodeIds, contracts: [] }] };
 }

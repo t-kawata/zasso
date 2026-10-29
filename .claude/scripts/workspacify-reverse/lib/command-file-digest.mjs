@@ -1,4 +1,4 @@
-// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
  * The command-file digest — proof that an edit stayed an edit.
  *
@@ -227,7 +227,7 @@ const MINIMUM_REASON_LENGTH = 20;
  */
 const ROTATION_PREDICATE_TABLE = 'DECLARED_ROTATION_PREDICATES';
 
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-210 --for-spec --no-implementation-order`.
 function sha256Hex(text) {
   return createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex');
 }
@@ -386,7 +386,7 @@ export function compareDigests(baseline, current) {
  * sections has two gates, and picking either would be a choice the lint is not
  * entitled to make.
  */
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-210 --for-spec --no-implementation-order`.
 function readSoleGateLine(lines) {
   const headingIndexes = [];
   for (const [index, line] of lines.entries()) {
@@ -426,7 +426,7 @@ function readSoleGateLine(lines) {
  *
  * @returns {Array<{name: string, path: string, lines: string[]|null, unreadableReason?: string}>}
  */
-// [::TICKET::] PX-210, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-210|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-210|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function readCommandFiles({ projectRoot, files }) {
   const targets = files ?? REVERSE_SECTION_COMMAND_FILES.map((name) => ({
     name,
@@ -443,7 +443,7 @@ function readCommandFiles({ projectRoot, files }) {
 }
 
 /** The finding a lint emits for a file it could not read, or null when it could. */
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-210 --for-spec --no-implementation-order`.
 function reportUnreadable(file) {
   if (file.lines !== null) {
     return null;

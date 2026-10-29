@@ -9,12 +9,12 @@ import { tmpdir } from 'node:os';
 
 import { run } from '../../.claude/scripts/tickets/check-ticket-prerequisites.js';
 
-// [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-329 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-329 --for-spec --no-implementation-order`.
 function writeJson(filePath, value) {
   writeFileSync(filePath, JSON.stringify(value));
 }
 
-// [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-329 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-329 --for-spec --no-implementation-order`.
 function materializeConsumerPackage({ providerStatus }) {
   const root = mkdtempSync(join(tmpdir(), 'px329-'));
   writeJson(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), {

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-194 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-194 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-194 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-194 --for-spec --no-implementation-order`.
 // PX-194 @verifies C005
 // The cross-seed gates run inside the pipeline: a contract that is missing on one
 // side or names an undeclared boundary stops the run before anything is published.
@@ -30,7 +30,7 @@ function decisionsWith(manifest, mutate) {
   return decisions;
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C005 a dropped side, an undeclared contract and a weakened clause all stop the run', () => {
   const fixture = materializeSeedFixture();
   try {

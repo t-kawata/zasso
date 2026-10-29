@@ -89,7 +89,7 @@ const STATUS_ERROR = 'error';
  * @returns {{ statusPath: string, subcommand: string, stepNumber: number|null }}
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function parseArguments() {
   const args = process.argv.slice(2);
 
@@ -189,7 +189,7 @@ function readStatus(statusPath) {
  * @param {string} statusPath — Path to the status file
  * @returns {StatusData} Default status
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function createDefaultStatus(statusPath) {
   const dir = path.dirname(statusPath);
   const filename = path.basename(statusPath);
@@ -257,7 +257,7 @@ function executeStartStep(status, n) {
  * @param {StatusData} status — Status data to update
  * @param {number} n — Step number to complete
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function executeBeginRun(status, runId) {
   const next = beginRun(status, runId ?? `${Date.now()}-${process.pid}`);
   Object.assign(status, next);
@@ -275,7 +275,7 @@ function executeBeginRun(status, runId) {
  * @param {number} n — Step number to complete
  * @param {{ audit?: boolean }} [options]
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function executeEndStep(status, n, { audit = false } = {}) {
   status.steps[String(n)] = STATUS_DONE;
   status.currentStep = n + 1;
@@ -487,7 +487,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * Main processing: parse arguments, dispatch subcommand, write file
  */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function main() {
   let parsed;
 

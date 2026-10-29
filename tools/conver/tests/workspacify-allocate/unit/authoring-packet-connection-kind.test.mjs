@@ -1,4 +1,4 @@
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // C002: the seed packet must carry the connection kind stage 1 declared.
 //
 // The packet used to default a boundary with no kind to value_only, which made
@@ -12,7 +12,7 @@ import { buildAuthoringPacket } from '../../../.claude/scripts/workspacify-alloc
 import { buildBoundaryContractScope } from '../../../.claude/scripts/workspacify-tree/lib/contract-clauses.mjs';
 import { buildValidManifest } from '../helpers/build-valid-manifest.mjs';
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 function manifestWithBoundary(connectionKind, scope = buildBoundaryContractScope('value_only')) {
   const { manifest } = buildValidManifest();
   const boundary = { ...manifest.dependencies.boundaries[0], stage2_contract_scope: scope };

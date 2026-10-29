@@ -19,7 +19,7 @@
  * test rather than a refused run — which is the whole point, because a gate that enforced
  * this invariant would have to refuse something, and refusing is what 1.2 forbids.
  *
- * [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+ * [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -114,7 +114,7 @@ export const GATE_FAMILIES = Object.freeze([
 ]);
 
 /** The sentences inside a reason, so a match cannot straddle two unrelated statements. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function sentencesOf(message) {
   return String(message)
     .split(/[.;\n]/)
@@ -123,7 +123,7 @@ function sentencesOf(message) {
 }
 
 /** Whether one sentence names a mechanism *and* requires it, which is what makes it a step. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function requiresMechanismStep(message, mechanism) {
   return sentencesOf(message).some(
     (sentence) =>
@@ -224,7 +224,7 @@ export const DIFFERENCE_COUNT_FIELD = 'differences';
 const GATE_IDENTIFIER = /^[A-Z][A-Za-z0-9]*(?:-\d+)?$/;
 
 /** Read a file, or say why it could not be read. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function readModule(absPath) {
   try {
     return { text: readFileSync(absPath, 'utf8'), reason: null };
@@ -240,7 +240,7 @@ function readModule(absPath) {
  * line and a single-value declaration does not. Stopping at the first `;` outside any
  * bracket handles both without a parser.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function declarationStatement(source, name) {
   const match = new RegExp(`\\bconst\\s+${name}\\s*=`).exec(source);
   if (match === null) return null;
@@ -258,13 +258,13 @@ function declarationStatement(source, name) {
 }
 
 /** Every single-quoted string inside a fragment, in source order. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function quotedStrings(fragment) {
   return [...fragment.matchAll(/'([^'\\\n]*)'/g)].map((match) => match[1]);
 }
 
 /** The identifiers a declaration site states, read from the constant it names. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function readDeclaration(source, declaration) {
   const statement = declarationStatement(source, declaration);
   if (statement === null) return null;
@@ -272,7 +272,7 @@ function readDeclaration(source, declaration) {
 }
 
 /** The single-value constants a module declares, so `gateId: SOME_ID` can be resolved. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function declaredConstants(source) {
   const constants = new Map();
   for (const match of source.matchAll(/\bconst\s+([A-Z][A-Z0-9_]*)\s*=\s*'([^']+)'/g)) {
@@ -290,7 +290,7 @@ function declaredConstants(source) {
  * handed to a record constructor (`gateRecord('T1', …)`). Reading only one of them would
  * make a family look empty for a reason that has nothing to do with its gates.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function readIdentifiersUsed(source) {
   const identityProperties = GATE_IDENTITY_PROPERTIES.join('|');
   const constants = declaredConstants(source);
@@ -316,7 +316,7 @@ function readIdentifiersUsed(source) {
  * that vanishes from the enumeration would shrink the audit's subject silently, which is
  * the shape the audit exists to catch in the gates themselves.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 export function enumerateReverseGates({ projectRoot } = {}) {
   if (typeof projectRoot !== 'string' || projectRoot.length === 0) {
     throw new Error('enumerateReverseGates must be given the project root to read the declarations from');
@@ -413,14 +413,14 @@ export function enumerateReverseGates({ projectRoot } = {}) {
 }
 
 /** Whether a record says its gate refused rather than recorded what it found. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function recordRefused(record) {
   if (REFUSAL_STATUSES.includes(record?.status)) return true;
   return countOf(record?.counts?.[UNRECORDED_COUNT_FIELD]) > 0;
 }
 
 /** A count off a record, treating anything that is not a number as none. */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 function countOf(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
@@ -433,7 +433,7 @@ function countOf(value) {
  * refusing. Only a record that refused contributes, which is what makes the check a check
  * over refusal reasons rather than over all messages.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 export function collectRefusalReasons(gate) {
   const records = gate.records ?? (gate.record === undefined ? [] : [{ record: gate.record }]);
   return records
@@ -450,7 +450,7 @@ export function collectRefusalReasons(gate) {
  * `recorded-disagreement`, and only a record carrying no reason at all is `never-refusing`
  * — a legitimate state for a gate that only ever reports, which is not a finding.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 export function classifyGateOutcome(record) {
   if (recordRefused(record)) return GATE_OUTCOMES.REFUSED;
   if (countOf(record?.counts?.[DIFFERENCE_COUNT_FIELD]) > 0) return GATE_OUTCOMES.RECORDED_DISAGREEMENT;
@@ -467,7 +467,7 @@ export function classifyGateOutcome(record) {
  * counted — the classification of every gate over every representative it was run on — so
  * a caller can see what was measured, not only what went wrong.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 export function auditAgainstInvariant({ gates = [], reasons = [] } = {}) {
   const findings = [];
   const perFormulation = Object.fromEntries(FORBIDDEN_REFUSALS.map((row) => [row.id, 0]));
@@ -554,7 +554,7 @@ export function auditAgainstInvariant({ gates = [], reasons = [] } = {}) {
  * vocabulary is declared with its tally including the zeroes, so a class that nothing
  * landed in is visible as nothing rather than absent.
  */
-// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-12 --for-spec --no-implementation-order`.
 export function renderInvariantAudit(audit) {
   const lines = [
     `# Incompleteness invariant audit — ${INVARIANT_SOURCE}`,

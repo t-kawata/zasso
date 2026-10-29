@@ -44,7 +44,7 @@ import {
 const NOT_SHOWN_SILENT = REFUSAL.READ_RECORD_NOT_SHOWN_SILENT;
 
 /** A round whose one open block is the block handed in. */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function roundWith(block) {
   const fixture = materializeGrillFixture({ withPriorArtifacts: true, withNodes: 3 });
   runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'prior']);
@@ -54,13 +54,13 @@ function roundWith(block) {
 }
 
 /** The fault kinds one check run reported, in the order stderr lists them. */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function faultKinds(result) {
   return (result.stderr.match(/^- [a-z-]+:/gm) ?? []).map((line) => line.slice(2, -1));
 }
 
 /** The block text the three commands carry, between the two delimiters. */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function delimitedBlock(commandName) {
   const text = readFileSync(join(REPO_ROOT, '.claude', 'commands', `${commandName}.md`), 'utf8');
   const start = text.indexOf('<!-- question-gate:begin -->');

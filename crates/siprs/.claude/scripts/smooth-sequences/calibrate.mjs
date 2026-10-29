@@ -8,7 +8,7 @@
  * not reported makes the calibration fail, and a closure run without a valid calibration
  * is unproven.
  *
- * [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
  */
 import {
   existsSync,
@@ -41,14 +41,14 @@ const VIEW_FILE = 'SEQUENCES.json';
 const RFC_FILE = 'RFC.md';
 
 /** The single root artifact name. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function findArtifactName(root) {
   const candidates = readdirSync(root).filter((name) => name.endsWith(ARTIFACT_SUFFIX));
   return candidates.length === 1 ? candidates[0] : null;
 }
 
 /** Copy the files `loadWorkspace` reads into a temporary root. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function copyCalibrationWorkspace(root) {
   const treeManifest = JSON.parse(readFileSync(join(root, TREE_MANIFEST), 'utf8'));
   const artifactName = findArtifactName(root);
@@ -72,25 +72,25 @@ function copyCalibrationWorkspace(root) {
 }
 
 /** The package copies that carry a readable view. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function viewCopies(sandbox) {
   return sandbox.packages.filter((pkg) => existsSync(pkg.viewPath));
 }
 
 /** The package copies that carry a readable RFC. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function rfcCopies(sandbox) {
   return sandbox.packages.filter((pkg) => existsSync(pkg.rfcPath));
 }
 
 /** Rewrite one RFC's distribution-map block. */
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function replaceMap(rfcText, map) {
   const next = { ...map, digest: mapDigest(map) };
   return rfcText.replace(/```json distribution-map[\s\S]*?```/m, renderDistributionMap(next));
 }
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function seedMissingStep(sandbox) {
   let chosenSequenceId = null;
   let chosenStepIds = null;
@@ -128,7 +128,7 @@ function seedMissingStep(sandbox) {
   return true;
 }
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function seedStepOrder(sandbox) {
   const artifact = JSON.parse(readFileSync(sandbox.artifactPath, 'utf8'));
   const stepsBySequence = new Map();
@@ -160,7 +160,7 @@ function seedStepOrder(sandbox) {
   return false;
 }
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function seedActiveResidual(sandbox) {
   const artifact = JSON.parse(readFileSync(sandbox.artifactPath, 'utf8'));
   const active = (artifact.operations ?? []).find((operation) => operation.disposition === 'active'
@@ -186,7 +186,7 @@ function seedActiveResidual(sandbox) {
   return false;
 }
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function seedStaleMap(sandbox) {
   for (const pkg of rfcCopies(sandbox)) {
     const rfc = readFileSync(pkg.rfcPath, 'utf8');
@@ -198,7 +198,7 @@ function seedStaleMap(sandbox) {
   return false;
 }
 
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 function seedMissingBoundary(sandbox) {
   for (const pkg of viewCopies(sandbox)) {
     const view = JSON.parse(readFileSync(pkg.viewPath, 'utf8'));

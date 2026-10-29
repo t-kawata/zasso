@@ -11,7 +11,7 @@ import {
 } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';
 
 /** A sequence whose earlier step produces the fact the later step consumes. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function artifact() {
   return {
     sequences: [{ id: 'S', outcome: 'realized' }],

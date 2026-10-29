@@ -6,7 +6,7 @@
 // comparison stays exact membership, never a substring or a prefix. Without this
 // guard, the cheapest way to make a previously-refused block settle would be to
 // weaken this predicate, and nothing would notice.
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

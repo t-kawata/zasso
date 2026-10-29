@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { DRILL_SETTLE_RUN, GRILL_SETTLE_RUN } from '../helpers/fixture-workspace.mjs';
 
 /** The content digest of a file, which is equal exactly when the bytes are. */
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 function digestOf(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }

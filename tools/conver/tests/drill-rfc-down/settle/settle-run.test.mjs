@@ -1,7 +1,7 @@
 // PX-234 @verifies C001
 // PX-234 @verifies C002
 // PX-234 @verifies C003
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * The same driver, against an isolated drill session.
  *
@@ -37,7 +37,7 @@ const bind = (dir, number, block) =>
 const settle = (dir, nodeId, settlement) =>
   runCommand(DRILL_UPDATE_TREE, [dir, 'settle', nodeId, JSON.stringify(settlement)]);
 
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 postcondition: prior reads the package directory and records the scan in the session', () => {
   const fixture = materializeDrillSession({ withPriorArtifacts: true, withNodes: 3 });
   try {

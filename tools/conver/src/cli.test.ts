@@ -1,4 +1,4 @@
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
 // cli.test.ts — parseCliOptions のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
 //
@@ -143,7 +143,7 @@ describe("parseCliOptions", () => {
   });
 
   // @verifies C005
-  // [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+  // [::TICKET::] PX-145 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-145 --for-spec --no-implementation-order`.
   it("-x 5 で maxRetries=5 になる（短縮フラグ）", () => {
     const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-x", "5"];
     const options = parseCliOptions(argv);

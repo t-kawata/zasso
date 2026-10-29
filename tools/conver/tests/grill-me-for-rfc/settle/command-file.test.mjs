@@ -1,6 +1,6 @@
 // PX-234 @verifies C004
 // PX-234 @verifies C005
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * The grill command file is held to what it promises.
  *
@@ -22,7 +22,7 @@ const COMMAND = join(PROJECT_ROOT, '.claude/commands/grill-me-for-rfc.md');
 const commandText = () => readFileSync(COMMAND, 'utf8');
 
 /** The STEP 0 section, between its heading and STEP 1. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function step0() {
   const text = commandText();
   const start = text.indexOf('### STEP 0');
@@ -32,7 +32,7 @@ function step0() {
 }
 
 /** The STEP 2 section, between its heading and STEP 3. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function step2() {
   const text = commandText();
   const start = text.indexOf('### STEP 2');
@@ -90,7 +90,7 @@ test('C005 invariant: every workflow step the command had is still present', () 
 
 // PX-239 @verifies C004
 // PX-239 @verifies C007
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 
 /** The drill command, which holds the same question-gate block byte for byte. */
 const DRILL_COMMAND = join(PROJECT_ROOT, '.claude/commands/drill-rfc-down.md');
@@ -101,7 +101,7 @@ const DRILL_COMMAND = join(PROJECT_ROOT, '.claude/commands/drill-rfc-down.md');
  * @param {string} file — a command file path
  * @returns {string} the shared block
  */
-// [::TICKET::] PX-239 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
 function sharedBlock(file) {
   const text = readFileSync(file, 'utf8');
   const start = text.indexOf('<!-- question-gate:begin -->');
@@ -152,7 +152,7 @@ test('C007 invariant: the defect classes and the G6 gate are stated', () => {
   assert.match(text, /never resolve a G6 failure by recording the defect and moving on/);
 });
 
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 test('C007 invariant: the RFC Hard Constraints gained the two ledgers and the two composition rules', () => {
   const text = commandText();
   const start = text.indexOf('## RFC Hard Constraints');
@@ -176,7 +176,7 @@ test('C007 invariant: STEP 5b and STEP 7b exist, and 7b follows 7a', () => {
   assert.ok(step7b > step7a && step7b < step8, 'STEP 7b sits after STEP 7a and before STEP 8');
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C007 invariant: the STEP 8 gate requires the denominator, not only the placement', () => {
   const text = commandText();
   const start = text.indexOf('### STEP 8:');
@@ -185,7 +185,7 @@ test('C007 invariant: the STEP 8 gate requires the denominator, not only the pla
   assert.match(section, /every axis is measured against a structure the workspace holds rather than against the artifact itself/);
 });
 
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 test('C007 invariant: STEP 1 states that a denominator gap withholds without stopping the run', () => {
   const text = commandText();
   const start = text.indexOf('### STEP 1:');
@@ -197,7 +197,7 @@ test('C007 invariant: STEP 1 states that a denominator gap withholds without sto
   assert.match(section, /supply the census material for the operations and entries roles/);
 });
 
-// [::TICKET::] PX-261, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 test('C007 invariant: the STEP 8 gate carries nine conditions and the defect gate', () => {
   const text = commandText();
   const start = text.indexOf('### STEP 8:');

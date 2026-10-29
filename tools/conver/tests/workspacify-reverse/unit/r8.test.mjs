@@ -1,6 +1,6 @@
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 /**
  * R8 — the origin spec, and the limits the profile states rather than hides.
  *
@@ -50,7 +50,7 @@ const SPEC_TREE = Object.freeze({
 });
 
 /** The claims a run over SPEC_TREE yields: one located, one handed to the grill. */
-// [::TICKET::] P22-8, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
 function specClaims() {
   return [
     {
@@ -94,7 +94,7 @@ function specClaims() {
   ];
 }
 
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 /**
  * A spec over the fixture tree, built the way the run builds one.
  *
@@ -104,7 +104,7 @@ function specClaims() {
  * fixture the shape the run actually produces, which is what the round trip is a
  * statement about.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function specOver(tree, { claims = specClaims(), sections = {} } = {}) {
   return buildOriginSpec({
     root: tree.root,
@@ -190,7 +190,7 @@ test('UT-10 / C002 invariant: the capability profile never carries an eligible k
   const profile = buildCapabilityProfile(analysis);
 
   const keys = [];
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
   (function walk(node) {
     if (node === null || typeof node !== 'object') return;
     for (const [key, value] of Object.entries(node)) {

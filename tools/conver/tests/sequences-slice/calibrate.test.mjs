@@ -24,12 +24,12 @@ import {
 const CALIBRATE = fileURLToPath(new URL('../../.claude/scripts/sequences-slice/calibrate.mjs', import.meta.url));
 const ARTIFACT_FILENAME = 'SyntheticSpec-sequences.json';
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function runCalibrate(root, extraArguments = []) {
   return spawnSync(process.execPath, [CALIBRATE, join(root, ARTIFACT_FILENAME), ...extraArguments], { encoding: 'utf8' });
 }
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 function runOnFreshRoot(options = {}) {
   const root = buildSyntheticTriple(options);
   try {
@@ -39,7 +39,7 @@ function runOnFreshRoot(options = {}) {
   }
 }
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C003 the calibration over a synthetic workspace root reproduces the measured buckets', () => {
   const { result } = runOnFreshRoot();
   assert.equal(result.status, 0);
@@ -52,7 +52,7 @@ test('C003 the calibration over a synthetic workspace root reproduces the measur
   assert.equal(report.sequences.total, 116);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 the calibration reports the line-range totality and says the key is not an identity', () => {
   const { result } = runOnFreshRoot();
   const report = JSON.parse(result.stdout);
@@ -63,7 +63,7 @@ test('C004 the calibration reports the line-range totality and says the key is n
   assert.match(report.lineRange.statement, /not used as an identity/);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C005 the calibration leaves no unmatched class name undisposed', () => {
   const { result } = runOnFreshRoot();
   const report = JSON.parse(result.stdout);
@@ -75,7 +75,7 @@ test('C005 the calibration leaves no unmatched class name undisposed', () => {
   assert.ok(report.classNames.unmatched.every((name) => report.classNames.dispositions.declaredResiduals.includes(name)));
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 the calibration reports a baseline and one digest per input', () => {
   const { result } = runOnFreshRoot();
   const report = JSON.parse(result.stdout);
@@ -97,7 +97,7 @@ test('C001 the calibration reports a baseline and one digest per input', () => {
   assert.match(report.snapshotDigest.allocateManifest, /^[0-9a-f]{64}$/);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 the calibration is deterministic and writes nothing', () => {
   const root = buildSyntheticTriple();
   try {
@@ -112,7 +112,7 @@ test('C001 the calibration is deterministic and writes nothing', () => {
   }
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 an absent tree manifest stops the run with exit 2, the path named, and no partial report', () => {
   const { result } = runOnFreshRoot({ omitTreeManifest: true });
   assert.equal(result.status, 2);
@@ -120,7 +120,7 @@ test('C001 an absent tree manifest stops the run with exit 2, the path named, an
   assert.equal(result.stdout, '');
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 an absent allocate manifest stops the run with exit 2 and the path named', () => {
   const { result } = runOnFreshRoot({ omitAllocateManifest: true });
   assert.equal(result.status, 2);
@@ -128,7 +128,7 @@ test('C001 an absent allocate manifest stops the run with exit 2 and the path na
   assert.equal(result.stdout, '');
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 a path that does not exist stops the run with exit 2 and the path named', () => {
   const result = spawnSync(process.execPath, [CALIBRATE, '/nonexistent/artifact.json', '--json'], { encoding: 'utf8' });
   assert.equal(result.status, 2);
@@ -136,7 +136,7 @@ test('C001 a path that does not exist stops the run with exit 2 and the path nam
   assert.equal(result.stdout, '');
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 an artifact that does not parse stops the run with exit 2 and the path named', () => {
   // The precondition names this case beside the absent path, so a rejection raised by
   // the reader is an input error and not a crash: the operator gets the same refusal
@@ -153,7 +153,7 @@ test('C001 an artifact that does not parse stops the run with exit 2 and the pat
   }
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C001 an artifact whose operations is not an array stops the run with exit 2 and the path named', () => {
   const root = buildSyntheticTriple();
   try {
@@ -168,7 +168,7 @@ test('C001 an artifact whose operations is not an array stops the run with exit 
   }
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 the default output is prose that states the measurement, not only a machine record', () => {
   const root = buildSyntheticTriple();
   let result;

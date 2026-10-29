@@ -193,7 +193,7 @@ function resolveNodeToDirMap(graph, hierarchy) {
  * `unitIds` is omitted when empty so a Dirs-Tree written before the units line keeps
  * its byte shape; only a node that carries a unit gains the field.
  */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function mappedEntry(node) {
   const entry = {
     nodeId: node.id,
@@ -205,7 +205,7 @@ function mappedEntry(node) {
   return entry;
 }
 
-// [::TICKET::] PX-319, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
 function buildDirectoryTree(graph, lang, helpers) {
   const languageExtensions = helpers.languageExtensions || { rust: '.rs', go: '.go', typescript: '.ts' };
   /** The leaf file an architecture node uses when it carries a unit. */
@@ -230,7 +230,7 @@ function buildDirectoryTree(graph, lang, helpers) {
   }
 
     // Build directory tree from root hierarchy
-// [::TICKET::] PX-319, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
   function buildTreeFromRoot(root, emittedNodeIds) {
     if (!root || !root.node) return null;
 
@@ -448,7 +448,7 @@ function collectDescendantIds(roots) {
  * @param {Set<string>} [options.excludeNodeIds] — Set of node IDs the backbone walk already placed
  * @returns {Array} Array of rule-driven nodes
  */
-// [::TICKET::] PX-319, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-319|PX-339) --for-spec --no-implementation-order`.
 function findRuleDrivenNodes(options) {
   const { graph, hierarchy, naming, getDeclarationStubFn, designatedEntryFileName, excludeNodeIds } = options;
   const { lang, resolveFileNameFn } = naming;

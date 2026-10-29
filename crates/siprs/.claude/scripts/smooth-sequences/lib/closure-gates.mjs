@@ -10,11 +10,11 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const SCRIPT_DIRECTORY = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'grill-me-for-rfc');
 
 /** The gates, in the order the transaction runs them. */
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 export const CLOSURE_GATES = Object.freeze([
   { script: 'check-obligation-coverage.js', args: (root) => [root] },
   { script: 'check-contribution-completeness.js', args: (root) => [root] },
@@ -23,13 +23,13 @@ export const CLOSURE_GATES = Object.freeze([
 ]);
 
 /** The first non-empty line a gate wrote, so the report names the refusal it made. */
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 function firstLine(text) {
   return String(text ?? '').split('\n').map((line) => line.trim()).find((line) => line.length > 0) ?? '';
 }
 
 /** Run one gate with the node binary in use, from the workspace it measures. */
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 function runGate({ root, script, args }) {
   const result = spawnSync(process.execPath, [join(SCRIPT_DIRECTORY, script), ...args(root)], {
     cwd: root,
@@ -52,7 +52,7 @@ function runGate({ root, script, args }) {
  * @param {{root: string, run?: Function}} request
  * @returns {{ok: boolean, gates: Array<{script: string, exitCode: number, reason: string}>}}
  */
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 export function runClosureGates({ root, run = runGate } = {}) {
   const gates = CLOSURE_GATES.map((gate) => run({ root, ...gate }));
   return { ok: gates.every((gate) => gate.exitCode === 0), gates };

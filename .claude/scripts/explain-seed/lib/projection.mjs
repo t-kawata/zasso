@@ -32,7 +32,7 @@ const OWNED_CATEGORIES = [
 ];
 
 /** Every inventory record of a manifest, keyed by id. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function indexInventory(treeManifest) {
   const inventory = treeManifest.inventory ?? {};
   const buckets = ['objects', 'claims', 'invariants', 'error_codes', 'required_tests', 'state_machines', 'terms'];
@@ -45,7 +45,7 @@ function indexInventory(treeManifest) {
 }
 
 /** The specification text a record's first source range names. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function quoteRecord(record, specText) {
   const reference = (record.source_refs ?? [])[0];
   if (reference === undefined) return null;
@@ -57,7 +57,7 @@ function quoteRecord(record, specText) {
 }
 
 /** Every record the package owns, with the specification text each one came from. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function collectOwnedRecords({ packageRecord, inventory, specText }) {
   const declared = packageRecord.owns ?? {};
   const owned = [];
@@ -98,7 +98,7 @@ export function counterpartPackageOf({ boundary, packageId }) {
 }
 
 /** Every boundary this package is a party to, each naming the package at its other end. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function boundaryPairs({ packageId, treeManifest }) {
   return boundariesTouching({ packageId, treeManifest }).map((boundary) => ({
     id: boundary.id,
@@ -107,13 +107,13 @@ export function boundaryPairs({ packageId, treeManifest }) {
 }
 
 /** Where every package in the workspace lives, keyed by id. */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function packagePaths(treeManifest) {
   return Object.fromEntries((treeManifest.workspace?.packages ?? []).map((entry) => [entry.id, entry.path]));
 }
 
 /** The boundaries that touch this package, split by direction. */
-// [::TICKET::] PX-221, PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-225) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-225) --for-spec --no-implementation-order`.
 function collectBoundaries({ packageId, treeManifest }) {
   const described = (boundary) => ({
     id: boundary.id,
@@ -129,7 +129,7 @@ function collectBoundaries({ packageId, treeManifest }) {
 }
 
 /** The forbidden edges that touch this package, in the direction they forbid. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function collectForbiddenEdges({ packageId, treeManifest }) {
   return (treeManifest.dependencies?.forbidden_edges ?? [])
     .filter((edge) => edge.from === packageId || edge.to === packageId)
@@ -143,7 +143,7 @@ function collectForbiddenEdges({ packageId, treeManifest }) {
 }
 
 /** The coupling contracts this package is party to, with the clauses stage two settled. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function collectContracts({ packageId, allocateManifest }) {
   return (allocateManifest.contract_registry ?? [])
     .filter((contract) => contract.provider_package === packageId || contract.consumer_package === packageId)
@@ -161,7 +161,7 @@ function collectContracts({ packageId, allocateManifest }) {
 }
 
 /** The questions the grill must settle, and the residual record behind each one. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function collectGrillMaterial({ packageId, allocateManifest, boundaries }) {
   const handoff = allocateManifest.handoff_summary ?? {};
   const questions = (handoff.grill_questions ?? []).filter((entry) => entry.package_id === packageId);
@@ -188,7 +188,7 @@ function collectGrillMaterial({ packageId, allocateManifest, boundaries }) {
 }
 
 /** What the package must implement beyond its own semantics. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function collectObligations({ packageId, packageRecord, treeManifest }) {
   const ports = (treeManifest.adapters?.ports ?? [])
     .filter((port) => (port.implementedBy ?? []).includes(packageId))
@@ -213,7 +213,7 @@ function collectObligations({ packageId, packageRecord, treeManifest }) {
  * carried here at all. A level difference is not an ordering, and a fact that says otherwise
  * under a name that sounds like dependency is the defect this projection stops repeating.
  */
-// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-224) --for-spec --no-implementation-order`.
 function collectPosition({ identity, packageId, allocateManifest, orderFacts }) {
   const injected = identity.implementation_order ?? {};
   const levels = allocateManifest.implementation_order?.levels ?? [];
@@ -227,7 +227,7 @@ function collectPosition({ identity, packageId, allocateManifest, orderFacts }) 
 }
 
 /** The coupling edges the seed itself records, which the grill reads alongside the registry. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function collectSeedEdges({ packageId, contractEdges }) {
   return contractEdges
     .filter((edge) => edge.provider_package === packageId || edge.consumer_package === packageId)

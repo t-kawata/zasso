@@ -1,4 +1,4 @@
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 /**
  * R4 — the archaeology of intent.
  *
@@ -172,7 +172,7 @@ const CLAUSE_SEPARATOR = /[,;]|\band\b/;
  * corrupt a real repository to reach it would be testing git rather than this
  * module.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function readHistoryLog(root) {
   const format = `${RECORD_SEPARATOR}%H${UNIT_SEPARATOR}%P${UNIT_SEPARATOR}%s`;
   const result = spawnSync(
@@ -196,7 +196,7 @@ function readHistoryLog(root) {
  * rare and exactly the ones a reader would never think to check, so they are
  * decoded rather than left to look like a filename that begins with a quote.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function unquoteGitPath(raw) {
   if (raw.length < 2 || !raw.startsWith('"') || !raw.endsWith('"')) return raw;
 
@@ -222,7 +222,7 @@ function unquoteGitPath(raw) {
 }
 
 /** The commit identity and location of a target inside its work tree. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function readRepositoryIdentity(root) {
   const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: root, encoding: 'utf8' });
   if (inside.status !== 0 || inside.stdout.trim() !== 'true') {
@@ -246,7 +246,7 @@ function readRepositoryIdentity(root) {
 }
 
 /** A path resolved as far as it exists, so two spellings of one directory compare equal. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function resolveRealPath(target) {
   try {
     return realpathSync(target);
@@ -262,7 +262,7 @@ function resolveRealPath(target) {
  * history is missing from every reading below, and a run that stayed silent
  * would present a hole in the evidence as an absence of change.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function unreadableCommitsFrom(stderr) {
   const found = new Map();
   for (const line of String(stderr ?? '').split('\n')) {
@@ -275,7 +275,7 @@ function unreadableCommitsFrom(stderr) {
 }
 
 /** The target-relative form of a work-tree path, or null when it lies outside the target. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function relativeToTarget(path, prefix) {
   if (prefix === '' || prefix === '.') return path;
   if (path === prefix) return '';
@@ -292,7 +292,7 @@ function relativeToTarget(path, prefix) {
  * is everything the commit touched, in or out of the population, because the
  * mass-change and vendoring signals are properties of the commit itself.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function parseHistoryLog(text, prefix, scopedPaths) {
   const inScope = (targetPath) => targetPath !== null && targetPath.length > 0
     && (scopedPaths.size === 0 || scopedPaths.has(targetPath));
@@ -346,7 +346,7 @@ function parseHistoryLog(text, prefix, scopedPaths) {
 }
 
 /** The anchors a reader can open, one per change, with the commit that caused it. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function transitionsFrom(commits) {
   const transitions = [];
   for (const commit of commits) {
@@ -375,7 +375,7 @@ function transitionsFrom(commits) {
  * that ran rather than a relationship anyone should act on — and enumerating
  * them would cost quadratic time to say nothing.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function coChangesFrom(commits) {
   // Keyed by the two paths as a nested map rather than by a joined string. A key
   // built by joining with a character would merge two different pairs whenever a
@@ -411,7 +411,7 @@ function coChangesFrom(commits) {
 }
 
 /** The options a commit subject mentions having passed over, kept as candidates. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function alternativesFrom(subject) {
   return String(subject ?? '')
     .split(CLAUSE_SEPARATOR)
@@ -427,7 +427,7 @@ function alternativesFrom(subject) {
  * record, that the subject is not proof. A reader who took the candidate for a
  * settled fact would have to ignore a field that is right beside it.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function decisionProvenanceFrom(commits, confidence) {
   const newestByFile = new Map();
   // `git log` yields newest first, so the first commit that mentions a file is
@@ -464,7 +464,7 @@ function decisionProvenanceFrom(commits, confidence) {
  * it proposition by proposition: a proposition resting on a squashed history
  * rests on less, and the entry that carries it says so through this value.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function qualityFrom(commits) {
   const byFactor = new Map();
   const record = (factor, commit, evidence, effect) => {

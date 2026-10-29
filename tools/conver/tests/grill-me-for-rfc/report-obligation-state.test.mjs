@@ -11,11 +11,11 @@ import path from 'node:path';
 
 const REPORTER = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/report-obligation-state.js');
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 const { describeCarriage } = await import(REPORTER);
 
 /** A workspace whose one operation one package owns, with or without the census it answers to. */
-// [::TICKET::] PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-262 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-262 --for-spec --no-implementation-order`.
 function workspaceWithOneOperation({ census = true } = {}) {
   const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px262-reporter-'));
   fs.mkdirSync(path.join(root, 'crates', 'pkg-a'), { recursive: true });
@@ -38,7 +38,7 @@ function workspaceWithOneOperation({ census = true } = {}) {
   return root;
 }
 
-// [::TICKET::] PX-262, PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-270) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-270) --for-spec --no-implementation-order`.
 function runReporter(root, ...materials) {
   const result = spawnSync(process.execPath, [REPORTER, root, ...materials], { encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
@@ -129,7 +129,7 @@ test('C003 the reporter states that it does not block, so a reader is not left t
 // ---------------------------------------------------------------------------
 
 /** A workspace holding one directory whose carried unit its own ledger does not name. */
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function workspaceWithOneCarriedUnit() {
   const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px270-reporter-'));
   const packageDir = path.join(root, 'crates', 'pkg-a');
@@ -163,7 +163,7 @@ function workspaceWithOneCarriedUnit() {
   return root;
 }
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C003 the carriage section names the directory, the state, the missing units and the repair', () => {
   const root = workspaceWithOneCarriedUnit();
   const report = describeCarriage({ root });
@@ -201,7 +201,7 @@ test('C003 the carriage section names the directory, the state, the missing unit
   assert.match(report.text, /\*\*Done when\.\*\* /);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C003 the directories the section fails are exactly the directories the discharge gate names', () => {
   const root = workspaceWithOneCarriedUnit();
   const report = describeCarriage({ root });
@@ -219,7 +219,7 @@ test('C003 the directories the section fails are exactly the directories the dis
   assert.deepEqual(report.failedPackageIds, namedByGate);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C003 an invocation that names no artifact prints the two gate summaries and no carriage section', () => {
   const root = workspaceWithOneCarriedUnit();
   const withoutArtifact = runReporter(root);
@@ -235,7 +235,7 @@ test('C003 an invocation that names no artifact prints the two gate summaries an
   assert.equal(withArtifact.stdout.includes('**Repair.**'), true);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C005 two invocations over one workspace print the same section and exit 0 both times', () => {
   const root = workspaceWithOneCarriedUnit();
   const artifactPath = path.join(root, 'SyntheticSpec-sequences.json');

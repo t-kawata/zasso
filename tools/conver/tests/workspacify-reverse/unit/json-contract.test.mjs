@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const RUNNER = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'run-all-surfaces.mjs');
 
 test('--json emits a parseable report even when a surface fails', () => {
-// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
   const root = mkdtempSync(join(tmpdir(), 'px204-json-'));
   mkdirSync(join(root, 'tests', 'unit'), { recursive: true });
   writeFileSync(join(root, 'tests', 'unit', 'a.test.mjs'), "import { test } from 'node:test';\ntest('boom', () => { throw new Error('{ not json }'); });\n");

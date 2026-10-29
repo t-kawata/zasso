@@ -1,4 +1,4 @@
-// [::TICKET::] PX-194, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-194|PX-202) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-194, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-194|PX-202) --for-spec --no-implementation-order`.
 // PX-194 @verifies C001
 /**
  * Bilateral contract verification.

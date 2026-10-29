@@ -52,12 +52,12 @@ const RECONSTRUCTION_TICKET = Object.freeze({
   counterexample_plan_basis: 'mutation',
 });
 
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function ticketFixture() {
   return { ...RECONSTRUCTION_TICKET };
 }
 
-// [::TICKET::] P22-19, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-19|P23-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19, P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-19|P23-5) --for-spec --no-implementation-order`.
 function createFixture() {
   const tree = createGitBackedTree({ ...FIXTURE_FILES });
   const guardedPath = mkdtempSync(join(tmpdir(), 'wsp-guard-'));
@@ -66,7 +66,7 @@ function createFixture() {
     root: tree.root,
     guardedPath,
     expectedHash: hashTree(guardedPath),
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
     dispose() {
       tree.dispose();
       rmSync(guardedPath, { recursive: true, force: true });
@@ -74,7 +74,7 @@ function createFixture() {
   };
 }
 
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 async function withFixture(body) {
   const fixture = createFixture();
   try {
@@ -84,7 +84,7 @@ async function withFixture(body) {
   }
 }
 
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 async function captureRejection(promise) {
   try {
     await promise;
@@ -95,7 +95,7 @@ async function captureRejection(promise) {
 }
 
 /** The main working tree is the only one git should still know about. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function registeredWorktreeCount(root) {
   return runGit(root, ['worktree', 'list', '--porcelain'])
     .split('\n')
@@ -104,7 +104,7 @@ function registeredWorktreeCount(root) {
 }
 
 /** Release a worktree the module deliberately left locked and registered. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function releaseLeftover(error) {
   const worktreePath = error?.outcome?.worktreePath ?? null;
   const scratchBase = error?.outcome?.scratchBase ?? null;

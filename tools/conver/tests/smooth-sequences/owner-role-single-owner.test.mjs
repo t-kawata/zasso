@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { checkOwnerRoles } from '../../.claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs';
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function singleOwner(unit) {
   return [{ packageId: 'p', units: [unit] }];
 }

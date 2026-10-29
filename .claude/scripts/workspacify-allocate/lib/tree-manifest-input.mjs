@@ -1,4 +1,4 @@
-// [::TICKET::] PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-189 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-189 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-189 --for-spec --no-implementation-order`.
 // PX-189 @verifies C001 C002
 /**
  * Stage-2 input lock (corrected ALLOCATE §7.1-§7.3).
@@ -20,7 +20,7 @@ import { loadSchema, validateAgainstSchema } from '../../workspacify-tree/lib/ma
 import { checkManifestFormat, MANIFEST_FORMAT_LEAD } from './manifest-format.mjs';
 import { isReadableRegularFile } from '../../workspacify-tree/lib/fs-safe.mjs';
 import { isPathContained } from './path-safety.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });

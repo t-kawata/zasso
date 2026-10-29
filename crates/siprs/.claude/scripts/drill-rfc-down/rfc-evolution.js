@@ -26,7 +26,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import preflight from './preflight.cjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 
 const SESSION_DIR_NAME = 'drills';
@@ -41,14 +41,14 @@ const IO_BOUNDARY_PATTERN = /graphify-rfc \+ boundify-graph|I\/O 境界|I\/O bou
 const TOKEN_PATTERN = /[a-zA-Z0-9_]{4,}/g;
 
 /** Derive the session directory from the RFC path (deterministic). */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function resolveSessionDir(rfcPath) {
   const rfcDir = path.dirname(path.resolve(rfcPath));
   return { rfcDir, sessionDir: path.join(rfcDir, SESSION_DIR_NAME) };
 }
 
 /** Snapshot the RFC content into baseline.json under the session directory. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function captureSnapshot(rfcPath) {
   const { sessionDir } = resolveSessionDir(rfcPath);
   fs.mkdirSync(sessionDir, { recursive: true });
@@ -68,7 +68,7 @@ function captureSnapshot(rfcPath) {
  * Returns the added line ranges (current lines not matched) and the baseline
  * lines that could not be matched (deleted/modified/reordered).
  */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function alignLines(baselineLines, currentLines) {
   const addedRanges = [];
   const missingBaseline = [];
@@ -91,14 +91,14 @@ function alignLines(baselineLines, currentLines) {
 }
 
 /** Append-only gate: baseline must form an ordered subsequence of current lines. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function verifyAppendOnly(baselineLines, currentLines) {
   const { missingBaseline } = alignLines(baselineLines, currentLines);
   return { ok: missingBaseline.length === 0, missingBaseline };
 }
 
 /** Group the added line ranges into sections at markdown heading boundaries. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function extractDelta(baselineLines, currentLines) {
   const { addedRanges } = alignLines(baselineLines, currentLines);
   const sections = [];
@@ -122,7 +122,7 @@ function extractDelta(baselineLines, currentLines) {
 }
 
 /** Well-formedness gate for the extracted delta and the whole RFC. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function validateWellFormed(delta, currentContent) {
   const violations = [];
   const addedText = delta.sections.flatMap((s) => s.lines).join('\n');
@@ -136,7 +136,7 @@ function validateWellFormed(delta, currentContent) {
 }
 
 /** Tokenize a string into significant (length >= 4) lowercase tokens. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function tokenize(text) {
   return new Set((String(text).toLowerCase().match(TOKEN_PATTERN) || []));
 }
@@ -146,7 +146,7 @@ function tokenize(text) {
  * GRAPH nodes, Dirs-Tree names, and ticket titles (deterministic token overlap;
  * the AI makes the final judgment).
  */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function detectContradictionCandidates(delta, graph, dirsTree, tickets) {
   const candidates = [];
   for (const section of delta.sections) {
@@ -183,7 +183,7 @@ function detectContradictionCandidates(delta, graph, dirsTree, tickets) {
  * Resolve contradiction sources (Tickets.json -> GRAPH / Dirs-Tree) from the
  * given cwd. Returns nulls when Tickets.json is absent or unresolvable.
  */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function loadContradictionSources(cwd) {
   const ticketsPath = path.join(path.resolve(cwd), TICKETS_FILENAME);
   if (!fs.existsSync(ticketsPath)) return { tickets: null, graph: null, dirsTree: null };
@@ -207,7 +207,7 @@ function loadContradictionSources(cwd) {
 }
 
 /** Recursively collect resolved DesignTree nodes. */
-// [::TICKET::] PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-158 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-158 --for-spec --no-implementation-order`.
 function collectResolved(nodes, acc) {
   for (const node of nodes || []) {
     if (node.status === 'resolved') acc.push({ id: node.id, title: node.title });
@@ -221,7 +221,7 @@ function collectResolved(nodes, acc) {
  * omission-check aid for the AI expert judgment. Returns null when the tree
  * is absent or unreadable.
  */
-// [::TICKET::] PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-158 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-158 --for-spec --no-implementation-order`.
 function loadResolvedDesignTreeNodes(sessionDir) {
   const treePath = path.join(sessionDir, 'DesignTree.json');
   if (!fs.existsSync(treePath)) return null;
@@ -241,7 +241,7 @@ function loadResolvedDesignTreeNodes(sessionDir) {
  * context. It does NOT decide danger/omission/contradiction/deficiency — the
  * AI engineering-expert makes that non-deterministic judgment.
  */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
 function formatDeltaReport({ appendOnly, delta, violations, contradiction, resolvedNodes }) {
   const lines = [
     '## /drill-rfc-down Evolution Verification',
@@ -290,7 +290,7 @@ function formatDeltaReport({ appendOnly, delta, violations, contradiction, resol
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-158, PX-159, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const [,, mode, rfcPath] = process.argv;
   if (!mode || !rfcPath) {

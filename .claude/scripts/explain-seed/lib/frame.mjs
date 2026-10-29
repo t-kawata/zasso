@@ -47,7 +47,7 @@ import {
 import { ExplainSeedError } from './errors.mjs';
 import { deriveLedger } from './ledger.mjs';
 import { INFO_SECTION_TITLES, truncateExcerpt } from './render.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 export { HUMAN_ITEM_HEADING, PREDECIDED_ITEM_HEADING };
@@ -74,7 +74,7 @@ export const renderRemainder = (count) => `- …ほか ${count} 件`;
 export const renderOmitted = (count) => `…（以下 ${count} 文字省略）`;
 
 /** A line of this document's prose, shortened in this document's words. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function truncate(text) {
   return truncateExcerpt(text, { notice: renderOmitted });
 }
@@ -182,7 +182,7 @@ export const SCOPE_LABEL = 'この質問で決まること';
  * A reserved id can never collide with a recorded id, so the two origins can never be
  * confused: an id under this prefix came from the document, and one that is not did not.
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export const ADDED_POINT_ID_PREFIX = 'added-';
 
 export const RESERVED_POINT_ID = /^added-\d{3}$/;
@@ -193,7 +193,7 @@ export const RESERVED_POINT_ID = /^added-\d{3}$/;
  * The block is written as an HTML comment so the readers that stop at a comment — the label
  * reader and the note reader — skip it, and the block is invisible to every rule but its own.
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export const ADDED_POINT_OPEN = '<!-- explain-seed:added-point';
 
 export const ADDED_POINT_CLOSE = '<!-- /explain-seed:added-point -->';
@@ -205,7 +205,7 @@ export const ADDED_POINT_CLOSE = '<!-- /explain-seed:added-point -->';
  * so the guard below refuses it: the human's own words are recorded verbatim, and a line that
  * changes what the readers count is not verbatim.
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export const MARKER_NAMESPACE = /<!--\s*\/?explain-seed:/u;
 
 /**
@@ -214,13 +214,13 @@ export const MARKER_NAMESPACE = /<!--\s*\/?explain-seed:/u;
  * @param {unknown} value
  * @returns {boolean}
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function isOneVerbatimLine(value) {
   return typeof value === 'string' && value !== '' && !value.includes('\n') && !MARKER_NAMESPACE.test(value);
 }
 
 /** The two lines inside an added-point block: where it came from, and what it is. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export const ADDED_POINT_ORIGIN_LABEL = '出どころ';
 
 export const ADDED_POINT_STATEMENT_LABEL = '論点';
@@ -248,7 +248,7 @@ export const MAX_ROUNDS = 5;
  * material, not to forbid the human from ever speaking again. The bound on cycles is what keeps
  * that from becoming an unbounded loop.
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export const MAX_CYCLES = 3;
 
 /** The line that opens a round of questions, and the text that closes it. */
@@ -262,7 +262,7 @@ export const ROUND_SEPARATOR_CLOSE = ' -->';
  * say which cycle a round belongs to. This marker is the boundary a cycle count is read from:
  * the rounds after the last one are the rounds that count against the current cycle.
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export const CYCLE_MARKER_PREFIX = '<!-- explain-seed:cycle ';
 
 export const CYCLE_MARKER_SUFFIX = ' -->';
@@ -295,7 +295,7 @@ export const MAX_PREDECIDED_ITEMS = 12;
 const GROUND_SOURCE = /contract_registry|dependencies\.|inventory\.|adapters\.|conformance\.|obj-|claim-|inv-|err-|test-|sm-|req-|contract-|boundary-/;
 
 /** The heading a person is expected to find at the top of a section, or nothing. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function sectionIdOf(line) {
   const matched = FRAME_SECTIONS.find((section) => line === `## ${section.title}`);
   return matched === undefined ? null : matched.id;
@@ -345,7 +345,7 @@ export function mentionsId(text, id) {
  * @param {string} label
  * @returns {Array<string>|null} the lines, or nothing when the item carries no such label
  */
-// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 function labelledLines(itemBody, label) {
   const lines = itemBody.split('\n');
   const prefix = `- ${label}:`;
@@ -371,7 +371,7 @@ function labelledLines(itemBody, label) {
  * token, so an instruction behind a label would read as a sentence that mentions one, and
  * the gate would neither see it nor be able to trust what it saw.
  */
-// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 export function labelledValue(itemBody, label) {
   const collected = labelledLines(itemBody, label);
   if (collected === null) return null;
@@ -392,7 +392,7 @@ export function labelledValue(itemBody, label) {
  * @param {string} itemBody
  * @returns {Array<string>}
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function boundPointIds(itemBody) {
   const collected = labelledLines(itemBody, BOUND_POINTS_LABEL);
   if (collected === null) return [];
@@ -410,18 +410,18 @@ export function boundPointIds(itemBody) {
  * The marker has to be the line's whole content: a sentence that only mentions the marker is
  * prose, and reading it as a block would turn a question about the format into one.
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 const ADDED_POINT_OPENING = new RegExp(`^${ADDED_POINT_OPEN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} id="([^"]+)" -->$`, 'u');
 
 /** The id an added-point opening line carries, or nothing when the line is not one. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function addedPointIdIn(line) {
   const matched = String(line).trim().match(ADDED_POINT_OPENING);
   return matched === null ? null : matched[1];
 }
 
 /** The value of a labelled line inside an added-point block, or the empty string when absent. */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 function addedPointValue(blockBody, label) {
   const matched = blockBody.match(new RegExp(`^- ${label}:[ \\t]*(.*)$`, 'mu'));
   return matched === null ? '' : matched[1].trim();
@@ -438,7 +438,7 @@ function addedPointValue(blockBody, label) {
  * @param {{ documentText: string }} input
  * @returns {Array<{ id: string, origin: string, statement: string }>}
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export function readAddedPoints({ documentText }) {
   const lines = String(documentText).split('\n');
   const points = [];
@@ -475,7 +475,7 @@ export function readAddedPoints({ documentText }) {
  * @param {{ id: string, origin: string, statement: string }} point
  * @returns {string}
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export function renderAddedPointBlock({ id, origin, statement }) {
   return [
     `${ADDED_POINT_OPEN} id="${id}" -->`,
@@ -494,7 +494,7 @@ export function renderAddedPointBlock({ id, origin, statement }) {
  * @param {{ documentText: string }} input
  * @returns {string}
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function nextAddedPointId({ documentText }) {
   const highest = readAddedPoints({ documentText })
     .map((point) => Number(String(point.id).slice(ADDED_POINT_ID_PREFIX.length)))
@@ -523,7 +523,7 @@ export function nextAddedPointId({ documentText }) {
  * @param {{ documentText: string, id: string, origin: string, statement: string }} input
  * @returns {string}
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function appendAddedPointBlock({ documentText, id, origin, statement }) {
   return appendToHumanSection({
     documentText,
@@ -541,7 +541,7 @@ export function appendAddedPointBlock({ documentText, id, origin, statement }) {
  * @param {{ documentText: string, number: number }} input
  * @returns {string}
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function appendCycleMarker({ documentText, number }) {
   return appendToHumanSection({
     documentText,
@@ -557,7 +557,7 @@ export function appendCycleMarker({ documentText, number }) {
  * holds no unresolved point, and once something is appended there it does not. Every other byte
  * is carried through, so a question number and an answer already written are never disturbed.
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 function appendToHumanSection({ documentText, rendered, what }) {
   const lines = documentText.split('\n');
   const span = sectionBodySpan(lines, HUMAN_SECTION_ID);
@@ -592,7 +592,7 @@ function appendToHumanSection({ documentText, rendered, what }) {
  * @param {{ documentText: string, recordedIds: Set<string> }} input
  * @returns {Array<{ kind: string, section: string, id: string }>}
  */
-// [::TICKET::] PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-230 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-230 --for-spec --no-implementation-order`.
 export function faultsOfAddedPoints({ documentText, recordedIds }) {
   const faults = [];
   const used = new Set();
@@ -612,7 +612,7 @@ export function faultsOfAddedPoints({ documentText, recordedIds }) {
 }
 
 /** The letter a direction opens with, or nothing when the line opens with none. */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function letterOf(line) {
   const matched = String(line).match(/^([^\s:：]+)\s*[:：]/);
   return matched === null ? null : matched[1];
@@ -626,7 +626,7 @@ function letterOf(line) {
  * directions is judged against the three it wrote, not against a list this module would have
  * had to guess at.
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function readOptionLetters(itemBody) {
   return (labelledLines(itemBody, OPTIONS_LABEL) ?? []).map(letterOf).filter((letter) => letter !== null);
 }
@@ -636,7 +636,7 @@ function readOptionLetters(itemBody) {
  * choice, however many lines the question wrote. A question offering "A" twice offers one
  * direction, and a person cannot answer it by choosing — which is what the count is for.
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function directionsOffered(itemBody) {
   return [...new Set(readOptionLetters(itemBody))];
 }
@@ -649,7 +649,7 @@ function directionsOffered(itemBody) {
  * letter the instruction asks for, so the gate sends it back rather than guessing which
  * direction was meant.
  */
-// [::TICKET::] PX-226 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-226 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-226 --for-spec --no-implementation-order`.
 function readRecommendation(itemBody, optionLetters) {
   const value = labelledValue(itemBody, RECOMMENDATION_LABEL);
   if (value === null) return null;
@@ -658,7 +658,7 @@ function readRecommendation(itemBody, optionLetters) {
 }
 
 /** What a person wrote under an item's placeholder, or nothing. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function readHumanNote(itemBody) {
   const lines = itemBody.split('\n');
   const anchor = lines.findIndex((line) => isPlaceholderLine(line));
@@ -678,7 +678,7 @@ function readHumanNote(itemBody) {
  * section exactly as the gate did: two locators would be two answers to "where does a person
  * write", and a document the gate accepted could then be read as one it had not.
  */
-// [::TICKET::] PX-222, PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-225) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-225) --for-spec --no-implementation-order`.
 export function locateSections(documentText) {
   const bodies = {};
   const duplicates = [];
@@ -756,7 +756,7 @@ export function collectOpenItems(projection) {
  * boundary is an open item, `faultsOfPreDecisions` refuses any pre-decision grounded on it and
  * `faultsOfCoverage` refuses it in both sections, so "moved" is not a state this gate has.
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function settledBoundaryIds(projection) {
   return new Set((projection.settledElsewhere ?? []).map((record) => record.boundary_id));
 }
@@ -809,7 +809,7 @@ export function collectPreDecidedItems(facts) {
  * @param {object} projection
  * @returns {Array<{ reference: string, decision: string, ground: string }>}
  */
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export function collectSettledItems(projection) {
   return (projection.settledElsewhere ?? []).map((record) => ({
     reference: `${record.boundary_id}（${record.counterpart_name} が確定）`,
@@ -819,7 +819,7 @@ export function collectSettledItems(projection) {
 }
 
 /** The terms this package's own quotations use, in the order the human meets them. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function collectGlossary(facts) {
   const ranges = facts.projection.owned
     .map((record) => record.quotation)
@@ -845,7 +845,7 @@ function collectGlossary(facts) {
 }
 
 /** The position of the package, in one line. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function positionLine(projection) {
   const { position } = projection;
   return [
@@ -858,7 +858,7 @@ function positionLine(projection) {
 }
 
 /** The line that says which facts moved under a section, when any did. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function renderMovedFacts(movedFacts) {
   if (movedFacts.length === 0) return [];
   const named = movedFacts.map((id) => `INFO ${id.replace('I', '')}「${INFO_SECTION_TITLES[id]}」`).join('、');
@@ -874,7 +874,7 @@ function renderMovedFacts(movedFacts) {
  * glossing every design term the directions and the reason below it will use, so that reading
  * nothing else is enough.
  */
-// [::TICKET::] PX-227, PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-227|PX-232) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-227, PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-227|PX-232) --for-spec --no-implementation-order`.
 function renderContextBlock() {
   return [
     `- ${CONTEXT_LABEL}:`,
@@ -889,7 +889,7 @@ function renderContextBlock() {
  * first token: written behind the label it would be a sentence that mentions one, invisible to
  * the counter and left unfilled without the gate noticing.
  */
-// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
 function renderOptionBlock() {
   return [
     `- ${OPTIONS_LABEL}:`,
@@ -904,7 +904,7 @@ function renderOptionBlock() {
  * The recommendation is a single letter rather than a sentence, so what is being recommended
  * is a thing the document offers rather than a paragraph the gate would have to read.
  */
-// [::TICKET::] PX-226, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-227) --for-spec --no-implementation-order`.
 function renderRecommendationBlock() {
   return [
     `- ${RECOMMENDATION_LABEL}:`,
@@ -925,7 +925,7 @@ function renderRecommendationBlock() {
  * the notice that tells the person they need not read it: a direction is put to a person in
  * their own words, and the record's vocabulary is what the AI settles the points from.
  */
-// [::TICKET::] PX-222, PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
 export function renderQuestionBlock({ number }) {
   return [
     `${HUMAN_ITEM_HEADING} Q${number}`,
@@ -956,7 +956,7 @@ export function renderQuestionBlock({ number }) {
 }
 
 /** One thing already decided, with what it rests on and what would overturn it. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function renderPreDecidedItem({ entry, index }) {
   return [
     `${PREDECIDED_ITEM_HEADING} A${index + 1}${REFERENCE_SEPARATOR}${entry.reference}`,
@@ -970,7 +970,7 @@ function renderPreDecidedItem({ entry, index }) {
 }
 
 /** A list trimmed with an explicit remainder, never silently. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function renderCappedList(items, limit, renderItem, note = '') {
   const shown = items.slice(0, limit).flatMap(renderItem);
   const remainder = items.length - Math.min(items.length, limit);
@@ -979,7 +979,7 @@ function renderCappedList(items, limit, renderItem, note = '') {
 }
 
 /** One glossary term, with the specification's own words and a place to gloss it. */
-// [::TICKET::] PX-222, PX-227 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-227) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-227 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-227) --for-spec --no-implementation-order`.
 function renderGlossaryEntry(term) {
   const at = term.line_start === null || term.line_start === undefined ? '' : `（仕様 ${term.line_start} 行目）`;
   const context = String(term.context ?? '').trim();
@@ -993,7 +993,7 @@ function renderGlossaryEntry(term) {
 
 /** The seven bodies, each as lines. */
 const SECTION_BUILDERS = {
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
   E1(material) {
     const { facts, movedFacts } = material;
     return [
@@ -1007,7 +1007,7 @@ const SECTION_BUILDERS = {
       '',
     ];
   },
-// [::TICKET::] PX-222, PX-224 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-224) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-224) --for-spec --no-implementation-order`.
   E2(material) {
     const { facts, movedFacts } = material;
     const { order } = facts.projection.position;
@@ -1024,7 +1024,7 @@ const SECTION_BUILDERS = {
       '',
     ];
   },
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
   E3(material) {
     const { facts, movedFacts } = material;
     return [
@@ -1036,7 +1036,7 @@ const SECTION_BUILDERS = {
       '',
     ];
   },
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
   E4(material) {
     const { facts, movedFacts } = material;
     const boundary = (entry) =>
@@ -1053,14 +1053,14 @@ const SECTION_BUILDERS = {
       '',
     ];
   },
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
   E5() {
     // The human's section is maintained, never regenerated: `buildFrame` keeps the previous
     // body when it carries this frame's question shape, and `next` appends the questions.
     // This builder is what a frame with nothing to carry writes.
     return [ABSENT_RESIDUALS_STATEMENT, ''];
   },
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
   E6(material) {
     const { preDecided } = material;
     // The line before the first item is for the human and for the AI adding to this
@@ -1083,7 +1083,7 @@ const SECTION_BUILDERS = {
       ),
     ];
   },
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
   E7(material) {
     const { facts, movedFacts } = material;
     const glossary = collectGlossary(facts);
@@ -1114,7 +1114,7 @@ const SECTION_BUILDERS = {
 };
 
 /** One section of the frame, as a chunk of text. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function renderFrameSection({ section, material }) {
   return `## ${section.title}\n\n${SECTION_BUILDERS[section.id](material).join('\n').trim()}`;
 }
@@ -1127,7 +1127,7 @@ function renderFrameSection({ section, material }) {
  * be re-anchored by the record — which is why the human's section is carried whole rather than
  * rebuilt from notes, and why this reader is now used only to name what a reset could not keep.
  */
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
 function collectHumanNotes({ located, faults }) {
   const notes = {};
   if (located === null) return notes;
@@ -1153,7 +1153,7 @@ function collectHumanNotes({ located, faults }) {
  * be the same list: a label added to one and not the other either reopens every document on
  * every run, or keeps a body the gate refuses with no way back.
  */
-// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
 export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([
   OPTIONS_LABEL,
   CONTEXT_LABEL,
@@ -1176,7 +1176,7 @@ export const SHAPE_LABELS_THIS_FRAME_WRITES = Object.freeze([
  * them the way the frame before it did, and a section it kept keeps the AI's prose, which no
  * frame writes.
  */
-// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-226, PX-227, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-227|PX-229) --for-spec --no-implementation-order`.
 function carriesTheShapeThisFrameWrites(sectionId, body) {
   if (sectionId !== HUMAN_SECTION_ID) return true;
   return splitItems(body, HUMAN_ITEM_HEADING).every(
@@ -1187,7 +1187,7 @@ function carriesTheShapeThisFrameWrites(sectionId, body) {
 }
 
 /** The faults an earlier document shows before anything is merged into it. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function faultsOfPrevious(located) {
   if (located === null) return [];
   return [
@@ -1291,7 +1291,7 @@ export function countHumanDecisionItems(documentText) {
 }
 
 /** The line that opens round `n` of questions. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function roundSeparator(n) {
   return `${ROUND_SEPARATOR_OPEN}${n}${ROUND_SEPARATOR_CLOSE}`;
 }
@@ -1306,20 +1306,20 @@ export function roundSeparator(n) {
  * @param {string} documentText
  * @returns {Array<number>}
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function readRoundNumbers(documentText) {
   const separators = String(documentText).match(/<!-- explain-seed:round (\d+) -->/g) ?? [];
   return separators.map((separator) => Number(separator.match(/(\d+)/)[1]));
 }
 
 /** How many rounds of questions a document has opened. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function countRounds(documentText) {
   return readRoundNumbers(documentText).length;
 }
 
 /** The line that opens cycle `n`, the cycle a revision begins. */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function cycleSeparator(n) {
   return `${CYCLE_MARKER_PREFIX}${n}${CYCLE_MARKER_SUFFIX}`;
 }
@@ -1334,7 +1334,7 @@ export function cycleSeparator(n) {
  * @param {string} documentText
  * @returns {Array<number>}
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function readCycleNumbers(documentText) {
   const text = String(documentText);
   const pattern = new RegExp(`${CYCLE_MARKER_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)${CYCLE_MARKER_SUFFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
@@ -1342,7 +1342,7 @@ export function readCycleNumbers(documentText) {
 }
 
 /** How many cycles a document has opened. */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function countCycles(documentText) {
   return readCycleNumbers(documentText).length;
 }
@@ -1358,7 +1358,7 @@ export function countCycles(documentText) {
  * @param {string} documentText
  * @returns {number}
  */
-// [::TICKET::] PX-236 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-236 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
 export function countRoundsInCurrentCycle(documentText) {
   const text = String(documentText);
   const lastMarker = text.lastIndexOf(CYCLE_MARKER_PREFIX);
@@ -1367,7 +1367,7 @@ export function countRoundsInCurrentCycle(documentText) {
 }
 
 /** The numbers of the questions a document asks, in the order it asks them. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function readQuestionNumbers(documentText) {
   const located = locateSections(documentText);
   const body = located.bodies[HUMAN_SECTION_ID] ?? '';
@@ -1377,7 +1377,7 @@ export function readQuestionNumbers(documentText) {
 }
 
 /** The line range of one section's body, so a change can be spliced in without touching the rest. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function sectionBodySpan(lines, sectionId) {
   let start = null;
   let end = null;
@@ -1405,7 +1405,7 @@ function sectionBodySpan(lines, sectionId) {
  * @param {{ documentText: string, size: number }} input
  * @returns {string}
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 export function appendQuestionRound({ documentText, size }) {
   const lines = documentText.split('\n');
   const span = sectionBodySpan(lines, HUMAN_SECTION_ID);
@@ -1427,7 +1427,7 @@ export function appendQuestionRound({ documentText, size }) {
 }
 
 /** The declared count, or nothing when the introduction does not state one. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function declaredDecisionCount(documentText) {
   const located = locateSections(documentText);
   const matched = (located.bodies.E1 ?? '').match(new RegExp(`${COUNT_LABEL}:\\s*(\\d+)\\s*件`));
@@ -1435,7 +1435,7 @@ function declaredDecisionCount(documentText) {
 }
 
 /** Which section a line number falls in. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function sectionOfLine(documentText, lineNumber) {
   let current = null;
   const lines = documentText.split('\n');
@@ -1463,7 +1463,7 @@ function sectionOfLine(documentText, lineNumber) {
  * @param {string} itemBody
  * @returns {string} the context value followed by every left-margin paragraph above the options
  */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function letterScanSpan(itemBody) {
   const lines = String(itemBody).split('\n');
   const context = labelledValue(itemBody, CONTEXT_LABEL) ?? '';
@@ -1483,7 +1483,7 @@ function letterScanSpan(itemBody) {
  * The letters are the ones the question offers, read from the document, so the rule follows the
  * question's own alphabet rather than one fixed here.
  */
-// [::TICKET::] PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-232 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-232 --for-spec --no-implementation-order`.
 function faultsOfForwardReference({ itemBody, directions, section, question, faults }) {
   const span = letterScanSpan(itemBody);
   if (!directions.some((letter) => mentionsStandalone(span, letter))) return;
@@ -1502,7 +1502,7 @@ function faultsOfForwardReference({ itemBody, directions, section, question, fau
  * those four: those four are about the choice the question offers, and this one is about
  * whether the question can be read at all by the person it is put to.
  */
-// [::TICKET::] PX-222, PX-226, PX-227, PX-229, PX-230, PX-232 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-226|PX-227|PX-229|PX-230|PX-232) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-226, PX-227, PX-229, PX-230, PX-232 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226|PX-227|PX-229|PX-230|PX-232) --for-spec --no-implementation-order`.
 function faultsOfDecisions({ body, universe, unsettledCount, section }) {
   const faults = [];
 
@@ -1570,7 +1570,7 @@ const QUESTION_GROUND = /^Q(\d+)(?:\s*[A-Za-z])?\b/;
  *
  * @returns {boolean} whether the ground was a question reference at all
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function faultsOfQuestionGround({ ground, questionsByNumber, faults, section, id }) {
   const matched = String(ground).trim().match(QUESTION_GROUND);
   if (matched === null) return false;
@@ -1585,7 +1585,7 @@ function faultsOfQuestionGround({ ground, questionsByNumber, faults, section, id
 }
 
 /** The faults in the pre-decided section. */
-// [::TICKET::] PX-222, PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229) --for-spec --no-implementation-order`.
 function faultsOfPreDecisions({ body, openIds, questions, section }) {
   const faults = [];
   const questionsByNumber = new Map(
@@ -1612,7 +1612,7 @@ function faultsOfPreDecisions({ body, openIds, questions, section }) {
 }
 
 /** The faults in the coverage of the recorded open items. */
-// [::TICKET::] PX-222, PX-229, PX-230 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-222|PX-229|PX-230) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222, PX-229, PX-230 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-229|PX-230) --for-spec --no-implementation-order`.
 function faultsOfCoverage({ ledger, recordedPoints }) {
   // Coverage is read from the ledger and not from the text: a point that a question binds and
   // an answer later settles is named in both sections, and that is the end state the loop
@@ -1628,7 +1628,7 @@ function faultsOfCoverage({ ledger, recordedPoints }) {
 }
 
 /** The sections whose recorded digest is not the digest of the facts now on disk. */
-// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-222 --for-spec --no-implementation-order`.
 function faultsOfStaleDigests(recorded, digests) {
   return EXPLAIN_SECTION_FACTS.filter((entry) => recorded[entry.id]?.digest !== digests[entry.id].digest).map((entry) => ({
     kind: 'stale-digest',

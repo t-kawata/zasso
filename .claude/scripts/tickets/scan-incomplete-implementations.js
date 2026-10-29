@@ -52,7 +52,7 @@ const TARGET_EXTS = CFG.review.targetExtensions;
 // JSON string values. Scanning these creates a self-referential cascade —
 // crimes recorded in Malfeasance.json are detected by the next scan,
 // generating deeper-escaped records.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-90 --for-spec --no-implementation-order`
 const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
 
 const VALID_MODES = ['all', 'stubs', 'suppress'];

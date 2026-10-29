@@ -18,7 +18,7 @@ import {
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const RENDER = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/render-distribution.mjs');
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function fixtureView() {
   return {
     packageId: 'pkg-1',
@@ -36,7 +36,7 @@ function fixtureView() {
   };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function fixtureRfc() {
   return [
     '# Package RFC',
@@ -56,7 +56,7 @@ function fixtureRfc() {
   ].join('\n');
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function writeFixture(directory, status) {
   const rfcPath = join(directory, 'RFC.md');
   writeFileSync(rfcPath, fixtureRfc());

@@ -9,7 +9,7 @@
  *   C004 the resolveByTicket note documents first-marker derivation + explicit-key requirement
  *   C005 the manifest handoff command targets exactly one manifest file
  *   C006 the Workflow intro no longer claims a subdirectory target
- * [::TICKET::] PX-133 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-133 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-133 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-133 --for-spec --no-implementation-order`.
  */
 
 const test = require("node:test");

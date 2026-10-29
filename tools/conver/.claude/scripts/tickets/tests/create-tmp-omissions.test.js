@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-97: Tickets.json schema拡張 & tmp-omissions作成スクリプト. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-97 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-97: Tickets.json schema拡張 & tmp-omissions作成スクリプト. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-97 --for-spec --no-implementation-order`.
 
 /**
  * create-tmp-omissions.test.js — Tests for create-tmp-omissions.js
@@ -29,13 +29,13 @@ let REJECTION_WARNING;
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-97, PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-97, PX-98 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + ' — expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) + '\n'); }
@@ -211,7 +211,7 @@ try {
 
 // PX-141: PX phase (phaseId=-1) is excluded from the non-reviewed collection.
 // The PX backlog must never be re-queued into _tmp-omissions. @verifies C002
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC002PxExcluded() {
   console.log('  ── C002 PX phase excluded ──');
   const mockTickets = { phases: [
@@ -229,7 +229,7 @@ try {
 
 // PX-144: forNextRound tickets are deferred to the next round and must never be
 // re-queued into _tmp-omissions. @verifies C002
-// [::TICKET::] PX-144 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-144 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-144 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-144 --for-spec --no-implementation-order`.
 (function testC002ForNextRoundExcluded() {
   console.log('  ── C002 forNextRound excluded ──');
   const mockTickets = { phases: [
@@ -246,7 +246,7 @@ try {
 })();
 
 // PX-144: a ticket without forNextRound behaves as processable (absent = false).
-// [::TICKET::] PX-144 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-144 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-144 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-144 --for-spec --no-implementation-order`.
 (function testC002AbsentForNextRoundProcessable() {
   console.log('  ── C002 absent forNextRound = processable ──');
   const mockTickets = { phases: [
@@ -275,7 +275,7 @@ try {
 // C003 postcondition: fromStub flags are correct; PX keys are filtered out.
 // PX-141: PX keys (matching /^PX-\d+$/) must never enter the merged source set.
 // @verifies C003
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC003Postcondition() {
   console.log('  ── C003 Postcondition ──');
   const stubKeys = ['P3-2', 'PX-53'];
@@ -294,7 +294,7 @@ try {
 
 // C003 invariant: unique key count constraint; PX keys never survive the merge.
 // PX-141: @verifies C003
-// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC003Invariant() {
   console.log('  ── C003 Invariant ──');
   const stubKeys = ['P3-2', 'PX-53'];

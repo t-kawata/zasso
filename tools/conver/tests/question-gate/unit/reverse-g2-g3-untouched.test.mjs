@@ -1,5 +1,5 @@
 // PX-234 @verifies C005
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * The reverse rotation's defences survive the transplant.
  *
@@ -25,7 +25,7 @@ const COMMAND = join(PROJECT_ROOT, '.claude/commands/grill-me-for-rfc.md');
 const GRILL_DIR = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc');
 
 /** The reverse-mode section: from its heading to the end of the file. */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function reverseSection() {
   const text = readFileSync(COMMAND, 'utf8');
   const start = text.indexOf('## Reverse mode');

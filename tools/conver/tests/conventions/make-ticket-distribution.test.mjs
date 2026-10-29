@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // PX-324 @verifies C005
 // PX-325 @verifies C007
 // The make-ticket workflow must define the distribution brief and the delivery gate as
@@ -33,7 +34,7 @@ test('C005 the spec requirement is conditional', () => {
   assert.match(DOCUMENT, /A ticket with no distribution units writes no such section, so Case B is unchanged/);
 });
 
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 test('C007 the delivery gate runs after the spec is written', () => {
   const specStep = DOCUMENT.indexOf('### Step 9: Write spec file');
   const gateStep = DOCUMENT.indexOf('### Step 9.5: Distribution delivery gate');
@@ -56,7 +57,7 @@ test('C007 the delivery gate runs on every make run and self-skips', () => {
 test('C005 plan, start and review run the prerequisite gate at entry', () => {
   for (const command of ['plan-ticket.md', 'start-ticket.md', 'review-ticket.md']) {
     const document = readFileSync(new URL(`../../.claude/commands/${command}`, import.meta.url), 'utf8');
-    assert.match(document, /check-ticket-prerequisites\.js --ticket-key="\$ARGUMENTS"/);
+    assert.match(document, /check-ticket-prerequisites\.js"? --ticket-key="\$ARGUMENTS"/);
   }
 });
 

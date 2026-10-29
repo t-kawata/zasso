@@ -1,4 +1,4 @@
-// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-3 --for-spec --no-implementation-order`.
 // @verifies C004
 /**
  * The slice's output against the answer key, through P22-2's instrument.
@@ -239,7 +239,7 @@ test('a reconciliation against a changed oracle is refused', () => {
 
 // --- IT: the whole path, through the CLI the ticket declares -------------------
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT: the spike runs a slice, then reconciles it, through run.mjs', () => {
   const project = makeOracleProject();
   const subject = createSyntheticTree(SPIKE_SINGLE_CLAIM_FILES);

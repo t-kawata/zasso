@@ -27,7 +27,7 @@
 
 const fs = require('fs');
 const path = require('path');
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
 const { execFileSync } = require('child_process');
 
@@ -61,7 +61,7 @@ function resolveSpecPath(ticketKey, ticketsPath) {
 }
 
 /** Parse command-line arguments */
-// [::TICKET::] PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-73 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-73 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-73 --for-spec --no-implementation-order`.
 function parseArgs(testArgs) {
   const args = testArgs || process.argv.slice(2);
   let ticketsPath = '';
@@ -111,7 +111,7 @@ function parseArgs(testArgs) {
   return { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, contracts, notes };
 }
 
-// [::TICKET::] PX-73, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-73|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-73, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-73|PX-231) --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, contracts, notes } = parseArgs();
 

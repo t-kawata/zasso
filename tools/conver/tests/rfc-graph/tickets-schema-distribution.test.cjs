@@ -11,7 +11,7 @@ const SCHEMA_PATH = path.resolve(__dirname, '../../.claude/scripts/tickets/ticke
 const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf8'));
 
 /** A minimal document the schema accepts. */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function documentWith(ticket) {
   return {
     title: 'test',
@@ -20,7 +20,7 @@ function documentWith(ticket) {
   };
 }
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function ticketWith(distribution) {
   const ticket = {
     id: 1,
@@ -33,7 +33,7 @@ function ticketWith(distribution) {
   return ticket;
 }
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function validDistribution() {
   return {
     sourceMapDigest: 'a'.repeat(64),

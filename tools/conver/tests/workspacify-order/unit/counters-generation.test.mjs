@@ -1,4 +1,4 @@
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // PX-309 @verifies C004
 // The display counters are read beside the record that owns them. A record written before
 // the generation fields existed still answers a documented lower bound rather than zero.
@@ -16,7 +16,7 @@ import {
 } from '../../../.claude/scripts/workspacify-order/lib/counters.mjs';
 import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function packageDirectory(t) {
   const workspace = materializeOrderWorkspace({ packages: ['pkg-0001'] });
   t.after(() => workspace.remove());

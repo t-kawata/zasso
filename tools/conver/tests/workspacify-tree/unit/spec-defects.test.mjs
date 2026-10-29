@@ -1,4 +1,4 @@
-// [::TICKET::] PX-199 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-199 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-199 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-199 --for-spec --no-implementation-order`.
 // PX-199 @verifies C002 C003
 // Every pulse candidate must be settled by the AI in this session: resolved in
 // spec_defects or carried as a residual_question for the later human grill. Asking
@@ -39,7 +39,7 @@ function resolved() {
   };
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002 a fully accounted payload passes and every defect field is required', () => {
   const clean = validateSpecDefects(resolved());
   assert.equal(clean.ok, true, JSON.stringify(clean.errors));

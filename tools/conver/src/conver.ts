@@ -13,7 +13,7 @@ import { CronScheduler } from "./cron-scheduler.js";
  * exits mid-run: the night loop must only terminate at a defined completion
  * point (PX-150). The message is prefixed for greppability.
  */
-// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
 export function reportFatalError(prefix: string, err: unknown): void {
   console.error(`${prefix}:`, err instanceof Error ? err.message : String(err));
 }
@@ -54,7 +54,7 @@ async function runNormalMode(cli: CliOptions): Promise<void> {
  * CronScheduler で定期的に runLoop を実行する。
  * SIGINT/SIGTERM でグレースフルシャットダウンする。
  */
-// [::TICKET::] PX-149, PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-173) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-173) --for-spec --no-implementation-order`.
 async function runWatcherMode(cli: CliOptions): Promise<void> {
   // Step 1: 設定ファイルの読み込みと検証
   let config: WatcherConfig;
@@ -121,7 +121,7 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
 }
 
 export async function main(): Promise<void> {
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
   const options = parseCliOptions(process.argv);
 
   // -k 省略時は keyless モードの旨を警告する（認証必須プロバイダーでは上流エラーになる）

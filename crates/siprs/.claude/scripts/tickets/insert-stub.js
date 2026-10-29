@@ -73,9 +73,9 @@ const PX_PHASE_ID = -1;
 /**
  * Custom error class for insert-stub validation failures.
  */
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
 class InsertStubError extends Error {
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
   constructor(message) {
     super(message);
     this.name = 'InsertStubError';
@@ -91,7 +91,7 @@ class InsertStubError extends Error {
  * @param {string} redoInstruction - How to fix and re-run
  * @returns {string}
  */
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function buildBlockingMessage(problem, blockingReason, redoInstruction) {
   return problem + '\nCause: ' + blockingReason + '\nAction: ' + redoInstruction;
 }
@@ -104,7 +104,7 @@ function buildBlockingMessage(problem, blockingReason, redoInstruction) {
  * @param {string} ticketKey - e.g. "P0-1" or "PX-10"
  * @returns {{ticket: object, phaseId: number}|null} - null if not found
  */
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function findTicketPosition(ticketsData, ticketKey) {
   const pxMatch = ticketKey.match(/^PX-(\d+)$/);
   const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);
@@ -134,8 +134,8 @@ function findTicketPosition(ticketsData, ticketKey) {
  * @returns {{inserted: boolean}}
  * @throws {InsertStubError} on validation failure
  */
-// [::TICKET::] PX-95, PX-94, PX-96, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94, PX-96, PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-119|PX-121) --for-spec --no-implementation-order`.
 function insertStub({ file, line, ticketRef, stubReason, resolvePlan, ticketsPath, ticketKey }) {
   // --- 1. Validate required arguments ---
   if (!file || typeof file !== 'string') {
@@ -371,8 +371,8 @@ function insertStub({ file, line, ticketRef, stubReason, resolvePlan, ticketsPat
 // ===========================================================================
 // CLI entry point
 // ===========================================================================
-// [::TICKET::] PX-95, PX-94, PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-96, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-96|PX-119) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94, PX-96 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-96 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-96, PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-96|PX-119) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = {};
@@ -424,7 +424,7 @@ function parseArgs() {
   return opts;
 }
 
-// [::TICKET::] PX-95, PX-94, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94|PX-119) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94, PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94|PX-119) --for-spec --no-implementation-order`.
 function main() {
   const opts = parseArgs();
 

@@ -10,7 +10,7 @@ import { digestValue } from '../../.claude/scripts/sequences-slice/lib/digest.mj
 const MAP_DIGEST = 'a'.repeat(64);
 const TICKET_DIGESTS = { 1: 'c'.repeat(64) };
 
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function fixtureChain() {
   return {
     map: { digest: MAP_DIGEST, sourceViewDigest: 'OLD' },

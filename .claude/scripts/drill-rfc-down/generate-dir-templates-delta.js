@@ -28,7 +28,7 @@ const { getDeclarationStub } = require(path.resolve(SCRIPT_DIR, '../rfc-graph/bo
 const PROSE_KINDS = ['rationale', 'glossary', 'requirement'];
 
 /** Read and validate the dirs-tree-delta newFiles array. */
-// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
 function resolveDeltaNewFiles(deltaPath) {
   if (!fs.existsSync(deltaPath)) {
     throw new Error('[ERROR] dirs-tree-delta.json not found.\nCause: ' + deltaPath + ' does not exist.\nAction: run boundify-step --approve so the delta is derived before invoking the generator.');
@@ -46,7 +46,7 @@ function resolveDeltaNewFiles(deltaPath) {
 }
 
 /** Locate the Dirs-Tree file node by a Dirs-Tree-relative path (e.g. "src/api/x.rs"). */
-// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
 function findFileNodeByPath(dirsTree, relPath) {
   const segments = relPath.split('/').filter(Boolean);
   for (const tree of Object.values(dirsTree.trees || {})) {
@@ -62,7 +62,7 @@ function findFileNodeByPath(dirsTree, relPath) {
 }
 
 /** Strip the tree-root segment (e.g. "src") from a Dirs-Tree-relative path. */
-// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
 function stripTreeRoot(dirsTreeRelPath) {
   return dirsTreeRelPath.split('/').slice(1).join('/') || dirsTreeRelPath;
 }
@@ -73,7 +73,7 @@ function stripTreeRoot(dirsTreeRelPath) {
  * Rendering with discover() then naturally includes the auto stub; the caller's
  * staged tree stays untouched (purity).
  */
-// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
 function cloneTreeWithAutoStubs(node, lang) {
   const clone = { ...node, children: (node.children || []).map((child) => cloneTreeWithAutoStubs(child, lang)) };
   if (clone.type === 'file' && !clone.declarationStub) {
@@ -84,7 +84,7 @@ function cloneTreeWithAutoStubs(node, lang) {
 }
 
 /** Fallback header context when the staged Dirs-Tree lacks sourceGraph. */
-// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-170, PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
 function fallbackHeaderContext(dirsTreePath, graphPath, lang) {
   const graphDirAbs = path.dirname(path.resolve(graphPath));
   return {

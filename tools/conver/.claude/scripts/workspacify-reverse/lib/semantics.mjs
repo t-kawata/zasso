@@ -1,4 +1,4 @@
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 /**
  * R3 — the semantic material, extracted in two separated stages.
  *
@@ -659,7 +659,7 @@ export function assertSpanResolves(root, span) {
 /** The kinds a given language's vocabulary reaches for a node type, memoised. */
 const KIND_INDEX = new Map();
 
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function kindIndexFor(language) {
   if (KIND_INDEX.has(language)) return KIND_INDEX.get(language);
   const vocabulary = FACT_VOCABULARY[language] ?? {};
@@ -682,7 +682,7 @@ function kindIndexFor(language) {
  * `fs.readFileSync` arrived as `fs.readFileSync` where the pattern asked for
  * `readFileSync`, and every anchored pattern in those rows matched nothing.
  */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function memberNameOf(node) {
   return node.childForFieldName?.('field')?.text
     ?? node.childForFieldName?.('property')?.text
@@ -691,7 +691,7 @@ function memberNameOf(node) {
 }
 
 /** The name an expression reaches for, whatever shape the grammar gives it. */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function nameFromExpression(node) {
   if (node === null || node === undefined) return null;
   if (CALL_NODE_TYPES.includes(node.type)) return nameOf(node);
@@ -704,8 +704,8 @@ function nameFromExpression(node) {
 }
 
 /** The text a name filter is tested against, which differs by node type. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function nameOf(node) {
   if (CALL_NODE_TYPES.includes(node.type)) {
     const callee = node.childForFieldName?.('function');
@@ -737,14 +737,14 @@ function nameOf(node) {
 }
 
 /** The name a declaration carries, for the declaration-shaped kinds. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function declaredNameOf(node) {
   return node.childForFieldName?.('name')?.text ?? null;
 }
 
 /** Whether a declaration's text carries a visibility modifier. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function isPublicDeclaration(node, language) {
   if (language === 'rust') {
     return node.namedChildren.some((child) => child.type === 'visibility_modifier');
@@ -774,7 +774,7 @@ function isPublicDeclaration(node, language) {
  * grandchild rather than a child. A check that looked only one level up would
  * find `arguments` and conclude the expression is not in a call at all.
  */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function enclosingCallOf(node) {
   let current = node.parent;
   while (current !== null && current !== undefined) {
@@ -789,7 +789,7 @@ function enclosingCallOf(node) {
 }
 
 /** Whether a node sits on the left of an assignment, where it is written rather than read. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function isAssignmentTarget(node) {
   let current = node.parent;
   while (current !== null && current !== undefined) {
@@ -803,7 +803,7 @@ function isAssignmentTarget(node) {
 }
 
 /** The `#[cfg(...)]` gates a declaration carries. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function isCfgGated(node) {
   let current = node;
   while (current !== null && current !== undefined) {
@@ -827,7 +827,7 @@ function isCfgGated(node) {
  * that looked one level down found nothing and every C/C++ argument read went
  * unenumerated while the file was full of them.
  */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function parameterListOf(functionNode) {
   const own = functionNode.childForFieldName?.('parameters')
     ?? functionNode.namedChildren.find((child) => child.type === 'parameters' || child.type === 'parameter_list');
@@ -845,7 +845,7 @@ function parameterListOf(functionNode) {
  * first child there bound the parameter to its own type; Python's parameter is
  * the identifier itself and has no children to read at all.
  */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function parameterNameOf(parameter) {
   const declared = parameter.childForFieldName?.('pattern')?.text
     ?? parameter.childForFieldName?.('name')?.text
@@ -855,8 +855,8 @@ function parameterNameOf(parameter) {
 }
 
 /** The names a function declares as parameters, with the binding syntax stripped. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function parametersOf(functionNode) {
   const parameterList = parameterListOf(functionNode);
   const declared = [];
@@ -874,7 +874,7 @@ function parametersOf(functionNode) {
  * name, sits in no test-named file, and is the argument of a call rather than a
  * declaration — so nothing about it says "test" except the call it is passed to.
  */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function isTestCallback(functionNode, testCallPattern) {
   if (testCallPattern === undefined) return false;
   const call = functionNode.parent?.parent;
@@ -886,7 +886,7 @@ function isTestCallback(functionNode, testCallPattern) {
  * Walk a file's syntax tree once, emitting every fact the language's vocabulary
  * reaches, with the enclosing declaration and the test context attached.
  */
-// [::TICKET::] P22-5, P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-5|P24-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5, P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-5|P24-4) --for-spec --no-implementation-order`.
 function factsInFile({ root, relativePath, language, tree, text }) {
   const index = kindIndexFor(language);
   const filters = NAME_FILTERS[language] ?? {};
@@ -1051,7 +1051,7 @@ function factsInFile({ root, relativePath, language, tree, text }) {
 }
 
 /** The files a population names: the seeds when given, otherwise the whole tree. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function populationOf(root, { seeds = null, excludedPaths = [] } = {}) {
   if (Array.isArray(seeds) && seeds.length > 0) {
     return [...seeds].sort(compareText);
@@ -1342,7 +1342,7 @@ const UNDECIDED_BY_KIND = Object.freeze({
 });
 
 /** The question the grill is asked about a candidate the extractor could not settle. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function grillQuestionFor(candidate) {
   return `Which configuration does the condition at ${candidate.source_span.file}:${candidate.source_span.line} hold `
     + `in, and is it ${candidate.undecided}? The fact sits behind a configuration gate, so what ships cannot be `

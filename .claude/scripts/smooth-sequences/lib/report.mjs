@@ -36,20 +36,20 @@ const ROUTE_SEPARATOR = '\u0000';
 const NEXT_FIX = 'next: fix every finding above; blocked surfaces must also be restored. exit 0 only when both sets are empty.';
 
 /** The stable order every report uses. */
-// [::TICKET::] PX-273 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-273 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-275 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-275 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-273 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-273 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function compareFindings(left, right) {
   return `${left.checkId}\u0000${left.subject}`.localeCompare(`${right.checkId}\u0000${right.subject}`);
 }
 
 /** The identity a finding keeps across runs. */
-// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
 function computeFindingKey(finding) {
   return `${finding.checkId}${ROUTE_SEPARATOR}${finding.subject}`;
 }
 
 /** The identity of the route a finding belongs to. */
-// [::TICKET::] PX-277, PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-285) --for-spec --no-implementation-order`.
 function computeRouteKey(finding) {
   return `${finding.where}${ROUTE_SEPARATOR}${finding.producer}`;
 }
@@ -60,7 +60,7 @@ function computeRouteKey(finding) {
  * A persisted finding means the last repair did not address it; the loop uses that
  * signal to stop repeating an edit that changed nothing.
  */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 export function annotatePersisted(findings, previousReport) {
   const previous = new Set((previousReport?.findings ?? []).map((finding) => computeFindingKey(finding)));
   return findings.map((finding) => ({
@@ -80,7 +80,7 @@ export function statusPathFor(root) {
 }
 
 /** Refuse a report that exists but cannot be read. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function readReportFile(path) {
   try {
     return JSON.parse(readFileSync(path, 'utf8'));
@@ -94,7 +94,7 @@ function readReportFile(path) {
 }
 
 /** The generation report, or null when it is absent. */
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-281 --for-spec --no-implementation-order`.
 export function readGenerationReport(root) {
   const path = join(runDirectoryFor(root), JSON_FILE_NAME);
   return existsSync(path) ? readReportFile(path) : null;
@@ -107,8 +107,8 @@ export function readGenerationReport(root) {
  * report is a named refusal: mixing it with the legacy report would report persisted
  * against a pass that never saw the current workspace.
  */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-281 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-281 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-281 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-281 --for-spec --no-implementation-order`.
 export function readPreviousReport(root) {
   const generationPath = join(runDirectoryFor(root), JSON_FILE_NAME);
   if (existsSync(generationPath)) return readReportFile(generationPath);
@@ -127,7 +127,7 @@ export function readPreviousReport(root) {
  * @param {string} root — workspace root
  * @returns {object|null} the baseline report
  */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function readFindingBaseline(root) {
   const current = readPreviousReport(root);
   if ((current?.findings ?? []).length > 0) return current;
@@ -159,7 +159,7 @@ export function readFindingBaseline(root) {
  * findings but blocked surfaces is the baseline, not a reason to fall back to an
  * older report. The finding ledger keeps its own "most recent with findings" rule.
  */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 export function readBaselineReport(root) {
   const current = readGenerationReport(root);
   if (current !== null) return { report: current, source: 'current' };
@@ -189,7 +189,7 @@ export function readBaselineReport(root) {
  * @returns {{ findings: Set<string>, blocked: Set<string>, readingSubjects: Set<string>,
  *   readingCount: number, readingWithheld: number, source: string }}
  */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 export function readDebtBaseline(root) {
   const { report, source } = readBaselineReport(root);
   const readings = readUnresolvedReadingSubjects(root);
@@ -215,7 +215,7 @@ export function emptyDenominator() {
 }
 
 /** The denominator line, with every component labeled so no axis is one bare number. */
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 function renderDenominatorLine(denominator = emptyDenominator()) {
   const operations = denominator.operations ?? {};
   const sequences = denominator.sequences ?? {};
@@ -224,8 +224,8 @@ function renderDenominatorLine(denominator = emptyDenominator()) {
 }
 
 /** Normalize a checks record so older callers keep working. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function normalizeChecks(checks = {}) {
   const blocked = checks.blocked ?? checks.skipped ?? 0;
   return {
@@ -239,7 +239,7 @@ function normalizeChecks(checks = {}) {
 }
 
 /** The compatibility projection of blocked checks as withheld entries. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function projectWithheld(blocked) {
   return blocked.map((entry) => ({ layer: entry.family, check: entry.checkId, reason: entry.reason }));
 }
@@ -255,10 +255,10 @@ function projectWithheld(blocked) {
  *   instrument?: object, verdict?: string, wouldExit?: number|null }} input
  * @returns {object}
  */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function buildReport(input) {
   const {
     workspace, findings, withheld, blocked, waived, downgrade,
@@ -305,14 +305,14 @@ export function buildReport(input) {
 }
 
 /** One finding as the reader repairs it: where, why, fix, producer. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 export function renderFindingLine(finding) {
   const persisted = finding.persisted ? ' | persisted' : '';
   return `  ${finding.checkId} ${finding.subject} | why: ${finding.why} | fix: ${finding.fix}${persisted}`;
 }
 
 /** The findings grouped under the surface and producer that repair them. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 export function renderRouteBlock(findings) {
   const groups = new Map();
   for (const finding of findings) {
@@ -330,13 +330,13 @@ export function renderRouteBlock(findings) {
 }
 
 /** The number of distinct surfaces a blocked set names. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function countBlockedSurfaces(blocked) {
   return new Set(blocked.map((entry) => entry.surface)).size;
 }
 
 /** Every blocked check, one line each. */
-// [::TICKET::] PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
 function renderBlockedSummary(blocked) {
   if (blocked.length === 0) return [];
   const surfaceCount = countBlockedSurfaces(blocked);
@@ -348,7 +348,7 @@ function renderBlockedSummary(blocked) {
 }
 
 /** The next action for an unproven run: a producer per blocked surface, and readings. */
-// [::TICKET::] PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-286) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286) --for-spec --no-implementation-order`.
 function renderUnprovenNext(report) {
   const producers = [...new Set((report.blocked ?? []).map((entry) => entry.producer).filter(Boolean))];
   const unresolvedReadings = report.readings?.inquest?.yes ?? 0;
@@ -360,9 +360,9 @@ function renderUnprovenNext(report) {
 }
 
 /** The verdict line a run ends at. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285, PX-286 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-286 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-285|PX-286) --for-spec --no-implementation-order`.
 function renderVerdictLine(report) {
   if (report.verdict === 'audit') return `next: none. verdict: audit; wouldExit: ${report.wouldExit ?? 0}.`;
   if (report.verdict === 'unproven') return renderUnprovenNext(report);
@@ -371,7 +371,7 @@ function renderVerdictLine(report) {
 }
 
 /** The readings files the summary could not parse, one line when any exist. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function renderReadingsWithheldLine(readings) {
   const withheld = readings?.withheld ?? [];
   return withheld.length === 0
@@ -380,7 +380,7 @@ function renderReadingsWithheldLine(readings) {
 }
 
 /** The instrument health as one diagnostic line; it never changes the verdict. */
-// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-302 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-302 --for-spec --no-implementation-order`.
 function formatInstrumentLine(instrument = emptyInstrument()) {
   const inquest = instrument.inquest ?? {};
   const attacks = instrument.attacks ?? {};
@@ -391,8 +391,8 @@ function formatInstrumentLine(instrument = emptyInstrument()) {
 }
 
 /** The lines every console block opens with after its finding count. */
-// [::TICKET::] PX-283, PX-284 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285, PX-302, PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-285|PX-302|PX-311) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-302, PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-285|PX-302|PX-311) --for-spec --no-implementation-order`.
 function buildSummaryLines(report) {
   const readingsLine = report.readings?.policy === 'advisory'
     ? `${formatReadingsLine(report.readings)} (advisory; not blocking)`
@@ -414,7 +414,7 @@ function buildSummaryLines(report) {
 }
 
 /** The waived findings as one line. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function renderWaivedLine(waived) {
   return waived.length === 0 ? [] : [`waived: ${waived.length} finding(s) with a ground`];
 }
@@ -425,9 +425,9 @@ function renderWaivedLine(waived) {
  * Exit 1 is an input to the repair loop, never a completion: the block ends by naming
  * the only action that clears it. Exit 4 names every blocked surface instead.
  */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-283 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-283 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function renderConsoleReport(report, { jsonPath } = {}) {
   const suffix = jsonPath === undefined ? '' : `; ${jsonPath}`;
   if (report.findings.length === 0) {
@@ -457,8 +457,8 @@ export function renderReportJson(report) {
 }
 
 /** Render the capped Markdown report. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 export function renderReportMarkdown(report, { limit = MAX_MARKDOWN_FINDINGS } = {}) {
   const surfaceCount = countBlockedSurfaces(report.blocked);
   const header = [

@@ -30,8 +30,8 @@ const VALID_STATUSES = new Set(['pending', 'resolved', 'false_positive']);
  * @param {string} action — Fix instruction
  * @returns {string}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-82, PX-83 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
 function formatError(id, description, cause, action) {
   return '[ERROR] [' + id + '] ' + description + '\nCause: ' + cause + '\nAction: ' + action;
 }
@@ -43,7 +43,7 @@ function formatError(id, description, cause, action) {
  * @param {Array} ticketContracts
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkContractIdExists(stubId, contractIds, ticketContracts) {
   const validIds = new Set((ticketContracts || []).map(function (c) { return c.id; }));
   for (const cid of (contractIds || [])) {
@@ -68,7 +68,7 @@ function checkContractIdExists(stubId, contractIds, ticketContracts) {
  * @param {string} filePath
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkFileExists(stubId, filePath) {
   if (!filePath) {
     return {
@@ -97,7 +97,7 @@ function checkFileExists(stubId, filePath) {
  * @param {string} markerText
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkMarkerTextMatches(stubId, filePath, markerText) {
   if (!filePath || !fs.existsSync(filePath)) {
     return { pass: true }; // Skip — file check already handles this
@@ -132,7 +132,7 @@ function checkMarkerTextMatches(stubId, filePath, markerText) {
  * @param {string[]} contractIds
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkContractsNonEmpty(stubId, contractIds) {
   if (!contractIds || contractIds.length === 0) {
     return {
@@ -155,7 +155,7 @@ function checkContractsNonEmpty(stubId, contractIds) {
  * @param {object} ticketsData
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkDeferredToExists(stubId, deferredTo, ticketsData) {
   if (deferredTo === null || deferredTo === undefined || deferredTo === '') {
     return { pass: true }; // No dependency — valid
@@ -209,7 +209,7 @@ function checkDeferredToExists(stubId, deferredTo, ticketsData) {
  * Creating new non-existent tickets just to defer to them is also forbidden.
  */
 // [::TICKET::] PX-95: Ghost ticket prevention checks
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
 function checkOrphanTicketRefNotFp(item, ticketsData) {
   if (item.crimeType === 'ORPHAN_TICKET_REF' && item.status === 'false_positive') {
     // Allow only if deferredTo references an existing ticket
@@ -243,7 +243,7 @@ function checkOrphanTicketRefNotFp(item, ticketsData) {
  * implementing the code is also forbidden.
  */
 // [::TICKET::] PX-95: Ghost ticket prevention checks
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
 function checkCompletedTicketStaleNotFp(item) {
   if (item.crimeType === 'COMPLETED_TICKET_STALE' && item.status === 'false_positive') {
     return {
@@ -270,7 +270,7 @@ function checkCompletedTicketStaleNotFp(item) {
  * justifications.
  */
 // [::TICKET::] PX-95: Ghost ticket prevention checks
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
 function checkFalsePositiveNoteIsNotGhostTicket(item, ticketsData) {
   if (item.status !== 'false_positive') return { pass: true };
 
@@ -300,7 +300,7 @@ function checkFalsePositiveNoteIsNotGhostTicket(item, ticketsData) {
  * @param {string} status
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkStatusValid(stubId, status) {
   if (!status || !VALID_STATUSES.has(status)) {
     return {
@@ -322,7 +322,7 @@ function checkStatusValid(stubId, status) {
  * @param {object|null} falsePositive
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkFalsePositiveJustification(stubId, falsePositive) {
   // null, undefined, or empty = not a false_positive — passes
   if (!falsePositive) return { pass: true };
@@ -357,7 +357,7 @@ function checkFalsePositiveJustification(stubId, falsePositive) {
  * @param {Array} allItems — Items to check for cycles (included in DAG)
  * @returns {{pass: boolean, error?: string, cyclePath?: string[]}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function checkDagCycles(stubId, allTargetStubs, allItems) {
   // Build adjacency map from deferred_to references
   const deferredMap = {};
@@ -403,7 +403,7 @@ function checkDagCycles(stubId, allTargetStubs, allItems) {
  * @param {string} ticketKey — Ticket to validate
  * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79, PX-95, PX-94, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-95|PX-94|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-95, PX-94, PX-129, PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-95|PX-94|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function validateTargets(ticketsData, ticketKey) {
   const ticket = findTicket(ticketsData, ticketKey);
   if (!ticket) {
@@ -508,7 +508,7 @@ function validateTargets(ticketsData, ticketKey) {
   };
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketKey, ticketsPath;

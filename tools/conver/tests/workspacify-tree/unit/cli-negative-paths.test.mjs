@@ -24,7 +24,7 @@ function runCli(args, cwd = process.cwd()) {
 
 const SPEC_FILE_TEXT = '# S\n\n## Object Catalog\n\n| object | kind |\n|--------|------|\n| RuleRecord | record |\n';
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('PX-188 C001 [PX-188 @verifies C001]: unknown subcommand prints usage and exits non-zero', () => {
   const result = runCli(['bogus']);
   assert.notEqual(result.status, 0);

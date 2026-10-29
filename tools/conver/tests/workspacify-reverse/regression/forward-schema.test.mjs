@@ -1,4 +1,4 @@
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 // P22-10 @verifies C001 C002 C003
 /**
  * The forward schemas, extended for the reverse rotation without moving a byte.
@@ -60,8 +60,8 @@ const PROJECT_ROOT = process.cwd();
 const BASELINE_PATH = join(PROJECT_ROOT, BASELINE_RELATIVE_PATH);
 
 /** A throwaway project holding copies of the fixtures and command files under test. */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 function makeTempProject() {
   const root = mkdtempSync(join(tmpdir(), 'p22-10-gate-'));
   for (const dir of [TREE_FIXTURES_RELATIVE_DIR, ALLOCATE_FIXTURES_RELATIVE_DIR, COMMANDS_RELATIVE_DIR]) {
@@ -71,7 +71,7 @@ function makeTempProject() {
 }
 
 /** The stage-2 fixture manifest, the one artefact whose bytes this ticket must not move. */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function allocateFixtureManifestPath(root) {
   return join(root, ALLOCATE_FIXTURES_RELATIVE_DIR, 'sample-tree', 'WORKSPACIFY-TREE-MANIFEST.json');
 }
@@ -203,7 +203,7 @@ test('UT-7 C002 invariant: no declared field appears on a forward artefact', () 
 // C003 — the seed is generated; 14 headings carrying the reverse index; the check unchanged
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function seedFixture() {
   const { manifest } = buildValidManifest();
   const pkg = manifest.workspace.packages[0];
@@ -216,7 +216,7 @@ function seedFixture() {
 }
 
 /** A seed in reverse mode, so the reverse index is machine input rather than AI prose. */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function renderReverseSeed(reverseIndex) {
   const { manifest, pkg, referenceBlock, expectedAllocation } = seedFixture();
   return renderSeed({
@@ -344,7 +344,7 @@ test('UT-6 the regression gate reports a reverse field written into a forward fi
 // UT-9 — Tickets round-trips unchanged, and the writer refuses a leaked field
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function makeTicketsCopy() {
   const dir = mkdtempSync(join(tmpdir(), 'p22-10-tickets-'));
   const ticketsPath = join(dir, 'Tickets.json');
@@ -368,7 +368,7 @@ function makeTicketsCopy() {
   return ticketsPath;
 }
 
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function updateTicket(ticketsPath, payload) {
   return spawnSync(
     process.execPath,

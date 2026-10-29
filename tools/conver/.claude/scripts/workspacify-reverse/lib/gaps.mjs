@@ -1,4 +1,4 @@
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 /**
  * R5 — the gaps and the contradictions.
  *
@@ -159,7 +159,7 @@ const NO_TESTS_IN_POPULATION =
   + 'say nothing';
 
 /** A gap record, with the fields every consumer reads. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function gapOf(kind, file, line, provenance, extra = {}) {
   return {
     gap_id: `gap-${file}-${kind}-${line}`,
@@ -173,7 +173,7 @@ function gapOf(kind, file, line, provenance, extra = {}) {
 }
 
 /** Read a file, reporting the failure rather than raising it. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function readOrNull(root, relativePath, readFile) {
   try {
     return readFile(join(root, relativePath), 'utf8');
@@ -192,7 +192,7 @@ function readOrNull(root, relativePath, readFile) {
  * two lines. When the instrument cannot read a file the textual reading is still
  * offered, and each gap says which reading produced it so a consumer can weigh it.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function parseOrNull(root, relativePath, readFile) {
   const language = syntaxLanguageOf(relativePath);
   if (language === 'unknown') return null;
@@ -204,7 +204,7 @@ function parseOrNull(root, relativePath, readFile) {
 }
 
 /** Visit every node of a tree, parents before children, comments included. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function walkAll(node, visit) {
   visit(node);
   for (const child of node.children) walkAll(child, visit);
@@ -217,7 +217,7 @@ function walkAll(node, visit) {
  * `doc_comment` inside the `line_comment` that carries its `///`, and a walk
  * that visited both would report one comment's drift twice, under one gap id.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function commentNodesOf(tree) {
   const comments = [];
   const visit = (node) => {
@@ -238,7 +238,7 @@ function commentNodesOf(tree) {
  * the file, and characters are replaced rather than removed so an offset in this
  * view is the offset in the file.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function codeViewOf(text, comments) {
   const characters = text.split('');
   for (const node of comments) {
@@ -250,7 +250,7 @@ function codeViewOf(text, comments) {
 }
 
 /** The identifier-shaped names a piece of text contains. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function identifiersIn(text) {
   const names = new Set();
   for (const match of text.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\b/g)) names.add(match[0]);
@@ -258,7 +258,7 @@ function identifiersIn(text) {
 }
 
 /** The line a character offset falls on, one-based. */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function lineAtOffset(text, offset) {
   let line = 1;
   for (let index = 0; index < offset && index < text.length; index += 1) {
@@ -276,7 +276,7 @@ function lineAtOffset(text, offset) {
  * is the shape a real empty body takes once an attribute or a comment sits
  * inside it.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function emptyFunctionsOf(tree) {
   const empty = [];
   walkAll(tree.rootNode, (node) => {
@@ -332,7 +332,7 @@ export function findStubs(root, paths, { readFile = readFileSync } = {}) {
  * note or a real instruction. The tree also yields the empty bodies a line scan
  * cannot identify, including ones whose braces are on separate lines.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function stubsInTree(parsed, relativePath) {
   const gaps = [];
   const comments = commentNodesOf(parsed.tree);
@@ -382,7 +382,7 @@ function stubsInTree(parsed, relativePath) {
  * is recorded as `inferred` and says its reading was `textual`, because a word
  * in this reading may be prose in a string or a comment rather than a marker.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function stubsInText(text, relativePath) {
   const gaps = [];
   text.split('\n').forEach((lineText, index) => {
@@ -450,7 +450,7 @@ export function findDeadCode(dependencies, paths) {
  * syntax layer resolves no names, so "no observed edge reaches this" is evidence
  * about the import graph rather than proof about the running program.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-5 --for-spec --no-implementation-order`.
 export function findUnreachedRegions(reachability) {
   return (reachability?.regions ?? [])
     .filter((region) => region.state === 'unreachable')

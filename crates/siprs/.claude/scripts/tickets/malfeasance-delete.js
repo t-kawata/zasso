@@ -20,7 +20,7 @@
 const readline = require('readline');
 const { loadRecords, saveRecords, checkSchema, output } = require('../lib/malfeasance-utils');
 
-// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-86, PX-87 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const rawId = process.argv[2];
 

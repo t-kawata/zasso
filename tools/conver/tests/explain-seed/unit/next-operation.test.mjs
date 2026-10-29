@@ -31,13 +31,13 @@ const RUN = fileURLToPath(new URL('../../../.claude/scripts/explain-seed/run.mjs
 const BOUND_IDS = syntheticOpenIds();
 
 /** Run the command and keep both sinks as bytes. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function runCli(argv, { cwd } = {}) {
   return spawnSync(process.execPath, [RUN, ...argv], { cwd, encoding: 'buffer' });
 }
 
 /** Every line of `before` survives, in order, in `after` — nothing earlier is rewritten. */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 function isSubsequence(before, after) {
   let cursor = 0;
   for (const line of before) {
@@ -48,7 +48,7 @@ function isSubsequence(before, after) {
   return true;
 }
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 postcondition: each appended block carries the placeholder and the bound-points instruction in the AI-only region', () => {
   const block = renderQuestionBlock({ number: 3 });
 
@@ -64,7 +64,7 @@ test('C001 postcondition: each appended block carries the placeholder and the bo
   assert.ok(noticeAt >= 0 && boundAt > noticeAt, 'the bound-points line stands in the AI-only region, below the notice');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 postcondition: the first call replaces the absent statement, since a document with questions is not one with none', () => {
   const facts = syntheticFacts();
   const published = buildFrame({ facts, previous: null }).text;
@@ -76,7 +76,7 @@ test('C001 postcondition: the first call replaces the absent statement, since a 
   assert.ok(after.includes(roundSeparator(1)), 'and the separator it opens is named for the round');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 invariant: once a document holds questions, every byte that existed before next survives in order, and the numbers continue', () => {
   const facts = syntheticFacts();
   const first = appendQuestionRound({ documentText: buildFrame({ facts, previous: null }).text, size: 2 });
@@ -88,7 +88,7 @@ test('C001 invariant: once a document holds questions, every byte that existed b
   assert.ok(grown.includes(roundSeparator(2)), 'and the new separator is named for the new round');
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C001 postcondition: next appends over a published explanation and the ledger reads the bound points back', () => {
   const workspace = materializeExplainSeedWorkspace();
   try {
@@ -104,7 +104,7 @@ test('C001 postcondition: next appends over a published explanation and the ledg
   }
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C002 postcondition: every refusal writes nothing, and names the reason it refused', () => {
   const workspace = materializeExplainSeedWorkspace();
   try {
@@ -127,7 +127,7 @@ test('C002 postcondition: every refusal writes nothing, and names the reason it 
   }
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C002 postcondition: a sixth round is refused even when points are open', () => {
   const workspace = materializeExplainSeedWorkspace();
   try {
@@ -147,7 +147,7 @@ test('C002 postcondition: a sixth round is refused even when points are open', (
   }
 });
 
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
 test('C002 postcondition: a document whose recorded points are all bound is refused, naming that nothing is open', () => {
   const workspace = materializeExplainSeedWorkspace();
   try {

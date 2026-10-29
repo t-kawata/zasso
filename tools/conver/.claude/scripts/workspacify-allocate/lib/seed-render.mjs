@@ -1,5 +1,5 @@
-// [::TICKET::] PX-193, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-193|PX-201) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193, PX-201 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-193|PX-201) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-190 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-190 --for-spec --no-implementation-order`.
 // PX-193 @verifies C002
 /**
  * RFC-SEED.md rendering.
@@ -9,7 +9,7 @@
  * traceability table. Sections 4-13 are the AI's prose and are never fabricated —
  * a missing or invalid body fails the render.
  */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { FORWARD_ARTIFACT_KINDS, MODE, assertReverseAdditions, extendForwardArtifacts } from './forward-extensions.mjs';
 import { lookupInventoryItem } from './allocation-model.mjs';
@@ -77,7 +77,7 @@ export function renderSeed({ package: pkg, machine, aiSections = {}, residualQue
 }
 
 /** The AI prose of the grill section, followed by the questions the machine carries. */
-// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 function appendResidualQuestions(prose, residualQuestions) {
   const block = renderResidualQuestions(residualQuestions);
   return block === '' ? prose : `${prose.trim()}\n\n${block}`;
@@ -120,7 +120,7 @@ function assertNoMachineSectionOverride(pkg, aiSections) {
  * always produced. A render that supplies the index while claiming forward mode is
  * refused rather than quietly ignored.
  */
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function extendReferenceBlock(referenceBlock, machine, mode, reverseIndex) {
   const kind = FORWARD_ARTIFACT_KINDS.RFC_SEED;
   if (reverseIndex === null) {
@@ -135,7 +135,7 @@ function extendReferenceBlock(referenceBlock, machine, mode, reverseIndex) {
   return extended;
 }
 
-// [::TICKET::] P22-10, P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-10|P23-10) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10, P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-10|P23-10) --for-spec --no-implementation-order`.
 function buildMachineSectionBody(referenceBlock, pkg, seedFormat) {
   if (!referenceBlock || typeof referenceBlock !== 'object') {
     throw new WorkSpacifyTreeError(`package ${pkg.id} has no reference block`, { gateId: 'G3.6' });
@@ -160,12 +160,12 @@ function buildMachineSectionBody(referenceBlock, pkg, seedFormat) {
  * the marker existed. The reverse rotation writes a seed a later conver must be
  * able to place, so there the declaration earns its bytes.
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function declaredSeedFormat(mode) {
   return mode === MODE.REVERSE ? CURRENT_SEED_FORMAT_VERSION : null;
 }
 
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function buildContractSectionBody(pkg, contractEdges) {
   if (contractEdges.length === 0) {
     return [

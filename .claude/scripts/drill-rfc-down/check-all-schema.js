@@ -30,7 +30,7 @@ const VALID_STATES = [
 
 // DesignTree node id convention: Q<number> top-level (Q1, Q2, ...) and
 // Q<number><letter> for children (Q1a, Q1b). Enforced by validateNodeArray.
-// [::TICKET::] PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-159 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-159 --for-spec --no-implementation-order`.
 const Q_ID_PATTERN = /^Q\d+[a-z]?$/;
 
 // ─── Status.json schema validation ───
@@ -135,7 +135,7 @@ export function validateDesignTree(sessionDir) {
  * @param {string} path
  * @returns {string[]} error messages
  */
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 function traceEntryErrors(trace, path) {
   if (!Array.isArray(trace)) return [`${path}: must be a list of entries naming a record and the fact that leaves it open`];
 
@@ -159,7 +159,7 @@ function traceEntryErrors(trace, path) {
  * @param {Array<object>} blocks
  * @returns {string[]} error messages
  */
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 export function validateQuestionBlocks(blocks) {
   const errors = [];
   const seenNumbers = new Set();
@@ -183,7 +183,7 @@ export function validateQuestionBlocks(blocks) {
   return errors;
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159, PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159|PX-234) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-234) --for-spec --no-implementation-order`.
 function validateNodeArray(nodes, pathPrefix, seenIds) {
   const errors = [];
   nodes.forEach((node, i) => {
@@ -217,7 +217,7 @@ function validateNodeArray(nodes, pathPrefix, seenIds) {
         // a decision nobody can name the undoing of is not a decision the run can
         // stand behind. A human resolution carries no ground and is not held to
         // this, because the answer the person gave is its own ground.
-        // [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+        // [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
         if (q.ground !== undefined && (typeof q.override !== "string" || q.override === "")) {
           errors.push(`${p}.questions[${qi}].override: required when a settlement carries a ground`);
         }

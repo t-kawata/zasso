@@ -22,7 +22,7 @@ import path from 'node:path';
  * @param {string} workspaceRoot
  * @returns {{ packageId: string|null, packagePath: string|null, reason: string|null }}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function resolvePackageByPath(packages, packagePath, workspaceRoot) {
   const relative = path.isAbsolute(packagePath) ? path.relative(workspaceRoot, packagePath) : packagePath;
   const normalized = relative.split(path.sep).join('/');
@@ -48,7 +48,7 @@ export function resolvePackageByPath(packages, packagePath, workspaceRoot) {
  * @param {string[]} reachedPackageIds
  * @returns {{ reached: Array<{ id: string, path: string }>, unreached: Array<{ id: string, path: string }> }}
  */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 export function partitionPackagesByReach(packages, reachedPackageIds) {
   const reached = new Set(reachedPackageIds);
   return {

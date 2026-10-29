@@ -1,5 +1,5 @@
 // PX-238 @verifies C004
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * What the mechanical status says once a run has completed and then moved on.
  *
@@ -26,13 +26,13 @@ import {
 const NO_ACTION = 'Next Action: —';
 
 /** What init.js recorded about the run. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function readStatus(rfcDir) {
   return JSON.parse(readFileSync(join(rfcDir, 'Status.json'), 'utf8'));
 }
 
 /** A completed session in a fresh temporary tree, with a scratch area beside it. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function makeCompletedSession() {
   const base = mkdtempSync(join(tmpdir(), 'px238-reentry-'));
   const rfcDir = join(base, 'pkg');

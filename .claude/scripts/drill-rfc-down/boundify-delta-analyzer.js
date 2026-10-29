@@ -34,7 +34,7 @@ const DEFAULT_EXTENSION = { rust: '.rs', typescript: '.ts', javascript: '.js', p
 const PROSE_KINDS = ['rationale', 'glossary', 'requirement'];
 
 /** Collect every file (path + mappedNodeIds) from a Dirs-Tree branch. */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function collectTreeFiles(node, prefix, acc) {
   const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
   if (node.type === 'file') {
@@ -47,7 +47,7 @@ function collectTreeFiles(node, prefix, acc) {
 }
 
 /** Collect every regular file path under a src directory (relative to root). */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function collectSrcFiles(dir, prefix, acc) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const currentPath = prefix ? `${prefix}/${entry.name}` : entry.name;
@@ -62,7 +62,7 @@ function collectSrcFiles(dir, prefix, acc) {
 }
 
 /** Detect drift between the Dirs-Tree file list and the real src file list. */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function detectSrcDrift(treeFiles, srcFiles) {
   const srcSet = new Set(srcFiles);
   const treeSet = new Set(treeFiles.map((f) => f.path));
@@ -77,7 +77,7 @@ function detectSrcDrift(treeFiles, srcFiles) {
 }
 
 /** Propose a new file candidate for each new graph node. */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function proposeNewFileCandidates(newNodes, dirsTree) {
   const languages = Object.keys(dirsTree.trees || {});
   const language = languages[0] || '';
@@ -92,7 +92,7 @@ function proposeNewFileCandidates(newNodes, dirsTree) {
 }
 
 /** Find the file mapped to each modified node in the Dirs-Tree. */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function proposeModifyCandidates(modifiedNodes, treeFiles) {
   return (modifiedNodes || []).map((mod) => {
     const mapped = treeFiles.find((f) => f.mappedNodeIds.some((m) => m.nodeId === mod.id));
@@ -105,7 +105,7 @@ function proposeModifyCandidates(modifiedNodes, treeFiles) {
 }
 
 /** Propose dependency-direction candidates for new edges. */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function proposeDependencyDirs(newEdges) {
   return (newEdges || []).map((edge) => ({
     from: edge.from,
@@ -118,7 +118,7 @@ function proposeDependencyDirs(newEdges) {
  * Propose the Dirs-Tree + src evolution candidates deterministically.
  * Returns { newFiles, modifiedFiles, srcDrift, dependencyDirs }.
  */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function analyzeDirsTreeDelta(graphDelta, dirsTree, srcDir) {
   const treeFiles = collectTreeFilesFromTrees(dirsTree.trees || {});
   const srcFiles = collectSrcFiles(srcDir, '', []);
@@ -131,7 +131,7 @@ function analyzeDirsTreeDelta(graphDelta, dirsTree, srcDir) {
 }
 
 /** Collect all file paths from the per-language Dirs-Tree trees. */
-// [::TICKET::] PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162) --for-spec --no-implementation-order`.
 function collectTreeFilesFromTrees(trees) {
   const acc = [];
   for (const lang of Object.keys(trees)) {
@@ -145,7 +145,7 @@ function collectTreeFilesFromTrees(trees) {
  * Returns an empty array when valid. modifiedFiles.path may be null for an
  * unmapped node (the AI decides where to place it), so only nodeId is required.
  */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function validateCandidates(candidates) {
   const errors = [];
   const requireFields = (items, pathPrefix, required) => {
@@ -165,7 +165,7 @@ function validateCandidates(candidates) {
 }
 
 /** Collect every file node (path + mappedNodeIds) from a Dirs-Tree branch. */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function collectDirsTreeFiles(node, prefix, acc) {
   const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
   acc.push({ path: currentPath, node });
@@ -176,7 +176,7 @@ function collectDirsTreeFiles(node, prefix, acc) {
 }
 
 /** Collect every Dirs-Tree file across all language trees. */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function collectDirsTreeFilesFromTrees(trees) {
   const acc = [];
   for (const lang of Object.keys(trees)) {
@@ -186,7 +186,7 @@ function collectDirsTreeFilesFromTrees(trees) {
 }
 
 /** A danger finding: a new file candidate path collides with an existing Dirs-Tree file. */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagPathCollisions(newFiles, dirsTree) {
   const existing = new Set(collectDirsTreeFilesFromTrees(dirsTree.trees || {}).map((f) => f.path));
   return (newFiles || [])
@@ -195,7 +195,7 @@ function flagPathCollisions(newFiles, dirsTree) {
 }
 
 /** A danger finding: the proposed new edges contain a dependency cycle (node level). */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagDependencyCycles(newEdges) {
   const out = new Map();
   for (const edge of newEdges || []) {
@@ -206,7 +206,7 @@ function flagDependencyCycles(newEdges) {
   const visited = new Set();
   const stack = [];
   const findings = [];
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
   function visit(node) {
     if (visited.has(node)) return;
     if (visiting.has(node)) {
@@ -227,7 +227,7 @@ function flagDependencyCycles(newEdges) {
 }
 
 /** An omission finding: a GRAPH node is unmapped to any Dirs-Tree file and has no new-file candidate. */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagUnmappedGraphNodes(graph, dirsTree, newFiles) {
   if (!graph) return [];
   const mapped = new Set(collectDirsTreeFilesFromTrees(dirsTree.trees || {})
@@ -240,7 +240,7 @@ function flagUnmappedGraphNodes(graph, dirsTree, newFiles) {
 }
 
 /** A contradiction finding: a Dirs-Tree file kind differs from its mapped GRAPH node kind. */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagKindMismatches(graph, dirsTree) {
   if (!graph) return [];
   const nodeByKind = new Map((graph.nodes || []).map((n) => [n.id, n.kind]));
@@ -257,7 +257,7 @@ function flagKindMismatches(graph, dirsTree) {
 }
 
 /** A deficiency finding: a Prose node (rationale/glossary/requirement) is proposed as a src file. */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagProseExclusions(graph, dirsTree, newFiles) {
   if (!graph) return [];
   const proseIds = new Set((graph.nodes || []).filter((n) => PROSE_KINDS.includes(n.kind)).map((n) => n.id));
@@ -278,7 +278,7 @@ function flagProseExclusions(graph, dirsTree, newFiles) {
 }
 
 /** A deficiency finding: a new file candidate has no declaration stub in src yet. */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagMissingDeclarationStubs(newFiles, srcDir) {
   const srcSet = new Set(collectSrcFiles(srcDir, '', []));
   return (newFiles || [])
@@ -292,7 +292,7 @@ function flagMissingDeclarationStubs(newFiles, srcDir) {
  * findings never block promote. graph-dependent checks run only when --graph is
  * provided (otherwise those axes may be empty).
  */
-// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function inspectCandidates(graphDelta, candidates, graph, dirsTree, srcDir) {
   const advisory = emptyAdvisory();
   advisory.danger = [
@@ -308,7 +308,7 @@ function inspectCandidates(graphDelta, candidates, graph, dirsTree, srcDir) {
   return advisory;
 }
 
-// [::TICKET::] PX-161, PX-162, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let graphDeltaPath = '';

@@ -26,13 +26,13 @@ import { createHash } from 'node:crypto';
 import { SandboxError, isObservedSandbox } from './sandbox.mjs';
 
 /** SHA-256 of a string, lowercase hex. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function sha256(text) {
   return createHash('sha256').update(text).digest('hex');
 }
 
 /** The evidence a set of transitions amounts to, as plain data. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function deriveEvidence(transitions) {
   return transitions.map((transition) => ({
     name: transition.name,
@@ -47,7 +47,7 @@ function deriveEvidence(transitions) {
 }
 
 /** A digest over evidence alone, so two derivations of the same evidence agree. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function digestOfEvidence(evidence) {
   return `evd-${sha256(JSON.stringify(evidence)).slice(0, 16)}`;
 }

@@ -18,7 +18,7 @@ interface MockCronTask {
 }
 
 /** モック内部状態（テスト間で共有されるが各テストが new CronScheduler で独立） */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 interface MockState {
   /** schedule に渡された最後の cron 式 */
   lastExpression: string;

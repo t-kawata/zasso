@@ -1,4 +1,4 @@
-// [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-190 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-190 --for-spec --no-implementation-order`.
 // PX-190 @verifies C001 C002 C003 C004 C005
 // Branch-coverage hardening for the PX-190 lib modules.
 import { test } from 'node:test';
@@ -143,7 +143,7 @@ test('seed-parse: resolveSourceExcerpt out-of-range ref falls back to occurrence
   assert.ok(excerpt.includes('obj-000001'));
 });
 
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('seed-authoring-packet: partial refs, sparse manifests, and conformance obligations', () => {
   const sourceText = 'line1\npkg-x target here\n';
   // A ref that lacks line_end is skipped in favour of the name-occurrence window.

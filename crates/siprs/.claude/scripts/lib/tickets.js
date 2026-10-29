@@ -8,6 +8,7 @@
 const fs = require("fs");
 const path = require("path");
 const { loadConfig } = require("./ticket-config");
+const { toHomeRelativeDeep, toHomeRelativeText } = require("./path-utils");
 
 const CFG = loadConfig();
 
@@ -234,14 +235,16 @@ function readFrontmatterFromFile(filePath) {
  * @param {object} newAttrs
  */
 function writeFrontmatter(filePath, newAttrs) {
+  // A committed spec names no machine: its frontmatter and body are converted at the sink.
+  const safeAttrs = toHomeRelativeDeep(newAttrs);
   if (!fs.existsSync(filePath)) {
-    const yaml = stringifyFrontmatter(newAttrs);
+    const yaml = stringifyFrontmatter(safeAttrs);
     fs.writeFileSync(filePath, `---\n${yaml}\n---\n\n`);
     return;
   }
   const { body } = readFrontmatterFromFile(filePath);
-  const yaml = stringifyFrontmatter(newAttrs);
-  fs.writeFileSync(filePath, `---\n${yaml}\n---\n${body}`);
+  const yaml = stringifyFrontmatter(safeAttrs);
+  fs.writeFileSync(filePath, `---\n${yaml}\n---\n${toHomeRelativeText(body)}`);
 }
 
 /**
@@ -263,9 +266,9 @@ function readField(filePath, field) {
  */
 function writeField(filePath, field, value) {
   const { attrs, body } = readFrontmatterFromFile(filePath);
-  const merged = { ...(attrs || {}), [field]: value };
+  const merged = toHomeRelativeDeep({ ...(attrs || {}), [field]: value });
   const yaml = stringifyFrontmatter(merged);
-  fs.writeFileSync(filePath, `---\n${yaml}\n---\n${body}`);
+  fs.writeFileSync(filePath, `---\n${yaml}\n---\n${toHomeRelativeText(body)}`);
 }
 
 /**
@@ -275,9 +278,9 @@ function writeField(filePath, field, value) {
  */
 function updateFrontmatterFields(filePath, updates) {
   const { attrs, body } = readFrontmatterFromFile(filePath);
-  const merged = { ...(attrs || {}), ...updates };
+  const merged = toHomeRelativeDeep({ ...(attrs || {}), ...updates });
   const yaml = stringifyFrontmatter(merged);
-  fs.writeFileSync(filePath, `---\n${yaml}\n---\n${body}`);
+  fs.writeFileSync(filePath, `---\n${yaml}\n---\n${toHomeRelativeText(body)}`);
 }
 
 // ============================================================
@@ -304,8 +307,9 @@ function loadSpec(filePath) {
  * @param {string} body
  */
 function saveSpecFrontmatter(filePath, frontmatter, body) {
-  const yaml = stringifyFrontmatter(frontmatter);
-  const content = body ? `---\n${yaml}\n---\n${body}` : `---\n${yaml}\n---\n`;
+  const yaml = stringifyFrontmatter(toHomeRelativeDeep(frontmatter));
+  const safeBody = toHomeRelativeText(body || "");
+  const content = body ? `---\n${yaml}\n---\n${safeBody}` : `---\n${yaml}\n---\n`;
   fs.writeFileSync(filePath, content);
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-209 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-209 --for-spec --no-implementation-order`.
 /**
  * scope-detection-constants.js
  *
@@ -10,7 +10,7 @@
  * Pure data — zero logic, zero side effects.
  */
 
-// Implemented or modified under tickets: PX-61, PX-62; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-61|PX-62) --for-spec --no-implementation-order`.
+// Implemented or modified under tickets: PX-61, PX-62; for details, refer to the command `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-61|PX-62) --for-spec --no-implementation-order`.
 
 /**
  * Source file extensions that the annotation system supports.
@@ -33,7 +33,7 @@
  * measurement and the entry together.
  */
 const SOURCE_EXTENSIONS = new Set([
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
   ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue",
   ".py", ".rb", ".swift", ".kt", ".java", ".cs",
 ]);
@@ -132,7 +132,7 @@ const DEFINITION_PATTERN_METAS = [
   // Negative lookahead excludes control-flow keywords that also use "keyword(...) {"
   { raw: /^\s*(?:(?:public|private|protected|static)\s+)*(?!(?:if|for|while|switch|catch|with|typeof|instanceof|void|return|throw|delete)\b)(?:async\s+)?(?:get\s+|set\s+)?(\w+)\s*\([^)]*\)\s*\{/,
     kind: "function" },
-// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-147 --for-spec --no-implementation-order`.
   // JS/TS: IIFE — `(function name() { ... })();`. The leading "(" makes the
   // line-start function pattern miss it, so it needs an explicit pattern.
   { raw: /^\s*\(\s*(?:async\s+)?function\s*\*?\s*(\w*)\s*\(/,

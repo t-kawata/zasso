@@ -12,13 +12,13 @@ import { dirname, join, resolve } from 'node:path';
 
 import { ExplainSeedError } from './errors.mjs';
 import { requireField } from './seed-document.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
 /** Every ancestor directory of `startDirectory`, nearest first. */
-// [::TICKET::] PX-221, PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222) --for-spec --no-implementation-order`.
 function ancestorsOf(startDirectory) {
   const ancestors = [];
   let current = resolve(startDirectory);
@@ -52,7 +52,7 @@ export function resolveWorkspaceRoot(seedPath) {
 }
 
 /** Read one JSON artefact, or say which path could not be read or parsed. */
-// [::TICKET::] PX-221, PX-222, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-221|PX-222|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-231) --for-spec --no-implementation-order`.
 function readJsonArtefact(absolutePath, field) {
   let text;
   try {

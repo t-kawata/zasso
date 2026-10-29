@@ -1,4 +1,5 @@
-// [::TICKET::] PX-267 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
 // Composing the artifact from the specification and one run's readings (PX-240).
 //
 // The declaration says what to look for and the readings say what was found; both
@@ -14,8 +15,8 @@ import { establishPins } from './pins.mjs';
 import { digestOfSupplied } from './supplied.mjs';
 
 /** The command a reader is told to run to check the artifact later. */
-// [::TICKET::] PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-241 --for-spec --no-implementation-order`.
-export const VERIFY_COMMAND = 'node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>';
+// [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
+export const VERIFY_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs" <spec-file>';
 
 /**
  * The fields a v3 artifact carries that a v2 composition cannot reproduce.
@@ -54,7 +55,7 @@ export function isSameRevision(previous, next) {
  * composition byte-identical. A key the new reading dropped is deleted unless it is a v3
  * surface; a v3 surface is never overwritten by the v2 value that replaced its name.
  */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 function mergeArtifactRow(previousRow, composedRow, preservedFields) {
   const merged = { ...previousRow };
   for (const key of Object.keys(merged)) {
@@ -67,7 +68,7 @@ function mergeArtifactRow(previousRow, composedRow, preservedFields) {
 }
 
 /** A step new to this generation keeps its prose, and receives no typed contract. */
-// [::TICKET::] PX-294 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 function preserveNewStep(step) {
   const { contract, ...rest } = step;
   if (contract === undefined) return rest;
@@ -118,7 +119,7 @@ export function preserveV3Surfaces(previous, composed) {
  * holding no answer is not carried, the rule the limb already follows: a key present and empty
  * is a field that answered nothing.
  */
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
 function declaredFieldsOf(reading) {
   return Object.fromEntries(
     [...ADJUDICATION_FIELDS, PREDICATE_LIMB_FIELD]
@@ -141,9 +142,9 @@ function declaredFieldsOf(reading) {
  * reproducible when it is not. A run given nothing records the digest of nothing, which
  * is the same value a verification computes beside a specification with no run.
  */
-// [::TICKET::] PX-240, PX-242, PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-242|PX-248) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-260 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-260 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-261 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-261 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-242, PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-242|PX-248) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 export function buildArtifact({ specPath, spec, declaration, readings, supplied = digestOfSupplied([]), suppliedDocuments = {}, previousArtifact = null }) {
   const pins = establishPins(spec.lines, declaration, suppliedDocuments);
   const readingFor = new Map(readings.sequences.map((reading) => [reading.subject, reading]));

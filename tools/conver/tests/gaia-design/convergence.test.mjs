@@ -1,4 +1,4 @@
-// [::TICKET::] PX-301 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-301 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-301 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-301 --for-spec --no-implementation-order`.
 // The five structural invariants PX-300 makes a producer enforce, measured on
 // the gaia design data that PX-301 corrected in a regeneration transaction.
 //
@@ -28,17 +28,17 @@ const readJson = (relative) => JSON.parse(readFileSync(join(ROOT, relative), 'ut
 const readJsonl = (relative) => readFileSync(join(ROOT, relative), 'utf8')
   .split('\n').filter(Boolean).map((line) => JSON.parse(line));
 const digest = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
-// [::TICKET::] PX-301 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-301 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-301 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-301 --for-spec --no-implementation-order`.
 
 function treeManifest() {
   return readJson('WORKSPACIFY-TREE-MANIFEST.json');
 }
-// [::TICKET::] PX-301 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-301 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-301 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-301 --for-spec --no-implementation-order`.
 
 function allocateManifest() {
   return readJson('WORKSPACIFY-ALLOCATE-MANIFEST.json');
 }
-// [::TICKET::] PX-301 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-301 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-301 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-301 --for-spec --no-implementation-order`.
 
 function edgeKindByBoundary(tree) {
   return new Map(tree.dependencies.boundaries.map((boundary, index) => [
@@ -46,7 +46,7 @@ function edgeKindByBoundary(tree) {
     tree.dependencies.normal_edges[index].connectionKind,
   ]));
 }
-// [::TICKET::] PX-301 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-301 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-301 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-301 --for-spec --no-implementation-order`.
 
 function isEmpty(value) {
   return value === undefined || value === null || value === ''
@@ -211,7 +211,7 @@ test('C005 no two open risk obligations for one operation name one field', { ski
   }
 });
 
-// [::TICKET::] PX-301 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-301 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-301 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-301 --for-spec --no-implementation-order`.
 test('C006 the live evidence is unchanged from the transaction baseline', { skip: SKIP || process.env.GAIA_ROOT === undefined }, () => {
   // The baseline is the live generation the transaction opened against, recorded
   // before any staging write. Comparing the staging rows instead would answer a

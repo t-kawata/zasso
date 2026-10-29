@@ -1,7 +1,7 @@
-// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 // @verifies C003
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
 /**
  * coverage-gate — the reverse library's branch coverage is a gate, not a report.
  *
@@ -51,7 +51,7 @@ const SAMPLE_SUITE = join(PROJECT_ROOT, 'tests/workspacify-reverse/unit/red-plan
  * so a threshold that should have failed would read as passing. The variable is
  * removed rather than worked around: the child is a runner, not a nested one.
  */
-// [::TICKET::] P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function coverageAt(threshold) {
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
@@ -91,8 +91,8 @@ test('C003 postcondition: a figure below the threshold fails, so the number is a
   assert.match(refused.stdout, /does not meet threshold/, 'and the failure says so rather than exiting quietly');
 });
 
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 test('C003 invariant: the measurement is over the library and not over the tests, and the threshold is applied rather than printed', () => {
   assert.ok(!LIBRARY_GLOB.includes('tests/'), "a glob that caught the suite would report the tests' own coverage as the library's");
   assert.match(MAKEFILE, /--test-coverage-branches=\d+/, 'the flag is present, so the number is applied');

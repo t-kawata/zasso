@@ -1,5 +1,5 @@
 // PX-238 @verifies C005
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * preflight.test.cjs — Tests for drill-rfc-down Step 0 Preflight (preflight.js)
  *
@@ -157,7 +157,7 @@ describe('collectMaterialPaths', () => {
     assert.throws(() => collectMaterialPaths(['missing.md'], dir), /Material path not found/);
   });
 
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
   it('expands ~/ prefix', () => {
     const home = os.homedir();
 

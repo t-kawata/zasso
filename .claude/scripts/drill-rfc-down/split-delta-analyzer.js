@@ -28,14 +28,14 @@ import { fileURLToPath } from 'url';
 import { emptyAdvisory } from './advisory-report.js';
 
 /** The next phase id after the highest existing phase id. */
-// [::TICKET::] PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-162 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-162 --for-spec --no-implementation-order`.
 function nextPhaseId(tickets) {
   const maxPhase = (tickets.phases || []).reduce((max, p) => Math.max(max, p.id), 0);
   return maxPhase + 1;
 }
 
 /** Propose a new ticket for each new file in the dirs-tree-delta. */
-// [::TICKET::] PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-162 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-162 --for-spec --no-implementation-order`.
 function proposeNewTicketCandidates(newFiles, phaseId) {
   return (newFiles || []).map((fileCandidate) => ({
     title: fileCandidate.title,
@@ -46,7 +46,7 @@ function proposeNewTicketCandidates(newFiles, phaseId) {
 }
 
 /** Find the existing ticket mapped to each modified node and propose an edit. */
-// [::TICKET::] PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-162 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-162 --for-spec --no-implementation-order`.
 function proposeEditCandidates(modifiedFiles, tickets) {
   const allTickets = (tickets.phases || []).flatMap((p) => p.tickets || []);
   return (modifiedFiles || []).map((modifiedFile) => {
@@ -61,7 +61,7 @@ function proposeEditCandidates(modifiedFiles, tickets) {
 }
 
 /** Surface existing ticket statuses so the AI can preserve them. */
-// [::TICKET::] PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-162 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-162 --for-spec --no-implementation-order`.
 function surfaceExistingStatuses(tickets) {
   const allTickets = (tickets.phases || []).flatMap((p) => p.tickets || []);
   return allTickets.map((t) => ({ id: t.id, status: t.status || 'todo' }));
@@ -71,7 +71,7 @@ function surfaceExistingStatuses(tickets) {
  * Propose the Tickets evolution candidates deterministically.
  * Returns { newTickets, editedTickets, phaseAssignments, existingStatuses }.
  */
-// [::TICKET::] PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-162 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-162 --for-spec --no-implementation-order`.
 function analyzeTicketsDelta(dirsTreeDelta, tickets) {
   const phaseId = nextPhaseId(tickets);
   const newTickets = proposeNewTicketCandidates(dirsTreeDelta.newFiles, phaseId);
@@ -89,7 +89,7 @@ function analyzeTicketsDelta(dirsTreeDelta, tickets) {
  * unmapped modified node (the AI decides which ticket to fold it into), so only
  * nodeId is required for edited tickets.
  */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function validateCandidates(candidates) {
   const errors = [];
   const requireFields = (items, pathPrefix, required) => {
@@ -109,7 +109,7 @@ function validateCandidates(candidates) {
 }
 
 /** A danger finding: editing a ticket whose existing status is not 'todo' risks silent overwrite. */
-// [::TICKET::] PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagStatusOverwriteRisks(editedTickets, tickets) {
   const byId = new Map((tickets.phases || []).flatMap((p) => (p.tickets || []).map((t) => [t.id, t])));
   const findings = [];
@@ -125,7 +125,7 @@ function flagStatusOverwriteRisks(editedTickets, tickets) {
 }
 
 /** An omission finding: a modified node maps to no existing ticket. */
-// [::TICKET::] PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagUnmappedModifiedFiles(editedTickets) {
   return (editedTickets || [])
     .filter((editedTicket) => editedTicket.id === null)
@@ -133,7 +133,7 @@ function flagUnmappedModifiedFiles(editedTickets) {
 }
 
 /** A contradiction finding: a new file's node is already covered by an existing ticket (duplicate). */
-// [::TICKET::] PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagDuplicateNodeTickets(newFiles, tickets) {
   const covered = new Set((tickets.phases || []).flatMap((p) => (p.tickets || []).flatMap((t) => t.nodeIds || [])));
   return (newFiles || [])
@@ -142,7 +142,7 @@ function flagDuplicateNodeTickets(newFiles, tickets) {
 }
 
 /** A deficiency finding: a new ticket candidate lacks scope or test plan. */
-// [::TICKET::] PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
 function flagScopeDeficiencies(newTickets) {
   return (newTickets || [])
     .filter((ticketCandidate) => !ticketCandidate.scope || !ticketCandidate.testUnit)
@@ -154,7 +154,7 @@ function flagScopeDeficiencies(newTickets) {
  * contradiction / deficiency) as an advisory for the AI. Advisory-only: the
  * findings never block promote.
  */
-// [::TICKET::] PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-168|PX-169) --for-spec --no-implementation-order`.
 function inspectCandidates(dirsTreeDelta, candidates, tickets) {
   const advisory = emptyAdvisory();
   advisory.danger = flagStatusOverwriteRisks(candidates.editedTickets, tickets);
@@ -164,7 +164,7 @@ function inspectCandidates(dirsTreeDelta, candidates, tickets) {
   return advisory;
 }
 
-// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dtdPath = '';

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-195 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-195 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-195 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-195 --for-spec --no-implementation-order`.
 // PX-195 @verifies C002
 /**
  * Atomic publication of the three artefact families.
@@ -75,7 +75,7 @@ function expandPlannedDirectories(relativeDirs) {
  * @param {{ plan: object, renderedByPackage: Map<string, object> }} input
  * @returns {string[]} sorted top-level entry names
  */
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function publishedTopLevelNames({ plan, renderedByPackage }) {
   return [...new Set([
     ...(plan.relativeDirs ?? []).map((relativeDir) => relativeDir.split('/')[0]),
@@ -105,7 +105,7 @@ export function publishedTopLevelNames({ plan, renderedByPackage }) {
  * @param {{ manifestDir: string, topLevelNames: string[], preExistingEntries: Set<string> }} input
  * @returns {{ removed: string[] }} the entries removed, sorted
  */
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function rollbackPublication({ manifestDir, topLevelNames, preExistingEntries }) {
   const removed = [];
   for (const name of topLevelNames) {
@@ -128,7 +128,7 @@ export function rollbackPublication({ manifestDir, topLevelNames, preExistingEnt
  * @param {{ manifestDir: string, plan: object, renderedByPackage: Map<string, object>, allocateManifest: object }} input
  * @returns {{ published: boolean, reason?: string, stagingRoot: string|null }}
  */
-// [::TICKET::] PX-219 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-219 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function publishWorkspace({ manifestDir, plan, renderedByPackage, allocateManifest }) {
   const staging = createStagingRoot(manifestDir);
   try {

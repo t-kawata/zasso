@@ -1,4 +1,4 @@
-// [::TICKET::] PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-189 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-189 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-189 --for-spec --no-implementation-order`.
 // PX-189 @verifies C001
 // The entry gate must reject a manifest that is not in the stage-1 format and say
 // so in natural English, before any stage-2 work starts. Format means shape and

@@ -11,6 +11,13 @@ Out: `INFO-RFC-SEED.md`, `EXPLAIN-RFC-SEED.md` beside it; facts of the first on 
 Does: explains; settles every point the AI can ground; grills the human with few direction questions over multiple rounds; settles the rest from the answers; writes answers down; ends when zero points are open; re-opens on a viewpoint the human brings after that, recording it and running the loop again.
 Does not: decide for the human, publish a manifest, start a workflow, invoke another command. Grill = this loop, and so is re-entry: a viewpoint brought after Done is handled by this same loop, not by another command and not by a later session. The downstream design interview is a separate session.
 
+**Path anchor (mandatory — resolve once).** Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
 ## Core Rule
 
 Never put a point to the human. Put only direction questions.
@@ -433,7 +440,7 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
 
 ## Flow
 
-1. **Write facts, write frame** — `node .claude/scripts/explain-seed/run.mjs info "$ARGUMENTS"`
+1. **Write facts, write frame** — `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" info "$ARGUMENTS"`
    G1. fail: report stderr diagnosis (artefact + field) as-is; repair nothing; no retry with another argument; no hand-authored document.
 
 2. **Settle and bundle** — auto; never ask.
@@ -453,7 +460,7 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
 3. **Self-judge, then gate** — auto; never ask.
    Heal-loop kind+check:
      judge: apply Criteria as one integrated judgement over own prose and questions; fix what is caught (G3).
-     check: `node .claude/scripts/explain-seed/run.mjs check "$ARGUMENTS"` (G4)
+     check: `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" check "$ARGUMENTS"` (G4)
      ok → next
      fail → judge: fix per stderr's named sections; re-run check
    Never report a gate-refused explanation. Never weaken an item to pass G4.
@@ -470,12 +477,12 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
       Three consecutive prose repairs of one question → stop; settle the point or name it misclassified in Step 5.
    b. record: under the question's `<!-- 人間の判断 -->`, lines below: letter + human's prose. placeholder line untouched. never answer for the human; never fill a placeholder to pass G5.
    c. refine, then settle: if the answer raises a viewpoint no recorded point covers, refine it into one point and record it:
-      `node .claude/scripts/explain-seed/run.mjs revise "$ARGUMENTS" '{"origin":"<the human's words, verbatim>","statement":"<one line>"}'`
+      `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" revise "$ARGUMENTS" '{"origin":"<the human's words, verbatim>","statement":"<one line>"}'`
       The script owns the id (`added-NNN`), the block's shape and its place in the human's section; the AI owns only the refinement. Never hand-write the block: a hand-written one is a second writer of a format that already has one, and Step 5 forbids hand-editing either document. The recorded point is a point like any other. Then per point bound to an answered question, judge: does letter + prose entail a decision?
       yes → 「先に決めておいたこと」: 決定, 根拠 (`Qn` + letter, + manifest ids), 覆す条件.
       no → point stays open; note what the answer failed to entail. Never guess. An added point takes the same ladder: settled here if the answer entails it, bound next round if it does not.
    d. gate: `run.mjs check` (G4); fail → fix per stderr; re-run.
-   e. verdict: `node .claude/scripts/explain-seed/run.mjs answers "$ARGUMENTS"` (G5)
+   e. verdict: `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" answers "$ARGUMENTS"` (G5)
       exit 0 → leave loop
       unanswered question remains → a, those questions only
       open points remain → re-run Step 2's Q0–Q3 on residual points and added points alike; `run.mjs next "$ARGUMENTS" <axes>`; new axis per U14; → a

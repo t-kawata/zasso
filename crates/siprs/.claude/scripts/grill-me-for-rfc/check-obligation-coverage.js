@@ -46,7 +46,7 @@ const USAGE = 'usage: check-obligation-coverage.js <WORKSPACE_ROOT>';
 const DECLARED_SOURCE = OBLIGATION_SOURCES[0];
 
 /** Read and parse one JSON file, or null when it cannot be read. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function readJsonOrNull(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -56,7 +56,7 @@ function readJsonOrNull(filePath) {
 }
 
 /** The workspace's sequences artifact, or null when the root carries none. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function findArtifact(root) {
   const entries = fs.existsSync(root) ? fs.readdirSync(root) : [];
   const name = entries.find((entry) => entry.endsWith(SOURCE_ARTIFACT_SUFFIX) && entry.endsWith('.json'));
@@ -64,7 +64,7 @@ function findArtifact(root) {
 }
 
 /** Every package view beneath the workspace's package root, in path order. */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function readViews(root) {
   const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
   const views = [];
@@ -92,7 +92,7 @@ function readViews(root) {
  * @param {object[]} views
  * @returns {string[]}
  */
-// [::TICKET::] PX-259 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-259 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
 function findDeclarationsThatDidNotBind(views) {
   return views
     .filter((view) => view?.obligationSource === DECLARED_SOURCE && (view.obligationUnits ?? []).length === 0)
@@ -107,7 +107,7 @@ function findDeclarationsThatDidNotBind(views) {
  * line: a zero here is the unassigned list's business, and stating it twice invites the reader to
  * read one of the two as the other.
  */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderAssignedLines(coverage) {
   return DEMAND_AXES.flatMap((axis) => {
     const assigned = coverage.axes[axis].assigned;
@@ -122,7 +122,7 @@ function renderAssignedLines(coverage) {
 }
 
 /** The lines naming the demands one package was handed, so a concentration is visible. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderAssignmentDistribution(coverage) {
   const rows = coverage.assignmentDistribution.filter((row) => row.count > 0);
   if (rows.length === 0) return ['assignment distribution: no package holds an obligation unit'];
@@ -130,7 +130,7 @@ function renderAssignmentDistribution(coverage) {
 }
 
 /** The lines naming every exemption that was refused, and the rule each one broke. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderRefusedExemptionLines(coverage) {
   if (coverage.refusedExemptions.length === 0) return [];
   return [
@@ -140,7 +140,7 @@ function renderRefusedExemptionLines(coverage) {
 }
 
 /** The packages whose record named a unit the artifact does not hold, with the names it used. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function findUnboundAssignments(views) {
   return views
     .filter((view) => (view.unboundAssignments ?? []).length > 0)
@@ -155,7 +155,7 @@ function findUnboundAssignments(views) {
  * counts the demand once, so printing the rows would print the same fact repeatedly and bury the
  * one that differs.
  */
-// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderExemptionRouteLines(coverage) {
   const seen = new Set();
   const lines = [];
@@ -175,7 +175,7 @@ function renderExemptionRouteLines(coverage) {
  * demand was placed, and the evidence for placing it does not resolve. A reviewer repairs it by
  * reading the specification, not by deciding anything new.
  */
-// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderUnresolvedGroundLines(coverage) {
   return coverage.unresolvedGrounds.map((row) => `unresolved ground: ${row.axis} ${row.subject} — ${row.ground}`);
 }
@@ -187,7 +187,7 @@ function renderUnresolvedGroundLines(coverage) {
  * carries cannot reach an operation at all, while a column whose values its declared vocabulary
  * does not cover is a declaration about something other than what it says it is.
  */
-// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderUnboundDeclarationLines(views) {
   const lines = [];
   for (const view of views) {
@@ -216,20 +216,20 @@ function renderUnboundDeclarationLines(views) {
  * stops looking, so the sentence states what this stage can establish and names the stage that
  * measures the rest.
  */
-// [::TICKET::] PX-261, PX-262 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-262) --for-spec --no-implementation-order`.
 export const GUARANTEE_LINES = Object.freeze([
   'guarantees: every demand is placed by a named package, by a route that resolves, and every placement is traceable to an RFC section anchor and a ledger row',
   'does not guarantee: that a judgment is the right one, or that the specification names every procedure the project needs',
   'measured elsewhere: the design node, the implementation header and the ticket are measured by drill-rfc-down Step 5, because they do not exist when this gate runs',
 ]);
 
-// [::TICKET::] PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-263 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 function renderGuaranteeLines() {
   return [...GUARANTEE_LINES];
 }
 
 /** The lines naming the judgments that named nothing, and the ones that carried no ground. */
-// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderAssignmentFindingLines(views) {
   const lines = [];
   const unbound = findUnboundAssignments(views);
@@ -243,7 +243,7 @@ function renderAssignmentFindingLines(views) {
 }
 
 /** The lines naming every demand that no package owes. */
-// [::TICKET::] PX-259, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-259|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderUnassignedLines(coverage) {
   const lines = [];
   for (const axis of DEMAND_AXES) {
@@ -263,7 +263,7 @@ function renderUnassignedLines(coverage) {
  * named rather than only the gaps, so a reader sees which axes were stated and by what structure,
  * and not only which were not.
  */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderDenominatorLine(coverage) {
   const stated = DEMAND_AXES.map((axis) => `${axis} ${coverage.denominator[axis].source} ${coverage.denominator[axis].members}`);
   return `denominator: ${stated.join(', ')}`;
@@ -276,7 +276,7 @@ function renderDenominatorLine(coverage) {
  * a decision the workspace has not made, while an unstated axis is a question the workspace cannot
  * answer, and no amount of assigning will answer it.
  */
-// [::TICKET::] PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-262|PX-263) --for-spec --no-implementation-order`.
 function renderDenominatorGapLines(coverage) {
   if (coverage.denominatorGaps.length === 0) return [];
   return [
@@ -286,7 +286,7 @@ function renderDenominatorGapLines(coverage) {
 }
 
 /** The line stating what the workspace holds. */
-// [::TICKET::] PX-259, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-259|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-263) --for-spec --no-implementation-order`.
 function renderVerdictLine(coverage, exemptionCount) {
   const assigned = DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].assigned.length, 0);
   const unassigned = DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].unassigned.length, 0);
@@ -294,7 +294,7 @@ function renderVerdictLine(coverage, exemptionCount) {
 }
 
 /** Measure one workspace and print its verdict. */
-// [::TICKET::] PX-259, PX-260, PX-261, PX-262, PX-263 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-259|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rootArgument] = argv.filter((argument) => !argument.startsWith('--'));
   if (rootArgument === undefined) {

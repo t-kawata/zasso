@@ -91,7 +91,7 @@ export function isInTimeWindow(
  * 設定タイムゾーンの壁時計で、時・分・曜日（0=日曜〜6=土曜）を返す。
  * Intl.DateTimeFormat.formatToParts を1回呼ぶだけで3情報を得る。
  */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 function getLocalizedDateTimeParts(
   now: Date,
   timezone: string,
@@ -124,7 +124,7 @@ function getLocalizedDateTimeParts(
  * 日跨ぎ窓（startMinutes > endMinutes）の深夜側は前日開始の窓インスタンス
  * とみなし、前日の曜日で判定する（開始日帰属）。
  */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 function isAllowedDay(
   currentMinutes: number,
   startMinutes: number,
@@ -143,7 +143,7 @@ function isAllowedDay(
 }
 
 /** 同一日内の時間窓判定（境界を含む） */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 function isWithinSameDayWindow(
   currentMinutes: number,
   startMinutes: number,
@@ -153,7 +153,7 @@ function isWithinSameDayWindow(
 }
 
 /** 日跨ぎ時間窓の判定（例: 22:00〜06:00、境界を含む） */
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 function isWithinCrossDayWindow(
   currentMinutes: number,
   startMinutes: number,

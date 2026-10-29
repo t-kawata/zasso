@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-94, PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-94, PX-96 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-96 --for-spec --no-implementation-order`.
 
 /**
  * insert-stub.test.js — Tests for insert-stub.js
@@ -13,7 +13,7 @@
  * @verifies C003
  * @verifies C004
  *
- * [::TICKET::] PX-94, PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-94, PX-96 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-96 --for-spec --no-implementation-order`.
  */
 
 const fs = require('fs');
@@ -26,15 +26,15 @@ let insertStub, InsertStubError;
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-96 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-96 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
 
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
 function assertStrictEqual(actual, expected, message) {
   const pass = actual === expected;
   if (pass) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
@@ -46,7 +46,7 @@ function assertStrictEqual(actual, expected, message) {
   }
 }
 
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
 function assertRejects(fn, expectedMsgSubstring, message) {
   try {
     const result = fn();

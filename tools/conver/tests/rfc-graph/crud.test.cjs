@@ -103,7 +103,7 @@ function createTestGraph(nodes = [], edges = []) {
  * @param {Function} run — Function whose stdout is captured
  * @returns {string} Captured stdout
  */
-// [::TICKET::] PX-333 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-333 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-333 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-333 --for-spec --no-implementation-order`.
 function captureStdout(run) {
   const chunks = [];
   const originalWrite = process.stdout.write;

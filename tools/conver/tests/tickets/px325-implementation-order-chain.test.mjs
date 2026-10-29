@@ -27,13 +27,13 @@ import { buildModel } from '../../.claude/scripts/workspacify-order/lib/levels.m
 import { materializeOrderWorkspace } from '../workspacify-order/helpers/order-workspace.mjs';
 
 /** One operation unit with a role candidate and no obligation payload. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function operationUnit(operationId, roleCandidate = 'undecided') {
   return { unitId: `op-${operationId}`, operationId, roleCandidate };
 }
 
 /** One sequence step with a typed contract. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function step(id, operation, order, contract) {
   return { id, stepId: id, sequence: 'S', operation, order, contract };
 }

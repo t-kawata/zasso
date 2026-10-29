@@ -58,7 +58,7 @@ const STAGE_STATUS_SUFFIXES = Object.freeze({
 });
 
 /** A named failure the resolver raises; the CLI wrapper prints its three lines. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function canonicalPathError(code, message, remedy) {
   const error = new Error(message);
   error.code = code;
@@ -67,7 +67,7 @@ function canonicalPathError(code, message, remedy) {
 }
 
 /** Resolve a directory argument to an absolute path, defaulting to process.cwd(). */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveBaseDirectory(cwd) {
   return path.resolve(cwd || process.cwd());
 }
@@ -80,7 +80,7 @@ function resolveBaseDirectory(cwd) {
  * a default never guesses. `allowMissing` returns the derived path for creation
  * flows such as a status file that begin-run is about to write.
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveCanonicalFile({
   cwd,
   override = null,
@@ -123,7 +123,7 @@ function resolveCanonicalFile({
 }
 
 /** The canonical source document: `RFC.md` in the invocation directory. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveSourcePath({ cwd, override = null, allowMissing = false } = {}) {
   return resolveCanonicalFile({
     cwd,
@@ -139,7 +139,7 @@ function resolveSourcePath({ cwd, override = null, allowMissing = false } = {}) 
 }
 
 /** The canonical graph: `RFC-GRAPH.json`, or the single legacy `*-GRAPH.json`. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveGraphPath({ cwd, override = null, allowMissing = false } = {}) {
   return resolveCanonicalFile({
     cwd,
@@ -155,7 +155,7 @@ function resolveGraphPath({ cwd, override = null, allowMissing = false } = {}) {
 }
 
 /** The Dirs-Tree beside the resolved graph. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveDirsTreePath({ cwd, graphPath = null, override = null, allowMissing = false } = {}) {
   const directory = resolveBaseDirectory(cwd);
   if (override) {
@@ -178,7 +178,7 @@ function resolveDirsTreePath({ cwd, graphPath = null, override = null, allowMiss
 }
 
 /** The ticket ledger: `Tickets.json` in the invocation directory. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveTicketsPath({ cwd, override = null, allowMissing = false } = {}) {
   return resolveCanonicalFile({
     cwd,
@@ -194,7 +194,7 @@ function resolveTicketsPath({ cwd, override = null, allowMissing = false } = {})
 }
 
 /** The optional package view: `SEQUENCES.json`. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveViewPath({ cwd, override = null, allowMissing = true } = {}) {
   return resolveCanonicalFile({
     cwd,
@@ -210,7 +210,7 @@ function resolveViewPath({ cwd, override = null, allowMissing = true } = {}) {
 }
 
 /** The step-status file of one stage, derived from the resolved graph stem. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveStageStatusPath(stage, { cwd, graphPath = null, override = null, allowMissing = true } = {}) {
   const suffix = STAGE_STATUS_SUFFIXES[stage];
   if (!suffix) {
@@ -242,7 +242,7 @@ function resolveStageStatusPath(stage, { cwd, graphPath = null, override = null,
 }
 
 /** Dispatch by artifact kind, for callers that select the kind dynamically. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveCanonicalPath(kind, options = {}) {
   switch (kind) {
     case 'source': return resolveSourcePath(options);
@@ -258,13 +258,13 @@ function resolveCanonicalPath(kind, options = {}) {
 }
 
 /** Report the resolved path once, so an argument-free call remains auditable. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function reportResolvedPath(kind, resolvedPath, { quiet = false } = {}) {
   if (!quiet) process.stderr.write('resolved ' + kind + ': ' + resolvedPath + '\n');
 }
 
 /** Resolve or stop with the shared three-line error template. */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function resolveCanonicalPathOrExit(kind, options = {}) {
   try {
     const resolved = resolveCanonicalPath(kind, options);
@@ -349,7 +349,7 @@ function deriveStatusPathFromTickets(ticketsPath) {
  * @param {string} startDirectory
  * @returns {string|null}
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function findAllocateManifest(startDirectory) {
   let directory = path.resolve(startDirectory);
   if (fs.existsSync(directory) && fs.statSync(directory).isFile()) {

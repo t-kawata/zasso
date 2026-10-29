@@ -1,4 +1,4 @@
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 /**
  * The implementation loop's isolated path for Red reconstruction tickets.
  *
@@ -56,9 +56,9 @@ export const RED_REASONS = Object.freeze([
 ]);
 
 /** The reason a reconstruction cannot proceed, and the message a human reads. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 export class RedReconstructionError extends Error {
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
   constructor(reason, message) {
     super(message);
     this.name = 'RedReconstructionError';
@@ -125,7 +125,7 @@ export function assertReconstructionTicket(ticket) {
  * it as one would turn "I did not look there" into evidence that nothing was
  * there — the same substitution P22-18's dynamic surface refuses.
  */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function readObservation(execution) {
   if (execution === null || typeof execution !== 'object' || typeof execution.redProved !== 'boolean') {
     throw new RedReconstructionError(
@@ -140,7 +140,7 @@ function readObservation(execution) {
 }
 
 /** The evidence a finished execution produced, in the shape both callers read. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function buildRecord(ticket, outcome, observation) {
   return {
     ticketKey: describeTicket(ticket),
@@ -258,7 +258,7 @@ export function recordRedEvidence(ticket, record) {
 }
 
 /** How the guarded paths ended, as a phrase the table can hold. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function describeMainTree(mainTreeDigest) {
   return mainTreeDigest.unchanged
     ? 'byte-identical'
@@ -312,7 +312,7 @@ export function renderReconstructionReport(pass) {
 }
 
 /** Every ticket in a Tickets.json document, each carrying the phase it belongs to. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function loadTickets(ticketsPath) {
   const document = JSON.parse(readFileSync(ticketsPath, 'utf8'));
   const phases = Array.isArray(document.phases) ? document.phases : [];
@@ -330,7 +330,7 @@ const USAGE = [
 ].join('\n');
 
 /** The flags the command understands; an unrecognised one is an error, not a default. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const options = { ticketsPath: null, json: false, error: null };
   for (const argument of argv) {
@@ -351,7 +351,7 @@ function parseArguments(argv) {
 }
 
 /** The dispatch view, as the Markdown a human reads and the JSON a script consumes. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function renderDispatch(tickets) {
   const reconstruction = selectReconstructionTickets(tickets);
   const lines = ['## Red reconstruction — dispatch', ''];

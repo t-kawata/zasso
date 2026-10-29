@@ -219,6 +219,7 @@
         "## Step 0: Heading Deduplication (Pre-processing)",
         "## Step 1: Node Splitting",
         "### Pre-Reference: I/O Boundary Reference Information",
+        "### Pre-Reference: Distribution Admission",
         "### Node Splitting Procedure",
         "### Error Recovery",
         "## Step 2: Edge Assignment",
@@ -289,7 +290,9 @@
         "## Boy Scout Rule",
         "## List of Scripts Used",
         "## Workflow",
+        "### Step 0: Implementation-prerequisite gate (conditional)",
         "### Step 1: Display context (show-ticket-context.js)",
+        "### Step 1.5: Distribution brief (conditional)",
         "### Step 2: Decision branching",
         "### Step 3: Insert template markers",
         "### Step 4: Full understanding of Universal Implementation Order",
@@ -300,11 +303,12 @@
         "### Step 7: Contracts verification",
         "### Step 8: STUB enumeration and validation (mandatory)",
         "### Step 9: Write spec file",
+        "### Step 9.5: Distribution delivery gate (post-write, self-skipping)",
         "### Step 10: Update ticket status"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "121acfa8253d5be35c12a5e6ff804e1a97908ab594800d05b0457c0bc5f053de"
+      "documentDigest": "4103243b7a1ede0649c2ef564b3b3d8667fe3a984c0c4ad2527cc48bdbaf57a2"
     },
     "plan-ticket": {
       "headings": [
@@ -539,7 +543,7 @@
       "surface": "header-output",
       "kind": "pure-output",
       "producedFrom": "tests/rfc-graph/fixtures/forward-surfaces/header-input.json",
-      "value": "// ============================================================================\n// Initial Design Artifact — RFC-driven Implementation\n// !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!\n// ============================================================================\n// \"Node\" refers to a design fragment bounded by safe I/O boundaries in the Original RFC. Each node captures a distinct architectural concern that must be carefully implemented with attention to its relationships.\n//\n// Graph:        tools/conver/RFC-GRAPH.json\n// Directory:    tools/conver/RFC-Dirs-Tree.json\n// Original RFC: tools/conver/RFC.md\n// Sequences view: tools/conver/SEQUENCES.json\n// Step contracts: tools/conver/RFC-STEP-CONTRACTS.json\n//\n// Mapped node(s):\n//   - NODE_ID=N0001:  Config Loader\n//     → To show details: (cd tools/conver && node .claude/scripts/rfc-graph/query.js --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=N0001 --hops=2)\n//     → For the implementation brief (contracts, forbidden, order): (cd tools/conver && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0001)\n//   - NODE_ID=N0002:  load_config\n//     → To show details: (cd tools/conver && node .claude/scripts/rfc-graph/query.js --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=N0002 --hops=2)\n//     → For the implementation brief (contracts, forbidden, order): (cd tools/conver && node .claude/scripts/rfc-graph/show-node-contracts.mjs --id=N0002)\n//\n// Cross-referenced design context:\n//   - rationale/Why Adopt EDA [NODE_ID=N0001] § § 2.1\n//     (refines → src/config/mod.rs)\n//     → (cd tools/conver && node .claude/scripts/rfc-graph/query.js --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=N0001 --hops=2)\n//\n// Full graph exploration:\n//   (cd tools/conver && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\")\n//   (cd tools/conver && node .claude/scripts/rfc-graph/query.js --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)\n// ============================================================================\n"
+      "value": "// ============================================================================\n// Initial Design Artifact — RFC-driven Implementation\n// !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!\n// ============================================================================\n// \"Node\" refers to a design fragment bounded by safe I/O boundaries in the Original RFC. Each node captures a distinct architectural concern that must be carefully implemented with attention to its relationships.\n//\n// Graph:        tools/conver/RFC-GRAPH.json\n// Directory:    tools/conver/RFC-Dirs-Tree.json\n// Original RFC: tools/conver/RFC.md\n// Sequences view: tools/conver/SEQUENCES.json\n// Step contracts: tools/conver/RFC-STEP-CONTRACTS.json\n//\n// Mapped node(s):\n//   - NODE_ID=N0001:  Config Loader\n//     → To show details: (cd . && node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/query.js\" --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=N0001 --hops=2)\n//     → For the implementation brief (contracts, forbidden, order): (cd . && node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/show-node-contracts.mjs\" --id=N0001)\n//   - NODE_ID=N0002:  load_config\n//     → To show details: (cd . && node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/query.js\" --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=N0002 --hops=2)\n//     → For the implementation brief (contracts, forbidden, order): (cd . && node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/show-node-contracts.mjs\" --id=N0002)\n//\n// Cross-referenced design context:\n//   - rationale/Why Adopt EDA [NODE_ID=N0001] § § 2.1\n//     (refines → src/config/mod.rs)\n//     → (cd . && node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/query.js\" --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=N0001 --hops=2)\n//\n// Full graph exploration:\n//   (cd . && node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/show-graph-summary-markdown.js\" --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\")\n//   (cd . && node \"$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/query.js\" --graph=\"RFC-GRAPH.json\" --source=\"RFC.md\" --dirs-tree=\"RFC-Dirs-Tree.json\" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.))\n// ============================================================================\n"
     },
     {
       "surface": "node-id-path-map",

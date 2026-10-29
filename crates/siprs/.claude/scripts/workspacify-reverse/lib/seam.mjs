@@ -8,7 +8,7 @@
  * that the old partition never named. Netted into one number they are a count nobody can
  * act on, which is why the render never produces one.
  *
- * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ * [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,7 +27,7 @@ const SPEC_PARTITION_KEY = 'partition';
  * entries differently. Walking for the paths rather than reading one shape keeps the
  * comparison from silently finding nothing when the other shape arrives.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function collectPartitionPaths(value, found = new Set()) {
   if (Array.isArray(value)) {
     for (const entry of value) collectPartitionPaths(entry, found);
@@ -75,7 +75,7 @@ export function readFixedPartitionPaths(root) {
  * never had one — the substitution `scope.mjs` names as failure mode F3 in its most
  * expensive form.
  */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function readPartitionPaths(path, partitionKey = null) {
   if (!existsSync(path)) return { paths: null, finding: null };
   try {

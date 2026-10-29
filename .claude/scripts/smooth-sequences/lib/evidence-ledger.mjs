@@ -25,14 +25,14 @@ export function computeFindingKey(finding) {
 }
 
 /** The original check id encoded in a withdrawn finding's subject. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function readOriginalCheckId(buildWithdrawnFinding) {
   const separator = buildWithdrawnFinding.subject.indexOf(SUBJECT_SEPARATOR);
   return separator === -1 ? buildWithdrawnFinding.subject : buildWithdrawnFinding.subject.slice(0, separator);
 }
 
 /** The key of the finding a withdrawn entry stands for. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function computeOriginalKey(buildWithdrawnFinding) {
   const separator = buildWithdrawnFinding.subject.indexOf(SUBJECT_SEPARATOR);
   if (separator === -1) return `${buildWithdrawnFinding.subject}${KEY_SEPARATOR}`;
@@ -40,7 +40,7 @@ function computeOriginalKey(buildWithdrawnFinding) {
 }
 
 /** Refuse a waiver that does not carry a ground. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 function assertWaiver(waiver) {
   if (typeof waiver?.findingKey !== 'string' || waiver.findingKey.trim() === '') {
     throw new SmoothSequencesError('waiver names no findingKey', {
@@ -87,7 +87,7 @@ export function readWaivers(root) {
 }
 
 /** One withdrawn finding that keeps the previous repair route. */
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-285|PX-341) --for-spec --no-implementation-order`.
 function buildWithdrawnFinding(previousFinding, blockedCheck) {
   const surface = blockedCheck.surface ?? 'the required surface';
   return {
@@ -97,7 +97,7 @@ function buildWithdrawnFinding(previousFinding, blockedCheck) {
     where: previousFinding.where ?? 'the surface named by the blocked check',
     why: `previous finding ${previousFinding.checkId} on ${previousFinding.subject} is unresolved; ${surface} is absent or synthesized`,
     fix: `restore ${surface} and rerun the producer, or record a waiver with a non-empty ground in ${WAIVERS_FILE_NAME}`,
-    producer: previousFinding.producer ?? 'node .claude/scripts/smooth-sequences/run.mjs',
+    producer: previousFinding.producer ?? 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"',
     repairClass: previousFinding.repairClass ?? 'regeneration',
   };
 }
@@ -109,7 +109,7 @@ function buildWithdrawnFinding(previousFinding, blockedCheck) {
  * is an evidence regression; the same pair is also stuck because another run with the same
  * evidence cannot change it. New evidence on the same input is not a regression.
  */
-// [::TICKET::] PX-289 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-289 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 export function compareObligationClosure({ baseline = {}, staging = {} } = {}) {
   const baselineClosed = new Set(Array.isArray(baseline.closed) ? baseline.closed : []);
   const stagingOpen = new Set(Array.isArray(staging.open) ? staging.open : []);

@@ -1,4 +1,5 @@
-// [::TICKET::] PX-198, PX-200, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-200|PX-198) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-198, PX-200, PX-201 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-200|PX-198) --for-spec --no-implementation-order`.
 // PX-198 @verifies C001 C002
 /**
  * Failure advice.
@@ -17,7 +18,7 @@ const ADVICE = Object.freeze({
     how: [
       'Confirm you passed the WORKSPACIFY-TREE-MANIFEST.json that stage 1 published (the JSON file, not the spec or a directory).',
       'Re-run /workspacify-tree for the specification to republish a manifest, or pass the correct manifest path.',
-      'Run "node .claude/scripts/workspacify-allocate/run.mjs validate <manifest>" again and continue only when it prints status PASS.',
+      'Run "node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs" validate <manifest>" again and continue only when it prints status PASS.',
     ],
   },
   'G0.1': {
@@ -188,12 +189,12 @@ export function adviseFailure({ gateId, reason, stage = 'workspacify-allocate' }
  * stage 1 with stage-2 words would send the AI to edit a file that does not exist yet.
  */
 const TREE_ADVICE = Object.freeze({
-// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
   G0: {
     why: 'the specification must be the exact bytes the gates verified, or every source reference in the manifest would point at text that no longer exists.',
     how: [
       'Pass the specification file itself (a regular, readable, non-empty UTF-8 file), not a directory or an edited copy.',
-      'Re-run "node .claude/scripts/workspacify-tree/run.mjs parse <spec>" and continue only when it reports reconstruction PASS.',
+      'Re-run "node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-tree/run.mjs" parse <spec>" and continue only when it reports reconstruction PASS.',
     ],
   },
   G1: {
@@ -243,7 +244,7 @@ const TREE_ADVICE = Object.freeze({
     why: 'the run stopped before publishing, so no manifest was written and no existing one was changed.',
     how: [
       'Read the reported reason and fix the decisions payload it points at.',
-      'Re-run the failing subcommand; use "node .claude/scripts/workspacify-tree/run.mjs parse <spec>" to check the input first.',
+      'Re-run the failing subcommand; use "node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-tree/run.mjs" parse <spec>" to check the input first.',
     ],
   },
 });

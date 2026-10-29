@@ -11,7 +11,7 @@ import type { WatcherConfig } from "./watcher.js";
 
 // isInTimeWindow をモック化。テストごとに mockImplementation で制御する
 // 第5引数（daysOfWeek）は伝播検証のために捕捉する。
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 const mockIsInTimeWindow = mock.fn(
   (
     _now: Date,
@@ -213,7 +213,7 @@ describe("checkStepDeadline", () => {
 // waitForWindow のテスト
 // @verifies C001
 // ============================================================
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-174 --for-spec --no-implementation-order`.
 describe("waitForWindow", () => {
   const config: WatcherConfig = {
     intervalMinutes: 15,

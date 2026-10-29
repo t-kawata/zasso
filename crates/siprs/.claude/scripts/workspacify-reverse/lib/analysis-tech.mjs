@@ -1,4 +1,4 @@
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * The analysis instrument: its read-only collection layer, and its declaration.
  *
@@ -63,7 +63,7 @@ export const EXCLUSION_RULES = Object.freeze([
  * unreachable, and naming the subdirectory separately would only add a second
  * generic name to a list every measured project is read against.
  */
-// [::TICKET::] PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
 export const NOT_ENUMERATED_DIRECTORY_NAMES = Object.freeze(['.git', RESERVED_ROOT_NAME]);
 
 /** The six target languages, in the order the capability matrix renders them. */
@@ -129,7 +129,7 @@ export const COVERAGE_FIELDS = Object.freeze([
  * dynamic channel's attempt is recorded there, so "the instrument ran the
  * subject" and "the instrument read it" are told apart in the one ledger.
  */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-6 --for-spec --no-implementation-order`.
 export const ATTEMPT_PHASES = Object.freeze([
   'parse',
   'preprocess',
@@ -170,8 +170,8 @@ const SYNTAX_LAYER = 'tree-sitter';
  * E5-E6 by P24-3, E7-E14 by P24-4 and P24-5. Declaring a family in advance
  * would claim an extractor that does not exist.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
   E1: Object.freeze([...TARGET_LANGUAGES]),
   E2: Object.freeze([...TARGET_LANGUAGES]),
@@ -210,9 +210,9 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
  * the language's own constructs put beyond it. The note this replaced said the
  * adapter was not yet written, which became false the moment one existed.
  */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const CAPABILITY_NOTES = Object.freeze({
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
   'rust/E1-E4':
     'Measured through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved.',
   'rust/E5':
@@ -311,8 +311,8 @@ const CAPABILITY_NOTES = Object.freeze({
  * is what E7 and later read until the ticket that writes their adapters gives
  * them a family of their own.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const NOTE_FAMILY_BY_ITEM = Object.freeze({
   E1: 'E1-E4',
   E2: 'E1-E4',
@@ -340,7 +340,7 @@ const NOTE_FAMILY_BY_ITEM = Object.freeze({
  * Exported because the decision document must carry the same strings the matrix
  * does: a reason that lived only in prose could drift from the cell it explains.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function capabilityNoteFor(language, item) {
   if (item === 'E13') return CAPABILITY_NOTES['*/E13'];
 
@@ -373,7 +373,7 @@ export function capabilityNoteFor(language, item) {
  * this layer cannot see. Claiming `success` would overclaim, which is the one
  * thing the instrument may not do.
  */
-// [::TICKET::] P22-4, P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P24-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P24-2) --for-spec --no-implementation-order`.
 function capabilityRow(language) {
   const row = {};
   for (const item of EXTRACTION_ITEMS) {
@@ -406,7 +406,7 @@ function capabilityRow(language) {
  * this matrix may read it that way.
  */
 export const CAPABILITY_MATRIX = Object.freeze(
-// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-7 --for-spec --no-implementation-order`.
   Object.fromEntries(TARGET_LANGUAGES.map((language) => [language, Object.freeze(capabilityRow(language))])),
 );
 
@@ -454,7 +454,7 @@ export function renderCapabilityMatrixMarkdown(matrix = CAPABILITY_MATRIX) {
  * the document twice is what keeps the reason a cell carries and the reason a
  * reader reads the same string.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function renderCapabilityReasonsMarkdown() {
   const header = '| Language | E1–E4 reason |';
   const divider = '|---|---|';
@@ -473,7 +473,7 @@ export function renderCapabilityReasonsMarkdown() {
  * not by R2 as an edge — so a reader of the recorded decision can see that the
  * two do not double-count it.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-3 --for-spec --no-implementation-order`.
 export function renderCouplingReasonsMarkdown(items = ['E5', 'E6']) {
   return items
     .flatMap((item) => [
@@ -638,7 +638,7 @@ export function syntaxLayerName() {
  * slipped through, and an exclusion that only sometimes applies is worse than
  * none: the population would change shape without anything saying so.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function pathSegmentsOf(relativePath) {
   return relativePath.split('/');
 }
@@ -677,7 +677,7 @@ const ARTEFACT_KIND = Object.freeze({
 const READ_STATUS = Object.freeze({ READABLE: 'readable', UNREADABLE: 'unreadable' });
 
 /** An entry the instrument could not read, carrying why rather than vanishing. */
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
 function unreadableEntry({ path, exclusion, reason }) {
   return {
     path,
@@ -714,7 +714,7 @@ function unreadableEntry({ path, exclusion, reason }) {
  *
  * @returns {Array<object>} the summary, then one entry per recorded name
  */
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
 function summarizeExcludedSubtree(directory, relativePath) {
   let count = 0;
   let size = 0;
@@ -787,7 +787,7 @@ function summarizeExcludedSubtree(directory, relativePath) {
 }
 
 /** The path segments between an ancestor and what a walk below it has reached. */
-// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-6 --for-spec --no-implementation-order`.
 function relativeOf(current, ancestor) {
   if (current === ancestor) return [];
   const remainder = current.slice(ancestor.length + 1);

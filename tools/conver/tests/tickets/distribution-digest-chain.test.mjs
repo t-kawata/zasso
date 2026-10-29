@@ -22,7 +22,7 @@ const AGGREGATE = createHash('sha256')
   .update(JSON.stringify({ ticketDigests: TICKET_DIGESTS }))
   .digest('hex');
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureChain() {
   return {
     map: { digest: MAP },
@@ -77,7 +77,7 @@ test('C005 the aggregate is the digest of the sorted ticket digests', () => {
 // PX-311 @verifies C002
 // The stored digest is a claim the split stage made. The verifier must recompute it from
 // the current units and the current obligation, or a post-generation edit passes.
-// [::TICKET::] PX-311 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-311 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-311 --for-spec --no-implementation-order`.
 function fixtureDistribution() {
   const units = [{
     unitId: 'op-A',

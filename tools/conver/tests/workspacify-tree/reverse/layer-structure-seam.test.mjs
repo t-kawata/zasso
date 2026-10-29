@@ -77,7 +77,7 @@ const PRIOR_DOCUMENT = Object.freeze({
 });
 
 /** Two path sets that differ, generated deterministically from a seed. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function generateDifferingPartitions(seed) {
   const additions = ['src/a/one', 'src/a/two', 'src/c', 'src/d'];
   const removals = ['src/b', 'src/e'];
@@ -94,12 +94,12 @@ function generateDifferingPartitions(seed) {
  * presence was never stated, because an unread prior and an empty one are different
  * findings.
  */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-9 --for-spec --no-implementation-order`.
 function makePartition(source, paths) {
   return { present: true, source, paths };
 }
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002 the five classes are the vocabulary the count and the assertion share', () => {
   assert.deepEqual(SEAM_DIFFERENCE_CLASSES, ['unchanged', 'split', 'merged', 'new', 'disappeared']);
   assert.equal(ROOT_PACKAGE_PATH, '.');
@@ -444,7 +444,7 @@ test('C002/C003 IT-22: the seam reaches T5 through the gate runner, and the wiri
   }
 });
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('C002 IT-23: a reverse run over a subject with no prior partition takes no seam, and says so by recording none', () => {
   const decisions = JSON.parse(readFileSync(join(FIXTURES, 'decisions-complete.json'), 'utf8'));
   const packagePath = decisions.workspace[0].path;

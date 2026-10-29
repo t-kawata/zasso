@@ -52,11 +52,11 @@ export const ENTRIES_ROLE = 'entries';
 // `sequences` names the realized sequences, which is the axis the grill denominator asks
 // for when it measures whether the obligation list is total. Without the role a supplied
 // sequence census could not state that axis, and the denominator would stay unstated.
-// [::TICKET::] PX-299 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-299 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 export const SOURCE_ROLES = Object.freeze(['operations', ENTRIES_ROLE, 'sequences']);
 
 /** The bodies of every fenced block in a document, as arrays of lines. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function fencedBlockBodies(lines) {
   const bodies = [];
   let open = null;
@@ -75,13 +75,13 @@ function fencedBlockBodies(lines) {
 }
 
 /** Whether a line opens a table's data, which is a row beneath a separator row. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function isSeparatorRow(line) {
   return /^\s*\|[\s:|-]+\|\s*$/.test(line);
 }
 
 /** The cells of a table row, or null when the line is not one. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function tableCellsOf(line) {
   if (!/^\s*\|/.test(line)) return null;
   return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
@@ -119,7 +119,7 @@ export function extractMembers({ lines, shape, parameter }) {
 }
 
 /** A field of every JSON row in every fenced block that holds rows. */
-// [::TICKET::] PX-248, PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-265|PX-266) --for-spec --no-implementation-order`.
 function extractJsonFieldRows(lines, field) {
   const members = [];
   for (const body of fencedBlockBodies(lines)) {
@@ -144,7 +144,7 @@ function extractJsonFieldRows(lines, field) {
 }
 
 /** A column of every row beneath the header that names it. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function extractTableColumn(lines, header) {
   const members = [];
   let column = null;
@@ -171,7 +171,7 @@ function extractTableColumn(lines, header) {
  * a region that leaves the census with nothing failing, and a census that shrinks in silence
  * is the one way a denominator can be smaller than the work without anybody seeing it.
  */
-// [::TICKET::] PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
 function extractSpecSpans(lines, field) {
   const extracted = extractJsonFieldRows(lines, field);
   if (extracted.refused !== undefined) return extracted;
@@ -184,7 +184,7 @@ function extractSpecSpans(lines, field) {
 }
 
 /** The remainder of every line of a document that is a list and nothing else. */
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 function extractMarkedLines(lines, prefix) {
   const members = [];
   let insideFence = false;
@@ -267,7 +267,7 @@ export function findLineContainingAll(specLines, tokens) {
 }
 
 /** Every 1-based line containing the token. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function linesContaining(specLines, token) {
   const found = [];
   for (const [index, line] of specLines.entries()) {
@@ -277,7 +277,7 @@ function linesContaining(specLines, token) {
 }
 
 /** Compress line numbers into contiguous 1-based ranges. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function compressRanges(lineNumbers) {
   const sorted = [...new Set(lineNumbers)].sort((left, right) => left - right);
   const ranges = [];
@@ -290,7 +290,7 @@ function compressRanges(lineNumbers) {
 }
 
 /** The section blocks a specification's headings delimit, ending at its last line. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 export function blocksFromHeadings(specLines, level = DEFAULT_SECTION_LEVEL) {
   const heading = new RegExp(`^#{${level}} `);
   const headings = specLines
@@ -327,7 +327,7 @@ export function selectNeighbourFor(artifact, entry) {
  * file no entry carries. What differs between the kinds is everything else, which is why each
  * is established by its own function rather than by one record with holes punched in it.
  */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function establishSourceEnumeration(entry, document) {
   const readable = typeof document === 'string';
   const source = {
@@ -346,7 +346,7 @@ function establishSourceEnumeration(entry, document) {
  * anyway, which refuses it by name — the pin records that refusal rather than a document read
  * by a shape nobody declared.
  */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function establishCensusPin(entry, document, source) {
   const extracted = typeof document === 'string'
     ? extractMembers({ lines: splitLines(document), shape: entry.selector?.shape, parameter: entry.selector?.parameter })
@@ -369,7 +369,7 @@ function establishCensusPin(entry, document, source) {
  * an axis by accident, and the only way to guarantee that is for it to carry nothing a
  * denominator reads.
  */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function establishMaterialDeclaration(entry, source, readable) {
   return {
     name: entry.name,
@@ -388,7 +388,7 @@ function establishMaterialDeclaration(entry, source, readable) {
  * The refusal is recorded rather than thrown because this is reached while the pins are being
  * established, and a run that stopped here would report a crash instead of the entry to repair.
  */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function establishKindlessEntry(entry, source) {
   return {
     name: entry.name,
@@ -451,13 +451,13 @@ export function establishPins(specLines, declaration, supplied = {}) {
 }
 
 /** A verdict object, so every refusal reaches the reader in one shape. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function verdict(pin, rule, reason, line = null) {
   return { ok: false, pin, rule, line, reason };
 }
 
 /** Re-derive the predicate pin: its line must contain every limb it declares. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function rederivePredicate(pin, specLines) {
   const rule = PIN_RULES.PREDICATE_LINE;
   if (!Number.isInteger(pin.line)) return verdict('predicate', rule, 'the pin carries no integer line');
@@ -469,7 +469,7 @@ function rederivePredicate(pin, specLines) {
 }
 
 /** Re-derive the row-schema pin by the same rule, over the fields. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function rederiveRowSchema(pin, specLines) {
   const rule = PIN_RULES.ROW_SCHEMA_LINE;
   if (!Number.isInteger(pin.line)) return verdict('rowSchema', rule, 'the pin carries no integer line');
@@ -481,7 +481,7 @@ function rederiveRowSchema(pin, specLines) {
 }
 
 /** Re-derive an enumeration pin: every member must occur inside one declared range. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function rederiveEnumeration(pin, specLines) {
   const rule = PIN_RULES.ENUMERATION_RANGE;
   for (const member of pin.members) {
@@ -496,7 +496,7 @@ function rederiveEnumeration(pin, specLines) {
 }
 
 /** Re-derive the block partition: contiguous, gapless to the last line, one block per heading. */
-// [::TICKET::] PX-240, PX-241, PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241|PX-246) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-246) --for-spec --no-implementation-order`.
 function rederiveBlocks(blocks, specLines, sectionLevel) {
   const rule = PIN_RULES.BLOCK_PARTITION;
   if (blocks.length === 0) return verdict('blocks', rule, 'the partition is empty, so no line is covered');
@@ -531,7 +531,7 @@ function rederiveBlocks(blocks, specLines, sectionLevel) {
  * comparison a comparison against a document nobody has. A material declaration has no
  * members to re-extract: it is held to its digest and to the ground that says what it is.
  */
-// [::TICKET::] PX-248, PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-248|PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-265|PX-266) --for-spec --no-implementation-order`.
 function rederiveSourceEnumeration(pin, supplied) {
   const rule = PIN_RULES.SOURCE_ENUMERATION;
   const subject = `sourceEnumerations.${pin.name}`;
@@ -581,7 +581,7 @@ function rederiveSourceEnumeration(pin, supplied) {
  * file nothing was read out of, and one that carried members would be a census with a ground
  * beside it, which is the thing the second kind exists not to be.
  */
-// [::TICKET::] PX-265, PX-266 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
 function rederiveMaterialDeclaration(pin, supplied, subject, rule) {
   if (pin.role !== null && pin.role !== undefined) {
     return verdict(subject, rule, `the declaration carries the role "${pin.role}", and an entry that answers for nothing borrows no census`);
@@ -602,7 +602,7 @@ function rederiveMaterialDeclaration(pin, supplied, subject, rule) {
 }
 
 /** Re-derive a form entry: a detector proposes candidates and decides none of them. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
 function rederiveForm(pin) {
   const rule = PIN_RULES.FORM_PROPOSES;
   if (pin.proposes !== true) {

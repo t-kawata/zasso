@@ -231,7 +231,7 @@ describe("loadWatcherConfig", () => {
 // validateWatcherConfig の daysOfWeek 検証
 // @verifies C001
 // ============================================================
-// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 describe("validateWatcherConfig — daysOfWeek", () => {
   it("daysOfWeek 未指定（undefined）→ valid: true（後方互換）", () => {
     const result = validateWatcherConfig(validConfig());

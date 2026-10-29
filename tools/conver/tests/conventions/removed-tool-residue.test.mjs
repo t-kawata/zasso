@@ -1,4 +1,4 @@
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 /**
  * removed-tool-residue — no live surface still names a tool this project removed.
  *
@@ -146,7 +146,7 @@ const MAX_SCANNED_BYTES = 2 * 1024 * 1024;
  * @param {string} path - repository-relative, so a third-party tree can be recognised
  * @returns {boolean}
  */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function namesTheTool(line, path) {
   if (DISTINCTIVE_IDENTIFIERS.some((pattern) => pattern.test(line))) return true;
   if (isGeneratedBundle(path)) return false;
@@ -155,7 +155,7 @@ function namesTheTool(line, path) {
 }
 
 /** The line numbers in `text` that name the tool, given where the file sits. */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function findIdentifiers(text, path = '') {
   const found = [];
   text.split('\n').forEach((line, index) => {
@@ -177,7 +177,7 @@ function findIdentifiers(text, path = '') {
  * @param {string} text
  * @returns {number[]} 1-indexed line numbers
  */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function removalRecordLines(text) {
   const lines = text.split('\n');
   const start = lines.findIndex((line) => /^### A\.1/.test(line));
@@ -225,7 +225,7 @@ function removalRecordLines(text) {
  * @param {string} absolutePath
  * @returns {{ readable: true, text: string } | { readable: false, reason: string }}
  */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function readIfText(absolutePath) {
   let stats;
   try {

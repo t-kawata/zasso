@@ -52,14 +52,14 @@ const TEXT = readFileSync(COMMAND_PATH, 'utf8');
 const DECISIONS_PATH = join('/tmp/subject', RESERVED_ROOT_NAME, RESERVED_REVERSE_SUBDIRECTORY, RESERVED_DECISIONS_FILE_NAME);
 
 /** A throwaway directory, so nothing here writes into the project or a subject. */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function scratchDirectory() {
   const root = mkdtempSync(join(tmpdir(), 'wsp-reverse-decisions-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
 /** Every judgement item, answered. The fixture a complete document is built from. */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function completeDecisions() {
   return {
     package_boundary: { packages: [{ path: '.', name: 'root' }], rationale: 'the measured layout, not the prior' },

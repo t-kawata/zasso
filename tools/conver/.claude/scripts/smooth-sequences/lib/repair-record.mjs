@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * The repair record beside a smooth-sequences run.
  *
@@ -15,7 +16,7 @@ export const REPAIR_FILE_NAME = 'SMOOTH-SEQUENCES-REPAIRS.json';
 export const REPAIR_SCHEMA_VERSION = 1;
 
 /** The empty record for a workspace that has not been repaired yet. */
-// [::TICKET::] PX-274 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-274 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-274 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-274 --for-spec --no-implementation-order`.
 function emptyRecord(workspaceRoot) {
   return { schemaVersion: REPAIR_SCHEMA_VERSION, workspace: workspaceRoot, repairs: [] };
 }
@@ -75,7 +76,7 @@ export function closeFinding(workspaceRoot, finding, details = {}) {
     evidence,
     before: details.before ?? null,
     after: details.after ?? null,
-    command: details.command ?? 'node .claude/scripts/smooth-sequences/run.mjs',
+    command: details.command ?? 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"',
   };
   record.repairs.push(entry);
   writeRepairRecord(workspaceRoot, record);

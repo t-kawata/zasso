@@ -36,7 +36,7 @@ const PROCEED_TO_STEP_2_PHRASE = 'Proceed to Step 2';
  * @param {string} dir — Root directory (manifests/ lives here)
  * @returns {string|null} — Absolute path to the newest matching manifest, or null
  */
-// [::TICKET::] PX-138 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-138 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-138 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-138 --for-spec --no-implementation-order`.
 function findConsolidatedManifest(dir) {
   const manifestsDir = path.join(dir, MANIFESTS_DIR);
   let entries;
@@ -61,7 +61,7 @@ function findConsolidatedManifest(dir) {
  * @param {string} dir — Root directory to scan
  * @returns {number} — Number of stub markers found
  */
-// [::TICKET::] PX-148 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-148 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-148 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-148 --for-spec --no-implementation-order`.
 function countStubs(dir) {
   const stubs = [];
   scanDirectory(dir, stubs);
@@ -74,7 +74,7 @@ function countStubs(dir) {
  * @param {Function} [countStubsImpl] — Injectable stub counter (defaults to countStubs)
  * @returns {'pass-manifest'|'pass-zero-stubs'|'block'}
  */
-// [::TICKET::] PX-148 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-148 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-148 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-148 --for-spec --no-implementation-order`.
 function decideGate(dir, countStubsImpl) {
   const count = typeof countStubsImpl === 'function' ? countStubsImpl : countStubs;
   if (findConsolidatedManifest(dir)) return 'pass-manifest';
@@ -88,7 +88,7 @@ function decideGate(dir, countStubsImpl) {
 }
 
 /** CLI entry point — maps the decision to exit code and stdout/stderr messages. */
-// [::TICKET::] PX-148 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-148 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-148 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-148 --for-spec --no-implementation-order`.
 function main() {
   const decision = decideGate(process.cwd());
   if (decision === 'pass-manifest') {

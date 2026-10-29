@@ -12,7 +12,7 @@
  */
 import { isPlaceholderLine } from './markers.mjs';
 
-// [::TICKET::] PX-225 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-225 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-225 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-225 --for-spec --no-implementation-order`.
 export const HUMAN_ITEM_HEADING = '### 判断';
 
 export const PREDECIDED_ITEM_HEADING = '### 先に決めた';
@@ -43,7 +43,7 @@ export const REFERENCE_SEPARATOR = ' — ';
  * @param {string} heading
  * @returns {boolean}
  */
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 export function isItemHeading(line, heading) {
   const trimmed = String(line).trimStart();
   if (!trimmed.startsWith(heading)) return false;
@@ -76,8 +76,8 @@ const QUESTION_HEADING = /^### 判断 Q(\d+)\s*$/u;
  * @param {string} heading
  * @returns {number|null}
  */
-// [::TICKET::] PX-229 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-229 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-229 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 export function questionNumberOf(heading) {
   // Leading whitespace is trimmed here for the same reason `isItemHeading` trims it:
   // both read the heading of an item the same reader produced, so a normalisation that

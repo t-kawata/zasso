@@ -10,8 +10,8 @@
  * the build order is preserved beside the implementation order.
  *
  * Usage:
- *   node .claude/scripts/workspacify-order/run.mjs
- *   node .claude/scripts/workspacify-order/run.mjs <path-to-RFC-SEED.md>
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"
+ *   node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs" <path-to-RFC-SEED.md>
  *
  * Run from the workspace root. With no argument the root is found by walking up from the
  * current directory; with one argument it is found by walking up from that seed, and the
@@ -21,7 +21,7 @@
  * everything else. stdout is the picture and nothing else; a failure writes one line to
  * stderr and exits non-zero without having printed a partial plan.
  */
-// [::TICKET::] PX-327 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-327 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-327 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-327 --for-spec --no-implementation-order`.
 import { dirname, resolve } from 'node:path';
 
 import { ERROR_PREFIX, WorkspacifyOrderError } from './lib/errors.mjs';
@@ -41,8 +41,8 @@ const MAXIMUM_ARGUMENTS = 1;
  * @param {string[]} argv — zero arguments or one seed path
  * @returns {number} the process exit code
  */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function renderImplementationOrder(argv) {
   if (argv.length > MAXIMUM_ARGUMENTS) {
     throw new WorkspacifyOrderError(

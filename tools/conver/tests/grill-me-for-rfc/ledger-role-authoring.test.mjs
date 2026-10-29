@@ -9,7 +9,7 @@ import { renderDistribution } from '../../.claude/scripts/grill-me-for-rfc/rende
 import { checkOwnerRoles } from '../../.claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs';
 
 /** One operation claimed by two packages, so the view cannot choose an implementer. */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function coOwnedView(packageId, roleCandidate = 'undecided') {
   return {
     packageId,
@@ -28,7 +28,7 @@ function coOwnedView(packageId, roleCandidate = 'undecided') {
 }
 
 /** The ledger row an author writes; `owner` is the only cell under test. */
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function ledgerRfc(owner) {
   return [
     '# Package RFC',
@@ -48,7 +48,7 @@ function ledgerRfc(owner) {
   ].join('\n');
 }
 
-// [::TICKET::] PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-328 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-328 --for-spec --no-implementation-order`.
 function unitOf(result) {
   return result.map.units.find((unit) => unit.unitId === 'op-A');
 }

@@ -1,4 +1,4 @@
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 // P22-11 @verifies C001 C002 C003
 // The command-level integration point: `run.mjs reverse` over a measured tree,
 // and the two proofs that the forward rotation was not disturbed — a reproduced
@@ -33,7 +33,7 @@ const DECISIONS_NAME = 'decisions-complete.json';
  * decisions declare. T1 compares the two sets, so the design is authored from
  * the measurement rather than the other way round.
  */
-// [::TICKET::] P22-11, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|PX-214|PX-215) --for-spec --no-implementation-order`.
 function buildReverseWorkspace() {
   const decisions = JSON.parse(readFileSync(join(FIXTURES, DECISIONS_NAME), 'utf8'));
   const packagePath = decisions.workspace[0].path;
@@ -82,12 +82,12 @@ function buildReverseWorkspace() {
 }
 
 /** Author the delta record the operator must write before T5 can pass. */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function authorDelta(deltaPath, mismatches = []) {
   writeFileSync(deltaPath, `${JSON.stringify({ mismatches }, null, 2)}\n`);
 }
 
-// [::TICKET::] P22-11, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|PX-214|PX-215) --for-spec --no-implementation-order`.
 function runReverseCli(workspace, extraArgs = []) {
   // Nothing is staged here: a reverse run that publishes leaves the decisions
   // document in place, because the document is the authored input of record and not

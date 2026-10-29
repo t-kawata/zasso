@@ -1,4 +1,4 @@
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 /**
  * The decisions input a claim-carrying representative needs.
  *
@@ -70,7 +70,7 @@ export function knownPulseKinds() {
 }
 
 /** The empty `owns` block every package starts from. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function emptyOwns() {
   return { objects: [], claims: [], invariants: [], state_machines: [], error_codes: [], required_tests: [] };
 }
@@ -92,7 +92,7 @@ const DECISIONS_MIRROR = join('tests', 'workspacify-reverse', 'fixtures', 'patte
  * which is the only surface that runs on every routine test run.
  */
 export const DECISIONS_INPUT_SKELETON = Object.freeze({
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
   workspace: [], ownership: [], dependencies: [], adapters: [], approvals: [],
 });
 
@@ -138,7 +138,7 @@ export function readSpecification(specPath) {
 }
 
 /** Every heading, in document order, so a section's body is the text up to the next one. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function headingsInDocumentOrder(headings) {
   const flat = [];
   const visit = (nodes) => {
@@ -160,7 +160,7 @@ const EVIDENCE_ANCHOR_RE = new RegExp(
 );
 
 /** The directory a claim section names: its `scope` line, or else its first evidence anchor. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function directoryOfSection(body) {
   const scope = SCOPE_LINE_RE.exec(body);
   if (scope !== null) {
@@ -222,7 +222,7 @@ export function harvestInventory(specPath) {
 }
 
 /** A package name that is readable and unique across the measured paths. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function packageName(dirPath) {
   if (dirPath === ROOT_PACKAGE_PATH) {
     return 'project-root';
@@ -241,7 +241,7 @@ function packageName(dirPath) {
  * name — which is why the kind is written here, where the count is known, and
  * not in the partition that only knows which directories the spec mentioned.
  */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function kindFor({ dirPath, ownsMaterial }) {
   if (!ownsMaterial) {
     return dirPath === ROOT_PACKAGE_PATH ? 'binary' : 'conformance';
@@ -251,7 +251,7 @@ function kindFor({ dirPath, ownsMaterial }) {
 }
 
 /** How a package's responsibility reads once its ownership is known. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function responsibilityFor({ dirPath, ownsMaterial, ownedCount }) {
   const where = dirPath === ROOT_PACKAGE_PATH ? 'the project root' : dirPath;
   if (!ownsMaterial) {
@@ -294,7 +294,7 @@ export function derivePartition({ measuredDirectories, materialDirectories }) {
 }
 
 /** The section an inventory item sits in: its own, or the first its source refs name. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function sectionOf(item) {
   if (typeof item.section_id === 'string' && item.section_id.length > 0) {
     return item.section_id;
@@ -489,7 +489,7 @@ export function measuredDirectoriesOf(measuredRoot) {
 }
 
 /** The design record that says what the input is, who took the judgement and on what evidence. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function semanticReview({ specPath, measuredRoot }) {
   return {
     status: 'APPROVED',

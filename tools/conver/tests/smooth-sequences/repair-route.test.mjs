@@ -1,4 +1,4 @@
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -7,12 +7,12 @@ import { join } from 'node:path';
 import { finding } from '../../.claude/scripts/smooth-sequences/lib/index.mjs';
 import { REPAIR_ROUTE_BY_CHECK_ID, repairRouteFor } from '../../.claude/scripts/smooth-sequences/lib/repair-route.mjs';
 
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 
 const DETECTOR_LIBRARY = '.claude/scripts/smooth-sequences/lib';
 
 /** The checkId literals every check emits, directly or through the addFinding helper. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-341) --for-spec --no-implementation-order`.
 function emittedCheckIds() {
   const emitted = new Set();
   const patterns = [
@@ -29,7 +29,7 @@ function emittedCheckIds() {
 }
 
 /** One finding payload every test can reuse. */
-// [::TICKET::] PX-277 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-341) --for-spec --no-implementation-order`.
 function repairDetails() {
   return {
     where: 'spec.md#L12',
@@ -75,7 +75,7 @@ test('every emitted checkId has a route and no route is stale', () => {
 });
 
 // @verifies C002
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 test('a specification check resolves to a regeneration route, never an editable spec', () => {
   const route = repairRouteFor('S1.duplicate-id', {
     artifact: { spec: { path: 'spec.md' } },
@@ -83,7 +83,7 @@ test('a specification check resolves to a regeneration route, never an editable 
     locator: 'L4',
   });
   assert.equal(route.where, 'spec.md#L4 (read-only; copy it to a candidate first)');
-  assert.match(route.producer, /regeneration\/run\.mjs open --spec=<candidate>/);
+  assert.match(route.producer, /regeneration\/run\.mjs"? open --spec=<candidate>/);
   assert.equal(route.repairClass, 'regeneration');
 });
 
@@ -96,13 +96,13 @@ test('a specification check with no recorded spec path never points at the artif
 
 // @verifies C002
 test('an allocate clause resolves to the decisions document and the regeneration producer', () => {
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
   const route = repairRouteFor('S4.boundary-clause-missing', {
     artifact: { spec: { path: 'spec.md' } },
     locator: 'boundary-001/authority',
   });
   assert.equal(route.where, 'workspacify/allocate/DECISIONS.json#boundary-001/authority');
-  assert.match(route.producer, /regeneration\/run\.mjs open --allocate-decisions=<candidate>/);
+  assert.match(route.producer, /regeneration\/run\.mjs"? open --allocate-decisions=<candidate>/);
   assert.equal(route.repairClass, 'regeneration');
 });
 
@@ -114,7 +114,7 @@ test('a package RFC check is an in-place edit followed by the detector', () => {
     locator: 'boundaries/boundary-001',
   });
   assert.equal(route.where, 'crates/alpha/RFC.md#boundaries/boundary-001');
-  assert.equal(route.producer, 'node .claude/scripts/smooth-sequences/run.mjs');
+  assert.equal(route.producer, 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"');
   assert.equal(route.repairClass, 'in-place');
 });
 
@@ -126,7 +126,7 @@ test('a view check resolves to the generated view and the slice producer', () =>
     packageId: 'pkg-0001',
   });
   assert.equal(route.where, 'crates/alpha/SEQUENCES.json');
-  assert.equal(route.producer, 'node .claude/scripts/sequences-slice/run.mjs /w/example-sequences.json crates/alpha');
+  assert.equal(route.producer, 'node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" /w/example-sequences.json crates/alpha');
 });
 
 // @verifies C002

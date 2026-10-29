@@ -1,4 +1,4 @@
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 /**
  * Staleness propagation — the instrument the evolution loop reads.
  *
@@ -37,7 +37,7 @@ import { pathToFileURL } from 'node:url';
 import process from 'node:process';
 
 import { sha256Hex } from './regression-gate.mjs';
-// [::TICKET::] PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../../lib/path-utils.js';
 
 /** The reverse sidecar holding the claims and their recorded forward references. */
@@ -142,7 +142,7 @@ export function loadClaimLedger(root) {
 }
 
 /** Refuse a change set that cannot be compared, naming what is wrong with it. */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function assertChangedInputsAreComparable(changedInputs) {
   if (!Array.isArray(changedInputs)) {
     throw new Error(`changedInputs must be an array of { ref, path } entries; it was given ${typeof changedInputs}`);
@@ -172,7 +172,7 @@ function assertChangedInputsAreComparable(changedInputs) {
  * Dropping it would leave each claim that depends on it looking fresh, which is
  * the one answer the run is not entitled to give.
  */
-// [::TICKET::] P22-21, PX-231 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-21|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-21|PX-231) --for-spec --no-implementation-order`.
 function examineInputs(root, changedInputs) {
   const examined = new Map();
   const findings = [];
@@ -204,7 +204,7 @@ function examineInputs(root, changedInputs) {
  * examine. The third is not staleness — the caller asked about other inputs —
  * and folding it into either of the others would make the report lie.
  */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function compareRecordedHashes(recorded, examined) {
   const differing = {};
   const unresolved = [];
@@ -245,7 +245,7 @@ function compareRecordedHashes(recorded, examined) {
 }
 
 /** The plain-English condition a human reads before deciding what to do. */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function reexaminationConditionFor(claim, differing) {
   const refs = Object.keys(differing).sort();
   const descriptions = refs.map((ref) => {
@@ -350,7 +350,7 @@ export function propagateStaleness(root, changedInputs) {
 }
 
 /** Whether a value is the output of `propagateStaleness` and not something shaped like it. */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function isStalenessIndex(value) {
   return Boolean(value)
     && value.sidecar === STALENESS_INDEX_FILE_NAME
@@ -358,7 +358,7 @@ function isStalenessIndex(value) {
     && Array.isArray(value.unresolvedClaims);
 }
 
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 function renderDifferingHashes(marker) {
   const lines = ['| changed input | recorded | current |', '|---|---|---|'];
   for (const ref of Object.keys(marker.differingHashes).sort()) {
@@ -499,9 +499,9 @@ export function parseArguments(argv) {
   return { claimLedger, changedInputs, out, json };
 }
 
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 /** Do the work, assuming the arguments have already been accepted. */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 async function runPropagation(options) {
   if (options.claimLedger === null) {
     process.stderr.write(`no claim ledger was named\n\n${USAGE}\n`);
@@ -530,7 +530,7 @@ async function runPropagation(options) {
  * stack trace would bury the one sentence they need under frames they cannot
  * act on.
  */
-// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-21 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-21 --for-spec --no-implementation-order`.
 async function main(argv = process.argv.slice(2)) {
   try {
     return await runPropagation(parseArguments(argv));

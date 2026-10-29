@@ -94,7 +94,7 @@ const EXAMPLES_SECTION_ID = 'EXAMPLES';
  * @returns {{ statusPath: string|null, graphPath: string|null, check: boolean, checkExamples: boolean, list: boolean, subcommand: string|null }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   let statusPath = null;
@@ -139,7 +139,7 @@ function parseArguments(args) {
  * @param {{ statusPath: string|null, graphPath: string|null }} parsed — Parsed arguments
  * @returns {string} Absolute status file path
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function resolveStatusPath(parsed) {
   if (parsed.statusPath) return parsed.statusPath;
   const graph = readGraphFile(parsed.graphPath);
@@ -154,7 +154,7 @@ function resolveStatusPath(parsed) {
  * @param {string} statusPath — Status file path
  * @returns {Object} Status data
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function readStatus(statusPath) {
   const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
   if (!status.grill) status.grill = {};
@@ -168,7 +168,7 @@ function readStatus(statusPath) {
  * @returns {Object} Parsed stdin JSON object
  * @throws {Error} If stdin is not a JSON object
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function readStdinJson() {
   const raw = fs.readFileSync(0, 'utf8');
   const parsed = JSON.parse(raw);
@@ -202,7 +202,7 @@ function confirmedContentOf(status, id) {
  * @param {string} heading — Section heading text
  * @param {string} state — 'complete' | 'residue'
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function updateSectionState(status, id, heading, state) {
   const sections = status.grill.sections;
   let record = sections.find((s) => s.id === id);
@@ -225,7 +225,7 @@ function updateSectionState(status, id, heading, state) {
  * @returns {string} The heading line, e.g. '## アカウントの追加'
  * @throws {Error} If the section heading is not found
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function sectionHeadingLine(text, headingText) {
   const sections = splitSections(text);
   const target = sections.find((s) => s.headingText === headingText);
@@ -241,7 +241,7 @@ function sectionHeadingLine(text, headingText) {
  * @param {string} targetPath — Target file path
  * @param {string} data — UTF-8 content to write
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function atomicWrite(targetPath, data) {
   const tmpPath = `${targetPath}.tmp.${process.pid}`;
   fs.writeFileSync(tmpPath, data, 'utf8');
@@ -255,7 +255,7 @@ function atomicWrite(targetPath, data) {
  * @param {string} reason — Why it happened
  * @param {string} action — What the AI should do next
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function exitWithError(message, reason, action) {
   console.error(`[ERROR] ${message}`);
   console.error(`Cause: ${reason}`);
@@ -269,7 +269,7 @@ function exitWithError(message, reason, action) {
  * @param {Object} scan — scanMarkers result
  * @returns {string} English guidance
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function scanSummary(scan) {
   return `Section scan: ${scan.pending.length} pending, ${scan.complete.length} complete, ${scan.residue.length} residue. Use 'resolve-section' for writable sections and 'mark-residue' for unwritable ones.`;
 }
@@ -280,7 +280,7 @@ function scanSummary(scan) {
  * @param {Object} verdict — checkLoopReady result
  * @returns {string} English guidance
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function checkSummary(verdict) {
   if (verdict.ready) {
     return 'Loop converged: every usage section is complete or a residue record. Proceed to the examples step.';
@@ -305,7 +305,7 @@ function checkSummary(verdict) {
  * @param {Object} status — CRYSTALIZE-Status.json content
  * @returns {string} Absolute README path (<rfcDir>/README.md)
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function deriveReadmePath(status) {
   return path.join(path.dirname(status.sourceFile), README_FILENAME);
 }
@@ -316,7 +316,7 @@ function deriveReadmePath(status) {
  * @param {string} text — Raw text
  * @returns {string} Lower-cased, trimmed text
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function normalize(text) {
   return String(text).trim().toLowerCase();
 }
@@ -329,7 +329,7 @@ function normalize(text) {
  * @param {string} text — README markdown content
  * @returns {{ pending: string[], complete: string[], residue: string[], templateCount: number, readmeTemplateCount: number, examplesTemplateCount: number }}
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function scanMarkers(text) {
   const sections = splitSections(text);
   const result = {
@@ -374,7 +374,7 @@ function scanMarkers(text) {
  * @param {string} text — README markdown content
  * @returns {{ ready: boolean, unresolved: string[], violations: string[] }}
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function checkLoopReady(text) {
   const scan = scanMarkers(text);
   const grammar = validateMarkerGrammar(text);
@@ -394,7 +394,7 @@ function checkLoopReady(text) {
  * @returns {string} Updated README
  * @throws {Error} If the section heading is not found
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function replaceSection(text, headingText, newSectionText) {
   const lines = text.split('\n');
   const sections = splitSections(text);
@@ -416,7 +416,7 @@ function replaceSection(text, headingText, newSectionText) {
  * @param {string} newSectionText — Complete replacement section (heading + body)
  * @returns {string} Updated README
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function resolveSection(text, headingText, newSectionText) {
   return replaceSection(text, headingText, newSectionText);
 }
@@ -433,7 +433,7 @@ function resolveSection(text, headingText, newSectionText) {
  * @param {string|null} [confirmedContent] — Section lead paragraph, or null
  * @returns {string} Updated README
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function markResidue(text, headingText, residueBody, confirmedContent = null) {
   const lines = text.split('\n');
   const sections = splitSections(text);
@@ -457,7 +457,7 @@ function markResidue(text, headingText, residueBody, confirmedContent = null) {
  * @param {string} text — README markdown content
  * @returns {{ present: boolean, template: boolean, residue: boolean, complete: boolean }}
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function scanExamplesState(text) {
   const sections = splitSections(text);
   const examples = sections.find((s) => normalize(s.headingText) === normalize(TRAILING_SECTION_TITLE));
@@ -483,7 +483,7 @@ function scanExamplesState(text) {
  * @param {string} residueBody — Evidence + reinforcement design prose
  * @returns {string} Updated README
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function markExamplesResidue(text, headingText, residueBody) {
   const lines = text.split('\n');
   const sections = splitSections(text);
@@ -505,7 +505,7 @@ function markExamplesResidue(text, headingText, residueBody) {
  * @param {string} text — README markdown content
  * @returns {{ ready: boolean, unresolved: string[], violations: string[], examples: object }}
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function checkExamplesReady(text) {
   const loop = checkLoopReady(text);
   const examples = scanExamplesState(text);
@@ -523,7 +523,7 @@ function checkExamplesReady(text) {
  * @param {Object} verdict — checkExamplesReady result
  * @returns {string} English guidance
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function examplesSummary(verdict) {
   if (verdict.ready) {
     return 'Examples resolved: the Step 2 loop has converged and <::TEMPLATE-EXAMPLES::> is resolved to a complete or residue record. The README is final.';
@@ -563,7 +563,7 @@ function examplesSummary(verdict) {
  * @param {{ statusPath: string|null, graphPath: string|null, subcommand: string|null }} parsed — Parsed arguments
  * @throws {Error} If input is invalid or the section is not found
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function executeSectionTransition(parsed) {
   const statusPath = resolveStatusPath(parsed);
   const status = readStatus(statusPath);
@@ -606,7 +606,7 @@ function executeSectionTransition(parsed) {
  * @param {{ statusPath: string|null, graphPath: string|null, subcommand: string|null }} parsed — Parsed arguments
  * @throws {Error} If input is invalid, the loop has not converged, or the section lacks its template marker
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function executeExamplesTransition(parsed) {
   const statusPath = resolveStatusPath(parsed);
   const status = readStatus(statusPath);
@@ -644,7 +644,7 @@ function executeExamplesTransition(parsed) {
 /**
  * main — CLI entry point.
  */
-// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {

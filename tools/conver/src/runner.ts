@@ -52,7 +52,7 @@ import { waitForWindow } from "./step-timer.js";
 
 /** ループ制御に必要な全オプション。cli.ts の CliOptions と同一フィールドだが
  *  将来的な分離可能性のため独立定義する。 */
-// [::TICKET::] PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-146|PX-151) --for-spec --no-implementation-order`.
 export interface LoopOptions {
   apiKey: string;
   model: string;
@@ -116,7 +116,7 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
 // --- PX-150: セッション障害からの回復（再試行・継続） ---
 
 /** セッション再試行ポリシー。テストから遅延を短縮できるよう mutable に保つ。 */
-// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-150 --for-spec --no-implementation-order`.
 export const retryPolicy = {
   maxAttempts: 3,
   baseDelayMs: 1000,
@@ -178,7 +178,7 @@ export async function retryWithBackoff<T>(
 }
 
 /** LoopOptions からセッション起動用の SessionConfig を抽出する（PX-151）。 */
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
 function toSessionConfig(options: LoopOptions): SessionConfig {
   return {
     apiKey: options.apiKey,
@@ -203,7 +203,7 @@ async function runWithSession<T>(
 }
 
 /** チケットキー（P{phaseId}-{id} / PX-{id}）を生成する（PX-146: wave / リトライ追跡用）。 */
-// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-146 --for-spec --no-implementation-order`.
 function ticketKey(ticket: { phaseId: number; id: number }): string {
   return ticket.phaseId === -1 ? `PX-${ticket.id}` : `P${ticket.phaseId}-${ticket.id}`;
 }
@@ -211,7 +211,7 @@ function ticketKey(ticket: { phaseId: number; id: number }): string {
 /**
  * チケットキー（"P{phaseId}-{id}" / "PX-{id}"）を phaseId と id に分解する。
  */
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-174 --for-spec --no-implementation-order`.
 function parseTicketKey(key: string): { phaseId: number; id: number } {
   const separator = key.indexOf("-");
   const phasePart = key.slice(0, separator);
@@ -226,14 +226,14 @@ function parseTicketKey(key: string): { phaseId: number; id: number } {
  * 未着手として扱うのが安全側 — 完了と誤認すると取りこぼし、未着手と誤認しても
  * 余分に1回処理されるだけである。
  */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 const UNSTARTED_STATUS = "todo";
 
 /**
  * Tickets.json を読み直し、指定チケットの現在の status を返す（PX-174 C003 status 再読込）。
  * チケットが見つからない・ファイルが読めない場合は UNSTARTED_STATUS を返す（新規扱いで安全側）。
  */
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-174 --for-spec --no-implementation-order`.
 export function readTicketStatus(ticketsPath: string, key: string): string {
   const { phaseId, id } = parseTicketKey(key);
   try {
@@ -256,7 +256,7 @@ export function readTicketStatus(ticketsPath: string, key: string): string {
 }
 
 /** status 文字列が terminal（reviewed または R<round>）か判定する（PX-174 review ゲート用）。 */
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-174 --for-spec --no-implementation-order`.
 function isTerminalStatusValue(status: string): boolean {
   return status === "reviewed" || /^R[1-9]\d*$/.test(status);
 }
@@ -265,7 +265,7 @@ function isTerminalStatusValue(status: string): boolean {
  * Tickets.json を読み直し、指定チケットが terminal（reviewed または R<round>）に
  * 到達したかを判定する（PX-146 C002 事後検証）。ファイルが読めない場合は false。
  */
-// [::TICKET::] PX-146, PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-174) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-146|PX-174) --for-spec --no-implementation-order`.
 function isTerminalStatus(ticketsPath: string, key: string): boolean {
   return isTerminalStatusValue(readTicketStatus(ticketsPath, key));
 }
@@ -275,7 +275,7 @@ function isTerminalStatus(ticketsPath: string, key: string): boolean {
  * shouldRun は前条件であり、その否定がそのまま後条件（このフェーズ自身の出力が
  * 揃ったか）になる。両者を別々に宣言すると必ずずれるため、宣言は1つに保つ。
  */
-// [::TICKET::] PX-174, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-174|PX-211) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174, PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-174|PX-211) --for-spec --no-implementation-order`.
 export interface PhaseSpec {
   /** 実行コマンド（例: "/make-ticket"） */
   command: string;
@@ -288,7 +288,7 @@ export interface PhaseSpec {
 }
 
 /** 4つのフェーズの前条件。否定がそのまま後条件になる */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export const PHASE_SPECS: readonly PhaseSpec[] = [
   {
     command: "/make-ticket",
@@ -321,7 +321,7 @@ export const PHASE_SPECS: readonly PhaseSpec[] = [
 ];
 
 /** コマンド名からフェーズ仕様を引く。未知のコマンドは実装の誤りなので即座に落とす */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function phaseFor(command: string): PhaseSpec {
   const found = PHASE_SPECS.find((spec) => spec.command === command);
   if (!found) {
@@ -331,7 +331,7 @@ function phaseFor(command: string): PhaseSpec {
 }
 
 /** 作業ツリーの変更ファイル数を数える。git が使えなければ throw する */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function countChangedFiles(cwd: string): number {
   const output = execSync("git status --porcelain", { cwd, encoding: "utf-8" });
   return output.split("\n").filter((line) => line.trim().length > 0).length;
@@ -342,7 +342,7 @@ function countChangedFiles(cwd: string): number {
  * これは助言的な文脈であり、欠けた状態は supervisor 側で既に扱える。
  * 計測の失敗が完了ループを止めてはならない（自律性が最優先）。
  */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function measureChangedFiles(cwd: string): number | null {
   try {
     return contextProbe.countChangedFiles(cwd);
@@ -352,7 +352,7 @@ function measureChangedFiles(cwd: string): number | null {
 }
 
 /** supervisor に渡す生のチケット文脈（切り詰めは supervisor 側が行う） */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 interface TicketContextIngredients {
   title: string;
   acceptanceCriteria: string;
@@ -365,7 +365,7 @@ interface TicketContextIngredients {
  * 読めない場合は空の文脈を返す — 文脈が欠けても継続指示は出せる方が、
  * 例外で完了ループを止めるより望ましい（自律性が最優先）。
  */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function readTicketContext(
   ticketsPath: string,
   ticketId: string,
@@ -394,7 +394,7 @@ function readTicketContext(
  * テストは git 管理外の作業ディレクトリや読み取り不能なチケットファイルを
  * 実環境を汚さずに再現できる。どちらも「欠けても判断は成立する」助言的な文脈である。
  */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 export const contextProbe: {
   /** 変更ファイル数を数える。測れない場合は null を返してよい */
   countChangedFiles: (cwd: string) => number | null;
@@ -408,7 +408,7 @@ export const contextProbe: {
 };
 
 /** 完了ループの1回分の試行。supervisor に渡す素材はここから組み立てる */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 interface CompletionAttempt {
   /** チケットの作業ディレクトリ。変更ファイル数の計測に使う */
   cwd: string;
@@ -423,7 +423,7 @@ interface CompletionAttempt {
 }
 
 /** supervisor 用の素材を組み立てる（切り詰めと本文整形は supervisor 側の責務） */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-211 --for-spec --no-implementation-order`.
 function buildIngredients(attempt: CompletionAttempt): SupervisorIngredients {
   const context = contextProbe.readTicketContext(
     attempt.options.ticketsPath,
@@ -455,7 +455,7 @@ function buildIngredients(attempt: CompletionAttempt): SupervisorIngredients {
  * 継続指示は1〜2回目が定型文、3回目以降は supervisor が状況から生成する。
  * 上限に達しても throw せず、既存の wave retry に委ねる（セッションを中断させない）。
  */
-// [::TICKET::] PX-174, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-174|PX-211) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174, PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-174|PX-211) --for-spec --no-implementation-order`.
 export async function runPhaseToCompletion(
   session: AcpSession,
   options: LoopOptions,
@@ -527,7 +527,7 @@ export async function runPhaseToCompletion(
 }
 
 /** resolve + epush を実行する（PX-146: resolveEvery のリズムと find 前の最終 resolve を一元化）。 */
-// [::TICKET::] PX-146, PX-150, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-150|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-150, PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-146|PX-150|PX-151) --for-spec --no-implementation-order`.
 async function runResolve(
   cwd: string,
   options: LoopOptions,
@@ -580,7 +580,7 @@ async function runResolve(
  * 3. process.exit(1) でプロセス終了
  */
 /** コマンド実行前に視認性の高いヘッダーを出力する */
-// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-150 --for-spec --no-implementation-order`.
 function printCommandHeader(
   command: string,
   ticketId?: string,
@@ -597,7 +597,7 @@ function printCommandHeader(
 }
 
 /** Tickets.json から処理済みチケットをフェーズ別に整形する */
-// [::TICKET::] PX-116, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-116|PX-211) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116, PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-116|PX-211) --for-spec --no-implementation-order`.
 function buildProcessedText(
   ticketsPath: string,
   processed: Array<{ id: string; title: string; phaseId: number }>,
@@ -634,18 +634,18 @@ function buildProcessedText(
   }
 }
 
-/** カレントディレクトリの `.claude/scripts/tickets/list-phases-and-tickets.js` を実行して進捗一覧を取得する */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+/** The repository-root .claude directory for the process that runs the bundle. */
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+function getClaudeDir(cwd: string = process.cwd()): string {
+  const root = execSync("git rev-parse --show-toplevel", { cwd, encoding: "utf8" }).trim();
+  return path.join(root, ".claude");
+}
+
+/** Run the repository-root list-phases-and-tickets script to obtain the progress list. */
+// [::TICKET::] PX-116, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-116|PX-341) --for-spec --no-implementation-order`.
 function buildProgressText(ticketsPath: string): string {
   try {
-    const script = path.join(
-      process.cwd(),
-      ".claude",
-      "scripts",
-      "tickets",
-      "list-phases-and-tickets.js",
-    );
+    const script = path.join(getClaudeDir(), "scripts", "tickets", "list-phases-and-tickets.js");
     return execSync(`node "${script}" "${ticketsPath}"`, {
       encoding: "utf-8",
     }).trim();

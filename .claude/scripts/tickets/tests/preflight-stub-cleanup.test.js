@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // [::TICKET::] PX-120: preflight-stub-cleanup — tests for the 4-class classification.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-120 --for-spec --no-implementation-order`.
+// Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-120 --for-spec --no-implementation-order`.
 
 /**
  * preflight-stub-cleanup.test.js — RED tests for preflight-stub-cleanup.js
@@ -14,8 +14,8 @@
 let passed = 0;
 let failed = 0;
 
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-126|PX-127) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) {
     passed++;
@@ -36,7 +36,7 @@ try {
 
 const { classifyStubs, CLASS_NAMES } = p;
 
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function fixtureTickets(map) {
   const byPhase = {};
   for (const key of Object.keys(map)) {
@@ -54,7 +54,7 @@ function fixtureTickets(map) {
   };
 }
 
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
 function stub(key, content) {
   const c = content || '// [::STUB::] ' + (key || 'MUST RESOLVE') + ': placeholder -- Implement real logic';
   return { file: 'src/sample.js', line: 1, content: c, key };

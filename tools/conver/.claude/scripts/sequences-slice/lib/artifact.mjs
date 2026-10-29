@@ -12,7 +12,7 @@
  */
 
 /** The arrays a sequences artifact must carry for the join to be computable. */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export const REQUIRED_ARRAY_FIELDS = Object.freeze(['sequences', 'steps', 'operations']);
 
 /**
@@ -23,7 +23,7 @@ export const REQUIRED_ARRAY_FIELDS = Object.freeze(['sequences', 'steps', 'opera
  * @returns {{ schema_version: number, sequences: unknown[], steps: unknown[], operations: unknown[] }}
  * @throws {Error} naming the source when the text is not a sequences artifact
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function parseSequencesArtifact(text, sourcePath) {
   if (typeof text !== 'string') {
     throw new Error(`${sourcePath}: the sequences artifact was not read as text`);

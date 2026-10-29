@@ -2,7 +2,7 @@
 // @verifies C002
 // @verifies C003
 // @verifies C004
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
 /**
  * R7 and R8 measured through the pipeline that runs them.
  *
@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 
 import { ANALYSIS_STAGES, analyzeProject, EMPTY_RECORD, runSpike } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { CARD_LAYERING_THRESHOLD, renderServing, renderWithholdingNote } from '../../../.claude/scripts/workspacify-reverse/lib/packet.mjs';
-// [::TICKET::] P23-8: the two lanes R7 now publishes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8: the two lanes R7 now publishes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 import {
   LANE_FALSIFICATION_BUDGET,
   LANE_MEMBERSHIP,
@@ -59,7 +59,7 @@ import { createSyntheticTree, LAYERED_SERVING_TREE, SPIKE_SLICE_FILES } from '..
 import { requestPipelineRun } from '../helpers/shared-run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-5 --for-spec --no-implementation-order`.
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
 const targetAvailable = existsSync(REVERSE_ROOT);
 const bundleAvailable = existsSync(join(PROJECT_ROOT, 'tests/workspacify-reverse/oracle/ORACLE-BUNDLE.json'));
@@ -77,8 +77,8 @@ const THROUGH_R8 = 'r8';
 const THROUGH_R7 = 'r7';
 
 /** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-r8-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
@@ -91,13 +91,13 @@ function scratchOutput() {
  * spec has to carry claims of more than one shape rather than a single one.
  */
 /** The unresolved claims a published ledger holds: the population R7 serves. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function unresolvedIn(ledger) {
   return ledger.claims.filter((claim) => claim.claim_type === 'unresolved');
 }
 
 /** The counts the serving packet states about itself, read out of the page a human reads. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function statedCounts(markdown) {
   const served = /^(\d+) unresolved claim\(s\) are set out below/m.exec(markdown);
   const withheld = /^(\d+) further unresolved claim\(s\) were not printed here/m.exec(markdown);
@@ -105,7 +105,7 @@ function statedCounts(markdown) {
 }
 
 /** The claim ids the packet prints, in the order it prints them. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-3 --for-spec --no-implementation-order`.
 function documentedCardIds(markdown) {
   return [...markdown.matchAll(/^### `([^`]+)`$/gm)].map((match) => match[1]);
 }
@@ -504,7 +504,7 @@ const ORDINARY_ONLY_TREE = Object.freeze({
 });
 
 /** Run a tree through R7 and hand back a reader for what it published. */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 async function publishR7(tree) {
   const out = scratchOutput();
   await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R7 });
@@ -519,7 +519,7 @@ async function publishR7(tree) {
 }
 
 /** Every key at every depth of a JSON value, so a walk cannot stop at the first level. */
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 function keysAtEveryDepth(value, found = []) {
   if (Array.isArray(value)) {
     for (const entry of value) keysAtEveryDepth(entry, found);

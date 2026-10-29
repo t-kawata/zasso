@@ -8,7 +8,7 @@ import { collectArtifactViewConsistency } from '../../.claude/scripts/smooth-seq
 import { sequenceOwners } from '../../.claude/scripts/smooth-sequences/lib/index.mjs';
 import { defaultViews, materializeSmoothWorkspace, minimalV3Artifact, packageView } from './helpers/workspace-fixture.mjs';
 
-// [::TICKET::] PX-288 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-288 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 test('sequenceOwners unions owned, cross-boundary and obligation units', () => {
   const workspace = materializeSmoothWorkspace();
   try {

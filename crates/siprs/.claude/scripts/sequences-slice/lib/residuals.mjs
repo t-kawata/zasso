@@ -16,7 +16,7 @@
  * reviewed.
  */
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export const DECLARED_RESIDUAL_CLASS_NAMES = Object.freeze([
   'CitationCertificate',
   'CommunityCertificate',
@@ -57,7 +57,7 @@ export const DECLARED_RESIDUAL_CLASS_NAMES = Object.freeze([
  *   unaccounted: string[],
  * }}
  */
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 export function disposeUnmatchedClassNames(unmatchedClassNames, options = {}) {
   const {
     claimNames = [],

@@ -17,9 +17,9 @@ import {
 } from "./tickets.js";
 
 /** テスト用に一時ディレクトリに Tickets.json を書き込み、そのパスを返す */
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
 function writeTempTickets(data: object): string {
   const dir = mkdtempSync(join(tmpdir(), "tt-"));
   const path = join(dir, "Tickets.json");
@@ -377,7 +377,7 @@ describe("countPhasesAndTickets", () => {
 // ======================================================================
 
 // @verifies C002
-// [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-145 --for-spec --no-implementation-order`.
 describe("loadPendingTickets forNextRound", () => {
   it("forNextRound=true のチケットを除外する", () => {
     const path = writeTempTickets({
@@ -437,7 +437,7 @@ describe("loadPendingTickets forNextRound", () => {
 });
 
 // @verifies C003
-// [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-145 --for-spec --no-implementation-order`.
 describe("checkAllReviewed forNextRound", () => {
   it("forNextRound=true のみ未済でも true を返す（完了をブロックしない）", () => {
     const path = writeTempTickets({
@@ -477,7 +477,7 @@ describe("checkAllReviewed forNextRound", () => {
 });
 
 // @verifies C004
-// [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-145 --for-spec --no-implementation-order`.
 describe("clearForNextRound", () => {
   it("全チケットの forNextRound フラグを除去する", () => {
     const ticketsPath = writeTempTickets({
@@ -520,6 +520,31 @@ describe("clearForNextRound", () => {
     clearForNextRound(ticketsPath);
     const second = readFileSync(ticketsPath, "utf-8");
     assert.strictEqual(first, second);
+  });
+
+  it("home 配下の絶対パスを ~ に変換して書き戻す", () => {
+    const home = os.homedir();
+    const ticketsPath = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [{
+            id: 1,
+            phaseId: 0,
+            status: "todo",
+            title: "a",
+            forNextRound: true,
+            notes: `see ${home}/shyme/zasso/x.md`,
+          }],
+        },
+      ],
+    });
+    clearForNextRound(ticketsPath);
+    const data = JSON.parse(readFileSync(ticketsPath, "utf-8"));
+    assert.strictEqual(data.phases[0].tickets[0].notes, "see ~/shyme/zasso/x.md");
   });
 
   it("他フィールド（status/title/round）を変更しない", () => {

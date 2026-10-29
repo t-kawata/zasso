@@ -32,7 +32,7 @@ const { findFencedBlocks } = require("./lib/markdown-headings.js");
 const MAX_MATCHED_TEXT_LENGTH = 30;
 
 /** Write one line to stdout without console.log. */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function writeLine(text = "") {
   process.stdout.write(text + "\n");
 }
@@ -938,7 +938,7 @@ function exitWithError(summary, cause, action) {
  * @returns {{ sourcePath: string }} Parsing result
  * @throws {Error} If arguments are invalid
  */
-// [::TICKET::] PX-334, PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-334|PX-335) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-335) --for-spec --no-implementation-order`.
 function parseArguments(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
   if (argv.length < 3) {
@@ -1008,7 +1008,7 @@ function readSourceFile(filePath) {
  * @param {string[]} sourceLines
  * @returns {{ start: number, end: number }[]}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function extractCodeBlocks(sourceLines) {
   // The analyzer's published behavior is to ignore an unclosed block. The shared
   // extractor reports it as a block to EOF for the guarding readers, so filter it
@@ -1159,7 +1159,7 @@ function estimateKind(heading, bodyText) {
  * @param {RegExp[]} patterns — Array of regex patterns to match
  * @returns {string[]} Array of matched strings (including partial matches)
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function collectBodyMatches(bodyText, patterns) {
   const matches = [];
   for (const re of patterns) {
@@ -1265,7 +1265,7 @@ function generateCandidateHeadingRefs(sections) {
  * @param {...*} [legacy] — Legacy positional codeLines through headingRefCandidates
  * @returns {string}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function formatReport(sourcePath, reportData, ...legacy) {
   const reportShape = typeof reportData === 'number'
     ? {
@@ -1354,7 +1354,7 @@ function formatReport(sourcePath, reportData, ...legacy) {
  * @param {string[]} sourceLines
  * @returns {string}
  */
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function generateReport(sourcePath, sourceLines) {
   const totalLines = sourceLines.length;
 
@@ -1446,7 +1446,7 @@ function generateReport(sourcePath, sourceLines) {
 // Main
 // ============================================================
 
-// [::TICKET::] PX-335 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-335 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 function main() {
   const { sourcePath } = parseArgumentsSafe(process.argv);
   let sourceLines;

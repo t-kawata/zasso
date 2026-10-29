@@ -1,4 +1,4 @@
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
 // entry.ts — conver.js のエントリポイント
 //
 // conver.ts の main() をモジュール評価後に呼び出すための分離エントリ。

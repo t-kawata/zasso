@@ -20,7 +20,7 @@ const CONTRACT_ID_RE = /^C\d{3}$/;
  * Parse CLI arguments
  * @returns {{ graphPath: string }}
  */
-// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   for (const a of args) {
@@ -37,7 +37,7 @@ function parseArgs() {
  * @param {object} graph — Parsed GRAPH.json content
  * @returns {Array<{edge: string, detail: string}>} — List of validation errors
  */
-// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function validateEdgeContracts(graph) {
   const errors = [];
   if (!graph.edges || !Array.isArray(graph.edges)) {
@@ -98,7 +98,7 @@ function validateEdgeContracts(graph) {
   return errors;
 }
 
-// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function main() {
   const { graphPath } = parseArgs();
   if (!fs.existsSync(graphPath)) {

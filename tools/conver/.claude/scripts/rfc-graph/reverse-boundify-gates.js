@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 
 /**
  * reverse-boundify-gates.js — the pure judgements of B1, B2 and B3 (§6.7, §6.14.5).
@@ -86,19 +86,19 @@ const NUL_BYTE = String.fromCharCode(0);
 const BLANK_LINE = '';
 
 /** One gate record, in the shape the reverse-rotation gates already report. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function gateRecord(gateId, status, counts, reasons, failures) {
   return { gateId, status, counts, reasons, ...failures };
 }
 
 /** A lowercase hex sha256 of a UTF-8 string. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function sha256Hex(text) {
   return crypto.createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex');
 }
 
 /** The character offset at which a zero-indexed line begins, or the end of the content. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function lineStartOffset(content, lineIndex) {
   if (lineIndex <= 0) return 0;
   let offset = 0;
@@ -111,7 +111,7 @@ function lineStartOffset(content, lineIndex) {
 }
 
 /** The one-indexed line numbers at which two texts differ, up to the longer of the two. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function differingLines(left, right) {
   const leftLines = left.split('\n');
   const rightLines = right.split('\n');
@@ -132,7 +132,7 @@ function differingLines(left, right) {
  * @param {string} line
  * @returns {boolean}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function headerLine(line) {
   if (typeof line !== 'string') return false;
   const trimmed = line.trim();
@@ -156,7 +156,7 @@ function headerLine(line) {
  * @param {string} content
  * @returns {{present: boolean, markerLine: number, startLine: number, endLine: number}|null}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function detectHeader(content) {
   if (typeof content !== 'string') return null;
   const lines = content.split('\n');
@@ -193,7 +193,7 @@ function detectHeader(content) {
  * @param {string} content
  * @returns {string} lowercase hex sha256
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function bodyHash(content) {
   if (typeof content !== 'string') return sha256Hex('');
   const header = detectHeader(content);
@@ -206,7 +206,7 @@ function bodyHash(content) {
 }
 
 /** The zero-indexed line a header is inserted before: below a shebang, otherwise at the top. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function headerInsertLine(content) {
   return SHEBANG_RE.test(content.split('\n')[0]) ? 1 : 0;
 }
@@ -223,7 +223,7 @@ function headerInsertLine(content) {
  * @returns {{ok: true, path: string, content: string, atLine: number}
  *          |{ok: false, path: string, reason: string}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function attachHeader({ path: filePath, content, headerText } = {}) {
   const refusal = (reason) => ({ ok: false, path: filePath ?? '<unnamed file>', reason });
 
@@ -255,7 +255,7 @@ function attachHeader({ path: filePath, content, headerText } = {}) {
  * @param {{path?: string, before?: string, after?: string, atLine?: number, headerText?: string}} input
  * @returns {{gateId: string, status: string, counts: object, reasons: string[], escaped: Array<{path: string, line: number}>}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function assertHeaderOnlyDiff({ path: filePath, before, after, atLine, headerText } = {}) {
   const name = filePath ?? '<unnamed file>';
   const beforeText = typeof before === 'string' ? before : '';
@@ -322,7 +322,7 @@ function assertHeaderOnlyDiff({ path: filePath, before, after, atLine, headerTex
  * @param {string[]} after — the inventory taken after it
  * @returns {{gateId: string, status: string, counts: object, reasons: string[], created: string[], removed: string[]}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function assertNoNewFiles(before, after) {
   if (!Array.isArray(before) || !Array.isArray(after)) {
     return gateRecord(GATE_IDS.B1, GATE_STATUS.FAIL, { before: 0, after: 0, created: 0, removed: 0 }, [
@@ -350,7 +350,7 @@ function assertNoNewFiles(before, after) {
 }
 
 /** One row of the correspondence table. Every field is a domain concept, not a position. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function correspondenceEntry(operation) {
   return {
     declaredPath: operation.declaredPath,
@@ -372,7 +372,7 @@ function correspondenceEntry(operation) {
  * @param {Array<object>} operations
  * @returns {Array<object>}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function buildCorrespondenceTable(operations) {
   return (operations ?? []).map(correspondenceEntry);
 }
@@ -388,7 +388,7 @@ function buildCorrespondenceTable(operations) {
  * @param {Array<object>|null} table
  * @returns {{gateId: string, status: string, counts: object, reasons: string[], missing: string[]}}
  */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function assertCorrespondenceTable(table) {
   if (!Array.isArray(table)) {
     return gateRecord(GATE_IDS.B3, GATE_STATUS.FAIL, { entries: 0 }, [
@@ -419,7 +419,7 @@ function assertCorrespondenceTable(table) {
 }
 
 /** Every gate's judgement folded into one record, so the worst finding leads. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function summarizeGate(gateId, records, counts) {
   const escaped = records.flatMap((record) => record.escaped ?? []);
   const failed = records.filter((record) => record.status === GATE_STATUS.FAIL);
@@ -432,7 +432,7 @@ function summarizeGate(gateId, records, counts) {
 }
 
 /** B2's judgement over every operation the plan would apply. */
-// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function judgeHeaderOnlyDiffs(operations) {
   const written = operations.filter((operation) => (
     operation.disposition === DISPOSITIONS.ATTACHED || operation.disposition === DISPOSITIONS.PRESERVED

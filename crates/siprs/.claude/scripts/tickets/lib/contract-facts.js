@@ -67,7 +67,7 @@ const OPERATION_OBLIGATION_FIELDS = Object.freeze([
  * @param {unknown} facts
  * @returns {string[]}
  */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function factTexts(facts) {
   return (Array.isArray(facts) ? facts : [])
     .map((fact) => (typeof fact === 'string' ? fact : (fact?.text ?? fact?.factId ?? '')))
@@ -83,7 +83,7 @@ function factTexts(facts) {
  * @param {unknown} value
  * @returns {boolean}
  */
-// [::TICKET::] PX-326 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-326 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-326 --for-spec --no-implementation-order`.
 function hasObligationValue(value) {
   if (value === undefined || value === null) return false;
   if (typeof value === 'string') return value.trim().length > 0;
@@ -101,7 +101,7 @@ function hasObligationValue(value) {
  * @param {unknown} facts
  * @returns {string[]}
  */
-// [::TICKET::] PX-331 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-331 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-331 --for-spec --no-implementation-order`.
 function crossedBoundaryIds(facts) {
   return (Array.isArray(facts) ? facts : [])
     .map((fact) => {

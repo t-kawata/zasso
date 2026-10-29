@@ -57,7 +57,7 @@ export function stagingRootFor(root, transactionId) {
 }
 
 /** The tree manifest, or null. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function readTreeManifest(root) {
   const path = join(root, TREE_MANIFEST_FILE_NAME);
   if (!existsSync(path)) return null;
@@ -75,7 +75,7 @@ export function liveSpecPath(root) {
 }
 
 /** Every file under a directory, as root-relative POSIX paths. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function walkFiles(root, relative) {
   const directory = join(root, relative);
   if (!existsSync(directory) || !statSync(directory).isDirectory()) return [];
@@ -126,7 +126,7 @@ export function snapshotDesignFiles(root) {
 }
 
 /** Copy one file when it exists. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function copyIfPresent(from, to) {
   if (!existsSync(from)) return false;
   mkdirSync(dirname(to), { recursive: true });
@@ -135,7 +135,7 @@ function copyIfPresent(from, to) {
 }
 
 /** Copy a directory when it exists. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function copyIfDirectory(from, to) {
   if (!existsSync(from)) return false;
   mkdirSync(dirname(to), { recursive: true });
@@ -156,7 +156,7 @@ function copyIfDirectory(from, to) {
  * workspace must carry that path or the check cannot join the run and the checks phase
  * refuses a weakest link nothing answers.
  */
-// [::TICKET::] PX-287 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-287 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 export function prepareDerivationRoot({ root, candidates, transactionId }) {
   const stagingRoot = stagingRootFor(root, transactionId);
   rmSync(stagingRoot, { recursive: true, force: true });
@@ -201,7 +201,7 @@ export function mergeAuthoredDocuments({ root, stagingRoot, treeManifest }) {
  * documents a detector reads are copied from the live tree. Nothing authored changes;
  * the copy is the baseline the evidence is judged against.
  */
-// [::TICKET::] PX-290 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-290 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-290 --for-spec --no-implementation-order`.
 export function stageEvidenceWorkspace({ root, stagingRoot }) {
   copyFileSync(join(root, TREE_MANIFEST_FILE_NAME), join(stagingRoot, TREE_MANIFEST_FILE_NAME));
   copyIfPresent(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), join(stagingRoot, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'));

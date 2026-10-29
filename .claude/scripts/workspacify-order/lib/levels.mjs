@@ -1,4 +1,4 @@
-// [::TICKET::] PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 /**
  * Derive the implementation order from the edge records, and read one package out of it.
  *
@@ -60,7 +60,7 @@ export const MINIMUM_GAP = 1;
  * is one glyph even though it is several code points. The segmenter supplies the clusters;
  * the ranges below supply the East Asian Wide and emoji widths.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 const graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
 /** Combining marks and format characters draw no column of their own. */
 const ZERO_WIDTH_CHARACTER = /^[\p{Mn}\p{Me}\p{Cf}]$/u;
@@ -102,14 +102,14 @@ const WIDE_RANGES = Object.freeze([
 ]);
 
 /** The width of one code point: two for a wide range, zero for a combining mark, one otherwise. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function codePointWidth(codePoint) {
   if (ZERO_WIDTH_CHARACTER.test(String.fromCodePoint(codePoint))) return 0;
   return WIDE_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end) ? 2 : 1;
 }
 
 /** The width of one grapheme cluster, including emoji sequences and combining marks. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 function graphemeWidth(grapheme) {
   if (ZERO_WIDTH_CHARACTER.test(grapheme)) return 0;
   // A variation selector or a zero-width joiner presents the cluster as one emoji glyph.
@@ -120,7 +120,7 @@ function graphemeWidth(grapheme) {
 }
 
 /** The number of terminal columns a string occupies. */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function displayWidth(text) {
   let width = 0;
   for (const { segment } of graphemeSegmenter.segment(text)) width += graphemeWidth(segment);
@@ -137,7 +137,7 @@ export const PREFIX_WIDTH = displayWidth('  * ');
  * would only align readers whose terminals agree with the renderer. One space after the
  * longest prefix is the smallest common column every line can reach.
  */
-// [::TICKET::] PX-282 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-282 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 export function markColumnFor(maxPathWidth) {
   return PREFIX_WIDTH + maxPathWidth + MINIMUM_GAP;
 }
@@ -191,7 +191,7 @@ export function assertMatchesPublished({ derivedLevels, allocateManifest }) {
 }
 
 /** Refuse a sidecar order that does not partition the package list exactly. */
-// [::TICKET::] PX-323 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
 function assertImplementationOrderCoversPackages(levels, packages) {
   if (!Array.isArray(levels) || levels.some((level) => !Array.isArray(level))) {
     throw new WorkspacifyOrderError(
@@ -232,7 +232,7 @@ function assertImplementationOrderCoversPackages(levels, packages) {
  * It is used only when the sidecar is absent and the artifact exists, so the display can
  * show the implementation order instead of calling the build order by that name.
  */
-// [::TICKET::] PX-323, PX-325, PX-328 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-323|PX-325|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-328) --for-spec --no-implementation-order`.
 function deriveArtifactImplementationOrder({ root, packages, treeManifest, allocateManifest }) {
   const artifactPath = findRootArtifact(root);
   if (artifactPath === null) return null;
@@ -301,7 +301,7 @@ function deriveArtifactImplementationOrder({ root, packages, treeManifest, alloc
 }
 
 /** The tickets of one package, flattened in phase order. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function flattenPackageTickets(root, packagePath) {
   const path = join(root, packagePath, TICKETS_FILE_NAME);
   if (!existsSync(path)) return [];
@@ -317,7 +317,7 @@ function flattenPackageTickets(root, packagePath) {
 }
 
 /** The digest of a value, or null when the value is absent. */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function digestOrNull(value) {
   return value === null || value === undefined ? null : digestValue(value);
 }
@@ -329,7 +329,7 @@ function digestOrNull(value) {
  * mismatch means the implementation order may have moved; showing the recorded order
  * would label an unsafe order as implementation order.
  */
-// [::TICKET::] PX-325 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
 function assertSidecarFresh({ root, packages, treeManifest, allocateManifest, sidecar }) {
   if (sidecar === null || sidecar === undefined) return;
   const artifactPath = findRootArtifact(root);
@@ -365,7 +365,7 @@ function assertSidecarFresh({ root, packages, treeManifest, allocateManifest, si
   }
 }
 
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function firstDisagreeingLevel(derivedLevels, publishedLevels) {
   const shared = Math.min(derivedLevels.length, publishedLevels.length);
   for (let index = 0; index < shared; index += 1) {
@@ -437,7 +437,7 @@ export function focusPackage({ root, seedPath, packages, baseDirectory = process
 }
 
 /** The package list, or a message naming the field the manifest is missing. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function requirePackageList(treeManifest) {
   const packages = treeManifest?.workspace?.packages;
   if (!Array.isArray(packages)) {
@@ -456,7 +456,7 @@ function requirePackageList(treeManifest) {
 }
 
 /** The edge records, or a message naming the field the manifest is missing. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function requireEdgeRecords(treeManifest) {
   const edges = treeManifest?.dependencies?.dag?.canonical_edges;
   if (!Array.isArray(edges)) {
@@ -472,7 +472,7 @@ function requireEdgeRecords(treeManifest) {
 const REQUIRED_PACKAGE_FIELDS = Object.freeze(['id', 'name', 'path']);
 
 /** Every package must carry what the plan prints, or the plan would show blanks. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function assertEveryPackageIsComplete(packages) {
   packages.forEach((pkg, index) => {
     const missing = REQUIRED_PACKAGE_FIELDS.filter((field) => typeof pkg?.[field] !== 'string' || pkg[field] === '');
@@ -486,7 +486,7 @@ function assertEveryPackageIsComplete(packages) {
 }
 
 /** An edge naming a package the workspace does not hold would be dropped silently. */
-// [::TICKET::] PX-223 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-223 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function assertEdgesReferencePackages(packages, edges) {
   const knownIds = new Set(packages.map((pkg) => pkg.id));
   const unknown = edges.find((edge) => !knownIds.has(edge.from) || !knownIds.has(edge.to));
@@ -504,11 +504,11 @@ function assertEdgesReferencePackages(packages, edges) {
  * @param {{ root: string, treeManifest: object, allocateManifest: object }} input
  * @returns {object} the model the renderer draws from
  */
-// [::TICKET::] PX-228 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-228 --for-spec --no-implementation-order`.
 export function buildModel({ root, treeManifest, allocateManifest }) {
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-269 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-269 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
   const packageRecords = requirePackageList(treeManifest);
   assertEveryPackageIsComplete(packageRecords);
   const packages = packageRecords.map((pkg) => ({

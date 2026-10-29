@@ -11,7 +11,7 @@ import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 import { buildModel, displayWidth } from '../../../.claude/scripts/workspacify-order/lib/levels.mjs';
 import { maxLineWidth, renderPlan } from '../../../.claude/scripts/workspacify-order/lib/render.mjs';
 
-// [::TICKET::] PX-309, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
 function modelFor(t, { artifacts = false, status } = {}) {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001'],
@@ -42,7 +42,7 @@ function modelFor(t, { artifacts = false, status } = {}) {
   });
 }
 
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function packageLine(model) {
   return renderPlan(model).split('\n').find((line) => line.includes('package-1'));
 }

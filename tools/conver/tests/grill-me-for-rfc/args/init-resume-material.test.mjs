@@ -1,7 +1,7 @@
 // PX-238 @verifies C001
 // PX-238 @verifies C002
 // PX-238 @verifies C003
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * What a resume does with the material it is handed.
  *
@@ -27,7 +27,7 @@ import {
 const printedJson = (result) => JSON.parse(result.stdout);
 
 /** A package directory in a fresh temporary tree, with a scratch area beside it. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function makePackage() {
   const base = mkdtempSync(join(tmpdir(), 'px238-resume-'));
   const rfcDir = join(base, 'pkg');
@@ -36,20 +36,20 @@ function makePackage() {
 }
 
 /** A material file, written so a walk can find it. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function writeMaterial(path) {
   writeFileSync(path, '# material\n', 'utf8');
   return path;
 }
 
 /** What init.js recorded about the run. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function readStatus(rfcDir) {
   return JSON.parse(readFileSync(join(rfcDir, 'Status.json'), 'utf8'));
 }
 
 /** Status.json without its timestamps, for asserting that only they moved. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function withoutTimestamps(status) {
   const { updatedAt, materialsAddedAt, ...rest } = status;
   return rest;

@@ -15,7 +15,7 @@ import {
 } from './helpers/consumer-chain-fixture.mjs';
 
 /** The finding codes a broken chain may report. */
-// [::TICKET::] PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-320 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-320 --for-spec --no-implementation-order`.
 function codes(result) {
   return result.findings.map((finding) => finding.code);
 }

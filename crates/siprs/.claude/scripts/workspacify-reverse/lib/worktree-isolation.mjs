@@ -1,4 +1,4 @@
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 /**
  * Worktree isolation for Red reconstruction.
  *
@@ -40,9 +40,9 @@ import { assertNoRenamedGuardOption, resolveGuardedPaths } from './sandbox.mjs';
 import { compareText, digestTree } from './holdout-ledger.mjs';
 
 /** The reason code a caller branches on, and the message a human reads. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 export class WorktreeIsolationError extends Error {
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
   constructor(reason, message, { outcome = null, cause = undefined } = {}) {
     super(message, { cause });
     this.name = 'WorktreeIsolationError';
@@ -57,7 +57,7 @@ export class WorktreeIsolationError extends Error {
    * been re-measured, so the failure is raised first and completed here rather
    * than thrown twice.
    */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
   withOutcome(outcome) {
     return new WorktreeIsolationError(this.reason, this.message, { outcome, cause: this.cause });
   }
@@ -98,14 +98,14 @@ const GIT_ENVIRONMENT = Object.freeze({ ...process.env, GIT_TERMINAL_PROMPT: '0'
 const OPEN_SCRATCH_DIRECTORIES = new WeakSet();
 
 /** The first non-empty line of a message, so a failure quotes the cause and not a wall of text. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function firstNonEmptyLine(text) {
   const lines = String(text ?? '').split('\n');
   return lines.map((line) => line.trim()).find((line) => line.length > 0) ?? null;
 }
 
 /** Run one git command in a tree, refusing to continue when it fails. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function runGitIn(root, args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: GIT_ENVIRONMENT });
   if (result.error) {
@@ -136,7 +136,7 @@ function toError(thrown) {
 }
 
 /** Refuse a request that cannot describe an isolated execution. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function assertIsolationRequest(root, fn) {
   if (typeof root !== 'string' || root.length === 0) {
     throw new WorktreeIsolationError(
@@ -153,7 +153,7 @@ function assertIsolationRequest(root, fn) {
 }
 
 /** True when `root` is inside a working tree git can make another worktree of. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function isGitRepository(root, runGit) {
   try {
     return runGit(root, ['rev-parse', '--is-inside-work-tree']).trim() === 'true';
@@ -163,7 +163,7 @@ function isGitRepository(root, runGit) {
 }
 
 /** A private scratch directory, and the token that releases it. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function openScratchDirectory(scratchRoot) {
   const base = scratchRoot ?? tmpdir();
   mkdirSync(base, { recursive: true });
@@ -173,7 +173,7 @@ function openScratchDirectory(scratchRoot) {
 }
 
 /** Remove a scratch directory this process made, and only one it made. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function releaseScratchDirectory(handle) {
   if (!OPEN_SCRATCH_DIRECTORIES.has(handle)) return;
   OPEN_SCRATCH_DIRECTORIES.delete(handle);
@@ -194,7 +194,7 @@ function releaseScratchDirectory(handle) {
  * the caller is looking at, and a caller who is not told cannot weigh the
  * evidence. `readMainTreeCleanliness` records which of the two it was.
  */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function createWorktree(root, scratch, runGit) {
   if (!isGitRepository(root, runGit)) {
     throw new WorktreeIsolationError(
@@ -239,7 +239,7 @@ function readMainTreeCleanliness(root, runGit) {
  * deliberate: it removes a dirty worktree but refuses a locked one, and a lock
  * is a reason a human gave for the tree to stay.
  */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function destroyWorktree(root, worktreePath, runGit) {
   try {
     runGit(root, ['worktree', 'remove', '--force', worktreePath]);
@@ -262,7 +262,7 @@ function destroyWorktree(root, worktreePath, runGit) {
  * is no longer there" is an answer to that question.
  */
 export function digestMainTree(guardedPaths) {
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
   const digests = {};
   for (const guardedPath of guardedPaths) {
     digests[guardedPath] = existsSync(guardedPath)
@@ -303,7 +303,7 @@ export function assertMainTreeUnchanged(before, after) {
  * @returns {Promise<{root: string, worktreePath: string|null, scratchBase: string, mainTreeCleanAtCreation: boolean|null, execution: any, mainTreeDigest: object, restorationOutcome: string|null, restorationDetail: string|null}>}
  */
 export async function withIsolatedWorktree(root, fn, options = {}) {
-// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-5 --for-spec --no-implementation-order`.
   assertIsolationRequest(root, fn);
   assertNoRenamedGuardOption(options);
 
@@ -370,7 +370,7 @@ export async function withIsolatedWorktree(root, fn, options = {}) {
  * of the isolation, and the execution's own error is preserved as the cause
  * rather than allowed to bury them.
  */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function assertIsolationHeld(outcome, { creationFailure, executionFailure }) {
   const cause = executionFailure ?? creationFailure ?? undefined;
 

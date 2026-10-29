@@ -1,6 +1,6 @@
 // @verifies C001
 // @verifies C002
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 /**
  * R3 — the semantic material, in two separated stages.
  *
@@ -55,7 +55,7 @@ import { EVIDENCE_MODES, emptyCoverage, validateLimitation } from '../../../.cla
 const R3_SUBJECT_ROOT = fileURLToPath(new URL('../fixtures/r3-subject/', import.meta.url));
 
 /** The fixture's files, keyed by the path the analysis will read them at. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function r3SubjectFiles(relativePaths) {
   return Object.fromEntries(
     relativePaths.map((relativePath) => [relativePath, readFileSync(join(R3_SUBJECT_ROOT, relativePath), 'utf8')]),
@@ -94,7 +94,7 @@ const R3_EMPTY_FILES = Object.freeze({
  * enumerate over, and an extractor that silently walked the whole tree instead
  * would be measuring something nobody asked about.
  */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function r2GraphFor(root) {
   return {
     analysis_mode: 'syntax_only',
@@ -104,7 +104,7 @@ function r2GraphFor(root) {
   };
 }
 
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildFor(files) {
   const subject = createSyntheticTree(files);
   const semantics = extractSemantics({
@@ -383,7 +383,7 @@ test('premise 10: the fact vocabulary covers all six target languages, not one',
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 /**
  * The project root, so each language's representative can be reached by path.
  *
@@ -394,14 +394,14 @@ test('premise 10: the fact vocabulary covers all six target languages, not one',
 const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
 /** The extraction of one representative, ready for the assertions below. */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function semanticsOverRepresentative(language) {
   const root = join(PROJECT_ROOT, REPRESENTATIVE_ROOTS[language]);
   return extractSemantics({ root, dependencies: r2GraphFor(root) });
 }
 
 /** The fact kinds a language declares: a kind with no node type is not declared. */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function declaredKindsOf(language) {
   return FACT_KINDS.filter((kind) => (FACT_VOCABULARY[language][kind] ?? []).length > 0).sort();
 }
@@ -415,7 +415,7 @@ function declaredKindsOf(language) {
  * the entries that could not fire before this ticket: the repair is asserted by
  * the entry firing over a file written to satisfy it, not by the pattern's text.
  */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const NAME_FILTER_PROBES = Object.freeze({
   typescript: Object.freeze({
     error_return: { 'src/a.ts': 'export function f(x: number): number {\n  if (x < 0) {\n    throw new TypeError("neg");\n  }\n  return x;\n}\n' },
@@ -451,7 +451,7 @@ const NAME_FILTER_PROBES = Object.freeze({
 });
 
 /** The fact kinds a snippet produced, with the snippet thrown away after reading. */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function kindsOver(files) {
   const subject = createSyntheticTree(files);
   const semantics = extractSemantics({ root: subject.root, dependencies: r2GraphFor(subject.root) });
@@ -463,7 +463,7 @@ function kindsOver(files) {
 const STATE_WORD_PATTERN_TEXT = 'state|status|phase|mode';
 
 /** The module's own text, so a claim about the declaration is read from it. */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function semanticsSource() {
   return readFileSync(
     fileURLToPath(new URL('../../../.claude/scripts/workspacify-reverse/lib/semantics.mjs', import.meta.url)),
@@ -480,7 +480,7 @@ function semanticsSource() {
  * language, a constructor read as an error return, a test framework's call read
  * as a guard.
  */
-// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const FOREIGN_CONSTRUCTS = Object.freeze({
   rust: Object.freeze(['MustCompile', 'assertRaises', 'New', 'Fatal', 'should', 'chai']),
   typescript: Object.freeze(['unwrap', 'unwrap_or', 'expect', 'should', 'chai', 'panic', 'raise', 'assertRaises']),

@@ -85,7 +85,7 @@ const ALLOCATE_RUN = join(PROJECT_ROOT, '.claude/scripts/workspacify-allocate/ru
  * writes to be the two the reverse rotation is allowed, and A5 needs the parity
  * maps it is handed.
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function reverseGateInputs({ seedTexts }) {
   return {
     mode: ALLOCATE_MODES.REVERSE,
@@ -105,7 +105,7 @@ function reverseGateInputs({ seedTexts }) {
 // C001 — the format is determined mechanically, and never inferred
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 precondition: the declared formats are a table whose rows carry a version, ordered sections and a machine section index', () => {
   assert.ok(Array.isArray(SEED_FORMATS), 'the table is an array');
   assert.ok(SEED_FORMATS.length >= 1, 'the table declares at least one format');
@@ -490,7 +490,7 @@ test('integration: a reverse allocate run with no gap says so, and still names t
   assert.match(report, /[Ee]very seed/);
 });
 
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('integration: the real reverse run publishes the finding beside its report, and publishes nothing else', () => {
   const workspace = buildReverseWorkspace();
   // Staged at the derived path, with the directory created before the fingerprint is

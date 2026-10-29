@@ -18,7 +18,7 @@ import {
   withScratch,
 } from './fixtures/session-tree.mjs';
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 the guard refuses both view names as frozen inputs rather than as unknown paths', () => {
   for (const name of [VIEW_MARKDOWN_NAME, VIEW_JSON_NAME]) {
     const { status, verdict } = guardVerdict(`/workspace/crates/pkg/${name}`);
@@ -29,7 +29,7 @@ test('C005 the guard refuses both view names as frozen inputs rather than as unk
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 the refusal reason is the frozen one and not the extend-the-allow-list one', () => {
   const result = spawnSync(process.execPath, ['.claude/scripts/grill-me-for-rfc/guard-edit-surface.js', '/workspace/crates/pkg/' + VIEW_MARKDOWN_NAME], { encoding: 'utf8' });
   assert.equal(result.status, 1);
@@ -37,7 +37,7 @@ test('C005 the refusal reason is the frozen one and not the extend-the-allow-lis
   assert.match(result.stderr, /refused: SEQUENCES\.md/);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 the names the command generates are still allowed, so the guard was not widened', () => {
   for (const name of ['RFC.md', 'DesignTree.json', 'CheckList.md', 'Status.json']) {
     const { status, verdict } = guardVerdict(`/workspace/crates/pkg/${name}`);
@@ -46,14 +46,14 @@ test('C005 the names the command generates are still allowed, so the guard was n
   }
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 a name that would match a derived suffix is still unknown, so the two rules stay distinct', () => {
   const { verdict } = guardVerdict('/workspace/crates/pkg/SEQUENCES-GRAPH.json');
   assert.equal(verdict.rule, 'unknown');
   assert.equal(guardVerdict('/workspace/crates/pkg/OTHER-sequences.json').verdict.rule, 'unknown');
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 canon-state still stands alone with both view names present, so it needs no change', () => {
   withScratch('px256-canon-', (root) => {
     fs.writeFileSync(path.join(root, 'RFC.md'), '# rfc\n');
@@ -65,7 +65,7 @@ test('C005 canon-state still stands alone with both view names present, so it ne
   });
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C005 canon-state still reports materialised canon, so the view did not blunt it', () => {
   withScratch('px256-canon-', (root) => {
     fs.writeFileSync(path.join(root, 'RFC.md'), '# rfc\n');

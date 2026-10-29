@@ -1,6 +1,6 @@
-// [::TICKET::] PX-268 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-268 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-249 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-249 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-248 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
 // The ad-hoc surface, after the run that produced it (PX-244, contracts C001-C006).
 //
 // The scaffold was where the design put its one genuinely non-mechanical act: a defect
@@ -70,7 +70,7 @@ const CHECK_MUTATION = `    const next = structuredClone(artifact);
     return next;`;
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-adhoc-run-'));
   const specPath = join(root, 'ledger.md');
@@ -85,7 +85,7 @@ function scratchRun() {
  * constructor library through the specifier the scaffold computes for a directory beside
  * the specification — the part of a scaffolded module that a hand-written one gets wrong.
  */
-// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function scaffoldedRun({ record = true, check = CHECK_NAME, defect = DEFECT } = {}) {
   const scratch = scratchRun();
   const run = startRun({ specPath: scratch.specPath, spec: scratch.spec });
@@ -107,7 +107,7 @@ function scaffoldedRun({ record = true, check = CHECK_NAME, defect = DEFECT } = 
 }
 
 /** Put an artifact and a declaration beside the specification, so the checks phase can read them. */
-// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function seedRunDirectory(directory, spec, specPath) {
   writeFileSync(join(directory, 'declaration.json'), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
@@ -123,7 +123,7 @@ function seedRunDirectory(directory, spec, specPath) {
 }
 
 /** A record in the shape writeRailExit accepts, with a distinct id per check. */
-// [::TICKET::] PX-244, PX-243 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
 function recordFor(check, overrides = {}) {
   return {
     id: `${check}#7`,
@@ -181,7 +181,7 @@ test('C001 a check object whose run is not a function is declared but never run,
   assert.equal(summary.checksRun < summary.checksDeclared, true, 'a declared check that did not run is visible as the difference');
 });
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C001 a scaffolded check runs against the artifact, so its verdict reaches the block', () => {
   const { spec } = scratchRun();
   // The outcomes withdrawn are the ones a step realized. An entry a reader ruled not a
@@ -200,8 +200,8 @@ test('C001 a scaffolded check runs against the artifact, so its verdict reaches 
   assert.equal(verdicts.some((verdict) => verdict.check === CHECK_NAME), true);
 });
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('C001 the engine stays a function of values: no dynamic import, and its count is its own', () => {
   const source = readFileSync(ENGINE_PATH, 'utf8');
 
@@ -487,7 +487,7 @@ test('C006 the product path refuses while an ad-hoc module cannot be loaded', as
   assert.match(refused.verdicts.map((verdict) => verdict.reason ?? '').join(' '), /broken/);
 });
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('IT a scaffolded check that reddens an artifact refuses the checks phase', async () => {
   const { specPath, directory } = scaffoldedRun();
   // The outcomes withdrawn are the ones a step realized. An entry a reader ruled not a
@@ -507,8 +507,8 @@ test('IT a scaffolded check that reddens an artifact refuses the checks phase', 
   assert.equal(verdicts.some((verdict) => verdict.check === CHECK_NAME), true);
 });
 
-// [::TICKET::] PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-247 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-300 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('IT the golden run still writes the golden artifact, and its counts are the engine own', () => {
   const { specPath } = scratchRun();
   const run = spawnSync('node', [join(RAIL_DIRECTORY, 'run.mjs'), specPath], { cwd: PROJECT_ROOT, encoding: 'utf8', input: JSON.stringify(RUN_INPUT) });

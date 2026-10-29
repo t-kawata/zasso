@@ -91,9 +91,9 @@ const NO_TESTS_MEASURED = Object.freeze({
  * preserves its uncertainty. A distinct type, so a caller can tell this refusal from any
  * other failure and so no call site has to re-check the field.
  */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 class ReconstructionTicketRefused extends Error {
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
   constructor(message) {
     super(message);
     this.name = 'ReconstructionTicketRefused';
@@ -101,7 +101,7 @@ class ReconstructionTicketRefused extends Error {
 }
 
 /** Compare two strings by Unicode code point, so ordering never depends on the locale. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function compareText(left, right) {
   const leftText = String(left ?? '');
   const rightText = String(right ?? '');
@@ -111,33 +111,33 @@ function compareText(left, right) {
 }
 
 /** The last path segment, which is the name a report can be read by. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function basenameOf(filePath) {
   return String(filePath ?? '').split('/').pop();
 }
 
 /** A symbol is interpolated into a pattern, so its own metacharacters must be neutralised. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function escapeRegExp(text) {
   return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** A declared key set, built once so every lookup is a set membership rather than a scan. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function toKeySet(ticketKeys) {
   if (ticketKeys instanceof Set) return ticketKeys;
   return new Set(Array.isArray(ticketKeys) ? ticketKeys : []);
 }
 
 /** A reference list as strings, or null when nothing was supplied — null and empty differ. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function asStringList(values) {
   if (!Array.isArray(values)) return null;
   return values.filter((value) => typeof value === 'string' && value.length > 0);
 }
 
 /** Every ticket key a test file names, whether in prose, in a path or as a tooling key. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function referencedTicketKeys(text) {
   const source = typeof text === 'string' ? text : '';
   const found = new Set();
@@ -152,7 +152,7 @@ function referencedTicketKeys(text) {
 }
 
 /** Every contract identifier a test file claims to verify. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function referencedContractIds(text) {
   const source = typeof text === 'string' ? text : '';
   const found = new Set();
@@ -161,14 +161,14 @@ function referencedContractIds(text) {
 }
 
 /** How many test functions the file declares. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function countTestAttributes(text) {
   const source = typeof text === 'string' ? text : '';
   return (source.match(TEST_ATTRIBUTE_RE) ?? []).length;
 }
 
 /** S1 — the test population, measured from the text of each file. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function measureTestInventory({ testFiles }) {
   if (!Array.isArray(testFiles)) {
     throw new Error('measureTestInventory needs the list of test files it should measure; it was given none');
@@ -193,7 +193,7 @@ function measureTestInventory({ testFiles }) {
  * key. A test that names none is reported with its path and with the keys it did name, so
  * the reason for the remainder is visible rather than inferred from an empty list.
  */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function mapTestsToTickets({ tests, ticketKeys }) {
   if (!Array.isArray(tests)) {
     throw new Error('mapTestsToTickets needs the measured tests to map; it was given none');
@@ -239,7 +239,7 @@ function mapTestsToTickets({ tests, ticketKeys }) {
  * S1's invariant, asserted rather than inspected: mapped and reported together account for
  * every measured test.
  */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function assertMappingTotal({ tests, mapped, unmapped }) {
   const measured = Array.isArray(tests) ? tests.length : 0;
   const mappedTestCount = new Set((mapped ?? []).map((row) => row.test.path)).size;
@@ -261,7 +261,7 @@ function assertMappingTotal({ tests, mapped, unmapped }) {
  * public API is evidence that it could have failed. Neither is proof that a Red ever
  * existed, so the reading is returned as evidence and never as a verdict.
  */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function measureRedEvidence({ text }) {
   const source = typeof text === 'string' ? text : '';
   const exercisesPublicApi = countTestAttributes(source) > 0 && PUBLIC_API_RE.test(source);
@@ -283,7 +283,7 @@ function measureRedEvidence({ text }) {
 }
 
 /** The identifier a contract is recorded under, or null when it carries none. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function identifierOf(contract) {
   for (const field of ['contract_id', 'gap_id', 'id']) {
     const value = contract?.[field];
@@ -293,21 +293,21 @@ function identifierOf(contract) {
 }
 
 /** True when the measured text names the symbol as a whole word. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function namesSymbol(text, symbol) {
   const source = typeof text === 'string' ? text : '';
   return new RegExp(`\\b${escapeRegExp(symbol)}\\b`).test(source);
 }
 
 /** Where the surface lives, said the way a report reads. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function locationOf(contract) {
   const file = typeof contract?.file === 'string' && contract.file.length > 0 ? contract.file : 'an unrecorded file';
   return Number.isInteger(contract?.line) ? `${file}:${contract.line}` : file;
 }
 
 /** One absent Red, with the evidence that supports it and whether a human must decide. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function buildAbsentRedRecord(contract, contractId, symbol, namedBy) {
   const nothingNamesIt = namedBy.length === 0;
   const location = locationOf(contract);
@@ -327,7 +327,7 @@ function buildAbsentRedRecord(contract, contractId, symbol, namedBy) {
 }
 
 /** S2's gate: every contract was looked at, and an absence of zero is never a pass. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function judgeAbsentRedGate({ population, classified, unclassified, absenceCount }) {
   const reasons = [];
 
@@ -359,7 +359,7 @@ function judgeAbsentRedGate({ population, classified, unclassified, absenceCount
  * absence nobody can name is not an absence anybody can reconstruct. Nothing is dropped:
  * classified and unclassified together are the whole population, and that sum is the gate.
  */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function detectAbsentRed({ contracts, inventory }) {
   if (!Array.isArray(contracts)) {
     throw new Error('detectAbsentRed needs the contract population to measure; it was given none');
@@ -412,7 +412,7 @@ function detectAbsentRed({ contracts, inventory }) {
  * implementation loop runs one ticket per session, and a session cannot tell the
  * difference between "no files" and "nobody looked".
  */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function measuredFilesFor({ contract, root, exists }) {
   const isPresent = typeof exists === 'function' ? exists : () => false;
   const file = typeof contract?.file === 'string' ? contract.file : '';
@@ -434,7 +434,7 @@ function measuredFilesFor({ contract, root, exists }) {
 }
 
 /** S6 — the references a ticket drives, with the ones that would not resolve recorded. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function drivingReferencesFor({ contract, claimIds = null, residualIds = null }) {
   const claims = asStringList(claimIds);
   const residuals = asStringList(residualIds);
@@ -468,7 +468,7 @@ function drivingReferencesFor({ contract, claimIds = null, residualIds = null })
  * `generateReconstructionTicket`, which ends here, so there is no path that emits one
  * without its plan identifier.
  */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function assertPlanIdPresent(ticket) {
   const planId = typeof ticket?.counterexample_plan_id === 'string' ? ticket.counterexample_plan_id.trim() : '';
   if (planId.length === 0) {
@@ -482,7 +482,7 @@ function assertPlanIdPresent(ticket) {
 }
 
 /** S4 — one reconstruction ticket, assembled and then guarded. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function generateReconstructionTicket({
   contract,
   counterexamplePlanId,
@@ -517,7 +517,7 @@ function generateReconstructionTicket({
 }
 
 /** The oracle candidate document `run.mjs oracle compare --stage mapping` reads. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function buildMappingCandidate({ tickets, language = 'unknown' }) {
   const entries = (Array.isArray(tickets) ? tickets : [])
     .map((ticket, index) => ({
@@ -530,7 +530,7 @@ function buildMappingCandidate({ tickets, language = 'unknown' }) {
 }
 
 /** Every gate's outcome as one line a report can lead with. */
-// [::TICKET::] P22-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-16 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-16 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-16 --for-spec --no-implementation-order`.
 function summarizeMappingGates({ gates }) {
   const list = Array.isArray(gates) ? gates : [];
   const failed = list.filter((gate) => gate.status !== GATE_STATUS.PASS);

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-189, PX-196 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-189|PX-196) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-189, PX-196 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-189|PX-196) --for-spec --no-implementation-order`.
 // PX-189 @verifies C001
 /**
  * Stage-1 manifest format check for the ALLOCATE entry gate.

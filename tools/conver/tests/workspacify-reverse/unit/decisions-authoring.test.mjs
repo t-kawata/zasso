@@ -1,6 +1,6 @@
 // @verifies C001
 // @verifies C002
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 /**
  * The decisions input a claim-carrying representative needs.
  *
@@ -34,13 +34,13 @@ import {
 import { createThrowawayFile } from '../helpers/scratch.mjs';
 
 /** Every inventory id, across the six categories the ownership checks read. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function inventoryIds(inventory) {
   return INVENTORY_CATEGORIES.flatMap((category) => (inventory[category.listKey] ?? []).map((item) => item.id));
 }
 
 /** A synthetic inventory covering every category, so no assertion is vacuous. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function syntheticInventory() {
   return {
     objects: [{ id: 'obj-000001', section_id: 'h-000001' }, { id: 'obj-000002', section_id: 'h-000001' }],

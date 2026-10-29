@@ -9,13 +9,13 @@
 const WHITESPACE = /\s+/g;
 
 /** A whitespace-normalized, case-folded string for quote identity. */
-// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-302 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-302 --for-spec --no-implementation-order`.
 function normalizedQuote(value) {
   return String(value ?? '').replace(WHITESPACE, ' ').trim().toLowerCase();
 }
 
 /** A ratio with a zero-denominator answer of 0, never NaN. */
-// [::TICKET::] PX-302 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-302 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-302 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-302 --for-spec --no-implementation-order`.
 function ratioOrZero(numerator, denominator) {
   return denominator === 0 ? 0 : numerator / denominator;
 }

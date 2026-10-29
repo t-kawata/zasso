@@ -29,7 +29,7 @@ const EXIT_FAILURE = 1;
 const PROSE_KINDS = new Set(['rationale', 'glossary', 'requirement']);
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -38,7 +38,7 @@ function argumentFor(argv, name) {
 }
 
 /** The files a unit's index entry resolves to, existing on disk. */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function existingFiles(root, entry) {
   return (entry?.filePaths ?? [])
     .map((filePath) => path.resolve(root, filePath))
@@ -46,7 +46,7 @@ function existingFiles(root, entry) {
 }
 
 /** One finding for a unit or a header. */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function finding(code, subject, message) {
   return { code, subject, message };
 }
@@ -61,7 +61,7 @@ function finding(code, subject, message) {
  * @param {Map<string, object>} nodes — graph nodes by id
  * @returns {object|undefined} the first prose carrier, or undefined
  */
-// [::TICKET::] PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-340 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-340 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-340 --for-spec --no-implementation-order`.
 function findProseCarrier(nodeIds, nodes) {
   return (nodeIds ?? [])
     .map((nodeId) => nodes.get(nodeId))
@@ -69,7 +69,7 @@ function findProseCarrier(nodeIds, nodes) {
 }
 
 /** Verify every unit and every generated header. */
-// [::TICKET::] PX-319, PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-340) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-340 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-319|PX-340) --for-spec --no-implementation-order`.
 function verifyUnitFileCoverage({ graph, dirsTree, root }) {
   const findings = [];
   const nodes = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
@@ -113,7 +113,7 @@ function verifyUnitFileCoverage({ graph, dirsTree, root }) {
 }
 
 /** Entry point. */
-// [::TICKET::] PX-319, PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-319|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-319|PX-334) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const graphFlag = argumentFor(argv, 'graph');
   const dirsTreeFlag = argumentFor(argv, 'dirs-tree');

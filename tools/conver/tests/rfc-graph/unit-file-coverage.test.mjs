@@ -1,4 +1,4 @@
-// [::TICKET::] PX-337 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-337 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-337 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-337 --for-spec --no-implementation-order`.
 // PX-319 @verifies C001 C002 C003 C004 C005
 // A unit is placed only when it resolves to a leaf file whose header names it. These
 // tests pin the leaf-file index, the default_files source, the header units line and the
@@ -30,7 +30,7 @@ const HEADER_PATHS = {
   cdCommandPrefix: 'cd .',
 };
 
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function architectureGraph(unitIds = ['op-A']) {
   return {
     nodes: [{
@@ -47,7 +47,7 @@ function architectureGraph(unitIds = ['op-A']) {
   };
 }
 
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function treeFor(graph) {
   return buildDirectoryTree(graph, 'rust', helpers);
 }
@@ -156,7 +156,7 @@ test('C005 an existing reverse header is preserved and accepted', () => {
 // ============================================================
 
 test('C001 a prose carrier is refused whichever carrier id sorts first', () => {
-// [::TICKET::] PX-340 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-340 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-340 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-340 --for-spec --no-implementation-order`.
   const root = mkdtempSync(join(tmpdir(), 'px340-order-'));
   try {
     const graph = { nodes: [

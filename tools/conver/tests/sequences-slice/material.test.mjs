@@ -22,7 +22,7 @@ import {
 } from '../../.claude/scripts/sequences-slice/lib/material.mjs';
 
 /** A stand-in file system: paths map to text, and anything absent reads as null. */
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 function fakeFileSystem(files, existing = Object.keys(files)) {
   const present = new Set(existing);
   return {
@@ -42,7 +42,7 @@ const VIEW_JSON = path.join(RFC_DIR, 'SEQUENCES.json');
 /** The home directory a recorded path beginning with a tilde is resolved against. */
 const HOME_DIRECTORY = path.join('/home', 'tester');
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 materialPaths is read when it is a list and researchPath only when it is absent', () => {
   assert.deepEqual(materialPathsOf({ [MATERIAL_LIST_FIELD]: ['/a'] }), ['/a']);
   assert.deepEqual(materialPathsOf({ [LEGACY_MATERIAL_FIELD]: '/b' }), ['/b']);
@@ -51,7 +51,7 @@ test('C001 materialPaths is read when it is a list and researchPath only when it
   assert.deepEqual(materialPathsOf(null), []);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 the view names are recognised and nothing else is', () => {
   assert.equal(isViewName('SEQUENCES.md'), true);
   assert.equal(isViewName('SEQUENCES.json'), true);
@@ -60,7 +60,7 @@ test('C001 the view names are recognised and nothing else is', () => {
   assert.equal(isViewName('X-sequences.json'), false);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a source artifact is recognised by suffix and by shape, not by suffix alone', () => {
   const io = fakeFileSystem({ [SOURCE]: SOURCE_TEXT, '/workspace/not-json-sequences.json': '{ nope', '/workspace/wrong-sequences.json': '{"schema_version":2}' });
   assert.equal(isUsableSourceArtifact(io, SOURCE), true);
@@ -70,7 +70,7 @@ test('C001 a source artifact is recognised by suffix and by shape, not by suffix
   assert.equal(isUsableSourceArtifact(io, '/workspace/missing-sequences.json'), false);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 an absent session record is answered as absence with the reason recorded', () => {
   const answer = findSequenceMaterial({ rfcDir: RFC_DIR, sessionDir: '/workspace/pkg/drills', io: fakeFileSystem({}) });
   assert.equal(answer.present, false);
@@ -79,7 +79,7 @@ test('C001 an absent session record is answered as absence with the reason recor
   assert.ok(answer.searched.every((entry) => entry.reason !== null));
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C004 the session record is read first and a later record does not extend it', () => {
   const sessionStatus = path.join('/workspace/pkg/drills', 'Status.json');
   const io = fakeFileSystem({
@@ -94,7 +94,7 @@ test('C004 the session record is read first and a later record does not extend i
   assert.deepEqual(answer.searched.map((entry) => entry.path), [sessionStatus, STATUS]);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a recorded path that is gone is reported stale and is never chosen as the source', () => {
   const io = fakeFileSystem(
     { [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [SOURCE] }) },
@@ -106,7 +106,7 @@ test('C001 a recorded path that is gone is reported stale and is never chosen as
   assert.equal(answer.present, false);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 the view is found where it deterministically lives, even when never recorded', () => {
   const io = fakeFileSystem({ [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }), [VIEW]: '# sequences\n' });
   const answer = findSequenceMaterial({ rfcDir: RFC_DIR, io });
@@ -116,7 +116,7 @@ test('C001 the view is found where it deterministically lives, even when never r
   assert.deepEqual(answer.recordedViewNames, []);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a record that is not JSON is reported unreadable rather than throwing', () => {
   const io = fakeFileSystem({ [STATUS]: '{ not json' });
   const answer = findSequenceMaterial({ rfcDir: RFC_DIR, io });
@@ -125,7 +125,7 @@ test('C001 a record that is not JSON is reported unreadable rather than throwing
   assert.match(answer.searched[0].reason, /not JSON/);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C004 no session directory means one fewer record is searched, not a different answer', () => {
   const io = fakeFileSystem({ [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }), [VIEW]: '# sequences\n' });
   const withSession = findSequenceMaterial({ rfcDir: RFC_DIR, sessionDir: '/workspace/pkg/drills', io });
@@ -135,7 +135,7 @@ test('C004 no session directory means one fewer record is searched, not a differ
   assert.equal(withSession.view, withoutSession.view);
 });
 
-// [::TICKET::] PX-256 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-256 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
 test('C001 a recorded view name is reported as recorded, so a caller can tell it was seen before', () => {
   const io = fakeFileSystem({
     [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [VIEW, SOURCE] }),
@@ -180,7 +180,7 @@ test('C001 a view that carries none of the three arrays distributes no unit', ()
 // must not touch the first twice.
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 a view written before the carriage is stale, and the reason names which kind of absence it is', () => {
   const io = fakeFileSystem({
     [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }),
@@ -194,7 +194,7 @@ test('C001 a view written before the carriage is stale, and the reason names whi
   assert.equal(answer.viewStalenessReason, 'view-predates-the-carriage');
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C005 a view written with the carriage is current, so a second run projects nothing', () => {
   const io = fakeFileSystem({
     [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }),
@@ -207,7 +207,7 @@ test('C005 a view written with the carriage is current, so a second run projects
   assert.equal(answer.viewStalenessReason, null);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 a view whose JSON cannot be read is not current, and the reason is the one the verdict uses', () => {
   const io = fakeFileSystem({
     [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }),
@@ -220,7 +220,7 @@ test('C001 a view whose JSON cannot be read is not current, and the reason is th
   assert.equal(answer.viewStalenessReason, 'unreadable-view');
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 a directory with no view reports no-view rather than claiming a current one', () => {
   const io = fakeFileSystem({ [STATUS]: JSON.stringify({ [MATERIAL_LIST_FIELD]: [] }), [SOURCE]: SOURCE_TEXT });
   const answer = findSequenceMaterial({ rfcDir: RFC_DIR, io });
@@ -230,7 +230,7 @@ test('C001 a directory with no view reports no-view rather than claiming a curre
   assert.equal(answer.viewStalenessReason, 'no-view');
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C006 a recorded path beginning with a tilde resolves under the home directory, and the record keeps its own spelling', () => {
   const expandedSource = path.join(HOME_DIRECTORY, 'spec-sequences.json');
   const io = fakeFileSystem({
@@ -244,7 +244,7 @@ test('C006 a recorded path beginning with a tilde resolves under the home direct
   assert.equal(answer.source, expandedSource);
 });
 
-// [::TICKET::] PX-270 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C006 only a leading tilde is expanded, and a path that is not one is returned as given', () => {
   assert.equal(expandHomePath('~/a/b', HOME_DIRECTORY), path.join(HOME_DIRECTORY, 'a', 'b'));
   assert.equal(expandHomePath('~', HOME_DIRECTORY), HOME_DIRECTORY);

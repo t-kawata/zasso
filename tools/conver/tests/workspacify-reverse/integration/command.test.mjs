@@ -1,11 +1,11 @@
-// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
-// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-8 --for-spec --no-implementation-order`.
 /**
  * The entrance to the reverse rotation, measured through the command line.
  *
@@ -55,9 +55,9 @@ const BASELINE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
  * `PATH` is overridden per call rather than inherited, so what the host has installed
  * cannot decide what a test measures.
  */
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
 function runCli(args, { path, cwd } = {}) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], {
     // The entrance takes no root: the subject is the directory the command is run
@@ -71,15 +71,15 @@ function runCli(args, { path, cwd } = {}) {
 }
 
 /** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
 function scratchDirectory(prefix) {
   const root = mkdtempSync(join(tmpdir(), prefix));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
 /** A PATH holding a stand-in search tool, so a run can be shown to ignore one that is present. */
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function zgBinDirectory() {
   const root = mkdtempSync(join(tmpdir(), 'wsp-zg-bin-'));
   const script = join(root, 'zg');
@@ -96,8 +96,8 @@ function zgBinDirectory() {
 }
 
 /** A PATH on which no search tool resolves, whatever the machine has installed. */
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function emptyPathDirectory() {
   return scratchDirectory('wsp-no-zg-');
 }
@@ -109,7 +109,7 @@ function emptyPathDirectory() {
  * stage that stopped publishing silently is exactly the failure a declared list
  * would hide.
  */
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-9 --for-spec --no-implementation-order`.
 function publishedNames(directory) {
   return readdirSync(directory).sort();
 }
@@ -147,7 +147,7 @@ test('C001 precondition: the frozen command files are present, and the reverse d
 });
 
 test('C001 postcondition / UT-1: the reverse command file carries the eight structural elements', () => {
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-1 --for-spec --no-implementation-order`.
   // The eight assertions live in `helpers/command-file.mjs`, so this test and the
   // procedure guard added by P23-1 hold the file to one definition of them.
   assertCommandFileStructure(readFileSync(NEW_COMMAND_PATH, 'utf8'), { projectRoot: PROJECT_ROOT });
@@ -252,7 +252,7 @@ test('C002 invariant / UT-12: each stage adds its own documents and reaches back
   }
 });
 
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 test('IT: a completed run prints a verdict naming what it published and what it verified', () => {
   // The verdict is the only place a run states which of its own guarantees held, and a
   // statement nothing asserts is one that can quietly stop being true. The document count
@@ -371,7 +371,7 @@ test('UT-4: an unknown stage is refused by name rather than silently running eve
 
 // --- The published set is closed, and a withdrawn question is refused ---------
 
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
 test('IT-4: the published set is the same whatever the host has installed', () => {
   // The stand-in is kept on PATH rather than dropped with the tool, because the
   // property is that an installed search tool changes nothing — a PATH without one

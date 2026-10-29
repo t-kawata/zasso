@@ -1,6 +1,6 @@
-// [::TICKET::] PX-272 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-272 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-272 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-272 --for-spec --no-implementation-order`.
 // PX-234 @verifies C001
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 /**
  * A fact-question cannot reach the human.
  *
@@ -24,7 +24,7 @@ import {
   runCommand,
 } from '../../question-gate/helpers/fixture-workspace.mjs';
 
-// [::TICKET::] PX-234 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-234 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
 function roundWith(block) {
   const fixture = materializeGrillFixture({ withPriorArtifacts: true, withNodes: 3 });
   runCommand(GRILL_SETTLE_RUN, [fixture.rfcDir, 'prior']);
@@ -65,7 +65,7 @@ test('C001 invariant: a question that names none of the records is refused, and 
   }
 });
 
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 test('C001 boundary: with no artifact to read, the rule does not apply and the round passes', () => {
   const fixture = materializeGrillFixture({ withPriorArtifacts: false, withNodes: 3 });
   try {

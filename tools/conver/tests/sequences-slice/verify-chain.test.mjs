@@ -21,7 +21,7 @@ const REGISTRY = [{
   },
 }];
 
-// [::TICKET::] PX-312, PX-313, PX-317, PX-320 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-317|PX-320) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-317, PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-317|PX-320) --for-spec --no-implementation-order`.
 function fixture() {
   const view = {
     packageId: 'pkg-0001',
@@ -200,7 +200,7 @@ test('a registry-divergent edge contract is BOUNDARY_CONTRACT_MISMATCH', () => {
 });
 
 /** Rebind the map, graph, Dirs-Tree and ticket source digests after a view mutation. */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-317) --for-spec --no-implementation-order`.
 function rebindViewAndMap(input) {
   input.map.sourceViewDigest = viewDigest(input.view);
   input.map.digest = mapDigest(input.map);
@@ -214,7 +214,7 @@ function rebindViewAndMap(input) {
 }
 
 /** Recompute one ticket's distribution digest and the aggregate after a ticket mutation. */
-// [::TICKET::] PX-317 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-317) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-317) --for-spec --no-implementation-order`.
 function rebindTicketDigest(input) {
   const ticket = input.tickets.phases[0].tickets[0];
   ticket.distribution.digest = digestValue({

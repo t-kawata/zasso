@@ -7,17 +7,17 @@ import assert from 'node:assert/strict';
 
 import { ticketPrerequisites } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';
 
-// [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-329 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-329 --for-spec --no-implementation-order`.
 function operationUnit(unitId, obligation = { mode: 'implement' }, role = 'implementer') {
   return { unitId, kind: 'operation', role, obligation };
 }
 
-// [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-329 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-329 --for-spec --no-implementation-order`.
 function ticket(id, units, nodeIds = []) {
   return { id, phaseId: 0, nodeIds, distribution: { units } };
 }
 
-// [::TICKET::] PX-329 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-329 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-329 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-329 --for-spec --no-implementation-order`.
 function samePackageReference(implementerTicketKey = 'P0-1', implementerTicketId = 1) {
   return operationUnit('op-X', {
     mode: 'reference',

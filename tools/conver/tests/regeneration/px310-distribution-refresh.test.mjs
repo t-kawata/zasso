@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { checkDistributionMap } from '../../.claude/scripts/smooth-sequences/lib/checks-distribution-map.mjs';
 import { renderDistributionRefresh } from '../../.claude/scripts/regeneration/lib/transaction.mjs';
 
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function fixtureView(packageId = 'pkg-1') {
   return {
     packageId,
@@ -29,7 +29,7 @@ function fixtureView(packageId = 'pkg-1') {
   };
 }
 
-// [::TICKET::] PX-310 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-310 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 function fixtureRfc() {
   return [
     '# Package RFC',

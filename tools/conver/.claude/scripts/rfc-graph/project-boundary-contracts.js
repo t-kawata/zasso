@@ -51,18 +51,18 @@ const MESSAGES = Object.freeze({
   MISSING_REGISTRY: 'MISSING_REGISTRY',
 });
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function finding(code, subject, message) {
   return { code, subject: subject ?? null, message };
 }
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function contractIdFor(index) {
   return `C${String(CONTRACT_ID_BASE + index).padStart(3, '0')}`;
 }
 
 /** The contract id of the second direction edge, or a named refusal when the range is full. */
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function reverseContractIdFor(index) {
   if (!Number.isInteger(index) || index < 0 || index >= REVERSE_CONTRACT_ID_COUNT) {
     const error = new Error(`${MESSAGES.CONTRACT_ID_COLLISION}: reverse range has no slot for registry row ${index}`);
@@ -73,7 +73,7 @@ function reverseContractIdFor(index) {
 }
 
 /** The boundaries whose ctr unit is carried by either endpoint of an edge. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function rowsOfEdge(edge, graph, registry) {
   const endpointNodeIds = new Set([edge.from, edge.to]);
   return (registry ?? []).filter((row) => (graph.nodes ?? []).some((node) => endpointNodeIds.has(node.id)
@@ -87,7 +87,7 @@ function rowsOfEdge(edge, graph, registry) {
  * units its own nodes hold, so a foreign row has no edge here and must be skipped rather
  * than projected or refused.
  */
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function localRegistryRows(graph, registry) {
   return (registry ?? []).filter((row) => (graph?.nodes ?? []).some(
     (node) => (node.unitIds ?? []).includes(`ctr-${row.boundary_id}`),
@@ -95,7 +95,7 @@ function localRegistryRows(graph, registry) {
 }
 
 /** The local rows with their global registry index, so a C9xx id is stable across packages. */
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function indexedLocalRows(graph, registry) {
   const local = new Set(localRegistryRows(graph, registry));
   return (registry ?? [])
@@ -104,20 +104,20 @@ function indexedLocalRows(graph, registry) {
 }
 
 /** Every direction a view declares for a ctr unit, deduplicated. */
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function directionsForUnit(view, ctrUnit) {
   const records = collectViewUnits(view).get(ctrUnit)?.records ?? [];
   return [...new Set(records.map((record) => record.direction).filter((direction) => typeof direction === 'string'))];
 }
 
 /** The note that binds every boundary the edge carries. */
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function noteForRows(rows) {
   return boundaryNoteForRows(rows);
 }
 
 /** The registry rows a parsed note resolves to, or null when one does not resolve. */
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function rowsFromBoundaryNote(parsed, registry, sidecarPath, edgeKey = null) {
   if (parsed.sidecar === null) {
     const rows = parsed.ids.map((id) => (registry ?? []).find((row) => row.boundary_id === id));
@@ -143,7 +143,7 @@ function rowsFromBoundaryNote(parsed, registry, sidecarPath, edgeKey = null) {
 }
 
 /** Write the full clause table that a too-long note can no longer carry inline. */
-// [::TICKET::] PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314, PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-314|PX-315) --for-spec --no-implementation-order`.
 function writeBoundarySidecar(sidecarPath, indexedRows, rowsByEdge) {
   const boundaries = Object.fromEntries((indexedRows ?? []).map(({ row, index }) => [row.boundary_id, {
     contractId: contractIdFor(index),
@@ -163,7 +163,7 @@ function writeBoundarySidecar(sidecarPath, indexedRows, rowsByEdge) {
  * @param {{ graph: object, registry: Array<object>, sidecarPath?: string|null }} input
  * @returns {object} the projected graph
  */
-// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321, PX-322 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
 function projectBoundaryContracts({ graph, registry = [], view = null, sidecarPath = null }) {
   const next = JSON.parse(JSON.stringify(graph));
   const indexedLocal = indexedLocalRows(next, registry);
@@ -238,7 +238,7 @@ function projectBoundaryContracts({ graph, registry = [], view = null, sidecarPa
 }
 
 /** The sidecar document, or null when it is absent or unreadable. */
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function readBoundarySidecar(sidecarPath) {
   if (sidecarPath === null || !fs.existsSync(sidecarPath)) return null;
   try {
@@ -256,7 +256,7 @@ function readBoundarySidecar(sidecarPath) {
  * @param {{ sidecarPath?: string|null }} [options]
  * @returns {Array<{ code: string, subject: string|null, message: string }>}
  */
-// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315, PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-314|PX-315|PX-321) --for-spec --no-implementation-order`.
 function verifyBoundaryContracts(graph, registry = [], { sidecarPath = null, view = null } = {}) {
   const findings = [];
   for (const row of localRegistryRows(graph, registry)) {
@@ -307,7 +307,7 @@ function verifyBoundaryContracts(graph, registry = [], { sidecarPath = null, vie
 }
 
 /** Parse `--name=value` or `--name value`. */
-// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-314) --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
   const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
   if (inline !== undefined) return inline.slice(`--${name}=`.length);
@@ -316,7 +316,7 @@ function argumentFor(argv, name) {
 }
 
 /** Apply the projection through crud.js, one edge at a time. */
-// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
 function attachThroughCrud(graphPath, graph, registry, sidecarPath = null, view = null) {
   const before = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
   const projected = projectBoundaryContracts({ graph: before, registry, view, sidecarPath });
@@ -342,7 +342,7 @@ function attachThroughCrud(graphPath, graph, registry, sidecarPath = null, view 
   return projected;
 }
 
-// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-314, PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-314|PX-315) --for-spec --no-implementation-order`.
 function refusal(error) {
   const code = error.code ?? 'BOUNDARY_PROJECTION_FAILED';
   console.error(`[ERROR] ${code}: ${error.message}`);
@@ -351,14 +351,14 @@ function refusal(error) {
   return EXIT_FAILURE;
 }
 
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function codedError(code, message) {
   const error = new Error(message);
   error.code = code;
   return error;
 }
 
-// [::TICKET::] PX-315 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-315) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const graphPath = argumentFor(argv, 'graph');
   const registryPath = argumentFor(argv, 'registry');

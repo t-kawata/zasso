@@ -33,7 +33,7 @@ import {
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 /** The report for one observation, with the outcome the run derived. */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function reportFor({ states = [], comparison = null, ladder = { position: 'L0' }, outcome = 'not proved' } = {}) {
   return renderTerminalStateReport({
     states,
@@ -43,7 +43,7 @@ function reportFor({ states = [], comparison = null, ladder = { position: 'L0' }
 }
 
 /** A measured state, shaped as `measureTerminalState` returns one. */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
 function measuredState(representative, complete) {
   const missing = [{ scope: 'auth', artefact: 'RFC.md' }];
   return {
@@ -221,7 +221,7 @@ test('C003 invariant — a full-depth walk of the published record finds no key 
 
   const forbidden = ['success', 'verdict', 'score', 'passed'];
   const offenders = [];
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-12 --for-spec --no-implementation-order`.
   (function walk(value, path) {
     if (Array.isArray(value)) {
       value.forEach((entry, index) => walk(entry, `${path}[${index}]`));

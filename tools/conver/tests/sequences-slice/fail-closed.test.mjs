@@ -13,7 +13,7 @@ import { multiPackageFixture, writePackage, writeWorkspaceManifests } from './he
 
 const VERIFY_CHAIN = fileURLToPath(new URL('../../.claude/scripts/sequences-slice/verify-chain.mjs', import.meta.url));
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function withWorkspace(body) {
   const root = mkdtempSync(join(tmpdir(), 'px314-chain-'));
   try {
@@ -23,7 +23,7 @@ function withWorkspace(body) {
   }
 }
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function run(args) {
   return spawnSync(process.execPath, [VERIFY_CHAIN, ...args], { encoding: 'utf8' });
 }

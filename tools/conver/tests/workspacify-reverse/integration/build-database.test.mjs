@@ -32,14 +32,14 @@ const REPRESENTATIVE = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'fixtu
 const THROUGH_R1 = 'r1';
 
 /** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-p24-6-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
 /** A C/C++ subject whose database names the two units its sources form. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function subjectWithDatabase() {
   return createSyntheticTree({
     'include/widget.h': 'int widget();\n',
@@ -53,7 +53,7 @@ function subjectWithDatabase() {
 }
 
 /** A C/C++ subject that carries no database, which is the common case. */
-// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-6 --for-spec --no-implementation-order`.
 function subjectWithoutDatabase() {
   return createSyntheticTree({
     'include/widget.h': 'int widget();\n',

@@ -38,19 +38,19 @@ export const CHAIN_CODES = Object.freeze({
 });
 
 /** One link result. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function compareLink(name, expected, actual, code) {
   return { link: name, ok: expected === actual, expected, actual, code: expected === actual ? null : code };
 }
 
 /** A link that fails with a named code and no comparison. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function failedLink(name, code, detail = null) {
   return { link: name, ok: false, expected: detail, actual: null, code };
 }
 
 /** Read JSON, or null when the file is absent or unparsable. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function readJson(path) {
   if (!existsSync(path)) return null;
   try {
@@ -61,7 +61,7 @@ function readJson(path) {
 }
 
 /** The single artifact path at the root, or null. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function findArtifactPath(root) {
   const candidates = [];
   for (const name of readdirSync(root)) {
@@ -124,7 +124,7 @@ export function verifyChain(root) {
 }
 
 /** Every seed the allocate manifest records must still hash to its recorded digest. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function verifySeeds(root, allocate) {
   const links = [];
   for (const seed of allocate.seed_index ?? []) {
@@ -136,7 +136,7 @@ function verifySeeds(root, allocate) {
 }
 
 /** Every package the tree names must carry a view that names the same package. */
-// [::TICKET::] PX-278 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-278 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-278 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-278 --for-spec --no-implementation-order`.
 function verifyViews(root, tree) {
   const links = [];
   for (const pkg of tree.workspace?.packages ?? []) {

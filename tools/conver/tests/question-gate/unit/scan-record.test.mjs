@@ -5,7 +5,7 @@
 // entries it produced, and the gate then refuses an honest settle trace that names
 // it. The two states the record must keep apart are "read and contributed nothing"
 // and "could not be read": they mean opposite things to whoever reads the scan.
-// [::TICKET::] PX-237 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-237 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-237 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-237 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';

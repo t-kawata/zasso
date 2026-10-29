@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// [::TICKET::] PX-122: Create lib/create-ticket-from-source.js. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: Create lib/create-ticket-from-source.js. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
 
 /**
  * create-ticket-from-source.js — Shared core for dedicated ticket-creation scripts.
@@ -64,8 +64,8 @@ const ROUND_STATUS_RE = /^R[1-9]\d*$/;
  * @param {string} ticketKey — e.g. "P3-2" or "PX-53"
  * @returns {object|null} — The ticket object or null
  */
-// [::TICKET::] PX-122: findTicket. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: findTicket. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function findTicket(ticketsData, ticketKey) {
   if (!ticketsData || !Array.isArray(ticketsData.phases) || !ticketKey) return null;
   const match = ticketKey.match(/^P(-?\d+|X)-(\d+)$/);
@@ -88,9 +88,9 @@ function findTicket(ticketsData, ticketKey) {
  * @param {object} ticket — Source ticket (clone)
  * @returns {object} — New ticket with residue stripped
  */
-// [::TICKET::] PX-122: stripCompletedResidue. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127, PX-143, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-142: strip inspection residue on clone. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: stripCompletedResidue. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127, PX-143, PX-144, PX-145, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: strip inspection residue on clone. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function stripCompletedResidue(ticket) {
   const next = { ...ticket };
   next.status = 'todo';
@@ -117,8 +117,8 @@ function stripCompletedResidue(ticket) {
  * @param {object} seed — Caller edits (title/scope/background/...)
  * @returns {object} — Ticket with seed edits applied
  */
-// [::TICKET::] PX-122: applySeedEdits. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: applySeedEdits. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function applySeedEdits(ticket, seed) {
   const next = { ...ticket };
   for (const key of Object.keys(seed || {})) {
@@ -134,8 +134,8 @@ function applySeedEdits(ticket, seed) {
  * @param {object} result — Deep-cloned Tickets.json data
  * @returns {{ id: number, name: string, tickets: object[] }} — The target phase
  */
-// [::TICKET::] PX-122: resolveMaxRealPhase. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: resolveMaxRealPhase. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function resolveMaxRealPhase(result) {
   const realPhases = result.phases.filter(p => p.id !== PX_PHASE_ID);
   if (realPhases.length === 0) {
@@ -153,8 +153,8 @@ function resolveMaxRealPhase(result) {
  * @param {object} ticket — New ticket
  * @returns {{ id: number, phaseId: number, ticket: object }} — Appended ticket metadata
  */
-// [::TICKET::] PX-122: appendTicketToPhase. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: appendTicketToPhase. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function appendTicketToPhase(phase, ticket) {
   const existingIds = phase.tickets.map(t => t.id).filter(id => typeof id === 'number');
   const newId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
@@ -189,8 +189,8 @@ function appendTicketToPhase(phase, ticket) {
  * @returns {{ success: true, key: string, ticket: object, data: object }
  *          |{ success: false, error: string, errors?: string[] }}
  */
-// [::TICKET::] PX-122: createTicketFromSource. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122: createTicketFromSource. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function createTicketFromSource({ ticketsData, sourceKey, seed = {} }) {
   // The new ticket must carry a NEW title from the seed, never the source's old
   // title — otherwise it becomes an indistinguishable retry of the past ticket.

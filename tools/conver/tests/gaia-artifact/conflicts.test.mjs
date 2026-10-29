@@ -11,26 +11,26 @@ import {
 import { resolveActPatterns } from '../../.claude/scripts/smooth-sequences/lib/act-vocabulary.mjs';
 import { sha256File } from '../../.claude/scripts/shared-obligations/evidence.mjs';
 
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 const GAIA_ROOT = process.env.GAIA_ROOT || null;
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 const SKIP = GAIA_ROOT === null ? 'GAIA_ROOT is not set' : false;
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 const SPEC_NAME = 'GaiaSekkeiShiyousho_v32.md';
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 const ARTIFACT_NAME = 'GaiaSekkeiShiyousho_v32-sequences.json';
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 const SUBJECTS = JSON.parse(readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'px298-subjects.json'),
   'utf8',
 ));
 
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 function readJson(root, relative) {
   return JSON.parse(readFileSync(join(root, relative), 'utf8'));
 }
 
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 function readJsonl(root, relative) {
   const path = join(root, relative);
   if (!existsSync(path)) return [];
@@ -40,22 +40,22 @@ function readJsonl(root, relative) {
     .map((line) => JSON.parse(line));
 }
 
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 function artifactOf(root) {
   return readJson(root, ARTIFACT_NAME);
 }
 
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 function specLinesOf(root) {
   return { [SPEC_NAME]: readFileSync(join(root, SPEC_NAME), 'utf8').split('\n') };
 }
 
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 function operationOf(artifact, id) {
   return (artifact.operations ?? []).find((operation) => operation.id === id);
 }
 
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 function groundingQuote(operation) {
   if (typeof operation?.grounding?.quote === 'string') return operation.grounding.quote;
   for (const property of Object.values(operation?.grounding?.properties ?? {})) {
@@ -65,7 +65,7 @@ function groundingQuote(operation) {
 }
 
 // @verifies C001
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 test('C001 every operation has a consistent position, disposition and ground', { skip: SKIP }, () => {
   const artifact = artifactOf(GAIA_ROOT);
   for (const operation of artifact.operations ?? []) {
@@ -85,7 +85,7 @@ test('C001 every operation has a consistent position, disposition and ground', {
 });
 
 // @verifies C002
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 test('C002 every corrected escape cites a line that states no act', { skip: SKIP }, () => {
   const artifact = artifactOf(GAIA_ROOT);
   const linesByPath = specLinesOf(GAIA_ROOT);
@@ -110,7 +110,7 @@ test('C002 every corrected escape cites a line that states no act', { skip: SKIP
 });
 
 // @verifies C003
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 test('C003 no waiver covers the two S6 conflict families', { skip: SKIP }, () => {
   const path = join(GAIA_ROOT, 'SMOOTH-SEQUENCES-WAIVERS.json');
   const waivers = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')).waivers ?? [] : [];
@@ -120,7 +120,7 @@ test('C003 no waiver covers the two S6 conflict families', { skip: SKIP }, () =>
 });
 
 // @verifies C004
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 test('C004 the artifact digest is stable and matches the worklist', { skip: SKIP }, () => {
   const artifactPath = join(GAIA_ROOT, ARTIFACT_NAME);
   const digest = sha256File(artifactPath);
@@ -132,7 +132,7 @@ test('C004 the artifact digest is stable and matches the worklist', { skip: SKIP
 });
 
 // @verifies C005
-// [::TICKET::] PX-298 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-298 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-298 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-298 --for-spec --no-implementation-order`.
 test('C005 the corrected operations are carried by the span reading', { skip: SKIP }, () => {
   const readings = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-span.jsonl'));
   const operations = new Map();

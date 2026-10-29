@@ -14,7 +14,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 // LoopOptions の型定義（runner.ts からインポートすると NodeNext の型解決で
 // never に推論されるため、テスト用にインライン定義する）
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
 interface MockLoopOptions {
   apiKey: string;
   model: string;
@@ -34,7 +34,7 @@ interface MockLoopOptions {
 // mock.module() は各モジュールに1度しか呼べないため、
 // テスト間で挙動を切り替えるために共有オブジェクトを使用する。
 
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-174 --for-spec --no-implementation-order`.
 interface MockState {
   /** parseCliOptions が呼ばれたか */
   parseCliOptionsCalled: boolean;
@@ -85,7 +85,7 @@ const mockState: MockState = {
 // --- テスト用ヘルパー ---
 
 /** テスト用のデフォルト MockLoopOptions */
-// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
 function baseOptions(overrides?: Partial<MockLoopOptions>): MockLoopOptions {
   return {
     apiKey: "test-api-key",
@@ -419,7 +419,7 @@ describe("conver", () => {
 // --- C003: プロセスレベルのクラッシュガード ---
 // @verifies C003
 
-// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
 describe("reportFatalError / installCrashHandlers", () => {
   // PX-150: クラッシュハンドラは exit せずログのみ（夜間ループの完走を保証する）
   // @verifies C003

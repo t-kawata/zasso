@@ -18,14 +18,14 @@ import { RECORDED_MANIFEST_SEGMENTS, RECORDED_PACKAGE_SEGMENTS, SPEC_LINES } fro
 
 const RECORDED_SEGMENTS = normalizeStructureSegments(RECORDED_MANIFEST_SEGMENTS);
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 a seed document yields the segment ids its source_segments block carries', () => {
   const text = renderRfcSeed({ seedPackage: 'pkg-0001', seedPath: 'crates/foundation/gaia-foundation', segmentIds: ['s-000027'] });
   assert.deepEqual(readSourceSegments(text), ['s-000027']);
   assert.deepEqual(readSourceSegments(renderRfcSeed({ seedPackage: 'pkg-0001', seedPath: 'x', segmentIds: [] })), []);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 a document with no source_segments block yields nothing rather than a guess', () => {
   assert.equal(readSourceSegments('# no fence here'), null);
   assert.equal(readSourceSegments('```json\n{ "package": "pkg-0001" }\n```'), null);
@@ -33,7 +33,7 @@ test('C004 a document with no source_segments block yields nothing rather than a
   assert.equal(readSourceSegments('```json\nnot json at all\n```'), null);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 the tree manifest segments carry the line range each segment id resolves to', () => {
   const segmentsById = new Map(RECORDED_SEGMENTS.map((segment) => [segment.id, segment]));
   assert.equal(segmentsById.size, 33);
@@ -44,14 +44,14 @@ test('C004 the tree manifest segments carry the line range each segment id resol
   ]);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 a segment id absent from the tree manifest is reported rather than dropped', () => {
   const segmentsById = new Map(RECORDED_SEGMENTS.map((segment) => [segment.id, segment]));
   assert.deepEqual(findUnknownSegmentIds(['s-000001', 's-999999'], segmentsById), ['s-999999']);
   assert.deepEqual(resolveSegmentLineRanges(['s-000001', 's-999999'], segmentsById), [{ id: 's-000001', lineStart: 1, lineEnd: 2 }]);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 the line coordinate is conserved across the packages that claim it', () => {
   const measured = measureLineRangeJoin({
     packageSegments: RECORDED_PACKAGE_SEGMENTS,
@@ -63,7 +63,7 @@ test('C004 the line coordinate is conserved across the packages that claim it', 
   assert.equal(measured.unclaimedLineCount, 2);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 the key claims almost every line more than once, which is why it is not an identity', () => {
   const measured = measureLineRangeJoin({
     packageSegments: RECORDED_PACKAGE_SEGMENTS,
@@ -76,7 +76,7 @@ test('C004 the key claims almost every line more than once, which is why it is n
   assert.equal(measured.maxClaimantsOnOneSegment, 15);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 ten packages claim no segment at all, so the key cannot reach them', () => {
   const measured = measureLineRangeJoin({
     packageSegments: RECORDED_PACKAGE_SEGMENTS,
@@ -89,7 +89,7 @@ test('C004 ten packages claim no segment at all, so the key cannot reach them', 
   assert.deepEqual(measured.singlyClaimedSegmentIds, ['s-000008', 's-000028', 's-000032']);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 the manifest carries line_start and line_end, and the reader converts them at the boundary', () => {
   const first = RECORDED_MANIFEST_SEGMENTS[0];
   assert.equal(first.line_start, 1);
@@ -100,7 +100,7 @@ test('C004 the manifest carries line_start and line_end, and the reader converts
   assert.equal(normalizeStructureSegments(RECORDED_MANIFEST_SEGMENTS).length, 33);
 });
 
-// [::TICKET::] PX-255 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
 test('C004 a segment with no line range is rejected rather than read as an empty one', () => {
   assert.throws(() => normalizeStructureSegments([{ id: 's-000001' }]), /s-000001/);
   assert.throws(() => normalizeStructureSegments([{ id: 's-000001', line_start: 1 }]), /s-000001/);

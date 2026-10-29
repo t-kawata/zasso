@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 
 const SCRIPT = join(process.cwd(), '.claude/scripts/rfc-graph/attach-unit-ids.js');
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function fixture(rfcBody) {
   const root = mkdtempSync(join(tmpdir(), 'px306-attach-'));
   const graphPath = join(root, 'GRAPH.json');
@@ -25,7 +25,7 @@ function fixture(rfcBody) {
   return { root, graphPath, rfcPath };
 }
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function ledger(body) {
   return [
     '## Distribution ledger',

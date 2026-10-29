@@ -1,4 +1,5 @@
-// [::TICKET::] PX-280 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-280 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-280 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -26,7 +27,7 @@ import {
 const CLI = '.claude/scripts/regeneration/run.mjs';
 
 /** Add the two decisions documents a real workspace carries. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function writeLiveDecisions(workspace) {
   const allocatePath = join(workspace.root, 'workspacify/allocate/DECISIONS.json');
   const treePath = join(workspace.root, 'workspacify/tree/DECISIONS.json');
@@ -38,7 +39,7 @@ function writeLiveDecisions(workspace) {
 }
 
 /** A candidate decisions document that differs from the live one in one value. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function writeCandidateDecisions(workspace, key) {
   const path = join(workspace.root, `regeneration/candidates/${key}.json`);
   mkdirSync(dirname(path), { recursive: true });
@@ -47,7 +48,7 @@ function writeCandidateDecisions(workspace, key) {
 }
 
 /** Open, derive and verify with the deterministic producer. */
-// [::TICKET::] PX-279 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 function verifiedTransaction(workspace) {
   const transaction = openTransaction({ root: workspace.root, candidateSpec: workspace.candidatePath, reason: 'binding' });
   deriveGeneration({ root: workspace.root, transactionId: transaction.transactionId, runProducer: fixtureProducer });
@@ -208,7 +209,7 @@ test('status names the transaction, the staging specification and the exact next
     assert.match(result.stdout, new RegExp(`id: ${opened.transactionId}`));
     assert.match(result.stdout, /staging: /);
     assert.match(result.stdout, /spec: /);
-    assert.match(result.stdout, /next: node \.claude\/scripts\/regeneration\/run\.mjs continue/);
+    assert.match(result.stdout, /next: node "\$\(git rev-parse --show-toplevel\)\/\.claude\/scripts\/regeneration\/run\.mjs" continue/);
     assert.equal(describeStatus(workspace.root).state, 'open');
   } finally {
     workspace.remove();

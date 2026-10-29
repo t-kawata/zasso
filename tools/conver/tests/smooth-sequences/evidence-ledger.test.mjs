@@ -1,4 +1,5 @@
-// [::TICKET::] PX-285 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-285 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -12,7 +13,7 @@ const PREVIOUS = {
     where: 'spec.md#1',
     why: 'the step carries only a registry projection',
     fix: 'author the contract',
-    producer: 'node .claude/scripts/smooth-sequences/run.mjs',
+    producer: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"',
     repairClass: 'regeneration',
   }],
 };
@@ -33,7 +34,7 @@ test('a previous finding whose check is now blocked is withdrawn', () => {
   assert.equal(ledger.withdrawn[0].subject, 'S5.projection-only:A-1__ProduceFact');
   assert.match(ledger.withdrawn[0].why, /A-1__ProduceFact/);
   assert.equal(ledger.withdrawn[0].where, 'spec.md#1');
-  assert.equal(ledger.withdrawn[0].producer, 'node .claude/scripts/smooth-sequences/run.mjs');
+  assert.equal(ledger.withdrawn[0].producer, 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"');
 });
 
 // @verifies C003

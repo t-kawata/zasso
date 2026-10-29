@@ -49,7 +49,7 @@ const MAX_GIT_OUTPUT_BYTES = 64 * 1024 * 1024;
  * A path with no extension is not an extension with an empty name: `Makefile`
  * and `LICENSE` are tracked here and belong to no decision.
  */
-// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-209 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-209 --for-spec --no-implementation-order`.
 function parseExtension(trackedPath) {
   const basename = trackedPath.slice(trackedPath.lastIndexOf("/") + 1);
   const dotIndex = basename.lastIndexOf(".");
@@ -65,7 +65,7 @@ function parseExtension(trackedPath) {
  * census. An empty census would report "nothing undecided", which is the exact
  * false negative this module exists to remove, so nothing is caught here.
  */
-// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-209 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-209 --for-spec --no-implementation-order`.
 function readTrackedPaths(repoRoot) {
   const stdout = execFileSync("git", ["ls-files"], {
     cwd: repoRoot,
@@ -87,7 +87,7 @@ function readTrackedPaths(repoRoot) {
  *
  * Returns a Map from dotted extension to count.
  */
-// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-209 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-209 --for-spec --no-implementation-order`.
 function censusTrackedExtensions({
   trackedPaths,
   ignoredRoots,
@@ -111,7 +111,7 @@ function censusTrackedExtensions({
  * An empty result is the whole of the pass condition. A non-empty one is
  * reported by name so the reader can decide without re-deriving the census.
  */
-// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-209 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-209 --for-spec --no-implementation-order`.
 function findUndecidedExtensions(census, { included, excluded }) {
   return [...census.keys()]
     .filter((extension) => !included.has(extension) && !excluded.has(extension))

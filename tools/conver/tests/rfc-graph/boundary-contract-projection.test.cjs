@@ -21,7 +21,7 @@ const REGISTRY = [{
   },
 }];
 
-// [::TICKET::] PX-312, PX-313 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313) --for-spec --no-implementation-order`.
 function graphFixture() {
   return {
     nodes: [
@@ -76,7 +76,7 @@ test('a changed note digest is BOUNDARY_CONTRACT_MISMATCH', () => {
   assert.ok(findings.some((finding) => finding.code === 'BOUNDARY_CONTRACT_MISMATCH'));
 });
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function manyBoundaryFixture() {
   const registry = Array.from({ length: 20 }, (_, index) => ({
     boundary_id: `boundary-${String(index + 1).padStart(3, '0')}`,
@@ -133,7 +133,7 @@ test('C008 a tampered sidecar is BOUNDARY_CONTRACT_MISMATCH', () => {
   }
 });
 
-// [::TICKET::] PX-314 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-314 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-314 --for-spec --no-implementation-order`.
 function twoEdgeOverflowFixture() {
   const makeId = (index) => `boundary-${String(index).padStart(3, '0')}-${'x'.repeat(30)}`;
   const registry = Array.from({ length: 12 }, (_, index) => ({

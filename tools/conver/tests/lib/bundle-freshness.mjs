@@ -54,7 +54,7 @@ export function resolveEsbuildVersion(projectRoot) {
  * @param {string} projectRoot
  * @returns {string|null}
  */
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function readBuildScript(projectRoot) {
   try {
     return JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')).scripts?.build ?? null;
@@ -106,7 +106,7 @@ export function resolveBundlerCommand(projectRoot, command) {
 }
 
 /** Digest a file, or null when it is absent. */
-// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-205, PX-206, PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-205|PX-206|PX-207) --for-spec --no-implementation-order`.
 function digestOf(path) {
   if (!existsSync(path)) return null;
   return createHash('sha256').update(readFileSync(path)).digest('hex');

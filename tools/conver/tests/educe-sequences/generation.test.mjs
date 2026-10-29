@@ -68,7 +68,7 @@ const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.js
 const READ_IDS = PHASES.filter((phase) => phase.tag === PHASE_TAGS.READ).map((phase) => phase.id);
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-generation-'));
   const specPath = join(root, 'ledger.md');
@@ -77,7 +77,7 @@ function scratchRun() {
 }
 
 /** Seed a run's reading files from the recorded run input, without a declaration. */
-// [::TICKET::] PX-242, PX-243, PX-244, PX-247 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-247) --for-spec --no-implementation-order`.
 function seedReadings(directory) {
   const span = RUN_INPUT.readings.sequences.map((reading) => ({ ...reading, steps: [], operations: [] }));
   span[0].steps = RUN_INPUT.readings.steps;
@@ -90,14 +90,14 @@ function seedReadings(directory) {
 }
 
 /** Seed a run's reading files from the recorded run input. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function seed(directory) {
   writeFileSync(join(directory, DECLARATION_FILE), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
   seedReadings(directory);
 }
 
 /** A generation in which every phase is done: the state a second invocation inherits. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function seededRun() {
   const scratch = scratchRun();
   const run = startRun({ specPath: scratch.specPath, spec: scratch.spec });
@@ -112,7 +112,7 @@ function seededRun() {
  * A run whose declaration names a limb no line of the specification carries, with
  * identity already proven so that phase 2 can actually be entered and refused.
  */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function openBare() {
   const scratch = scratchRun();
   const run = startRun({ specPath: scratch.specPath, spec: scratch.spec });
@@ -123,13 +123,13 @@ function openBare() {
 }
 
 /** The recorded declaration with one limb replaced, so a gate can be made to refuse. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function declarationWithLimb(limb) {
   return { ...RUN_INPUT.declaration, predicate: { limbs: [...RUN_INPUT.declaration.predicate.limbs.slice(1), limb] } };
 }
 
 /** Drive phase 2 to its limit, so the generation the next begin inherits has halted. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function haltPhaseTwo(context) {
   const phase = PHASES.find((candidate) => candidate.id === 2);
   for (let refusal = 0; refusal < phase.maxLoops; refusal += 1) runPhase(2, context);
@@ -139,7 +139,7 @@ function haltPhaseTwo(context) {
 }
 
 /** Run the phase driver as the command file runs it. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function begin(argv) {
   return spawnSync('node', [PHASE_SCRIPT, ...argv], { cwd: PROJECT_ROOT, encoding: 'utf8' });
 }
@@ -251,7 +251,7 @@ test('C003 the loop budget still halts inside one generation', () => {
   assert.equal(halted.reason.includes(`spent ${phase.maxLoops} of its ${phase.maxLoops} loops`), true);
 });
 
-// [::TICKET::] PX-254 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 test('C003 a new generation returns the budget, so a repaired declaration is read rather than refused for ever', () => {
   const { specPath, spec, directory, context } = openBare();
   haltPhaseTwo(context);
@@ -760,7 +760,7 @@ test('IT the artifact records the supplied digest, and verification compares it'
 });
 
 /** Make every directory on the way to a path. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 function mkdirIfNeeded(path) {
   mkdirSync(path, { recursive: true });
 }
@@ -770,7 +770,7 @@ function mkdirIfNeeded(path) {
 // ---------------------------------------------------------------------------
 
 /** A throwaway home directory holding a specification and one file to supply. */
-// [::TICKET::] PX-246 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
 function scratchHome() {
   const root = mkdtempSync(join(tmpdir(), 'px246-home-'));
   const specPath = join(root, 'ledger.md');

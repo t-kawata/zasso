@@ -3,7 +3,7 @@
 // PX-235 @verifies C004
 // PX-235 @verifies C005
 // PX-235 @verifies C006
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 /**
  * init.js and list-files.js under the argument contract this ticket settles:
  * `<rfc-dir> [<material-path>...]`, with the RFC name fixed at RFC.md.
@@ -31,7 +31,7 @@ import {
 const printedJson = (result) => JSON.parse(result.stdout);
 
 /** A package directory in a fresh temporary tree, with a scratch area beside it. */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function makePackage() {
   const base = mkdtempSync(join(tmpdir(), 'px235-'));
   const rfcDir = join(base, 'pkg');
@@ -40,14 +40,14 @@ function makePackage() {
 }
 
 /** A material file, written so a walk can find it. */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function writeMaterial(path) {
   writeFileSync(path, '# material\n', 'utf8');
   return path;
 }
 
 /** What init.js recorded about the run. */
-// [::TICKET::] PX-235 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-235 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-235 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-235 --for-spec --no-implementation-order`.
 function readStatus(rfcDir) {
   return JSON.parse(readFileSync(join(rfcDir, 'Status.json'), 'utf8'));
 }

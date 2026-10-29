@@ -55,11 +55,11 @@ const REQUIRED_OPERATION_FACTS = Object.freeze([
 ]);
 
 /** A failure the operator can act on: it names the path and says what was wrong with it. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 class InputError extends Error {}
 
 /** A finding, in the shape verify-consistencies.js already produces. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function finding(check, severity, message) {
   return { check, severity, message };
 }
@@ -73,7 +73,7 @@ function finding(check, severity, message) {
  * is a declared member with no outgoing transitions. Requiring every successor to be a key
  * would have reported those ten as faults.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkStatusVocabulary(artifact, vocabularies) {
   const members = vocabularies.get('OperationStatus').memberSet;
   const findings = [];
@@ -100,7 +100,7 @@ export function checkStatusVocabulary(artifact, vocabularies) {
  * inventory lists but no package owns is a contradiction. Measuring the live workspace
  * showed 88 on each side with neither direction open, so this check is silent there.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkOwnershipClosure(treeManifest) {
   const findings = [];
   const packageIds = new Set(treeManifest.workspace.packages.map((entry) => entry.id));
@@ -139,7 +139,7 @@ export function checkOwnershipClosure(treeManifest) {
  * idempotency, so the declared scope is the only place those names exist and the earlier
  * draft's reading of clauses.ordering referred to a field that is not there.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkContractClauseKeys(treeManifest, allocateManifest) {
   const findings = [];
   const registryByBoundary = new Map(allocateManifest.contract_registry.map((entry) => [entry.boundary_id, entry]));
@@ -167,7 +167,7 @@ export function checkContractClauseKeys(treeManifest, allocateManifest) {
  * The preamble is named rather than counted, because it is a structural fact about the
  * document and not 68 missing lines.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkSpecLineTotality(artifact) {
   const findings = [];
   const sections = [...artifact.sections].sort((left, right) => left.firstLine - right.firstLine);
@@ -195,7 +195,7 @@ export function checkSpecLineTotality(artifact) {
 }
 
 /** The first line no section covers and the preamble does not explain. */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function firstUnaccountedLine(sections, preambleLines, specLines) {
   const covered = new Set();
   for (const section of sections) {
@@ -210,7 +210,7 @@ function firstUnaccountedLine(sections, preambleLines, specLines) {
 /**
  * C5 — every operation carries the six facts its authority and proof requirements rest on.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkOperationFacts(artifact) {
   const findings = [];
   for (const operation of artifact.operations) {
@@ -234,7 +234,7 @@ export function checkOperationFacts(artifact) {
  * key, which reported ten live operations as faults for ending at a terminal status. A
  * terminal status is a member with no outgoing transitions, and that is not a fault.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkStatusTransitionClosure(artifact, vocabularies) {
   const members = vocabularies.get('OperationStatus').memberSet;
   const findings = [];
@@ -262,7 +262,7 @@ export function checkStatusTransitionClosure(artifact, vocabularies) {
  * different vocabularies and the comparison would have fired 13 times on sound data. What
  * is decidable is that a family is named rather than left blank, and named once.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkRejectCodeFamilies(artifact) {
   const findings = [];
   const declared = new Set();
@@ -292,7 +292,7 @@ export function checkRejectCodeFamilies(artifact) {
  * not a fault here: it is an operation whose grounding the artifact records elsewhere, and
  * saying otherwise would report 32 live operations as faults.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkSpecLineGrounding(artifact) {
   const findings = [];
   const covered = new Set();
@@ -316,7 +316,7 @@ export function checkSpecLineGrounding(artifact) {
  * two packages. Two packages claiming one machine is a contradiction rather than an
  * omission: both would implement it and neither would be wrong.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function checkStateMachineOwnership(treeManifest) {
   const findings = [];
   const ownersByMachine = new Map();
@@ -340,7 +340,7 @@ export function checkStateMachineOwnership(treeManifest) {
  * @param {{ projection: { artifact: object, treeManifest: object, allocateManifest: object } }} input
  * @returns {{ checks: Record<string, object[]>, summary: { high: number, low: number, total: number } }}
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 export function runChecks({ projection }) {
   const { artifact, treeManifest, allocateManifest } = projection;
   const vocabularies = readPinnedVocabularies(artifact);
@@ -371,7 +371,7 @@ export function runChecks({ projection }) {
 /**
  * Read one file, naming it when the read fails.
  */
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function readJsonOrFail(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -380,7 +380,7 @@ function readJsonOrFail(filePath) {
   }
 }
 
-// [::TICKET::] PX-257 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-257 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [artifactArgument] = argv.filter((argument) => !argument.startsWith('--'));
   if (artifactArgument === undefined) {

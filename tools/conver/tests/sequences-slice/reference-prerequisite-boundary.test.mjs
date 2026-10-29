@@ -16,7 +16,7 @@ import {
 } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';
 
 /** Both packages see the operation; the ticket roles decide which one implements it. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function views() {
   const operation = {
     unitId: 'op-X',
@@ -43,7 +43,7 @@ function views() {
 }
 
 /** The two roles, with the provider as the implementer. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function roles() {
   return {
     'pkg-consumer': new Map([['op-X', 'consumer']]),
@@ -51,7 +51,7 @@ function roles() {
   };
 }
 
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function owners() {
   return ownersFromViewsDetailed({
     packages: [{ id: 'pkg-consumer' }, { id: 'pkg-provider' }],
@@ -61,7 +61,7 @@ function owners() {
 }
 
 /** The artifact with the operation's step crossing one boundary. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function artifact(boundaryId) {
   return {
     sequences: [{ id: 'S', outcome: 'realized' }],
@@ -78,7 +78,7 @@ function artifact(boundaryId) {
 }
 
 /** One registry row with its direction. */
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function registryRow(provider, consumer) {
   return {
     boundary_id: 'boundary-001',
@@ -88,7 +88,7 @@ function registryRow(provider, consumer) {
   };
 }
 
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function consumerTicket() {
   return {
     id: 1,
@@ -104,7 +104,7 @@ function consumerTicket() {
   };
 }
 
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function precedenceOf({ design, registry }) {
   return derivePackagePrecedence({
     artifact: design,
@@ -114,7 +114,7 @@ function precedenceOf({ design, registry }) {
   });
 }
 
-// [::TICKET::] PX-330 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
 function prerequisitesOf({ design, registry }) {
   return ticketPrerequisites({
     tickets: [consumerTicket()],

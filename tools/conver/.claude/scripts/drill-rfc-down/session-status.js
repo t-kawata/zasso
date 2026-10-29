@@ -49,12 +49,12 @@ if (fs.existsSync(treePath)) {
 
 // ─── Helper functions ───
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function countAll(ns) {
   return ns.reduce((acc, n) => acc + 1 + countAll(n.children || []), 0);
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function countOpen(ns) {
   return ns.reduce(
     (acc, n) =>
@@ -65,7 +65,7 @@ function countOpen(ns) {
 
 // ─── Derive step ───
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function deriveStep(state, nodes, openCount, loopCount) {
   switch (state) {
     case "GRILLING":

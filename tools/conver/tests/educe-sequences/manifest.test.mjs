@@ -12,7 +12,7 @@ import {
 } from '../../.claude/scripts/shared-obligations/evidence.mjs';
 import { beginGeneration } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function workspace() {
   const directory = mkdtempSync(join(tmpdir(), 'px292-manifest-'));
   const artifactPath = join(directory, 'example-sequences.json');
@@ -25,7 +25,7 @@ function workspace() {
 }
 
 // @verifies C003
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a generation writes its own evidence manifest with spec and artifact digests', () => {
   const space = workspace();
   try {
@@ -48,7 +48,7 @@ test('a generation writes its own evidence manifest with spec and artifact diges
 });
 
 // @verifies C003
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('updating the artifact digest keeps the receipts the generation recorded', () => {
   const space = workspace();
   try {
@@ -75,7 +75,7 @@ test('updating the artifact digest keeps the receipts the generation recorded', 
 });
 
 // @verifies C003
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('the first reading phase refreshes the artifact digest', () => {
   const source = readFileSync('.claude/scripts/educe-sequences/rail/phases.mjs', 'utf8');
   assert.match(source, /updateManifestArtifact/);

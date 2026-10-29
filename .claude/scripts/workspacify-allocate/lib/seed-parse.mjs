@@ -1,5 +1,5 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-190 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-190 --for-spec --no-implementation-order`.
 // PX-193 @verifies C002
 /**
  * RFC-SEED.md parsing.
@@ -48,7 +48,7 @@ const JSON_BLOCK_PATTERN = /```json\n([\s\S]*?)```/;
  * @param {string} seedText - full seed markdown
  * @returns {Array<{ index: number, title: string, body: string[] }>} headings in document order
  */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 export function scanSeedHeadings(seedText) {
   const headings = [];
   let current = null;
@@ -77,7 +77,7 @@ export function scanSeedHeadings(seedText) {
  * @returns {string} the block's contents, unparsed
  * @throws {WorkSpacifyTreeError} gateId "G3.6" when the block is absent
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function extractJsonBlockText(body, label) {
   const match = JSON_BLOCK_PATTERN.exec(body);
   if (!match) {
@@ -97,7 +97,7 @@ function extractJsonBlockText(body, label) {
  * @param {string} key - the field name to count
  * @returns {number} the number of top-level declarations
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function countTopLevelKey(jsonText, key) {
   const wanted = JSON.stringify(key);
   let depth = 0;
@@ -222,7 +222,7 @@ export function seedPackageName(seedText) {
  * reporting that as "0 sections" would read as "no difference" — the opposite of
  * what the finding exists to say.
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function describeSectionDifference(determined, requiredSections) {
   const declaredRow = resolveSeedFormat(determined);
   if (declaredRow !== null) {
@@ -273,7 +273,7 @@ export function reportSeedCompatibility({ determined, required, seed = null }) {
  * @param {number} position - 1-based ordinal, used when the index itself is wrong
  * @throws {WorkSpacifyTreeError} gateId "G3.6" naming the specific defect
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function assertHeadingMatches(actual, expected, position) {
   if (actual.index !== expected.index) {
     throw new WorkSpacifyTreeError(`heading ${position} has index ${actual.index}, expected ${expected.index}`, { gateId: 'G3.6' });
@@ -290,7 +290,7 @@ function assertHeadingMatches(actual, expected, position) {
 }
 
 /** The body of the heading carrying one index, or null when the format does not carry it. */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function sectionBodyAt(headings, index) {
   return headings.find((heading) => heading.index === index)?.body ?? null;
 }
@@ -352,7 +352,7 @@ export function parseSeed(seedText, { formats = SEED_FORMATS } = {}) {
  * @returns {object} parsed JSON block
  * @throws {WorkSpacifyTreeError} gateId "G3.6" when the block is missing or unparseable
  */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function parseJsonBlock(body, label) {
   const blockText = extractJsonBlockText(body, label);
   try {

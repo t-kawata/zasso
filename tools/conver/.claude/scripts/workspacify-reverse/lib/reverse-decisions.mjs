@@ -1,3 +1,4 @@
+// [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 /**
  * The reverse rotation's decisions, and the gate that reads them.
  *
@@ -46,7 +47,7 @@ const DECISIONS_SCHEMA_FILE = 'workspacify-reverse-decisions.schema.json';
  * That is not a coincidence to be maintained by hand — the partition is the one
  * load-bearing decision and everything else is instantiated from it.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export const JUDGEMENT_ITEMS = Object.freeze([
   Object.freeze({
     id: 'package_boundary',
@@ -95,7 +96,7 @@ export const JUDGEMENT_ITEMS = Object.freeze([
  * Step 4 to fix a document Step 2 must publish would be sent to look at material
  * that is not there.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export const DECISIONS_MATERIAL = Object.freeze([
   'ANALYSIS-SCOPE.json',
   'R0-R2-REPORT.md',
@@ -131,7 +132,7 @@ const RETURN_PRIORITY = Object.freeze([
 /** The schema, parsed once per process: it is read on every gate run and changes only with a release. */
 let cachedSchema = null;
 
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function decisionsSchema() {
   if (cachedSchema === null) {
     cachedSchema = JSON.parse(readFileSync(`${SCHEMAS_DIRECTORY}${DECISIONS_SCHEMA_FILE}`, 'utf8'));
@@ -150,7 +151,7 @@ function decisionsSchema() {
  * @param {string} filePath — the derived decisions path
  * @returns {{ decisions: object|null, findings: Array<{ kind: string, detail: string }> }}
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function readReverseDecisions(filePath) {
   if (!existsSync(filePath)) {
     return {
@@ -202,7 +203,7 @@ export function readReverseDecisions(filePath) {
  * @param {object} decisions
  * @returns {{ ok: boolean, errors: Array<{ path: string, message: string }> }}
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function assertReverseDecisionsSchema(decisions) {
   const result = validateAgainstSchema(decisions, decisionsSchema());
   if (decisions === null || typeof decisions !== 'object' || Array.isArray(decisions)) {
@@ -234,7 +235,7 @@ export function assertReverseDecisionsSchema(decisions) {
  * @param {{ decisions: object|null, present: string[] }} input
  * @returns {Array<{ kind: string, item?: string, label?: string, document?: string, step: string }>}
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function verifyReverseDecisions({ decisions, present }) {
   const findings = DECISIONS_MATERIAL
     .filter((document) => !present.includes(document))
@@ -265,7 +266,7 @@ export function verifyReverseDecisions({ decisions, present }) {
  * @param {object|null} decisions
  * @returns {Array<{ kind: string, detail: string, step: string }>}
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function findSchemaViolations(decisions) {
   return assertReverseDecisionsSchema(decisions).errors.map((error) => ({
     kind: 'invalid-decisions',
@@ -286,7 +287,7 @@ export function findSchemaViolations(decisions) {
  * @param {{ path: string }} input
  * @returns {string}
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function renderDecisionsAdvice(findings, { path }) {
   const unrecorded = findings.filter((finding) => finding.kind === 'unrecorded-item');
   const absent = findings.filter((finding) => finding.kind === 'absent-material');
@@ -325,7 +326,7 @@ export function renderDecisionsAdvice(findings, { path }) {
     .flatMap((kind) => findings.filter((finding) => finding.kind === kind))
     .find((finding) => finding.step)?.step ?? ENTRANCE_STEP;
   lines.push(`Return to: ${returnStep}`);
-  lines.push('Then re-run: node .claude/scripts/workspacify-reverse/run.mjs gate');
+  lines.push('Then re-run: node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" gate');
 
   return lines.join('\n');
 }
@@ -345,7 +346,7 @@ export function renderDecisionsAdvice(findings, { path }) {
  * @param {{ path: string }} input
  * @returns {string}
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function renderDecisionsVerdict({ path }) {
   const lines = ['The six decisions the design licenses are recorded.', '', `  Read from: ${path}`];
   for (const item of JUDGEMENT_ITEMS) {

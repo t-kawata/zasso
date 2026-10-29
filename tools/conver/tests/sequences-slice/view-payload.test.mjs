@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { buildPackageView } from '../../.claude/scripts/sequences-slice/lib/view.mjs';
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureArtifact() {
   return {
     spec: { lines: 100 },
@@ -42,7 +42,7 @@ function fixtureArtifact() {
   };
 }
 
-// [::TICKET::] PX-307 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 function fixtureTreeManifest() {
   return {
     inventory: { objects: [{ canonical_name: 'Thing', owner_package: 'pkg-1' }] },

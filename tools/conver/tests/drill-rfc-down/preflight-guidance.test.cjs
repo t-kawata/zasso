@@ -1,5 +1,5 @@
 // PX-238 @verifies C005
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 /**
  * What a refused preflight tells the caller to do next.
  *
@@ -33,7 +33,7 @@ after(() => {
 });
 
 /** A workspace whose RFC, directory tree and tickets exist but whose graph does not. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function writeWorkspaceWithoutGraph(name) {
   const dir = path.join(tmpRoot, name);
   fs.mkdirSync(dir, { recursive: true });
@@ -53,7 +53,7 @@ function writeWorkspaceWithoutGraph(name) {
 }
 
 /** Run the preflight with the directory under test as its working directory. */
-// [::TICKET::] PX-238 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
 function runIn(dir, args) {
   const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: dir, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };

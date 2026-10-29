@@ -98,7 +98,7 @@ function reportError(message, cause, remedy) {
 /**
  * Display script usage
  */
-// [::TICKET::] PX-308 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-308 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-308 --for-spec --no-implementation-order`.
 function printUsage() {
   writeLine(`\
 boundify-graph-to-dirs.js <graph-json-path> [--json] [--dry-run] [--force]
@@ -128,7 +128,7 @@ Flags:
  * @returns {{ graphPath: string, graphDir: string, basename: string, flags: { json: boolean, dryRun: boolean, force: boolean, quiet: boolean } }}
  * @throws {never} — Exits via process.exit(EXIT_FAILURE) on failure
  */
-// [::TICKET::] PX-334 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 function parseArguments(testArgs, options = {}) {
   const args = testArgs || process.argv.slice(2);
   const cwd = options.cwd || process.cwd();
@@ -437,7 +437,7 @@ const RUN_ACCOUNTING_FIELDS = Object.freeze([
  * @param {string} statusPath — Path the status file is written to
  * @returns {object} Status record with steps 0 and 1 done and step 2 running
  */
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
 function createStepTwoStatus(statusPath) {
   const status = createDefaultStatus(statusPath);
   status.currentStep = 2;
@@ -459,7 +459,7 @@ function createStepTwoStatus(statusPath) {
  * @param {string} statusPath — Path the status file currently occupies
  * @returns {object} Step-2 status carrying the in-flight run's counters when present
  */
-// [::TICKET::] PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-339 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-339 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-339 --for-spec --no-implementation-order`.
 function withPreservedRunAccounting(status, statusPath) {
   if (!fs.existsSync(statusPath)) return status;
 
@@ -497,7 +497,7 @@ function withPreservedRunAccounting(status, statusPath) {
  *
  * @param {string[]} [testArgs] — Test argument array
  */
-// [::TICKET::] PX-307, PX-308, PX-319, PX-334, PX-339 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-307|PX-308|PX-319|PX-334|PX-339) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-319, PX-334, PX-339, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-319|PX-334|PX-339|PX-341) --for-spec --no-implementation-order`.
 function main(testArgs, options = {}) {
   // ---- Step 1-2: Argument parsing and graph loading ----
   const { graphPath, graphDir, basename, flags } = parseArguments(testArgs, options);
@@ -553,8 +553,8 @@ function main(testArgs, options = {}) {
           `     In that case, the warning can remain recorded as a known constraint and proceed to the next step\n` +
           `\n` +
           `  3. For edges that can be made unidirectional, fix them with crud.js:\n` +
-          `     node .claude/scripts/rfc-graph/crud.js --graph="<graphPath>" delete-edges --file=_remove.json\n` +
-          `     node .claude/scripts/rfc-graph/crud.js --graph="<graphPath>" create-edges --file=_add.json\n` +
+          `     node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/crud.js" --graph="<graphPath>" delete-edges --file=_remove.json\n` +
+          `     node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/crud.js" --graph="<graphPath>" create-edges --file=_add.json\n` +
           `\n` +
           `  4. If the cycle is a design error, check the source RFC to identify the correct dependency direction and fix edge definitions directly with crud.js\n` +
           `\n` +

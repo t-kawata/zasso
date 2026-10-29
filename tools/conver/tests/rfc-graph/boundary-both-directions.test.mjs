@@ -9,7 +9,7 @@ import {
   verifyBoundaryContracts,
 } from '../../.claude/scripts/rfc-graph/project-boundary-contracts.js';
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 const ROW = {
   boundary_id: 'b1',
   provider_package: 'pkg',
@@ -17,7 +17,7 @@ const ROW = {
   clauses: { preconditions: ['pre'], postconditions: ['post'], invariants: ['inv'] },
 };
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function bothDirectionView() {
   return {
     packageId: 'pkg',
@@ -28,7 +28,7 @@ function bothDirectionView() {
   };
 }
 
-// [::TICKET::] PX-321 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-321 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 function graphWith(edges) {
   return {
     nodes: [{ id: 'N0001', unitIds: ['ctr-b1'] }, { id: 'N0002', unitIds: [] }, { id: 'N0003', unitIds: [] }],

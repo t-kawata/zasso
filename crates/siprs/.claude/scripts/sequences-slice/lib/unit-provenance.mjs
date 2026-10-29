@@ -16,13 +16,13 @@ import { isUnitId } from '../../rfc-graph/lib/unit-ids.mjs';
 const SEVERITY_HIGH = 'high';
 
 /** A finding in the shape verify-consistencies.js already produces. */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 function finding(message) {
   return { severity: SEVERITY_HIGH, message };
 }
 
 /** The unit ids a node carries, read without importing the graph reader's whole surface. */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 function unitIdsOf(node) {
   return Array.isArray(node?.unitIds) ? node.unitIds.filter(isUnitId) : [];
 }
@@ -36,7 +36,7 @@ function unitIdsOf(node) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {string[]}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function unitsVisibleToShip(graph) {
   const ids = new Set();
   for (const node of graph?.nodes ?? []) {
@@ -46,7 +46,7 @@ export function unitsVisibleToShip(graph) {
 }
 
 /** The unit ids a header names, and the node it names them for. */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 function readHeader(headerText) {
   const text = String(headerText);
   if (!text.includes('Initial Design Artifact')) return null;
@@ -59,7 +59,7 @@ function readHeader(headerText) {
 }
 
 /** The unit ids a tickets document declares, read at the level its consumers read. */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 function ticketUnitIdsByTicket(tickets) {
   const byTicket = [];
   for (const phase of tickets?.phases ?? []) {
@@ -73,20 +73,20 @@ function ticketUnitIdsByTicket(tickets) {
 }
 
 /** Every ticket in a tickets document. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function allTickets(tickets) {
   return (tickets?.phases ?? []).flatMap((phase) => phase?.tickets ?? []);
 }
 
 /** A unit id a ticket carries, excluding graph node ids. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function ticketUnitIds(tickets) {
   return new Set(allTickets(tickets).flatMap((ticket) => (Array.isArray(ticket?.nodeIds) ? ticket.nodeIds : []))
     .filter(isUnitId));
 }
 
 /** A coded provenance finding. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function provenanceFinding(code, unitId, layer, message) {
   return { code, severity: SEVERITY_HIGH, unitId, layer, message };
 }
@@ -102,7 +102,7 @@ function provenanceFinding(code, unitId, layer, message) {
  *   graph?: {nodes?: Array<object>}|null, tickets?: {phases?: Array<object>}|null}} input
  * @returns {Array<{code: string, severity: string, unitId: string, layer: string, message: string}>}
  */
-// [::TICKET::] PX-309 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export function checkUnitCoverage(input = {}) {
   const {
     viewUnitIds = [], ledgerUnitIds = [], residualUnitIds = [], graph = null, tickets = null,
@@ -151,20 +151,20 @@ export function checkUnitCoverage(input = {}) {
 }
 
 /** The nodes a graph gives a unit id. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function boundaryNodes(graph, unitId) {
   return (graph?.nodes ?? []).filter((node) => unitIdsOf(node).includes(unitId));
 }
 
 /** Whether a graph edge is incident to one of the nodes. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function incidentEdge(graph, nodes) {
   const ids = new Set(nodes.map((node) => node.id));
   return (graph?.edges ?? []).find((edge) => ids.has(edge.from) || ids.has(edge.to));
 }
 
 /** The edge label a ticket contract records, without the merge suffix. */
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function edgeLabelOf(contract) {
   return String(contract?.sourceEdge ?? '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
 }
@@ -239,7 +239,7 @@ export function checkBoundaryContracts({
  * @param {{ phases?: Array<object> }|null|undefined} [tickets]
  * @returns {object[]}
  */
-// [::TICKET::] PX-258 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
 export function checkUnitProvenance(graph, ledgerUnitIds, headers = [], tickets = null) {
   const unitsInGraph = unitsVisibleToShip(graph);
   const ledger = ledgerUnitIds instanceof Set

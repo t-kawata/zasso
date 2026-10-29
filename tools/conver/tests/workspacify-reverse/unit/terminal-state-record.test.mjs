@@ -51,7 +51,7 @@ const SHA256_HEX_LENGTH = 64;
 const RECORD = JSON.parse(readFileSync(RECORD_PATH, 'utf8'));
 
 /** The digest of a committed file's bytes, which is what a recorded path must name. */
-// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-1 --for-spec --no-implementation-order`.
 function digestOfCommittedFile(relativePath) {
   return createHash('sha256').update(readFileSync(join(PROJECT_ROOT, relativePath), 'utf8'), 'utf8').digest('hex');
 }
@@ -73,7 +73,7 @@ test('the record describes a run per representative, and each run names the inpu
 // `siprs-for-reverse`'s decisions from the spec the absorption produces, so the record was
 // re-measured with it: the digest is over a file the chain actually read, and leaving the
 // old value would have recorded a reading of bytes that are no longer on disk.
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-4 --for-spec --no-implementation-order`.
 test('a recorded decisions input is the bytes of the committed file it names', () => {
   const authored = RECORD.runs.filter((run) => run.decisions.input !== SCRATCH_PLACEHOLDER);
   assert.equal(authored.length > 0, true, 'at least one representative reads an authored input');

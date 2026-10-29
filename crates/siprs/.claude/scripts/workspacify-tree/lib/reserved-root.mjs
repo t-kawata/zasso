@@ -20,7 +20,7 @@
  * beneath it unreachable — and naming the leaf as well would put a second,
  * generic name into a list every measured project is read against, for no gain.
  */
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 import { join } from 'node:path';
 
 /** The root a workspacify command publishes beneath, relative to the subject it measured. */
@@ -75,7 +75,7 @@ export const RESERVED_ORIGIN_SPEC_FILE_NAME = 'ORIGIN-LONG-SPEC.md';
 export const RESERVED_MEASURED_EDGES_FILE_NAME = 'DEPENDENCIES.json';
 
 /** The directory beneath `root` that the reverse analysis publishes into. */
-// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-214 --for-spec --no-implementation-order`.
 export function reservedReverseDirectory(root) {
   return join(root, RESERVED_ROOT_NAME, RESERVED_REVERSE_SUBDIRECTORY);
 }
@@ -89,7 +89,7 @@ export function reservedReverseDirectory(root) {
  * it, which is what makes the gate's approval and the finalize's application
  * answers about the same file.
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 export function reservedTreeDecisionsPath(root) {
   return join(root, RESERVED_ROOT_NAME, RESERVED_TREE_SUBDIRECTORY, RESERVED_DECISIONS_FILE_NAME);
 }
@@ -101,7 +101,7 @@ export function reservedTreeDecisionsPath(root) {
  * directory the stage-one manifest was found in — §2.1 and §2.2 put the fifth layer
  * there, and the manifest's own location is what names it.
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 export function reservedAllocateDecisionsPath(root) {
   return join(root, RESERVED_ROOT_NAME, RESERVED_ALLOCATE_SUBDIRECTORY, RESERVED_DECISIONS_FILE_NAME);
 }
@@ -117,7 +117,7 @@ export function reservedAllocateDecisionsPath(root) {
  * caller could name is a path two callers can disagree about while each believes
  * it approved the same semantics.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P26-2 --for-spec --no-implementation-order`.
 export function reservedReverseDecisionsPath(root) {
   return join(root, RESERVED_ROOT_NAME, RESERVED_REVERSE_SUBDIRECTORY, RESERVED_DECISIONS_FILE_NAME);
 }

@@ -39,7 +39,7 @@ const anchored = {
   uncertainty: { level: 'low' },
 };
 
-// [::TICKET::] PX-306 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 function genericRows() {
   return [
     { source: 'spec', path: 'spec.md', line: 14147, quote: 'the core operation order' },

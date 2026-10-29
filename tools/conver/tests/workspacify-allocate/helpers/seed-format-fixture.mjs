@@ -69,7 +69,7 @@ export function renderReverseSeed({ reverseIndex = [] } = {}) {
 const HEADING_LINE = /^## (\d+)\. (.+?)\s*$/;
 
 /** Where the first fenced json block sits inside the text. */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function locateFirstJsonBlock(seedText) {
   const opener = seedText.indexOf('```json\n');
   const bodyStart = opener + '```json\n'.length;
@@ -78,7 +78,7 @@ function locateFirstJsonBlock(seedText) {
 }
 
 /** Replace the first fenced json block's contents, keeping every other byte. */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function replaceFirstJsonBlock(seedText, replacement) {
   const { bodyStart, closer } = locateFirstJsonBlock(seedText);
   return `${seedText.slice(0, bodyStart)}${replacement}${seedText.slice(closer)}`;
@@ -131,7 +131,7 @@ export function corruptMachineJson(seedText) {
 }
 
 /** The line number of the heading carrying one index. */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function headingLineOf(lines, wantedIndex) {
   return lines.findIndex((line) => {
     const match = HEADING_LINE.exec(line);
@@ -140,7 +140,7 @@ function headingLineOf(lines, wantedIndex) {
 }
 
 /** Replace two headings with each other's text, keeping the remaining lines as they are. */
-// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function transposeHeadings(seedText, firstIndex, secondIndex, describe) {
   const lines = seedText.split('\n');
   const firstLine = headingLineOf(lines, firstIndex);

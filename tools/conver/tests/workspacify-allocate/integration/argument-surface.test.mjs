@@ -83,7 +83,7 @@ const DECLARED_SURVIVORS = Object.freeze(DECLARED_SURFACE.filter((entry) => entr
 // ---------------------------------------------------------------------------
 
 /** The declared surface of the entrance, read from its one declaration. */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function declaredUsage(source) {
   const usage = /function printUsage\(\) \{\s*return \[([\s\S]*?)\]\.join\('\\n'\)/.exec(source);
   assert.notEqual(usage, null, 'the entrance declares its surface in one block');
@@ -100,7 +100,7 @@ function declaredUsage(source) {
  * commands, not an argument a caller writes, and reading it as a positional would
  * make the guard demand a survivor for the subcommand list itself.
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function declaredTokens(usage) {
   const options = [...usage.matchAll(/--[a-z][a-z-]*/g)].map(([name]) => name);
   const placeholders = [...usage.matchAll(/(?:^|[^=\w])(<[^>\s]+>)/g)]
@@ -110,13 +110,13 @@ function declaredTokens(usage) {
 }
 
 /** The arguments the entrance declares, read from the script rather than restated here. */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function survivingArguments() {
   return declaredTokens(declaredUsage(readFileSync(RUNNER, 'utf8')));
 }
 
 /** Fail when an argument survives without saying which pattern its absence would break. */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function assertSurvivorsAreJustified(entries) {
   for (const entry of entries) {
     if (!/pattern [1-4]/.test(entry.pattern ?? '')) {
@@ -126,7 +126,7 @@ function assertSurvivorsAreJustified(entries) {
 }
 
 /** Write the decisions document where the rotation derives it, and return its path. */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function authorDecisions(dir, manifest, options) {
   const decisionsPath = reservedAllocateDecisionsPath(dir);
   mkdirSync(join(dir, RESERVED_ROOT_NAME, RESERVED_ALLOCATE_SUBDIRECTORY), { recursive: true });
@@ -135,14 +135,14 @@ function authorDecisions(dir, manifest, options) {
 }
 
 /** Run the entrance and capture what an operator would see. */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function runChain(args, cwd) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '', text: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
 
 /** Every seed file under a workspace root, relative to it, sorted. */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function seedsUnder(root) {
   const found = [];
   const visit = (abs, rel) => {
@@ -167,7 +167,7 @@ function seedsUnder(root) {
  * it, so the criterion, the survivors and the reason each survives are read from
  * one place and held to the scripts in both directions.
  */
-// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function implementationSurfaceSection(text) {
   const start = text.indexOf('## 9. ');
   assert.notEqual(start, -1, 'the design document states the family\'s argument surface');

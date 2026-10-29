@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { deriveObligations } from '../../.claude/scripts/shared-obligations/registry.mjs';
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function inputs(operation) {
   return {
     artifact: {
@@ -20,14 +20,14 @@ function inputs(operation) {
   };
 }
 
-// [::TICKET::] PX-292, PX-293 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
 function propertyOf(operation) {
   return deriveObligations(inputs(operation))
     .find((entry) => entry.id === 'PROP:OpA:required_proof_classes');
 }
 
 // @verifies C004
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('an empty pinned column is an open property obligation', () => {
   const obligation = propertyOf({
     id: 'OpA',
@@ -40,7 +40,7 @@ test('an empty pinned column is an open property obligation', () => {
 });
 
 // @verifies C004
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a column-specific grounding citation closes the property as not applicable', () => {
   const obligation = propertyOf({
     id: 'OpA',
@@ -61,7 +61,7 @@ test('a column-specific grounding citation closes the property as not applicable
 });
 
 // @verifies C004
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('an operation-level grounding does not stand in for a column citation', () => {
   const obligation = propertyOf({
     id: 'OpA',
@@ -77,7 +77,7 @@ test('an operation-level grounding does not stand in for a column citation', () 
 });
 
 // @verifies C004
-// [::TICKET::] PX-292 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-292 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-292 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-292 --for-spec --no-implementation-order`.
 test('a present value creates no property obligation', () => {
   const obligation = propertyOf({
     id: 'OpA',

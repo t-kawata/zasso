@@ -90,10 +90,10 @@ function buildNodeToDirMap(dirsTree) {
  * @param {object} dirsTree
  * @returns {Record<string, string>}
  */
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
 function buildNodeToFileMap(dirsTree) {
   const nodeToFile = {};
-// [::TICKET::] PX-319 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
   function walk(node, parentPath) {
     if (!node || !node.name) return;
     const currentPath = parentPath ? parentPath + '/' + node.name : node.name;

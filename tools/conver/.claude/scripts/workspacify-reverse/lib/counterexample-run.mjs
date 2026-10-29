@@ -100,7 +100,7 @@ export function isReconstructionEntry(entry) {
 }
 
 /** The claim a counterexample names, or a refusal naming what was missing. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function claimNamedBy(ledger, claimId) {
   const claim = ledger.claims.find((item) => item.claim_id === claimId);
   if (!claim) {
@@ -153,7 +153,7 @@ export function deriveCounterexamples({ redPlan, ledger } = {}) {
 }
 
 /** A field a record carries, or a description of why the execution said nothing. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function describeResult(result) {
   if (result === null) return 'null';
   if (typeof result === 'function') return 'a function';
@@ -169,7 +169,7 @@ function describeResult(result) {
  * read as "it was not". An unstated answer is not an answer, and recording it as
  * one would turn "I did not look there" into evidence that nothing was there.
  */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function readObservation(execution) {
   if (execution === null || typeof execution !== 'object' || typeof execution.redProved !== 'boolean') {
     throw new Error(
@@ -184,7 +184,7 @@ function readObservation(execution) {
 }
 
 /** The identity a record carries, copied from the counterexample it belongs to. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function describeCounterexample(counterexample) {
   return {
     claim_id: counterexample.claim_id ?? null,
@@ -196,7 +196,7 @@ function describeCounterexample(counterexample) {
 }
 
 /** A counterexample that never reached the isolation, with the reason it did not. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function refusalRecord(counterexample, reasonCode, detail, worktreeRecord = null) {
   return {
     ...describeCounterexample(counterexample),
@@ -211,7 +211,7 @@ function refusalRecord(counterexample, reasonCode, detail, worktreeRecord = null
 }
 
 /** The record an isolated execution left behind, keyed by the observation it made. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function executionRecord(counterexample, observation, outcome) {
   const observed = observation.redProved ? OBSERVED_RED : OBSERVED_NO_RED;
   return {
@@ -234,7 +234,7 @@ function executionRecord(counterexample, observation, outcome) {
 }
 
 /** The worktree record of an isolation that already reported one, for a refused entry. */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function worktreeRecordOf(outcome) {
   if (outcome === null || typeof outcome !== 'object') return null;
   return {
@@ -256,7 +256,7 @@ function worktreeRecordOf(outcome) {
  * destroyed, is a failure of the isolation itself and is raised — publishing
  * observations taken against a changed tree would make the whole channel worthless.
  */
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function refusedForThrownExecutor(counterexample, error) {
   return refusalRecord(
     counterexample,
