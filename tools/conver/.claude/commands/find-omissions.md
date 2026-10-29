@@ -28,8 +28,10 @@ Role: inspect every reviewed ticket — verify its contracts are fully and accur
 
 Gate:
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-graph-arg.js" "$ARGUMENTS" || exit 2
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/require-consolidated-manifest.js" || exit 2
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/tickets/validate-graph-arg.js" "$ARGUMENTS" || exit 2
+node "$CLAUDE_DIR/scripts/tickets/require-consolidated-manifest.js" || exit 2
 ```
 `require-consolidated-manifest.js`:
 - exit0 — `./manifests/CONSOLIDATED-MANIFEST-*.json` exists, **or** stub scan finds 0 stubs (0-stub tree legitimately has no manifest). 0-stub case: prints PASS on stdout instructing **SKIP Step 1**, proceed to **Step 2**.
@@ -80,9 +82,11 @@ invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already g
 
 cwd = Tickets.json root (source root).
 ```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
 MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)
-cat "$MANIFEST" | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-create-resolving-tickets.js" --no-write   # review (zero side effects)
-cat "$MANIFEST" | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-create-resolving-tickets.js"               # commit
+cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js" --no-write   # review (zero side effects)
+cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js"               # commit
 ```
 out: review (`--no-write`) prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: true }`; commit prints the same with `dryRun: false` — Tickets.json gains one `todo` ticket per non-skipped entry, on-disk marker lines re-point to the new key (C007-skipped markers, already referencing an active ticket, untouched).
 invariant: re-run-safe (already-active-referencing markers skipped, never duplicates). on failure: nothing written; stderr lists each failure (file:line + Action-directive) — fix and re-run.
@@ -104,8 +108,10 @@ Batch-write ticket (post-creation rewrite):
 
 Residual safety net (after commit) — sweep markers the consolidation didn't cover (added after consolidate, or left UNASSIGNED):
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/preflight-stub-cleanup.js"
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/tickets/preflight-stub-cleanup.js"
+node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 - exit0 → Step 2.
 - exit1 → judge: parse each `[validate-no-external-excuses] FAIL <file>:<line> -- <check> -- Action:` line; fix marker (remove/rewrite plan/rewrite key); re-run. loop until exit0. round with no progress = hard-stop diagnostic.
@@ -300,8 +306,10 @@ gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → 
 
 Run the `rename-phases.js` commands from Step 9's stdout. each re-implementation phase name **must** start with `"Omissions: "`.
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/rename-phases.js" --phase=6 --name="Omissions: Storage & Connection Layer"
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/rename-phases.js" --phase=7 --name="Omissions: Migration Runner"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/tickets/rename-phases.js" --phase=6 --name="Omissions: Storage & Connection Layer"
+node "$CLAUDE_DIR/scripts/tickets/rename-phases.js" --phase=7 --name="Omissions: Migration Runner"
 ```
 
 # Step 11 — Clean up transient consolidation artifacts (full success only)

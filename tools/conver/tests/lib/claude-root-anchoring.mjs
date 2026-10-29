@@ -37,7 +37,7 @@ export const FILE_ALLOWLIST = Object.freeze([
 /** Values that name the global or plugin namespace rather than the repository anchor. */
 const GLOBAL_NAMESPACE = /~\/\.claude|\.claude-plugin|CLAUDE_PLUGIN_ROOT|install-targets|resolve-ecc-root|mcp-health-check/;
 
-const ANCHOR = /\$\(git rev-parse --show-toplevel\)|\$CLAUDE_DIR|\$HOME|~\//;
+const ANCHOR = /\$\(git rev-parse --show-toplevel\)|\$CLAUDE_DIR|\$REPO_ROOT|\$HOME|~\//;
 
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 function isComment(line, suffix) {
@@ -84,6 +84,61 @@ export function scanCommandLine(line) {
   if (!/\.claude\/(?:scripts|commands)/.test(line)) return [];
   if (ANCHOR.test(line)) return [];
   return ['unanchored-command'];
+}
+
+/**
+ * The findings a bash block makes as a unit.
+ *
+ * A block that repeats `$(git rev-parse --show-toplevel)` pays for one subprocess per
+ * line. The efficient shape resolves the root once and reuses `$REPO_ROOT`/`$CLAUDE_DIR`,
+ * and that shape is only valid when the variables are defined in the same block — a
+ * separate Bash invocation does not inherit them.
+ *
+ * @param {string} text — the whole command document
+ * @returns {string[]} findings, each prefixed with the line the block opens on
+ */
+export function scanCommandBlocks(text) {
+  const findings = [];
+  const lines = text.split('\n');
+  let insideFence = false;
+  let language = '';
+  let startLine = 0;
+  let body = [];
+
+  const inspect = () => {
+    const isShell = language === '' || language === 'bash' || language === 'sh';
+    if (!isShell) return;
+    const source = body.join('\n');
+    if (!/(?:node|bash)\s/.test(source)) return;
+    const gitRootCalls = (source.match(/\$\(git rev-parse --show-toplevel\)/g) ?? []).length;
+    const definesAnchor = /^\s*(?:REPO_ROOT|CLAUDE_DIR)=/m.test(source);
+    if (gitRootCalls >= 2 && !definesAnchor) {
+      findings.push(`block@${startLine}: repeated-git-root(${gitRootCalls})`);
+    }
+    const usesAnchor = /\$(?:CLAUDE_DIR|REPO_ROOT)\b/.test(source);
+    const definesBoth = /^\s*REPO_ROOT=/m.test(source) || /^\s*CLAUDE_DIR=/m.test(source);
+    if (usesAnchor && !definesBoth) {
+      findings.push(`block@${startLine}: undefined-anchor-variable`);
+    }
+  };
+
+  lines.forEach((line, index) => {
+    const fence = line.match(/^\s*```(\w*)/);
+    if (fence) {
+      if (!insideFence) {
+        insideFence = true;
+        language = (fence[1] || '').toLowerCase();
+        startLine = index + 1;
+        body = [];
+      } else {
+        inspect();
+        insideFence = false;
+      }
+      return;
+    }
+    if (insideFence) body.push(line);
+  });
+  return findings;
 }
 
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
@@ -134,9 +189,11 @@ export function scanTree({ projectRoot, selfPath = null }) {
   for (const file of commandFiles) {
     inspected.push(file);
     const relativeFile = relative(projectRoot, file).split('\\').join('/');
-    readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
+    const text = readFileSync(file, 'utf8');
+    text.split('\n').forEach((line, index) => {
       for (const form of scanCommandLine(line)) findings.push(`${relativeFile}:${index + 1}: ${form}`);
     });
+    for (const form of scanCommandBlocks(text)) findings.push(`${relativeFile}: ${form}`);
   }
 
   for (const file of [...sourceFiles, ...testFiles]) {

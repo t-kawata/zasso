@@ -76,10 +76,12 @@ Closure mode runs the strict evidence path automatically: it resolves the workli
 cmd (once, workspace root):
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/calibrate.mjs"
-node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
-node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs" --audit
-node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs" --advisory-readings
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/smooth-sequences/calibrate.mjs"
+node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
+node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs" --audit
+node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs" --advisory-readings
 ```
 
 Judge current directory; no parent search.
@@ -246,19 +248,21 @@ Preconditions:
 Write candidate outside frozen files using copies above; then drive transaction:
 
 ```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
 # 1. Write the candidate (the copy commands are above).
 $EDITOR regeneration/candidates/<id>.md
 
 # 2. Open the transaction.
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open \
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" open \
   --spec=regeneration/candidates/<id>.md \
   --reason="<checkId>: <evidence and why the change is correct>"
 
 # 3. Read the state and the staging specification path.
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" status
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" status
 
 # 4. Drive derive, verify and commit in one command.
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" continue
 ```
 
 `continue` prints `id`, `state`, `staging`, `spec`, exact `next:` command; stops only at handoff:
@@ -279,14 +283,16 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" con
 Recovery/inspection commands:
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open ...      # stage a candidate
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" status        # id, state, staging, spec, next
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue      # derive -> verify -> commit, or one handoff
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" derive        # one derive step
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" verify        # chain, grounds and detector
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" commit        # the only live write
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" abort         # discard staging
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" recover       # resolve an interrupted commit
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" open ...      # stage a candidate
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" status        # id, state, staging, spec, next
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" continue      # derive -> verify -> commit, or one handoff
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" derive        # one derive step
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" verify        # chain, grounds and detector
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" commit        # the only live write
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" abort         # discard staging
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" recover       # resolve an interrupted commit
 ```
 
 Educe handoff belongs to this step.
@@ -440,34 +446,36 @@ Crash/refusal/terminal-record states only; handled by Step 4 commands. Diagnosti
 ## Appendix E — Example
 
 ```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
 cd /path/to/workspace
-node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
+node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
 # smooth-sequences: 1 finding(s) in 1 repair route(s); /path/to/workspace/smooth-sequences/SMOOTH-SEQUENCES.json
 # generation: 1 (new generation)
-# route: spec.md#L20 (read-only; copy it to a candidate first) | rerun: node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=<candidate> --reason=<reason>
+# route: spec.md#L20 (read-only; copy it to a candidate first) | rerun: node "$CLAUDE_DIR/scripts/regeneration/run.mjs" open --spec=<candidate> --reason=<reason>
 #   S3.interface-mapping-missing ConsumeFact | why: no grpc mapping | fix: map grpc on the operation
 # next: fix every finding above; blocked surfaces must also be restored. exit 0 only when both sets are empty.
 
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=regeneration/candidates/spec.md --reason="S3.interface-mapping-missing: map grpc"
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" open --spec=regeneration/candidates/spec.md --reason="S3.interface-mapping-missing: map grpc"
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" continue
 # state: educe-pending
 # spec: /path/to/workspace.regeneration/<tx>/spec.md
-# next: run .claude/commands/educe-sequences.md with /path/to/workspace.regeneration/<tx>/spec.md, then node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
+# next: run .claude/commands/educe-sequences.md with /path/to/workspace.regeneration/<tx>/spec.md, then node "$CLAUDE_DIR/scripts/regeneration/run.mjs" continue
 
 # Execute .claude/commands/educe-sequences.md with that spec path.
 # A passing run writes /path/to/workspace.regeneration/<tx>/spec-sequences.json.
 
-node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" continue
+node "$CLAUDE_DIR/scripts/regeneration/run.mjs" continue
 # state: committed
-# next: node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
+# next: node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
 
-node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
+node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
 # smooth-sequences: 0 finding(s); /path/to/workspace/smooth-sequences/SMOOTH-SEQUENCES.json
 # generation: 2 (new generation)
 # next: none. verdict: pass.
 # /path/to/workspace/smooth-sequences/archive/1/ holds the generation 1 pair.
 
-node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"
+node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
 # smooth-sequences: 0 finding(s); /path/to/workspace/smooth-sequences/SMOOTH-SEQUENCES.json
 # generation: 2 (verification; no new generation)
 # next: none. verdict: pass.

@@ -208,8 +208,10 @@ Create exactly one JSON object with exactly six keys; writer, never hand-write d
 **Run**:
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" decide --answers=<path>
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" gate
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" decide --answers=<path>
+node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" gate
 ```
 
 **Gate**: all six beside their material in `DECISIONS.json`; gate 0. Grounds include R2 cohesion, dependency density, SCC condensation, co-change history, boundary-crossing calls. Missing/extra/invalid → whole refusal/no partial write.
@@ -223,8 +225,10 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.m
 Unit: every package × every 21 items. Every cell: reading or reasoned decline; `N/A`/`none` refused. Reading is inference, not measurement; `basis` is existing measured-claim-id array; falsification is executable `file:line` or command; no measurement repetition, duplicate cell sentence, or reopening claim via id/type/evidence.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" readings
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" readings --scope=src/api --item=purpose
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" readings
+node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" readings --scope=src/api --item=purpose
 ```
 
 ```json
@@ -246,8 +250,10 @@ Re-read source where basis changed.
 Repair evidence: record repaired cell, inspected source, locator `file:line`. Changed wording without opening described source is rewording, not repair.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" decide --answers=<same path>
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" gate
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" decide --answers=<same path>
+node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" gate
 ```
 
 **Gate**: readings 0 and gate 0. Semantics analyze erased destination; `DECISIONS.json` is not published; re-run decide.

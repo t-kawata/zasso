@@ -161,8 +161,10 @@ Loop body:
    - cannot be written → describe concrete evidence of danger/omission/contradiction/deficiency + reinforcement design as `content`, pass `{id, heading, content}` to `mark-residue`. script replaces the marker with `<::README-RESIDUE::>`, marks residue.
    invariant: **the AI must not hand-edit the README** — both transitions go through the script.
 ```bash
-echo '{"id":"H1-1","heading":"アカウントの追加","content":"<完全な本文>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-section
-echo '{"id":"H1-2","heading":"通話","content":"<証拠と実装補強設計>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-residue
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+echo '{"id":"H1-1","heading":"アカウントの追加","content":"<完全な本文>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-section
+echo '{"id":"H1-2","heading":"通話","content":"<証拠と実装補強設計>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-residue
 ```
 4. exit condition (deterministic):
 ```bash
@@ -179,8 +181,10 @@ Finalizes the trailing "Examples（実装サンプル）仕様と設計" section
 3. inspection loop (non-deterministic): inspect whether Examples is a perfect, complete-coverage implementation example; repeat corrections on any deficiency.
 4. finalize (deterministic, script): "reliably works, can be written" → pass complete design as `content` to `resolve-examples` — removes `<::TEMPLATE-EXAMPLES::>`, inserts complete description, marks complete. cannot be written → pass concrete evidence + reinforcement design as `content` to `mark-examples-residue` — replaces with `<::EXAMPLES-RESIDUE::>`, marks residue. invariant: **the AI must not hand-edit the README**. both rejected with an error if the entry gate hasn't converged or the marker is absent.
 ```bash
-echo '{"content":"<完全な examples 設計>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-examples
-echo '{"content":"<証拠と実装補強設計>"}' | node "$(git rev-parse --show-toplevel)/.claude/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-examples-residue
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+echo '{"content":"<完全な examples 設計>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-examples
+echo '{"content":"<証拠と実装補強設計>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-examples-residue
 ```
 5. completion condition (deterministic):
 ```bash

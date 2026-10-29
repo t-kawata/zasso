@@ -163,8 +163,10 @@ Reader task: **find the sentence that says when a procedure counts**; quote verb
 Same declaration: **name the weakest link** = the one judgement in this run's apparatus whose failure takes the guarantee down + the declared check that tightens it. named here, four Steps before Step 9 writes artifact: link tightened after artifact declared = rework, not verification.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" span   # shape of the ask
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 2
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" span   # shape of the ask
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 2
 ```
 
 Reader writes `<dir of spec-file>/educe-sequences/declaration.json` with `predicate.limbs`; states `sectionLevel` = heading level at which document states procedures; `3` by default.
@@ -299,8 +301,10 @@ Also compares artifact about to write with the artifact it replaces; refuses whe
 Reader attacks rulings; not checking them.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" adversarial
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 10
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" adversarial
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 10
 ```
 
 Brief carries tree; its `SHARE:` lines rank rulings: operation another sequence also names ⇒ misreading takes more than this ruling down ⇒ search weakest link there first.
@@ -312,8 +316,10 @@ Reader writes `<dir of spec-file>/educe-sequences/readings-adversarial.jsonl`: o
 Entry was bound to a window because a name or result object appeared near it. This phase undoes that binding.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" reroute
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 11
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" reroute
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 11
 ```
 
 Brief carries tree ⇒ reroute sees what other entries already hold. question: which entry should realize this one instead? answer = entry whose acts carry the act in question, or do not.
@@ -323,8 +329,10 @@ Reader writes `<dir of spec-file>/educe-sequences/readings-reroute.jsonl`: names
 ### Step 12 — adjudicate `[read]` (AI judgment)
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" adjudicate
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 12
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" adjudicate
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 12
 ```
 
 Brief carries tree; block of it = one actor's name + acts that actor performs beneath it in order. ruling is made about that, not from it: actor and order read in span, quoted, signed.
@@ -336,8 +344,10 @@ Ruling whose `subject` = name artifact no longer carries is written here; admits
 ### Step 13 — inquest `[read]` (AI judgment)
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" inquest
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" run "$1" 13
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" inquest
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" run "$1" 13
 ```
 
 Pass asks the specification something rather than checking an answer to it. declaration and readings record what was found; cannot record what nobody looked for; this Step closes that gap. every generation asks again ⇒ changed text, or thinly read apparatus, is interrogated, not re-verified.
@@ -383,8 +393,10 @@ Every mutation in corpus must redden the check it names, for a reason attributab
 Defect class no existing check was written for → ad-hoc phase handles it = the one genuinely non-mechanical act in the command. author dispatched with checked brief, same way as a reader:
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" brief "$1" adhoc
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" scaffold "$1" <check-name> "<the defect that motivated it>"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" brief "$1" adhoc
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" scaffold "$1" <check-name> "<the defect that motivated it>"
 ```
 
 `scaffold` refuses without an originating defect.
@@ -411,8 +423,10 @@ Marks record promoted in `<dir of spec-file>/educe-sequences/rail-exits.jsonl`; 
 ### Step 17 — report and product `[det]`
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through "$1"
-node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" report "$1"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" through "$1"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" report "$1"
 ```
 
 `through` runs every unfinished phase to the last; stops at first refusal or halt; exits 3 when a halt stopped it. `report` prints closing report. Then product path:

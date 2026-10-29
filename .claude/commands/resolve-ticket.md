@@ -146,12 +146,14 @@ gate: do not declare command complete until all crimes confirmed resolved.
 ### Step 9 (mandatory)
 Step 9a (enumerate) + Step 9b (validate) — run only if `$ARGUMENTS` non-empty:
 ```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
 if [ -n "$ARGUMENTS" ]; then
-  node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/enumerate-ticket-targets.js" \
+  node "$CLAUDE_DIR/scripts/tickets/enumerate-ticket-targets.js" \
     --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 fi
 if [ -n "$ARGUMENTS" ]; then
-  node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-ticket-targets.js" \
+  node "$CLAUDE_DIR/scripts/tickets/validate-ticket-targets.js" \
     --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 fi
 ```
@@ -159,9 +161,11 @@ absent `$ARGUMENTS` → skip directly to Step 9c (default-mode backward compatib
 
 Step 9c (unconditional):
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-all-stubs.js" .
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/tickets/review/find-all-stubs.js" .
 .claude/scripts/tickets/scan-crimes.sh
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
+node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 
 Deferral policy: forbidden by default — resolve every blocker on the spot. permitted only as an extremely exceptional measure when continuing poses a clear, demonstrated danger (e.g. unrecoverable state corruption, pipeline-wide deadlock with no safe recovery). every deferral is later human-audited; a deferral judged as shirking (avoidable postponement) incurs penalty. when in doubt, resolve — do not defer.
@@ -191,9 +195,11 @@ Convergence loop: Step 9b or 9c reports issues → resolve, re-run the Gate. loo
 ### Step 10
 G-final: re-run compilation + tests (Step 1 fallback rule) + no-excuse validator must exit0:
 ```bash
-(cd "$(git rev-parse --show-toplevel)" && make check-be)
-(cd "$(git rev-parse --show-toplevel)" && make test)
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+(cd "$REPO_ROOT" && make check-be)
+(cd "$REPO_ROOT" && make test)
+node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 pass (compile+test clean AND validator exit0) → out: summary of resolved items → report to user.
 

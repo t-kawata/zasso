@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   FILE_ALLOWLIST,
+  scanCommandBlocks,
   scanCommandLine,
   scanSourceLine,
   scanTree,
@@ -53,6 +54,33 @@ test('C003 invariant: the scan reports a planted bare line and accepts the ancho
     scanCommandLine('(cd "$(git rev-parse --show-toplevel)" && node .claude/scripts/tickets/update-ticket.js)'),
     [],
   );
+});
+
+test('C003 invariant: each block resolves the git root once and reuses the variables', () => {
+  const repeated = [
+    '```bash',
+    'node "$(git rev-parse --show-toplevel)/.claude/scripts/a.js"',
+    'node "$(git rev-parse --show-toplevel)/.claude/scripts/b.js"',
+    '```',
+  ].join('\n');
+  assert.deepEqual(scanCommandBlocks(repeated), ['block@1: repeated-git-root(2)']);
+
+  const optimized = [
+    '```bash',
+    'REPO_ROOT="$(git rev-parse --show-toplevel)"',
+    'CLAUDE_DIR="$REPO_ROOT/.claude"',
+    'node "$CLAUDE_DIR/scripts/a.js"',
+    'node "$CLAUDE_DIR/scripts/b.js"',
+    '```',
+  ].join('\n');
+  assert.deepEqual(scanCommandBlocks(optimized), []);
+
+  const undefinedVariable = [
+    '```bash',
+    'node "$CLAUDE_DIR/scripts/a.js"',
+    '```',
+  ].join('\n');
+  assert.deepEqual(scanCommandBlocks(undefinedVariable), ['block@1: undefined-anchor-variable']);
 });
 
 test('C003 invariant: every allowlist entry states why it is exempt', () => {

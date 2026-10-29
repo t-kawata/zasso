@@ -149,9 +149,11 @@ Before starting implementation, check for resolvable stubs:
 1. List stubs via `find-all-stubs.js`
 2. Identify stubs that have become resolvable with this ticket (e.g., dependency tickets completed)
    ```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
    # List done/resolved tickets to cross-reference with STUB markers
-   node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/search-tickets.js" Tickets.json done
-   node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-stubs-with-ticket-ref.js" --dir=.
+   node "$CLAUDE_DIR/scripts/tickets/search-tickets.js" Tickets.json done
+   node "$CLAUDE_DIR/scripts/tickets/review/find-stubs-with-ticket-ref.js" --dir=.
    ```
 3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
 4. Include resolvable stubs in the implementation scope, replace them with actual implementation, then remove the resolved marker via `remove-stub.js`
@@ -419,7 +421,9 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/run-qualit
 Generate a report via pipe:
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/generate-report.js"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLAUDE_DIR="$REPO_ROOT/.claude"
+node "$CLAUDE_DIR/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node "$CLAUDE_DIR/scripts/tickets/review/generate-report.js"
 ```
 
 ### Step 9: Save implementation results
