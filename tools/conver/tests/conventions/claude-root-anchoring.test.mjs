@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   FILE_ALLOWLIST,
-  scanCommandBlocks,
+  scanCommandDocument,
   scanCommandLine,
   scanSourceLine,
   scanTree,
@@ -56,31 +56,43 @@ test('C003 invariant: the scan reports a planted bare line and accepts the ancho
   );
 });
 
-test('C003 invariant: each block resolves the git root once and reuses the variables', () => {
+test('C003 invariant: each command document resolves the git root once, before the first use', () => {
   const repeated = [
-    '```bash',
+    '\u0060\u0060\u0060bash',
     'node "$(git rev-parse --show-toplevel)/.claude/scripts/a.js"',
     'node "$(git rev-parse --show-toplevel)/.claude/scripts/b.js"',
-    '```',
+    '\u0060\u0060\u0060',
   ].join('\n');
-  assert.deepEqual(scanCommandBlocks(repeated), ['block@1: repeated-git-root(2)']);
+  assert.deepEqual(scanCommandDocument(repeated), ['repeated-git-root(2)']);
 
   const optimized = [
-    '```bash',
-    'REPO_ROOT="$(git rev-parse --show-toplevel)"',
-    'CLAUDE_DIR="$REPO_ROOT/.claude"',
+    '## Path Anchor',
+    '\u0060\u0060\u0060bash',
+    "printf '%s/.claude\\n' \"\$(git rev-parse --show-toplevel)\"",
+    '\u0060\u0060\u0060',
+    '\u0060\u0060\u0060bash',
     'node "$CLAUDE_DIR/scripts/a.js"',
     'node "$CLAUDE_DIR/scripts/b.js"',
-    '```',
+    '\u0060\u0060\u0060',
   ].join('\n');
-  assert.deepEqual(scanCommandBlocks(optimized), []);
+  assert.deepEqual(scanCommandDocument(optimized), []);
 
-  const undefinedVariable = [
-    '```bash',
+  const missing = [
+    '\u0060\u0060\u0060bash',
     'node "$CLAUDE_DIR/scripts/a.js"',
-    '```',
+    '\u0060\u0060\u0060',
   ].join('\n');
-  assert.deepEqual(scanCommandBlocks(undefinedVariable), ['block@1: undefined-anchor-variable']);
+  assert.deepEqual(scanCommandDocument(missing), ['missing-preflight']);
+
+  const afterUse = [
+    '\u0060\u0060\u0060bash',
+    'node "$CLAUDE_DIR/scripts/a.js"',
+    '\u0060\u0060\u0060',
+    '\u0060\u0060\u0060bash',
+    'git rev-parse --show-toplevel',
+    '\u0060\u0060\u0060',
+  ].join('\n');
+  assert.deepEqual(scanCommandDocument(afterUse), ['preflight-after-use']);
 });
 
 test('C003 invariant: every allowlist entry states why it is exempt', () => {

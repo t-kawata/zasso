@@ -15,6 +15,16 @@ Role: reorganize `[::STUB::]` markers into one-ticket-sized units by editing mar
 
 First-Class Rule — [::STUB::]: every marker keeps a resolvable, non-PX, non-MUST key. no marker deleted without location preserved (true-duplicates only; survivor enumerates covered lines).
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## Language Protocol
 
 | Context | Language |
@@ -44,7 +54,7 @@ cwd = Tickets.json root = the current directory = target tree.
 ### Step 1 — Enumerate
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-all-stubs.js" .
+node "$CLAUDE_DIR/scripts/tickets/review/find-all-stubs.js" .
 ```
 out: every marker as `{ file, line, content }`.
 
@@ -105,29 +115,29 @@ consumed (deleted) by the batch tool on success.
 
 dry-run first (zero side effects, mandatory before apply):
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js" "$UNITS_JSON" --dry-run
+node "$CLAUDE_DIR/scripts/tickets/batch-update-stub.js" "$UNITS_JSON" --dry-run
 ```
 out: marker → unit → key changes, plus `UNASSIGNED` list. confirm, then apply:
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js" "$UNITS_JSON"
+node "$CLAUDE_DIR/scripts/tickets/batch-update-stub.js" "$UNITS_JSON"
 ```
 atomic: validates every edit first; any failure → zero writes.
 apply: writes rollback backup `manifests/ROLLBACK-<ts>.json` → re-points all listed markers to their unit key → merges true duplicates → emits manifest → strips `[::UNIT::]` tags → consumes decision file.
 report: manifest path + `N markers -> M units`; Omissions (`UNASSIGNED: file:line, ...`); Failures (zero writes); Debris (clean on success); Rollback path.
 
-undo (precise, no git): `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js" --rollback manifests/ROLLBACK-<ts>.json`
+undo (precise, no git): `node "$CLAUDE_DIR/scripts/tickets/batch-update-stub.js" --rollback manifests/ROLLBACK-<ts>.json`
 
 ### Step 5 — Verify the result (blocking gate)
 
 ```bash
-bash "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/consolidate-stubs-gate.sh"
+bash "$CLAUDE_DIR/scripts/tickets/consolidate-stubs-gate.sh"
 ```
 exit0 → done. exit≠0 → real defect only (terminal-excuse plan / malformed marker / non-existent key / manifest not consumable by find-omissions) — a marker re-pointed to a completed key is intended output, not a failure.
 
 rule (hard): exit≠0 ⇒ must NOT proceed.
 
 Heal-loop recovery (strict order):
-1. rollback: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js" --rollback manifests/ROLLBACK-<ts>.json`
+1. rollback: `node "$CLAUDE_DIR/scripts/tickets/batch-update-stub.js" --rollback manifests/ROLLBACK-<ts>.json`
 2. fix: correct the offending Step-3 entry (`reason`/`plan`/`resolveByTicket`/`markerLines`) in a fresh `/tmp` decision file — or, if the failure is on a marker NOT in the units JSON (`UNASSIGNED`, or added after apply), fix that marker directly (re-point key / rewrite terminal-excuse plan / fold into a unit)
 3. re-run Step 4 (`--dry-run` then apply)
 4. re-run this gate

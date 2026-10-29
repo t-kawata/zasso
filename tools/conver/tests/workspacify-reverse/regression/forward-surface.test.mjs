@@ -205,7 +205,7 @@ test('C003 the emitted header carries the protected marker and every declared in
   assert.ok(header.includes(input.headerPaths.stepContractsRelPath));
   for (const node of input.mappedNodeIds) {
     assert.ok(header.includes(node.nodeId), `${node.nodeId} must appear`);
-    assert.ok(header.includes(`show-node-contracts.mjs --id=${node.nodeId})`), `${node.nodeId} must carry a brief command`);
+    assert.ok(header.includes(`show-node-contracts.mjs" --id=${node.nodeId})`), `${node.nodeId} must carry a brief command`);
   }
 });
 

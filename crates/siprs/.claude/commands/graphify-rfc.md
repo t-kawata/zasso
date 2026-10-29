@@ -27,6 +27,16 @@ Invariants:
 - source edit: Step 0 heading dedup; Step 1 may add `###` only to split >100-line sections without content change/loss.
 - Step 4/5 deficiency → reinforce from Step 1.
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## Language Protocol
 
 | Context | Language |
@@ -159,7 +169,6 @@ The unit anchor — a section written for a distributed unit records the unit's 
 G0 heading-dedup: same-level/same-text headings cannot resolve uniquely; mechanically append A-Z.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 RUN_ID="$(date +%s%N)-$$"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" begin-run --run-id="$RUN_ID"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" start-step 0
@@ -178,7 +187,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 - `begin-run` counts one invocation; `end-step 5` advances `generation` only when the graph digest changes. Audit mode appends `--audit` to the final `end-step 5`: it counts the run, writes no generation, and exits 0 with `wouldExit`.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 0
+node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 0
 ```
 
 ## Step 1: Node Splitting
@@ -189,7 +198,7 @@ I/O boundary reference, if present, is current RFC-author design intent; respect
 
 ```bash
 echo "=== I/O Boundary Reference Information ==="
-node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/extract-io-boundary.js" "$sourcePath" || echo "(No I/O Boundary Reference Information)"
+node "$CLAUDE_DIR/scripts/grill-me-for-rfc/extract-io-boundary.js" "$sourcePath" || echo "(No I/O Boundary Reference Information)"
 echo "==========================================="
 ```
 
@@ -203,7 +212,6 @@ Use:
 Fail closed before splitting. No node, edge or contract is authored until this passes. `SEQUENCES.json`, the RFC distribution-map and the allocate manifest are read as digest-bound sidecars, not as a second design.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 viewPath="$(dirname "$sourcePath")/SEQUENCES.json"
 registryPath="$(node -e "process.stdout.write(require('$CLAUDE_DIR/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$sourcePath")')||'')")"
 artifactPath="$(node -e "const fs=require('fs'),p=require('path');const a=require('$CLAUDE_DIR/scripts/lib/package-artifacts').findAllocateManifest('$(dirname "$sourcePath")');if(!a)process.stdout.write('');else{const r=p.dirname(a);const m=fs.readdirSync(r).filter(n=>n.endsWith('-sequences.json'));process.stdout.write(m.length===1?p.join(r,m[0]):'')}")"
@@ -252,7 +260,6 @@ Granularity:
 - Run `analyze-source-structure.js "$sourcePath"`; while `## Sections exceeding 100 lines` ≠ `None (all sections under 100 lines)`, split each listed section that is not a recorded exception, inserting `###` only, preserving all content, then re-run.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/analyze-source-structure.js" "$sourcePath"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" start-step 1
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" create-nodes --file=_temp_nodes.json --source="$sourcePath"
@@ -269,7 +276,6 @@ Node input example: `{"id":"N0001","title":"§1 Purpose","kind":"architecture","
 Slug fail: read JSON `{ok:false, errors:[...]}`; run each `error.remedy` crud fix; cleanup; reset 1; re-run all Step 1.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" update-node --id=N0005 --field=slug --value=camelcasename
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" cleanup
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 1
@@ -278,7 +284,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 Minor repair: `get-node` / `update-node`; delete unnecessary node with `delete-node`; extensive repair → `reset-to-step 1`.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" get-node --id=N0003
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" update-node --id=N0003 --file=_patch.json
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" delete-node --id=N0003
@@ -295,7 +300,6 @@ G2 edge-assign:
 - contracts: `C000` id; non-empty `precondition`, `postcondition`, `invariant`.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" start-step 2
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" create-edges --file=_temp_edges.json
 node "$CLAUDE_DIR/scripts/rfc-graph/attach-unit-ids.js" --graph="$graphPath" --rfc="$sourcePath" --ledger="$sourcePath" --view="$viewPath" --registry="$registryPath"
@@ -325,21 +329,19 @@ The artifact is the denominator. An active operation absent from the view and no
 fail → repair per error; cleanup; reset 2; re-run Step 2. Individual repair: `delete-edges` then `create-edges`; extensive repair → reset 2.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" cleanup
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 2
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" delete-edges --file=_remove_edges.json
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" create-edges --file=_add_edges.json
 ```
 
-`STEP_IDENTITY_MISMATCH` with only `order` differing is `STALE_VIEW_ORDER_CONVENTION`: the view carries the artifact global array index instead of the per-sequence position. `verify-chain` is correct and is not edited. Re-project each named view with `node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" <artifact> <package>`, re-run `/smooth-sequences`, then reset Step 2.
+`STEP_IDENTITY_MISMATCH` with only `order` differing is `STALE_VIEW_ORDER_CONVENTION`: the view carries the artifact global array index instead of the per-sequence position. `verify-chain` is correct and is not edited. Re-project each named view with `node "$CLAUDE_DIR/scripts/sequences-slice/run.mjs" <artifact> <package>`, re-run `/smooth-sequences`, then reset Step 2.
 
 ## Step 3: Machine Verification
 
 G3 structure:
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" start-step 3
 node "$CLAUDE_DIR/scripts/rfc-graph/verify.js" --graph="$graphPath" --source="$sourcePath"
 ```
@@ -351,7 +353,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/verify.js" --graph="$graphPath" --source="$s
 - repeat Steps 1–3 until `{\"ok\":true}`.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 1
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 2
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" end-step 3
@@ -363,7 +364,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 G4 headingRefs:
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" start-step 4
 node "$CLAUDE_DIR/scripts/rfc-graph/test-query-all.js" --graph="$graphPath" --source="$sourcePath"
 ```
@@ -372,7 +372,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/test-query-all.js" --graph="$graphPath" --so
 - exit 1 → read stderr; optionally inspect `_fix_graph_hints.json`; follow `remedyHint` with `crud.js update-node`; cleanup; reset 4; re-run.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/query-fix-hints.js" --hints=_fix_graph_hints.json
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" cleanup
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 4
@@ -390,7 +389,6 @@ Q4 sample loop:
 - sufficient / no additional sample → end 4; delete `_quality/`; cleanup.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 bash "$CLAUDE_DIR/scripts/rfc-graph/query-all-nodes.sh" --graph="$graphPath" --source="$sourcePath"
 node "$CLAUDE_DIR/scripts/rfc-graph/get-node-for-check.js" Nxxxx
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 1
@@ -405,7 +403,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 query failure: diagnose; missing node → reset 1; missing edge → reset 2. `test-query-all` failure: stderr + `remedyHint` + crud repair; cleanup; reset 4. Unknown error → reset 4.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" cleanup
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 4
 ```
@@ -415,7 +412,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 G5 whole-graph:
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" start-step 5
 node "$CLAUDE_DIR/scripts/rfc-graph/show-graph-summary-markdown.js" --graph="$graphPath" --source="$sourcePath"
 ```
@@ -442,7 +438,6 @@ Adequacy report: concretely state section coverage/counts, kind distribution, de
 - sufficient AND concrete convincing explanation → end 5.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 1
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" end-step 5
 ```
@@ -452,7 +447,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 repair per script error; reset 5; re-run Step 5.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 5
+node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" reset-to-step 5
 ```
 
 ## Completion Report

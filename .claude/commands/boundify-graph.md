@@ -23,6 +23,16 @@ Invariants:
 - header cross-reference to prose node: design intent, explicit `→` / `←`, connected file path.
 - script errors: follow emitted problem/resolution; re-run required step.
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## Language Protocol
 
 | Context | Language |
@@ -119,7 +129,6 @@ Root: `.claude/scripts/rfc-graph/`.
 Confirm valid graph; collect all node `language` fields.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 RUN_ID="$(date +%s%N)-$$"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" begin-run --run-id="$RUN_ID"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" start-step 0
@@ -137,7 +146,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" end-step 0
 fail → fix graph per script output; always regression check; reset 0; re-run Step 0.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 0
+node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 0
 ```
 
 ## Step 1: Verification and Self-Healing Loop (New)
@@ -157,7 +166,6 @@ Verify graphify→boundify junction. Graph problem → script fix instructions �
 Start Step 1; replace previous backup with `$graphPath.bak`.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" start-step 1
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" backup
 ```
@@ -171,7 +179,6 @@ Heal-loop junction; max 5:
 Checks:
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/verify-graph-integrity.js"
 node "$CLAUDE_DIR/scripts/rfc-graph/validate-slug.js"
 ```
@@ -179,7 +186,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/validate-slug.js"
 Success only:
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" cleanup
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" end-step 1
 ```
@@ -188,7 +194,7 @@ Exhausted:
 
 ```bash
 echo "[ERROR] Self-healing loop reached maximum attempts (5)."
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 1
+node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 1
 ```
 
 ### Recovery on Error
@@ -196,7 +202,7 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-boundify
 Fix graph per `verify-graph-integrity.js` / `validate-slug.js` `remedies`; slug → exact `remedy` CRUD command; run Checks again to prove disappearance. Start over only when required: reset 1.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 1
+node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 1
 ```
 
 ## Step 2: Dirs-Tree.json Generation + Schema Validation
@@ -209,7 +215,6 @@ Automatic:
 - prose exclusion: `rationale` / `glossary` / `requirement` not file targets.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" start-step 2
 node "$CLAUDE_DIR/scripts/rfc-graph/boundify-graph-to-dirs.js"
 test -f "$dirsTreePath" && echo "Dirs-Tree.json: OK" || echo "Dirs-Tree.json: MISSING"
@@ -235,7 +240,7 @@ After graph repair per any script error: re-run; resolved → run `verify-graph-
 
 ```bash
 rm -f "$dirsTreePath"
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 2
+node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 2
 ```
 
 ### Mode Switching
@@ -244,7 +249,6 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-boundify
 - `--json`: stdout JSON only; pipeline chaining.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/boundify-graph-to-dirs.js" --json
 node "$CLAUDE_DIR/scripts/rfc-graph/boundify-graph-to-dirs.js" --quiet
 ```
@@ -254,7 +258,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/boundify-graph-to-dirs.js" --quiet
 Preview all languages; review; generate actual directories/template files.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" start-step 3
 node "$CLAUDE_DIR/scripts/rfc-graph/generate-all-dir-templates.js" --dry-run
 node "$CLAUDE_DIR/scripts/rfc-graph/generate-all-dir-templates.js"
@@ -275,7 +278,6 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" end-step 3
 generation fail → fix per error; re-run generator. Full output rebuild if required: `--delete`; then generate. Unavoidable restart: reset 3.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/rfc-graph/generate-all-dir-templates.js" --delete
 node "$CLAUDE_DIR/scripts/rfc-graph/generate-all-dir-templates.js"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" reset-to-step 3
@@ -286,7 +288,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" reset-to-ste
 Clean remaining backup files:
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/update-boundify-step-status.js" cleanup
+node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" cleanup
 ```
 
 Report:
@@ -312,7 +314,6 @@ Done: implementation may begin from generated tree/files.
 The implementation exists, so the tree exists: boundify describes it instead of creating it. Second entry point, and **Step 3 is not run at all** — running it would create the tree that is already there.
 
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 # Plan only. Nothing is written to the measured tree, which is the default.
 node "$CLAUDE_DIR/scripts/rfc-graph/reverse-boundify.js" --root="$projectRoot" --out="$outDir"
 
@@ -337,7 +338,7 @@ The header also names the unit ids of the node it cross-references, on a `units:
 Placement is measured against the answer key rather than judged:
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/run.mjs" oracle compare --stage headers \
+node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" oracle compare --stage headers \
   --candidate="$candidatePath" --project-root .
 ```
 

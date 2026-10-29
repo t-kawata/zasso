@@ -14,6 +14,16 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 Role: inspect every reviewed ticket — verify its contracts are fully and accurately translated into test code. gaps → record as structured omission tickets for the next implementation loop.
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## Language Protocol
 
 | Context | Language |
@@ -28,7 +38,6 @@ Role: inspect every reviewed ticket — verify its contracts are fully and accur
 
 Gate:
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/validate-graph-arg.js" "$ARGUMENTS" || exit 2
 node "$CLAUDE_DIR/scripts/tickets/require-consolidated-manifest.js" || exit 2
 ```
@@ -81,7 +90,6 @@ invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already g
 
 cwd = Tickets.json root (source root).
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)
 cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js" --no-write   # review (zero side effects)
 cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js"               # commit
@@ -94,7 +102,7 @@ invariant: re-run-safe (already-active-referencing markers skipped, never duplic
 ```json
 [{ "sourceKey": "P4-2", "stubs": [{ "file": "src/a.rs", "line": 4, "content": "// [::STUB::] P4-2: reason -- Implement" }] }]
 ```
-pipe: `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-create-resolving-tickets.js" --no-write` — one ticket per (sourceKey, unit) group.
+pipe: `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js" --no-write` — one ticket per (sourceKey, unit) group.
 
 Post-creation content rewrite (mandatory): each new resolving ticket is a deep-clone carrying the SOURCE's OLD content.
 ```
@@ -106,7 +114,6 @@ Batch-write ticket (post-creation rewrite):
 
 Residual safety net (after commit) — sweep markers the consolidation didn't cover (added after consolidate, or left UNASSIGNED):
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/preflight-stub-cleanup.js"
 node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
@@ -120,7 +127,7 @@ invariant: every stdout/stderr line from these scripts is English, self-containe
 ### Step 2 — Run the script
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/get-next-check-target-ticket.js"
+node "$CLAUDE_DIR/scripts/tickets/get-next-check-target-ticket.js"
 ```
 out:
 ```
@@ -198,7 +205,7 @@ echo '[{"evaluations":[{
     {"file": "src/validation.rs", "line": 25},
     {"file": "tests/validation.rs", "line": 44}
   ]
-}]}]' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/add-omission-ticket.js" \
+}]}]' | node "$CLAUDE_DIR/scripts/tickets/add-omission-ticket.js" \
   --ticket-key=P0-4
 ```
 
@@ -234,7 +241,7 @@ echo '[{
       {"file": "tests/validation.rs", "line": 60}
     ]
   }]
-}]' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/add-omission-ticket.js" \
+}]' | node "$CLAUDE_DIR/scripts/tickets/add-omission-ticket.js" \
   --ticket-key=P0-4
 ```
 
@@ -264,7 +271,7 @@ echo '[{
       ]
     }
   ]
-}]' | node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/add-omission-ticket.js" \
+}]' | node "$CLAUDE_DIR/scripts/tickets/add-omission-ticket.js" \
   --ticket-key=P0-4
 ```
 
@@ -286,14 +293,14 @@ re-run Step 2 until: `All tickets inspected.`
 ### Step 8 — Clean up
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/get-next-check-target-ticket.js" --with-clean-trash
+node "$CLAUDE_DIR/scripts/tickets/get-next-check-target-ticket.js" --with-clean-trash
 ```
 removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`. before deleting, copies `_tmp-omissions-*.json` to `OMISSIONS-<ts>.json` — the deliverable of this command.
 
 # Step 9 — Merge into Tickets.json
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/phasify-omissions.js" --graph="$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/rfc-graph/phasify-omissions.js" --graph="$ARGUMENTS"
 ```
 computes optimal phase/ticket boundaries from Steps 2–7's omissions, merges mechanically into Tickets.json. mechanical merge → generic phase names (P6, P7, ...); stdout lists each phase's node titles/ticket info + the exact `rename-phases.js` commands (follow in Step 10).
 invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to the current directory (the Tickets.json root).
@@ -303,7 +310,6 @@ gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → 
 
 Run the `rename-phases.js` commands from Step 9's stdout. each re-implementation phase name **must** start with `"Omissions: "`.
 ```bash
-CLAUDE_DIR="${CLAUDE_DIR:-$(git rev-parse --show-toplevel)/.claude}"
 node "$CLAUDE_DIR/scripts/tickets/rename-phases.js" --phase=6 --name="Omissions: Storage & Connection Layer"
 node "$CLAUDE_DIR/scripts/tickets/rename-phases.js" --phase=7 --name="Omissions: Migration Runner"
 ```
@@ -312,7 +318,7 @@ node "$CLAUDE_DIR/scripts/tickets/rename-phases.js" --phase=7 --name="Omissions:
 
 After ALL prior steps pass (tickets created, markers rewritten, omissions merged and renamed):
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/clean-consolidation-artifacts.js"
+node "$CLAUDE_DIR/scripts/tickets/clean-consolidation-artifacts.js"
 ```
 removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`, and `manifests/` itself iff empty. idempotent (exit0 when nothing to remove).
 rationale: the rollback backup exists only to undo a *wrong* consolidation; once the manifest is consumed and tickets created, restoring it would desync markers from created tickets — remove both together. re-running requires a fresh consolidation.
@@ -328,7 +334,7 @@ forward: an omission recorded during forward rotation carries exactly the fields
 reverse: an omission names the uncertainty it descends from — the claims it affects, the residuals that produced it (not "not enough tests").
 1. judge: resolve `affected_claim_ids` against `CLAIM-LEDGER.json` and `origin_residual_ids` against `RESIDUAL-REGISTRY.json`. prohibition: an unresolvable reference is reported, never written — a pointer to nothing reads as a chain that exists, which is worse than no pointer.
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/lib/return-refs.js" \
+node "$CLAUDE_DIR/scripts/tickets/lib/return-refs.js" \
   --kind=omission \
   --claim-ledger="<path to CLAIM-LEDGER.json>" \
   --residual-registry="<path to RESIDUAL-REGISTRY.json>" \

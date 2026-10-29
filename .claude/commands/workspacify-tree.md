@@ -14,6 +14,16 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 **Role**: given one Markdown specification, run structural analysis, candidate harvest, workspace design, completeness gates; publish the stage-two-only input `WORKSPACIFY-TREE-MANIFEST.json`. Do not implement specification. AI/running session makes design judgement; machine harvests, verifies, publishes.
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## Language Protocol
 
 | Context | Language |
@@ -78,7 +88,7 @@ Output must let stage two verify coupling mechanically.
 Purpose: lock spec; readable/UTF-8/non-empty validation; normalize unified newlines preserving trailing newline; SHA-256; heading tree; `##` segments; exact recombination proof.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-tree/run.mjs" parse "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" parse "$ARGUMENTS"
 ```
 
 Out: `source_hash` = normalized whole-input immutable fingerprint; `reconstruction` = segment recombination verification. Pass: reconstruction PASS and hash printed. Fail: correct nonexistent/directory/empty/non-UTF8/reconstruction-mismatch input; rerun.
@@ -88,7 +98,7 @@ Out: `source_hash` = normalized whole-input immutable fingerprint; `reconstructi
 Purpose: omission-free implementation-target candidates with source traceability. Deterministic patterns: table object column, inline code, claim blocks, normative phrases. Keep invariant/error code/required test independent from terms.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-tree/run.mjs" extract "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" extract "$ARGUMENTS"
 ```
 
 Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` candidates (`candidate_ids`, each `kind|chapter_ref|observation|evidence_refs`). AI: check canonical_name/aliases/classification/source_refs; settle misfiled/ambiguous candidates through Step-3 approvals. Harvester never deletes candidates. Pass: every candidate has source_refs; review_required/unresolved understood. Every boundary emitted here carries `stage2_contract_scope`; `/workspacify-allocate`'s `contract_registry` must satisfy exactly that scope, and `/smooth-sequences` checks the two against each other.
@@ -142,7 +152,7 @@ Record APPROVED only after all; statement summarizes checked items; approver nam
 ## Step 4: the gate loop (G3/G4)
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-tree/run.mjs" gate "--spec=$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" gate "--spec=$ARGUMENTS"
 ```
 
 Out: per-gate status and stdout `finalAudit`; COMPLETE/exit 0 iff all gates PASS and unresolved 0. Semantic-review absent/not APPROVED → G2/G3 REVIEW_REQUIRED.
@@ -170,7 +180,7 @@ Unlisted causes appear in `reasons`: tree/catalog path mismatch, edge/boundary m
 ## Step 5: finalize and publish (G5)
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-tree/run.mjs" finalize "--spec=$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" finalize "--spec=$ARGUMENTS"
 ```
 
 Run only at all-PASS/unresolved-0. Finalize assembles canonical JSON/self-hash; invokes stage-two entry predicate immediately before publish. Stage-two acceptance proves complete tree, unique owner, dependency matrix, DAG, implementation order; no separate invocation.

@@ -19,6 +19,16 @@ Invariants:
 - validation failure: no promote; read English `[ERROR] Cause: ... Action: ...`; fix staging via designated CRUD; retry.
 - Step 5 high finding → back to Step 2; read-only verifier never writes.
 
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
+
+```bash
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
+```
+
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
 ## Language Protocol
 
 | Context | Language |
@@ -215,7 +225,7 @@ G0 input:
 `$ARGUMENTS` is deliberately unquoted: shell passes each space-separated arg as argv; script splits/drops empty tokens; no args → no materials, never cwd.
 
 ```bash
-node "$(git rev-parse --show-toplevel)/.claude/scripts/drill-rfc-down/preflight.cjs" $ARGUMENTS || exit 1
+node "$CLAUDE_DIR/scripts/drill-rfc-down/preflight.cjs" $ARGUMENTS || exit 1
 ```
 
 ### Step 1: grill
@@ -612,7 +622,7 @@ A record is only as current as the artefacts it was read from. When a dependency
 # Mark the claims whose recorded reference hashes no longer match, and emit
 # their re-examination conditions as material. Nothing is written unless --out
 # is given, and the measured tree is never written to at all.
-node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-reverse/lib/staleness.mjs" \
+node "$CLAUDE_DIR/scripts/workspacify-reverse/lib/staleness.mjs" \
   --claim-ledger="<directory holding CLAIM-LEDGER.json>" \
   --changed=graph="<the GRAPH as it stands now>" \
   --changed=dirs_tree="<the Dirs-Tree as it stands now>" \
