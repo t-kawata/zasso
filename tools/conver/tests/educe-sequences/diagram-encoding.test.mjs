@@ -270,10 +270,11 @@ test('C003 a step naming no sequence at all is refused rather than counted', () 
 });
 
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 test('C003 the registry declares the new check once and the stated count is the registry length', () => {
   assert.equal(CHECKS.filter((check) => check.id === BELONGS).length, 1);
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 32);
 });
 
 // ---------------------------------------------------------------------------

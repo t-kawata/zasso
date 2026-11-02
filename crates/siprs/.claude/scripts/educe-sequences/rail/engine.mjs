@@ -881,6 +881,55 @@ const everyOperationReached = reachEvery(
   mustRealize: (entry) => !LIMB_RULING_OUTCOMES.includes(entry.outcome),
 });
 
+/** The steps of one sequence whose cited lines lie inside its span. */
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+function inSpanStepsOf(artifact, sequence) {
+  return (artifact?.steps ?? []).filter((step) => (
+    step?.sequence === sequence?.id
+    && Number.isInteger(step.line)
+    && Number.isInteger(sequence.firstLine)
+    && Number.isInteger(sequence.lastLine)
+    && step.line >= sequence.firstLine
+    && step.line <= sequence.lastLine
+  ));
+}
+
+/** The first consecutive in-span pair whose line decreases, or null. */
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+function firstDecreasingLinePair(steps) {
+  for (let index = 0; index + 1 < steps.length; index += 1) {
+    if (steps[index].line > steps[index + 1].line) {
+      return { earlier: steps[index], later: steps[index + 1] };
+    }
+  }
+  return null;
+}
+
+/** A narrative sequence's in-span steps follow the lines the specification states. */
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+const STEP_ORDER_CHECK_ID = 'steps-are-in-line-order-within-their-entry';
+
+const stepsAreInLineOrderWithinTheirEntry = {
+  id: STEP_ORDER_CHECK_ID,
+  originatingDefect: 'a narrative sequence whose steps were listed out of the order the specification states, so the artifact encoded a runtime order the text never gave',
+  refuses: 'a cites-0 sequence whose in-span steps decrease by line',
+  scope: 'every artifact, over its cites-0 sequences and their in-span steps',
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+  run(context) {
+    return (context.artifact.sequences ?? [])
+      .filter((sequence) => sequence?.cites === 0)
+      .flatMap((sequence) => {
+        const pair = firstDecreasingLinePair(inSpanStepsOf(context.artifact, sequence));
+        if (pair === null) return [];
+        return [{
+          check: STEP_ORDER_CHECK_ID,
+          subject: `${sequence.id}/${pair.earlier.id}`,
+          reason: `step ${pair.earlier.id} at line ${pair.earlier.line} precedes ${pair.later.id} at line ${pair.later.line}, but the cited lines decrease`,
+        }];
+      });
+  },
+};
+
 /** The checks, in the order the run reports them. */
 export const CHECKS = Object.freeze([
   blockRangeInsideSpecification,
@@ -936,6 +985,7 @@ export const CHECKS = Object.freeze([
   stepCarriesFourFields,
   stepIsGroundedInItsLine,
   stepCitesInsideItsEntrySpan,
+  stepsAreInLineOrderWithinTheirEntry,
   adjudicationCitesADeclaredLimb,
   everyAdjudicationIsInTheDeclaredShape,
   neighbourCitesInsideSpan,

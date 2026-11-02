@@ -23,6 +23,7 @@ import {
   validOperationResiduals,
   viewDigest,
 } from './lib/distribution-map.mjs';
+import { sequenceDataPrerequisitePairs } from './lib/implementation-order.mjs';
 import { digestValue } from './lib/digest.mjs';
 import { readDistributionMap } from '../rfc-graph/lib/unit-ids.mjs';
 import { createRequire } from 'node:module';
@@ -202,6 +203,7 @@ function requireImplementerForRole({ unitId, map, view, implementersByUnit, find
 // [::TICKET::] PX-317 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-317 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-321 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-322 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 export function verifyChain(input = {}) {
   const {
     view,
@@ -468,9 +470,11 @@ export function verifyChain(input = {}) {
   }
 
   // The recorded order check above compares the copied order fields with the view. This
-  // check compares the ticket placement itself: a package's local steps must appear in the
-  // artifact order across the tickets that implement them. A foreign step is excluded: the
-  // other package's Tickets.json is not visible here, and build order is not runtime order.
+  // check compares ticket placement only for a real data prerequisite: the later step of a
+  // produces/consumes pair must not be placed before the earlier step. Narrative order
+  // alone is not an implementation constraint; hard edges and boundary prerequisites are
+  // owned by verify-implementation-order. Foreign steps are excluded because the other
+  // package's Tickets.json is not visible here.
   if (checkTickets) {
     const placementByStep = new Map();
     for (const [phaseIndex, phase] of (tickets?.phases ?? []).entries()) {
@@ -484,17 +488,23 @@ export function verifyChain(input = {}) {
       }
     }
     for (const [sequenceId, steps] of declared) {
-      const local = steps.filter((step) => graphUnits.has(`op-${step.operationId}`) && placementByStep.has(step.id));
-      for (let index = 0; index + 1 < local.length; index += 1) {
-        const left = placementByStep.get(local[index].id);
-        const right = placementByStep.get(local[index + 1].id);
-        const inverted = left.phaseIndex > right.phaseIndex
-          || (left.phaseIndex === right.phaseIndex && left.ticketIndex > right.ticketIndex);
+      const localStepIds = new Set(
+        steps
+          .filter((step) => graphUnits.has(`op-${step.operationId}`) && placementByStep.has(step.id))
+          .map((step) => step.id),
+      );
+      for (const { earlier, later } of sequenceDataPrerequisitePairs(artifact, sequenceId)) {
+        if (!localStepIds.has(earlier.id) || !localStepIds.has(later.id)) continue;
+        const earlierPlacement = placementByStep.get(earlier.id);
+        const laterPlacement = placementByStep.get(later.id);
+        const inverted = earlierPlacement.phaseIndex > laterPlacement.phaseIndex
+          || (earlierPlacement.phaseIndex === laterPlacement.phaseIndex
+            && earlierPlacement.ticketIndex > laterPlacement.ticketIndex);
         if (!inverted) continue;
         findings.push(finding(
           CHAIN_CODES.SEQUENCE_ORDER_MISMATCH,
           `seq-${sequenceId}`,
-          `sequence ${sequenceId} places ${local[index].id} after ${local[index + 1].id} in (phase,ticket) order`,
+          `sequence ${sequenceId} places ${later.id} before its prerequisite ${earlier.id} in (phase,ticket) order`,
         ));
         break;
       }

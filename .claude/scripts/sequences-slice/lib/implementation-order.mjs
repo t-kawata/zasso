@@ -260,10 +260,30 @@ function orderedSteps(artifact, sequenceId) {
 }
 
 /** Whether the earlier step produces a fact the later step consumes. */
-// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
-function consumesWhatEarlierProduces(earlier, later) {
+// [::TICKET::] PX-323, PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-348) --for-spec --no-implementation-order`.
+export function consumesWhatEarlierProduces(earlier, later) {
   const produced = new Set(factTexts(earlier?.contract?.produces));
   return factTexts(later?.contract?.consumes).some((fact) => produced.has(fact));
+}
+
+/**
+ * The ordered step pairs whose earlier step produces a fact the later step consumes.
+ *
+ * Narrative sequence order alone creates no pair: a procedure can list independent steps in
+ * a readable order, so only a data relation is an implementation prerequisite.
+ */
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+export function sequenceDataPrerequisitePairs(artifact, sequenceId) {
+  const steps = orderedSteps(artifact, sequenceId);
+  const pairs = [];
+  for (let earlierIndex = 0; earlierIndex < steps.length; earlierIndex += 1) {
+    for (let laterIndex = earlierIndex + 1; laterIndex < steps.length; laterIndex += 1) {
+      if (consumesWhatEarlierProduces(steps[earlierIndex], steps[laterIndex])) {
+        pairs.push({ earlier: steps[earlierIndex], later: steps[laterIndex] });
+      }
+    }
+  }
+  return pairs;
 }
 
 /** The boundary id of the crossed boundary a later step depends on, or null. */

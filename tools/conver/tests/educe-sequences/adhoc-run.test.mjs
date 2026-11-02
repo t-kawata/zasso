@@ -202,12 +202,13 @@ test('C001 a scaffolded check runs against the artifact, so its verdict reaches 
 
 // [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 test('C001 the engine stays a function of values: no dynamic import, and its count is its own', () => {
   const source = readFileSync(ENGINE_PATH, 'utf8');
 
   assert.equal(/await import|import\(/.test(source), false, 'the caller loads the modules, not the engine');
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 32);
 });
 
 // ---------------------------------------------------------------------------
@@ -508,6 +509,7 @@ test('IT a scaffolded check that reddens an artifact refuses the checks phase', 
 });
 
 // [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('IT the golden run still writes the golden artifact, and its counts are the engine own', () => {
   const { specPath } = scratchRun();
@@ -515,5 +517,5 @@ test('IT the golden run still writes the golden artifact, and its counts are the
 
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(readFileSync(artifactPathFor(specPath), 'utf8')), golden);
-  assert.match(run.stdout, /checksRun=31 of 31/);
+  assert.match(run.stdout, /checksRun=32 of 32/);
 });

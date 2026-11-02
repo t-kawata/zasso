@@ -165,6 +165,24 @@ function crossedBoundaryIdsOfTicket(ticket) {
   return boundaryIds;
 }
 
+/**
+ * The registry rows this package owes clauses for.
+ *
+ * A step of a multi-package sequence can legitimately span a boundary between two other
+ * packages. That boundary is not this package's to owe, and the closure gate already
+ * scopes to the package's own boundaries — projecting the wider set made the two
+ * disagree, so the same scope is applied here.
+ *
+ * @param {Array<object>} rows — `contract_registry` rows
+ * @param {{packageId?: string}|null} view — the package view, when one exists
+ */
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+function registryForPackage(rows, view) {
+  if (view === null || view === undefined || typeof view.packageId !== 'string') return rows ?? [];
+  const { registryRowsForPackage } = require('../sequences-slice/lib/distribution-map.mjs');
+  return registryRowsForPackage(rows ?? [], view.packageId);
+}
+
 /** The registry contracts a ticket owes for the ctr units it carries or the boundaries its steps cross. */
 // [::TICKET::] PX-312, PX-313, PX-326, PX-331 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-326|PX-331) --for-spec --no-implementation-order`.
 function registryContractsForTicket(ticket, registry) {
@@ -382,6 +400,7 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], s
 }
 
 // [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, graphPath, registryPath, stepSidecarPath } = parseArgs();
 
@@ -402,7 +421,9 @@ function main() {
 
   const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
-  const registry = registryContracts(registryPath);
+  const viewPath = path.join(path.dirname(ticketsPath), 'SEQUENCES.json');
+  const view = fs.existsSync(viewPath) ? JSON.parse(fs.readFileSync(viewPath, 'utf8')) : null;
+  const registry = registryForPackage(registryContracts(registryPath), view);
   const stepSidecar = readStepContractSidecar(stepSidecarPath);
 
   // Process all phases and tickets
@@ -441,4 +462,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { mergeContracts, verifyMergedBoundaryContracts, parseArgs };
+module.exports = { mergeContracts, verifyMergedBoundaryContracts, parseArgs, registryForPackage };

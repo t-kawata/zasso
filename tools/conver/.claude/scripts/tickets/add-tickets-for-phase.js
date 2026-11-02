@@ -597,8 +597,8 @@ function buildRolesByPackage({ workspaceRoot, treeManifest, ticketsByPackage = {
 /**
  * The operation ids, ticket keys and prerequisite names this package may report on.
  */
-// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
-function localRelevanceOf({ view, tickets, graphData }) {
+// [::TICKET::] PX-343, PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343|PX-348) --for-spec --no-implementation-order`.
+function localRelevanceOf({ tickets, graphData }) {
   const { ticketKeyOf } = require("../sequences-slice/lib/implementation-order.mjs");
   const localOperationIds = new Set();
   const addOperationUnit = (unit) => {
@@ -606,12 +606,21 @@ function localRelevanceOf({ view, tickets, graphData }) {
       ?? (typeof unit?.unitId === 'string' && unit.unitId.startsWith('op-') ? unit.unitId.slice(3) : null);
     if (typeof operationId === 'string' && operationId.length > 0) localOperationIds.add(operationId);
   };
-  for (const unit of view?.ownedOperationUnits ?? []) addOperationUnit(unit);
-  for (const unit of view?.obligationUnits ?? []) addOperationUnit(unit);
+  // Relevance is what the document implements, not what the view declares. The split
+  // adds one phase at a time, so an operation whose ticket has not been added yet must
+  // not be reported on: the command's 5-2 gate is phase-local, and the package-global
+  // proof runs once at the end over the complete document.
   for (const ticket of tickets ?? []) {
     for (const unit of ticket?.distribution?.units ?? []) addOperationUnit(unit);
   }
+  const implementedNodeIds = new Set();
+  for (const ticket of tickets ?? []) {
+    for (const nodeId of ticket?.nodeIds ?? []) {
+      if (typeof nodeId === 'string' && GRAPH_NODE_ID_PATTERN.test(nodeId)) implementedNodeIds.add(nodeId);
+    }
+  }
   for (const node of graphData?.nodes ?? []) {
+    if (!implementedNodeIds.has(node?.id)) continue;
     for (const unitId of node?.unitIds ?? []) {
       if (typeof unitId === 'string' && unitId.startsWith('op-')) localOperationIds.add(unitId.slice(3));
     }

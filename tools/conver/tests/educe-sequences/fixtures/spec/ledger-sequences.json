@@ -400,7 +400,7 @@
   ],
   "exemptions": [],
   "verify": {
-    "command": "node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>",
+    "command": "node \"$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs\" <spec-file>",
     "expected_exit": 0
   },
   "demand": {

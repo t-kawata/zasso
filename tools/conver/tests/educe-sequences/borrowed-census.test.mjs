@@ -448,7 +448,8 @@ test('the registry the fixture borrows is committed beside the fixture specifica
 });
 
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 test('the check count follows the registry it is declared in', () => {
   assert.equal(ENGINE_DECLARED_CHECK_COUNT, CHECKS.length);
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 32);
 });

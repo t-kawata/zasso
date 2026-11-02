@@ -8,11 +8,13 @@ import assert from 'node:assert/strict';
 import {
   activeOperationIdsOf,
   checkPlacement,
+  consumesWhatEarlierProduces,
   derivePackagePrecedence,
   deriveSequencePrecedence,
   evaluatePrerequisites,
   factTexts,
   ownersFromViewsDetailed,
+  sequenceDataPrerequisitePairs,
   ticketPrerequisites,
   topologicalOrder,
 } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';
@@ -391,4 +393,31 @@ test('C001 a hard constrains edge makes the constrained ticket wait for the sour
   const { prerequisites } = ticketPrerequisites({ tickets, graph, packageId: 'pkg-1' });
   const entries = prerequisites.get('P0-1') ?? [];
   assert.ok(entries.some((entry) => entry.ticket === 'P0-2'), JSON.stringify(entries));
+});
+
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+test('C001 the data prerequisite predicate is the single definition of an implementation relation', () => {
+  assert.equal(consumesWhatEarlierProduces(
+    step('s1', 'S', 'Op1', 1, { produces: ['object:X'] }),
+    step('s2', 'S', 'Op2', 2, { consumes: ['object:X'] }),
+  ), true);
+  assert.equal(consumesWhatEarlierProduces(
+    step('s1', 'S', 'Op1', 1, { produces: ['object:X'] }),
+    step('s2', 'S', 'Op2', 2, { consumes: ['object:Y'] }),
+  ), false);
+  assert.equal(consumesWhatEarlierProduces({ contract: {} }, { contract: {} }), false);
+});
+
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+test('C001 the pair enumerator returns only a produces/consumes pair, in artifact order', () => {
+  const artifact = {
+    sequences: [{ id: 'S', outcome: 'realized' }],
+    steps: [
+      step('s1', 'S', 'Op1', 1, { produces: ['object:X'] }),
+      step('s2', 'S', 'Op2', 2, { consumes: ['object:X'] }),
+      step('s3', 'S', 'Op3', 3, {}),
+    ],
+  };
+  const pairs = sequenceDataPrerequisitePairs(artifact, 'S');
+  assert.deepEqual(pairs.map((pair) => [pair.earlier.id, pair.later.id]), [['S__s1', 'S__s2']]);
 });

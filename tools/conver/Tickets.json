@@ -52959,6 +52959,195 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-02"
+        },
+        {
+          "id": 348,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Separate narrative sequence order from implementation order and refuse line-inverted span readings",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-348.md",
+          "invariants": "- [Normal] The placement check enforces order only for a pair whose earlier step produces a fact the later step consumes; independent steps never create a finding. Every declared check runs and `checksRun` equals `checksDeclared`.\n- [Error] A line-inverted `cites=0` in-span reading is refused before the artifact is written, and the previous artifact remains byte-identical. A real data prerequisite whose later ticket precedes the earlier ticket still reports `SEQUENCE_ORDER_MISMATCH`.\n- [Internal state] `consumesWhatEarlierProduces` has one definition shared by `verify-chain` and `implementation-order`; the copied `order` check and `verify-implementation-order` are unchanged.\n- [Boundary] Equal lines preserve artifact order; `cites > 0`, missing or non-integer spans/lines, out-of-span steps and artifacts without `cites` are skipped; no workspace-specific value is hardcoded.",
+          "background": "## Goal\nMake `/split-to-tickets` treat the artifact's narrative sequence order as narration, not as an implementation order, so an independent step may be built in any topological phase without a `SEQUENCE_ORDER_MISMATCH`; and make the educe rail refuse a span reading whose in-span steps are not in the specification's line order, so a misordered reading can never become an artifact.\n\n## Purpose\nThe pipeline carries two different order definitions. `implementation-order.mjs` derives implementation prerequisites from graph hard edges, `consumes`/`produces` and crossed boundaries, and states explicitly that narrative sequence order alone creates no edge because a procedure can list independent steps in a readable order. `verify-chain.mjs`'s placement check instead requires every local step to appear in artifact array order across `(phase, ticket)` positions. When a runtime narrative order conflicts with the code's hard dependency order, no ticket placement can satisfy both. The artifact also has no producer-side check that its in-span steps follow the lines they cite, so a misreading is carried into every downstream layer.\n\n## Motivation\nA real split stopped at Step 5-2 with `SEQUENCE_ORDER_MISMATCH` after the tickets correctly placed freeze before finalization while the artifact placed finalization before freeze. Correcting the artifact alone does not clear the gate: the next pair, finalization before resolution, is also a narrative order that the hard dependency chain cannot honour. The same class can occur in any project because the educe rail accepts a reading whose steps are listed out of line order, and the split gate then promotes that narration to an implementation constraint. A project-independent fix is required; no project id, path, sequence id or fixture value may appear in code, defaults, comments or tests.\n\n## Constraints\n- TDD Red-Green-Refactor in strict order; no test is modified, deleted or weakened to reach green.\n- Generic: no project id, path, sequence id or fixture value from one workspace appears in the implementation, defaults, comments or tests.\n- Backward compatible: an artifact without `cites` keeps verifying; an existing `SEQUENCE_ORDER_MISMATCH` case for a real `produces`/`consumes` inversion keeps failing.\n- Source of truth: one shared predicate for a data prerequisite; do not define a second answer inside `verify-chain`.\n- The artifact data repair for a real workspace is a one-time migration, not code. It runs after `make install-to-projects` and is outside this ticket's code scope.\n- No new dependency; Node assert and the existing test harness only.",
+          "scope": [
+            "[Changes - path] `.claude/scripts/sequences-slice/verify-chain.mjs`, `.claude/scripts/sequences-slice/lib/implementation-order.mjs`, `.claude/scripts/educe-sequences/rail/engine.mjs`, `.claude/commands/split-to-tickets.md`, and the matching tests under `tests/sequences-slice/`, `tests/educe-sequences/` and `tests/tickets/`.",
+            "[Changes - action] Narrow the ticket-placement check to real data prerequisites, export the shared prerequisite predicate, and add one declared educe check that refuses an in-span step order that contradicts the cited lines.",
+            "[Changes - detail] The placement check compares only the pairs where the earlier step produces a fact the later step consumes. It keeps the copied `order` check unchanged. `consumesWhatEarlierProduces` moves to a shared export used by both `verify-chain` and `deriveSequencePrecedence`. The new check id is `steps-are-in-line-order-within-their-entry`; it applies to a sequence whose `cites` is exactly 0 and whose span and step lines are integers, reports the first decreasing consecutive pair, treats equal lines as ordered, and skips out-of-span citations, `cites > 0` and artifacts without `cites`.",
+            "[Changes - before/after] Before, two independent steps in different topological phases fail with `SEQUENCE_ORDER_MISMATCH`; after, only a real `produces` to `consumes` inversion fails. Before, a span reading whose steps are not in line order is written to the artifact; after, the educe verification refuses it by check id, sequence and step ids and writes no artifact.",
+            "[Changes - API] Export `consumesWhatEarlierProduces(earlier, later) -> boolean` from `implementation-order.mjs`; extract `sequenceDataPrerequisitePairs(artifact, sequenceId) -> Array<{earlier, later}>`; add `stepsAreInLineOrderWithinTheirEntry` to `CHECKS`. No CLI flag changes.",
+            "[Changes - schema] No artifact-schema and no ticket-schema change. The new check reads the existing `sequences[].{id,firstLine,lastLine,cites}` and `steps[].{id,sequence,line}` fields.",
+            "[Changes - config] No config change; the new check is declared and always runs. The declared check count changes from 31 to 32.",
+            "[Changes - dependency] No new dependency. Tests use the existing Node assert harness and synthetic fixtures.",
+            "[Non-change - item] Do not change phase generation, `verify-implementation-order` prerequisites, `SEQUENCE_STEPS_UNDISTRIBUTED`, `TICKET_STEP_MISSING`, or the artifact/view projection order convention. Do not repair a real workspace's readings in conver.",
+            "[Non-change - why] Those are separate layers with their own contracts. Changing them would move the defect rather than separate narrative order from implementation order, or make the fix project-specific.",
+            "[Impact - component] sequences-slice verifier, implementation-order predicate, educe rail declared checks, split command documentation, installed `.claude` copies.",
+            "[Impact - nature] Gate semantics and an artifact-verification check; no data format change, no runtime API change, no performance change.",
+            "[Impact - response] Update the affected tests and their declared-count expectations, update the command document, sync installed copies with `make install-to-projects`, and re-run the affected suites. No consumer code change is needed.",
+            "[Changes - upstream] `.claude/scripts/tickets/add-tickets-for-phase.js` and `.claude/scripts/tickets/merge-contracts-to-tickets.js`: carry the generic phase-local relevance and registry-scope fixes upstream from the workspace run, with their tests, so `make install-to-projects` does not clobber them."
+          ],
+          "testUnit": [
+            "UT: [Normal] `consumesWhatEarlierProduces` returns true only when the earlier step's `produces` text intersects the later step's `consumes` text; it returns false for empty, missing and different fact sets. @verifies C001",
+            "UT: [Normal] a sequence with two independent steps placed in different phases and tickets produces no `SEQUENCE_ORDER_MISMATCH`. @verifies C002",
+            "UT: [Error] a pair whose earlier step produces a fact the later step consumes, with the later ticket placed before the earlier ticket, produces `SEQUENCE_ORDER_MISMATCH`. @verifies C002",
+            "UT: [Boundary] two steps in the same ticket, the same phase, or with equal `(phase, ticket)` positions produce no finding. @verifies C002",
+            "UT: [Invariant] the copied `order` check still reports when a ticket unit's step order differs from the artifact order. @verifies C003",
+            "UT: [Normal] the educe check accepts a sequence whose in-span step lines are non-decreasing, and equal lines preserve artifact order. @verifies C004",
+            "UT: [Error] the educe check reports a decreasing in-span line pair with the sequence id and both step ids. @verifies C004",
+            "UT: [Boundary] the educe check skips a sequence with `cites > 0`, a missing or non-integer span, a non-integer step line, an out-of-span step, and an artifact without `cites`. @verifies C004",
+            "UT: [Normal] `CHECKS` contains `steps-are-in-line-order-within-their-entry` exactly once, the declared count is 32, and every declared check runs. @verifies C005",
+            "UT: [Invariant] no project id, path, sequence id or fixture value appears in the new check, the narrowed check, the tests or the command document. @verifies C006",
+            "UT: [Normal] phase-local relevance excludes an operation no ticket implements yet and keeps an implemented operation local. @verifies REL-1 REL-2",
+            "UT: [Invariant] the registry projection keeps a boundary this package provides and excludes a boundary between two other packages; without a view every row is kept. @verifies SCOPE-1 SCOPE-2"
+          ],
+          "testIntegration": [
+            "IT: [CLI] `verify-chain.mjs --stage=split` on a synthetic package with an independent-step sequence and a real data-prerequisite sequence: the first yields no `SEQUENCE_ORDER_MISMATCH`, the second yields one, and the copied-order finding is unchanged. @verifies C002",
+            "IT: [Rail] `educe-sequences/rail/run.mjs` on a synthetic artifact with a line-inverted span reading exits 1 and names the new check and both step ids; the corrected artifact exits 0 and reports `checksRun` equal to `checksDeclared` (32 of 32). @verifies C004",
+            "IT: [Regression] the affected educe suites report the new declared count: `rail-regression` expects 32, `inquest` expects 32, `adhoc-run` and `run` expect `checksRun=32 of 32`, and `engine` fixtures expect 32; no test is weakened. @verifies C005",
+            "IT: [Docs] `split-to-tickets.md` describes the narrowed placement rule, still names `SEQUENCE_ORDER_MISMATCH`, and points real implementation prerequisites to `PREREQUISITE_NOT_BEFORE`. @verifies C003",
+            "IT: [Install] after `make install-to-projects`, the installed `verify-chain.mjs` and `engine.mjs` match the conver source and a project `.claude` copy runs the new check. @verifies C006",
+            "IT: [Regression] the two upstreamed generic fixes are exercised by `tests/tickets/ticket-relevance.test.cjs` and `tests/tickets/contract-registry-scope.test.cjs`; `make install-to-projects` mirrors the conver sources to all project `.claude` copies."
+          ],
+          "testExceptions": [
+            "The artifact data repair for a real workspace, including the 8 span-reading corrections, the artifact rebuild, the 7 view re-projections, the step-contract re-attach and the smooth receipt, is not testable in the unit suite because it depends on that workspace's live readings and manifests; this is an operational migration and not a design defect.",
+            "The installed-copy sync is not testable in-process because it writes outside the repository and to multiple project homes; this is not a design defect, because the installer's own tests cover the copy mechanism and the synced digests are recorded in the review.",
+            "The real end-to-end split re-run is not testable in CI because it needs a live graph, Dirs-Tree and sequence artifact; this is not an architectural defect, the synthetic fixtures are the automated proxy, and the real re-run is recorded in the review."
+          ],
+          "instrumentation": "## Logging\n`verify-chain.mjs` writes each finding as `CODE: subject message` and the JSON result `{ok, findings}`. The educe check writes `steps-are-in-line-order-within-their-entry: <sequence>/<step> — <reason>` in the same `describeRefusal` form as the other declared checks. The rail report prints `checksRun=N of N` and `checksExaminingRows=N of N`.\n\n## Metrics\nCount of `SEQUENCE_ORDER_MISMATCH` findings by sequence and of line-order findings by sequence; declared versus run check count; artifact verification exit code.\n\n## Error tracking\nEvery finding names the sequence id, the earlier and later step ids, and the two line numbers. No gate exits without a named code and a cause line.\n\n## Health check\nA clean run reports `checksRun` equal to `checksDeclared`; a declared check that does not run is visible as the difference. The split 5-2 gate prints the same findings it refuses on.\n\n\n## Review verification\n- Static quality check: passed; 0 issues.\n- Translatability: no new generic or single-character variables, no debug output, no new magic thresholds.\n- Tests: 270 PX-348 impact tests pass; 131 affected ticket/graph tests pass; the two upstream regression scripts pass (4 REL, 3 SCOPE).\n- Annotation: 30 changed files verified, 0 missing, 0 ambiguous.\n- Contracts: verify-final-contracts 100% (1/1); targets verifiedEmpty.\n- Installed copies: zasso, siprs, gaia, conver and crystal match the conver source for the changed files.",
+          "notes": "## Implementation steps\n1. Red: add failing tests for the shared predicate, the independent-step placement case, the real data-prerequisite case, the copied-order case, the educe line-order case and the declared-count change. 2. Green: export and reuse `consumesWhatEarlierProduces`, extract `sequenceDataPrerequisitePairs`, narrow the placement loop, add `stepsAreInLineOrderWithinTheirEntry` to `CHECKS`. 3. Update the stale comments, `split-to-tickets.md` and the count expectations. 4. Run the affected `node --test` files. 5. Run `make install-to-projects`. 6. Execute the one-time workspace data migration, rebuild the artifact, re-project the affected views, re-attach step contracts, re-run smooth and rewrite the receipt. 7. Reset the split to 5-2 and re-run through Step 6.\n\n## Risks\nThe declared check count is asserted in several tests; update the count explicitly rather than weakening an assertion. Some synthetic fixtures may carry steps out of line order; repair the fixture or declare the sequence as cited, do not special-case a project. A version bump can overwrite `.claude`; re-run `make install-to-projects` after any bump. The workspace migration changes shared artifact and view digests, so the smooth receipt must be regenerated before the split.\n\n## Caveats\nThe new educe check will redden an existing workspace with a misordered reading until its readings are corrected; that is the intended gate. The check applies only to `cites=0` sequences, so a narrative that genuinely cites acts defined elsewhere is out of scope. The placement check now relies on `verify-implementation-order` for hard-edge prerequisites; both gates run in the canonical split.\n\n## Open items\nThe one-time workspace migration is tracked as an operational step, not code. A future generic report may list every line-inverted reading across a workspace before repair.\n\n## Future improvements\nConsider a read-only `--list-order-inversions` mode in the educe rail to make a workspace-wide repair easier without adding a writer. Consider surfacing the shared prerequisite predicate in the implementation-order JSON report.\n## Implementation summary — PX-348\n- Changed files: `.claude/scripts/sequences-slice/verify-chain.mjs`, `.claude/scripts/sequences-slice/lib/implementation-order.mjs`, `.claude/scripts/educe-sequences/rail/engine.mjs`, `.claude/scripts/tickets/add-tickets-for-phase.js`, `.claude/scripts/tickets/merge-contracts-to-tickets.js`, `.claude/commands/split-to-tickets.md`, `docs/EDUCE-SEQUENCES-DESIGN.md`, and the matching tests/fixtures.\n- Key changes: placement is enforced only for a real `produces`/`consumes` data prerequisite; the predicate and pair enumerator are shared; the educe rail declares `steps-are-in-line-order-within-their-entry` at 32 checks; the two workspace-run generic fixes (phase-local relevance and registry scope) are upstreamed so the install cannot clobber them.\n- Test results: 270 PX-348 impact tests pass; 137 affected ticket/graph tests pass; the two upstreamed tests pass (4 REL assertions, 3 SCOPE assertions); syntax and quality checks are clean.\n- Install: `make install-to-projects` synced the changed sources to the zasso, siprs, gaia, conver and crystal `.claude` copies; gaia's copies now match conver byte-for-byte.\n- Fixtures: `tests/educe-sequences/fixtures/{spec,census}/ledger-sequences.json` and `.md` regenerated for the current verify command; the declared check count is 32.\n## Post-install verification\n- gaia-soul split: `verify-chain --stage=split --require-tickets` is green; Steps 5-2, 5-3 and 6 are done; the consolidated output is 1 phase / 16 tickets with coverage units=46, steps=15, boundaries=9.\n- The workspace implementation-order gate reports `MISSING_IMPLEMENTER` for sequences whose packages have no Tickets.json yet. This is the partially-split workspace state, not a gaia-soul finding; the package-level gate is green.\n- The shared artifact still carries the 8 narrative reading inversions. The new educe check refuses them on the next verification; the narrowed split gate no longer treats narrative order as implementation order, so they are not a split blocker. A dedicated educe reading repair remains the follow-up.\n## Review report — PX-348\n- Static quality check: passed; 0 issues on the changed source and test files.\n- Translatability: no new generic or single-character variables, no debug output, no new magic thresholds. The two upstream test files carried stale `.js` filenames in their banners; corrected to `.cjs`.\n- Issues found and fixed: missing `[::TICKET::]` annotations on `merge-contracts-to-tickets.js` main and the two upstream test files were added through `resolve-ambiguous-markers.js`; `make install-to-projects` re-synced the installed copies. Stale `.js` filenames in the two `.cjs` tests were corrected.\n- Contracts/targets: `verify-final-contracts` reports 100% coverage (1/1 fulfilled); `validate-ticket-targets` reports `verifiedEmpty`.\n- Split verification: gaia-soul Steps 5-2, 5-3 and 6 are done; `verify-chain --stage=split --require-tickets` is green; the package implementation-order gate is green.\n- Residual: the workspace implementation-order gate reports `MISSING_IMPLEMENTER` for packages with no tickets yet; the shared artifact still has 8 narrative reading inversions that the new educe check will refuse on the next verification.",
+          "acceptanceCriteria": [
+            "Happy path: a synthetic package with an independent-step sequence spread across two topological phases passes `verify-chain` with no `SEQUENCE_ORDER_MISMATCH`, and a corrected educe artifact with no line inversion passes verification with `checksRun=32 of 32`.",
+            "Error case: a real `produces` to `consumes` prerequisite whose later ticket is placed before the earlier ticket still returns `SEQUENCE_ORDER_MISMATCH`; a line-inverted in-span reading returns the new educe check finding and leaves the artifact byte-identical.",
+            "Edge case: equal lines preserve artifact order, out-of-span citations, `cites > 0` sequences and artifacts without `cites` produce no finding, and the copied `order` check still fails on a ticket order mismatch.",
+            "Generality: no workspace id, path, sequence id or fixture value appears in conver code, defaults, comments or tests; a second project with the same artifact shape receives the same result.",
+            "Backward compatibility: existing tests for a real prerequisite inversion and for a copied-order mismatch remain green; the declared check count is updated explicitly rather than by weakening a test."
+          ],
+          "investigation": "## Evidence\n- `sequences-slice/verify-chain.mjs:454-467` compares a ticket unit's copied step order with the artifact order. `:470-502` is the placement loop: it iterates every consecutive pair of local steps in artifact order and reports when the later pair's `(phaseIndex, ticketIndex)` is smaller. Its own comment says build order is not runtime order, but the loop enforces the runtime order anyway.\n- `sequences-slice/lib/implementation-order.mjs:262-268` defines `consumesWhatEarlierProduces`. `:277-287` states: 'Only two facts create an edge: a consumed/produced fact pair, or a crossed boundary whose registry provider is the earlier step's package. Narrative sequence order alone creates no edge, because a procedure can list independent steps in a readable order.' `:291-355` is `deriveSequencePrecedence`, which uses that predicate. The predicate is not exported.\n- `sequences-slice/verify-implementation-order.mjs:1-16` states that implementation order is the topological order of the union of build edges and artifact-derived sequence and boundary prerequisites, and that a misplaced package or ticket is a named failure.\n- `educe-sequences/rail/engine.mjs` declares 31 checks in `CHECKS`; `CHECKS.length` is the declared count. Existing hardcoded expectations are `tests/educe-sequences/rail-regression.test.mjs:16-18` (31 and 32), `tests/educe-sequences/inquest.test.mjs:509` (31), `tests/educe-sequences/adhoc-run.test.mjs:210` (31) and `:518` (`checksRun=31 of 31`), `tests/educe-sequences/run.test.mjs:82,170` (`checksRun=31 of 31`) and `tests/educe-sequences/engine.test.mjs:45` (`checksRun: 31`).\n- Real artifact evidence: the root artifact's `S-soul-transfer` places `FinalizeTransferWhenAuthorized` at global index 132 (spec line 6742) before `FreezeSoulTransfer` at 133 (line 6629), while the specification's section order is 16.7.2 Freeze (6627), 16.7.3 PaymentReservation (6682), 16.7.4 Finalization (6707), 16.7.6 Resolution (6787). Eight sequences show the same class: A-2607, A-6500, S-soul-transfer, B-9506, A-9744, G-11316, G-11907 and S-civic-need-and-finality. All eight are `kind=neighbour`, `cites=0`, and every step lies inside the entry span.\n- After correcting the eight reading orders in a temporary copy, the artifact rebuild exited 0 with 32 of 32 checks and an unchanged demand record; the only changed sequences were the eight, and the only other field change was `verify.command` to the current canonical string. A simulation of the placement loop with the corrected artifact then reported `FinalizeTransferWhenAuthorized` at phase 12 after `ResolveSoulTransfer` at phase 2, proving the artifact repair alone is insufficient.\n- Among the seven `S-soul-transfer` steps the graph has one hard edge (N0043 agreement to N0045 freeze); the only soft order edge is N0049 finalization to N0051 resolution. The phase placement that puts resolution at phase 2 and finalization at phase 12 is therefore driven by the hard dependency chain through the surrounding sections, not by this sequence.\n- A temporary `project-step-contracts.js` attach run refused because the uncommitted N0049 to N0051 note is 356 characters and the graph schema allows 240; shortening the note to 143 characters made the attach exit 0 with 15 steps and no findings. This is a data defect in the workspace, not a conver code change.\n- No workspace id, path, sequence or fixture value is needed by the fix: the artifact's own `cites`, span and line fields carry the decision.",
+          "boyScoutPlan": "## Translatability plan\n- Export `consumesWhatEarlierProduces` and extract `sequenceDataPrerequisitePairs(artifact, sequenceId)` so the placement loop reads as 'for each data prerequisite pair, require the later ticket not to precede the earlier one'.\n- Rename the placement loop's `local`, `left` and `right` to `orderedLocalSteps`, `earlierPlacement` and `laterPlacement`; replace the index arithmetic with the pair helper.\n- Add the educe check as `stepsAreInLineOrderWithinTheirEntry` with a named `STEP_ORDER_CHECK_ID` constant, a one-sentence defect and a refusal that names both step ids and both lines.\n- Extract `inSpanStepsOf(artifact, sequence)` and `firstDecreasingLinePair(steps)` in the check; each function has one responsibility.\n- Rewrite the stale `verify-chain` comment that says artifact order is the implementation order, so the comment states the narrowed rule and names `verify-implementation-order` as the owner of hard-edge prerequisites.\n- Update `split-to-tickets.md` in place; no swallowed error, no magic threshold and no project-specific value is introduced.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "PX-348:shared-data-prerequisite",
+              "precondition": "Two step contracts exist, each carrying `produces` and `consumes` fact arrays that may be empty.",
+              "postcondition": "`consumesWhatEarlierProduces` returns true exactly when the earlier step's `produces` text intersects the later step's `consumes` text, and false otherwise.",
+              "invariant": "One definition is shared by `deriveSequencePrecedence` and `verify-chain`; no project-specific fact name is hardcoded."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "PX-348:implementation-placement",
+              "precondition": "A sequence declares local steps and each step is placed in a ticket at a `(phase, ticket)` position.",
+              "postcondition": "`SEQUENCE_ORDER_MISMATCH` is reported exactly when the later step of a real data prerequisite is placed before the earlier step.",
+              "invariant": "Independent steps never produce a finding, and equal `(phase, ticket)` positions never produce a finding."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "PX-348:copied-order-and-docs",
+              "precondition": "A ticket unit carries obligation steps with copied `order` fields.",
+              "postcondition": "A copied order that differs from the artifact order is reported; the command document states the narrowed placement rule and names `PREREQUISITE_NOT_BEFORE` for real prerequisites.",
+              "invariant": "The real implementation prerequisite gate remains enforced by `verify-implementation-order`; the placement check is not the only guard."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "PX-348:reading-line-order",
+              "precondition": "An artifact sequence has `cites` exactly 0, an integer span, and steps with integer lines; some steps may lie outside the span.",
+              "postcondition": "A decreasing consecutive in-span line pair is refused with the sequence id and both step ids; a non-decreasing order is accepted.",
+              "invariant": "The check never writes; equal lines preserve artifact order; `cites > 0`, missing/non-integer spans or lines, out-of-span steps and artifacts without `cites` are skipped."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "PX-348:declared-check-count",
+              "precondition": "The educe rail declares its check set in `CHECKS`.",
+              "postcondition": "The new check is declared exactly once and counted; `checksRun` equals `checksDeclared` for a clean run.",
+              "invariant": "No check runs without being declared, and the count-change tests assert the new number explicitly."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "PX-348:generic-install",
+              "precondition": "The conver source and the installed `.claude` copies are compared.",
+              "postcondition": "No workspace-specific id, path, sequence or fixture value appears in code, comments, docs or tests; after `make install-to-projects`, the installed copies match the source.",
+              "invariant": "The same check applies to every project, and the installed-copy sync is the only propagation mechanism."
+            }
+          ],
+          "created_at": "2026-11-02",
+          "updated_at": "2026-11-02",
+          "default_files": [
+            ".claude/scripts/sequences-slice/verify-chain.mjs",
+            ".claude/scripts/sequences-slice/lib/implementation-order.mjs",
+            ".claude/scripts/educe-sequences/rail/engine.mjs",
+            ".claude/commands/split-to-tickets.md",
+            "tests/sequences-slice/verify-chain-order.test.mjs",
+            "tests/sequences-slice/implementation-order.test.mjs",
+            "tests/educe-sequences/step-order.test.mjs",
+            "tests/educe-sequences/checks.test.mjs",
+            "tests/educe-sequences/engine.test.mjs",
+            "tests/educe-sequences/rail-regression.test.mjs",
+            "tests/educe-sequences/inquest.test.mjs",
+            "tests/educe-sequences/adhoc-run.test.mjs",
+            "tests/educe-sequences/run.test.mjs",
+            "tests/educe-sequences/borrowed-census.test.mjs",
+            "tests/educe-sequences/coverage.test.mjs",
+            "tests/educe-sequences/diagram-encoding.test.mjs",
+            "tests/educe-sequences/line-coverage.test.mjs",
+            "tests/educe-sequences/step-grounding.test.mjs",
+            "tests/tickets/sequence-step-coverage.test.mjs",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/tickets/merge-contracts-to-tickets.js",
+            "docs/EDUCE-SEQUENCES-DESIGN.md",
+            "tests/tickets/ticket-relevance.test.cjs",
+            "tests/tickets/contract-registry-scope.test.cjs",
+            "tests/educe-sequences/fixtures/spec/ledger-sequences.json",
+            "tests/educe-sequences/fixtures/spec/ledger-sequences.md",
+            "tests/educe-sequences/fixtures/census/ledger-sequences.json",
+            "tests/educe-sequences/fixtures/census/ledger-sequences.md"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] shared data prerequisite predicate\n```js\nimport { consumesWhatEarlierProduces } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';\nconst earlier = { contract: { produces: ['object:X'] } };\nconst later = { contract: { consumes: ['object:X'] } };\nassert.equal(consumesWhatEarlierProduces(earlier, later), true);\nassert.equal(consumesWhatEarlierProduces(earlier, { contract: { consumes: ['object:Y'] } }), false);\nassert.equal(consumesWhatEarlierProduces({ contract: {} }, { contract: {} }), false);\n```",
+            "UT: [Normal/Error] placement is enforced only for a real data prerequisite\n```js\nconst dataSteps = [\n  { id: 's1', sequence: 'S', operation: 'A', order: 0, line: 1, quote: 'a', contract: { produces: ['object:X'] } },\n  { id: 's2', sequence: 'S', operation: 'B', order: 1, line: 2, quote: 'b', contract: { consumes: ['object:X'] } },\n];\nconst reversed = buildChainFixture({ view: ownedView(), nodes: [{ id: 'N1', unitIds: ['op-A', 'seq-S'] }, { id: 'N2', unitIds: ['op-B'] }], sequences: [{ id: 'S', outcome: 'direct' }], steps: dataSteps, phases: [laterFirst, earlierSecond] });\nassert.equal(verifyChain({ ...reversed, stage: 'split' }).findings.some((finding) => finding.code === 'SEQUENCE_ORDER_MISMATCH'), true);\nconst independent = buildChainFixture({ view: ownedView(), nodes: [{ id: 'N1', unitIds: ['op-A', 'seq-S'] }, { id: 'N2', unitIds: ['op-B'] }], sequences: [{ id: 'S', outcome: 'direct' }], steps: dataSteps.map((step) => ({ ...step, contract: {} })), phases: [laterFirst, earlierSecond] });\nassert.equal(verifyChain({ ...independent, stage: 'split' }).findings.some((finding) => finding.code === 'SEQUENCE_ORDER_MISMATCH'), false);\n```",
+            "UT: [Invariant] the copied order check remains\n```js\nconst mismatched = buildChainFixture({ view: ownedView(), nodes: [{ id: 'N1', unitIds: ['op-A', 'op-B', 'seq-S'] }], sequences: [{ id: 'S', outcome: 'direct' }], steps: artifactSteps(), phases: [{ id: 0, nodeIds: ['N1'], tickets: [{ id: 1, unitIds: ['op-A', 'op-B', 'seq-S'], obligations: { 'op-A': { mode: 'implement' }, 'op-B': { mode: 'implement' }, 'seq-S': { mode: 'steps', steps: [{ ...STEP_1, order: 1 }, { ...STEP_2, order: 0 }] } } }] }] });\nconst findings = verifyChain({ ...mismatched, stage: 'split' }).findings;\nassert.ok(findings.some((finding) => finding.code === 'SEQUENCE_ORDER_MISMATCH' && String(finding.message).includes('seq-S')));\n```",
+            "UT: [Normal/Error/Boundary] the educe line-order check\n```js\nimport { CHECKS } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';\nconst check = CHECKS.find((candidate) => candidate.id === 'steps-are-in-line-order-within-their-entry');\nconst artifact = {\n  sequences: [{ id: 'S', cites: 0, firstLine: 1, lastLine: 20 }],\n  steps: [\n    { id: 's1', sequence: 'S', line: 12 },\n    { id: 's2', sequence: 'S', line: 3 },\n  ],\n};\nconst verdicts = check.run({ artifact, specLines: [] });\nassert.equal(verdicts.length, 1);\nassert.equal(verdicts[0].subject, 'S/s1');\nassert.deepEqual(check.run({ artifact: { ...artifact, sequences: [{ ...artifact.sequences[0], cites: 1 }] }, specLines: [] }), []);\nassert.deepEqual(check.run({ artifact: { ...artifact, sequences: [{ ...artifact.sequences[0], cites: undefined }] }, specLines: [] }), []);\nassert.deepEqual(check.run({ artifact: { ...artifact, steps: [{ id: 's1', sequence: 'S', line: 8 }, { id: 's2', sequence: 'S', line: 8 }] }, specLines: [] }), []);\nassert.deepEqual(check.run({ artifact: { ...artifact, sequences: [{ ...artifact.sequences[0], firstLine: 1, lastLine: 5 }] }, specLines: [] }), []);\n```",
+            "UT: [Normal] the declared check count is explicit\n```js\nimport { CHECKS, ENGINE_DECLARED_CHECK_COUNT, checkAll } from '../../.claude/scripts/educe-sequences/rail/engine.mjs';\nassert.equal(CHECKS.filter((check) => check.id === 'steps-are-in-line-order-within-their-entry').length, 1);\nassert.equal(ENGINE_DECLARED_CHECK_COUNT, 32);\nconst { summary } = checkAll({ specLines: spec.lines, artifact: golden() });\nassert.equal(summary.checksRun, summary.checksDeclared);\n```",
+            "IT: [Generality/Install] no project-specific value and the installed copy matches\n```js\nconst engine = readFileSync('.claude/scripts/educe-sequences/rail/engine.mjs', 'utf8');\nassert.equal(/S-soul-transfer|pkg-0002|gaia-soul/.test(engine), false);\nconst sourceDigest = createHash('sha256').update(readFileSync('.claude/scripts/sequences-slice/verify-chain.mjs')).digest('hex');\nconst installedDigest = createHash('sha256').update(readFileSync(join(process.env.HOME, '.claude/scripts/sequences-slice/verify-chain.mjs'))).digest('hex');\nassert.equal(sourceDigest, installedDigest);\n```"
+          ],
+          "startedAt": "2026-11-02",
+          "changes": [
+            {
+              "before": "the placement check enforced narrative sequence order for every consecutive local step pair",
+              "after": "it enforces order only for a real produces/consumes prerequisite and leaves hard edges to verify-implementation-order",
+              "description": "verify-chain.mjs placement check narrowed to the shared data prerequisite"
+            },
+            {
+              "before": "consumesWhatEarlierProduces was private and the sequence pair set was implicit",
+              "after": "the predicate is exported and sequenceDataPrerequisitePairs enumerates the data pairs once",
+              "description": "implementation-order.mjs shared predicate and pair enumerator"
+            },
+            {
+              "before": "the educe rail had no check that a span reading follows its cited lines",
+              "after": "steps-are-in-line-order-within-their-entry is declared, counted (31 to 32) and refuses a decreasing in-span pair",
+              "description": "educe rail producer check"
+            },
+            {
+              "before": "the split command and the design document described the old artifact-order rule",
+              "after": "they describe the data-prerequisite rule and the new declared count",
+              "description": "split-to-tickets.md and docs/EDUCE-SEQUENCES-DESIGN.md updated"
+            },
+            {
+              "before": "the golden fixtures carried the old verify command and the old check count",
+              "after": "the spec and census artifact renderings are regenerated to the current rail output",
+              "description": "fixture regeneration; no assertion weakened"
+            },
+            {
+              "before": "the phase-local relevance and registry-scope fixes existed only in the gaia installed copy",
+              "after": "both fixes and their tests live in conver and are mirrored by make install-to-projects",
+              "description": "generic upstream fixes carried into conver"
+            },
+            {
+              "before": "the installed .claude copies lagged the conver source",
+              "after": "zasso, siprs, gaia, conver and crystal copies match the source for the changed files",
+              "description": "make install-to-projects"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-02"
         }
       ]
     },

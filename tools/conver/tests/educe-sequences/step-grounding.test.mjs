@@ -196,8 +196,9 @@ test('C009 an artifact that keeps its steps but drops its operations is refused 
 
 // [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 test('C009 the declared check count is the number of checks, and this ticket is what raised it', () => {
-  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 31);
+  assert.equal(ENGINE_DECLARED_CHECK_COUNT, 32);
   assert.equal(checkAll({ specLines: spec.lines, artifact: golden() }).summary.checksDeclared, ENGINE_DECLARED_CHECK_COUNT);
 });
 

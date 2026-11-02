@@ -66,4 +66,4 @@ sequenceDiagram
 
 ## Verify
 
-`node .claude/scripts/educe-sequences/rail/run.mjs <spec-file>` exits 0
+`node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs" <spec-file>` exits 0

@@ -131,7 +131,7 @@ so a hand-edited fixture fails rather than silently changing what the golden tes
 measures. Drift from the source repository is reported, never absorbed.
 
 The corpus holds 29 files totalling 3100101 bytes, and a green run of the golden
-specification reports 31 checks over 5 pins.
+specification reports 32 checks over 5 pins.
 
 `tests/educe-sequences/fixtures/spec/` holds the golden run: a small specification, the
 declaration and readings one run recorded, and the artifact and rendering that run
