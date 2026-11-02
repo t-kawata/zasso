@@ -161,4 +161,5 @@ install-to-projects:
 	node install.js -y -t ~/shyme/zasso/crates/siprs/.claude
 	node install.js -y -t ~/shyme/gaia/.claude
 	node install.js -y -t ~/shyme/conver/.claude
+	node install.js -y -t ~/shyme/crystal/.claude
 	cp README.md ~/shyme/conver/README.md
