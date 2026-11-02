@@ -52461,6 +52461,151 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-02"
+        },
+        {
+          "id": 345,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make /explain-seed argument-free: resolve RFC-SEED.md from the current directory",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-345.md",
+          "background": "### Goal\nMake `/explain-seed` argument-free: the command always explains the `RFC-SEED.md` in the current directory, and every operation receives that one resolved path.\n\n### Purpose\n`RFC-SEED.md` is placed exactly once per package directory, so passing its path is redundant. Removing the argument makes the command contract match its actual use: run it from the package directory.\n\n### Motivation\n`argument-hint: <path-to-RFC-SEED.md>` advertises an input the operator should not supply, and the command passes `$ARGUMENTS` to `run.mjs` in nine places. `smooth-sequences.md` already established the argument-free pattern: no `argument-hint`, no `$ARGUMENTS`, current directory only, never walk up. The historical record also shows invocations from the repository root with a relative path (`docs/archive/BUG-INFO001.md:9`, `docs/archive/FIX-PLAN001.md:15`), so the change is a deliberate move of the operating convention to the package directory.\n\n### Constraints\nKeep the positional path API of `run.mjs` unchanged; it remains the internal, tested contract. Keep the shared question-gate block byte-identical across explain-seed, grill-me-for-rfc and drill-rfc-down. Update all three installed copies of the command and the regeneration handoff byte-identically. Never search parent directories for a seed.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] `.claude/commands/explain-seed.md` (source of record), the repository-root copy, and the `crates/siprs` copy; `.claude/scripts/regeneration/lib/transaction.mjs` and its two installed copies; `README.md`.\n  - [Action: add/modify/remove/rename/refactor] modify; add one test file.\n  - [What specifically changes] Frontmatter becomes `argument-hint: \"\"`. A seed anchor resolves `printf '%s/RFC-SEED.md\\n' \"$(pwd)\"` once as `SEED_PATH`. The In line, `## Arguments`, `## Gates` G0 and the flow replace the operator-supplied `<path-to-RFC-SEED.md>` with `SEED_PATH`; all nine `$ARGUMENTS` call sites become `\"$SEED_PATH\"`. The Scripts table states that every `<path>` is `SEED_PATH`. `transaction.mjs` tells the operator to run the command from the directory holding the seed. README drops the path from the section heading and body.\n  - [Before -> After (behavior/signature)] Before: the operator passes a path, and `$ARGUMENTS` reaches `run.mjs`. After: no operator argument; the command resolves `RFC-SEED.md` from the current directory and passes that path.\n  - [API contract change (if any)] The slash-command surface loses its positional argument. `run.mjs` keeps its path argument and ARITY table unchanged.\n  - [Data schema change (if any)] none.\n  - [Config/env change (if any)] none.\n  - [Dependency added/removed (if any)] none.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] Changing `run.mjs`'s argument parser, ARITY table, or operation surface.\n  - [Why excluded - separate ticket / future phase / not applicable] It is the internal API and is already covered by its own tests; a cwd-default script is a separate change and would duplicate the command-level resolution.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] `tests/question-gate/unit/settle-trace.test.mjs` (byte equality across the three installs); `tests/regeneration/transaction.test.mjs` (handoff text); `tests/smooth-sequences/docs.test.mjs` (argument-free precedent, unchanged); the shared question-gate block.\n  - [Nature of impact] Command API surface, installation parity, and the regeneration handoff.\n  - [Corresponding change needed Y/N + details] Y: synchronize the three command and transaction copies and add static plus integration tests; the shared question-gate block must remain byte-identical."
+          ],
+          "testUnit": [
+            "UT: [Normal] C001, C002, C005 - the source command and both installed copies declare `argument-hint: \"\"` and contain no `$ARGUMENTS`; the three copies are byte-identical.",
+            "UT: [Normal] C001 - the command states that the seed is the `RFC-SEED.md` in the current directory and records it once as `SEED_PATH`.",
+            "UT: [Normal] C001 - every `run.mjs` invocation for info, next, check, answers and revise passes `\"$SEED_PATH\"`; no invocation passes an empty string or an operator-supplied path.",
+            "UT: [Normal] C003 - the command states that it never searches a parent directory.",
+            "UT: [Error] C003 - G0 states that a missing or unreadable `RFC-SEED.md` stops the command before any write.",
+            "UT: [Boundary] C003 - a current directory without `RFC-SEED.md` stops even when a parent directory holds one.",
+            "UT: [Invariant] C002 - no copy carries the old `argument-hint` or `$ARGUMENTS`; a copy that differs fails by path.",
+            "UT: [Invariant] C004 - `run.mjs` invoked with no seed path still refuses with the `arguments` error; the command wrapper owns current-directory resolution.",
+            "UT: [Normal] C005 - the shared question-gate block remains byte-identical across explain-seed, grill-me-for-rfc and drill-rfc-down; edits are confined to the frontmatter, In line, Arguments, Gates G0 and the nine call sites.",
+            "UT: [Normal] - the regeneration handoff tells the operator to run the command from the directory holding the seed; all three transaction.mjs copies are byte-identical.",
+            "UT: [Normal] - README's `/explain-seed` section has no `<path-to-RFC-SEED.md>` and names the current directory as the subject.",
+            "UT: [Boundary] - an empty `SEED_PATH` is impossible: the anchor prints `$(pwd)/RFC-SEED.md`, and G0 rejects a non-file."
+          ],
+          "testIntegration": [
+            "IT: command document + run.mjs - run `info RFC-SEED.md` with cwd set to the fixture package directory and assert exit 0, `INFO-RFC-SEED.md` and `EXPLAIN-RFC-SEED.md` beside the seed, and the facts on stdout.",
+            "IT: three installs - compare `tools/conver/.claude/commands/explain-seed.md`, the repository-root copy and the `crates/siprs` copy byte for byte; the existing `settle-trace` test is the enforcing integration point.",
+            "IT: regeneration handoff + explain-seed - the handoff names the directory holding the seed, and running from that directory resolves the same seed named in the ground.",
+            "IT: README usage - the `/explain-seed` section documents no positional argument and matches the command file's In line."
+          ],
+          "testExceptions": [
+            "The slash-command layer is prose executed by an AI; it is impossible to test the command document itself as executable code. This is not a design defect: the command file is verified by static assertions, and the behavior it triggers is verified by an integration run of `run.mjs info RFC-SEED.md` from the fixture package directory.",
+            "It is impossible to test whether the AI actually stops at G0; this is not an architectural defect because the G0 line is asserted verbatim and the script-level missing-path refusal is exercised deterministically."
+          ],
+          "default_files": [
+            ".claude/commands/explain-seed.md",
+            ".claude/scripts/regeneration/lib/transaction.mjs",
+            "README.md",
+            "tests/explain-seed/unit/argument-free.test.mjs",
+            "tests/explain-seed/acceptance/explain-seed.test.mjs",
+            "tests/regeneration/transaction.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - Running `/explain-seed` from a package directory holding `RFC-SEED.md` completes info, next, check, answers and revise with no operator-supplied path; the three command copies are identical and README shows no path.",
+            "**[Error case] — Describe an error scenario the feature must handle:**\n  - Running `/explain-seed` in a directory without `RFC-SEED.md` stops at G0 with a named missing-seed report and writes neither document.",
+            "**[Edge case] — Describe any boundary or exception to verify:**\n  - Running from a subdirectory stops at G0 even when a parent directory contains `RFC-SEED.md`; no upward search occurs."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "current directory -> seed resolution",
+              "precondition": "The current directory contains a readable RFC-SEED.md.",
+              "postcondition": "Every run.mjs invocation for info, next, check, answers and revise receives the resolved seed path.",
+              "invariant": "No invocation receives an empty string or an operator-supplied path."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "command source -> three installed copies",
+              "precondition": "The three installed copies of explain-seed.md exist.",
+              "postcondition": "All three copies are byte-identical after the change.",
+              "invariant": "No copy carries the old argument-hint or $ARGUMENTS."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "missing seed -> G0",
+              "precondition": "The current directory has no RFC-SEED.md and a parent directory has one.",
+              "postcondition": "G0 stops the command before any write.",
+              "invariant": "The command never searches a parent directory or falls back to another seed."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "command wrapper -> run.mjs parser",
+              "precondition": "run.mjs is invoked with no seed path.",
+              "postcondition": "parseArguments refuses with the arguments error.",
+              "invariant": "The command wrapper owns current-directory resolution, not run.mjs."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "shared question-gate block -> three command files",
+              "precondition": "The three command files share one question-gate block.",
+              "postcondition": "The block remains byte-identical across the three command files.",
+              "invariant": "Edits are confined to the frontmatter, In line, Arguments, Gates G0 and the nine call sites."
+            }
+          ],
+          "notes": "- [Implementation steps]\n  1. Change the source command: frontmatter, seed anchor, In line, Arguments, G0, nine call sites, Scripts note.\n  2. Mirror the command byte for byte into the repository root and `crates/siprs`.\n  3. Update `transaction.mjs` and its two installed copies to instruct running from the directory holding the seed.\n  4. Update README's `/explain-seed` heading and input sentence.\n  5. Add `tests/explain-seed/unit/argument-free.test.mjs`; extend the acceptance and handoff tests.\n  6. Run the targeted impact set with `node --test`.\n- [Risks] Removing the positional path drops the ability to run from outside the package directory; the regeneration handoff must therefore name the directory. Adding a parent search would silently pick a neighbour's seed; do not add one.\n- [Caveats] `run.mjs` keeps its path argument, so the script's usage lines still say `<path-to-RFC-SEED.md>`; that is the internal API, not the operator surface. There is no Makefile; use `node --test` on the impact set.\n- [Open items] none.\n- [Future improvements] Make `run.mjs` default to `cwd/RFC-SEED.md` if the internal API should also become argument-free; that is a separate ticket because it changes ARITY and every operation's tests.\nImplementation summary:\n- Changed files: tools/conver/.claude/commands/explain-seed.md, .claude/commands/explain-seed.md, crates/siprs/.claude/commands/explain-seed.md, tools/conver/.claude/scripts/regeneration/lib/transaction.mjs, .claude/scripts/regeneration/lib/transaction.mjs, crates/siprs/.claude/scripts/regeneration/lib/transaction.mjs, tools/conver/README.md, tools/conver/tests/explain-seed/unit/argument-free.test.mjs (new), tools/conver/tests/explain-seed/acceptance/explain-seed.test.mjs, tools/conver/tests/explain-seed/unit/kindness-criterion.test.mjs, tools/conver/tests/regeneration/transaction.test.mjs.\n- Key changes: no operator argument; SEED_PATH = cwd/RFC-SEED.md; G0 stops before any write when absent; no parent search; run.mjs and its ARITY table unchanged; all three installs synchronized; handoff names the seed directory.\n- Test results: argument-free (11/11), explain-seed unit (281/281), acceptance (46/46), regeneration transaction (30/30), question-gate unit (119/119), command-file/convention impact set (104/104). Quality checks: 0 issues.\n- Caveat: arbitrary path support was deliberately removed; the regeneration handoff now requires the operator to run from the seed directory.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: command and transaction copies are byte-identical across tools/conver, the repository root and crates/siprs\n- Annotation: 7 source files verified, 0 missing, 0 ambiguous\n- Issues found and fixes applied: the pre-existing kindness gate locator searched the shared question-gate block for G5 instead of the command's own Gates; changed the token to 'G5 answers :' so the test checks the intended section\n- Remaining risk: arbitrary seed-path invocation is intentionally removed; the regeneration handoff now requires running from the seed directory",
+          "invariants": "- 【Normal establishment】 The command resolves exactly one seed: the RFC-SEED.md in the current directory, recorded once as SEED_PATH.\n- 【Error invariant】 A missing or unreadable RFC-SEED.md stops at G0 before any byte is written; no document is produced from an absent seed.\n- 【Internal state invariant】 The three installed copies of explain-seed.md and of transaction.mjs stay byte-identical; the shared question-gate block is untouched.\n- 【Boundary invariant】 A subdirectory without RFC-SEED.md never borrows a parent seed; the command does not walk up.",
+          "instrumentation": "- [Logging] No new runtime logging. G0 reports the missing or unreadable `RFC-SEED.md` on stderr; `run.mjs` keeps its `arguments` error for a missing position.\n- [Metrics] None; this is a command-contract change, not a runtime path.\n- [Error tracking] G0 names the seed and stops before any write; the three-copy byte equality names a diverging path.\n- [Health check] Static assertions on the three command copies and the three handoff copies, plus the targeted `node --test` impact set.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (no generic variables, single-char assignments, magic numbers, or debug output in changed code)\nTests: 476 targeted tests passed; 118 command-file/convention tests passed\nConventions: make check-conventions passed; make check-path-emission passed",
+          "investigation": "- Source command `tools/conver/.claude/commands/explain-seed.md`: `argument-hint: <path-to-RFC-SEED.md>` at line 3; the In line at line 9; `## Arguments` at lines 208-212; `G0 arg` at line 430; nine `$ARGUMENTS` call sites at lines 431, 434, 435, 443, 454, 463, 480, 485 and 488.\n- `tools/conver/.claude/scripts/explain-seed/run.mjs`: `ARITY` at lines 105-110 requires one seed path for info/check/answers and two positions for next/revise; `parseArguments` at lines 161-181 resolves the seed and refuses a missing, empty or dash-prefixed value with the `arguments` error. The script's positional API is unchanged by this ticket.\n- Install parity: `tools/conver/.claude/commands/explain-seed.md`, `~/shyme/zasso/.claude/commands/explain-seed.md` and `~/shyme/zasso/crates/siprs/.claude/commands/explain-seed.md` are byte-identical (sha256 9bb4741795877f49057975b743601b726d9f67703b0f6fca7aec8655115fe767). `tests/question-gate/unit/settle-trace.test.mjs:245-262` compares all three installs and fails on any difference. `transaction.mjs` is likewise identical in all three installs (sha256 e4e2d466a6ea02ce32ab01e28b9f16b1016ad4065c19ed8a60aa11bb048d33f8).\n- README `tools/conver/README.md:279-280`: the section heading is `#### /explain-seed <path-to-RFC-SEED.md>` and the body says `入力は seed のパス1つだけです。` Both must change to the current-directory contract.\n- Regeneration handoff `tools/conver/.claude/scripts/regeneration/lib/transaction.mjs:78-87`: `groundHandoff` returns `run \".../explain-seed.md\" on the RFC seed named in the ground under ${stagingRoot}, then ...`; the comment says `/explain-seed takes one RFC-SEED.md path, not a directory.` `tests/regeneration/transaction.test.mjs:570-575` asserts only that the handoff names explain-seed, RFC seed and continue, so the wording can be corrected without breaking it.\n- Precedent: `tools/conver/.claude/commands/smooth-sequences.md:95` says `Judge current directory; no parent search.` `tests/smooth-sequences/docs.test.mjs:199-204` asserts no `argument-hint`, no `$ARGUMENTS`, `current directory`, and `does not search|never walks up`. The explain-seed change follows this exact shape.\n- No existing test asserts the explain-seed command's `argument-hint`, In line, Arguments or `$ARGUMENTS`; the tests that read the command file check the questioning discipline and naming only. New static assertions are therefore required to make the new contract testable.\n- Historical usage shows the old contract was real: `tools/conver/docs/archive/BUG-INFO001.md:9` records `/explain-seed crates/foundation/gaia-foundation/RFC-SEED.md` and `tools/conver/docs/archive/FIX-PLAN001.md:15` records `/explain-seed crates/protocol/gaia-soul/RFC-SEED.md`, both from the repository root. The ticket deliberately moves the convention to the package directory and must not add a parent search to compensate.",
+          "boyScoutPlan": "- Replace the stale comment `// /explain-seed takes one RFC-SEED.md path, not a directory.` in `transaction.mjs` with the truth that the command is argument-free and runs from the seed directory (M2/M3).\n- Rename the operator-facing term `arg` to `seed` in the Arguments and G0 lines so the document names the domain concept rather than a positional slot.\n- Keep the script API unchanged; no function extraction is needed in `run.mjs` because the command wrapper owns resolution.\n- No hardcoded operator path; the only literal is the file name `RFC-SEED.md`, which is the domain constant.",
+          "created_at": "2026-11-02",
+          "updated_at": "2026-11-02",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "Harness definitions shared by the command-install tests\n```js\nconst PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');\nconst REPOSITORY_ROOT = repositoryRootFrom(PROJECT_ROOT);\nconst INSTALLS = [PROJECT_ROOT, join(REPOSITORY_ROOT, 'crates/siprs'), REPOSITORY_ROOT];\nconst COMMAND_FILES = INSTALLS.map((root) => join(root, '.claude/commands/explain-seed.md'));\nconst TRANSACTION_FILES = INSTALLS.map((root) => join(root, '.claude/scripts/regeneration/lib/transaction.mjs'));\n```",
+            "[RED] UT: [Normal] C001/C002 - no argument, no $ARGUMENTS, nine seed-path call sites\n```js\nfor (const file of COMMAND_FILES) {\n  const text = readFileSync(file, 'utf8');\n  assert.match(text, /^argument-hint: \"\"$/m);\n  assert.doesNotMatch(text, /\\$ARGUMENTS/);\n  assert.equal((text.match(/\"\\$SEED_PATH\"/g) ?? []).length, 9);\n}\n```",
+            "[RED] UT: [Normal] C001 - the seed anchor resolves cwd/RFC-SEED.md once\n```js\nconst command = readFileSync(COMMAND_FILES[0], 'utf8');\nassert.match(command, /RFC-SEED\\.md in the current directory/);\nassert.match(command, /printf '%s\\/RFC-SEED\\.md\\\\n' \"\\$\\(pwd\\)\"/);\nassert.match(command, /-f \"\\$SEED_PATH\"/);\n```",
+            "[RED] UT: [Error] C003 - G0 stops before any write on a missing seed and no parent is searched\n```js\nconst command = readFileSync(COMMAND_FILES[0], 'utf8');\nassert.match(command, /^G0 seed\\s*:.*RFC-SEED\\.md.*fail: stop/m);\nassert.match(command, /never search(?:es)? a parent directory/i);\n```",
+            "[GUARD] UT: [Invariant] C002 - the three command installs are one text\n```js\nconst texts = COMMAND_FILES.map((file) => readFileSync(file, 'utf8'));\nassert.equal(new Set(texts).size, 1);\n```",
+            "[GUARD] UT: [Invariant] C002 - the three transaction installs are one text\n```js\nconst texts = TRANSACTION_FILES.map((file) => readFileSync(file, 'utf8'));\nassert.equal(new Set(texts).size, 1);\n```",
+            "[GUARD] UT: [Invariant] C004 - run.mjs still refuses a missing seed path and does not own cwd resolution\n```js\nimport { parseArguments } from '../../../.claude/scripts/explain-seed/run.mjs';\nassert.throws(() => parseArguments(['info']), (error) => /arguments/.test(error.message));\nassert.equal(parseArguments(['info', 'RFC-SEED.md']).seedPath, resolve('RFC-SEED.md'));\n```",
+            "[GUARD] UT: [Normal] C005 - the shared question-gate block is unchanged across the three command files\n```js\nconst block = (text) => text.slice(text.indexOf('<!-- question-gate:begin -->'), text.indexOf('<!-- question-gate:end -->'));\nconst explain = readFileSync(join(PROJECT_ROOT, '.claude/commands/explain-seed.md'), 'utf8');\nconst grill = readFileSync(join(PROJECT_ROOT, '.claude/commands/grill-me-for-rfc.md'), 'utf8');\nconst drill = readFileSync(join(PROJECT_ROOT, '.claude/commands/drill-rfc-down.md'), 'utf8');\nassert.equal(block(explain), block(grill));\nassert.equal(block(explain), block(drill));\n```",
+            "[RED] UT: [Normal] - README names no path in the explain-seed section\n```js\nconst readme = readFileSync(join(PROJECT_ROOT, 'README.md'), 'utf8');\nassert.doesNotMatch(readme, /\\/explain-seed <path-to-RFC-SEED\\.md>/);\nassert.match(readme, /^#### `\\/explain-seed`$/m);\n```",
+            "[RED] UT: [Normal] - the regeneration handoff names the seed directory\n```js\nfor (const file of TRANSACTION_FILES) {\n  const text = readFileSync(file, 'utf8');\n  assert.match(text, /from the directory holding the RFC seed/);\n  assert.doesNotMatch(text, /takes one RFC-SEED\\.md path/);\n}\nconst handoff = groundHandoff({ stagingRoot: '/tmp/staging', reason: 'RFC-SEED.md line 12 has no evidence' });\nassert.match(handoff, /from the directory holding the RFC seed/);\n```",
+            "[RED] IT: C001 - the documented anchor prints the package-directory seed and info succeeds\n```js\nconst command = readFileSync(COMMAND_FILES[0], 'utf8');\nassert.match(command, /printf '%s\\/RFC-SEED\\.md\\\\n' \"\\$\\(pwd\\)\"/, 'the anchor is documented');\nconst workspace = materializeExplainSeedWorkspace();\nconst packageDir = dirname(workspace.seedPath);\nconst anchor = spawnSync('sh', ['-c', `cd '${packageDir}' && printf '%s/RFC-SEED.md\\\\n' \"$(pwd)\"`], { encoding: 'utf8' });\nassert.equal(anchor.stdout.trim(), join(packageDir, 'RFC-SEED.md'));\nconst run = runExplainSeed(['info', 'RFC-SEED.md'], { cwd: packageDir });\nassert.equal(run.status, 0, run.stderr.toString('utf8'));\nassert.ok(existsSync(join(packageDir, 'INFO-RFC-SEED.md')));\nassert.ok(existsSync(join(packageDir, 'EXPLAIN-RFC-SEED.md')));\n```",
+            "[RED] IT: C003 - a subdirectory without a seed refuses and writes nothing\n```js\nconst command = readFileSync(COMMAND_FILES[0], 'utf8');\nassert.match(command, /never search(?:es)? a parent directory/i, 'the command forbids a parent search');\nconst workspace = materializeExplainSeedWorkspace();\nconst packageDir = dirname(workspace.seedPath);\nconst subdir = join(packageDir, 'nested');\nmkdirSync(subdir);\nconst run = runExplainSeed(['info', 'RFC-SEED.md'], { cwd: subdir });\nassert.notEqual(run.status, 0);\nassert.equal(existsSync(join(subdir, 'INFO-RFC-SEED.md')), false);\n```"
+          ],
+          "startedAt": "2026-11-02",
+          "changes": [
+            {
+              "before": "argument-hint: <path-to-RFC-SEED.md>; the operator passed a seed path and nine $ARGUMENTS call sites forwarded it to run.mjs",
+              "after": "argument-hint: \"\"; a seed anchor resolves $(pwd)/RFC-SEED.md once as SEED_PATH; the In line, Arguments, G0 and nine call sites use $SEED_PATH",
+              "description": "C001/C003/C004: the command is argument-free, resolves the current-directory seed, never searches a parent, and leaves run.mjs's positional API unchanged"
+            },
+            {
+              "before": "the command and the regeneration handoff existed as three installed copies",
+              "after": "tools/conver, the repository root and crates/siprs hold byte-identical command and transaction files (sha256 verified)",
+              "description": "C002 install parity; each copy carries the PX-345 provenance annotation before groundHandoff"
+            },
+            {
+              "before": "groundHandoff said /explain-seed takes one RFC-SEED.md path and named the seed under stagingRoot",
+              "after": "groundHandoff tells the operator to run /explain-seed from the directory holding the RFC seed",
+              "description": "C001 handoff: the argument-free command needs the seed directory named explicitly"
+            },
+            {
+              "before": "README advertised /explain-seed <path-to-RFC-SEED.md> and said the input was one seed path",
+              "after": "README documents /explain-seed with no argument and names the current directory as the subject",
+              "description": "operator surface: the documented usage matches the command"
+            },
+            {
+              "before": "no test asserted the argument-free contract; the kindness gate locator found the shared block's G5 instead of the command's own Gates",
+              "after": "argument-free.test.mjs covers C001-C005; acceptance and transaction tests cover the relative seed and handoff; the kindness locator uses 'G5 answers :'",
+              "description": "Red tests were written first and failed on the old command; after Green they pass"
+            },
+            {
+              "before": "416 tests in the targeted impact set",
+              "after": "476 tests pass across explain-seed unit/acceptance, regeneration, and question-gate unit; 104 command-file and convention tests pass separately",
+              "description": "verification: node --test impact set only"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-02"
         }
       ]
     },

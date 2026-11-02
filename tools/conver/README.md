@@ -276,9 +276,9 @@ flowchart TD
 
 ### 上流ループ（人間＋AI 実行）
 
-#### `/explain-seed <path-to-RFC-SEED.md>`
+#### `/explain-seed`
 
-第五層が置いた `RFC-SEED.md` を、設計面接（grill）の**前に**人間へ平易に説明し、人間の判断だけを人間から引き出します。入力は seed のパス1つだけです。
+第五層が置いた `RFC-SEED.md` を、設計面接（grill）の**前に**人間へ平易に説明し、人間の判断だけを人間から引き出します。入力は引数なし。実行ディレクトリの `RFC-SEED.md` を対象にし、親ディレクトリは探索しません。
 
 - **出力**: seed の隣に2文書。`INFO-RFC-SEED.md`（**事実**・英語・スクリプトが書く。2つの manifest・seed・仕様書・隣人の説明・**`workspacify-order` から読んだ実装順**から組み立て、stdout に同じバイトを出す）と `EXPLAIN-RFC-SEED.md`（**説明**・日本語・AI と人間の共著）。**事実と説明を別文書に分ける**のが要点で、`/grill-me-for-rfc` と `/drill-rfc-down` はこの2文書を先行記録として読む
 - **プロセス**: `run.mjs info` が事実と枠を書く（G1）→ AI が `[::MUST-FILL::]` を日本語で埋める（G2）→ `run.mjs next` が番号付きの空の質問ブロックを追記（1ラウンド最大3問）→ AI が自分の散文を1つの判断として自己判定する（G3）→ `run.mjs check` がゲート（G4）→ `run.mjs answers` が判定（G5: 全問に回答があり、未確定点がゼロ）

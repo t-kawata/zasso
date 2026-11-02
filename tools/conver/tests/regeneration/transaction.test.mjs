@@ -567,10 +567,12 @@ test('continue re-verifies a judgment-required transaction after the AI settles 
 });
 
 // @verifies C003
+// [::TICKET::] PX-345 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-345 --for-spec --no-implementation-order`.
 test('groundHandoff routes an RFC seed to explain-seed with the seed named', () => {
   const handoff = groundHandoff({ stagingRoot: '/tmp/staging', reason: 'RFC-SEED.md line 12 has no evidence' });
   assert.match(handoff, /explain-seed/);
   assert.match(handoff, /RFC seed/);
+  assert.match(handoff, /from the directory holding the RFC seed/);
   assert.match(handoff, /continue/);
   assert.doesNotMatch(handoff, /human|stop and report/i);
 });

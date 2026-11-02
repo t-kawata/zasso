@@ -1,12 +1,12 @@
 ---
 description: Explain one RFC-SEED.md in plain Japanese — the facts in one document, the explanation in another, and only the human's own judgement left to the human
-argument-hint: <path-to-RFC-SEED.md>
+argument-hint: ""
 disable-model-invocation: true
 ---
 
 # /explain-seed
 
-In: one `RFC-SEED.md` path. Nothing else.
+In: nothing. The seed is the `RFC-SEED.md` in the current directory; the command never searches a parent directory.
 Out: `INFO-RFC-SEED.md`, `EXPLAIN-RFC-SEED.md` beside it; facts of the first on stdout.
 Does: explains; settles every point the AI can ground; grills the human with few direction questions over multiple rounds; settles the rest from the answers; writes answers down; ends when zero points are open; re-opens on a viewpoint the human brings after that, recording it and running the loop again.
 Does not: decide for the human, publish a manifest, start a workflow, invoke another command. Grill = this loop, and so is re-entry: a viewpoint brought after Done is handled by this same loop, not by another command and not by a later session. The downstream design interview is a separate session.
@@ -18,6 +18,15 @@ printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
 ```
 
 Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
+
+**Seed anchor (mandatory — resolve once).** The subject is the `RFC-SEED.md` in the current directory; the command never searches a parent directory. Run this once at the start:
+
+```bash
+printf '%s/RFC-SEED.md\n' "$(pwd)"
+```
+
+Record the printed absolute path as `SEED_PATH`. In every later bash block, assign `SEED_PATH="<the printed path>"` at the top, or substitute that literal path wherever the block writes `$SEED_PATH`. Do not resolve it again, and never fall back to another seed.
+
 ## Core Rule
 
 Never put a point to the human. Put only direction questions.
@@ -207,9 +216,9 @@ writer it is belongs to that command's own section, not to this one.
 
 ## Arguments
 
-In: arg: `<path-to-RFC-SEED.md>`, required, only.
+In: no operator argument. The seed is the `RFC-SEED.md` in the current directory, resolved once as `SEED_PATH`. The command never searches a parent directory.
 Resolve: package + three reference paths from seed's identity block; workspace root = nearest ancestor dir holding both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` — the order is read from the tool that owns the ordering rule, and that tool resolves the same pair. Neighbours = packages at the other end of every boundary this package is a party to, found by the paths the stage-one manifest records for those package ids.
-second arg: `next` takes the round size, `revise` takes the payload, and `info`, `check` and `answers` take none. A second arg given to those three, dialogue, env var, hook, fetch → refuse; exit non-zero. The revise payload is one JSON object — `{"origin": "<the human's own words>", "statement": "<one line>"}` — so a viewpoint carrying spaces or shell characters reaches the command as it was written; `origin` is recorded verbatim, `statement` is the AI's refinement of it.
+operation argument: `next` takes the round size, `revise` takes the payload, and `info`, `check` and `answers` take none. An extra argument given to those three, dialogue, env var, hook, fetch → refuse; exit non-zero. The revise payload is one JSON object — `{"origin": "<the human's own words>", "statement": "<one line>"}` — so a viewpoint carrying spaces or shell characters reaches the command as it was written; `origin` is recorded verbatim, `statement` is the AI's refinement of it.
 
 ## Artifacts
 
@@ -254,6 +263,8 @@ Command's own reports (kept/reopened, gate verdict, round count) → stderr, Eng
 ## Scripts
 
 Base: `.claude/scripts/explain-seed/`.
+
+Every `<path>` below is the `SEED_PATH` resolved at the start; the operator supplies no path.
 
 | Script | Contract |
 |---|---|
@@ -427,12 +438,12 @@ fail → AI fixes before Step 3, or names the item thin in Step 5.
 
 ## Gates
 
-G0 arg     : one resolvable path → fail: stop
-G1 info    : `run.mjs info "$ARGUMENTS"` exit 0 → fail: stop (report as-is; no repair; no retry with other args; no hand-authored doc)
+G0 seed    : `[ -f "$SEED_PATH" ]` on the current directory's `RFC-SEED.md` → fail: stop (write nothing; never search a parent directory)
+G1 info    : `run.mjs info "$SEED_PATH"` exit 0 → fail: stop (report as-is; no repair; no retry with another seed; no hand-authored doc)
 G2 fill    : every `[::MUST-FILL::]` replaced per its own instruction → fail: back to G2
 G3 kind    : self-judged, one integrated judgement, against Criteria → fail: fix, re-judge; unfixable → proceed; Step 5 names item thin
-G4 check   : `run.mjs check "$ARGUMENTS"` exit 0 → fail: back to G3
-G5 answers : `run.mjs answers "$ARGUMENTS"` exit 0 → fail: next round (Step 4e); `next` refuses → stop
+G4 check   : `run.mjs check "$SEED_PATH"` exit 0 → fail: back to G3
+G5 answers : `run.mjs answers "$SEED_PATH"` exit 0 → fail: next round (Step 4e); `next` refuses → stop
 Rule: G0–G2 — parent not PASS ⇒ child never PASS.
 Rule: G5 asks only an explanation G4 accepted; G4 accepts only an explanation G2 filled.
 Exception: G4 PASS ≠ G3 PASS; G4 structural only.
@@ -440,8 +451,8 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
 
 ## Flow
 
-1. **Write facts, write frame** — `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" info "$ARGUMENTS"`
-   G1. fail: report stderr diagnosis (artefact + field) as-is; repair nothing; no retry with another argument; no hand-authored document.
+1. **Write facts, write frame** — `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" info "$SEED_PATH"`
+   G1. fail: report stderr diagnosis (artefact + field) as-is; repair nothing; no retry with another seed; no hand-authored document.
 
 2. **Settle and bundle** — auto; never ask.
    Read facts on stdout. Replace every `[::MUST-FILL::]` with Japanese prose per its instruction.
@@ -451,7 +462,7 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
    - Q1 engineering? Can ground + decision + override condition be written now from manifests? yes → 「先に決めておいたこと」.
    - Q2 light and reversible? Result small for any person, cheap to undo → settle with ground + override condition → 「先に決めておいたこと」.
    - Q3 remaining = weighty or hard to reverse, no ground → cluster by direction: fewest axes such that one answer each lets the AI settle every bound point. ≥ 2 points per axis; ≤ 3 axes per round; overflow stays open for later rounds. An added point steps through Q1 and Q2 first and, if it survives, is clustered here with the rest — no looser path.
-   Then `run.mjs next "$ARGUMENTS" <axes>`; fill each block per Criteria; bind points under it as AI-only record; leave `<!-- 人間の判断 -->` blank.
+   Then `run.mjs next "$SEED_PATH" <axes>`; fill each block per Criteria; bind points under it as AI-only record; leave `<!-- 人間の判断 -->` blank.
    Batch-write, per item: directory purpose in human's words → context for a person knowing neither implementation nor design → what is decided → whose experience changes → consequence if undecided → (question: placeholder blank) / (settled item: override condition; do not reopen).
    Position section only: serial axis = declared edges and nothing else; parallel axis = same level, level rule as ground. Restating level numbers is not an answer.
    preserve: quoted material, ids, clause names per item; directory paths the order block prints.
@@ -460,7 +471,7 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
 3. **Self-judge, then gate** — auto; never ask.
    Heal-loop kind+check:
      judge: apply Criteria as one integrated judgement over own prose and questions; fix what is caught (G3).
-     check: `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" check "$ARGUMENTS"` (G4)
+     check: `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" check "$SEED_PATH"` (G4)
      ok → next
      fail → judge: fix per stderr's named sections; re-run check
    Never report a gate-refused explanation. Never weaken an item to pass G4.
@@ -477,15 +488,15 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
       Three consecutive prose repairs of one question → stop; settle the point or name it misclassified in Step 5.
    b. record: under the question's `<!-- 人間の判断 -->`, lines below: letter + human's prose. placeholder line untouched. never answer for the human; never fill a placeholder to pass G5.
    c. refine, then settle: if the answer raises a viewpoint no recorded point covers, refine it into one point and record it:
-      `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" revise "$ARGUMENTS" '{"origin":"<the human's words, verbatim>","statement":"<one line>"}'`
+      `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" revise "$SEED_PATH" '{"origin":"<the human's words, verbatim>","statement":"<one line>"}'`
       The script owns the id (`added-NNN`), the block's shape and its place in the human's section; the AI owns only the refinement. Never hand-write the block: a hand-written one is a second writer of a format that already has one, and Step 5 forbids hand-editing either document. The recorded point is a point like any other. Then per point bound to an answered question, judge: does letter + prose entail a decision?
       yes → 「先に決めておいたこと」: 決定, 根拠 (`Qn` + letter, + manifest ids), 覆す条件.
       no → point stays open; note what the answer failed to entail. Never guess. An added point takes the same ladder: settled here if the answer entails it, bound next round if it does not.
    d. gate: `run.mjs check` (G4); fail → fix per stderr; re-run.
-   e. verdict: `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" answers "$ARGUMENTS"` (G5)
+   e. verdict: `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" answers "$SEED_PATH"` (G5)
       exit 0 → leave loop
       unanswered question remains → a, those questions only
-      open points remain → re-run Step 2's Q0–Q3 on residual points and added points alike; `run.mjs next "$ARGUMENTS" <axes>`; new axis per U14; → a
+      open points remain → re-run Step 2's Q0–Q3 on residual points and added points alike; `run.mjs next "$SEED_PATH" <axes>`; new axis per U14; → a
       `next` refuses (round cap, or nothing open) → stop; report residual points; settle none.
 
 4b. **Re-entry** — auto; never ask. A viewpoint the human brings after Done runs this same

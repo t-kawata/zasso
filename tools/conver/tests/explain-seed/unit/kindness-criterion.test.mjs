@@ -178,13 +178,14 @@ test('C003 invariant: the command file tells the AI where the standard is applie
   assert.match(criterion, /\[::MUST-FILL::\]/, 'the criterion says the operative form of it arrives with each instruction');
 });
 
+// [::TICKET::] PX-345 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-345 --for-spec --no-implementation-order`.
 test('C003 invariant: the command file sends the AI back to the criterion at the gate, not to a memory of it', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
   const gateStep = flowItem(commandFile, 3);
 
   assert.match(gateStep, /apply Criteria/, 'the gate step names the criterion rather than gesturing at it');
   assert.match(
-    sectionAround(commandFile, 'G5'),
+    sectionAround(commandFile, 'G5 answers :'),
     /G4 PASS ≠ G3 PASS/,
     'and the gate section says plainly that passing the gate is not the criterion',
   );

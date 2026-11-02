@@ -31,7 +31,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -1002,4 +1002,16 @@ test('C004 invariant: a message the command prints names its path home-relative'
   assert.equal(stderr.includes(injectedHome), false, `the message names the machine: ${stderr}`);
   assert.ok(stderr.includes('~/'), `the message must still name the path it looked for: ${stderr}`);
   rmSync(injectedHome, { recursive: true, force: true });
+});
+
+// [::TICKET::] PX-345 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-345 --for-spec --no-implementation-order`.
+test('C001 the seed also resolves as a relative path from the package directory', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  const packageDirectory = dirname(workspace.seedPath);
+
+  const run = runExplainSeed(['info', 'RFC-SEED.md'], { cwd: packageDirectory });
+
+  assert.equal(run.status, 0, run.stderr.toString('utf8'));
+  assert.ok(existsSync(workspace.infoPath));
+  assert.ok(existsSync(workspace.explainPath));
 });

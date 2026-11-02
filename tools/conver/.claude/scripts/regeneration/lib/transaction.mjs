@@ -79,11 +79,12 @@ function educeCommandFor(stagingSpecPath) {
  * obligation the grill owns. The handoff never asks a human: the owning command
  * may ask direction questions under its own limit.
  */
+// [::TICKET::] PX-345 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-345 --for-spec --no-implementation-order`.
 export function groundHandoff({ stagingRoot, reason = 'a ground no longer resolves' }) {
   const ownsSeed = /RFC[- ]?SEED/i.test(reason);
   if (ownsSeed) {
-    // /explain-seed takes one RFC-SEED.md path, not a directory.
-    return `run "${COMMANDS_DIRECTORY}/explain-seed.md" on the RFC seed named in the ground under ${stagingRoot}, then ${NEXT_CONTINUE}`;
+    // /explain-seed is argument-free: run it from the directory holding the seed.
+    return `run "${COMMANDS_DIRECTORY}/explain-seed.md" from the directory holding the RFC seed named in the ground under ${stagingRoot}, then ${NEXT_CONTINUE}`;
   }
   return `run "${COMMANDS_DIRECTORY}/grill-me-for-rfc.md" on ${stagingRoot}, then ${NEXT_CONTINUE}`;
 }
