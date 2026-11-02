@@ -21,6 +21,7 @@ const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artif
 const { buildNodeToFileMap } = require('../rfc-graph/validate-phasify.js');
 const {
   WORKLOAD_COMPONENTS,
+  LEGACY_WORKLOAD_COMPONENTS,
   parseWorkBudget,
   workloadOfPhase,
   minimumTicketCount,
@@ -85,7 +86,7 @@ function phaseNodes(phase, graph) {
  * @returns {string}
  */
 // [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322, PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322|PX-342|PX-347) --for-spec --no-implementation-order`.
-function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null, budget = null, budgetSource = null, budgetMode = 'v2', budgetComponents = WORKLOAD_COMPONENTS, budgetExcluded = [] } = {}) {
+function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null, budget = null, budgetSource = null, budgetMode = 'v2', budgetComponents = budgetMode === 'v1' ? LEGACY_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS, budgetExcluded = [] } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
   lines.push(`# Phase ${phaseLabel}: ${phase?.name ?? ''}`.trim());

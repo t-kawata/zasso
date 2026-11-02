@@ -405,6 +405,23 @@ function readJsonOrNull(filePath) {
   }
 }
 
+/**
+ * Read the work-budget document without collapsing a parse error into "missing".
+ * A missing file and an unreadable document are different failures: the first is
+ * the caller's setup, the second is a broken budget that must be repaired.
+ */
+// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
+function readWorkBudgetDocument(filePath) {
+  if (filePath === null || filePath === undefined || !fs.existsSync(filePath)) {
+    return { document: null, error: 'missing' };
+  }
+  try {
+    return { document: JSON.parse(fs.readFileSync(filePath, 'utf8')), error: null };
+  } catch (error) {
+    return { document: null, error: `invalid: ${error.message}` };
+  }
+}
+
 /** The public key of the ticket a workload finding names. */
 // [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function ticketKeyOf(ticket) {
@@ -420,18 +437,27 @@ function ticketKeyOf(ticket) {
  */
 // [::TICKET::] PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-342|PX-347) --for-spec --no-implementation-order`.
 function evaluateWorkBudget(phase, { graphData, dirsTreeData, view, nodeToFileMap, budgetPath }) {
-  const rawBudget = readJsonOrNull(budgetPath);
-  if (rawBudget === null) {
+  const budgetRead = readWorkBudgetDocument(budgetPath);
+  if (budgetRead.error === 'missing') {
     return {
       findings: [{
         code: WORKLOAD_CODES.WORK_BUDGET_MISSING,
-        message: `work-budget file not found or unreadable: ${budgetPath}`,
+        message: `work-budget file not found: ${budgetPath}`,
+      }],
+      workBudget: null,
+    };
+  }
+  if (budgetRead.error !== null) {
+    return {
+      findings: [{
+        code: WORKLOAD_CODES.WORK_BUDGET_INVALID,
+        message: `work-budget file is unreadable (${budgetRead.error}): ${budgetPath}`,
       }],
       workBudget: null,
     };
   }
 
-  const parsedBudget = parseWorkBudget(rawBudget);
+  const parsedBudget = parseWorkBudget(budgetRead.document);
   if (!parsedBudget.valid) {
     return {
       findings: [{
@@ -607,7 +633,7 @@ function localRelevanceOf({ view, tickets, graphData }) {
  * The field is attached only when the distribution data exists; a package without a view,
  * graph or root artifact keeps the old ticket shape.
  */
-// [::TICKET::] PX-323, PX-325, PX-328, PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-328|PX-343) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-328, PX-343, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-328|PX-343|PX-347) --for-spec --no-implementation-order`.
 async function attachPrerequisites({ ticketsDocument, graphData, view, packageDirectory, map = null }) {
   if (view === null || graphData === null) return;
   const {
@@ -1494,10 +1520,10 @@ function digestUnitObligation(obligation) {
 }
 
 /** Write a JSON document by staging it beside its target and renaming it into place. */
-// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
-function writeJsonAtomically(filePath, data) {
+// [::TICKET::] PX-307, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-347) --for-spec --no-implementation-order`.
+function writeJsonAtomically(filePath, document) {
   const staged = `${filePath}.partial.${process.pid}`;
-  fs.writeFileSync(staged, JSON.stringify(data, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(staged, JSON.stringify(document, null, 2) + '\n', 'utf8');
   fs.renameSync(staged, filePath);
 }
 

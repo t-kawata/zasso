@@ -958,6 +958,7 @@ function analyzeTicketWorkload(phase, budget, context = {}, options = {}) {
   const phaseWorkload = workloadOfPhase(phase, context, { mode, components });
   const minimumWorkTickets = minimumTicketCount(phaseWorkload, budget, components);
   const upperBoundTickets = maximumTicketCount(minimumWorkTickets, merge.acceptedRefusals);
+  const workloadOf = mode === 'v1' ? legacyWorkloadOfTicket : workloadOfTicket;
   if (mode === 'v2' && tickets.length > upperBoundTickets) {
     findings.push({
       code: WORKLOAD_CODES.TICKET_COUNT_ABOVE_MERGE_EVIDENCE,
@@ -993,7 +994,7 @@ function analyzeTicketWorkload(phase, budget, context = {}, options = {}) {
       mergeAttempts: merge.attempts,
       tickets: tickets.map((ticket) => ({
         ticketKey: ticketKeyOf(ticket),
-        workload: workloadOfTicket(ticket, context),
+        workload: workloadOf(ticket, context),
         splitReason: ticket.splitReason ?? null,
       })),
     },
