@@ -63,6 +63,38 @@ function graphWithOperationNodes(notes = true) {
   };
 }
 
+/**
+ * A chain whose closure point is the target node N0002: the source postcondition must
+ * satisfy the precondition of N0002's outgoing edge, not the crossing edge's own
+ * precondition.
+ */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function graphWithOutgoingOperationEdge(precondition) {
+  return {
+    nodes: [
+      { id: 'N0001', unitIds: ['op-Produce'] },
+      { id: 'N0002', unitIds: ['op-Consume'] },
+      { id: 'N0003', unitIds: ['op-Finish'] },
+    ],
+    edges: [
+      {
+        from: 'N0001',
+        to: 'N0002',
+        type: 'depends_on',
+        attributes: { strength: 'hard', bidirectional: false },
+        contracts: [{ id: 'C001', precondition: 'identity present', postcondition: 'order_id derived', invariant: 'one active order_id' }],
+      },
+      {
+        from: 'N0002',
+        to: 'N0003',
+        type: 'depends_on',
+        attributes: { strength: 'hard', bidirectional: false },
+        contracts: [{ id: 'C002', precondition, postcondition: 'session active', invariant: 'one active order_id' }],
+      },
+    ],
+  };
+}
+
 // [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
 function ticketOwningBothNodes() {
   return {
@@ -161,9 +193,12 @@ test('C005 a negated postcondition does not satisfy a precondition', () => {
     id: 2,
     phaseId: 0,
     nodeIds: ['N0002'],
-    contracts: [{ id: 'C001', sourceEdge: 'N0001→N0002 (inbound)', precondition: 'the request is authenticated', postcondition: 'order_id derived', invariant: 'one active order_id' }],
+    contracts: [
+      { id: 'C001', sourceEdge: 'N0001→N0002 (inbound)', precondition: 'identity present', postcondition: 'the request is not authenticated', invariant: 'one active order_id' },
+      { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'the request is authenticated', postcondition: 'session active', invariant: 'one active order_id' },
+    ],
   };
-  const result = verifyClosure([source, target], graphWithOperationNodes(false));
+  const result = verifyClosure([source, target], graphWithOutgoingOperationEdge('the request is authenticated'));
   assert.ok(result.errors.some((error) => error.code === 'INTER_TICKET_CLOSURE_OPEN'));
 });
 
@@ -178,9 +213,12 @@ test('C005 identical normalized clauses close the edge', () => {
     id: 2,
     phaseId: 0,
     nodeIds: ['N0002'],
-    contracts: [{ id: 'C001', sourceEdge: 'N0001→N0002 (inbound)', precondition: 'order_id derived', postcondition: 'order_id derived', invariant: 'one active order_id' }],
+    contracts: [
+      { id: 'C001', sourceEdge: 'N0001→N0002 (inbound)', precondition: 'identity present', postcondition: 'order_id derived', invariant: 'one active order_id' },
+      { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'order_id derived', postcondition: 'session active', invariant: 'one active order_id' },
+    ],
   };
-  assert.equal(verifyClosure([source, target], graphWithOperationNodes(false)).valid, true);
+  assert.equal(verifyClosure([source, target], graphWithOutgoingOperationEdge('order_id derived')).valid, true);
 });
 
 test('C006 a missing contract on either side is open', () => {

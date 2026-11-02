@@ -1,6 +1,8 @@
 /**
  * validate-phasify.test.cjs — Unit tests for validate-phasify.js
  *
+ * PX-343 @verifies C001
+ *
  * Test framework: Node.js standard node:test + node:assert/strict
  */
 
@@ -374,5 +376,37 @@ describe('validateAll', () => {
     const result = validateAll(ticketJson, nodes, [], makeDirsTree({ name: 'src', type: 'directory', children: [] }), { allowSmallPhases: false });
     assert.ok(!result.valid);
     assert.ok(result.errors.some(e => e.includes('below min')));
+  });
+});
+
+
+// ============================================================
+// PX-343: direction-aware hard constraints
+// ============================================================
+
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
+describe('checkHardConstraints direction (PX-343)', () => {
+  it('passes constrains when the source phase is before the target phase', () => {
+    const edge = { from: 'N0001', to: 'N0002', type: 'constrains' };
+    const phases = [makePhase(0, 'P0', ['N0001']), makePhase(1, 'P1', ['N0002'])];
+    const result = checkHardConstraints([edge], phases, buildNodeToPhaseMap(phases));
+    assert.ok(result.passed, JSON.stringify(result.violations));
+  });
+
+  it('fails constrains when the source phase is after the target phase', () => {
+    const edge = { from: 'N0001', to: 'N0002', type: 'constrains' };
+    const phases = [makePhase(0, 'P0', ['N0002']), makePhase(1, 'P1', ['N0001'])];
+    const result = checkHardConstraints([edge], phases, buildNodeToPhaseMap(phases));
+    assert.ok(!result.passed);
+    assert.strictEqual(result.violations.length, 1);
+  });
+
+  it('enforces a hard precedes and ignores a soft one', () => {
+    const phases = [makePhase(0, 'P0', ['N0002']), makePhase(1, 'P1', ['N0001'])];
+    const hard = { from: 'N0001', to: 'N0002', type: 'precedes', attributes: { strength: 'hard' } };
+    const soft = { from: 'N0001', to: 'N0002', type: 'precedes', attributes: { strength: 'soft' } };
+    const nodeToPhase = buildNodeToPhaseMap(phases);
+    assert.ok(!checkHardConstraints([hard], phases, nodeToPhase).passed);
+    assert.ok(checkHardConstraints([soft], phases, nodeToPhase).passed);
   });
 });

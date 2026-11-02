@@ -14,85 +14,53 @@
 'use strict';
 
 // ============================================================
-// Weight table (edge type → reverse implementation cost)
+// Shared edge-order rule
 // ============================================================
 
-/** Weight Infinity: absolute constraint (reverse prohibited) */
-const WEIGHT_INFINITY = Object.freeze({
-  depends_on: Infinity,
-  implements: Infinity,
-});
+const {
+  DIRECTION_BY_TYPE,
+  DEFAULT_STRENGTH_BY_TYPE,
+  DEFAULT_WEIGHT_BY_TYPE,
+  directionOf,
+  effectiveStrength,
+  typeDefaultWeight,
+  weightOf,
+  isHardEdge,
+} = require('./lib/edge-order.js');
 
-/** Weight 2: strong recommendation (reverse possible with structural changes) */
-const WEIGHT_STRONG = Object.freeze({
-  precedes: 2,
-  constrains: 2,
-});
+/** Unified weight map kept for backward-compatible readers of this module. */
+const WEIGHT_MAP = DEFAULT_WEIGHT_BY_TYPE;
 
-/** Weight 1: weak recommendation (reverse can be substituted with mocks) */
-const WEIGHT_WEAK = Object.freeze({
-  triggers: 1,
-});
-
-/** Weight 0: no constraint */
-const WEIGHT_NONE = Object.freeze({
-  refines: 0,
-  references: 0,
-  extends: 0,
-  conflicts_with: 0,
-  supersedes: 0,
-  validates: 0,
-  part_of: 0,
-});
-
-/**
- * Unified weight map for all edge types
- * Key: edge type, Value: weight (Infinity / 2 / 1 / 0)
- */
-const WEIGHT_MAP = Object.freeze(
-  Object.assign(
-    {},
-    WEIGHT_INFINITY,
-    WEIGHT_STRONG,
-    WEIGHT_WEAK,
-    WEIGHT_NONE,
-  )
-);
-
-/**
- * Set of edge types with weight Infinity (for fast lookup)
- */
+/** Edge types whose default strength is hard. */
 const HARD_EDGE_TYPES = new Set(
-  Object.keys(WEIGHT_INFINITY)
+  Object.keys(DEFAULT_STRENGTH_BY_TYPE).filter((type) => DEFAULT_STRENGTH_BY_TYPE[type] === 'hard'),
 );
 
-/**
- * Set of edge types with weight > 0 (for soft constraint checking)
- */
+/** Edge types whose default strength is soft. */
 const SOFT_EDGE_TYPES = new Set(
-  Object.keys(WEIGHT_STRONG).concat(Object.keys(WEIGHT_WEAK))
+  Object.keys(DEFAULT_STRENGTH_BY_TYPE).filter((type) => DEFAULT_STRENGTH_BY_TYPE[type] === 'soft'),
 );
 
 /**
- * Get the weight for a given edge type.
- * Unknown types are treated as weight 0.
+ * Get the weight for an edge type or an edge object.
  *
- * @param {string} edgeType — Edge type
- * @returns {number} Weight (0, 1, 2, Infinity)
+ * The string form keeps the historical API; an edge object additionally honors
+ * `attributes.strength`.
  */
-function getWeight(edgeType) {
-  const weight = WEIGHT_MAP[edgeType];
-  return weight !== undefined ? weight : 0;
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function getWeight(edgeOrType) {
+  return weightOf(edgeOrType);
 }
 
 /**
- * Check if an edge is a hard constraint (weight Infinity).
+ * Check whether an edge is a hard ordering constraint.
  *
- * @param {string} edgeType — Edge type
+ * @param {string|object} edgeOrType
  * @returns {boolean}
  */
-function isHard(edgeType) {
-  return HARD_EDGE_TYPES.has(edgeType);
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function isHard(edgeOrType) {
+  return isHardEdge(edgeOrType);
 }
 
 // ============================================================
@@ -111,6 +79,7 @@ function isHard(edgeType) {
  * @returns {{ success: boolean, order: string[], cycle?: string[], error?: string }}
  *   success: true means order is valid. false means cycle contains cyclic nodes.
  */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
 function kahnTopologicalSort(nodeIds, edges, weightFn) {
   const wFn = weightFn || getWeight;
   const nodeSet = new Set(nodeIds);
@@ -126,12 +95,15 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
   // Build graph using only edges with weight Infinity
   for (const edge of edges) {
     if (!nodeSet.has(edge.from) || !nodeSet.has(edge.to)) continue;
-    if (wFn(edge.type) === Infinity) {
-      // Edge u→v (depends_on) means "u depends on v".
-      // Since dependency v must be implemented first, the constraint direction is v→u.
-      adjacency[edge.to].push(edge.from);
-      inDegree[edge.from] = (inDegree[edge.from] || 0) + 1;
-    }
+    if (wFn(edge) !== Infinity) continue;
+    const direction = directionOf(edge);
+    if (direction === null) continue;
+    // provider-is-to: the target provides to the source (target first).
+    // provider-is-from: the source provides to the target (source first).
+    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
+    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
+    adjacency[provider].push(consumer);
+    inDegree[consumer] = (inDegree[consumer] || 0) + 1;
   }
 
   // Add nodes with in-degree 0 to the queue
@@ -166,12 +138,18 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
     while (changed) {
       changed = false;
       for (const edge of edges) {
-        if (inCycle.has(edge.from) && !inCycle.has(edge.to) && wFn(edge.type) === Infinity) {
-          inCycle.add(edge.to);
+        const hard = wFn(edge) === Infinity;
+        if (!hard) continue;
+        const direction = directionOf(edge);
+        if (direction === null) continue;
+        const provider = direction === 'provider-is-to' ? edge.to : edge.from;
+        const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
+        if (inCycle.has(consumer) && !inCycle.has(provider)) {
+          inCycle.add(provider);
           changed = true;
         }
-        if (!inCycle.has(edge.from) && inCycle.has(edge.to) && wFn(edge.type) === Infinity) {
-          inCycle.add(edge.from);
+        if (!inCycle.has(consumer) && inCycle.has(provider)) {
+          inCycle.add(consumer);
           changed = true;
         }
       }
@@ -202,6 +180,7 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
  * @param {Function} weightFn — Edge type → weight function
  * @returns {{ totalCost: number, violations: Array<{from:string, to:string, type:string, cost:number}> }}
  */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
 function computeSoftViolations(order, edges, weightFn) {
   const wFn = weightFn || getWeight;
   const position = {};
@@ -213,20 +192,23 @@ function computeSoftViolations(order, edges, weightFn) {
   const violations = [];
 
   for (const edge of edges) {
-    const weight = wFn(edge.type);
+    const weight = wFn(edge);
     if (weight <= 0 || weight === Infinity) continue; // Only soft edges
-    if (!SOFT_EDGE_TYPES.has(edge.type)) continue;
+    const direction = directionOf(edge);
+    if (direction === null) continue;
 
-    const posU = position[edge.from];
-    const posV = position[edge.to];
-    if (posU === undefined || posV === undefined) continue;
+    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
+    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
+    const providerPosition = position[provider];
+    const consumerPosition = position[consumer];
+    if (providerPosition === undefined || consumerPosition === undefined) continue;
 
-    // Violation: u is positioned after v
-    if (posU > posV) {
+    // The provider must be positioned before the consumer it feeds.
+    if (providerPosition > consumerPosition) {
       totalCost += weight;
       violations.push({
         from: edge.from,
-        to: edge.type,
+        to: edge.to,
         type: edge.type,
         cost: weight,
       });
@@ -777,14 +759,15 @@ function runSelfHealingLoop(stubs, fixStub, opts) {
 }
 
 module.exports = {
-  // Weight table
+  // Shared edge-order rule
   WEIGHT_MAP,
-  WEIGHT_INFINITY,
-  WEIGHT_STRONG,
-  WEIGHT_WEAK,
-  WEIGHT_NONE,
   HARD_EDGE_TYPES,
   SOFT_EDGE_TYPES,
+  directionOf,
+  effectiveStrength,
+  typeDefaultWeight,
+  weightOf,
+  isHardEdge,
   getWeight,
   isHard,
   // Phase 2

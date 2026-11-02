@@ -37,7 +37,8 @@
           "id": { "type": "string", "pattern": "^C[0-9]{3}$" },
           "precondition": { "type": "string", "minLength": 1 },
           "postcondition": { "type": "string", "minLength": 1 },
-          "invariant": { "type": "string", "minLength": 1 }
+          "invariant": { "type": "string", "minLength": 1 },
+          "satisfiedBy": { "type": "string", "minLength": 1 }
         }
       }
     }

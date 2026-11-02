@@ -96,6 +96,7 @@ describe('phasify integration (real 176-node data)', () => {
       assert.strictEqual(result.order.length, nodes.length);
     });
 
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
     it('should respect all hard constraints', () => {
       const sortResult = kahnTopologicalSort(allNodeIds, edges, getWeight);
       assert.ok(sortResult.success);
@@ -106,9 +107,10 @@ describe('phasify integration (real 176-node data)', () => {
         position[order[i]] = i;
       }
 
-      // Check all depends_on edges
+      // Check hard depends_on edges. A `strength: soft` depends_on is a preference, not
+      // an absolute order, so the shared edge-order rule excludes it.
       for (const edge of edges) {
-        if (edge.type === 'depends_on') {
+        if (edge.type === 'depends_on' && getWeight(edge) === Infinity) {
           const posU = position[edge.from];
           const posV = position[edge.to];
           // depends_on(u→v): u depends on v → v (dependency target) should be implemented first

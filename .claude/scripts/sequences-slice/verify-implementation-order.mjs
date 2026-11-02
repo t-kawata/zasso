@@ -26,6 +26,7 @@ import {
   checkPlacement,
   derivePackagePrecedence,
   ownersFromViewsDetailed,
+  packageRelevantFindings,
   PREREQUISITE_CODES,
   rolesFromTickets,
   rolesFromView,
@@ -38,7 +39,7 @@ import { readDistributionMap } from '../rfc-graph/lib/unit-ids.mjs';
 
 const require = createRequire(import.meta.url);
 const { findAllocateManifest, findSingleSiblingPath } = require('../lib/package-artifacts');
-const { buildOperationOwners } = require('../tickets/add-tickets-for-phase.js');
+const { buildOperationOwners, buildRolesByPackage, localRelevanceOf } = require('../tickets/add-tickets-for-phase.js');
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
@@ -397,7 +398,7 @@ function verifyWorkspace({ workspaceRoot, write }) {
 }
 
 /** Run the package gate. */
-// [::TICKET::] PX-323, PX-325, PX-327, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-327|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-327, PX-328, PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-327|PX-328|PX-343) --for-spec --no-implementation-order`.
 function verifyPackage({ packageDir, write }) {
   const ticketsPath = join(packageDir, 'Tickets.json');
   const document = readJson(ticketsPath);
@@ -437,7 +438,21 @@ function verifyPackage({ packageDir, write }) {
     ? residualUnitsForDirectory(packageDir)
     : residualUnitsForWorkspace({ workspaceRoot, treeManifest });
   const activeOperationIds = activeOperationIdsOf(artifact, { residualUnitIds });
-  const operationOwners = buildOperationOwners({ view, workspaceRoot, tickets, activeOperationIds });
+  const packages = packagesOf(treeManifest);
+  const ticketsByPackage = workspaceRoot === null
+    ? {}
+    : Object.fromEntries(packages.map((pkg) => [pkg.id, readJson(join(workspaceRoot, pkg.path, 'Tickets.json'))]));
+  const rolesByPackage = workspaceRoot === null
+    ? {}
+    : buildRolesByPackage({ workspaceRoot, treeManifest, ticketsByPackage });
+  const operationOwners = buildOperationOwners({
+    view,
+    workspaceRoot,
+    tickets,
+    rolesByPackage,
+    activeOperationIds,
+  });
+  const local = localRelevanceOf({ view, tickets, graphData: graph });
   const derivation = ticketPrerequisites({
     tickets,
     graph,
@@ -447,6 +462,7 @@ function verifyPackage({ packageDir, write }) {
     packageId: view.packageId,
     treeManifest,
     activeOperationIds,
+    localOperationIds: local.localOperationIds,
   });
   const prerequisites = derivation.prerequisites;
   const attached = tickets.map((ticket) => ({
@@ -454,7 +470,6 @@ function verifyPackage({ packageDir, write }) {
     prerequisites: prerequisites.get(ticketKeyOf(ticket)) ?? [],
   }));
 
-  const packages = packagesOf(treeManifest);
   const workspaceOwnersResult = workspaceRoot === null
     ? { owners: operationOwners, findings: [] }
     : ownersFromWorkspace({ workspaceRoot, treeManifest, activeOperationIds });
@@ -468,7 +483,11 @@ function verifyPackage({ packageDir, write }) {
     activeOperationIds,
   });
   const order = workspaceOrder.order;
-  const findings = [...derivation.findings, ...workspaceOwnersResult.findings, ...workspaceOrder.findings];
+  const workspaceFindings = packageRelevantFindings(
+    [...workspaceOwnersResult.findings, ...workspaceOrder.findings],
+    local,
+  );
+  const findings = [...derivation.findings, ...workspaceFindings];
   if (!write) {
     const existingSidecar = readJson(join(packageDir, IMPLEMENTATION_ORDER_FILE_NAME));
     if (existingSidecar?.sourceDigests !== undefined) {

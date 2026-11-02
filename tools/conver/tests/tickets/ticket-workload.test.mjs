@@ -191,15 +191,16 @@ test('C004 an over-budget ticket names the component, actual value and budget', 
     nodeIds: ['N0001', 'N0002'],
     tickets: [{ id: 1, phaseId: 0, nodeIds: ['N0001', 'N0002'], splitReason: 'cohesion' }],
   };
-  const findings = validateTicketWorkload(phase, { ...fixtureBudget(), files: 1 }, context);
+  const findings = validateTicketWorkload(phase, { ...fixtureBudget(), operations: 1 }, context);
   assert.ok(findings.some((finding) =>
     finding.code === 'TICKET_WORK_OVER_BUDGET'
-    && finding.component === 'files'
+    && finding.component === 'operations'
     && finding.actual === 2
     && finding.budget === 1));
 });
 
-test('C004 a single node above budget is irreducible and names the node', () => {
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
+test('C004 a single node above budget is WORK_BUDGET_INFEASIBLE and names the node', () => {
   const context = fixtureContext();
   const phase = {
     id: 0,
@@ -208,7 +209,7 @@ test('C004 a single node above budget is irreducible and names the node', () => 
   };
   const findings = validateTicketWorkload(phase, { ...fixtureBudget(), files: 1 }, context);
   assert.ok(findings.some((finding) =>
-    finding.code === 'TICKET_WORK_IRREDUCIBLE'
+    finding.code === 'WORK_BUDGET_INFEASIBLE'
     && finding.nodeId === 'N0004'
     && finding.component === 'files'));
 });
@@ -225,7 +226,7 @@ test('C004 too few tickets for the phase workload is below the work minimum', ()
   };
   const findings = validateTicketWorkload(
     phase,
-    { operations: 1, sequenceSteps: 1, contracts: 1, files: 1, kinds: 1 },
+    { operations: 2, sequenceSteps: 2, contracts: 2, files: 2, kinds: 2 },
     context,
   );
   assert.ok(findings.some((finding) =>

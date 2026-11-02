@@ -43,6 +43,7 @@ test('C005 a ticket in the PX phase uses PX-{id}, not P-1-{id}', () => {
   const aggregated = writeTicketDistributionAggregate(document);
   assert.deepEqual(Object.keys(aggregated.distribution.ticketDigests), ['PX-315']);
 });
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
 
 test('C005 a cross-phase edge between tickets with the same numeric id is still checked', () => {
   const source = {
@@ -55,19 +56,20 @@ test('C005 a cross-phase edge between tickets with the same numeric id is still 
     id: 1,
     phaseId: 1,
     nodeIds: ['N2'],
-    contracts: [{ id: 'C2', sourceEdge: 'N1→N2 (inbound)', precondition: 'need session', postcondition: '' }],
+    contracts: [
+      { id: 'C1', sourceEdge: 'N1→N2 (inbound)', precondition: 'need token', postcondition: 'unrelated post' },
+      { id: 'C2', sourceEdge: 'N2→N3', precondition: 'need session', postcondition: 'session active' },
+    ],
   };
   const graph = {
     nodes: [],
-    edges: [{
-      from: 'N1',
-      to: 'N2',
-      type: 'depends_on',
-      contracts: [{ id: 'C1', precondition: 'need token', postcondition: 'token issued', invariant: 'i' }],
-    }],
+    edges: [
+      { from: 'N1', to: 'N2', type: 'depends_on', contracts: [{ id: 'C1', precondition: 'need token', postcondition: 'unrelated post', invariant: 'i' }] },
+      { from: 'N2', to: 'N3', type: 'depends_on', contracts: [{ id: 'C2', precondition: 'need session', postcondition: 'session active', invariant: 'i' }] },
+    ],
   };
   const result = verifyClosure([source, target], graph);
-  assert.ok(result.errors.some((error) => error.code === 'INTER_TICKET_CLOSURE_OPEN'));
+  assert.ok(result.errors.some((error) => error.code === 'INTER_TICKET_CLOSURE_OPEN' && error.ticket === 'P1-1'));
 });
 
 test('C005 the closure message uses the public PX key for a phase -1 ticket', () => {
@@ -81,11 +83,18 @@ test('C005 the closure message uses the public PX key for a phase -1 ticket', ()
     id: 316,
     phaseId: -1,
     nodeIds: ['N2'],
-    contracts: [{ id: 'C2', sourceEdge: 'N1→N2 (inbound)', precondition: 'need session', postcondition: '' }],
+    contracts: [
+      { id: 'C1', sourceEdge: 'N1→N2 (inbound)', precondition: 'need token', postcondition: 'unrelated post' },
+      { id: 'C2', sourceEdge: 'N2→N3', precondition: 'need session', postcondition: 'session active' },
+    ],
   };
   const graph = {
     nodes: [],
-    edges: [{ from: 'N1', to: 'N2', type: 'depends_on', contracts: [{ id: 'C1', precondition: 'need token', postcondition: 'token issued', invariant: 'i' }] }],
+    edges: [
+      { from: 'N1', to: 'N2', type: 'depends_on', contracts: [{ id: 'C1', precondition: 'need token', postcondition: 'unrelated post', invariant: 'i' }] },
+      { from: 'N2', to: 'N3', type: 'depends_on', contracts: [{ id: 'C2', precondition: 'need session', postcondition: 'session active', invariant: 'i' }] },
+    ],
   };
   const result = verifyClosure([source, target], graph);
+  assert.ok(result.errors.some((error) => error.code === 'INTER_TICKET_CLOSURE_OPEN' && error.ticket === 'PX-316'));
 });

@@ -1,6 +1,7 @@
 /**
  * phasify-helpers.test.cjs — Unit tests for phasify-helpers.js
  *
+ * PX-343 @verifies C001
  * Test framework: Node.js standard node:test + node:assert/strict
  */
 
@@ -577,5 +578,45 @@ describe('phasesToTicketsFormat', () => {
   it('should handle empty input', () => {
     const result = phasesToTicketsFormat([]);
     assert.strictEqual(result.length, 0);
+  });
+});
+
+// ============================================================
+// PX-343: shared edge-object weight and direction
+// ============================================================
+
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
+describe('edge-object weights and direction (PX-343)', () => {
+  it('getWeight accepts an edge object and honors attributes.strength', () => {
+    assert.strictEqual(getWeight({ type: 'constrains' }), Infinity);
+    assert.strictEqual(getWeight({ type: 'precedes' }), 2);
+    assert.strictEqual(getWeight({ type: 'precedes', attributes: { strength: 'hard' } }), Infinity);
+    assert.strictEqual(getWeight({ type: 'depends_on', attributes: { strength: 'soft' } }), 2);
+  });
+
+  it('isHard accepts an edge object', () => {
+    assert.ok(isHard({ type: 'constrains' }));
+    assert.ok(!isHard({ type: 'precedes' }));
+    assert.ok(isHard({ type: 'precedes', attributes: { strength: 'hard' } }));
+  });
+
+  it('orders constrains from-before-to', () => {
+    const result = kahnTopologicalSort(
+      ['N0001', 'N0002'],
+      [{ from: 'N0001', to: 'N0002', type: 'constrains' }],
+      getWeight,
+    );
+    assert.ok(result.success);
+    assert.deepStrictEqual(result.order, ['N0001', 'N0002']);
+  });
+
+  it('orders a hard precedes from-before-to', () => {
+    const result = kahnTopologicalSort(
+      ['N0001', 'N0002'],
+      [{ from: 'N0001', to: 'N0002', type: 'precedes', attributes: { strength: 'hard' } }],
+      getWeight,
+    );
+    assert.ok(result.success);
+    assert.deepStrictEqual(result.order, ['N0001', 'N0002']);
   });
 });

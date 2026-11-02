@@ -70,6 +70,21 @@ const {
   applyDirectoryConstraints,
   phasesToTicketsFormat,
 } = require('./phasify-helpers.js');
+const { directionOf } = require('./lib/edge-order.js');
+
+/**
+ * Normalize a hard edge to consumer -> provider.
+ *
+ * The phase merger assumes `from` is the consumer and `to` is the provider. A
+ * provider-is-from edge (precedes, triggers, constrains) states the reverse, so swap
+ * only for those types and leave depends_on/implements untouched.
+ */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function toConsumerProviderEdge(edge) {
+  return directionOf(edge) === 'provider-is-from'
+    ? { ...edge, from: edge.to, to: edge.from }
+    : edge;
+}
 
 // PX-38 import: SCC condensation (reused from boundify-helpers.js)
 const { tarjanSCC } = require('./boundify-helpers.js');
@@ -281,7 +296,7 @@ function logVerbose(message, verbose) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-114|PX-343) --for-spec --no-implementation-order`.
 function runPhasify(opts) {
   logVerbose('Loading GRAPH.json...', opts.verbose);
   const graphData = JSON.parse(fs.readFileSync(opts.graphPath, 'utf8'));
@@ -347,8 +362,8 @@ function runPhasify(opts) {
   // Phase 4: Phase merging and discretization (minimum 10 nodes)
   // ============================================================
   logVerbose('Phase 4: Running phase merging (minimum: ' + MIN_NODES_PER_PHASE + ' nodes)...', opts.verbose);
-  // Extract hard constraint edges (depends_on/implements/constrains)
-  const hardEdges = edges.filter(function(e) { return isHard(e.type); });
+  // Extract hard constraint edges and normalize them to consumer -> provider.
+  const hardEdges = edges.filter(function(e) { return isHard(e); }).map(toConsumerProviderEdge);
   let phaseAssignments = mergePhases(finalOrder, MIN_NODES_PER_PHASE, hardEdges);
 
   // Post-adjustment: ensure both endpoints of depends_on are not in the same phase
@@ -439,12 +454,19 @@ function runPhasify(opts) {
     'phases below minimum 10: ' + sizeIssues +
     (sizeIssues > 0 ? ' (merging would violate dependency constraints, so this is the safe decision)' : ''));
 
-  if (validateResult.valid) {
-    writeLine('Wrote ' + phaseAssignments.length + ' phases to ' + opts.ticketsPath + '.');
-  } else {
+  if (!validateResult.valid) {
     writeLine('Validation results:');
-    writeLine('[WARN] Validation failed but continuing due to --dry-run.');
+    for (const error of validateResult.errors) writeLine('[ERROR] ' + error);
+    if (opts.dryRun) {
+      writeLine('');
+      writeLine('[--dry-run mode] Did not write to Tickets.json.');
+    } else {
+      writeLine('[ERROR] Refusing to write Tickets.json: phase validation failed.');
+    }
+    return { valid: false, wrote: false, errors: validateResult.errors };
   }
+
+  writeLine('Wrote ' + phaseAssignments.length + ' phases to ' + opts.ticketsPath + '.');
 
   // ============================================================
   // Write to Tickets.json (unless --dry-run)
@@ -452,7 +474,7 @@ function runPhasify(opts) {
   if (opts.dryRun) {
     writeLine('');
     writeLine('[--dry-run mode] Did not write to Tickets.json.');
-    return;
+    return { valid: true, wrote: false };
   }
 
   // Read existing Tickets.json and replace phases
@@ -462,11 +484,13 @@ function runPhasify(opts) {
   // Write
   fs.writeFileSync(opts.ticketsPath, JSON.stringify(existingTickets, null, 2) + '\n', 'utf8');
   logVerbose('Tickets.json updated: ' + opts.ticketsPath, opts.verbose);
+  return { valid: true, wrote: true };
 }
 
 /**
  * Entry point.
  */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
 function main() {
   const opts = parseArguments(process.argv.slice(2));
   opts.ticketsPath = resolveTicketsPath(opts.graphPath, opts.dirsTreePath);
@@ -477,7 +501,8 @@ function main() {
     writeLine('[INFO] Tickets.json created: ' + opts.ticketsPath);
   }
 
-  runPhasify(opts);
+  const result = runPhasify(opts);
+  if (result !== undefined && result.valid === false) process.exitCode = 1;
 }
 
 if (require.main === module) {

@@ -1,4 +1,5 @@
 // PX-342 @verifies C001 @verifies C002 @verifies C003 @verifies C004
+// PX-343 @verifies C004
 // The split gate is only useful if it refuses to write an overloaded or unreasoned
 // ticket set. These tests drive the real CLI over a temporary package.
 const { test } = require('node:test');
@@ -189,6 +190,40 @@ test('backward compatibility: without the flag the old two-ticket partition stil
     assert.equal(result.status, 0, result.stdout + result.stderr);
     const output = JSON.parse(result.stdout);
     assert.equal('workBudget' in output, false);
+  } finally {
+    fs.rmSync(pkg.root, { recursive: true, force: true });
+  }
+});
+
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
+test('C004 an irreducible node reports WORK_BUDGET_INFEASIBLE, not a repeated overage', () => {
+  const pkg = fixturePackage();
+  try {
+    const graphPath = path.join(pkg.root, 'RFC-GRAPH.json');
+    const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+    graph.nodes.find((node) => node.id === 'N0001').unitIds.push('op-G', 'op-H');
+    fs.writeFileSync(graphPath, JSON.stringify(graph, null, 2));
+    const viewPath = path.join(pkg.root, 'SEQUENCES.json');
+    const view = JSON.parse(fs.readFileSync(viewPath, 'utf8'));
+    view.ownedOperationUnits.push(
+      { unitId: 'op-G', operationId: 'G', roleCandidate: 'implementer' },
+      { unitId: 'op-H', operationId: 'H', roleCandidate: 'implementer' },
+    );
+    fs.writeFileSync(viewPath, JSON.stringify(view, null, 2));
+    const budgetPath = path.join(pkg.root, 'ticket-work-budget.json');
+    fs.writeFileSync(budgetPath, JSON.stringify({
+      ...BUDGET,
+      budget: { ...BUDGET.budget, operations: 1 },
+    }, null, 2));
+    const result = runGate(pkg, [
+      ticket('first', ['N0001', 'N0002']),
+      ticket('second', ['N0003', 'N0004']),
+      ticket('third', ['N0005', 'N0006']),
+    ]);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /WORK_BUDGET_INFEASIBLE/);
+    assert.doesNotMatch(result.stderr, /TICKET_WORK_OVER_BUDGET: P0-1 /);
+    assert.doesNotMatch(result.stderr, /TICKET_COUNT_BELOW_WORK_MINIMUM/);
   } finally {
     fs.rmSync(pkg.root, { recursive: true, force: true });
   }

@@ -545,15 +545,84 @@ function buildOperationOwners({ view, workspaceRoot, tickets, rolesByPackage = {
 }
 
 /**
+ * Build the ledger-authoritative role map for every package in the workspace.
+ *
+ * The ledger is the RFC distribution map written into each package's RFC.md. It names
+ * the implementer for a multi-owner operation even when the view's `roleCandidate` is
+ * `undecided`, so a view alone is not enough to decide ownership.
+ */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function buildRolesByPackage({ workspaceRoot, treeManifest, ticketsByPackage = {} }) {
+  const rolesByPackage = {};
+  if (workspaceRoot === null || workspaceRoot === undefined) return rolesByPackage;
+  const { rolesFromView, rolesFromTickets } = require("../sequences-slice/lib/implementation-order.mjs");
+  const { readDistributionMap } = require("../rfc-graph/lib/unit-ids.mjs");
+  for (const pkg of treeManifest?.workspace?.packages ?? []) {
+    if (typeof pkg?.id !== 'string' || typeof pkg?.path !== 'string') continue;
+    const directory = path.join(workspaceRoot, pkg.path);
+    const view = readJsonOrNull(path.join(directory, 'SEQUENCES.json'));
+    const roles = view === null ? new Map() : rolesFromView(view, new Map());
+    const rfcPath = path.join(directory, 'RFC.md');
+    if (fs.existsSync(rfcPath)) {
+      const map = readDistributionMap(fs.readFileSync(rfcPath, 'utf8'));
+      for (const unit of map?.units ?? []) {
+        if (unit?.role === 'implementer' || unit?.role === 'consumer') roles.set(unit.unitId, unit.role);
+      }
+    }
+    const document = ticketsByPackage[pkg.id] ?? readJsonOrNull(path.join(directory, 'Tickets.json'));
+    rolesFromTickets(allTicketsOf(document), roles);
+    rolesByPackage[pkg.id] = roles;
+  }
+  return rolesByPackage;
+}
+
+/**
+ * The operation ids, ticket keys and prerequisite names this package may report on.
+ */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function localRelevanceOf({ view, tickets, graphData }) {
+  const { ticketKeyOf } = require("../sequences-slice/lib/implementation-order.mjs");
+  const localOperationIds = new Set();
+  const addOperationUnit = (unit) => {
+    const operationId = unit?.operationId
+      ?? (typeof unit?.unitId === 'string' && unit.unitId.startsWith('op-') ? unit.unitId.slice(3) : null);
+    if (typeof operationId === 'string' && operationId.length > 0) localOperationIds.add(operationId);
+  };
+  for (const unit of view?.ownedOperationUnits ?? []) addOperationUnit(unit);
+  for (const unit of view?.obligationUnits ?? []) addOperationUnit(unit);
+  for (const ticket of tickets ?? []) {
+    for (const unit of ticket?.distribution?.units ?? []) addOperationUnit(unit);
+  }
+  for (const node of graphData?.nodes ?? []) {
+    for (const unitId of node?.unitIds ?? []) {
+      if (typeof unitId === 'string' && unitId.startsWith('op-')) localOperationIds.add(unitId.slice(3));
+    }
+  }
+  const localTicketKeys = new Set((tickets ?? []).map(ticketKeyOf));
+  const localPrerequisiteNames = new Set();
+  for (const ticket of tickets ?? []) {
+    for (const entry of ticket?.prerequisites ?? []) {
+      if (typeof entry?.ticket === 'string') localPrerequisiteNames.add(entry.ticket);
+      if (typeof entry?.package === 'string') localPrerequisiteNames.add(entry.package);
+    }
+  }
+  return { localOperationIds, localTicketKeys, localPrerequisiteNames };
+}
+
+/**
  * Attach the implementation prerequisites to the populated tickets.
  *
  * The field is attached only when the distribution data exists; a package without a view,
  * graph or root artifact keeps the old ticket shape.
  */
-// [::TICKET::] PX-323, PX-325, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-328, PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-328|PX-343) --for-spec --no-implementation-order`.
 async function attachPrerequisites({ ticketsDocument, graphData, view, packageDirectory, map = null }) {
   if (view === null || graphData === null) return;
-  const { ticketPrerequisites, ticketKeyOf } = require("../sequences-slice/lib/implementation-order.mjs");
+  const {
+    ticketPrerequisites,
+    ticketKeyOf,
+    packageRelevantFindings,
+  } = require("../sequences-slice/lib/implementation-order.mjs");
   const allocatePath = findAllocateManifest(packageDirectory);
   const workspaceRoot = allocatePath === null ? null : path.dirname(allocatePath);
   const artifact = workspaceRoot === null ? null : readJsonOrNull(findSingleSiblingPath(workspaceRoot, '-sequences.json'));
@@ -563,7 +632,21 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
   const { activeOperationIdsOf } = require("../sequences-slice/lib/implementation-order.mjs");
   const residualUnitIds = new Set((map?.residuals ?? []).map((residual) => residual?.unit).filter((unitId) => typeof unitId === 'string'));
   const activeOperationIds = activeOperationIdsOf(artifact, { residualUnitIds });
-  const operationOwners = buildOperationOwners({ view, workspaceRoot, tickets, activeOperationIds });
+  const ticketsByPackage = Object.fromEntries(
+    (treeManifest?.workspace?.packages ?? []).map((pkg) => [
+      pkg.id,
+      readJsonOrNull(path.join(workspaceRoot, pkg.path, 'Tickets.json')),
+    ]),
+  );
+  const rolesByPackage = buildRolesByPackage({ workspaceRoot, treeManifest, ticketsByPackage });
+  const local = localRelevanceOf({ view, tickets, graphData });
+  const operationOwners = buildOperationOwners({
+    view,
+    workspaceRoot,
+    tickets,
+    rolesByPackage,
+    activeOperationIds,
+  });
   const { prerequisites, findings } = ticketPrerequisites({
     tickets,
     graph: graphData,
@@ -573,9 +656,11 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
     packageId: view.packageId,
     treeManifest,
     activeOperationIds,
+    localOperationIds: local.localOperationIds,
   });
-  if (findings.length > 0) {
-    throw new Error(findings.map((entry) => `${entry.code}: ${entry.subject ?? ''} ${entry.message}`).join('\n'));
+  const localFindings = packageRelevantFindings(findings, local);
+  if (localFindings.length > 0) {
+    throw new Error(localFindings.map((entry) => `${entry.code}: ${entry.subject ?? ''} ${entry.message}`).join('\n'));
   }
   for (const ticket of tickets) {
     const entries = prerequisites.get(ticketKeyOf(ticket)) ?? [];
@@ -1433,6 +1518,8 @@ module.exports = {
   verifySequenceSteps,
   attachPrerequisites,
   buildOperationOwners,
+  buildRolesByPackage,
+  localRelevanceOf,
   writeTicketDistributionAggregate,
   digestTicketDistribution,
   digestUnitObligation,

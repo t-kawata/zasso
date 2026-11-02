@@ -28,6 +28,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const { directionOf, isHardEdge } = require('./lib/edge-order.js');
+
+/** Normalize a hard edge to consumer -> provider for the phase merger. */
+// [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
+function toConsumerProviderEdge(edge) {
+  return directionOf(edge) === 'provider-is-from'
+    ? { ...edge, from: edge.to, to: edge.from }
+    : edge;
+}
 
 // ============================================================
 // PX-106: Import sentinel utilities from add-omission-ticket.js
@@ -607,6 +616,7 @@ function repairInspectionPrefixes(actionTickets, quiet) {
  * @returns {{ valid: boolean, checks: object }}
  */
 // [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
 function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds) {
   const checks = {};
   let valid = true;
@@ -644,9 +654,7 @@ function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds)
   if (!checks.noDuplicateNodes.passed) valid = false;
 
   // Check 3: Hard constraint violations
-  const hardEdges = edges.filter(function(e) {
-    return e.type === 'depends_on' || e.type === 'implements';
-  });
+  const hardEdges = edges.filter((edge) => isHardEdge(edge));
   const violations = [];
   const nodePhase = {};
   for (const phase of phaseList) {
@@ -656,14 +664,17 @@ function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds)
     }
   }
   for (const edge of hardEdges) {
-    const pu = nodePhase[edge.from];
-    const pv = nodePhase[edge.to];
+    const direction = directionOf(edge);
+    if (direction === null) continue;
+    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
+    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
+    const pu = nodePhase[consumer];
+    const pv = nodePhase[provider];
     if (pu !== undefined && pv !== undefined) {
-      // depends_on(u→v): v must be before u
-      const idxU = phaseList.findIndex(function(p) { return p.id === pu; });
-      const idxV = phaseList.findIndex(function(p) { return p.id === pv; });
-      if (idxV >= idxU) {
-        violations.push({ edge: edge.from + '→' + edge.to, phaseU: pu, phaseV: pv });
+      const idxProvider = phaseList.findIndex(function(p) { return p.id === pv; });
+      const idxConsumer = phaseList.findIndex(function(p) { return p.id === pu; });
+      if (idxProvider >= idxConsumer) {
+        violations.push({ edge: edge.from + '→' + edge.to, phaseProvider: pv, phaseConsumer: pu });
       }
     }
   }
@@ -1474,7 +1485,7 @@ function runPhasifyOmissions(opts) {
   if (opts.verbose) console.log('[VERBOSE] Phase 4: Phase merging (min: ' + minSize + ')...');
 
   // Extract hard edges
-  const hardEdges = edges.filter(function(e) { return phasify.isHard(e.type); });
+  const hardEdges = edges.filter((edge) => isHardEdge(edge)).map(toConsumerProviderEdge);
   if (opts.verbose) console.log('[VERBOSE] Hard edges in subgraph: ' + hardEdges.length);
 
   let phaseAssignments = phasify.mergePhases(finalOrder, minSize, hardEdges);

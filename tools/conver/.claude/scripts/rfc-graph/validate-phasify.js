@@ -31,22 +31,19 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// Weight table (also used in PX-38. Here only used for infinity determination in validation)
+// Shared edge-order rule (PX-343)
 // ============================================================
 
-/** Hard constraint edge types — prohibits reverse order */
-const HARD_EDGE_TYPES = new Set([
-  'depends_on',
-  'implements',
-  'constrains',
-]);
+const {
+  DEFAULT_STRENGTH_BY_TYPE,
+  directionOf,
+  isHardEdge,
+} = require('./lib/edge-order.js');
 
-/** Edge types with weight infinity */
-const WEIGHT_INFINITY = new Set([
-  'depends_on',
-  'implements',
-  'constrains',
-]);
+/** Edge types whose default strength is hard. */
+const HARD_EDGE_TYPES = new Set(
+  Object.keys(DEFAULT_STRENGTH_BY_TYPE).filter((type) => DEFAULT_STRENGTH_BY_TYPE[type] === 'hard'),
+);
 
 // ============================================================
 // Projection: node → directory
@@ -173,13 +170,18 @@ function checkSinglePhasePerNode(phases) {
  * Check 3: Hard constraint compliance
  * Confirms that no w=infinity edge has phase(u) >= phase(v).
  */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
 function checkHardConstraints(graphEdges, phases, nodeToPhaseMap) {
   const violations = [];
   for (const edge of graphEdges) {
-    if (!HARD_EDGE_TYPES.has(edge.type)) continue;
-    const phaseU = nodeToPhaseMap[edge.from];
-    const phaseV = nodeToPhaseMap[edge.to];
-    if (phaseU === undefined || phaseV === undefined) {
+    if (!isHardEdge(edge)) continue;
+    const direction = directionOf(edge);
+    if (direction === null) continue;
+    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
+    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
+    const phaseProvider = nodeToPhaseMap[provider];
+    const phaseConsumer = nodeToPhaseMap[consumer];
+    if (phaseProvider === undefined || phaseConsumer === undefined) {
       violations.push({
         from: edge.from,
         to: edge.to,
@@ -188,22 +190,20 @@ function checkHardConstraints(graphEdges, phases, nodeToPhaseMap) {
       });
       continue;
     }
-    // depends_on(u→v) = u depends on v → v (dependency) is implemented first
-    // Violation: dependency v's phase index >= dependent u's phase index
-    // Compare by array index, not phase ID
-    // (enforceHardConstraints may cause ID/order divergence)
-    const idxU = phases.findIndex(function(p) { return p.id === phaseU; });
-    const idxV = phases.findIndex(function(p) { return p.id === phaseV; });
-    if (idxU === -1 || idxV === -1) continue;
+    // Compare by array index, not phase ID: enforceHardConstraints may cause ID/order
+    // divergence, and the provider must be in an earlier phase than its consumer.
+    const providerIndex = phases.findIndex(function(p) { return p.id === phaseProvider; });
+    const consumerIndex = phases.findIndex(function(p) { return p.id === phaseConsumer; });
+    if (providerIndex === -1 || consumerIndex === -1) continue;
 
-    if (idxV >= idxU) {
+    if (providerIndex >= consumerIndex) {
       violations.push({
         from: edge.from,
         to: edge.to,
         type: edge.type,
-        phaseU,
-        phaseV,
-        reason: 'Reverse order: phase_index(dependency) >= phase_index(dependant)',
+        phaseProvider,
+        phaseConsumer,
+        reason: 'Reverse order: provider phase is not before consumer phase',
       });
     }
   }

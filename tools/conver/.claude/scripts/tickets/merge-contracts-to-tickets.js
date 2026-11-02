@@ -93,6 +93,28 @@ function atomicWrite(targetPath, serializedTickets) {
 }
 
 /**
+ * The ticket-side projection of one graph edge contract.
+ *
+ * `satisfiedBy` is a durable graph link, so it is copied when present; an omitted link is
+ * omitted rather than written as null. Keeping the projection in one helper is what stops
+ * a later field from being silently dropped by a hand-written whitelist.
+ */
+// [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
+function projectEdgeContract(contract, sourceEdge) {
+  const projected = {
+    id: contract.id,
+    sourceEdge,
+    precondition: contract.precondition || '',
+    postcondition: contract.postcondition || '',
+    invariant: contract.invariant || '',
+  };
+  if (typeof contract.satisfiedBy === 'string' && contract.satisfiedBy.length > 0) {
+    projected.satisfiedBy = contract.satisfiedBy;
+  }
+  return projected;
+}
+
+/**
  * Merge edge contracts into each ticket's contracts field
  *
  * For each edge within a ticket's nodeIds:
@@ -183,7 +205,7 @@ function registryContractsForTicket(ticket, registry) {
  * @returns {Array<object>}
  */
 // [::TICKET::] PX-312, PX-313, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330, PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-330|PX-344) --for-spec --no-implementation-order`.
 function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const edges = graph.edges || [];
 
@@ -223,13 +245,7 @@ function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = nu
           sourceEdge = edge.from + '→' + edge.to + ' (inbound)';
         }
 
-        mergedContracts.push({
-          id: contract.id,
-          sourceEdge: sourceEdge,
-          precondition: contract.precondition || '',
-          postcondition: contract.postcondition || '',
-          invariant: contract.invariant || ''
-        });
+        mergedContracts.push(projectEdgeContract(contract, sourceEdge));
       }
     }
 

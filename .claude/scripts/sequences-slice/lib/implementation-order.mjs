@@ -9,6 +9,11 @@
 // boundary registry. This module derives that second order and the ticket-level
 // prerequisites it implies. It is pure: every caller supplies the parsed documents.
 
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { directionOf, isHardEdge } = require('../../rfc-graph/lib/edge-order.js');
+
 /** The named findings this module can report. */
 export const PREREQUISITE_CODES = Object.freeze({
   IMPLEMENTATION_ORDER_CYCLE: 'IMPLEMENTATION_ORDER_CYCLE',
@@ -40,6 +45,33 @@ export const HARD_EDGE_TYPES = Object.freeze({
   triggers: 'provider-is-from',
   implements: 'provider-is-to',
 });
+
+/** Whether this edge creates an implementation prerequisite under the shared rule. */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
+export function isHardOrderEdge(edge) {
+  return isHardEdge(edge);
+}
+
+/**
+ * Keep only the findings that name something this package owns, implements or depends on.
+ *
+ * A workspace-wide owner finding is not a package failure. The caller supplies the local
+ * operation ids, ticket keys and prerequisite package/ticket names; a finding with no
+ * subject is intentionally dropped here and remains the global gate's responsibility.
+ */
+export function packageRelevantFindings(findings = [], {
+  localOperationIds = new Set(),
+  localTicketKeys = new Set(),
+  localPrerequisiteNames = new Set(),
+} = {}) {
+  return (findings ?? []).filter((entry) => {
+    const subject = entry?.subject;
+    if (typeof subject !== 'string' || subject.length === 0) return false;
+    return localOperationIds.has(subject)
+      || localTicketKeys.has(subject)
+      || localPrerequisiteNames.has(subject);
+  });
+}
 
 /** A ticket status that means the implementation is complete. */
 export const COMPLETE_STATUSES = Object.freeze(new Set(['done', 'reviewed']));
@@ -592,6 +624,7 @@ export function ticketPrerequisites({
   packageId = null,
   treeManifest = null,
   activeOperationIds = null,
+  localOperationIds = null,
 } = {}) {
   const prerequisites = new Map();
   const findings = [];
@@ -636,9 +669,9 @@ export function ticketPrerequisites({
   };
 
   for (const edge of graph?.edges ?? []) {
-    const direction = HARD_EDGE_TYPES[edge?.type];
-    if (direction === undefined) continue;
-    if (edge?.attributes?.strength === 'soft') continue;
+    if (!isHardOrderEdge(edge)) continue;
+    const direction = directionOf(edge);
+    if (direction === null) continue;
     const providerNode = direction === 'provider-is-from' ? edge.from : edge.to;
     const consumerNode = direction === 'provider-is-from' ? edge.to : edge.from;
     const providerTicket = byNode.get(providerNode);
@@ -653,7 +686,10 @@ export function ticketPrerequisites({
   }
 
   const sequence = deriveSequencePrecedence({ artifact, operationOwners, registry, activeOperationIds });
-  findings.push(...sequence.findings);
+  const sequenceFindings = localOperationIds === null || localOperationIds === undefined
+    ? sequence.findings
+    : packageRelevantFindings(sequence.findings, { localOperationIds });
+  findings.push(...sequenceFindings);
   for (const edge of sequence.edges) {
     const provider = operationOwners.get(edge.fromOperation);
     const consumer = operationOwners.get(edge.toOperation);

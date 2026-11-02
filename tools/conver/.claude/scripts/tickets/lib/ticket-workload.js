@@ -35,6 +35,7 @@ const SPLIT_REASONS = Object.freeze([
 const WORKLOAD_CODES = Object.freeze({
   TICKET_WORK_OVER_BUDGET: 'TICKET_WORK_OVER_BUDGET',
   TICKET_COUNT_BELOW_WORK_MINIMUM: 'TICKET_COUNT_BELOW_WORK_MINIMUM',
+  WORK_BUDGET_INFEASIBLE: 'WORK_BUDGET_INFEASIBLE',
   SPLIT_REASON_MISSING: 'SPLIT_REASON_MISSING',
   SPLIT_REASON_INVALID: 'SPLIT_REASON_INVALID',
   TICKET_WORK_IRREDUCIBLE: 'TICKET_WORK_IRREDUCIBLE',
@@ -211,6 +212,104 @@ function minimumTicketCount(workload, budget) {
   return minimum;
 }
 
+/** The graph node ids a phase carries, whether declared at phase or ticket level. */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function graphNodeIdsOfPhase(phase) {
+  const nodeIds = new Set();
+  for (const nodeId of phase?.nodeIds ?? []) {
+    if (isGraphNodeId(nodeId)) nodeIds.add(nodeId);
+  }
+  for (const ticket of phase?.tickets ?? []) {
+    for (const nodeId of ticket?.nodeIds ?? []) {
+      if (isGraphNodeId(nodeId)) nodeIds.add(nodeId);
+    }
+  }
+  return [...nodeIds];
+}
+
+/** The ticket key that owns a graph node, or null. */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function ticketKeyOfNode(phase, nodeId) {
+  const ticket = (phase?.tickets ?? []).find((candidate) => (candidate?.nodeIds ?? []).includes(nodeId));
+  return ticket === undefined ? null : ticketKeyOf(ticket);
+}
+
+/**
+ * The largest workload a single graph node carries, per component.
+ *
+ * A node is indivisible across tickets, so this is the floor no partition can go below.
+ */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function maxNodeWorkload(phase, context = {}) {
+  const nodeIds = graphNodeIdsOfPhase(phase);
+  const workload = emptyWorkload();
+  const nodeIdByComponent = Object.fromEntries(WORKLOAD_COMPONENTS.map((component) => [component, null]));
+  for (const nodeId of nodeIds) {
+    const nodeWorkload = workloadOfNodes([nodeId], context);
+    for (const component of WORKLOAD_COMPONENTS) {
+      if (nodeWorkload[component] > workload[component]) {
+        workload[component] = nodeWorkload[component];
+        nodeIdByComponent[component] = nodeId;
+      }
+    }
+  }
+  return { workload, nodeIdByComponent, nodeCount: nodeIds.length };
+}
+
+/**
+ * Whether the phase can be partitioned into node-granular tickets under the budget.
+ *
+ * Two conditions make the budget infeasible: one node alone exceeds a component budget,
+ * or the component-wise minimum ticket count exceeds the number of nodes. Neither can be
+ * repaired by proposing a different partition.
+ */
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+function feasibilityOf(phase, budget, context = {}) {
+  const max = maxNodeWorkload(phase, context);
+  const phaseWorkload = workloadOfPhase(phase, context);
+  const minimum = minimumTicketCount(phaseWorkload, budget);
+  const findings = [];
+
+  for (const component of WORKLOAD_COMPONENTS) {
+    const actual = max.workload[component];
+    if (actual <= budget[component]) continue;
+    const nodeId = max.nodeIdByComponent[component];
+    findings.push({
+      code: WORKLOAD_CODES.WORK_BUDGET_INFEASIBLE,
+      ticketKey: ticketKeyOfNode(phase, nodeId),
+      nodeId,
+      component,
+      actual,
+      budget: budget[component],
+      reason: 'IRREDUCIBLE_NODE',
+      message: `node ${nodeId} alone carries ${actual} ${component}; the budget is ${budget[component]}`,
+    });
+  }
+
+  let reason = findings.length > 0 ? 'IRREDUCIBLE_NODE' : null;
+  if (max.nodeCount > 0 && minimum > max.nodeCount) {
+    findings.push({
+      code: WORKLOAD_CODES.WORK_BUDGET_INFEASIBLE,
+      phaseKey: phaseKeyOf(phase),
+      minimum,
+      nodeCount: max.nodeCount,
+      reason: 'MINIMUM_EXCEEDS_NODE_COUNT',
+      message: `the workload needs at least ${minimum} tickets but the phase has ${max.nodeCount} indivisible nodes`,
+    });
+    reason = 'MINIMUM_EXCEEDS_NODE_COUNT';
+  }
+
+  return {
+    feasible: findings.length === 0,
+    reason,
+    findings,
+    minimum,
+    nodeCount: max.nodeCount,
+    phaseWorkload,
+    maxNodeWorkload: max.workload,
+  };
+}
+
 /**
  * Validate a `ticket-work-budget.json` document.
  *
@@ -273,53 +372,43 @@ function phaseKeyOf(phase) {
  * @param {object} context
  * @returns {Array<{code:string, message:string, phaseKey?:string, ticketKey?:string, nodeId?:string, component?:string, actual?:number, budget?:number, minimum?:number}>}
  */
-// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-342, PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-342|PX-343) --for-spec --no-implementation-order`.
 function validateTicketWorkload(phase, budget, context = {}) {
   const findings = [];
   const tickets = Array.isArray(phase?.tickets) ? phase.tickets : [];
   const phaseKey = phaseKeyOf(phase);
+  const feasibility = feasibilityOf(phase, budget, context);
+  findings.push(...feasibility.findings);
+  const irreducibleKeys = new Set(
+    feasibility.findings
+      .filter((entry) => typeof entry.nodeId === 'string' && typeof entry.ticketKey === 'string')
+      .map((entry) => `${entry.ticketKey}|${entry.component}`),
+  );
 
   for (const ticket of tickets) {
     const ticketKey = ticketKeyOf(ticket);
     const workload = workloadOfTicket(ticket, context);
     for (const component of WORKLOAD_COMPONENTS) {
-      if (workload[component] > budget[component]) {
-        findings.push({
-          code: WORKLOAD_CODES.TICKET_WORK_OVER_BUDGET,
-          ticketKey,
-          component,
-          actual: workload[component],
-          budget: budget[component],
-          message: `${ticketKey} carries ${workload[component]} ${component}; the budget is ${budget[component]}`,
-        });
-      }
-    }
-
-    for (const nodeId of (ticket.nodeIds ?? []).filter(isGraphNodeId)) {
-      const nodeWorkload = workloadOfNodes([nodeId], context);
-      for (const component of WORKLOAD_COMPONENTS) {
-        if (nodeWorkload[component] <= budget[component]) continue;
-        findings.push({
-          code: WORKLOAD_CODES.TICKET_WORK_IRREDUCIBLE,
-          ticketKey,
-          nodeId,
-          component,
-          actual: nodeWorkload[component],
-          budget: budget[component],
-          message: `${ticketKey} cannot be split below ${nodeId}: it alone carries ${nodeWorkload[component]} ${component}; the budget is ${budget[component]}`,
-        });
-      }
+      if (workload[component] <= budget[component]) continue;
+      if (irreducibleKeys.has(`${ticketKey}|${component}`)) continue;
+      findings.push({
+        code: WORKLOAD_CODES.TICKET_WORK_OVER_BUDGET,
+        ticketKey,
+        component,
+        actual: workload[component],
+        budget: budget[component],
+        message: `${ticketKey} carries ${workload[component]} ${component}; the budget is ${budget[component]}`,
+      });
     }
   }
 
-  const minimum = minimumTicketCount(workloadOfPhase(phase, context), budget);
-  if (tickets.length < minimum) {
+  if (feasibility.reason !== 'MINIMUM_EXCEEDS_NODE_COUNT' && tickets.length < feasibility.minimum) {
     findings.push({
       code: WORKLOAD_CODES.TICKET_COUNT_BELOW_WORK_MINIMUM,
       phaseKey,
       actual: tickets.length,
-      minimum,
-      message: `${phaseKey} proposes ${tickets.length} ticket(s); the workload needs at least ${minimum}`,
+      minimum: feasibility.minimum,
+      message: `${phaseKey} proposes ${tickets.length} ticket(s); the workload needs at least ${feasibility.minimum}`,
     });
   }
 
@@ -353,6 +442,8 @@ module.exports = {
   workloadOfTicket,
   workloadOfPhase,
   minimumTicketCount,
+  maxNodeWorkload,
+  feasibilityOf,
   parseWorkBudget,
   validateTicketWorkload,
 };

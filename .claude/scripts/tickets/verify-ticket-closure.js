@@ -31,6 +31,7 @@ const {
   reportResolvedPath,
 } = require('../lib/package-artifacts');
 const { ticketIdentity } = require('./lib/ticket-identity.js');
+const { contractIdentityMatches, isRegistryProjection } = require('./lib/contract-chain.js');
 const { readStepContractSidecar } = require('../rfc-graph/lib/step-contracts.mjs');
 
 /**
@@ -97,28 +98,8 @@ function registryBoundaryIds(registryPath) {
  * @returns {{ valid: boolean, errors: Array<{ticket: string, detail: string}> }}
  */
 // [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306) --for-spec --no-implementation-order`.
-/** A normalized contract clause for the satisfaction comparison. */
-// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
-function normalizeClause(value) {
-  return String(value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
-}
-
-/**
- * Whether one postcondition satisfies a later precondition.
- *
- * The two clauses are prose, but prose containment is not a proof: `not ready` contains
- * `ready` and `unauthenticated` contains `authenticated`. Closure therefore requires the
- * same normalized clause or an explicit `satisfiedBy` link; a paraphrase is authored as a
- * link rather than inferred from a substring.
- */
-// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
-function contractIdentityMatches(postcondition, precondition, satisfiedBy = null) {
-  const post = normalizeClause(postcondition);
-  const pre = normalizeClause(precondition);
-  if (post === '' || pre === '') return false;
-  if (post === pre) return true;
-  return typeof satisfiedBy === 'string' && normalizeClause(satisfiedBy) === pre;
-}
+/** The contract chain predicate is shared with the graphify gate. */
+// [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
 
 /** The contracts an edge carries, or an empty list. */
 // [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
@@ -138,10 +119,14 @@ function edgeLabelOf(contract) {
   return String(contract.sourceEdge || '').replace(/\s*\((?:internal|inbound)\)\s*$/i, '').trim();
 }
 
-// [::TICKET::] PX-306, PX-312, PX-313, PX-315, PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-312|PX-313|PX-315|PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313, PX-315, PX-318, PX-322, PX-343, PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-312|PX-313|PX-315|PX-318|PX-322|PX-343|PX-344) --for-spec --no-implementation-order`.
 function verifyClosure(tickets, graph, options = {}) {
   const errors = [];
   const edges = graph.edges || [];
+  const registryRows = options.registryContracts ?? [];
+  // A registry boundary projection is an interface obligation, not a transition
+  // contract; it never participates in incoming-post -> outgoing-pre closure.
+  const isChainContract = (contract) => !isRegistryProjection(contract, registryRows);
 
   // Key by the ticket object, not by its numeric id: ids are numbered inside a phase, so
   // P0-1 and P1-1 would otherwise be mistaken for the same ticket and the crossing edge
@@ -160,12 +145,12 @@ function verifyClosure(tickets, graph, options = {}) {
     // its incoming postcondition satisfy the outgoing precondition.
     for (const nodeId of nodeSet) {
       const incoming = inside.filter((edge) => edge.to === nodeId).flatMap((edge) => contractsOf(edge)
-        .filter((contract) => contract.postcondition));
+        .filter((contract) => contract.postcondition && isChainContract(contract)));
       const outgoing = inside.filter((edge) => edge.from === nodeId).flatMap((edge) => contractsOf(edge)
-        .filter((contract) => contract.precondition));
+        .filter((contract) => contract.precondition && isChainContract(contract)));
       if (incoming.length === 0 || outgoing.length === 0) continue;
       for (const next of outgoing) {
-        const satisfied = incoming.some((previous) => contractIdentityMatches(previous.postcondition, next.precondition, next.satisfiedBy));
+        const satisfied = incoming.some((previous) => contractIdentityMatches(previous.postcondition, next.precondition, next.satisfiedBy, previous.id));
         if (!satisfied) {
           errors.push({
             ticket: ticketKey,
@@ -178,18 +163,21 @@ function verifyClosure(tickets, graph, options = {}) {
   }
 
   // Inter-ticket: a crossing edge's source ticket must provide what the target ticket
-  // requires. The target's contracts record the precondition it was written against.
+  // requires at the target node. The requirement is the precondition of the node's
+  // outgoing edge, not the crossing edge's own precondition: the latter is the state
+  // before the transition, and comparing it with the transition's postcondition would
+  // demand that every edge be an identity.
   for (const edge of edges) {
     const sourceTicket = nodeToTicket.get(edge.from);
     const targetTicket = nodeToTicket.get(edge.to);
     if (sourceTicket === undefined || targetTicket === undefined || sourceTicket === targetTicket) continue;
-    if (contractsOf(edge).length === 0) continue;
+    if (!contractsOf(edge).some(isChainContract)) continue;
     const label = edge.from + '→' + edge.to;
     const sourceContracts = (sourceTicket && Array.isArray(sourceTicket.contracts) ? sourceTicket.contracts : [])
-      .filter((contract) => edgeLabelOf(contract) === label && contract.postcondition);
-    const targetContracts = (targetTicket && Array.isArray(targetTicket.contracts) ? targetTicket.contracts : [])
-      .filter((contract) => edgeLabelOf(contract) === label && contract.precondition);
-    if (sourceContracts.length === 0 || targetContracts.length === 0) {
+      .filter((contract) => edgeLabelOf(contract) === label && contract.postcondition && isChainContract(contract));
+    const targetEdgeContracts = (targetTicket && Array.isArray(targetTicket.contracts) ? targetTicket.contracts : [])
+      .filter((contract) => edgeLabelOf(contract) === label && contract.precondition && isChainContract(contract));
+    if (sourceContracts.length === 0 || targetEdgeContracts.length === 0) {
       errors.push({
         ticket: ticketKeyOf(targetTicket),
         code: 'INTER_TICKET_CLOSURE_OPEN',
@@ -197,15 +185,31 @@ function verifyClosure(tickets, graph, options = {}) {
       });
       continue;
     }
-    for (const target of targetContracts) {
-      const satisfied = sourceContracts.some((source) =>
-        contractIdentityMatches(source.postcondition, target.precondition, target.satisfiedBy));
-      if (!satisfied) {
+
+    const outgoingEdges = edges.filter((candidate) => candidate.from === edge.to
+      && contractsOf(candidate).some(isChainContract));
+    for (const outgoing of outgoingEdges) {
+      const outgoingLabel = outgoing.from + '→' + outgoing.to;
+      const targetContracts = (targetTicket.contracts ?? [])
+        .filter((contract) => edgeLabelOf(contract) === outgoingLabel && contract.precondition && isChainContract(contract));
+      if (targetContracts.length === 0) {
         errors.push({
           ticket: ticketKeyOf(targetTicket),
           code: 'INTER_TICKET_CLOSURE_OPEN',
-          detail: 'Inter-ticket edge ' + label + ': no source postcondition matches precondition "' + target.precondition + '"',
+          detail: 'Inter-ticket edge ' + label + ': target ticket carries no contract for outgoing edge ' + outgoingLabel,
         });
+        continue;
+      }
+      for (const target of targetContracts) {
+        const satisfied = sourceContracts.some((source) =>
+          contractIdentityMatches(source.postcondition, target.precondition, target.satisfiedBy, source.id));
+        if (!satisfied) {
+          errors.push({
+            ticket: ticketKeyOf(targetTicket),
+            code: 'INTER_TICKET_CLOSURE_OPEN',
+            detail: 'Inter-ticket edge ' + label + ' -> ' + outgoingLabel + ': no source postcondition matches precondition "' + target.precondition + '"',
+          });
+        }
       }
     }
   }

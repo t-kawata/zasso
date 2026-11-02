@@ -314,6 +314,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 ```
 
 Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}`.
+The contract chain is proved at graphify: an outgoing edge's `precondition` must be satisfied by an incoming edge's `postcondition` at the same node. When the clauses are a paraphrase, author `satisfiedBy` on the outgoing contract naming the source postcondition clause or the source contract id. An unlinked gap is `CONTRACT_CHAIN_OPEN`; fix the graph before split runs.
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}` **before** the boundary projection, so the projected `C9xx` contract is never overwritten.
 
 `attach-unit-ids.js` reads the `distribution-map` block from `$sourcePath` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.

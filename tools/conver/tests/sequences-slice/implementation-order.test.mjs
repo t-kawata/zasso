@@ -1,4 +1,5 @@
 // PX-323 @verifies C001 C002 C003 C004 C005 C006 C008
+// PX-343 @verifies C001
 // The build order and the implementation order are distinct. Every derived edge names
 // its source; narrative sequence order alone never creates one.
 import { test } from 'node:test';
@@ -370,4 +371,24 @@ test('C002 activeOperationIdsOf skips a map-declared residual', () => {
     { residualUnitIds: new Set(['op-R']) },
   );
   assert.deepEqual([...ids], ['A']);
+});
+
+
+// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
+test('C001 a hard constrains edge makes the constrained ticket wait for the source ticket', () => {
+  const tickets = [
+    ticket(1, 0, ['N1'], [operationUnit('op-A')]),
+    ticket(2, 0, ['N2'], [operationUnit('op-B')]),
+  ];
+  const graph = {
+    edges: [{
+      from: 'N2',
+      to: 'N1',
+      type: 'constrains',
+      attributes: { strength: 'hard', bidirectional: false },
+    }],
+  };
+  const { prerequisites } = ticketPrerequisites({ tickets, graph, packageId: 'pkg-1' });
+  const entries = prerequisites.get('P0-1') ?? [];
+  assert.ok(entries.some((entry) => entry.ticket === 'P0-2'), JSON.stringify(entries));
 });

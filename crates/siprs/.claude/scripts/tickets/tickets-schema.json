@@ -362,7 +362,7 @@
               },
               "satisfiedBy": {
                 "type": "string",
-                "description": "Explicit link when a paraphrase is recorded instead of an identical clause."
+                "description": "Explicit link for a paraphrase: the source postcondition clause or the source contract id; never the precondition itself."
               },
               "boundaryId": {
                 "type": "string",
