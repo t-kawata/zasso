@@ -509,7 +509,9 @@ function updateStatusJson(statusPath, oldPhases, newPhases) {
 
 /**
  * Validate all phases after consolidation.
- * - All phases have ticketCount >= MIN_TICKETS_PER_PHASE (except the last)
+ * - All non-final phases have ticketCount >= MIN_TICKETS_PER_PHASE. The final phase is
+ *   exempt only because a sole remaining phase has no merge target; with two or more
+ *   phases, mergeLastPhaseBackward has already merged a small final phase backward.
  * - All ticket IDs are valid
  * - All ticket phaseIds match their owning phase id
  * - No empty tickets (non-empty nodeIds)
