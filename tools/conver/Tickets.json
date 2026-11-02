@@ -51919,6 +51919,184 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-10-29"
+        },
+        {
+          "id": 342,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Consolidation-first /split-to-tickets with a work-budget gate",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-342.md",
+          "invariants": "- [Normal condition] `minimumTicketCount` returns `max(1, component-wise ceil(W/B))`; every ticket is at or below every budget component; actual ticket count is at least the work minimum; every ticket in a multi-ticket phase carries a valid `splitReason`.\n- [Error invariant] Any named workload finding exits 1 before `writeJsonAtomically`, so `Tickets.json` remains byte-identical and no partial ticket set is written.\n- [Internal state invariant] Every workload component is a non-negative integer; the sum of ticket workloads equals the phase workload; no graph node, operation unit, sequence step, contract, or leaf file is dropped or duplicated by validation or merge.\n- [Boundary invariant] `MIN_TICKETS_PER_PHASE` remains 3; a `<3`-ticket phase merges phases, never splits tickets; a `<3`-ticket last phase merges backward when a previous phase exists; graphify granularity and `MIN_NODES_PER_PHASE = 10` are unchanged.",
+          "background": "### Goal\nMake `/split-to-tickets` produce the minimum number of tickets that satisfies the 3-ticket phase grouping floor and a per-ticket work budget, so improved implementation capacity is used without overloading a single ticket.\n\n### Purpose\nEncode the `/suggest-min-tickets` consolidation-first policy inside the split pipeline instead of relying on a later manual pass. Phases stay a human-readable grouping; the machine-checkable ceiling moves to the ticket.\n\n### Motivation\nCurrent Step 5-1 asks only for `safe single-implementation bundles` and explicitly allows a single-node ticket; it has no minimization objective. Measured initial siprs phases P0-P7: 26 tickets / 91 nodes = 3.5 nodes per ticket, and the full file has 43 one-node tickets. With improved AI capacity this leaves consolidation unused. A fixed node-count cap would repeat the old mistake, so the budget is measured in implementation work rather than prose nodes.\n\n### Constraints\n- Keep `MIN_TICKETS_PER_PHASE = 3`: a phase is a presentation group and a 1-ticket phase is meaningless.\n- Do not change graphify node granularity or `MIN_NODES_PER_PHASE = 10`.\n- Do not retroactively merge existing `Tickets.json`.\n- No automatic prose merging: the AI writes merged ticket prose; scripts only measure and validate.\n- Work volume is a vector (operations, sequenceSteps, contracts, files, kinds), never a node count.\n- `add-tickets-for-phase.js` stays backward-compatible: the gate is opt-in with `--enforce-work-budget` and reports `skipped:no-distribution` when no view exists.\n- Preserve every existing split gate and every TDD law.",
+          "scope": [
+            "[Add] `.claude/scripts/tickets/lib/ticket-workload.js` — pure workload model: `workloadOfTicket(ticket, {graph, dirsTree, view})`, `workloadOfPhase(tickets, context)`, `minimumTicketCount(phaseWorkload, budget) = max(1, component-wise ceil(W/B))`, and `validateTicketWorkload(phase, budget)`. Count implement-mode operation units, steps-mode sequence steps, `ctr-*` contract units, distinct `default_files`, and distinct graph node kinds. No I/O in this module.",
+            "[Add] `.claude/scripts/tickets/ticket-work-budget.json` — versioned budget config with components `operations`, `sequenceSteps`, `contracts`, `files`, `kinds`; positive integer ceilings; `provenance` string. A loader validates version, missing components, and non-positive values. Default path sits beside the script; `--work-budget=<path>` overrides it.",
+            "[Modify] `.claude/scripts/tickets/add-tickets-for-phase.js` — after `populateTicketDistribution`, call `workloadOfPhase`; compute `minimumWorkTickets = max(1, ceil(W/B))` component-wise; report `TICKET_WORK_OVER_BUDGET`, `TICKET_COUNT_BELOW_WORK_MINIMUM`, `SPLIT_REASON_MISSING`, `SPLIT_REASON_INVALID`, and `TICKET_WORK_IRREDUCIBLE`; fail before `writeJsonAtomically` so `Tickets.json` stays byte-identical.",
+            "[Modify] `.claude/scripts/tickets/add-tickets-for-phase.js` — add `--enforce-work-budget` and `--work-budget=<path>` flags; include `workload`, `budget`, `minimumWorkTickets`, and `splitReasons` in the success JSON; skip with `skipped:no-distribution` when the view is null, preserving pre-split and backward-compatible callers.",
+            "[Modify] `.claude/scripts/tickets/tickets-schema.json` — add optional `ticket.splitReason` with enum `tdd-order`, `disjoint-io`, `release-boundary`, `ownership-boundary`, `cohesion`; document that the gate in `add-tickets-for-phase.js` enforces it for multi-ticket phases.",
+            "[Modify] `.claude/commands/split-to-tickets.md` Step 5-1 — replace line 329's `judge safe single-implementation bundles` with a consolidation-first default: one coherent ticket per phase unless a split trigger is proven; name the four triggers; state that ticket size is work volume, not node count; reference `/suggest-min-tickets`.",
+            "[Modify] `.claude/commands/split-to-tickets.md` Step 5-2 — add a mandatory convergence pass before the add call; require `splitReason` for every ticket when the phase has more than one; pass `--enforce-work-budget`; explain that the AI writes merged prose and the script only validates.",
+            "[Modify] `.claude/commands/split-to-tickets.md` Step 5-3 — keep `MIN_TICKETS_PER_PHASE = 3`; state that a phase with fewer than three tickets merges phases, never splits tickets; add last-phase backward merge when a previous phase exists; do not enforce the 3 floor inside `add-tickets-for-phase.js`, otherwise a 2-ticket phase could never reach consolidation.",
+            "[Modify] `.claude/commands/split-to-tickets.md` Step 6 — fix the malformed line 438 (`list-phases-and-tickets.jsnode`) into two commands; keep the checklist output; the per-phase workload and budget report is emitted by `add-tickets-for-phase.js` in Step 5-2.",
+            "[Modify] `.claude/scripts/tickets/consolidate-phase-tickets.js` — keep `MIN_TICKETS_PER_PHASE = 3`; add `mergeLastPhaseBackward(phases)` after `consolidateFromRight` when the last phase has fewer than three tickets and a previous phase exists; append last tickets and nodeIds to the previous phase to preserve order; update `finalValidation` and tests.",
+            "[Modify] `.claude/scripts/tickets/show-phase-distribution.js` — add `## Workload` and `## Budget` sections: per-phase counts, budget components, `minimumWorkTickets`, budget source, and a grouping invariant that multi-ticket phases require `splitReason`. Accept `--work-budget=<path>`; default to `ticket-work-budget.json`.",
+            "[Add/Modify tests] `tests/tickets/ticket-workload.test.mjs` (new pure unit tests), `tests/tickets/phase-distribution.test.cjs` and `tests/rfc-graph/step5-add-tickets-coverage.test.cjs` (gate integration), `tests/consolidate-phase-tickets.test.cjs` (last-phase backward merge), `tests/tickets/show-ticket-distribution.test.mjs` (workload sections), and `tests/rfc-graph/split-cmd.test.cjs` (command policy tokens). Keep existing coverage, unit, and distribution tests green.",
+            "[Modify] baselines and installed copies — update `tests/conventions/design-citations.test.mjs:63` only if line 94 shifts (insert after it), regenerate `tests/workspacify-tree/baselines/manifest-hashes.json` and `tests/workspacify-reverse/oracle/KNOWN-DELTA.json` as required, and sync the canonical command and scripts into the root, `crates/siprs`, and `~/shyme/conver` installed copies through the sanctioned installer. Out of scope: graphify node granularity, `MIN_NODES_PER_PHASE`, retroactive `Tickets.json` merges, automatic prose merging."
+          ],
+          "testUnit": [
+            "UT: [Normal] `workloadOfTicket` counts implement-mode operation units, steps-mode sequence units and their steps, `ctr-*` contract units, distinct `default_files`, and distinct graph node kinds from graph, Dirs-Tree and optional SEQUENCES view. @verifies C001",
+            "UT: [Normal] `workloadOfPhase` sums ticket workloads and equals the independently computed phase workload when the tickets cover the phase. @verifies C001",
+            "UT: [Invariant] every workload component is a non-negative integer and the sum of ticket workloads equals the phase workload. @verifies C001",
+            "UT: [Normal] `minimumTicketCount` returns the component-wise ceiling of workload divided by budget, at least one. @verifies C002",
+            "UT: [Boundary] zero workload returns one; a component exactly at budget returns one; one above budget returns two. @verifies C002",
+            "UT: [Invariant] `minimumTicketCount` is monotonic in workload and non-increasing as the budget grows. @verifies C002",
+            "UT: [Error] a phase with more than one ticket and a missing `splitReason` yields `SPLIT_REASON_MISSING`; an unknown value yields `SPLIT_REASON_INVALID`. @verifies C003",
+            "UT: [Invariant] `splitReason` is never required for a single-ticket phase and only the five enum values are accepted. @verifies C003",
+            "UT: [Error] a ticket over any budget component yields `TICKET_WORK_OVER_BUDGET` naming the ticket key, component, actual value and budget. @verifies C004",
+            "UT: [Boundary] a single graph node above budget yields `TICKET_WORK_IRREDUCIBLE` naming the node; a failed validation writes no `Tickets.json` bytes. @verifies C004",
+            "UT: [Boundary] ticketization complete: a phase with fewer than three tickets is merged with an adjacent phase; the last phase merges backward when a previous phase exists. @verifies C005",
+            "UT: [Invariant] tickets are never split to satisfy the three-ticket floor and ticket node sets are unchanged by the merge. @verifies C005",
+            "UT: [Normal] the split command text states the consolidation-first default, four split triggers, convergence pass, minimum-count formula and `splitReason` requirement; the three-ticket phase floor remains unchanged. @verifies C006",
+            "UT: [Normal] `show-phase-distribution` prints `## Workload` and `## Budget` with counts, budget components, `minimumWorkTickets` and budget source. @verifies C001 C002",
+            "UT: [Error] `add-tickets-for-phase.js --enforce-work-budget` exits 1 and leaves `Tickets.json` byte-identical on any named finding. @verifies C004"
+          ],
+          "testIntegration": [
+            "IT: `add-tickets-for-phase.js` + `lib/ticket-workload.js` + a fixture phase — a phase with six nodes and two proposed tickets fails below the work minimum or over budget; the same phase with three balanced tickets passes and writes once.",
+            "IT: `split-to-tickets.md` + `add-tickets-for-phase.js` — the command passes `--enforce-work-budget` and its policy tokens agree with the gate codes; no orphan instruction remains.",
+            "IT: `consolidate-phase-tickets.js` + `add-tickets-for-phase.js` — a one-ticket last phase merges backward after ticketization; renumbering and remapping keep ticket keys, `relatedTicketIds` and `phaseId` values consistent.",
+            "IT: `show-phase-distribution.js` + GRAPH/Dirs-Tree/SEQUENCES fixtures — workload counts match graph, dirs and view; budget utilization is printed.",
+            "IT: full split fixture — old versus new ticket count is lower or equal with all split gates green and exact node, unit, step, and contract coverage.",
+            "IT: installed copies — canonical command and script hashes match the repository root, `crates/siprs`, and `~/shyme/conver`; baselines are regenerated."
+          ],
+          "testExceptions": [
+            "Budget calibration from historical reviewed tickets cannot test as deterministic runtime behavior: it is a one-time measurement recorded in `ticket-work-budget.json` with provenance. This is not a design defect because the loader, the formula, and every gate are unit-tested with fixture budgets.",
+            "The semantic choice of split boundaries is not testable by assertion: it is verified by command-content tests, `splitReason` presence and enum checks, and the end-to-end fixture. This is not an architectural defect because the mechanical constraints are tested and the reason itself is reviewed.",
+            "Installed-copy drift is environment-dependent and not testable in a unit test: it is verified by the installer hash check and the existing installed-copy-drift test. This is not a design defect because the canonical source is deterministic."
+          ],
+          "instrumentation": "- [Logging] `add-tickets-for-phase.js` prints every named workload finding to stderr and the success JSON to stdout.\n- [Metrics] Success JSON carries the workload vector, budget source, `minimumWorkTickets`, and the `splitReason` map.\n- [Error tracking] Named codes are `TICKET_WORK_OVER_BUDGET`, `TICKET_COUNT_BELOW_WORK_MINIMUM`, `SPLIT_REASON_MISSING`, `SPLIT_REASON_INVALID`, and `TICKET_WORK_IRREDUCIBLE`.\n- [Health check] `show-phase-distribution.js` prints the workload and budget sections used during Step 5-1.\nReview verification: 169 impact-set tests pass; run-quality-checks reports 0 issues; annotation verify covers 16/16 changed source files with 0 missing and 0 ambiguous; no open crimes; no unclassified stubs; no external-excuse failures.",
+          "notes": "### Implementation steps\n1. Write the Red tests for `lib/ticket-workload.js`, the `--enforce-work-budget` gate, the last-phase merge, the workload sections, and the command tokens.\n2. Implement `lib/ticket-workload.js` and the budget loader with fixture budgets.\n3. Integrate the gate into `add-tickets-for-phase.js` before `writeJsonAtomically`; keep the opt-in flag.\n4. Rewrite Step 5-1/5-2/5-3 and fix the malformed Step 6 command line.\n5. Add `mergeLastPhaseBackward` and update `finalValidation` and tests.\n6. Add the workload and budget sections to `show-phase-distribution.js`.\n7. Regenerate baselines and sync installed copies.\n\n### Risks\n- A miscalibrated budget either over-splits or lets one ticket overload. Roll out as a warning first, then gate.\n- Merging tickets can surface duplicate contract ids. Dedupe identical contracts and refuse conflicting ones.\n- The `design-citations.test.mjs:63` anchor and the manifest-hashes/KNOWN-DELTA baselines move when the command text changes.\n- Enforcing the 3-ticket floor inside `add-tickets-for-phase.js` would block a 2-ticket phase from ever reaching Step 5-3. The 3 floor belongs only to phase consolidation; the add-stage gate uses the work minimum.\n\n### Caveats\n- `--enforce-work-budget` is opt-in so old callers and pre-split packages keep their behavior.\n- `splitReason` is required for every ticket only when the phase has more than one ticket; the gate checks presence and enum, not semantic correctness.\n- The last-phase backward merge appends the last phase's tickets after the previous phase's tickets, preserving implementation order.\n\n### Open items\n- The initial budget values are provisional; calibrate them from reviewed tickets and record the measured percentile in the config provenance.\n- Decide whether a future Step 6 summary should call `show-phase-distribution.js` for every phase; the per-phase report already exists in Step 5-2.\n\n### Future improvements\n- Per-package budget overrides and an adaptive budget derived from session token and elapsed-time instrumentation.\n- A `--dry-run` workload report for the split command before any ticket is written.\n- Schema-level enum enforcement for `splitReason` once the gate is stable.\n### Implementation summary (PX-342)\n- New files: .claude/scripts/tickets/lib/ticket-workload.js, .claude/scripts/tickets/ticket-work-budget.json, tests/tickets/ticket-workload.test.mjs, tests/tickets/add-tickets-work-budget.test.cjs.\n- Modified: add-tickets-for-phase.js (opt-in work gate, flags, output), consolidate-phase-tickets.js (last-phase backward merge, guard), show-phase-distribution.js (workload/budget sections), split-to-tickets.md (consolidation-first policy, convergence pass, splitReason, fixed Step 6), tickets-schema.json (optional splitReason), and the existing tests named in the spec.\n- Gate behavior: --enforce-work-budget runs after distribution population and before attachPrerequisites/writeJsonAtomically; a failure leaves Tickets.json byte-identical. A package without a view reports skipped:no-distribution. Callers without the flag keep the old behavior.\n- Phase floor: MIN_TICKETS_PER_PHASE remains 3. The add-stage minimum is max(1, ceil(workload/budget)); Step 5-3 merges phases, never splits tickets, including a last phase merging backward.\n- Tests: 58 targeted tests pass; 110 impact-set tests pass; 23 command/digest baseline tests pass. Quality checks: 0 issues on the changed files.\n- Installed copies: root .claude, crates/siprs/.claude and ~/shyme/conver/.claude carry byte-identical copies of the changed command and scripts.\n- Open item: the budget values (8 operations, 8 steps, 2 contracts, 10 files, 4 kinds) are provisional; calibrate them from reviewed tickets and record the measured percentile and date in ticket-work-budget.json.\n- No unresolved stubs or open crimes were introduced.\nFinal verification after the canonical-form test and installed-copy sync: 59 targeted tests pass; 110 impact-set tests pass; 23 command/digest baseline tests pass; quality checks report 0 issues on the changed files; root, crates/siprs and ~/shyme/conver copies are byte-identical.\nReview report (PX-342):\n- Static quality check: PASS (0 issues).\n- Translatability: PASS; new functions follow the plan's named API, loop counters are the only single-letter locals, no leftover debug output in the touched scripts, and the standalone test harness now uses writeLine().\n- Dependencies: PASS; installed copies in root .claude, crates/siprs/.claude and ~/shyme/conver/.claude are byte-identical.\n- Contracts: PASS; verify-final-contracts and validate-ticket-targets pass; C001-C006 are covered.\n- Issues found and fixed during review: (1) the split command's invariant still said only 'following phase' and contradicted the new last-phase backward merge; corrected. (2) add-tickets-for-phase.js, consolidate-phase-tickets.js and show-phase-distribution.js carried stale header comments that did not mention the new workload/budget behavior; corrected. (3) the last-phase backward merge had only pure-function coverage; added a CLI integration test that runs runConsolidation over a two-phase fixture and proves one phase, four preserved/renumbered tickets, remapped phaseIds and four nodeIds.\n- Tests: 169 impact-set tests pass; targeted tests pass.\n- No critical, high or medium findings remain.",
+          "acceptanceCriteria": [
+            "Happy path: a fixture phase with known workload and budget writes the minimum ticket partition and returns `workload`, `budget`, `minimumWorkTickets`, and `splitReasons`, with every existing split gate green.",
+            "Error case: a ticket over any budget component, or a multi-ticket phase missing a valid `splitReason`, exits 1 with the named code and writes nothing.",
+            "Edge case: a phase with fewer than three tickets merges phases, including a last phase merging backward; tickets are never split to satisfy the floor and `MIN_TICKETS_PER_PHASE` remains 3.",
+            "Command contract: `split-to-tickets.md` states the consolidation-first default, four split triggers, convergence pass, minimum-count formula and `splitReason` requirement, and the malformed Step 6 command line is fixed.",
+            "Backward compatibility: callers without `--enforce-work-budget` behave as before, and a package without a view reports `skipped:no-distribution`."
+          ],
+          "investigation": "- `split-to-tickets.md:329` asks the AI to `judge safe single-implementation bundles from I/O-boundary character + file path`; `:359` says `one or more nodes/ticket; single node allowed`. There is no minimization objective and no numeric or work-volume ceiling.\n- `add-tickets-for-phase.js:514-735` is the main pipeline: it reads tickets, resolves files, appends units, populates distribution (`:921-1005`), verifies distribution (`:1046-1101`), and writes atomically (`:722`). It has no workload, budget, or splitReason gate; exports are at `:1321-1339`.\n- `consolidate-phase-tickets.js:48` sets `MIN_TICKETS_PER_PHASE = 3`; `:185-244` merges phases right-to-left into the next phase; `:488-489` exempts the last phase from the final `<3` check.\n- `show-phase-distribution.js:139-144` states the current grouping invariants (one implementer per operation, do not separate an operation from its steps, ctr keeps the registry contract, order follows the artifact, cross-package build order is not asserted) but prints no workload or budget.\n- `suggest-min-tickets.md` states: consolidate maximally, single ticket ideal if safe, split only where unavoidable risk exists. It is not referenced by the split command.\n- Measured `crates/siprs/Tickets.json`: 21 phases, 146 tickets, 406 graph nodes; initial phases P0-P7 hold 26 tickets / 91 nodes (3.5 nodes per ticket); the whole file has 43 one-node tickets. This is evidence of over-splitting, not a target.\n- `tickets-schema.json:230-236` declares `nodeIds` as an unconstrained string array; `validate-tickets.js` ignores unknown ticket fields, so an additive `splitReason` needs no schema-wide change.\n- Command tests: `tests/rfc-graph/split-cmd.test.cjs:14-38` fixes the argument-free title and preflight literals; `tests/conventions/design-citations.test.mjs:63` anchors `.claude/commands/split-to-tickets.md:94` to the `docs/Tickets.json` token; `tests/workspacify-tree/baselines/manifest-hashes.json:395` holds the split command structure and digest; `tests/workspacify-reverse/oracle/KNOWN-DELTA.json:1624` names the command file.\n- Existing coverage: `tests/rfc-graph/step5-add-tickets-coverage.test.cjs`, `tests/tickets/phase-distribution.test.cjs`, `tests/tickets/show-ticket-distribution.test.mjs`, `tests/consolidate-phase-tickets.test.cjs`, `tests/tickets/add-tickets-units.test.mjs`, and `tests/tickets/single-implementing-ticket.test.mjs` cover the behavior this ticket extends.",
+          "boyScoutPlan": "- Extract workload logic from the already 1339-line `add-tickets-for-phase.js` into `lib/ticket-workload.js`, so the main flow reads as: read tickets → resolve files → append units → populate distribution → compute workload → validate → write.\n- Name constants for the five budget components, the five split reasons, and the validation codes; no magic strings.\n- Use verb-phrase pure functions: `workloadOfTicket`, `workloadOfPhase`, `minimumTicketCount`, `validateTicketWorkload`, `mergeLastPhaseBackward`.\n- Rename locals in the touched block to domain terms (`phaseWorkload`, `ticketWorkload`, `minimumWorkTickets`, `budgetComponent`) and keep each function under 50 lines.\n- Fix the malformed Step 6 command line and replace comments that describe the old unbounded policy with the new two-constraint model.\n- Do not swallow errors: every finding carries the ticket key, component, actual value, and budget so a reader can act without re-deriving them.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "PX-342:workload",
+              "precondition": "The phase has a graph, a Dirs-Tree, and an optional SEQUENCES view.",
+              "postcondition": "Each ticket workload counts implement operations, step units, contract units, leaf files, and node kinds.",
+              "invariant": "Every count is a non-negative integer and the sum of ticket workloads equals the phase workload."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "PX-342:minimum-count",
+              "precondition": "The phase workload and the budget components are known.",
+              "postcondition": "minimumTicketCount returns the component-wise ceiling of workload divided by budget, at least one.",
+              "invariant": "The count is monotonic in workload and non-increasing as the budget grows."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "PX-342:split-reason",
+              "precondition": "A phase proposes more than one ticket.",
+              "postcondition": "Every ticket carries a splitReason from the five-value enum or validation fails.",
+              "invariant": "A splitReason is never required for a single-ticket phase."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "PX-342:budget-gate",
+              "precondition": "Each ticket has a workload and the budget has positive components.",
+              "postcondition": "A component above budget yields TICKET_WORK_OVER_BUDGET; a single node above budget yields TICKET_WORK_IRREDUCIBLE.",
+              "invariant": "A failed validation writes no Tickets.json bytes."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "PX-342:phase-floor",
+              "precondition": "Ticketization is complete for every phase.",
+              "postcondition": "A phase with fewer than three tickets merges with an adjacent phase, and the last phase merges backward when a previous phase exists.",
+              "invariant": "Tickets are never split to satisfy the three-ticket floor; ticket node sets are unchanged by the merge."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "PX-342:command-policy",
+              "precondition": "The split command text is read.",
+              "postcondition": "It states the consolidation-first default, four split triggers, convergence pass, minimum-count formula, and splitReason requirement.",
+              "invariant": "The three-ticket phase floor remains unchanged."
+            }
+          ],
+          "created_at": "2026-11-02",
+          "updated_at": "2026-11-02",
+          "default_files": [
+            ".claude/scripts/tickets/lib/ticket-workload.js",
+            ".claude/scripts/tickets/ticket-work-budget.json",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/tickets/consolidate-phase-tickets.js",
+            ".claude/scripts/tickets/show-phase-distribution.js",
+            ".claude/commands/split-to-tickets.md",
+            ".claude/scripts/tickets/tickets-schema.json",
+            "tests/tickets/ticket-workload.test.mjs",
+            "tests/consolidate-phase-tickets.test.cjs",
+            "tests/rfc-graph/split-cmd.test.cjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 Normal] ticket and phase workload\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { workloadOfTicket, workloadOfPhase } from '../../.claude/scripts/tickets/lib/ticket-workload.js';\n\ntest('C001 counts implement operations, steps, contracts, files and kinds', () => {\n  const context = fixtureContext();\n  const workload = workloadOfTicket(fixtureTicket(['N0001', 'N0002']), context);\n  assert.deepEqual(workload, { operations: 2, sequenceSteps: 1, contracts: 1, files: 2, kinds: 2 });\n  assert.equal(workloadOfPhase({ nodeIds: ['N0001', 'N0002'] }, context).operations, 2);\n  assert.equal(Object.values(workload).every((value) => Number.isInteger(value) && value >= 0), true);\n  assert.deepEqual(workload, workloadOfPhase({ nodeIds: ['N0001', 'N0002'] }, context));\n});\n```",
+            "UT: [C002 Boundary] minimum ticket count\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { minimumTicketCount } from '../../.claude/scripts/tickets/lib/ticket-workload.js';\n\ntest('C002 returns the component-wise ceiling and never below one', () => {\n  const budget = { operations: 2, sequenceSteps: 2, contracts: 1, files: 2, kinds: 1 };\n  const empty = { operations: 0, sequenceSteps: 0, contracts: 0, files: 0, kinds: 0 };\n  assert.equal(minimumTicketCount(empty, budget), 1);\n  assert.equal(minimumTicketCount({ operations: 5, sequenceSteps: 0, contracts: 0, files: 0, kinds: 0 }, budget), 3);\n  assert.equal(minimumTicketCount({ operations: 4, sequenceSteps: 0, contracts: 0, files: 4, kinds: 0 }, budget), 2);\n  assert.equal(minimumTicketCount({ operations: 9, sequenceSteps: 0, contracts: 0, files: 0, kinds: 0 }, budget) >= minimumTicketCount({ operations: 5, sequenceSteps: 0, contracts: 0, files: 0, kinds: 0 }, budget), true);\n  assert.equal(minimumTicketCount({ operations: 5, sequenceSteps: 0, contracts: 0, files: 0, kinds: 0 }, { ...budget, operations: 10 }), 1);\n});\n```",
+            "UT: [C003 Error] split reason\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { validateTicketWorkload } from '../../.claude/scripts/tickets/lib/ticket-workload.js';\n\ntest('C003 a multi-ticket phase must name a reason', () => {\n  const phase = fixturePhase([{ id: 1, nodeIds: ['N0001'] }, { id: 2, nodeIds: ['N0002'] }]);\n  const missing = validateTicketWorkload(phase, fixtureBudget(), fixtureContext());\n  assert.ok(missing.some((finding) => finding.code === 'SPLIT_REASON_MISSING'));\n  phase.tickets.forEach((ticket) => { ticket.splitReason = 'cohesion'; });\n  assert.equal(validateTicketWorkload(phase, fixtureBudget(), fixtureContext()).some((finding) => finding.code === 'SPLIT_REASON_MISSING'), false);\n  const invalid = validateTicketWorkload({ ...phase, tickets: phase.tickets.map((ticket) => ({ ...ticket, splitReason: 'because' })) }, fixtureBudget(), fixtureContext());\n  assert.ok(invalid.some((finding) => finding.code === 'SPLIT_REASON_INVALID'));\n  assert.equal(validateTicketWorkload(fixturePhase([{ id: 1, nodeIds: ['N0001'] }]), fixtureBudget(), fixtureContext()).some((finding) => finding.code === 'SPLIT_REASON_MISSING'), false);\n});\n```",
+            "UT: [C004 Error] budget and irreducible node\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { validateTicketWorkload } from '../../.claude/scripts/tickets/lib/ticket-workload.js';\n\ntest('C004 over-budget and irreducible findings name the component and node', () => {\n  const findings = validateTicketWorkload(fixtureOverBudgetPhase(), fixtureBudget(), fixtureContext());\n  assert.ok(findings.some((finding) => finding.code === 'TICKET_WORK_OVER_BUDGET' && finding.component === 'files' && finding.actual === 3 && finding.budget === 2));\n  assert.ok(findings.some((finding) => finding.code === 'TICKET_WORK_IRREDUCIBLE' && finding.nodeId === 'N0001'));\n});\n```",
+            "UT: [C005 Boundary] last phase backward merge\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { mergeLastPhaseBackward, MIN_TICKETS_PER_PHASE } from '../../.claude/scripts/tickets/consolidate-phase-tickets.js';\n\ntest('C005 the last phase merges backward without splitting tickets', () => {\n  const phases = [fixturePhaseWithTickets(0, 3), fixturePhaseWithTickets(1, 1)];\n  const merged = mergeLastPhaseBackward(phases);\n  assert.equal(MIN_TICKETS_PER_PHASE, 3);\n  assert.equal(merged.length, 1);\n  assert.deepEqual(merged[0].tickets.map((ticket) => ticket.title), ['P0-1', 'P0-2', 'P0-3', 'P1-1']);\n  assert.deepEqual(merged[0].nodeIds, ['N0001', 'N0002', 'N0003', 'N0004']);\n});\n```",
+            "UT: [C006 Command] policy text\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync } from 'node:fs';\n\ntest('C006 the split command carries the consolidation-first policy', () => {\n  const text = readFileSync('.claude/commands/split-to-tickets.md', 'utf8');\n  assert.match(text, /consolidation-first/i);\n  assert.match(text, /splitReason/);\n  assert.match(text, /minimumTicketCount/);\n  assert.match(text, /MIN_TICKETS_PER_PHASE/);\n});\n```"
+          ],
+          "startedAt": "2026-11-02",
+          "changes": [
+            {
+              "before": "No workload model or budget configuration existed for the split pipeline.",
+              "after": "Added .claude/scripts/tickets/lib/ticket-workload.js and .claude/scripts/tickets/ticket-work-budget.json.",
+              "description": "Pure workload model counts implemented operations, sequence steps, contracts, leaf files and node kinds; budget config is versioned with provenance."
+            },
+            {
+              "before": "add-tickets-for-phase.js added tickets and verified coverage without any work-volume or split-reason gate.",
+              "after": "The script accepts --enforce-work-budget and --work-budget=<path>, validates the workload before writing, and reports TICKET_WORK_OVER_BUDGET, TICKET_COUNT_BELOW_WORK_MINIMUM, SPLIT_REASON_MISSING, SPLIT_REASON_INVALID and TICKET_WORK_IRREDUCIBLE.",
+              "description": "The gate is opt-in, runs after distribution population and before attachPrerequisites/writeJsonAtomically, and leaves Tickets.json byte-identical on failure."
+            },
+            {
+              "before": "consolidate-phase-tickets.js skipped the last phase, so a one-ticket last phase survived; the guard used the 3-ticket floor as a phase-count threshold.",
+              "after": "Added mergeLastPhaseBackward() and MIN_PHASES_TO_CONSOLIDATE=2; a small last phase merges into the previous phase without splitting tickets.",
+              "description": "MIN_TICKETS_PER_PHASE remains 3 for presentation grouping; the add-stage gate uses max(1, ceil(workload/budget)) so a 2-ticket phase can still reach consolidation."
+            },
+            {
+              "before": "show-phase-distribution.js printed grouping invariants but no workload or budget.",
+              "after": "It prints ## Workload and ## Budget, including minimumWorkTickets and the budget source, and accepts --work-budget=<path>.",
+              "description": "The Step 5-1 report now shows the same measurement the gate will enforce."
+            },
+            {
+              "before": "Step 5-1 asked for 'safe single-implementation bundles'; splitStep 5-2 had no convergence pass and Step 6 had a malformed command line.",
+              "after": "The command states the consolidation-first policy, four split triggers, the convergence pass, splitReason, --enforce-work-budget and the fixed Step 6 commands.",
+              "description": "The split command now implements the /suggest-min-tickets policy instead of leaving consolidation to a later manual pass."
+            },
+            {
+              "before": "tickets-schema.json had no splitReason field.",
+              "after": "The ticket definition carries an optional splitReason enum with the five allowed triggers.",
+              "description": "The gate enforces presence and enum; the schema documents the field without making it required for backward compatibility."
+            },
+            {
+              "before": "No tests covered the workload model, the opt-in gate, the last-phase merge or the new command policy.",
+              "after": "Added ticket-workload.test.mjs and add-tickets-work-budget.test.cjs; extended phase-distribution, consolidate-phase-tickets, split-cmd and step5 coverage tests.",
+              "description": "Red-first coverage for C001-C006, including byte-identical failure, no-view skip and backward compatibility."
+            },
+            {
+              "before": "The standalone consolidate-phase-tickets test harness used console.log for progress and a single-letter failure variable.",
+              "after": "The harness uses writeLine() and names the failure variable.",
+              "description": "Boy Scout cleanup so run-quality-checks reports zero issues on the touched file."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-02"
         }
       ]
     },

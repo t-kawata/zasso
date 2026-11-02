@@ -1,3 +1,4 @@
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 /**
  * step5-add-tickets-coverage.test.cjs — Tests for add-tickets-for-phase.js + verify-all-ticket-coverage.js
  *
@@ -400,6 +401,30 @@ describe('parseCliArguments', () => {
     assert.equal(result.ticketsJsonPath, '/path/to/tickets.json');
     assert.equal(result.dirsTreePath, '/path/to/dirs-tree.json');
     assert.equal(result.phaseArg, 'P0');
+  });
+
+  it('should parse the work-budget flags after the phase', () => {
+    const argv = [
+      'node', 'script.js', '/path/to/tickets.json', '/path/to/dirs-tree.json', 'P0',
+      '--enforce-work-budget', '--work-budget=/tmp/budget.json',
+    ];
+    const result = parseCliArguments(argv);
+    assert.equal(result.error, null);
+    assert.equal(result.phaseArg, 'P0');
+    assert.equal(result.enforceWorkBudget, true);
+    assert.equal(result.workBudgetPath, '/tmp/budget.json');
+  });
+
+  it('should parse the work-budget flags before the phase', () => {
+    const argv = [
+      'node', 'script.js', '--enforce-work-budget', '--work-budget=/tmp/budget.json',
+      '/path/to/tickets.json', '/path/to/dirs-tree.json', 'P0',
+    ];
+    const result = parseCliArguments(argv);
+    assert.equal(result.error, null);
+    assert.equal(result.phaseArg, 'P0');
+    assert.equal(result.enforceWorkBudget, true);
+    assert.equal(result.workBudgetPath, '/tmp/budget.json');
   });
 
   it('should return error when 2nd argument (ticketsJsonPath) is missing', () => {

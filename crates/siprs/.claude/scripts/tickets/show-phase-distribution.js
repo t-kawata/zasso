@@ -5,10 +5,11 @@
  * The split AI may decide which nodes form a ticket, but it may not invent the sequence
  * steps, the operation roles or the boundary clauses it is grouping. This script prints
  * that material before the AI judges, so the judgment is constrained by the same ledger
- * the verifiers read afterwards.
+ * the verifiers read afterwards. It also prints the phase workload and the work-budget
+ * utilization, so the same work-volume definition governs the split decision.
  *
  * Usage:
- *   node show-phase-distribution.js --tickets=<Tickets.json> --phase=P0 [--view=<SEQUENCES.json>] [--graph=<GRAPH.json>] [--dirs-tree=<Dirs-Tree.json>] [--registry=<ALLOCATE-MANIFEST.json>] [--artifact=<root *-sequences.json>]
+ *   node show-phase-distribution.js --tickets=<Tickets.json> --phase=P0 [--view=<SEQUENCES.json>] [--graph=<GRAPH.json>] [--dirs-tree=<Dirs-Tree.json>] [--registry=<ALLOCATE-MANIFEST.json>] [--artifact=<root *-sequences.json>] [--work-budget=<ticket-work-budget.json>]
  */
 const fs = require('fs');
 const path = require('path');
@@ -17,6 +18,13 @@ const { collectViewUnits } = require('../sequences-slice/lib/distribution-map.mj
 const { boundaryClauseDigest } = require('../sequences-slice/lib/boundary-contract.mjs');
 const { findAllocateManifest } = require('../lib/package-artifacts');
 const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artifacts');
+const { buildNodeToFileMap } = require('../rfc-graph/validate-phasify.js');
+const {
+  WORKLOAD_COMPONENTS,
+  parseWorkBudget,
+  workloadOfPhase,
+  minimumTicketCount,
+} = require('./lib/ticket-workload.js');
 const {
   OPERATION_OBLIGATION_FIELDS,
   renderObligationValue,
@@ -75,8 +83,8 @@ function phaseNodes(phase, graph) {
  * @param {{ phase: object, view: object, graph: object, dirsTree?: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {string}
  */
-// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322) --for-spec --no-implementation-order`.
-function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null } = {}) {
+// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322|PX-342) --for-spec --no-implementation-order`.
+function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null, budget = null, budgetSource = null } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
   lines.push(`# Phase ${phaseLabel}: ${phase?.name ?? ''}`.trim());
@@ -136,8 +144,28 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
     lines.push(`  - ${formatClauses(row)}`);
   }
 
+  const nodeToFileMap = dirsTree == null ? {} : buildNodeToFileMap(dirsTree);
+  const workload = workloadOfPhase(phase, { graph, dirsTree, view, nodeToFileMap });
+  lines.push('', '## Workload');
+  for (const component of WORKLOAD_COMPONENTS) {
+    lines.push(`- ${component}: ${workload[component]}`);
+  }
+
+  lines.push('', '## Budget');
+  lines.push(`- budget source: ${budgetSource ?? '(not supplied)'}`);
+  if (budget === null) {
+    lines.push('- budget: (not supplied)');
+  } else {
+    for (const component of WORKLOAD_COMPONENTS) {
+      lines.push(`- ${component}: ${budget[component]}`);
+    }
+    lines.push(`- minimumWorkTickets: ${minimumTicketCount(workload, budget)}`);
+  }
+
   lines.push('', '## Grouping invariants');
   lines.push('- A sequence step\'s operation is implemented by exactly one ticket.');
+  lines.push('- A multi-ticket phase records the splitReason that keeps each ticket separate.');
+  lines.push('- A ticket may not exceed any budget component.');
   lines.push('- Do not separate an operation from the sequence steps it implements.');
   lines.push('- A ticket carrying a ctr unit carries that boundary registry contract; never invent or edit a clause.');
   lines.push('- A ticket may carry a step-bearing sequence unit from another phase; the local step placement must follow the artifact order.');
@@ -154,7 +182,7 @@ function findPhase(tickets, phaseArg) {
   return match ?? null;
 }
 
-// [::TICKET::] PX-312, PX-313, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-334, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334|PX-342) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   let ticketsPath = argumentFor(argv, 'tickets');
   const phaseArg = argumentFor(argv, 'phase');
@@ -180,6 +208,14 @@ function main(argv = process.argv.slice(2)) {
     ?? findAllocateManifest(directory)
     ?? path.join(directory, 'WORKSPACIFY-ALLOCATE-MANIFEST.json');
   const artifactPath = argumentFor(argv, 'artifact');
+  const explicitBudgetPath = argumentFor(argv, 'work-budget');
+  const budgetPath = explicitBudgetPath ?? path.join(__dirname, 'ticket-work-budget.json');
+  const parsedBudget = parseWorkBudget(readJson(budgetPath));
+  if (explicitBudgetPath !== null && !parsedBudget.valid) {
+    console.error('[ERROR] WORK_BUDGET_INVALID: ' + parsedBudget.errors.join('; '));
+    return 2;
+  }
+
   process.stdout.write(renderPhaseDistribution({
     phase,
     view: readJson(viewPath),
@@ -187,6 +223,8 @@ function main(argv = process.argv.slice(2)) {
     dirsTree: readJson(dirsPath),
     registry: readRegistry(registryPath),
     artifact: readJson(artifactPath),
+    budget: parsedBudget.valid ? parsedBudget.budget : null,
+    budgetSource: parsedBudget.valid ? budgetPath : null,
   }));
   return 0;
 }

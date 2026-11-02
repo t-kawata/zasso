@@ -241,6 +241,17 @@
           },
           "description": "このチケットの実装先となるファイルパスの配列。Dirs-Tree.json から nodeIds 経由で機械的に解決される。AI が手動で指定してはならず、add-tickets-for-phase.js が --dirs-tree フラグ指定時に自動設定する。required には含めず後方互換性を維持。"
         },
+        "splitReason": {
+          "type": "string",
+          "enum": [
+            "tdd-order",
+            "disjoint-io",
+            "release-boundary",
+            "ownership-boundary",
+            "cohesion"
+          ],
+          "description": "Why this ticket is separate from the other tickets in the same phase. Required by add-tickets-for-phase.js when the phase carries more than one ticket."
+        },
         "changes": {
           "type": "array",
           "items": {

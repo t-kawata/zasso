@@ -24,7 +24,7 @@ Invariants:
 - ticket creation: `contracts: []`; only `merge-contracts-to-tickets.js` populates contracts after 5-2.
 - script-owned: `id`, `phaseId`, `status`, `default_files`; AI must not provide.
 - closure/coverage failure → no Step 6.
-- phase <3 tickets → backward merge into following phase; re-index IDs; regenerate `relatedTicketIds`; final verify.
+- phase <3 tickets → merge phases, never split tickets; the last phase merges backward; re-index IDs; regenerate `relatedTicketIds`; final verify.
 - TDD: Red → Green → Refactor; serial only; no skip/reorder/parallel.
 
 **Path anchor (mandatory — resolve once).**
@@ -326,7 +326,13 @@ node "$CLAUDE_DIR/scripts/rfc-graph/show-phase-nodes.js" --phase="P{n}"
 node "$CLAUDE_DIR/scripts/tickets/show-phase-distribution.js" --phase="P{n}" --artifact="$ARTIFACT_PATH"
 ```
 
-Read phase node ID/title/kind/summary/implementation path; judge safe single-implementation bundles from I/O-boundary character + file path. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
+Read phase node ID/title/kind/summary/implementation path and the printed distribution. This is the consolidation-first policy: start from the coarsest coherent partition, one ticket for the whole phase. Split only when one of these is proven:
+1. TDD order — a dependent part's Red cannot be written before the prerequisite part is Green, and a stub is prohibited.
+2. Disjoint external I/O surfaces — the parts cannot share one deterministic test process.
+3. Independent release, rollback or ownership boundary, including another package.
+4. Cohesion — merging would mix unrelated observable behaviours and destroy translatability.
+
+Ticket size is measured by work volume (operations, sequenceSteps, contracts, leaf files, kinds), not node count. Apply the `/suggest-min-tickets` policy: consolidate maximally; split only for unavoidable risk. `minimumWorkTickets = max(1, component-wise ceil(phaseWorkload / budget))`; `add-tickets-for-phase.js` computes and enforces it. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "5-1"
@@ -335,10 +341,14 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" start-step "5-2
 
 #### 5-2: Ticket creation (add-tickets-for-phase.js)
 
+Before calling `add-tickets-for-phase.js`, attempt to merge every adjacent pair in the phase. Refuse a merge only for one of the four split triggers; record the refused pair and its reason in the ticket notes. Do not emit a partition you have not tried to reduce. The AI writes the merged prose; the script only measures and validates it.
+
+When the phase has more than one ticket, every ticket carries `splitReason` from `tdd-order`, `disjoint-io`, `release-boundary`, `ownership-boundary`, `cohesion`. The script rejects a missing or invalid reason.
+
 stdin ticket array → bulk add; script proves all phase `nodeIds` ticketized; failure → rollback/no write/exit 1.
 
 ```bash
-echo '<tickets-array-json>' | node "$CLAUDE_DIR/scripts/tickets/add-tickets-for-phase.js" "P{n}"
+echo '<tickets-array-json>' | node "$CLAUDE_DIR/scripts/tickets/add-tickets-for-phase.js" "P{n}" --enforce-work-budget
 ```
 
 When the package carries `SEQUENCES.json`, the same script also populates each ticket's `distribution` record: the units of the nodes it owns, the operation obligation or consumer reference, the ordered sequence steps whose operations the ticket implements, and `specRefs`. It then writes the Tickets aggregate. The split does not author these records; it only decides which nodes each ticket owns.
@@ -356,7 +366,7 @@ Fields: schema `tickets-schema.json#/definitions/ticket`; auto only `id`, `phase
 | `relatedTicketIds` | explicit dependency direction + reason |
 | `acceptanceCriteria` | 3–5 one-line happy/error/edge conditions |
 
-Ticket composition: one or more nodes/ticket; single node allowed; all nodeIds exactly once; every included node listed; phase-local only; no simplistic `<...>` placeholder.
+Ticket composition: one or more nodes/ticket; a single node is a valid ticket only when it is itself the whole coherent unit, never the default; all nodeIds exactly once; every included node listed; phase-local only; no simplistic `<...>` placeholder. A multi-ticket phase carries a `splitReason` on every ticket.
 
 ### Reference — Implementation Order (TDD Red-Green-Refactor)
 
@@ -407,8 +417,8 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" reset-to-step "
 
 ### Step 5-3: Phase consolidation
 
-Complete ticketization → scan phases backward; phase <3 tickets → safely merge into following phase.
-Sequence: guard → validation → backward merge → ID re-index → ticket-key remap → `relatedTicketIds` regeneration → status update → final verification. The remap rewrites `prerequisites[].ticket` and every distribution obligation's `implementerTicketId` / `implementerTicketKey` before the order gate runs, so a phase merge cannot leave a reference pointing at another ticket.
+Complete ticketization → merge phases, never split tickets. A phase with fewer than 3 tickets merges into the following phase; when the last phase has fewer than 3 tickets and a previous phase exists, it merges backward into the previous phase. `MIN_TICKETS_PER_PHASE` remains 3. The add-stage gate does not enforce this floor: it uses `max(1, ceil(workload / budget))`, so a 2-ticket phase can still reach this consolidation step.
+Sequence: guard → validation → last-phase backward merge → right-to-left phase merge → ID re-index → ticket-key remap → `relatedTicketIds` regeneration → status update → final verification. The remap rewrites `prerequisites[].ticket` and every distribution obligation's `implementerTicketId` / `implementerTicketKey` before the order gate runs, so a phase merge cannot leave a reference pointing at another ticket.
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" start-step "5-3"
@@ -435,7 +445,8 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" reset-to-step "
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" start-step "6"
-node "$CLAUDE_DIR/scripts/tickets/list-phases-and-tickets.jsnode" .claude/scripts/rfc-graph/update-split-step-status.js end-step "6"
+node "$CLAUDE_DIR/scripts/tickets/list-phases-and-tickets.js"
+node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "6"
 ```
 
 Out: checklist hierarchy `P<n>` → `P<n>-<ticket>`.

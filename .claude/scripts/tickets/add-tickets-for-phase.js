@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * add-tickets-for-phase.js — Phase-level ticket addition + nodeIds coverage verification
+ * add-tickets-for-phase.js — Phase-level ticket addition + coverage and workload gates
  *
  * Used in the split-to-tickets pipeline Step 5-2.
  * Calls bulkAddTickets() to add tickets, then verifies that all nodeIds of the phase
@@ -11,12 +11,15 @@
  * resolved via each ticket's nodeIds, automatically setting default_files.
  * This eliminates the need for AI to manually write file paths.
  *
+ * With `--enforce-work-budget`, the script also validates each ticket against the
+ * versioned work budget and requires a splitReason on every ticket in a multi-ticket
+ * phase. The gate is opt-in so pre-split callers keep their old behavior.
+ *
  * If verification fails, no write is performed (rollback) and the process exits with code 1.
  *
  * Usage:
  *   echo '<tickets-array-json>' | node add-tickets-for-phase.js \
- *     <path to Tickets.json> \
- *     <P{id}>
+ *     <P{id}> [--enforce-work-budget] [--work-budget=<path>]
  *
  * The Dirs-Tree and GRAPH are derived from the Tickets directory. The legacy
  * four-positional form remains accepted for callers outside the pipeline.
@@ -28,6 +31,14 @@ const { bulkAddTickets } = require("./bulk-add-tickets.js");
 const { buildNodeToFileMap } = require("../rfc-graph/validate-phasify.js");
 const { isUnitId, writeUnitIdsToTicket } = require("../rfc-graph/lib/unit-ids.mjs");
 const { ticketIdentity } = require("./lib/ticket-identity.js");
+const {
+  WORKLOAD_CODES,
+  parseWorkBudget,
+  workloadOfPhase,
+  workloadOfTicket,
+  minimumTicketCount,
+  validateTicketWorkload,
+} = require("./lib/ticket-workload.js");
 const {
   artifactStepsForSequences,
   declaredSequenceIds,
@@ -58,6 +69,12 @@ const GRAPH_NODE_ID_PATTERN = /^N[0-9]{4}$/;
 
 /** The RFC basename a split-derived ticket references when it carries no specPath. */
 const DEFAULT_SPEC_BASENAME = 'RFC.md';
+
+/** The budget the split command uses when it does not name one. */
+const DEFAULT_WORK_BUDGET_PATH = path.join(__dirname, 'ticket-work-budget.json');
+
+/** The phase-local view the package exposes beside Tickets.json. */
+const VIEW_FILE_NAME = 'SEQUENCES.json';
 
 // ============================================================
 // Auto-resolve default_files
@@ -290,79 +307,71 @@ async function appendNodeUnitIds(tickets, graph) {
  * @param {string[]} argv — process.argv (typically pass process.argv directly)
  * @returns {{ ticketsJsonPath: string|null, dirsTreePath: string|null, phaseArg: string|null, error: string|null }}
  */
-// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-342) --for-spec --no-implementation-order`.
 function parseCliArguments(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
-  const ticketsFlag = argv.find((arg) => arg.startsWith("--tickets="));
+  const args = argv.slice(2);
+  const ticketsFlag = args.find((arg) => typeof arg === "string" && arg.startsWith("--tickets="));
+  const workBudgetFlag = args.find((arg) => typeof arg === "string" && arg.startsWith("--work-budget="));
+  const enforceWorkBudget = args.includes("--enforce-work-budget");
+  // Legacy forms must keep their positional indices, including a missing or null
+  // argument that names the missing parameter. Flag forms use the string-only list.
+  const legacyPositionals = args.filter((arg) => typeof arg !== "string" || !arg.startsWith("--"));
+  const positionals = legacyPositionals.filter((arg) => typeof arg === "string");
   let ticketsJsonPath = null;
   let dirsTreePath = null;
   let phaseArg = null;
   let graphPath = null;
 
+  const derivationError = (resolvedTicketsPath) => ({
+    ticketsJsonPath: null,
+    dirsTreePath: null,
+    phaseArg: null,
+    graphPath: null,
+    enforceWorkBudget,
+    workBudgetPath: workBudgetFlag ? path.resolve(cwd, workBudgetFlag.slice("--work-budget=".length)) : null,
+    error:
+      "Cannot derive Dirs-Tree.json and GRAPH.json beside " + resolvedTicketsPath +
+      ". Keep exactly one of each beside Tickets.json, or pass the legacy positional form.",
+  });
+
   if (ticketsFlag) {
     // Flag form: `--tickets=<path> <P{id}>`; the artifacts are derived beside it.
     ticketsJsonPath = path.resolve(cwd, ticketsFlag.slice("--tickets=".length));
-    const positionals = argv.slice(2).filter((arg) => !arg.startsWith("--"));
     phaseArg = positionals[0] || null;
     dirsTreePath = deriveDirsTreePathFromTickets(ticketsJsonPath);
     graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
-    if (!dirsTreePath || !graphPath) {
-      return {
-        ticketsJsonPath: null,
-        dirsTreePath: null,
-        phaseArg: null,
-        graphPath: null,
-        error:
-          "Cannot derive Dirs-Tree.json and GRAPH.json beside " + ticketsJsonPath +
-          ". Keep exactly one of each beside Tickets.json, or pass the legacy positional form.",
-      };
-    }
-  } else if (/^P[0-9]+$/.test(argv[2] || "")) {
+    if (!dirsTreePath || !graphPath) return derivationError(ticketsJsonPath);
+  } else if (/^P[0-9]+$/.test(positionals[0] || "")) {
     // Canonical form: `<P{id}>`; the ledger and its siblings are in this directory.
     ticketsJsonPath = resolveTicketsPath({ cwd });
     reportResolvedPath("tickets", ticketsJsonPath);
-    phaseArg = argv[2];
+    phaseArg = positionals[0];
     dirsTreePath = deriveDirsTreePathFromTickets(ticketsJsonPath);
     graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
-    if (!dirsTreePath || !graphPath) {
-      return {
-        ticketsJsonPath: null,
-        dirsTreePath: null,
-        phaseArg: null,
-        graphPath: null,
-        error:
-          "Cannot derive Dirs-Tree.json and GRAPH.json beside " + ticketsJsonPath +
-          ". Keep exactly one of each beside Tickets.json, or pass the legacy positional form.",
-      };
-    }
+    if (!dirsTreePath || !graphPath) return derivationError(ticketsJsonPath);
   } else {
     // Legacy form: `<Tickets.json> <P{id}>` and the four-positional variant.
-    ticketsJsonPath = argv[2] ? path.resolve(cwd, argv[2]) : null;
-    if (ticketsJsonPath && /^P[0-9]+$/.test(argv[3] || "")) {
-      phaseArg = argv[3];
+    ticketsJsonPath = legacyPositionals[0] ? path.resolve(cwd, legacyPositionals[0]) : null;
+    if (ticketsJsonPath && /^P[0-9]+$/.test(legacyPositionals[1] || "")) {
+      phaseArg = legacyPositionals[1];
       dirsTreePath = deriveDirsTreePathFromTickets(ticketsJsonPath);
       graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
-      if (!dirsTreePath || !graphPath) {
-        return {
-          ticketsJsonPath: null,
-          dirsTreePath: null,
-          phaseArg: null,
-          graphPath: null,
-          error:
-            "Cannot derive Dirs-Tree.json and GRAPH.json beside " + ticketsJsonPath +
-            ". Keep exactly one of each beside Tickets.json, or pass the legacy positional form.",
-        };
-      }
+      if (!dirsTreePath || !graphPath) return derivationError(ticketsJsonPath);
     } else {
       // Legacy form: <Tickets.json> <Dirs-Tree.json> <P{id}> [GRAPH.json]
-      dirsTreePath = argv[3] ? path.resolve(cwd, argv[3]) : null;
-      phaseArg = argv[4] || null;
-      graphPath = argv[5] ? path.resolve(cwd, argv[5]) : null;
+      dirsTreePath = legacyPositionals[1] ? path.resolve(cwd, legacyPositionals[1]) : null;
+      phaseArg = legacyPositionals[2] || null;
+      graphPath = legacyPositionals[3] ? path.resolve(cwd, legacyPositionals[3]) : null;
       if (ticketsJsonPath && dirsTreePath && !graphPath) {
         graphPath = deriveGraphPathFromTickets(ticketsJsonPath);
       }
     }
   }
+
+  const workBudgetPath = workBudgetFlag
+    ? path.resolve(cwd, workBudgetFlag.slice("--work-budget=".length))
+    : null;
 
   if (!ticketsJsonPath || !dirsTreePath || !phaseArg) {
     return {
@@ -370,12 +379,22 @@ function parseCliArguments(argv, options = {}) {
       dirsTreePath: null,
       phaseArg: null,
       graphPath: null,
+      enforceWorkBudget,
+      workBudgetPath,
       error:
-        "Usage: echo '<tickets-array-json>' | node add-tickets-for-phase.js <Tickets.json> <P{id}> [Dirs-Tree.json P{id} [GRAPH.json]]",
+        "Usage: echo '<tickets-array-json>' | node add-tickets-for-phase.js <Tickets.json> <P{id}> [Dirs-Tree.json P{id} [GRAPH.json]] [--enforce-work-budget] [--work-budget=<path>]",
     };
   }
 
-  return { ticketsJsonPath, dirsTreePath, phaseArg, graphPath, error: null };
+  return {
+    ticketsJsonPath,
+    dirsTreePath,
+    phaseArg,
+    graphPath,
+    enforceWorkBudget,
+    workBudgetPath,
+    error: null,
+  };
 }
 
 /** Read a JSON file, or null when it is absent or unreadable. */
@@ -387,6 +406,61 @@ function readJsonOrNull(filePath) {
   } catch {
     return null;
   }
+}
+
+/** The public key of the ticket a workload finding names. */
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+function ticketKeyOf(ticket) {
+  return ticket.phaseId === -1 ? `PX-${ticket.id}` : `P${ticket.phaseId}-${ticket.id}`;
+}
+
+/**
+ * Evaluate the opt-in work-budget gate.
+ *
+ * This reads the budget file and delegates every judgment to the pure workload
+ * module. It returns findings instead of exiting so the caller keeps one failure
+ * path and one place that decides when Tickets.json may be written.
+ */
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+function evaluateWorkBudget(phase, { graphData, dirsTreeData, view, nodeToFileMap, budgetPath }) {
+  const rawBudget = readJsonOrNull(budgetPath);
+  if (rawBudget === null) {
+    return {
+      findings: [{
+        code: WORKLOAD_CODES.WORK_BUDGET_MISSING,
+        message: `work-budget file not found or unreadable: ${budgetPath}`,
+      }],
+      workBudget: null,
+    };
+  }
+
+  const parsedBudget = parseWorkBudget(rawBudget);
+  if (!parsedBudget.valid) {
+    return {
+      findings: [{
+        code: WORKLOAD_CODES.WORK_BUDGET_INVALID,
+        message: parsedBudget.errors.join('; '),
+      }],
+      workBudget: null,
+    };
+  }
+
+  const context = { graph: graphData, dirsTree: dirsTreeData, view, nodeToFileMap };
+  const findings = validateTicketWorkload(phase, parsedBudget.budget, context);
+  const phaseWorkload = workloadOfPhase(phase, context);
+  return {
+    findings,
+    workBudget: {
+      budget: parsedBudget.budget,
+      phaseWorkload,
+      minimumWorkTickets: minimumTicketCount(phaseWorkload, parsedBudget.budget),
+      tickets: phase.tickets.map((ticket) => ({
+        ticketKey: ticketKeyOf(ticket),
+        workload: workloadOfTicket(ticket, context),
+        splitReason: ticket.splitReason ?? null,
+      })),
+    },
+  };
 }
 
 /** Every ticket in a Tickets.json document, in phase order.
@@ -510,7 +584,7 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
   }
 }
 
-// [::TICKET::] PX-323, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-328, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328|PX-342) --for-spec --no-implementation-order`.
 async function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -518,7 +592,14 @@ async function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  const { ticketsJsonPath, dirsTreePath, phaseArg, graphPath } = parsed;
+  const {
+    ticketsJsonPath,
+    dirsTreePath,
+    phaseArg,
+    graphPath,
+    enforceWorkBudget,
+    workBudgetPath,
+  } = parsed;
 
   // 1. Read ticket array from stdin
   let ticketsInput;
@@ -697,6 +778,7 @@ async function main() {
       process.exit(EXIT_FAILURE);
     }
   }
+  let workBudgetOutput = null;
   if (view !== null && graphData !== null) {
     const rfcName = graphData.sourceFile ? path.basename(graphData.sourceFile) : "RFC.md";
     const rfcPath = path.join(packageDirectory, rfcName);
@@ -714,8 +796,26 @@ async function main() {
       }
       process.exit(EXIT_FAILURE);
     }
+    if (enforceWorkBudget) {
+      const evaluation = evaluateWorkBudget(phase, {
+        graphData,
+        dirsTreeData,
+        view,
+        nodeToFileMap,
+        budgetPath: workBudgetPath ?? DEFAULT_WORK_BUDGET_PATH,
+      });
+      if (evaluation.findings.length > 0) {
+        for (const finding of evaluation.findings) {
+          console.error(finding.code + ": " + finding.message);
+        }
+        process.exit(EXIT_FAILURE);
+      }
+      workBudgetOutput = evaluation.workBudget;
+    }
     await attachPrerequisites({ ticketsDocument, graphData, view, packageDirectory, map });
     writeTicketDistributionAggregate(ticketsDocument);
+  } else if (enforceWorkBudget) {
+    workBudgetOutput = { skipped: 'no-distribution' };
   }
 
   // 7. Validation passed — write to file
@@ -730,6 +830,7 @@ async function main() {
     missingNodeIds: coverageResult.missingNodeIds,
     extraNodeIds: coverageResult.extraNodeIds,
     defaultFilesResolved: true,
+    ...(workBudgetOutput === null ? {} : { workBudget: workBudgetOutput }),
   };
   writeLine(JSON.stringify(output, null, 2));
 }

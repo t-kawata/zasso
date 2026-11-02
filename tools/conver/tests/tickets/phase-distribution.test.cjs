@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { renderPhaseDistribution } = require('../../.claude/scripts/tickets/show-phase-distribution.js');
 const { viewDigest, mapDigest } = require('../../.claude/scripts/sequences-slice/lib/distribution-map.mjs');
 
-// [::TICKET::] PX-312, PX-313, PX-320 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-320) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-320, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-320|PX-342) --for-spec --no-implementation-order`.
 function fixture() {
   const view = {
     packageId: 'pkg-0001',
@@ -62,7 +62,14 @@ function fixture() {
     sequences: [{ id: 'A-1', outcome: 'singleStep' }],
     steps: [{ id: 'A-1__ProduceFact', sequence: 'A-1', operation: 'ProduceFact', order: 1, line: 1 }],
   };
-  return { phase: { id: 0, name: 'Produce fact', summary: 'fixture phase' }, view, graph, dirsTree, registry, artifact };
+  return {
+    phase: { id: 0, name: 'Produce fact', summary: 'fixture phase', nodeIds: ['N0001', 'N0002'] },
+    view,
+    graph,
+    dirsTree,
+    registry,
+    artifact,
+  };
 }
 
 test('the phase distribution names nodes, units, sequence steps, operations and boundary clauses', () => {
@@ -82,4 +89,21 @@ test('the phase distribution states the grouping invariants', () => {
   assert.match(text, /Grouping invariants/);
   assert.match(text, /step.*operation.*ticket/i);
   assert.match(text, /registry contract/i);
+});
+
+test('the phase distribution prints workload and budget utilization', () => {
+  const text = renderPhaseDistribution({
+    ...fixture(),
+    budget: { operations: 1, sequenceSteps: 1, contracts: 1, files: 2, kinds: 1 },
+    budgetSource: 'fixture-budget.json',
+  });
+  assert.match(text, /## Workload/);
+  assert.match(text, /operations: 1/);
+  assert.match(text, /sequenceSteps: 1/);
+  assert.match(text, /contracts: 1/);
+  assert.match(text, /files: 2/);
+  assert.match(text, /## Budget/);
+  assert.match(text, /budget source: fixture-budget\.json/);
+  assert.match(text, /minimumWorkTickets: 1/);
+  assert.match(text, /splitReason/);
 });

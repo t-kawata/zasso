@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "components": [
+    "operations",
+    "sequenceSteps",
+    "contracts",
+    "files",
+    "kinds"
+  ],
+  "budget": {
+    "operations": 8,
+    "sequenceSteps": 8,
+    "contracts": 2,
+    "files": 10,
+    "kinds": 4
+  },
+  "provenance": "Initial provisional budget for PX-342. Calibrate from reviewed tickets and replace this string with the measured percentile and date."
+}

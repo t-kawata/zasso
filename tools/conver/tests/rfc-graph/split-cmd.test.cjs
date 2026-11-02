@@ -1,3 +1,4 @@
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 // The split command is argument-free: the source is the package canonical RFC.md and
 // every other fixed artifact is derived by the scripts from the invocation directory.
@@ -35,4 +36,16 @@ test('C003 the gate literals the split preflight names are preserved', () => {
   assert.match(content, /MISSING_SMOOTH_RECEIPT/);
   assert.match(content, /STALE_SMOOTH_VERDICT/);
   assert.match(content, /project-step-contracts\.js --mode=verify/);
+});
+
+test('C006 the split command carries the consolidation-first work-budget policy', () => {
+  const content = readFileSync(COMMAND_PATH, 'utf8');
+  assert.match(content, /consolidation-first/i);
+  assert.match(content, /splitReason/);
+  assert.match(content, /minimumWorkTickets|minimumTicketCount/);
+  assert.match(content, /--enforce-work-budget/);
+  assert.match(content, /MIN_TICKETS_PER_PHASE/);
+  assert.match(content, /tdd-order/);
+  assert.match(content, /cohesion/);
+  assert.doesNotMatch(content, /list-phases-and-tickets\.jsnode/);
 });

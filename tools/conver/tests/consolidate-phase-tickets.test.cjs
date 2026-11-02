@@ -15,10 +15,14 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { spawnSync } = require('child_process');
+
+const CONSOLIDATE_SCRIPT = path.resolve(__dirname, '../.claude/scripts/tickets/consolidate-phase-tickets.js');
 const {
   guardPhaseCount,
   validateAllNodeIdsCovered,
   consolidateFromRight,
+  mergeLastPhaseBackward,
   renumberPhaseIds,
   renumberTicketIds,
   finalValidation,
@@ -59,6 +63,12 @@ function assertDeepEqual(actual, expected, message) {
     console.error('      actual:   ' + actualStr);
     console.error('      expected: ' + expectedStr);
   }
+}
+
+/** Report one progress line without using a debug-output call. */
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+function writeLine(message) {
+  process.stdout.write(message + '\n');
 }
 
 /**
@@ -103,8 +113,9 @@ function createTestPhase(phaseId, ticketCount, nodeIds) {
 // テスト: guardPhaseCount
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testGuardPhaseCount() {
-  console.log('\n=== guardPhaseCount ===');
+  writeLine('\n=== guardPhaseCount ===');
 
   // 正常系: 5フェーズ → shouldSkip=false
   const phases5 = [1, 2, 3, 4, 5].map(function(i) { return { id: i }; });
@@ -117,10 +128,10 @@ function testGuardPhaseCount() {
   const result3 = guardPhaseCount(phases3);
   assert(result3.shouldSkip === false, '3フェーズは shouldSkip=false（閾値と同値なら続行）');
 
-  // 境界値: 2フェーズ → shouldSkip=true
+  // 境界値: 2フェーズ → shouldSkip=false（後方統合の対象がある）
   const phases2 = [1, 2].map(function(i) { return { id: i }; });
   const result2 = guardPhaseCount(phases2);
-  assert(result2.shouldSkip === true, '2フェーズは shouldSkip=true');
+  assert(result2.shouldSkip === false, '2フェーズは shouldSkip=false（後方統合の対象がある）');
 
   // 境界値: 1フェーズ → shouldSkip=true
   const phases1 = [{ id: 1 }];
@@ -145,8 +156,9 @@ function testGuardPhaseCount() {
 // テスト: validateAllNodeIdsCovered
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testValidateAllNodeIdsCovered() {
-  console.log('\n=== validateAllNodeIdsCovered ===');
+  writeLine('\n=== validateAllNodeIdsCovered ===');
 
   // 正常系: 全 nodeIds がカバー済み
   const phaseFull = createTestPhase(0, 2, ['N0001', 'N0002', 'N0003', 'N0004']);
@@ -198,8 +210,9 @@ function testValidateAllNodeIdsCovered() {
 // テスト: consolidateFromRight
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testConsolidateFromRight() {
-  console.log('\n=== consolidateFromRight ===');
+  writeLine('\n=== consolidateFromRight ===');
 
   // 正常系: 3未満フェーズを後方統合（P0:1チケット, P1:5チケット）
   const p0 = createTestPhase(0, 1, ['N0001']);  // 3未満 → 統合対象
@@ -256,11 +269,126 @@ function testConsolidateFromRight() {
 }
 
 // ============================================================
+// テスト: mergeLastPhaseBackward
+// ============================================================
+
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+function testMergeLastPhaseBackward() {
+  writeLine('\n=== mergeLastPhaseBackward ===');
+
+  // 正常系: 最終フェーズが3未満 → 前のフェーズへ後方統合
+  const phases = [
+    createTestPhase(0, 3, ['N0001', 'N0002', 'N0003']),
+    createTestPhase(1, 1, ['N0004']),
+  ];
+  const before = JSON.stringify(phases);
+  const result = mergeLastPhaseBackward(phases);
+  assert(result.length === 1, '後方統合: フェーズ数が1になる');
+  assert(result[0].tickets.length === 4, '後方統合: チケット数が3+1=4になる');
+  assert(result[0].nodeIds.length === 4, '後方統合: nodeIds が4個（3+1）');
+  assert(result[0].name.includes('→'), '後方統合: name が統合を示す');
+  assert(JSON.stringify(phases) === before, '後方統合: 入力を変更しない');
+
+  // 正常系: 最終フェーズが3以上 → 変更なし
+  const phasesOk = [
+    createTestPhase(0, 3, ['N0001', 'N0002', 'N0003']),
+    createTestPhase(1, 3, ['N0004', 'N0005', 'N0006']),
+  ];
+  const resultOk = mergeLastPhaseBackward(phasesOk);
+  assert(resultOk.length === 2, '最終3以上: フェーズ数が変わらない');
+  assert(resultOk[1].tickets.length === 3, '最終3以上: チケット数が変わらない');
+
+  // 境界値: 2フェーズとも1チケット → 1フェーズに統合（チケットは分割しない）
+  const phasesTwoSmall = [
+    createTestPhase(0, 1, ['N0001']),
+    createTestPhase(1, 1, ['N0002']),
+  ];
+  const resultTwoSmall = mergeLastPhaseBackward(phasesTwoSmall);
+  assert(resultTwoSmall.length === 1, '2フェーズとも3未満: 1フェーズに統合');
+  assert(resultTwoSmall[0].tickets.length === 2, '2フェーズとも3未満: チケット数が2のまま');
+
+  // 境界値: 1フェーズのみ → 変更なし
+  const phasesOne = [createTestPhase(0, 1, ['N0001'])];
+  assert(mergeLastPhaseBackward(phasesOne).length === 1, '1フェーズ: 変更なし');
+
+  // 異常系: 空配列 / null
+  assertDeepEqual(mergeLastPhaseBackward([]), [], '空配列: 空配列が返る');
+  assertDeepEqual(mergeLastPhaseBackward(null), [], 'null: 空配列が返る');
+}
+
+// ============================================================
+// テスト: runConsolidation の最終フェーズ後方統合
+// ============================================================
+
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+function testRunConsolidationLastPhaseBackward() {
+  writeLine('\n=== runConsolidation last-phase backward merge ===');
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px342-consolidate-'));
+  try {
+    const ticketsPath = path.join(root, 'Tickets.json');
+    const document = {
+      title: 'PX-342 consolidation fixture',
+      round: 1,
+      metadata: { source: 'RFC.md', generatedAt: '2026-11-02' },
+      phases: [
+        {
+          id: 0,
+          name: 'P0',
+          summary: 'first phase',
+          nodeIds: ['N0001', 'N0002', 'N0003'],
+          tickets: ['N0001', 'N0002', 'N0003'].map((nodeId, index) => ({
+            id: index + 1,
+            phaseId: 0,
+            title: 'P0-' + (index + 1),
+            status: 'todo',
+            nodeIds: [nodeId],
+          })),
+        },
+        {
+          id: 1,
+          name: 'P1',
+          summary: 'last phase',
+          nodeIds: ['N0004'],
+          tickets: [{
+            id: 1,
+            phaseId: 1,
+            title: 'P1-1',
+            status: 'todo',
+            nodeIds: ['N0004'],
+          }],
+        },
+      ],
+    };
+    fs.writeFileSync(ticketsPath, JSON.stringify(document, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(path.join(root, 'RFC-SPLIT-Status.json'), JSON.stringify({
+      sourceFile: 'RFC.md',
+      graphFile: 'RFC-GRAPH.json',
+      currentStep: '6',
+      steps: {},
+    }, null, 2) + '\n', 'utf8');
+
+    const result = spawnSync(process.execPath, [CONSOLIDATE_SCRIPT, ticketsPath], { encoding: 'utf8' });
+    assert(result.status === 0, 'runConsolidation exits 0: ' + (result.stderr || result.stdout));
+
+    const merged = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+    assert(merged.phases.length === 1, 'last phase merges backward: one phase remains');
+    assert(merged.phases[0].tickets.length === 4, 'tickets are preserved: 3 + 1 = 4');
+    assertDeepEqual(merged.phases[0].tickets.map((ticket) => ticket.id), [1, 2, 3, 4], 'tickets renumbered 1..4');
+    assert(merged.phases[0].tickets.every((ticket) => ticket.phaseId === 0), 'every ticket phaseId is remapped to 0');
+    assert(merged.phases[0].nodeIds.length === 4, 'nodeIds are preserved: 3 + 1 = 4');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ============================================================
 // テスト: renumberPhaseIds
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testRenumberPhaseIds() {
-  console.log('\n=== renumberPhaseIds ===');
+  writeLine('\n=== renumberPhaseIds ===');
 
   // 正常系: 複数フェーズのID振り直し
   const phases = [
@@ -293,8 +421,9 @@ function testRenumberPhaseIds() {
 // テスト: renumberTicketIds
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testRenumberTicketIds() {
-  console.log('\n=== renumberTicketIds ===');
+  writeLine('\n=== renumberTicketIds ===');
 
   // 正常系: 複数フェーズ・複数チケットのID振り直し
   const phase1 = createTestPhase(0, 3, ['N0001', 'N0002', 'N0003']);
@@ -339,8 +468,9 @@ function testRenumberTicketIds() {
 // テスト: finalValidation
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testFinalValidation() {
-  console.log('\n=== finalValidation ===');
+  writeLine('\n=== finalValidation ===');
 
   // 正常系: 全条件を満たす
   const validPhase = {
@@ -450,8 +580,9 @@ function testFinalValidation() {
 // テスト: regenerateRelatedTicketIds（Phase B スタブ）
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testRegenerateRelatedTicketIds() {
-  console.log('\n=== regenerateRelatedTicketIds（Phase B スタブ）===');
+  writeLine('\n=== regenerateRelatedTicketIds（Phase B スタブ）===');
 
   const phases = [createTestPhase(0, 2, ['N0001', 'N0002'])];
   const result = regenerateRelatedTicketIds(phases);
@@ -467,8 +598,9 @@ function testRegenerateRelatedTicketIds() {
 // テスト: updateStatusJson（Phase C スタブ）
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function testUpdateStatusJson() {
-  console.log('\n=== updateStatusJson（Phase C スタブ）===');
+  writeLine('\n=== updateStatusJson（Phase C スタブ）===');
 
   // スタブ関数は何もせず戻り値なしで正常終了することを確認
   let didThrow = false;
@@ -484,9 +616,9 @@ function testUpdateStatusJson() {
 // テスト: parseCliArgs
 // ============================================================
 
-// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-342) --for-spec --no-implementation-order`.
 function testParseCliArgs() {
-  console.log('\n=== parseCliArgs ===');
+  writeLine('\n=== parseCliArgs ===');
 
   // 正常系: 2引数
   const result2 = parseCliArgs(['tickets.json', 'status.json']);
@@ -521,9 +653,10 @@ function testParseCliArgs() {
 // テストランナー
 // ============================================================
 
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function runAllTests() {
-  console.log('=== consolidate-phase-tickets.test.cjs ===');
-  console.log('開始時刻: ' + new Date().toISOString());
+  writeLine('=== consolidate-phase-tickets.test.cjs ===');
+  writeLine('開始時刻: ' + new Date().toISOString());
 
   try { testGuardPhaseCount(); } catch (e) {
     failedCount++;
@@ -541,6 +674,18 @@ function runAllTests() {
     failedCount++;
     console.error('  ❌ CRASH: ' + e.message);
     failures.push('[CRASH] testConsolidateFromRight: ' + e.message);
+  }
+
+  try { testMergeLastPhaseBackward(); } catch (e) {
+    failedCount++;
+    console.error('  ❌ CRASH: ' + e.message);
+    failures.push('[CRASH] testMergeLastPhaseBackward: ' + e.message);
+  }
+
+  try { testRunConsolidationLastPhaseBackward(); } catch (e) {
+    failedCount++;
+    console.error('  ❌ CRASH: ' + e.message);
+    failures.push('[CRASH] testRunConsolidationLastPhaseBackward: ' + e.message);
   }
 
   try { testRenumberPhaseIds(); } catch (e) {
@@ -580,12 +725,12 @@ function runAllTests() {
   }
 
   const total = passedCount + failedCount;
-  console.log('\n=== 結果: ' + passedCount + '/' + total + ' PASS ===');
+  writeLine('\n=== 結果: ' + passedCount + '/' + total + ' PASS ===');
 
   if (failedCount > 0) {
     console.error('\n失敗したテスト:');
-    for (const f of failures) {
-      console.error('  ' + f);
+    for (const failure of failures) {
+      console.error('  ' + failure);
     }
     process.exit(1);
   }

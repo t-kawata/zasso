@@ -5,7 +5,9 @@
  *
  * Used in the split-to-tickets pipeline Step 5-3.
  * After all phases have been converted to tickets, merges phases with fewer
- * than 3 tickets into subsequent phases and reassigns phase IDs and ticket IDs in bulk.
+ * than 3 tickets into adjacent phases and reassigns phase IDs and ticket IDs in bulk.
+ * The last phase has no following target, so a small last phase merges backward into
+ * the previous phase. Tickets are never split to satisfy the floor.
  *
  * Usage:
  *   node consolidate-phase-tickets.js \
@@ -46,6 +48,9 @@ const {
 
 /** Minimum tickets per phase (phases below this threshold are consolidated) */
 const MIN_TICKETS_PER_PHASE = 3;
+
+/** A single phase has no merge target; two phases are enough to merge one backward. */
+const MIN_PHASES_TO_CONSOLIDATE = 2;
 
 /** Phase ID prefix */
 const PHASE_ID_PREFIX = 'P';
@@ -94,10 +99,11 @@ const EXIT_FILE_NOT_FOUND = 3;
  * @param {Phase[]} phases — all phases array
  * @returns {{ shouldSkip: boolean, phaseCount: number }}
  */
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 function guardPhaseCount(phases) {
   const phaseCount = (phases || []).length;
   return {
-    shouldSkip: phaseCount < MIN_TICKETS_PER_PHASE,
+    shouldSkip: phaseCount < MIN_PHASES_TO_CONSOLIDATE,
     phaseCount,
   };
 }
@@ -241,6 +247,44 @@ function consolidateFromRight(phases) {
   const result = working.filter(function(p) { return p !== null; });
 
   return result;
+}
+
+// ============================================================
+// 5-3-3b: Merge the last phase backward
+// ============================================================
+
+/**
+ * Merge a final phase below the ticket floor into the previous phase.
+ *
+ * `consolidateFromRight` deliberately skips the last phase because it has no
+ * following target. The presentation rule still wants every phase to be a group of
+ * at least three tickets, so the last phase merges backward instead. Appending its
+ * tickets after the previous phase's tickets preserves implementation order, and the
+ * merge never splits a ticket.
+ *
+ * @param {Phase[]} phases — all phases array (not mutated)
+ * @returns {Phase[]} phases array after the backward merge
+ */
+// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+function mergeLastPhaseBackward(phases) {
+  if (!Array.isArray(phases) || phases.length === 0) return [];
+  const working = phases.map(function(phase) {
+    return JSON.parse(JSON.stringify(phase));
+  });
+  if (working.length < 2) return working;
+
+  const last = working[working.length - 1];
+  if ((last.tickets || []).length >= MIN_TICKETS_PER_PHASE) return working;
+
+  const previous = working[working.length - 2];
+  previous.tickets = (previous.tickets || []).concat(last.tickets || []);
+  previous.nodeIds = (previous.nodeIds || []).concat(last.nodeIds || []);
+  previous.name = previous.name + ' → ' + last.name;
+  previous.summary = previous.summary
+    ? previous.summary + '\n---\n' + (last.summary || '')
+    : last.summary;
+
+  return working.slice(0, -1);
 }
 
 // ============================================================
@@ -465,7 +509,9 @@ function updateStatusJson(statusPath, oldPhases, newPhases) {
 
 /**
  * Validate all phases after consolidation.
- * - All phases have ticketCount >= MIN_TICKETS_PER_PHASE (except the last)
+ * - All non-final phases have ticketCount >= MIN_TICKETS_PER_PHASE. The final phase is
+ *   exempt only because a sole remaining phase has no merge target; with two or more
+ *   phases, mergeLastPhaseBackward has already merged a small final phase backward.
  * - All ticket IDs are valid
  * - All ticket phaseIds match their owning phase id
  * - No empty tickets (non-empty nodeIds)
@@ -642,7 +688,7 @@ function parseCliArgs(argv, options = {}) {
  * @param {string} statusPath — absolute path to SPLIT-Status.json
  * @param {boolean} dryRun — suppress file writes in dry-run mode
  */
-// [::TICKET::] PX-315, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315, PX-325, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-325|PX-342) --for-spec --no-implementation-order`.
 function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Read Tickets.json
   const ticketsData = readTickets(ticketsPath);
@@ -656,11 +702,11 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   console.log('\n[5-3-1] Guard check running...');
   const guardResult = guardPhaseCount(phases);
   if (guardResult.shouldSkip) {
-    console.log('Phase count is ' + guardResult.phaseCount + ' (below minimum ' + MIN_TICKETS_PER_PHASE + '), skipping consolidation');
+    console.log('Phase count is ' + guardResult.phaseCount + ' (below minimum ' + MIN_PHASES_TO_CONSOLIDATE + '), skipping consolidation');
     console.log('✅ Skipped (guard condition met)');
     return;
   }
-  console.log('Phase count: ' + guardResult.phaseCount + ' (threshold ' + MIN_TICKETS_PER_PHASE + ' or above) -> continuing');
+  console.log('Phase count: ' + guardResult.phaseCount + ' (threshold ' + MIN_PHASES_TO_CONSOLIDATE + ' or above) -> continuing');
 
   // 5-3-2: nodeIds coverage verification
   console.log('\n[5-3-2] nodeIds coverage verification running...');
@@ -689,10 +735,11 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
     }
   }
 
-  // 5-3-3: Single-pass right-to-left consolidation
-  console.log('\n[5-3-3] Running single-pass right-to-left consolidation...');
+  // 5-3-3: Merge a small last phase backward, then consolidate right-to-left.
+  console.log('\n[5-3-3] Running phase consolidation...');
   console.log('  Threshold: consolidating phases with fewer than ' + MIN_TICKETS_PER_PHASE + ' tickets');
-  const consolidatedPhases = consolidateFromRight(phases);
+  const lastMergedPhases = mergeLastPhaseBackward(phases);
+  const consolidatedPhases = consolidateFromRight(lastMergedPhases);
   const removedCount = phases.length - consolidatedPhases.length;
   if (removedCount > 0) {
     console.log('  ' + removedCount + ' phase(s) consolidated');
@@ -813,6 +860,7 @@ module.exports = {
   guardPhaseCount,
   validateAllNodeIdsCovered,
   consolidateFromRight,
+  mergeLastPhaseBackward,
   renumberPhaseIds,
   renumberTicketIds,
   remapTicketKeyReferences,
@@ -833,6 +881,7 @@ module.exports = {
 
   // Constants
   MIN_TICKETS_PER_PHASE,
+  MIN_PHASES_TO_CONSOLIDATE,
   PHASE_ID_PREFIX,
   EXIT_SUCCESS,
   EXIT_FAILURE,
