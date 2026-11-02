@@ -12,7 +12,7 @@ import { buildModel } from '../../.claude/scripts/workspacify-order/lib/levels.m
 import { renderPlan } from '../../.claude/scripts/workspacify-order/lib/render.mjs';
 
 // [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
-function fixture() {
+function fixture({ rootCounters } = {}) {
   return materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
     edges: [
@@ -20,6 +20,7 @@ function fixture() {
       ['pkg-0003', 'pkg-0001'],
     ],
     levels: [['pkg-0001'], ['pkg-0002', 'pkg-0003']],
+    rootCounters,
   });
 }
 
@@ -41,6 +42,28 @@ test('C001 without a sidecar the display says build order', (t) => {
   assert.match(text, /build order —/);
   assert.match(text, /implementation order not yet derivable/);
   assert.doesNotMatch(text, /implementation order —/);
+});
+
+// The state right after /educe-sequences: the root artifact declares a distribution, but
+// no package view has been projected yet because /grill-me-for-rfc has not run. Zero views
+// is "not yet derived", not a partial projection, so the display must fall back to the
+// build order and still report the root pipeline counter instead of refusing the workspace.
+test('C001 an artifact with no projected view still displays the build order', (t) => {
+  const workspace = fixture({ rootCounters: { educe: 1 } });
+  t.after(() => workspace.remove());
+  writeFileSync(join(workspace.root, 'DESIGN-sequences.json'), JSON.stringify({
+    sequences: [{ id: 'S', outcome: 'direct' }],
+    steps: [{ id: 's1', sequence: 'S', operation: 'Do', order: 1 }],
+    operations: [{ id: 'Do', disposition: 'active' }],
+  }));
+
+  const model = modelOf(workspace);
+  assert.equal(model.orderSource, 'build');
+  assert.equal(model.orderSourceDetail, 'none');
+  const text = renderPlan(model);
+  assert.match(text, /build order —/);
+  assert.match(text, /implementation order not yet derivable/);
+  assert.match(text, /🟤 EDU:1/);
 });
 
 test('C001 with a sidecar the implementation order is primary and the build order is preserved', (t) => {

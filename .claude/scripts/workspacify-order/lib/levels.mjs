@@ -243,10 +243,13 @@ function deriveArtifactImplementationOrder({ root, packages, treeManifest, alloc
     return null;
   }
   const views = Object.fromEntries(packages.map((pkg) => [pkg.id, loadPackageView(root, pkg.path)]));
+  // Before the first projection no package has a view: the build order is then the only
+  // order the workspace states, and the renderer labels it as such. A partial projection
+  // of a distribution is the different case — it has begun to claim an order it cannot cover.
+  if (Object.values(views).every((view) => view === null)) return null;
   const hasDistribution = (artifact.sequences?.length ?? 0) > 0
     || (artifact.steps?.length ?? 0) > 0
     || (artifact.operations?.length ?? 0) > 0;
-  if (!hasDistribution && Object.values(views).every((view) => view === null)) return null;
   if (hasDistribution) {
     const missing = packages.filter((pkg) => views[pkg.id] === null).map((pkg) => pkg.id);
     if (missing.length > 0) {
