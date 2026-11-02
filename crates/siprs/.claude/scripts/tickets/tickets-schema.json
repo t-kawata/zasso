@@ -252,6 +252,63 @@
           ],
           "description": "Why this ticket is separate from the other tickets in the same phase. Required by add-tickets-for-phase.js when the phase carries more than one ticket."
         },
+        "mergeAttempts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "left": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "right": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "decision": {
+                "type": "string",
+                "enum": [
+                  "merged",
+                  "refused"
+                ]
+              },
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "tdd-order",
+                  "disjoint-io",
+                  "release-boundary",
+                  "ownership-boundary",
+                  "cohesion"
+                ]
+              },
+              "evidence": {
+                "type": "string"
+              },
+              "behaviours": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "left",
+              "right",
+              "decision"
+            ],
+            "additionalProperties": true
+          },
+          "description": "The adjacent candidate pairs the split tried to merge. A discretionary pair that stays within budget is refused with a valid trigger and evidence; a budget-forced pair needs no refusal. cohesion requires at least two behaviours."
+        },
+        "unlistedFileReason": {
+          "type": "string",
+          "description": "Why a non-record ticket has no default_files. Required by the v2 work-budget gate when default_files is empty and the ticket is not a record ticket."
+        },
         "changes": {
           "type": "array",
           "items": {

@@ -34,10 +34,7 @@ const { ticketIdentity } = require("./lib/ticket-identity.js");
 const {
   WORKLOAD_CODES,
   parseWorkBudget,
-  workloadOfPhase,
-  workloadOfTicket,
-  minimumTicketCount,
-  validateTicketWorkload,
+  analyzeTicketWorkload,
 } = require("./lib/ticket-workload.js");
 const {
   artifactStepsForSequences,
@@ -421,7 +418,7 @@ function ticketKeyOf(ticket) {
  * module. It returns findings instead of exiting so the caller keeps one failure
  * path and one place that decides when Tickets.json may be written.
  */
-// [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-342|PX-347) --for-spec --no-implementation-order`.
 function evaluateWorkBudget(phase, { graphData, dirsTreeData, view, nodeToFileMap, budgetPath }) {
   const rawBudget = readJsonOrNull(budgetPath);
   if (rawBudget === null) {
@@ -446,20 +443,15 @@ function evaluateWorkBudget(phase, { graphData, dirsTreeData, view, nodeToFileMa
   }
 
   const context = { graph: graphData, dirsTree: dirsTreeData, view, nodeToFileMap };
-  const findings = validateTicketWorkload(phase, parsedBudget.budget, context);
-  const phaseWorkload = workloadOfPhase(phase, context);
+  // analyzeTicketWorkload keeps accepted irreducible overage separate from the
+  // fatal findings, so an indivisible node no longer blocks the whole split.
+  const analysis = analyzeTicketWorkload(phase, parsedBudget.budget, context, {
+    mode: parsedBudget.mode,
+    components: parsedBudget.components,
+  });
   return {
-    findings,
-    workBudget: {
-      budget: parsedBudget.budget,
-      phaseWorkload,
-      minimumWorkTickets: minimumTicketCount(phaseWorkload, parsedBudget.budget),
-      tickets: phase.tickets.map((ticket) => ({
-        ticketKey: ticketKeyOf(ticket),
-        workload: workloadOfTicket(ticket, context),
-        splitReason: ticket.splitReason ?? null,
-      })),
-    },
+    findings: analysis.fatalFindings,
+    workBudget: analysis.workBudget,
   };
 }
 
@@ -669,7 +661,7 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
   }
 }
 
-// [::TICKET::] PX-323, PX-328, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328|PX-342) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-328, PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328|PX-342|PX-347) --for-spec --no-implementation-order`.
 async function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -901,6 +893,11 @@ async function main() {
     writeTicketDistributionAggregate(ticketsDocument);
   } else if (enforceWorkBudget) {
     workBudgetOutput = { skipped: 'no-distribution' };
+  }
+  if (!enforceWorkBudget) {
+    // The split command always passes the gate. A caller that omits it must still
+    // see that absence in the result, so the gate cannot disappear silently.
+    workBudgetOutput = { skipped: 'no-budget-gate' };
   }
 
   // 7. Validation passed — write to file

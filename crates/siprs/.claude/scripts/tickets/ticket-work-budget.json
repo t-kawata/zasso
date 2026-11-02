@@ -1,18 +1,27 @@
 {
-  "version": 1,
+  "version": 2,
   "components": [
     "operations",
     "sequenceSteps",
-    "contracts",
+    "ownedContracts",
     "files",
-    "kinds"
+    "testUnit",
+    "testIntegration",
+    "modules"
   ],
   "budget": {
     "operations": 8,
     "sequenceSteps": 8,
-    "contracts": 2,
-    "files": 10,
-    "kinds": 4
+    "ownedContracts": 4,
+    "files": 15,
+    "testUnit": 18,
+    "testIntegration": 6,
+    "modules": 4
   },
-  "provenance": "Initial provisional budget for PX-342. Calibrate from reviewed tickets and replace this string with the measured percentile and date."
+  "excluded": [
+    "providerBoundaryContracts",
+    "kinds",
+    "graphNodes"
+  ],
+  "provenance": "Initial v2 calibration for PX-347 from reviewed PX-342..PX-346 tickets; replace with the measured P75 and date after the first reviewed v2 tickets."
 }

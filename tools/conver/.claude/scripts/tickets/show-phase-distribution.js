@@ -21,9 +21,11 @@ const { resolveTicketsPath, reportResolvedPath } = require('../lib/package-artif
 const { buildNodeToFileMap } = require('../rfc-graph/validate-phasify.js');
 const {
   WORKLOAD_COMPONENTS,
+  LEGACY_WORKLOAD_COMPONENTS,
   parseWorkBudget,
   workloadOfPhase,
   minimumTicketCount,
+  analyzeTicketWorkload,
 } = require('./lib/ticket-workload.js');
 const {
   OPERATION_OBLIGATION_FIELDS,
@@ -83,8 +85,8 @@ function phaseNodes(phase, graph) {
  * @param {{ phase: object, view: object, graph: object, dirsTree?: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {string}
  */
-// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322|PX-342) --for-spec --no-implementation-order`.
-function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null, budget = null, budgetSource = null } = {}) {
+// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322, PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322|PX-342|PX-347) --for-spec --no-implementation-order`.
+function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null, budget = null, budgetSource = null, budgetMode = 'v2', budgetComponents = budgetMode === 'v1' ? LEGACY_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS, budgetExcluded = [] } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
   lines.push(`# Phase ${phaseLabel}: ${phase?.name ?? ''}`.trim());
@@ -145,21 +147,69 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
   }
 
   const nodeToFileMap = dirsTree == null ? {} : buildNodeToFileMap(dirsTree);
-  const workload = workloadOfPhase(phase, { graph, dirsTree, view, nodeToFileMap });
+  const workloadContext = { graph, dirsTree, view, nodeToFileMap };
+  const workload = workloadOfPhase(phase, workloadContext, { mode: budgetMode, components: budgetComponents });
+  const nodes = phaseNodes(phase, graph);
+  const analysis = budget === null || budgetMode !== 'v2'
+    ? null
+    : analyzeTicketWorkload(phase, budget, workloadContext, { mode: budgetMode, components: budgetComponents });
+
   lines.push('', '## Workload');
-  for (const component of WORKLOAD_COMPONENTS) {
+  for (const component of budgetComponents) {
     lines.push(`- ${component}: ${workload[component]}`);
+  }
+  if (budgetMode === 'v1') lines.push('- mode: v1 legacy components');
+
+  const boundaryUnits = new Set();
+  for (const node of nodes) {
+    for (const unitId of node.unitIds ?? []) {
+      if (typeof unitId === 'string' && unitId.startsWith('ctr-boundary-')) boundaryUnits.add(unitId);
+    }
+  }
+  const kinds = new Set(nodes.map((node) => node.kind).filter((kind) => typeof kind === 'string'));
+  lines.push('', '## Excluded metadata');
+  lines.push(`- providerBoundaryContracts: ${boundaryUnits.size}`);
+  lines.push(`- kinds: ${kinds.size}`);
+  lines.push(`- graphNodes: ${nodes.length}`);
+  if (budgetExcluded.length > 0) lines.push(`- excluded by budget: ${budgetExcluded.join(', ')}`);
+
+  lines.push('', '## One-ticket feasibility');
+  if (budget === null) {
+    lines.push('- oneTicketFits: (budget not supplied)');
+  } else {
+    const blocking = budgetComponents.filter((component) => (workload[component] ?? 0) > budget[component]);
+    lines.push(`- oneTicketFits: ${blocking.length === 0}`);
+    lines.push(`- blockingComponents: ${blocking.join(', ') || '(none)'}`);
+  }
+
+  lines.push('', '## Merge attempts');
+  if (analysis === null) {
+    lines.push(`- ${budgetMode === 'v1' ? 'v1 legacy mode: merge evidence not checked' : 'budget not supplied'}`);
+  } else {
+    const ticketCount = Array.isArray(phase.tickets) ? phase.tickets.length : 0;
+    lines.push(`- adjacentPairs: ${Math.max(0, ticketCount - 1)}`);
+    lines.push(`- budgetForcedPairs: ${analysis.forcedPairs.length}`);
+    lines.push(`- acceptedRefusals: ${analysis.acceptedRefusals.length}`);
+    lines.push(`- missingAttempts: ${analysis.findings.filter((finding) => finding.code === 'MERGE_ATTEMPT_MISSING').length}`);
   }
 
   lines.push('', '## Budget');
+  lines.push(`- mode: ${budgetMode}`);
   lines.push(`- budget source: ${budgetSource ?? '(not supplied)'}`);
   if (budget === null) {
     lines.push('- budget: (not supplied)');
   } else {
-    for (const component of WORKLOAD_COMPONENTS) {
+    for (const component of budgetComponents) {
       lines.push(`- ${component}: ${budget[component]}`);
     }
-    lines.push(`- minimumWorkTickets: ${minimumTicketCount(workload, budget)}`);
+    const minimum = minimumTicketCount(workload, budget, budgetComponents);
+    lines.push(`- minimumWorkTickets: ${minimum}`);
+    lines.push(`- upperBoundTickets: ${analysis === null ? minimum : analysis.workBudget.upperBoundTickets}`);
+    lines.push(`- actualTickets: ${Array.isArray(phase.tickets) ? phase.tickets.length : 0}`);
+    if (analysis !== null) {
+      lines.push(`- acceptedIrreducible: ${analysis.acceptedIrreducible.length}`);
+      lines.push(`- acceptedRefusals: ${analysis.acceptedRefusals.length}`);
+    }
   }
 
   lines.push('', '## Grouping invariants');
@@ -182,7 +232,7 @@ function findPhase(tickets, phaseArg) {
   return match ?? null;
 }
 
-// [::TICKET::] PX-312, PX-313, PX-334, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334|PX-342) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-334, PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334|PX-342|PX-347) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   let ticketsPath = argumentFor(argv, 'tickets');
   const phaseArg = argumentFor(argv, 'phase');
@@ -225,6 +275,9 @@ function main(argv = process.argv.slice(2)) {
     artifact: readJson(artifactPath),
     budget: parsedBudget.valid ? parsedBudget.budget : null,
     budgetSource: parsedBudget.valid ? budgetPath : null,
+    budgetMode: parsedBudget.valid ? parsedBudget.mode : 'v2',
+    budgetComponents: parsedBudget.valid ? parsedBudget.components : WORKLOAD_COMPONENTS,
+    budgetExcluded: parsedBudget.valid ? parsedBudget.excluded : [],
   }));
   return 0;
 }

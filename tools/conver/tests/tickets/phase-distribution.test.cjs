@@ -91,19 +91,59 @@ test('the phase distribution states the grouping invariants', () => {
   assert.match(text, /registry contract/i);
 });
 
-test('the phase distribution prints workload and budget utilization', () => {
+test('the phase distribution prints workload, excluded metadata, feasibility and budget', () => {
+// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
   const text = renderPhaseDistribution({
     ...fixture(),
-    budget: { operations: 1, sequenceSteps: 1, contracts: 1, files: 2, kinds: 1 },
+    budget: {
+      operations: 1,
+      sequenceSteps: 1,
+      ownedContracts: 1,
+      files: 2,
+      testUnit: 2,
+      testIntegration: 1,
+      modules: 2,
+    },
     budgetSource: 'fixture-budget.json',
+    budgetMode: 'v2',
+    budgetComponents: [
+      'operations', 'sequenceSteps', 'ownedContracts', 'files',
+      'testUnit', 'testIntegration', 'modules',
+    ],
+    budgetExcluded: ['providerBoundaryContracts', 'kinds', 'graphNodes'],
   });
   assert.match(text, /## Workload/);
   assert.match(text, /operations: 1/);
   assert.match(text, /sequenceSteps: 1/);
-  assert.match(text, /contracts: 1/);
-  assert.match(text, /files: 2/);
+  assert.match(text, /ownedContracts: 0/);
+  assert.match(text, /files: 1/);
+  assert.match(text, /## Excluded metadata/);
+  assert.match(text, /providerBoundaryContracts: 1/);
+  assert.match(text, /graphNodes: 2/);
+  assert.match(text, /## One-ticket feasibility/);
+  assert.match(text, /oneTicketFits: true/);
+  assert.match(text, /## Merge attempts/);
   assert.match(text, /## Budget/);
+  assert.match(text, /mode: v2/);
   assert.match(text, /budget source: fixture-budget\.json/);
   assert.match(text, /minimumWorkTickets: 1/);
+  assert.match(text, /upperBoundTickets: 1/);
+  assert.match(text, /actualTickets: 0/);
   assert.match(text, /splitReason/);
+});
+
+test('the phase distribution keeps the v1 legacy components when the budget is v1', () => {
+  const text = renderPhaseDistribution({
+    ...fixture(),
+    budget: { operations: 1, sequenceSteps: 1, contracts: 1, files: 2, kinds: 2 },
+    budgetSource: 'legacy-budget.json',
+    budgetMode: 'v1',
+  });
+  assert.match(text, /## Workload/);
+  assert.match(text, /contracts: 1/);
+  assert.match(text, /files: 2/);
+  assert.match(text, /kinds: 0/);
+  assert.doesNotMatch(text, /ownedContracts/);
+  assert.match(text, /mode: v1/);
+  assert.match(text, /minimumWorkTickets: 1/);
 });

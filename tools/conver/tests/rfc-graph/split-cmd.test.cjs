@@ -39,6 +39,7 @@ test('C003 the gate literals the split preflight names are preserved', () => {
 });
 
 test('C006 the split command carries the consolidation-first work-budget policy', () => {
+// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
   const content = readFileSync(COMMAND_PATH, 'utf8');
   assert.match(content, /consolidation-first/i);
   assert.match(content, /splitReason/);
@@ -47,5 +48,11 @@ test('C006 the split command carries the consolidation-first work-budget policy'
   assert.match(content, /MIN_TICKETS_PER_PHASE/);
   assert.match(content, /tdd-order/);
   assert.match(content, /cohesion/);
+  assert.match(content, /mergeAttempts/);
+  assert.match(content, /acceptedDiscretionaryRefusals/);
+  assert.match(content, /budget-forced/);
+  assert.match(content, /behaviours/);
+  assert.match(content, /unlistedFileReason/);
+  assert.match(content, /skipped:no-budget-gate/);
   assert.doesNotMatch(content, /list-phases-and-tickets\.jsnode/);
 });

@@ -46,15 +46,16 @@ function phase() {
 }
 
 describe('work-budget feasibility', () => {
+// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
   it('reports an irreducible node once and suppresses the duplicate ticket overage', () => {
     const context = heavyNodeContext();
-    const findings = validateTicketWorkload(phase(), BUDGET, context);
+    const findings = validateTicketWorkload(phase(), BUDGET, context, { mode: 'v1' });
     assert.ok(findings.some((entry) => entry.code === WORKLOAD_CODES.WORK_BUDGET_INFEASIBLE && entry.nodeId === 'N0001' && entry.component === 'contracts'));
     assert.ok(!findings.some((entry) => entry.code === WORKLOAD_CODES.TICKET_WORK_OVER_BUDGET && entry.component === 'contracts'));
   });
 
   it('reports MINIMUM_EXCEEDS_NODE_COUNT instead of an impossible ticket minimum', () => {
-    const result = feasibilityOf(phase(), BUDGET, heavyNodeContext());
+    const result = feasibilityOf(phase(), BUDGET, heavyNodeContext(), { mode: 'v1' });
     assert.equal(result.feasible, false);
     assert.equal(result.reason, 'MINIMUM_EXCEEDS_NODE_COUNT');
     assert.ok(result.findings.some((entry) => entry.code === WORKLOAD_CODES.WORK_BUDGET_INFEASIBLE));
@@ -63,7 +64,7 @@ describe('work-budget feasibility', () => {
 
   it('reads the budget from configuration instead of hardcoding one', () => {
     const generous = { operations: 8, sequenceSteps: 8, contracts: 10, files: 10, kinds: 4 };
-    const result = feasibilityOf(phase(), generous, heavyNodeContext());
+    const result = feasibilityOf(phase(), generous, heavyNodeContext(), { mode: 'v1' });
     assert.equal(result.feasible, true);
     assert.equal(result.findings.length, 0);
   });

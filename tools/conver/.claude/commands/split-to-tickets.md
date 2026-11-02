@@ -254,7 +254,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/show-dirs-files-tree.js" || {
 echo "========================================="
 ```
 
-Current dirs/files: grill/drill → `/graphify-rfc` → `/boundify-graph` result; do not modify. Allowed: add interface-exposing dir/file for other programs; ticket must state it is absent from corresponding GRAPH/Dirs-Tree. Missing → prompt prior boundify; interrupt split. `default_files` is resolved from leaf files only; a directory path is never written into a ticket. A unit whose Dirs-Tree entry has no leaf file is `UNIT_WITHOUT_FILE`, and a generated header missing the unit is `UNIT_WITHOUT_HEADER`.
+Current dirs/files: grill/drill → `/graphify-rfc` → `/boundify-graph` result; do not modify. Allowed: add interface-exposing dir/file for other programs; ticket must state it is absent from corresponding GRAPH/Dirs-Tree. Missing → prompt prior boundify; interrupt split. `default_files` is resolved from leaf files only; a directory path is never written into a ticket. A unit whose Dirs-Tree entry has no leaf file is `UNIT_WITHOUT_FILE`, and a generated header missing the unit is `UNIT_WITHOUT_HEADER`. A non-record ticket with no `default_files` must carry a non-empty `unlistedFileReason`; a record ticket (all its graph nodes are `architecture` or `rationale`) may have none.
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "3"
@@ -332,7 +332,7 @@ Read phase node ID/title/kind/summary/implementation path and the printed distri
 3. Independent release, rollback or ownership boundary, including another package.
 4. Cohesion — merging would mix unrelated observable behaviours and destroy translatability.
 
-Ticket size is measured by work volume (operations, sequenceSteps, contracts, leaf files, kinds), not node count. Apply the `/suggest-min-tickets` policy: consolidate maximally; split only for unavoidable risk. `minimumWorkTickets = max(1, component-wise ceil(phaseWorkload / budget))`; `add-tickets-for-phase.js` computes and enforces it. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
+Ticket size is measured by v2 implementation work: `operations`, `sequenceSteps`, `ownedContracts`, `files`, `testUnit`, `testIntegration`, `modules`. Provider boundary units (`ctr-boundary-*`), node kinds and graph nodes are excluded metadata; the report prints them but they never size a ticket. `files` is the distinct `default_files` set; `modules` is the distinct top-level `src/<module>` set. Apply the `/suggest-min-tickets` policy: consolidate maximally; split only for unavoidable risk. `minimumWorkTickets = max(1, component-wise ceil(phaseWorkload / budget))` is a floor, not a target. `add-tickets-for-phase.js` enforces the floor and the evidence-backed upper bound `minimumWorkTickets + acceptedDiscretionaryRefusals`. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "5-1"
@@ -341,9 +341,9 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" start-step "5-2
 
 #### 5-2: Ticket creation (add-tickets-for-phase.js)
 
-Before calling `add-tickets-for-phase.js`, attempt to merge every adjacent pair in the phase. Refuse a merge only for one of the four split triggers; record the refused pair and its reason in the ticket notes. Do not emit a partition you have not tried to reduce. The AI writes the merged prose; the script only measures and validates it.
+Before calling `add-tickets-for-phase.js`, attempt to merge every adjacent pair in the phase. A pair whose merged workload stays within budget is discretionary and must be refused with a `mergeAttempts` entry carrying a valid trigger, non-empty evidence and, for `cohesion`, at least two named `behaviours`. A pair whose merged workload exceeds the budget is budget-forced and needs no refusal; the merged workload is the proof. Do not emit a partition you have not tried to reduce. The AI writes the merged prose; the script only measures and validates it.
 
-When the phase has more than one ticket, every ticket carries `splitReason` from `tdd-order`, `disjoint-io`, `release-boundary`, `ownership-boundary`, `cohesion`. The script rejects a missing or invalid reason.
+When the phase has more than one ticket, every ticket carries `splitReason` from `tdd-order`, `disjoint-io`, `release-boundary`, `ownership-boundary`, `cohesion`. The reason must match an adjacent refused attempt and the graph: `tdd-order` needs a hard intra-phase edge, `ownership-boundary` needs foreign or consumer ownership, `disjoint-io` needs an external I/O surface, `release-boundary` needs evidence, and `cohesion` needs two named unrelated observable behaviours. The script rejects a missing or invalid reason, a missing attempt, an invalid trigger, or `tickets > minimumWorkTickets + acceptedDiscretionaryRefusals`.
 
 stdin ticket array → bulk add; script proves all phase `nodeIds` ticketized; failure → rollback/no write/exit 1.
 
@@ -419,7 +419,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" reset-to-step "
 
 ### Step 5-3: Phase consolidation
 
-Complete ticketization → merge phases, never split tickets. A phase with fewer than 3 tickets merges into the following phase; when the last phase has fewer than 3 tickets and a previous phase exists, it merges backward into the previous phase. `MIN_TICKETS_PER_PHASE` remains 3. The add-stage gate does not enforce this floor: it uses `max(1, ceil(workload / budget))`, so a 2-ticket phase can still reach this consolidation step.
+Complete ticketization → merge phases, never split tickets. A phase with fewer than 3 tickets merges into the following phase; when the last phase has fewer than 3 tickets and a previous phase exists, it merges backward into the previous phase. `MIN_TICKETS_PER_PHASE` remains 3. The add-stage gate does not enforce this floor: it uses `max(1, ceil(workload / budget))`, so a 2-ticket phase can still reach this consolidation step. All-small phases collapse into one final phase; that is the expected result of maximal consolidation, not a defect. The final phase is exempt from the three-ticket floor only when it is the sole remaining phase.
 Sequence: guard → validation → last-phase backward merge → right-to-left phase merge → ID re-index → ticket-key remap → `relatedTicketIds` regeneration → status update → final verification. The remap rewrites `prerequisites[].ticket` and every distribution obligation's `implementerTicketId` / `implementerTicketKey` before the order gate runs, so a phase merge cannot leave a reference pointing at another ticket.
 
 ```bash
@@ -452,6 +452,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "6"
 ```
 
 Out: checklist hierarchy `P<n>` → `P<n>-<ticket>`.
+Step 6 also reports `## Consolidation`: phases before → after, tickets preserved, final phase ticket count. A `skipped:no-budget-gate` in the add result is a command-contract failure, not a pass; the canonical command always passes `--enforce-work-budget`. `skipped:no-distribution` is the only allowed skip.
 Stage counters: `end-step 6` records `runs` and advances `generation` only when the Tickets.json digest changes; `--audit` on that step writes no generation.
 
 ### Resuming from an Error

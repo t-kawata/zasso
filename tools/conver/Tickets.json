@@ -52742,6 +52742,223 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-02"
+        },
+        {
+          "id": 347,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Size tickets by implementation work and require merge evidence, so over-splitting cannot pass",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-347.md",
+          "background": "## Goal\nMake `/split-to-tickets` choose the fewest tickets that stay within a measured per-ticket implementation-work ceiling, and make every ticket above one carry evidence that adjacent work was attempted for merge.\n\n## Purpose\nMove the ceiling from graph metadata to implementation work. The budget counts operations, sequence steps, owned contracts, distinct implementation files, unit test families, integration test families and module count. Provider-side boundary units, node kinds and graph node count are reported but never sized.\n\n## Motivation\nPX-342 introduced a provisional budget of `contracts=2`, `kinds=4`, `files=10`. A real package with 40 provider-side boundary units and 73 nodes produced 33 tickets (2.21 nodes per ticket), more granular than the 3.5 nodes per ticket baseline PX-342 itself called over-split. P0 was exactly `ceil(12/2)=6`; the contract ceiling, not a proven split trigger, set the count. The gate rejected only too few tickets: P3 and P6 passed with four tickets for a two-ticket workload, every split labelled `cohesion`, and no refused merge recorded. `WORK_BUDGET_INFEASIBLE` aborted on a single node carrying 10 boundary units, so the prescribed `--enforce-work-budget` could not complete and was silently omitted. The fix must work for every project, not for one package shape.\n\n## Constraints\n- TDD: Red first; the Red set covers every new finding, every excluded metadata case, every package shape and every backward-compatibility path.\n- Generic: no package id, path, phase name, contract count or fixture value from a real project appears in code, defaults, comments or tests.\n- Backward compatible: existing v1 budget files and existing Tickets.json files remain readable; a caller without the gate keeps the old shape and reports the skip.\n- Additive schema: new fields are optional for existing tickets and required by the gate only for new multi-ticket phases.\n- No automatic prose merging: the AI writes ticket prose; scripts measure, validate and reject.\n- Preserve every existing split gate, the three-ticket phase floor and the Red-Green-Refactor law.",
+          "scope": [
+            "[Changes - path] `.claude/scripts/tickets/lib/ticket-workload.js`, `.claude/scripts/tickets/ticket-work-budget.json`, `.claude/scripts/tickets/add-tickets-for-phase.js`, `.claude/scripts/tickets/show-phase-distribution.js`, `.claude/scripts/tickets/tickets-schema.json`, `.claude/scripts/tickets/consolidate-phase-tickets.js`, `.claude/commands/split-to-tickets.md`, and the matching tests under `tests/tickets/`, `tests/rfc-graph/` and `tests/consolidate-phase-tickets.test.cjs`.",
+            "[Changes - action] Add the seven-component workload, the version-2 budget, the upper-bound gate, merge evidence, the irreducible classification, the empty-file rule and the consolidation report; keep every existing gate and the three-ticket floor.",
+            "[Changes - detail] `workloadOfTicket` returns `{operations,sequenceSteps,ownedContracts,files,testUnit,testIntegration,modules}`; `validateTicketWorkload` returns named findings; a ticket carries `mergeAttempts: [{left,right,decision,trigger,evidence}]`; the budget file carries `components`, `budget`, `excluded` and `provenance`; the new findings are `TICKET_COUNT_ABOVE_MERGE_EVIDENCE`, `MERGE_ATTEMPT_MISSING`, `MERGE_TRIGGER_INVALID`, `SPLIT_REASON_GRAPH_MISMATCH`, `EMPTY_DEFAULT_FILES` and `ACCEPTED_IRREDUCIBLE_OVERAGE`.",
+            "[Changes - before/after] Before, the budget counts every `ctr-*` unit and every node kind, and accepts any valid `splitReason`; after, it counts implementation work, reports metadata separately, and matches the reason to graph evidence. Before, an irreducible node aborts the gate; after, the node is recorded and the partition proceeds. Before, four tickets for a two-ticket workload pass; after, they fail without a refused-merge record.",
+            "[Changes - API] `workloadOfTicket(ticket, context) -> Workload`; `workloadOfPhase(phase, context) -> Workload`; `minimumTicketCount(workload, budget) -> number`; `maximumTicketCount(minimumWorkTickets, acceptedRefusals) -> number`; `validateTicketWorkload(phase, budget, context) -> Finding[]`; `parseWorkBudget(document) -> {valid, errors, budget, mode}`; add `collectMergeFindings(phase, context) -> Finding[]` and `collectReasonFindings(phase, context) -> Finding[]`.",
+            "[Changes - schema] `tickets-schema.json` adds `ticket.mergeAttempts` (array of `{left,right,decision,trigger,evidence}`), `ticket.unlistedFileReason` (string), and documents that `splitReason` is checked against graph evidence; `additionalProperties` stays true so existing tickets remain valid.",
+            "[Changes - config] `ticket-work-budget.json` becomes version 2 with `operations=8`, `sequenceSteps=8`, `ownedContracts=4`, `files=15`, `testUnit=18`, `testIntegration=6`, `modules=4` and `excluded=[providerBoundaryContracts,kinds,graphNodes]`; the loader accepts version 1 with legacy semantics and version 2 as canonical; `--work-budget=<path>` remains the override.",
+            "[Changes - dependency] No new runtime crate. Tests use the existing Node assert harness. The fixture builder is plain Node. Installed copies are synced through the existing sanctioned installer.",
+            "[Non-change - item] Do not change graphify node granularity, `MIN_NODES_PER_PHASE`, `MIN_TICKETS_PER_PHASE=3`, or the node set of any existing ticket.",
+            "[Non-change - why] These control the graph and phase presentation, not ticket size; changing them would move the defect instead of fixing it.",
+            "[Impact - component] Split scripts, ticket schema, split command, tests and installed copies.",
+            "[Impact - nature] Adds a measured upper bound and audit evidence, recalibrates the budget to implementation work, makes irreducible overage non-fatal, and preserves backward compatibility.",
+            "[Impact - response] Re-run `/split-to-tickets` on a synthetic package with the same shape and on the real package; every standard gate must stay green, a version-1 caller keeps the old behavior, and a version-2 caller gets the new upper bound."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/lib/ticket-workload.js",
+            ".claude/scripts/tickets/ticket-work-budget.json",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/tickets/show-phase-distribution.js",
+            ".claude/scripts/tickets/tickets-schema.json",
+            ".claude/scripts/tickets/consolidate-phase-tickets.js",
+            ".claude/commands/split-to-tickets.md",
+            "tests/tickets/ticket-workload.test.mjs",
+            "tests/tickets/add-tickets-work-budget.test.cjs",
+            "tests/tickets/phase-distribution.test.cjs",
+            "tests/tickets/show-ticket-distribution.test.mjs",
+            "tests/rfc-graph/step5-add-tickets-coverage.test.cjs",
+            "tests/rfc-graph/split-cmd.test.cjs",
+            "tests/consolidate-phase-tickets.test.cjs",
+            "tests/tickets/fixtures/workload-package.cjs",
+            "tests/tickets/workload-package-fixture.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a synthetic package with 8 phases, 73 nodes, 53 leaf files and 40 provider-side boundary units produces 10 tickets under the version-2 budget, with P2 and P4 split into two and every other phase one; Step 5-3 consolidates the result into one phase with 10 tickets and every standard gate is green.",
+            "Error case: a discretionary split above the budget floor without a refused merge attempt, a cohesion refusal with fewer than two named behaviours, a refused pair without a valid trigger, a reducible ticket over budget, or a non-record ticket with no `default_files` and no `unlistedFileReason` exits 1 with the named code and writes nothing.",
+            "Edge case: one node with 10 provider boundary units and 12 placement paths but one `default_file` counts as one work unit and one file; an irreducible overage is recorded and does not abort; a package without a view reports `skipped:no-distribution` and a caller without the flag reports `skipped:no-budget-gate`.",
+            "Generality: no real package id, path, phase name, contract count or fixture value appears in code, defaults, comments or tests; sequence-driven and service fixtures pass with their own owned operations, steps and I/O boundaries.",
+            "Backward compatibility: existing v1 budget files and existing Tickets.json files remain readable, no test or implementation is weakened to reach green, and the three-ticket phase floor is unchanged."
+          ],
+          "notes": "## Implementation steps\n1. Red: add the failing unit, CLI and fixture tests for C001-C008. 2. Green: implement the seven-component workload, version-2 budget loader, upper-bound and merge findings, irreducible classification and empty-file finding. 3. Wire the gate and the success JSON. 4. Update `show-phase-distribution.js` and `split-to-tickets.md`. 5. Run the synthetic fixtures and the existing suites. 6. Sync installed copies. 7. Re-run the real split and record the result.\n\n## Risks\nThe version-1 tests expect `contracts` and `kinds`; keep a compatibility mode. The final phase exemption can hide a small final phase; test the sole-phase case explicitly. Installed copies can drift; sync through the sanctioned installer. The synthetic fixture must not import a real package.\n\n## Caveats\nThe defaults are an initial calibration; the provenance records the measurement date and the reviewed-ticket count. The synthetic gaia-shaped fixture is an acceptance proxy; the real re-run is manual and recorded in the review.\n\n## Open items\nThe exact per-package-type profiles and the automatic calibration from reviewed tickets are future work. The first calibration should replace the defaults after two or three reviewed tickets.\n\n## Future improvements\nAdd a `--calibrate` command that computes the P50/P75 of reviewed tickets and writes the provenance; add per-language and per-package-type profiles.\n## Implementation summary\n- Changed files: `.claude/scripts/tickets/lib/ticket-workload.js`, `.claude/scripts/tickets/ticket-work-budget.json`, `.claude/scripts/tickets/add-tickets-for-phase.js`, `.claude/scripts/tickets/show-phase-distribution.js`, `.claude/scripts/tickets/tickets-schema.json`, `.claude/commands/split-to-tickets.md`, and the matching tests/fixture.\n- v1 compatibility: `legacyWorkloadOfTicket`, `legacyWorkloadOfPhase` and a `mode: 'v1'` gate path keep the five legacy components and the old fatal irreducible behavior.\n- v2 behavior: seven implementation-work components; boundary units, kinds and graph nodes are excluded metadata; `files` is the distinct `default_files` set; `modules` is the distinct top-level module set; the upper bound is `minimumWorkTickets + acceptedDiscretionaryRefusals`; budget-forced pairs need no refusal; `cohesion` needs two named behaviours; irreducible overage is recorded.\n- Test results: 89 affected tests pass, including the 27 v2 pure tests, 15 CLI tests, 3 phase-distribution tests, 3 legacy feasibility tests, the schema/distribution suites and the synthetic fixture. The fixture yields 10 tickets and one final phase with 10 tickets.\n- Installed copies synced with `install.js` to the root `.claude`, `crates/siprs/.claude` and `~/shyme/conver/.claude`; all four copies share the same `ticket-workload.js` digest.\n## Review report\n- Static quality check: passed; 0 issues.\n- Translatability: function names are verb phrases or domain predicates; no new single-char/generic variables, magic thresholds or debug output. The only `data` occurrence is the existing atomic-writer parameter, renamed to `document`.\n- Dependencies: the v2 workload consumes only GRAPH, Dirs-Tree and SEQUENCES; v1 keeps the legacy five components and fatal irreducible behavior.\n- Issues found and fixes applied: (1) v1 `workBudget.tickets[].workload` used the v2 workload even in v1 mode; it now uses `legacyWorkloadOfTicket`. (2) `renderPhaseDistribution` defaulted `budgetComponents` to v2 even with a v1 budget; it now selects the legacy component list from `budgetMode`. (3) An unreadable budget was reported as `WORK_BUDGET_MISSING`; the new `readWorkBudgetDocument` distinguishes missing from invalid and returns `WORK_BUDGET_INVALID` for a parse failure. (4) `writeJsonAtomically` parameter renamed from `data` to `document` under the Boy Scout Rule.\n- Verification: 91 affected tests pass; the synthetic package yields 10 tickets and consolidates to one phase with 10; no open crimes, no unclaimed stubs, no ambiguous annotations.",
+          "invariants": "- [Normal] Every ticket's effective workload is at or below every budget component, except a component whose overage comes from a single indivisible graph node. A phase has at least one ticket and at most `minimumWorkTickets + acceptedDiscretionaryRefusals`; a budget-forced split is not a discretionary refusal. Every non-final phase has at least three tickets after consolidation.\n- [Error] Any reducible overage, missing merge attempt, invalid split reason, or empty `default_files` without `unlistedFileReason` exits 1 before `Tickets.json` is written; no partial file is left.\n- [State] Provider boundary units (`ctr-boundary-*`), node kinds and graph nodes never contribute to the effective workload. `files` is the distinct `default_files` set; `modules` is the distinct top-level `src/<module>` set; `testUnit` and `testIntegration` are array lengths; `ownedContracts` counts contract units that are not provider boundary projections.\n- [Boundary] A package without a view reports `skipped:no-distribution`; a caller without the gate reports `skipped:no-budget-gate`; a version-1 budget loads with legacy semantics; the version-2 budget is the canonical default; no project-specific constant is required.",
+          "testUnit": [
+            "UT: [Normal] `workloadOfTicket` counts operations, sequenceSteps, ownedContracts, distinct `default_files`, testUnit length, testIntegration length and distinct top-level modules. @verifies C001",
+            "UT: [Normal] provider-side `ctr-boundary-*` units, node kinds and graph node count contribute zero to every workload component. @verifies C001",
+            "UT: [Boundary] a ticket with no `default_files` but a `unlistedFileReason` is measured with zero files and passes the empty-file finding. @verifies C007",
+            "UT: [Boundary] a record ticket with no `default_files` passes the empty-file finding without `unlistedFileReason`. @verifies C007",
+            "UT: [Error] a non-record ticket with no `default_files` and no `unlistedFileReason` returns `EMPTY_DEFAULT_FILES`. @verifies C007",
+            "UT: [Normal] `minimumTicketCount` returns the component-wise ceiling of workload divided by budget, at least one. @verifies C002",
+            "UT: [Error] a ticket count below the ceiling returns `TICKET_COUNT_BELOW_WORK_MINIMUM`. @verifies C002",
+            "UT: [Invariant] `minimumTicketCount` is monotonic in workload and non-increasing as the budget grows. @verifies C002",
+            "UT: [Normal] `maximumTicketCount(minimum, acceptedRefusals)` returns `minimum + acceptedRefusals.length`; a phase at or below the maximum passes the upper bound. @verifies C003",
+            "UT: [Normal] a budget-forced adjacent pair whose merged workload exceeds the budget is accepted without a refused merge attempt; a discretionary pair without evidence returns `MERGE_ATTEMPT_MISSING`. @verifies C003",
+            "UT: [Error] a discretionary pair refused with `cohesion` but fewer than two named behaviours returns `MERGE_TRIGGER_INVALID`. @verifies C003",
+            "UT: [Error] four tickets for a two-ticket workload with no merge evidence returns `TICKET_COUNT_ABOVE_MERGE_EVIDENCE`. @verifies C003",
+            "UT: [Error] a multi-ticket phase missing an adjacent pair in `mergeAttempts` returns `MERGE_ATTEMPT_MISSING`. @verifies C003",
+            "UT: [Error] a refused pair whose trigger is not one of the five split reasons returns `MERGE_TRIGGER_INVALID`. @verifies C003",
+            "UT: [Boundary] a single-ticket phase passes without `mergeAttempts`. @verifies C003",
+            "UT: [Normal] an intra-phase graph dependency accepts `tdd-order`; a cross-package boundary accepts `ownership-boundary`; an external I/O surface accepts `disjoint-io`. @verifies C004",
+            "UT: [Error] `cohesion` without a named unrelated observable behaviour returns `SPLIT_REASON_GRAPH_MISMATCH`. @verifies C004",
+            "UT: [Error] `ownership-boundary` without a cross-package edge and `disjoint-io` without an external I/O surface return `SPLIT_REASON_GRAPH_MISMATCH`. @verifies C004",
+            "UT: [Normal] a single node above a budget component is recorded as `ACCEPTED_IRREDUCIBLE_OVERAGE` with node id, component, actual and budget, and does not abort. @verifies C005",
+            "UT: [Error] a reducible ticket over a budget component returns `TICKET_WORK_OVER_BUDGET` and writes no Tickets.json bytes. @verifies C005",
+            "UT: [Boundary] a caller without `--enforce-work-budget` reports `skipped:no-budget-gate`; a package without a view reports `skipped:no-distribution`. @verifies C006",
+            "UT: [Normal] the success JSON carries `workload`, `budget`, `minimumWorkTickets`, `upperBoundTickets`, `acceptedIrreducible` and `mergeAttempts`. @verifies C006",
+            "UT: [Normal] eight phases with one or two tickets each collapse to one final phase with ten tickets; no ticket is split. @verifies C008",
+            "UT: [Error] a non-final phase with fewer than three tickets fails final validation. @verifies C008",
+            "UT: [Boundary] a single remaining phase with fewer than three tickets is allowed by final validation. @verifies C008",
+            "UT: [Boundary] a version-1 budget loads with legacy semantics and a version-2 budget is the canonical default. @verifies C001",
+            "UT: [Invariant] the sum of ticket workloads equals the phase workload for a covering partition. @verifies C001",
+            "UT: [Boundary] no fixture, default, comment or test contains a real package id, real path, real phase name or real contract count. @verifies C001"
+          ],
+          "testIntegration": [
+            "IT: [Fixture] a synthetic pure-library package with 8 phases, 73 nodes, 53 distinct leaf files and 40 provider-side boundary units yields 10 tickets under the version-2 budget: P2 and P4 split into two and every other phase emits one. @verifies C002",
+            "IT: [Fixture] the same synthetic package is passed through Step 5-3; `mergeLastPhaseBackward` and `consolidateFromRight` produce one final phase with 10 tickets, and `finalValidation` returns valid. @verifies C008",
+            "IT: [Fixture] a sequence-driven package with owned operations and steps measures `operations` and `sequenceSteps`; consumer-mode units are excluded; the gate accepts a partition at the ceiling. @verifies C001",
+            "IT: [Fixture] a service package with an external I/O surface accepts a `disjoint-io` refusal and a cross-package edge accepts `ownership-boundary`; a missing counterpart fails. @verifies C004",
+            "IT: [Fixture] a package without `SEQUENCES.json` reports `skipped:no-distribution`; a caller without the flag reports `skipped:no-budget-gate`; a version-1 budget file keeps the legacy partition. @verifies C006",
+            "IT: [CLI] `add-tickets-for-phase.js` runs the complete gate before `writeJsonAtomically`; a reducible overage leaves Tickets.json byte-identical, and an irreducible overage writes the partition with the recorded warning. @verifies C005",
+            "IT: [CLI] the success JSON and `show-phase-distribution.js` agree on the seven-component workload, the floor, the upper bound and the accepted refusals. @verifies C006"
+          ],
+          "testExceptions": [
+            "The final re-run of `/split-to-tickets` on a real package cannot test in the unit suite because it depends on that package's live graph, Dirs-Tree and sequence artifact; this is a manual acceptance step, not a design defect.",
+            "The exact real-package phase names and ids are not testable in this repository because the fixture is intentionally synthetic; this is required for genericity, not an architectural defect.",
+            "The installed-copy sync cannot test in-process because it writes outside the repository; this is not a design defect, because the installer's own tests cover the copy and the manual sync result is recorded in the review."
+          ],
+          "instrumentation": "## Logging\n`add-tickets-for-phase.js` writes the success JSON with `workload`, `budget`, `minimumWorkTickets`, `upperBoundTickets`, `acceptedIrreducible`, `mergeAttempts` and the ticket count. `show-phase-distribution.js` prints `## Workload`, `## Excluded metadata`, `## One-ticket feasibility`, `## Merge attempts` and `## Budget` for every phase.\n\n## Metrics\nCounts per component, excluded metadata counts, accepted refusals, irreducible overages and findings by code.\n\n## Error tracking\nEvery finding carries `phaseKey`, `ticketKey`, `nodeId`, `component`, `actual` and `budget` when those values exist; no gate exits without a named code and a three-line Cause/Action message.\n\n## Health check\nStep 6 prints the per-phase consolidation report and a `skipped:no-budget-gate` or `skipped:no-distribution` line; a skip is visible in the final report rather than silently absent.\n\n\n## Review verification\n- Static quality check: passed (0 issues)\n- Translatability greps: no new generic names, magic thresholds or debug output\n- Tests: 91 affected tests passed (pure workload, v2 CLI gate, v1 compatibility, phase distribution, schema, synthetic fixture)\n- Annotation: 16 changed files, missing [], ambiguous []\n- Final contracts: 1/1 fulfilled\n- Ticket targets: verifiedEmpty\n- Review fixes: v1 per-ticket workload now reports the legacy five components; a v1 phase report defaults to the legacy component list; an unreadable budget is WORK_BUDGET_INVALID rather than MISSING; writeJsonAtomically names its document instead of data.",
+          "investigation": "## Evidence\n- `ticket-workload.js:17-44` defines the five components and the finding codes; `:93-118` `filesOfUnits` unions every unit placement path; `:120-161` `workloadOfNodes` counts every `ctr-*` unit and node kind; `:202-215` `minimumTicketCount`; `:267-303` `feasibilityOf`; `:376-425` `validateTicketWorkload` only checks `tickets.length < minimum`.\n- `add-tickets-for-phase.js:884-902` calls the gate only when `--enforce-work-budget` is present and exits on any finding; `:425-470` `evaluateWorkBudget` returns the findings. There is no upper-bound finding and no merge-evidence check.\n- `show-phase-distribution.js:149-167` prints `## Workload` and `## Budget` but no one-ticket feasibility, excluded metadata or merge evidence.\n- `consolidate-phase-tickets.js:191-288` merges from right to left and merges a small last phase backward; `:522-538` exempts the final phase from the three-ticket floor; the all-small case collapses to one final phase.\n- `split-to-tickets.md:329-351` states the five-component budget, the minimum-count formula and the `--enforce-work-budget` invocation; `:344` requires adjacent-pair merge attempts and a record, but no script checks it.\n- The measured failure: 33 tickets / 73 graph nodes / 53 distinct default files, 2.21 nodes per ticket; P0 6 = ceil(12/2); P3 and P6 4 tickets for a 2-ticket workload; all 33 `splitReason: cohesion`; zero adjacent-pair refusal records; P0/P1/P5 infeasible because a single node carries 10/9/4 provider boundary units.",
+          "boyScoutPlan": "## Translatability plan\n- Rename the workload internals to domain concepts: `effectiveFileSet`, `moduleNamesOf`, `ownedContractUnits`, `isProviderBoundaryUnit`.\n- Split `validateTicketWorkload` into `collectWorkloadFindings`, `collectMergeFindings` and `collectReasonFindings`; each returns findings and has one responsibility.\n- Extract the upper-bound formula into `maximumTicketCount(minimumWorkTickets, acceptedRefusals)` with a named constant.\n- Replace component and finding string literals with the existing frozen maps; add `WORKLOAD_CODES.TICKET_COUNT_ABOVE_MERGE_EVIDENCE`, `MERGE_ATTEMPT_MISSING`, `MERGE_TRIGGER_INVALID`, `SPLIT_REASON_GRAPH_MISMATCH`, `EMPTY_DEFAULT_FILES` and `ACCEPTED_IRREDUCIBLE_OVERAGE`.\n- Remove every swallowed error in the budget loader; an invalid document returns a named finding.\n- Add tests for each extracted helper; no existing test is weakened.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "PX-347:workload-components",
+              "precondition": "A ticket has graph, Dirs-Tree and optional SEQUENCES context and a default_files list.",
+              "postcondition": "workloadOfTicket returns operations, sequenceSteps, ownedContracts, files, testUnit, testIntegration and modules; provider boundary units, kinds and graph nodes contribute zero.",
+              "invariant": "Every component is a non-negative integer and the sum of ticket workloads equals the phase workload."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "PX-347:one-ticket-ceiling",
+              "precondition": "A phase workload and a version-2 budget are known.",
+              "postcondition": "minimumTicketCount returns the component-wise ceiling of workload divided by budget, at least one; one ticket passes only when every component is within budget.",
+              "invariant": "The count is monotonic in workload and non-increasing as the budget grows."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "PX-347:merge-evidence",
+              "precondition": "A phase proposes more than one ticket and carries mergeAttempts.",
+              "postcondition": "Every discretionary adjacent pair is merged or refused with a valid trigger and evidence; a budget-forced split is proven by the merged workload exceeding the budget; tickets are at most minimumWorkTickets plus accepted discretionary refusals.",
+              "invariant": "A single-ticket phase needs no mergeAttempts."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "PX-347:split-reason-graph",
+              "precondition": "A refused merge names a splitReason and the phase has graph relations.",
+              "postcondition": "An intra-phase dependency requires tdd-order, a cross-package edge requires ownership-boundary, an external I/O surface requires disjoint-io, and cohesion names unrelated observable behaviours; a mismatch fails.",
+              "invariant": "The reason is never accepted without the matching evidence."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "PX-347:irreducible-overage",
+              "precondition": "A single graph node exceeds a budget component and cannot be divided.",
+              "postcondition": "The node id, component, actual and budget are recorded as ACCEPTED_IRREDUCIBLE_OVERAGE and the partition proceeds; a reducible ticket overage fails.",
+              "invariant": "A failed reducible validation writes no Tickets.json bytes."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "PX-347:gate-visibility",
+              "precondition": "The canonical split command runs add-tickets-for-phase.",
+              "postcondition": "The gate runs with --enforce-work-budget; a missing flag reports skipped:no-budget-gate; a package without a view reports skipped:no-distribution; the success JSON carries the budget report.",
+              "invariant": "The gate is never silently absent."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "PX-347:empty-file",
+              "precondition": "A ticket has no default_files.",
+              "postcondition": "A non-record ticket without unlistedFileReason returns EMPTY_DEFAULT_FILES; a record ticket or a ticket with unlistedFileReason passes.",
+              "invariant": "A file-less ticket is never silently executable."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "PX-347:phase-consolidation",
+              "precondition": "Ticketization is complete for every phase.",
+              "postcondition": "Phases with fewer than three tickets merge right-to-left, a small last phase merges backward, and all-small phases collapse to one final phase with all tickets; no ticket is split.",
+              "invariant": "Ticket node sets are unchanged and the final phase is exempt only when it is the sole phase."
+            }
+          ],
+          "created_at": "2026-11-02",
+          "updated_at": "2026-11-02",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] v2 workload counts implementation work only\n```js\nconst workload = workloadOfTicket({\n  nodeIds: ['N0001', 'N0002'], // N0001 carries ctr-boundary-001 and ctr-op-001\n  default_files: ['src/a.js', 'src/api/b.js'],\n  testUnit: ['UT: a', 'UT: b'],\n  testIntegration: ['IT: c'],\n}, context);\nassert.deepEqual(workload, {\n  operations: 1,\n  sequenceSteps: 1,\n  ownedContracts: 1,\n  files: 2,\n  testUnit: 2,\n  testIntegration: 1,\n  modules: 2,\n});\nassert.equal('contracts' in workload, false);\nassert.equal('kinds' in workload, false);\n```",
+            "UT: [Boundary] the v1 legacy workload keeps the five legacy components\n```js\nconst legacy = legacyWorkloadOfTicket({\n  nodeIds: ['N0001', 'N0002'],\n  default_files: ['src/a.js', 'src/api/b.js'],\n}, context);\nassert.deepEqual(legacy, {\n  operations: 1,\n  sequenceSteps: 1,\n  contracts: 2,\n  files: 2,\n  kinds: 2,\n});\n```",
+            "UT: [Normal] the component-wise floor and the evidence-backed upper bound\n```js\nconst minimum = minimumTicketCount(\n  { operations: 25, files: 14 },\n  { operations: 8, files: 15 },\n  WORKLOAD_COMPONENTS,\n);\nassert.equal(minimum, 4);\nassert.equal(maximumTicketCount(minimum, [{ decision: 'refused' }]), 5);\nassert.equal(maximumTicketCount(1, []), 1);\n```",
+            "UT: [Error] a discretionary split above the floor needs a refused merge attempt\n```js\nconst findings = validateTicketWorkload({\n  id: 0,\n  nodeIds: ['N0001', 'N0002', 'N0003', 'N0004'],\n  tickets: [\n    { id: 1, phaseId: 0, nodeIds: ['N0001'], splitReason: 'cohesion', mergeAttempts: [] },\n    { id: 2, phaseId: 0, nodeIds: ['N0002'], splitReason: 'cohesion', mergeAttempts: [] },\n    { id: 3, phaseId: 0, nodeIds: ['N0003'], splitReason: 'cohesion', mergeAttempts: [] },\n    { id: 4, phaseId: 0, nodeIds: ['N0004'], splitReason: 'cohesion', mergeAttempts: [] },\n  ],\n}, budget, context);\nassert.ok(findings.some((f) => f.code === 'MERGE_ATTEMPT_MISSING'));\nassert.ok(findings.some((f) => f.code === 'TICKET_COUNT_ABOVE_MERGE_EVIDENCE'));\n```",
+            "UT: [Normal] a budget-forced split needs no refusal\n```js\nconst forced = analyzeTicketWorkload({\n  id: 0,\n  nodeIds: ['N0001', 'N0002'],\n  tickets: [\n    { id: 1, phaseId: 0, nodeIds: ['N0001'], splitReason: 'tdd-order' },\n    { id: 2, phaseId: 0, nodeIds: ['N0002'], splitReason: 'tdd-order' },\n  ],\n}, tightBudget, context);\nassert.deepEqual(forced.acceptedRefusals, []);\nassert.equal(forced.findings.some((f) => f.code === 'MERGE_ATTEMPT_MISSING'), false);\n```",
+            "UT: [Error] a cohesion refusal needs two named behaviours\n```js\nconst findings = validateTicketWorkload(phaseWithSoftEdge, budget, context);\nassert.ok(findings.some((f) =>\n  f.code === 'SPLIT_REASON_GRAPH_MISMATCH' || f.code === 'MERGE_TRIGGER_INVALID'));\nconst tdd = validateTicketWorkload(phaseWithHardEdge, budget, context);\nassert.equal(tdd.some((f) => f.code === 'SPLIT_REASON_GRAPH_MISMATCH'), false);\n```",
+            "UT: [Normal] an irreducible node is accepted and a reducible ticket is fatal\n```js\nconst analysis = analyzeTicketWorkload(phaseWithHugeNode, budget, context);\nassert.equal(analysis.acceptedIrreducible[0].code, 'ACCEPTED_IRREDUCIBLE_OVERAGE');\nassert.equal(analysis.acceptedIrreducible[0].nodeId, 'N0001');\nassert.equal(analysis.findings.some((f) => f.code === 'TICKET_WORK_OVER_BUDGET'), false);\nconst reducible = analyzeTicketWorkload(phaseWithMergedOverBudget, budget, context);\nassert.ok(reducible.findings.some((f) => f.code === 'TICKET_WORK_OVER_BUDGET'));\n```",
+            "IT: [CLI] the gate reports its absence and its report\n```js\nconst withFlag = spawnSync(process.execPath,\n  [SCRIPT, 'P0', '--enforce-work-budget', `--work-budget=${budgetPath}`],\n  { cwd: root, input: JSON.stringify(tickets), encoding: 'utf8' });\nassert.equal(JSON.parse(withFlag.stdout).workBudget.skipped, undefined);\nassert.equal(JSON.parse(withFlag.stdout).workBudget.minimumWorkTickets, 1);\nconst withoutFlag = spawnSync(process.execPath, [SCRIPT, 'P0'],\n  { cwd: root, input: JSON.stringify(tickets), encoding: 'utf8' });\nassert.equal(JSON.parse(withoutFlag.stdout).workBudget.skipped, 'no-budget-gate');\n```",
+            "UT: [Error] a non-record file-less ticket fails unless it names the missing file\n```js\nconst missing = validateTicketWorkload(phaseWithFilelessTicket, budget, context);\nassert.ok(missing.some((f) => f.code === 'EMPTY_DEFAULT_FILES'));\nconst explained = validateTicketWorkload({\n  ...phaseWithFilelessTicket,\n  tickets: phaseWithFilelessTicket.tickets.map((ticket) => ({\n    ...ticket,\n    unlistedFileReason: 'crate root absent from Dirs-Tree',\n  })),\n}, budget, context);\nassert.equal(explained.some((f) => f.code === 'EMPTY_DEFAULT_FILES'), false);\n```",
+            "UT: [Normal] eight small phases collapse to one final phase with ten tickets\n```js\nconst counts = [1, 1, 2, 1, 2, 1, 1, 1];\nconst phases = counts.map((count, index) => createTestPhase(index, count, nodeIdsFor(index, count)));\nconst merged = consolidateFromRight(mergeLastPhaseBackward(phases));\nassert.equal(merged.length, 1);\nassert.equal(merged[0].tickets.length, 10);\nassert.equal(finalValidation(merged).valid, true);\n```",
+            "UT: [Normal] modules are the distinct top-level directories of the implementation files\n```js\nconst files = ['src/a.js', 'src/api/b.js', 'src/api/c.js', 'src/model/d.js'];\nassert.equal(moduleNamesOf(files).size, 3);\nassert.deepEqual([...moduleNamesOf(files)].sort(), ['api', 'model', 'root']);\n```"
+          ],
+          "startedAt": "2026-11-02",
+          "changes": [
+            {
+              "before": "The budget counted every ctr-* unit, every node kind and every placement path.",
+              "after": "The v2 budget counts operations, sequenceSteps, ownedContracts, distinct default_files, testUnit, testIntegration and modules; provider boundary units, kinds and graph nodes are excluded metadata.",
+              "description": "Recalibrated the work model to implementation work."
+            },
+            {
+              "before": "minimumWorkTickets was the only bound; any valid splitReason passed.",
+              "after": "The gate enforces minimumWorkTickets plus accepted discretionary refusals, requires mergeAttempts evidence for discretionary splits and matches splitReason to graph evidence.",
+              "description": "Added the evidence-backed upper bound and reason checks."
+            },
+            {
+              "before": "A single node over budget aborted with WORK_BUDGET_INFEASIBLE.",
+              "after": "In v2 the same node is recorded as ACCEPTED_IRREDUCIBLE_OVERAGE and the partition proceeds; v1 keeps the legacy fatal behavior.",
+              "description": "Made irreducible overage non-fatal in v2."
+            },
+            {
+              "before": "A caller without --enforce-work-budget produced no workBudget report.",
+              "after": "The result always carries workBudget, with skipped:no-budget-gate when the flag is absent and skipped:no-distribution when the view is absent.",
+              "description": "Made the gate absence visible."
+            },
+            {
+              "before": "A non-record ticket with no default_files passed silently.",
+              "after": "It returns EMPTY_DEFAULT_FILES unless it carries unlistedFileReason; architecture/rationale record tickets pass.",
+              "description": "Added the empty-file rule."
+            },
+            {
+              "before": "The phase distribution printed only the workload and the minimum ticket count.",
+              "after": "It prints excluded metadata, one-ticket feasibility, merge attempts, the budget mode, the upper bound and the actual ticket count.",
+              "description": "Expanded the split report."
+            },
+            {
+              "before": "The split command described a five-component budget and prose-only merge attempts.",
+              "after": "It describes the v2 components, budget-forced vs discretionary splits, mergeAttempts, cohesion behaviours, the empty-file rule and the visible skips.",
+              "description": "Updated the command policy."
+            },
+            {
+              "before": "No synthetic package exercised the v2 budget end to end.",
+              "after": "The fixture has 8 phases, 73 nodes, 53 files and 40 provider boundaries; it yields 10 tickets and consolidates to one phase with 10.",
+              "description": "Added the acceptance fixture."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-02"
         }
       ]
     },
