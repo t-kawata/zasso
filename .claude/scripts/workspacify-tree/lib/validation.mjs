@@ -19,6 +19,7 @@ import { assertSourceTraceability } from './traceability.mjs';
 import { GATE_STATUS } from './errors.mjs';
 import { validateSpecDefects } from './spec-defects.mjs';
 import { validateDependencyReviews } from './dependency-review.mjs';
+import { checkChapterCoverage } from './chapter-coverage.mjs';
 
 /** Ordered gate ids for parent-gating. */
 const GATE_ORDER = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5'];
@@ -52,6 +53,12 @@ export function runGatePipeline(input = {}) {
     candidates: structure?.spec_pulse?.candidates ?? [],
     specDefects: decisionsData.spec_defects ?? [],
     residualQuestions: decisionsData.residual_questions ?? [],
+  });
+  // A settled pulse candidate is an answer, not an owner. The catalog must name
+  // every numbered chapter, or the chapter has no directory to be implemented in.
+  const chapterCoverage = checkChapterCoverage({
+    headings: structure?.headings ?? [],
+    packages,
   });
   // The dependency review is computed once from the decisions and handed to the
   // pipeline, so the gate judges exactly the candidates the manifest publishes.
@@ -98,6 +105,7 @@ export function runGatePipeline(input = {}) {
         boundaryRisks.length === 0 &&
         responsibilityResult.ok &&
         specDefectReport.ok &&
+        chapterCoverage.ok &&
         dependencyReviewReport.ok &&
         treeReport.consistent &&
         boundaryResolution.unresolved === 0 &&
@@ -116,6 +124,7 @@ export function runGatePipeline(input = {}) {
         boundary_risk_count: boundaryRisks.length,
         missing_responsibilities_count: responsibilityResult.missing_responsibilities_count,
         spec_defect_count: specDefectReport.errors.length,
+        uncovered_chapter_count: chapterCoverage.uncovered_chapter_count,
         residual_question_count: (decisionsData.residual_questions ?? []).length,
         dependency_review_count: dependencyReviewReport.errors.length,
         unresolved_review_count: (decisionsData.dependency_reviews ?? []).filter((entry) => entry?.decision === 'residual').length,
@@ -136,6 +145,7 @@ export function runGatePipeline(input = {}) {
         .concat(responsibilityResult.errors)
         .concat(ownershipResult.details)
         .concat(specDefectReport.errors)
+        .concat(chapterCoverage.errors)
         .concat(dependencyReviewReport.errors)
         .concat(boundaryRisks.map((risk) => risk.detail))
         .concat(treeReport.errors)
@@ -468,6 +478,7 @@ function buildFinalAudit(aggregate) {
     missing_responsibilities_count: responsibilityResult.missing_responsibilities_count,
     ownership_disagreement_count: g3Counts.ownership_disagreement_count ?? 0,
     spec_defect_count: g3Counts.spec_defect_count ?? 0,
+    uncovered_chapter_count: g3Counts.uncovered_chapter_count ?? 0,
     residual_question_count: g3Counts.residual_question_count ?? 0,
     dependency_review_count: g3Counts.dependency_review_count ?? 0,
     unresolved_review_count: g3Counts.unresolved_review_count ?? 0,

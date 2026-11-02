@@ -30,6 +30,14 @@ test('C001 every gate has dedicated advice naming what, why and how', () => {
   }
 });
 
+test('C003 the tree-stage G3 advice names numbered chapters and the non-owner rule', () => {
+  const text = adviseFailure({ gateId: 'G3', reason: 'an unowned chapter', stage: 'workspacify-tree' }).join('\n');
+
+  assert.match(text, /numbered specification chapter/);
+  assert.match(text, /spec_defect/);
+  assert.match(text, /does not give the chapter a directory/);
+});
+
 test('C002 an unknown gate still yields advice instead of a bare reason', () => {
   const text = adviseFailure({ gateId: 'G99', reason: 'mystery' }).join('\n');
   assert.match(text, /What happened: .*G99/);

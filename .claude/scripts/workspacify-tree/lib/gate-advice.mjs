@@ -219,6 +219,7 @@ const TREE_ADVICE = Object.freeze({
       'Answer every dependency_reviews candidate with a decision (keep, replace_with_port, merge, split or residual) and a rationale; residual also needs why_unresolved. Replace_with_port is only valid once the edge and its boundary are gone from the payload.',
       'Settle every structure.spec_pulse candidate in spec_defects or residual_questions. Answering is your own work in this session: never ask a human now, because the per-directory grill happens later.',
       'Give every package a non-empty responsibilities list and make the tree leaves match the package paths one for one.',
+      'Name every numbered specification chapter (S00, S01, ...) in at least one package responsibility. A spec_defect entry settles an observation; it does not give the chapter a directory, so the chapter and the package that implements it must be stated together.',
       'Give every adapter a home: a package whose kind is adapter must be named by some port declared in adapters.ports, and a package that declares externalImplementations must find a port whose provides names that capability.',
       'Settle every object/claim collision the message names. The same normalized key appearing as both an object and a claim is a question, not a defect: record an approvals entry whose decisionId is that normalized_key when the name is both by design, and repair the extractor output when it is not.',
       'Re-run gate and continue only when it prints COMPLETE.',

@@ -50,7 +50,8 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 
 In:
 - arg: `<path-to-WORKSPACIFY-TREE-MANIFEST.json>`; first, required, only argument.
-- `workspaceRoot = dirname(arg)`; root is a package (`.`); do not derive root from cwd, env, branch, or another path.
+- `workspaceRoot = dirname(arg)`; root is a package (`.`); do not derive root from cwd, env, branch, or another path. This is the mechanism that makes the manifest a survivor: its directory is the workspace root itself, so no separate root argument can name the same workspace twice.
+- an argument is hidden unless hiding it breaks one of the four patterns; the stage-one command document is `workspacify-tree.md`, and its specification argument is the only other survivor.
 - arg must be: regular UTF-8 non-empty JSON file; tree-manifest schema-valid; required kind/status/audit/handoff fields valid; self-hash valid; co-located recorded specification re-hashes to `input.source_hash`.
 - no other arg/dialogue/env/hook/external fetch required.
 - free-form input beyond arg → additional information.
@@ -61,7 +62,7 @@ In:
 Artifacts:
 - staging: scratch/intermediate files; not records; the finalizer removes the staging root after reload verification. The staged decisions document is not staging - it is the authored input of record and is retained.
 - published: directory tree; exactly one `RFC-SEED.md` per package; one `WORKSPACIFY-ALLOCATE-MANIFEST.json`; all in `workspaceRoot`.
-- allocate manifest: sole machine final authority; proof record, not goal.
+- allocate manifest: sole machine final authority; proof record, not the goal.
 
 Invariants:
 - fresh workspace only: existing target file/symlink/non-empty directory → `BLOCKED`; never merge, overwrite, or delete existing content.
@@ -71,7 +72,7 @@ Invariants:
 
 ## The hand-off contract from stage one (the assumptions on the receiving side)
 
-Receive only upstream-proven dependency order, boundary mandatory clauses (preconditions/postconditions/invariants), segments/material, package responsibilities, contract-item order.
+Receive only upstream-proven dependency order, boundary mandatory clauses (preconditions/postconditions/invariants), segments/material, package responsibilities, contract-item order. The stage-one `handoff_summary` is the record of what was handed over; read it before authoring.
 - never recompute/reinterpret/invent order or clause.
 - rejection at entry: suspect swapped/tampered input, not output.
 - failure: follow entry-gate guide: problem, significance, fix.
@@ -157,6 +158,8 @@ Packet:
 
 ### 3-2: drafting order — draft the contracts first, the prose after
 
+The contract is drafted before the prose. A clause discovered while writing §4–§13 changes §2 first, and only then the prose that cites it.
+
 Order:
 1. From `contract_context`, draft every boundary clause group; all `required_clauses`; settle `contractEdges`.
 2. Compare counterpart contract; eliminate one-sided contracts/clause mismatches before prose.
@@ -179,6 +182,7 @@ Self-grill:
 - machine appends residual `grill_question` verbatim to target seed §12; AI neither copies nor retypes it.
 - stage-1 residuals: carry every `stage2_handoff.residual_questions` candidate verbatim: valid `origin` (`stage1_pulse` | `stage1_dependency_review`), `origin_candidate_id`, exact `topic`; dropped candidate → G3.7 FAIL naming id.
 - forbidden anywhere in payload: `TODO`, `TBD`, `ask the human`, `waiting for approval`, `human review required`, `confirm with the operator`.
+- handing anything back to a human is forbidden; every unresolved item becomes a typed residual and a §12 `grill_question`.
 - unsolved → residual + `grill_question`; never leave unattended.
 
 ### 3-4: authoring the decisions JSON

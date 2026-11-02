@@ -65,7 +65,9 @@ Statuses: `PASS|FAIL|REVIEW_REQUIRED|BLOCKED|COMPLETE`.
 - `REVIEW_REQUIRED` ≠ success; unresolved review prevents COMPLETE
 - `BLOCKED`: existing manifest input hash differs; never overwrite
 
-Gates: G0 input lock → G1 headings/segments/reconstruction → G2 requirement inventory → G3 catalog/ownership/over-splitting/mandatory responsibilities/port-adapter boundary/object-claim collisions/alias cycles → G4 DAG/layers/cycles/implementation-order proof → G5 schema/self-hash artifact completeness/raw SQL/DB-type leakage/migration atomicity misuse. Rule: parent not PASS ⇒ child never PASS.
+Gates: G0 input lock → G1 headings/segments/reconstruction → G2 requirement inventory → G3 catalog/ownership/over-splitting/mandatory responsibilities/numbered-chapter coverage/port-adapter boundary/object-claim collisions/alias cycles → G4 DAG/layers/cycles/implementation-order proof → G5 schema/self-hash artifact completeness/raw SQL/DB-type leakage/migration atomicity misuse. Rule: parent not PASS ⇒ child never PASS.
+
+Numbered-chapter coverage is a G3 refusal: every chapter the specification numbers `S00`, `S01`, ... must be named in at least one package responsibility. A `spec_defects` entry settles an observation; it does not assign a directory, so it cannot substitute for the responsibility that names the chapter. `finalAudit.uncovered_chapter_count` reports the number left.
 
 Every count a gate decides on is reported twice: in that gate's `counts` and in `finalAudit`. A count that decides a status and appears in neither is invisible to an operator reading the manifest, which is the defect the two-report rule exists to prevent.
 
@@ -108,7 +110,7 @@ Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` c
 Purpose: **iterative procedure to raise the information level** — decide workspace split, owners, permitted dependencies (`dependency_reviews`); encode machine-verifiable decision. Do not one-pass: run Step-4 gate; thicken ①→⑦ in order until COMPLETE.
 
 1. Candidate classification: settle every `review_required|unresolved` via approvals; no unknown
-2. Package design: every package has `layer|kind|responsibilities` (non-empty)|`seed_required|owns`; tree paths match package leaf dirs
+2. Package design: every package has `layer|kind|responsibilities` (non-empty)|`seed_required|owns`; tree paths match package leaf dirs; every numbered chapter (`S00`, `S01`, ...) is named in at least one responsibility, because a chapter no directory names is a chapter no directory will implement
 3. Ownership: unique owner for object/claim/invariant/state-machine/error-code/required-test; `unallocated==0`; every `owns` object/claim has exactly one matching `ownership` entry; one-sided declaration is G3 refusal (`ownership_disagreement_count`)
 4. Dependencies/boundaries: enumerate permitted package edges with `reasonCode`; every forbidden edge has `alternative` and dev policy; every boundary consumer/provider in catalog; decide every adversarial dependency review and record it in `dependency_reviews`: `keep|replace_with_port|merge|split|residual`; residual = published-graph default plus later per-directory grill, never abandoned judgement
 5. Specification observations: settle every `structure.spec_pulse` candidate as `spec_defects` (`candidate_id|ai_interpretation|chosen_default|rationale`) or `residual_questions` (`candidate_id|topic|alternatives` non-empty|`chosen_default|why_unresolved`). No unsettled candidate. Free text forbids `TODO|TBD|ask the human|waiting for approval|human review required|confirm with the operator`
@@ -141,6 +143,7 @@ Guidance: object owner is protocol/domain, never sole foundation/adapter/core/in
 
 Before APPROVED, check all:
 - [ ] Every candidate-category owner matches package responsibilities; unallocated 0
+- [ ] Every numbered specification chapter is named by a package responsibility; `uncovered_chapter_count == 0`
 - [ ] Every edge reasonCode exists and matches reason; forbidden edge has explicit alternative
 - [ ] Adapter external-I/O only; DB applicable iff RDBMS required; no raw SQL or DB-type leakage into domain/protocol
 - [ ] Over-splitting signs checked; merge if needed
@@ -163,6 +166,7 @@ Out: per-gate status and stdout `finalAudit`; COMPLETE/exit 0 iff all gates PASS
 | `spec_defect_count|residual_question_count` | ⑤ spec defects/residual questions |
 | `dependency_review_count|unresolved_review_count` | ④ dependency reviews |
 | `missing_responsibilities_count` | ② package design |
+| `uncovered_chapter_count` | ② name every numbered chapter in a package responsibility; `spec_defects` is not an owner |
 | `unallocated_count` | ③ ownership |
 | `ownership_disagreement_count` | ③ register both owns and ownership |
 | `orphan_object_count|orphan_claim_count|owner_collision_count` | ③ ownership |

@@ -52,9 +52,9 @@
     "normative-words.md": "1217d5fd3a10cf739859d2ee3946d830db21d64c35bc6690f14cf05fdf5ccee9",
     "objects-table.md": "88efa60b124d3ae35203aecb3ca2453fb21bdd0f0b901e66f781982a7f0f67fd",
     "ownerless-model.json": "c4c79ea44cdc3d736e5ce7401cfcf7474d2cdd4da744aef0ee198ce5d87cda69",
-    "pair:gaia-like-spec.md+gaia-decisions.json": "70ac5462803d4791185968b56c1526d6f5833e22d6deb46b68eb86bcf594c82c",
-    "pair:long-spec.md+decisions-long-ok.json": "f8da6ac002bfd8e049c69cff6eab14ef47c7b6fc7910d4d5c5919631248bf216",
-    "pair:objects-table.md+decisions-complete.json": "6d2964bb352a258bc4dfba2b7a10785d8e2e76ed9370b03317a95b832618cdf3",
+    "pair:gaia-like-spec.md+gaia-decisions.json": "2e161fd200f00b5e8b50023d30e9af31be758338cee5304c73f0727da4a275ae",
+    "pair:long-spec.md+decisions-long-ok.json": "ea403b5bd125d089e57dfa80ecc28501f6db6a5529cebd354ab80cdf4809c3d9",
+    "pair:objects-table.md+decisions-complete.json": "1458bcfa05e856b8341b6ebecd9050dff0dcf0c82b2c276c4a6e763a0856a886",
     "small-spec.md": "7d1ee55ad9066b2550fe8f936959422ea0c1300baea8cb2ddc7f523b4d71026b"
   },
   "commandFileDigests": {

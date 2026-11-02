@@ -218,7 +218,7 @@ function runGate(args) {
   const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
   const dependencyReview = buildDependencyReviewForDecisions(decisions, buildOwnershipTable(inventory, decisions).entries);
   const pipeline = runGatePipeline({
-    structure: { reconstruction: analysis.reconstruction, segments: analysis.segments, spec_pulse: specPulse },
+    structure: { reconstruction: analysis.reconstruction, headings: analysis.headings, segments: analysis.segments, spec_pulse: specPulse },
     inventory,
     workspace: { packages: decisions.workspace, tree: decisions.tree ?? [] },
     dependencies: {
@@ -355,7 +355,7 @@ function prepareForwardPipeline(specPath, decisionsPath) {
   // exactly the candidate set the manifest publishes.
   const dependencyReview = buildDependencyReviewForDecisions(decisions, ownershipTable.entries);
   const pipelineInput = {
-    structure: { reconstruction: analysis.reconstruction, segments: analysis.segments, spec_pulse: specPulse },
+    structure: { reconstruction: analysis.reconstruction, headings: analysis.headings, segments: analysis.segments, spec_pulse: specPulse },
     inventory,
     workspace: { packages: decisions.workspace, tree: decisions.tree ?? [] },
     dependencies: {
