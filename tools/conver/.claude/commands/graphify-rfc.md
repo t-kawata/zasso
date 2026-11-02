@@ -133,6 +133,7 @@ Also invoked: `annotate-contracts.js`, `verify-contracts-format.js`, `attach-uni
 |---|---|
 | `sourceFile` | required original Markdown path, stored home-relative (`~/...`) as `crud.js` writes it |
 | `mainLanguage` | required primary language; multilingual project: central language; only fallback for accidentally empty node `language` |
+| `contractChain` | optional `transition` \| `obligation`; declares whether non-registry edge contracts are state transitions. Absent reads as `obligation` for a legacy graph; a new graph writes the field explicitly in Step 2. |
 | `nodes` | required node array |
 | `edges` | required edge array |
 
@@ -315,6 +316,8 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$s
 
 Edge example: `{"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}`.
 The contract chain is proved at graphify: an outgoing edge's `precondition` must be satisfied by an incoming edge's `postcondition` at the same node. When the clauses are a paraphrase, author `satisfiedBy` on the outgoing contract naming the source postcondition clause or the source contract id. An unlinked gap is `CONTRACT_CHAIN_OPEN`; fix the graph before split runs.
+
+The proof runs only for a `transition` graph. Declare the policy explicitly in the graph root: `transition` means the edge contracts are state transitions and must close; `obligation` means they are interface obligations and the node-chain proof is skipped. An absent field reads as `obligation` so every graph authored before the field existed remains valid, but a new graph must write the field. The fan-in rule is existential: any incoming provision at the node may satisfy an outgoing precondition, never one required provision per crossing edge.
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}` **before** the boundary projection, so the projected `C9xx` contract is never overwritten.
 
 `attach-unit-ids.js` reads the `distribution-map` block from `$sourcePath` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.

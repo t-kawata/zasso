@@ -2,6 +2,42 @@
 
 const { projectionMatches } = require('../../sequences-slice/lib/boundary-contract.mjs');
 
+/** The graph-root field that declares whether edge contracts are state transitions. */
+const POLICY_FIELD = 'contractChain';
+
+/** The policy a graph with no declaration uses: interface obligations, not transitions. */
+const POLICY_OBLIGATION = 'obligation';
+
+/** The policy that enables the incoming-post -> outgoing-pre chain proof. */
+const POLICY_TRANSITION = 'transition';
+
+const POLICY_VALUES = Object.freeze([POLICY_OBLIGATION, POLICY_TRANSITION]);
+
+/**
+ * Resolve the graph's chain policy.
+ *
+ * An absent field is an obligation graph so every artifact authored before the field
+ * existed keeps its old behavior. A present but unknown value is a named failure:
+ * silently defaulting it would hide an authoring mistake.
+ *
+ * @param {object} graph — Parsed graph root
+ * @returns {'transition'|'obligation'}
+ * @throws {Error} With code INVALID_CONTRACT_CHAIN_POLICY
+ */
+// [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
+function chainPolicyOf(graph) {
+  const value = graph?.[POLICY_FIELD];
+  if (value === undefined) return POLICY_OBLIGATION;
+  if (!POLICY_VALUES.includes(value)) {
+    const error = new Error(
+      POLICY_FIELD + ' must be one of ' + POLICY_VALUES.join('|') + '; got ' + JSON.stringify(value),
+    );
+    error.code = 'INVALID_CONTRACT_CHAIN_POLICY';
+    throw error;
+  }
+  return value;
+}
+
 /**
  * The contract-chain predicate shared by the graphify gate and the split closure.
  *
@@ -56,20 +92,44 @@ function isRegistryProjection(contract, registryRows = []) {
 }
 
 /**
- * The edge list with registry projections removed.
+ * The edge list the chain proof may read.
  *
- * A boundary obligation is not a state transition: its clauses are the interface the two
- * sides share, and they do not participate in incoming-post -> outgoing-pre closure. A
- * projected contract carries no `boundaryId` on the graph edge, so the registry rows are
- * the only reliable discriminator.
+ * An obligation graph has no transition clauses, so every contract is removed. A
+ * transition graph keeps the non-registry clauses: a boundary obligation is not a state
+ * transition, and a projected contract carries no `boundaryId` on the graph edge, so the
+ * registry rows are the only reliable discriminator.
  */
-// [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
-function chainEdges(edges = [], registryRows = []) {
-  return (edges ?? []).map((edge) => ({
+// [::TICKET::] PX-344, PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-344|PX-346) --for-spec --no-implementation-order`.
+function chainEdges(edges = [], registryRows = [], policy = POLICY_TRANSITION) {
+  const source = edges ?? [];
+  if (policy === POLICY_OBLIGATION) {
+    return source.map((edge) => ({ ...edge, contracts: [] }));
+  }
+  return source.map((edge) => ({
     ...edge,
     contracts: (Array.isArray(edge?.contracts) ? edge.contracts : [])
       .filter((contract) => !isRegistryProjection(contract, registryRows)),
   }));
+}
+
+/**
+ * Every incoming postcondition at one node.
+ *
+ * The fan-in proof is existential: any provision at the node may satisfy an outgoing
+ * precondition. It is deliberately not a per-source comparison; a convergence node has
+ * one state, not one state per edge.
+ *
+ * @param {string} nodeId
+ * @param {Array<{to: string, contracts?: Array<object>}>} edges
+ * @returns {Array<object>} Contracts carrying a non-empty postcondition
+ */
+// [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
+function incomingProvisionsAt(nodeId, edges = []) {
+  return (edges ?? [])
+    .filter((edge) => edge?.to === nodeId)
+    .flatMap((edge) => (Array.isArray(edge?.contracts) ? edge.contracts : []))
+    .filter((contract) => typeof contract?.postcondition === 'string'
+      && contract.postcondition.length > 0);
 }
 
 /**
@@ -120,10 +180,16 @@ function nodeChainGaps(edges = []) {
 }
 
 module.exports = {
+  POLICY_FIELD,
+  POLICY_OBLIGATION,
+  POLICY_TRANSITION,
+  POLICY_VALUES,
+  chainPolicyOf,
   normalizeClause,
   contractIdentityMatches,
   resolveSatisfiedBy,
   isRegistryProjection,
   chainEdges,
+  incomingProvisionsAt,
   nodeChainGaps,
 };

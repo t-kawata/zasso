@@ -13,6 +13,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+  POLICY_OBLIGATION,
+  chainPolicyOf,
+} = require('../tickets/lib/contract-chain.js');
 
 /**
  * Generate Markdown output for edge contract annotation guide
@@ -20,7 +24,7 @@ const path = require('path');
  * @param {object} graph — Parsed graph JSON
  * @returns {string} Markdown string
  */
-// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332, PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332|PX-344) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71, PX-332, PX-344, PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71|PX-332|PX-344|PX-346) --for-spec --no-implementation-order`.
 function generateMarkdown(graph) {
   const nodeMap = {};
   for (const node of graph.nodes) {
@@ -28,6 +32,17 @@ function generateMarkdown(graph) {
   }
 
   let md = '# Edge Contract Annotation Guide\n\n';
+  let chainPolicy;
+  try {
+    chainPolicy = chainPolicyOf(graph);
+  } catch (error) {
+    md += '**Policy:** `' + error.code + '`: ' + error.message + '\n\n';
+  }
+  if (chainPolicy === POLICY_OBLIGATION) {
+    md += '**Policy: obligation.** These contracts are interface obligations, not state transitions. The node-chain proof is skipped; do not add `satisfiedBy` merely to close a textual gap.\n\n';
+  } else if (chainPolicy !== undefined) {
+    md += '**Policy: transition.** An outgoing precondition must be satisfied by an incoming postcondition at the same node. Add `satisfiedBy` only when the source postcondition genuinely provides the requirement.\n\n';
+  }
   for (let i = 0; i < graph.edges.length; i++) {
     const edge = graph.edges[i];
     const fromNode = nodeMap[edge.from] || {};
@@ -46,7 +61,11 @@ function generateMarkdown(graph) {
     md += '  ```json\n';
     md += '  [{"id":"C' + String(i + 1).padStart(3, '0') + '","precondition":"...","postcondition":"...","invariant":"..."}]\n';
     md += '  ```\n';
-    md += "  When this edge's postcondition provides the next edge's precondition but the clauses are a paraphrase, add `\"satisfiedBy\": \"<source postcondition clause or source C###>\"` to the outgoing contract. The graphify gate rejects an unlinked paraphrase with CONTRACT_CHAIN_OPEN.\n\n";
+    if (chainPolicy !== POLICY_OBLIGATION) {
+      md += "  When this edge's postcondition provides the next edge's precondition but the clauses are a paraphrase, add `\"satisfiedBy\": \"<source postcondition clause or source C###>\"` to the outgoing contract. The graphify gate rejects an unlinked paraphrase with CONTRACT_CHAIN_OPEN.\n\n";
+    } else {
+      md += '\n';
+    }
   }
   return md;
 }

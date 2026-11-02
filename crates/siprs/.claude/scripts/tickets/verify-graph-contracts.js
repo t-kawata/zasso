@@ -29,7 +29,11 @@ const { rowsFromBoundaryNote } = require('../rfc-graph/project-boundary-contract
 const { readStepContractSidecar, verifyStepContracts } = require('../rfc-graph/lib/step-contracts.mjs');
 const { collectViewUnits, registryRowsForPackage } = require('../sequences-slice/lib/distribution-map.mjs');
 const { findAllocateManifest } = require('../lib/package-artifacts');
-const { chainEdges, nodeChainGaps } = require('./lib/contract-chain.js');
+const {
+  chainEdges,
+  chainPolicyOf,
+  nodeChainGaps,
+} = require('./lib/contract-chain.js');
 
 /** Edge types that require non-empty contracts */
 const TYPES_REQUIRING_CONTRACTS = ['depends_on', 'constrains', 'conflicts_with'];
@@ -119,11 +123,17 @@ function directionsFor(view, unitId) {
     .filter((direction) => typeof direction === 'string'))];
 }
 
-// [::TICKET::] PX-315, PX-321, PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-321|PX-344) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315, PX-321, PX-344, PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-321|PX-344|PX-346) --for-spec --no-implementation-order`.
 function verifyGraphContracts(graph, options = {}) {
   const errors = [];
   const seenIds = {};
   const edges = graph.edges || [];
+  let chainPolicy;
+  try {
+    chainPolicy = chainPolicyOf(graph);
+  } catch (error) {
+    return [{ edge: 'graph', code: error.code, detail: error.message }];
+  }
 
   for (const edge of edges) {
     const tag = (edge.from || '?') + '→' + (edge.to || '?') + '(' + (edge.type || '?') + ')';
@@ -239,7 +249,8 @@ function verifyGraphContracts(graph, options = {}) {
   // Check 5 (PX-344): prove the node-level contract chain while the graph is editable.
   // An outgoing precondition is a requirement at its source node; an incoming
   // postcondition is what that node receives. A paraphrase must carry satisfiedBy.
-  for (const gap of nodeChainGaps(chainEdges(edges, options.registryContracts ?? []))) {
+  const chainInputs = chainEdges(edges, options.registryContracts ?? [], chainPolicy);
+  for (const gap of nodeChainGaps(chainInputs)) {
     const edgeTag = (gap.edge.from || '?') + '→' + (gap.edge.to || '?');
     const linkHint = typeof gap.contract.satisfiedBy === 'string'
       ? ` (satisfiedBy "${gap.contract.satisfiedBy}" names no incoming postcondition or contract id)`

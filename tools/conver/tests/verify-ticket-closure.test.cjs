@@ -41,9 +41,11 @@ function makeTicket(id, nodeIds, contracts, extra) {
   return Object.assign({ id, phaseId: 0, title: 'T' + id, status: 'todo', nodeIds, contracts }, extra || {});
 }
 
-// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-346) --for-spec --no-implementation-order`.
 function makeGraph(edges, nodes) {
-  return { sourceFile: 't.md', mainLanguage: 'rust', nodes: nodes || [], edges };
+  // PX-346: these tests exercise the chain proof, so the fixture must declare it.
+  // Production graphs without the field are obligation graphs and skip the chain.
+  return { sourceFile: 't.md', mainLanguage: 'rust', contractChain: 'transition', nodes: nodes || [], edges };
 }
 
 function makeEdge(from, to, type, contracts) {
@@ -245,6 +247,107 @@ test('ignores a registry projection when checking the contract chain', () => {
     registryBoundaryIds: ['boundary-001'],
   });
   assert.ok(!result.errors.some((error) => error.code === 'INTER_TICKET_CLOSURE_OPEN' || error.code === 'CONTRACT_CHAIN_OPEN'));
+});
+
+// [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
+test('PX-346: a fan-in closes when each outgoing precondition has one provision at the node', () => {
+  const source = (id, from, post) => ({
+    id,
+    phaseId: 0,
+    title: 'S' + id,
+    status: 'todo',
+    nodeIds: [from],
+    contracts: [{ id: 'C10' + id, sourceEdge: from + '→T', precondition: 'start', postcondition: post, invariant: 'exact' }],
+  });
+  const tickets = [
+    source(1, 'S1', 'provision A'),
+    source(2, 'S2', 'provision B'),
+    source(3, 'S3', 'provision C'),
+    {
+      id: 40,
+      phaseId: 0,
+      title: 'T',
+      status: 'todo',
+      nodeIds: ['T', 'O1', 'O2'],
+      contracts: [
+        { id: 'C111', sourceEdge: 'S1→T (inbound)', precondition: 'start', postcondition: 'provision A', invariant: 'exact' },
+        { id: 'C112', sourceEdge: 'S2→T (inbound)', precondition: 'start', postcondition: 'provision B', invariant: 'exact' },
+        { id: 'C113', sourceEdge: 'S3→T (inbound)', precondition: 'start', postcondition: 'provision C', invariant: 'exact' },
+        { id: 'C201', sourceEdge: 'T→O1', precondition: 'provision A', postcondition: 'one', invariant: 'exact' },
+        { id: 'C202', sourceEdge: 'T→O2', precondition: 'provision B', postcondition: 'two', invariant: 'exact' },
+      ],
+    },
+  ];
+  const graph = makeGraph([
+    makeEdge('S1', 'T', 'depends_on', [makeContract('C101', 'start', 'provision A', 'exact')]),
+    makeEdge('S2', 'T', 'depends_on', [makeContract('C102', 'start', 'provision B', 'exact')]),
+    makeEdge('S3', 'T', 'depends_on', [makeContract('C103', 'start', 'provision C', 'exact')]),
+    makeEdge('T', 'O1', 'depends_on', [makeContract('C201', 'provision A', 'one', 'exact')]),
+    makeEdge('T', 'O2', 'depends_on', [makeContract('C202', 'provision B', 'two', 'exact')]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, true, JSON.stringify(result.errors));
+});
+
+// [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
+test('PX-346: a fan-in still fails when an outgoing precondition has no provision', () => {
+  const source = (id, from, post) => ({
+    id,
+    phaseId: 0,
+    title: 'S' + id,
+    status: 'todo',
+    nodeIds: [from],
+    contracts: [{ id: 'C10' + id, sourceEdge: from + '→T', precondition: 'start', postcondition: post, invariant: 'exact' }],
+  });
+  const tickets = [
+    source(1, 'S1', 'provision A'),
+    source(3, 'S3', 'provision C'),
+    {
+      id: 40,
+      phaseId: 0,
+      title: 'T',
+      status: 'todo',
+      nodeIds: ['T', 'O1', 'O2'],
+      contracts: [
+        { id: 'C111', sourceEdge: 'S1→T (inbound)', precondition: 'start', postcondition: 'provision A', invariant: 'exact' },
+        { id: 'C113', sourceEdge: 'S3→T (inbound)', precondition: 'start', postcondition: 'provision C', invariant: 'exact' },
+        { id: 'C201', sourceEdge: 'T→O1', precondition: 'provision A', postcondition: 'one', invariant: 'exact' },
+        { id: 'C202', sourceEdge: 'T→O2', precondition: 'provision B', postcondition: 'two', invariant: 'exact' },
+      ],
+    },
+  ];
+  const graph = makeGraph([
+    makeEdge('S1', 'T', 'depends_on', [makeContract('C101', 'start', 'provision A', 'exact')]),
+    makeEdge('S3', 'T', 'depends_on', [makeContract('C103', 'start', 'provision C', 'exact')]),
+    makeEdge('T', 'O1', 'depends_on', [makeContract('C201', 'provision A', 'one', 'exact')]),
+    makeEdge('T', 'O2', 'depends_on', [makeContract('C202', 'provision B', 'two', 'exact')]),
+  ]);
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === 'INTER_TICKET_CLOSURE_OPEN'));
+});
+
+// [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
+test('PX-346: an obligation graph skips the chain and keeps the other checks', () => {
+  const contracts = [
+    { id: 'C001', sourceEdge: 'N0001→N0002', precondition: 'init', postcondition: 'nothing', invariant: 'state' },
+    { id: 'C002', sourceEdge: 'N0002→N0003', precondition: 'missing', postcondition: 'done', invariant: 'state' },
+  ];
+  const tickets = [makeTicket(1, ['N0001', 'N0002', 'N0003'], contracts)];
+  const graph = Object.assign(makeGraph([
+    makeEdge('N0001', 'N0002', 'depends_on', [makeContract('C001', 'init', 'nothing', 'state')]),
+    makeEdge('N0002', 'N0003', 'depends_on', [makeContract('C002', 'missing', 'done', 'state')]),
+  ]), { contractChain: 'obligation' });
+  const result = verifyModule.verifyClosure(tickets, graph);
+  assert.ok(!result.errors.some((error) => error.code === 'CONTRACT_CHAIN_OPEN'), JSON.stringify(result.errors));
+});
+
+// [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
+test('PX-346: an invalid policy is a named failure', () => {
+  const graph = Object.assign(makeGraph([]), { contractChain: 'Transition' });
+  const result = verifyModule.verifyClosure([], graph);
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.errors.some((error) => error.code === 'INVALID_CONTRACT_CHAIN_POLICY'));
 });
 
 log('\n===================');

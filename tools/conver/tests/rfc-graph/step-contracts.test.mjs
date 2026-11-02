@@ -46,9 +46,11 @@ function viewWithTwoSteps() {
   };
 }
 
-// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-318, PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318|PX-346) --for-spec --no-implementation-order`.
 function graphWithOperationNodes(notes = true) {
   return {
+    // PX-346: the chain gate is opt-in; this fixture exercises the transition proof.
+    contractChain: 'transition',
     nodes: [
       { id: 'N0001', unitIds: ['op-Produce'] },
       { id: 'N0002', unitIds: ['op-Consume'] },
@@ -68,9 +70,11 @@ function graphWithOperationNodes(notes = true) {
  * satisfy the precondition of N0002's outgoing edge, not the crossing edge's own
  * precondition.
  */
-// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-343, PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343|PX-346) --for-spec --no-implementation-order`.
 function graphWithOutgoingOperationEdge(precondition) {
   return {
+    // PX-346: the chain gate is opt-in; this fixture exercises the transition proof.
+    contractChain: 'transition',
     nodes: [
       { id: 'N0001', unitIds: ['op-Produce'] },
       { id: 'N0002', unitIds: ['op-Consume'] },

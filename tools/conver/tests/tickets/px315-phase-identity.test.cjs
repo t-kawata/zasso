@@ -45,6 +45,7 @@ test('C005 a ticket in the PX phase uses PX-{id}, not P-1-{id}', () => {
 });
 // [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
 
+// [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
 test('C005 a cross-phase edge between tickets with the same numeric id is still checked', () => {
   const source = {
     id: 1,
@@ -62,6 +63,8 @@ test('C005 a cross-phase edge between tickets with the same numeric id is still 
     ],
   };
   const graph = {
+    // PX-346: the chain gate is opt-in; this fixture exercises the transition proof.
+    contractChain: 'transition',
     nodes: [],
     edges: [
       { from: 'N1', to: 'N2', type: 'depends_on', contracts: [{ id: 'C1', precondition: 'need token', postcondition: 'unrelated post', invariant: 'i' }] },
@@ -89,6 +92,8 @@ test('C005 the closure message uses the public PX key for a phase -1 ticket', ()
     ],
   };
   const graph = {
+    // PX-346: the chain gate is opt-in; this fixture exercises the transition proof.
+    contractChain: 'transition',
     nodes: [],
     edges: [
       { from: 'N1', to: 'N2', type: 'depends_on', contracts: [{ id: 'C1', precondition: 'need token', postcondition: 'unrelated post', invariant: 'i' }] },

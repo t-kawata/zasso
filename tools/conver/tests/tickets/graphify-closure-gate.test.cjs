@@ -22,7 +22,7 @@ function edge(from, to, contract) {
   };
 }
 
-// [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-344, PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-344|PX-346) --for-spec --no-implementation-order`.
 function chainGraph({ post = 'token issued', pre = 'token issued', satisfiedBy = undefined } = {}) {
   const target = {
     id: 'C002',
@@ -32,6 +32,10 @@ function chainGraph({ post = 'token issued', pre = 'token issued', satisfiedBy =
   };
   if (satisfiedBy !== undefined) target.satisfiedBy = satisfiedBy;
   return {
+    sourceFile: 't.md',
+    mainLanguage: 'rust',
+    // PX-346: the chain gate is opt-in. These tests exercise the transition proof.
+    contractChain: 'transition',
     nodes: [],
     edges: [
       edge('N0001', 'N0002', { id: 'C001', precondition: 'init', postcondition: post, invariant: 'state' }),
@@ -101,9 +105,18 @@ describe('graphify chain gate', () => {
 
   it('skips a terminal node with no outgoing contracted edge', () => {
     const graph = {
+      sourceFile: 't.md',
+      mainLanguage: 'rust',
+      contractChain: 'transition',
       nodes: [],
       edges: [edge('N0001', 'N0002', { id: 'C001', precondition: 'init', postcondition: 'token issued', invariant: 'state' })],
     };
+    assert.deepEqual(verifyGraphContracts(graph), []);
+  });
+
+  // [::TICKET::] PX-346 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-346 --for-spec --no-implementation-order`.
+  it('skips the node-chain proof for an obligation graph', () => {
+    const graph = { ...chainGraph({ post: 'a', pre: 'b' }), contractChain: 'obligation' };
     assert.deepEqual(verifyGraphContracts(graph), []);
   });
 });
