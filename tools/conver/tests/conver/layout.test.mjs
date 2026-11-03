@@ -1,5 +1,5 @@
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-// PX-350 @verifies C002 @verifies C003 @verifies C007
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+// PX-351 @verifies C001 @verifies C004 @verifies C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -8,26 +8,67 @@ import {
   radiusForArea,
   wrapLabel,
   groupColor,
+  stripCommonPrefix,
   formatDate,
-  formatRatio,
-  formatSplit,
+  formatPercent,
   MIN_CELL,
+  MAX_CELL,
   MAX_CELL_RADIUS,
 } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
-import { withPackageCount } from './models.mjs';
+import { makeModel, packageModel, withPackageCount } from './models.mjs';
 
 const measure = (text) => String(text).length * 6;
 
-test('the base board keeps the sample composition and the vertical ladder', () => {
+const SRGB_LINEAR_THRESHOLD = 0.04045;
+const LAB_PIVOT = 0.008856;
+const LAB_WHITE_X = 0.95047;
+const LAB_WHITE_Z = 1.08883;
+const ADJACENT_COLOUR_DISTANCE_MIN = 40;
+
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+function linearizeChannel(raw) {
+  const normalized = raw / 255;
+  return normalized <= SRGB_LINEAR_THRESHOLD
+    ? normalized / 12.92
+    : Math.pow((normalized + 0.055) / 1.055, 2.4);
+}
+
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+function hexToLab(hex) {
+  const value = parseInt(hex.slice(1), 16);
+  const red = linearizeChannel((value >> 16) & 255);
+  const green = linearizeChannel((value >> 8) & 255);
+  const blue = linearizeChannel(value & 255);
+  const x = (0.4124 * red + 0.3576 * green + 0.1805 * blue) / LAB_WHITE_X;
+  const y = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  const z = (0.0193 * red + 0.1192 * green + 0.9505 * blue) / LAB_WHITE_Z;
+  const pivot = (component) => (component > LAB_PIVOT
+    ? Math.cbrt(component)
+    : 7.787 * component + 16 / 116);
+  const pivotX = pivot(x);
+  const pivotY = pivot(y);
+  const pivotZ = pivot(z);
+  return [116 * pivotY - 16, 500 * (pivotX - pivotY), 200 * (pivotY - pivotZ)];
+}
+
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+function colourDistance(left, right) {
+  const first = hexToLab(left);
+  const second = hexToLab(right);
+  return Math.hypot(first[0] - second[0], first[1] - second[1], first[2] - second[2]);
+}
+
+test('the base board keeps the sample composition with seven columns', () => {
   const layout = computeLayout(withPackageCount(5), { measureText: measure });
-  assert.equal(layout.width, 640);
-  assert.equal(layout.height, 368);
+  assert.equal(layout.width, 724);
+  assert.equal(layout.height, 372);
   assert.equal(layout.grid.x, 12);
-  assert.equal(layout.grid.width, 420);
-  assert.equal(layout.grid.columns, 5);
-  assert.equal(layout.ladder.x, 444);
-  assert.equal(layout.ladder.y, 56);
+  assert.equal(layout.grid.y, 60);
+  assert.equal(layout.grid.width, 504);
+  assert.equal(layout.grid.columns, 7);
+  assert.equal(layout.ladder.x, 528);
+  assert.equal(layout.ladder.y, 60);
   assert.equal(layout.ladder.rows.length, 16);
   assert.deepEqual(layout.ladder.rows.map((row) => row.stage), STAGE_ORDER);
   assert.equal(layout.cells.length, 5);
@@ -36,21 +77,39 @@ test('the base board keeps the sample composition and the vertical ladder', () =
 
 test('fourteen packages still fit the one-screen base height', () => {
   const layout = computeLayout(withPackageCount(14), { measureText: measure });
-  assert.equal(layout.width, 640);
-  assert.equal(layout.height, 368);
-  assert.equal(layout.grid.columns, 5);
+  assert.equal(layout.width, 724);
+  assert.equal(layout.height, 372);
+  assert.equal(layout.grid.columns, 7);
 });
 
 test('vertical growth changes rows only, never width or columns', () => {
   const short = computeLayout(withPackageCount(5), { measureText: measure });
   const tall = computeLayout(withPackageCount(40), { measureText: measure });
-  assert.equal(short.width, 640);
-  assert.equal(tall.width, 640);
-  assert.equal(short.grid.columns, 5);
-  assert.equal(tall.grid.columns, 5);
+  assert.equal(short.width, 724);
+  assert.equal(tall.width, 724);
+  assert.equal(short.grid.columns, 7);
+  assert.equal(tall.grid.columns, 7);
+  assert.equal(tall.grid.rows, 6);
+  assert.equal(tall.height, 608);
   assert.ok(tall.height > short.height);
   assert.ok(tall.cells.every((cell) => cell.cellWidth >= MIN_CELL));
-  assert.ok(tall.cells.every((cell) => cell.cellWidth <= 84));
+  assert.ok(tall.cells.every((cell) => cell.cellWidth <= MAX_CELL));
+});
+
+test('a 29-package workspace uses five rows at 724x518', () => {
+  const layout = computeLayout(withPackageCount(29), { measureText: measure });
+  assert.equal(layout.grid.rows, 5);
+  assert.equal(layout.height, 518);
+  assert.equal(layout.width, 724);
+});
+
+test('every package count keeps the board width and column count', () => {
+  for (const count of [0, 1, 5, 7, 8, 14, 29, 40]) {
+    const layout = computeLayout(withPackageCount(count), { measureText: measure });
+    assert.equal(layout.width, 724, `count ${count}`);
+    assert.equal(layout.grid.columns, 7, `count ${count}`);
+    assert.equal(layout.grid.rows, Math.max(1, Math.ceil(count / 7)), `count ${count}`);
+  }
 });
 
 test('radiusForArea uses square-root area, clamps and never divides by zero', () => {
@@ -91,18 +150,65 @@ test('wrapLabel keeps two lines and ellipsizes overflow', () => {
   assert.match(lines[1], /…$/);
 });
 
-test('groupColor returns the seven agreed groups', () => {
+test('groupColor returns the seven agreed groups with adjacent colours far apart', () => {
   const colours = new Set(STAGE_ORDER.map((stage) => groupColor(stage)));
   assert.equal(colours.size, 7);
   assert.equal(groupColor('educe'), groupColor('explain'));
   assert.equal(groupColor('make'), groupColor('resolve'));
   assert.notEqual(groupColor('educe'), groupColor('drill'));
+  const samples = [];
+  for (const stage of STAGE_ORDER) {
+    const colour = groupColor(stage);
+    if (samples.at(-1) !== colour) samples.push(colour);
+  }
+  assert.equal(samples.length, 7);
+  for (let index = 0; index < samples.length - 1; index += 1) {
+    const distance = colourDistance(samples[index], samples[index + 1]);
+    assert.ok(distance >= ADJACENT_COLOUR_DISTANCE_MIN, `${samples[index]} -> ${samples[index + 1]} distance ${distance.toFixed(1)}`);
+  }
 });
 
-test('formatters keep the denominator and never invent a time', () => {
+test('stripCommonPrefix removes only a separator-aligned prefix with non-empty remainders', () => {
+  assert.deepEqual(stripCommonPrefix(['gaia-api', 'gaia-web']), { prefix: 'gaia-', names: ['api', 'web'] });
+  assert.deepEqual(stripCommonPrefix(['pkg.one', 'pkg.two']), { prefix: 'pkg.', names: ['one', 'two'] });
+  assert.deepEqual(stripCommonPrefix(['a', 'ab']), { prefix: '', names: ['a', 'ab'] });
+  assert.deepEqual(stripCommonPrefix(['gaia', 'gaia-api']), { prefix: '', names: ['gaia', 'gaia-api'] });
+  assert.deepEqual(stripCommonPrefix([]), { prefix: '', names: [] });
+});
+
+test('package labels use the stripped display name while the full name and path stay intact', () => {
+  const model = makeModel({
+    packages: [
+      packageModel({ id: 'p1', name: 'gaia-api', path: 'crates/gaia-api' }),
+      packageModel({ id: 'p2', name: 'gaia-web', path: 'crates/gaia-web' }),
+    ],
+  });
+  const layout = computeLayout(model, { measureText: measure });
+  assert.deepEqual(layout.cells.map((cell) => cell.displayName), ['api', 'web']);
+  assert.deepEqual(layout.cells.map((cell) => cell.name), ['gaia-api', 'gaia-web']);
+  assert.deepEqual(layout.cells.map((cell) => cell.path), ['crates/gaia-api', 'crates/gaia-web']);
+  assert.deepEqual(layout.cells[0].labelLines, ['api']);
+  assert.ok(layout.cells.every((cell) => cell.displayName.length > 0));
+});
+
+test('the header exposes a full-width bar below the title', () => {
+  const layout = computeLayout(withPackageCount(5), { measureText: measure });
+  assert.equal(layout.header.barX, 12);
+  assert.equal(layout.header.barY, 30);
+  assert.equal(layout.header.barWidth, layout.width - 24);
+  assert.equal(layout.header.barHeight, 6);
+  assert.ok(layout.header.barY + layout.header.barHeight <= layout.grid.y);
+  assert.ok(layout.header.barY + layout.header.barHeight <= layout.ladder.y);
+});
+
+test('formatters keep the denominator and render a clamped percentage', () => {
   assert.equal(formatDate(Date.UTC(2026, 10, 2), 'day'), '11/02 --:--');
   assert.match(formatDate(Date.UTC(2026, 10, 2, 3, 4), 'ms'), /^11\/0[12] \d{2}:\d{2}$/);
-  assert.equal(formatRatio(42, 100), 'REVIEWED 42/100 - 42%');
-  assert.equal(formatRatio(0, 0), 'REVIEWED 0/0 - 0%');
-  assert.equal(formatSplit(5, 29), 'SPLIT 5/29');
+  assert.equal(formatPercent(0.3047), '30%');
+  assert.equal(formatPercent(0), '0%');
+  assert.equal(formatPercent(1), '100%');
+  assert.equal(formatPercent(1.5), '100%');
+  assert.equal(formatPercent(-1), '0%');
+  assert.equal(formatPercent(Number.NaN), '0%');
+  assert.equal(formatPercent(undefined), '0%');
 });

@@ -12,31 +12,37 @@ const COLOUR_GROUP_BY_STAGE = Object.freeze({
 });
 
 const GROUP_COLOURS = Object.freeze({
-  discovery: '#4FD1C5',
-  dialogue: '#5B8DEF',
-  structure: '#A78BFA',
-  implementation: '#FB923C',
-  convergence: '#FACC15',
-  shipping: '#34D399',
-  evolution: '#F472B6',
+  discovery: '#22D3EE',
+  dialogue: '#3B82F6',
+  structure: '#7C3AED',
+  implementation: '#EA580C',
+  convergence: '#FDE047',
+  shipping: '#22C55E',
+  evolution: '#EC4899',
 });
 
-export const BOARD_WIDTH = 640;
-export const BASE_HEIGHT = 368;
+export const BOARD_WIDTH = 724;
+export const BASE_HEIGHT = 372;
 export const GRID_X = 12;
-export const GRID_Y = 56;
-export const GRID_WIDTH = 420;
-export const GRID_COLUMNS = 5;
+export const GRID_Y = 60;
+export const GRID_WIDTH = 504;
+export const GRID_COLUMNS = 7;
 export const MIN_CELL = 64;
-export const MAX_CELL = 84;
+export const MAX_CELL = 72;
 export const LABEL_HEIGHT = 26;
-export const LADDER_X = 444;
-export const LADDER_Y = 56;
+export const LADDER_X = 528;
+export const LADDER_Y = 60;
 export const LADDER_ROW_HEIGHT = 18;
 export const LADDER_GROUP_GAP = 3;
-export const LADDER_BAR_X = 586;
+export const LADDER_LABEL_CENTER_OFFSET = 6;
+export const LADDER_BAR_X = 670;
 export const LADDER_BAR_WIDTH = 42;
 export const LADDER_BAR_HEIGHT = 6;
+export const HEADER_BAR_X = 12;
+export const HEADER_BAR_Y = 30;
+export const HEADER_BAR_HEIGHT = 6;
+export const HEADER_DATE_Y = 48;
+export const HEADER_STAGE_X = 232;
 export const DOT_TARGET = 110;
 export const MIN_RADIUS_RATIO = 0.26;
 export const MAX_RADIUS_RATIO = 0.40;
@@ -102,6 +108,32 @@ export function wrapLabel(measureText, text, maxWidth, maxLines = 2) {
   return lines.slice(0, maxLines);
 }
 
+const PREFIX_SEPARATORS = Object.freeze(['-', '_', '.', '/']);
+
+/**
+ * Remove the longest common prefix of a package-name set when it ends at a separator
+ * and every remainder is non-empty. The caller keeps the original names for tooltips.
+ */
+export function stripCommonPrefix(names) {
+  const source = (names || []).map((name) => String(name === undefined || name === null ? '' : name));
+  if (source.length === 0) return { prefix: '', names: [] };
+  let common = source[0];
+  for (const name of source.slice(1)) {
+    let matching = 0;
+    while (matching < common.length && matching < name.length && common[matching] === name[matching]) matching += 1;
+    common = common.slice(0, matching);
+  }
+  const separatorIndex = PREFIX_SEPARATORS.reduce(
+    (best, separator) => Math.max(best, common.lastIndexOf(separator)),
+    -1,
+  );
+  if (separatorIndex < 0) return { prefix: '', names: source };
+  const prefix = common.slice(0, separatorIndex + 1);
+  const stripped = source.map((name) => name.slice(prefix.length));
+  if (stripped.every((name) => name.length > 0)) return { prefix, names: stripped };
+  return { prefix: '', names: source };
+}
+
 /** The shared Fermat-spiral dot field, ordered by stage weight. */
 export function buildDotField() {
   const counts = STAGE_WEIGHT.map((weight) => Math.max(2, Math.round((weight / WEIGHT_SUM) * DOT_TARGET)));
@@ -122,7 +154,7 @@ export function buildDotField() {
   return { counts, dots, totalDots };
 }
 
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
 function buildLadderRows(scale) {
   const rows = [];
   let groupSeen = null;
@@ -138,6 +170,7 @@ function buildLadderRows(scale) {
       colour: groupColor(stage),
       x: LADDER_X * scale,
       y: rowY * scale,
+      centerY: (rowY + LADDER_LABEL_CENTER_OFFSET) * scale,
       labelX: (LADDER_X + 4) * scale,
       barX: LADDER_BAR_X * scale,
       barY: (rowY + 3) * scale,
@@ -148,11 +181,13 @@ function buildLadderRows(scale) {
   return rows;
 }
 
-/** Compute the fixed 640-wide board; only the row count grows the height. */
+/** Compute the fixed 724-wide board; only the row count grows the height. */
 export function computeLayout(model, options = {}) {
   const scale = Math.max(0.5, Math.min(3, Number(options.scale) || 1));
   const measureText = options.measureText || ((text) => String(text).length * 6);
   const packages = model.packages || [];
+  const names = packages.map((pkg) => pkg.name || pkg.id);
+  const stripped = stripCommonPrefix(names);
   const count = packages.length;
   const columns = GRID_COLUMNS;
   const rows = Math.max(1, Math.ceil(Math.max(1, count) / columns));
@@ -179,6 +214,7 @@ export function computeLayout(model, options = {}) {
       id: pkg.id,
       name: pkg.name || pkg.id,
       path: pkg.path || pkg.name || pkg.id,
+      displayName: stripped.names[index],
       packageIndex: index,
       cellWidth: cell * scale,
       cellHeight: cellHeight * scale,
@@ -187,7 +223,7 @@ export function computeLayout(model, options = {}) {
       left: left * scale,
       top: top * scale,
       radius: radiusForArea(widths[index], minTotal, maxTotal, minRadius, maxRadius) * scale,
-      labelLines: wrapLabel(measureText, pkg.name || pkg.id, cell - 4, 2),
+      labelLines: wrapLabel(measureText, stripped.names[index], cell - 4, 2),
       labelX: centerX * scale,
       labelY: (top + cell + 12) * scale,
       dots: dotField.dots,
@@ -202,13 +238,16 @@ export function computeLayout(model, options = {}) {
       title: options.title || 'PROGRESS',
       titleX: 12 * scale,
       titleY: 18 * scale,
+      barX: HEADER_BAR_X * scale,
+      barY: HEADER_BAR_Y * scale,
+      barWidth: (baseWidth - HEADER_BAR_X * 2) * scale,
+      barHeight: HEADER_BAR_HEIGHT * scale,
       dateX: 12 * scale,
-      dateY: 40 * scale,
-      stageX: 232 * scale,
-      stageY: 40 * scale,
-      metricX: 628 * scale,
-      metricY: 40 * scale,
-      splitY: 56 * scale,
+      dateY: HEADER_DATE_Y * scale,
+      stageX: HEADER_STAGE_X * scale,
+      stageY: HEADER_DATE_Y * scale,
+      percentX: (baseWidth - HEADER_BAR_X) * scale,
+      percentY: HEADER_DATE_Y * scale,
     },
     grid: {
       x: GRID_X * scale,
@@ -239,22 +278,17 @@ export function computeLayout(model, options = {}) {
   };
 }
 
-export function formatDate(t, prec) {
-  const date = new Date(t || 0);
+export function formatDate(timestamp, precision) {
+  const date = new Date(timestamp || 0);
   const pad = (value) => String(value).padStart(2, '0');
-  const month = pad((prec === 'day' ? date.getUTCMonth() : date.getMonth()) + 1);
-  const day = pad(prec === 'day' ? date.getUTCDate() : date.getDate());
-  const time = prec === 'day' ? '--:--' : `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const month = pad((precision === 'day' ? date.getUTCMonth() : date.getMonth()) + 1);
+  const day = pad(precision === 'day' ? date.getUTCDate() : date.getDate());
+  const time = precision === 'day' ? '--:--' : `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   return `${month}/${day} ${time}`;
 }
 
-export function formatRatio(reviewed, total) {
-  const safeTotal = Math.max(0, Number(total) || 0);
-  const safeReviewed = Math.max(0, Math.min(Number(reviewed) || 0, safeTotal));
-  const percent = safeTotal > 0 ? Math.round((safeReviewed / safeTotal) * 100) : 0;
-  return `REVIEWED ${safeReviewed}/${safeTotal} - ${percent}%`;
-}
-
-export function formatSplit(splitPackages, packages) {
-  return `SPLIT ${splitPackages}/${packages}`;
+/** Format the stage-weighted ladder completion as a rounded 0-100 percent. */
+export function formatPercent(progress) {
+  const clamped = Math.max(0, Math.min(1, Number(progress) || 0));
+  return `${Math.round(clamped * 100)}%`;
 }

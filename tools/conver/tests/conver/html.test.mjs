@@ -1,3 +1,4 @@
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
@@ -48,15 +49,24 @@ test('renderHtml is self-contained and exposes a download button', () => {
   assert.match(html, /id="download"/);
   assert.match(html, /id="tip"/);
   assert.match(html, /PROGRESS: one/);
+  const speedTag = /<input[^>]*id="speed"[^>]*>/.exec(html);
+  assert.ok(speedTag, 'missing speed control');
+  assert.match(speedTag[0], /min="20"/);
+  assert.match(speedTag[0], /max="400"/);
+  assert.match(speedTag[0], /value="100"/);
+  assert.match(html, /<input[^>]*id="seek"[^>]*>/);
   const script = extractInlineScript(html);
   assert.ok(script.length > 0);
   assert.doesNotThrow(() => new Function(script));
 });
 
-test('collectUsedText includes title, package names and every stage name', () => {
+test('collectUsedText includes title, package names, stage names and the percent glyphs', () => {
   const text = collectUsedText(model, { title: 'PROGRESS: one' });
   assert.match(text, /PROGRESS: one/);
   assert.match(text, /one/);
+  assert.match(text, /%/);
+  assert.doesNotMatch(text, /REVIEWED/);
+  assert.doesNotMatch(text, /SPLIT/);
   for (const stage of STAGE_ORDER) assert.match(text, new RegExp(stage));
 });
 

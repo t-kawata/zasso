@@ -5,7 +5,8 @@ import { STAGE_ORDER } from './loop.js';
 
 /** Collect every text run the renderer can draw. */
 export function collectUsedText(model, options = {}) {
-  const parts = [options.title || 'PROGRESS', 'REVIEWED SPLIT 0123456789/:.-%'];
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+  const parts = [options.title || 'PROGRESS', 'PROGRESS 0123456789/:.-%'];
   for (const stage of STAGE_ORDER) parts.push(stage);
   for (const pkg of (model && model.packages) || []) parts.push(pkg.name || pkg.id);
   return parts.join(' ');

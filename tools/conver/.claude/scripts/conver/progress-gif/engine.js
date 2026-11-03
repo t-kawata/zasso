@@ -2,8 +2,7 @@ import { STAGE_ORDER } from './loop.js';
 import {
   groupColor,
   formatDate,
-  formatRatio,
-  formatSplit,
+  formatPercent,
   radiusForArea,
 } from './layout.js';
 
@@ -11,6 +10,13 @@ const BACKGROUND = [5, 7, 10];
 const FONT_FAMILY = 'ConverNoto, system-ui, sans-serif';
 const LABEL_COLOUR = '#c8d2e4';
 const UNLIT_DOT_COLOUR = '#222a36';
+const HEADER_BAR_TRACK_COLOUR = '#1b2430';
+const HEADER_PERCENT_COLOUR = '#b8c2d6';
+const HEADER_TITLE_SIZE = 14;
+const HEADER_DATE_SIZE = 20;
+const HEADER_STAGE_SIZE = 18;
+const HEADER_PERCENT_SIZE = 11;
+const LADDER_LABEL_SIZE = 11;
 
 /** Build the fixed 256-colour palette: background, grayscale ramp and seven group ramps. */
 export function makePalette() {
@@ -19,7 +25,7 @@ export function makePalette() {
     const value = Math.round((index * 255) / 24);
     palette.push([value, value, value]);
   }
-  const colours = [...new Set(STAGE_ORDER.map((stage) => groupColor(stage)))].map(toRgb);
+  const colours = [...new Set(STAGE_ORDER.map((stage) => groupColor(stage)))].map(hexToRgb);
   for (const colour of colours) {
     for (let step = 1; step <= 20; step += 1) {
       palette.push(colour.map((value) => Math.round((value * step) / 20)));
@@ -32,8 +38,8 @@ export function makePalette() {
   return palette.slice(0, 256);
 }
 
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-function toRgb(hex) {
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
+function hexToRgb(hex) {
   return [
     parseInt(hex.slice(1, 3), 16),
     parseInt(hex.slice(3, 5), 16),
@@ -41,15 +47,15 @@ function toRgb(hex) {
   ];
 }
 
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-function rgba(hex, alpha) {
-  const [red, green, blue] = toRgb(hex);
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
+function withAlpha(hex, alpha) {
+  const [red, green, blue] = hexToRgb(hex);
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
 function mixWithWhite(hex, amount) {
-  const [red, green, blue] = toRgb(hex);
+  const [red, green, blue] = hexToRgb(hex);
   return `rgb(${Math.round(red + (255 - red) * amount)}, ${Math.round(green + (255 - green) * amount)}, ${Math.round(blue + (255 - blue) * amount)})`;
 }
 
@@ -337,46 +343,57 @@ function drawText(ctx, textRun) {
 }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-function drawHeader(ctx, layout, frame, model, options) {
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+function drawProgressBar(ctx, layout, frame) {
+  const header = layout.header;
+  fillRect(ctx, {
+    x: header.barX,
+    y: header.barY,
+    width: header.barWidth,
+    height: header.barHeight,
+    colour: HEADER_BAR_TRACK_COLOUR,
+  });
+  fillRect(ctx, {
+    x: header.barX,
+    y: header.barY,
+    width: header.barWidth * clampUnit(frame.overallProgress),
+    height: header.barHeight,
+    colour: groupColor(frame.stage || STAGE_ORDER[0]),
+  });
+}
+
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+function drawHeader(ctx, layout, frame, options) {
   const scale = layout.scale;
   const header = layout.header;
-  const reviewed = frame.packages.reduce((sum, pkg) => sum + pkg.reviewed, 0);
-  const total = frame.packages.reduce((sum, pkg) => sum + pkg.total, 0);
   drawText(ctx, {
     text: options.title || header.title,
     x: header.titleX,
     y: header.titleY,
-    font: `600 ${14 * scale}px ${FONT_FAMILY}`,
+    font: `600 ${HEADER_TITLE_SIZE * scale}px ${FONT_FAMILY}`,
     colour: '#eef2ff',
   });
+  drawProgressBar(ctx, layout, frame);
   drawText(ctx, {
     text: formatDate(frame.t, frame.prec),
     x: header.dateX,
     y: header.dateY,
-    font: `600 ${20 * scale}px ${FONT_FAMILY}`,
+    font: `600 ${HEADER_DATE_SIZE * scale}px ${FONT_FAMILY}`,
     colour: '#f4f7ff',
   });
   drawText(ctx, {
     text: String(frame.stage || '').toUpperCase(),
     x: header.stageX,
     y: header.stageY,
-    font: `600 ${18 * scale}px ${FONT_FAMILY}`,
+    font: `600 ${HEADER_STAGE_SIZE * scale}px ${FONT_FAMILY}`,
     colour: groupColor(frame.stage),
   });
   drawText(ctx, {
-    text: formatRatio(reviewed, total),
-    x: header.metricX,
-    y: header.metricY,
-    font: `500 ${12 * scale}px ${FONT_FAMILY}`,
-    colour: '#b8c2d6',
-    align: 'right',
-  });
-  drawText(ctx, {
-    text: formatSplit(model.totals.splitPackages, model.totals.packages),
-    x: header.metricX,
-    y: header.splitY,
-    font: `500 ${11 * scale}px ${FONT_FAMILY}`,
-    colour: '#8f9bb0',
+    text: formatPercent(frame.overallProgress),
+    x: header.percentX,
+    y: header.percentY,
+    font: `500 ${HEADER_PERCENT_SIZE * scale}px ${FONT_FAMILY}`,
+    colour: HEADER_PERCENT_COLOUR,
     align: 'right',
   });
 }
@@ -399,7 +416,7 @@ function collectActiveStages(frame, packageIndex) {
   return stages;
 }
 
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
 function drawCell(ctx, layout, cell, frame, model) {
   const scale = layout.scale;
   const view = frame.packages[cell.packageIndex];
@@ -439,8 +456,8 @@ function drawCell(ctx, layout, cell, frame, model) {
   if (density > 0.01) {
     const alpha = 0.04 + 0.34 * density * density + 0.10 * density;
     const gradient = ctx.createRadialGradient(centre.x, centre.y, 0, centre.x, centre.y, radius * 1.25);
-    gradient.addColorStop(0, rgba(hue, alpha));
-    gradient.addColorStop(1, rgba(hue, 0));
+    gradient.addColorStop(0, withAlpha(hue, alpha));
+    gradient.addColorStop(1, withAlpha(hue, 0));
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -500,7 +517,7 @@ function drawGrowthPulses(ctx, layout, frame) {
   }
 }
 
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
 function drawLadder(ctx, layout, frame) {
   const scale = layout.scale;
   layout.ladder.rows.forEach((row, index) => {
@@ -513,14 +530,14 @@ function drawLadder(ctx, layout, frame) {
         y: row.y - 3 * scale,
         width: 188 * scale,
         height: 18 * scale,
-        colour: rgba(row.colour, current ? 0.22 : 0.12),
+        colour: withAlpha(row.colour, current ? 0.22 : 0.12),
       });
     }
     drawText(ctx, {
       text: row.stage,
       x: row.labelX,
-      y: row.y,
-      font: `500 ${11 * scale}px ${FONT_FAMILY}`,
+      y: row.centerY,
+      font: `500 ${LADDER_LABEL_SIZE * scale}px ${FONT_FAMILY}`,
       colour: row.colour,
       alpha: current || active ? 1 : 0.62,
     });
@@ -544,7 +561,7 @@ function drawLadder(ctx, layout, frame) {
 /** Draw one frame on a Canvas 2D context. The browser calls this; Node tests inject a fake. */
 export function drawFrame(ctx, layout, frame, model, options = {}) {
   fillRect(ctx, { x: 0, y: 0, width: layout.width, height: layout.height, colour: '#05070a' });
-  drawHeader(ctx, layout, frame, model, options);
+  drawHeader(ctx, layout, frame, options);
   for (const cell of layout.cells) drawCell(ctx, layout, cell, frame, model);
   drawLadder(ctx, layout, frame);
   drawGrowthPulses(ctx, layout, frame);
@@ -558,9 +575,5 @@ export function makeEngine() {
     quantizeRgba,
     estimateGifBytes,
     makePalette,
-    formatDate,
-    formatRatio,
-    formatSplit,
-    groupColor,
   };
 }

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
 import { test } from 'node:test';
@@ -50,13 +51,30 @@ test('a manifests-only workspace exits zero and writes HTML and a snapshot', () 
   const result = run(['-t', root, '--no-open', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /PASS:/);
-  assert.match(result.stdout, /canvas: 640x368/);
+  assert.match(result.stdout, /canvas: 724x372/);
+  assert.match(result.stdout, /overall progress: \d+%/);
   const outputDir = path.join(root, 'progress-gif');
   const html = fs.readdirSync(outputDir).filter((name) => name.endsWith('.html'));
   assert.equal(html.length, 1);
   const snapshots = fs.readdirSync(path.join(outputDir, 'snapshots')).filter((name) => name.endsWith('.json'));
   assert.equal(snapshots.length, 1);
   assert.equal(hashTree(root), before);
+});
+
+test('a 29-package workspace renders five rows at 724x518', () => {
+  const packages = Array.from({ length: 29 }, (_, index) => ({
+    id: `pkg-${index + 1}`,
+    name: `pkg-${index + 1}`,
+    path: `pkg-${index + 1}`,
+    layer: 'foundation',
+    kind: 'production-library',
+    seed_required: true,
+  }));
+  const root = writeWorkspace({ packages });
+  const result = run(['-t', root, '--no-open', '--dry-run', '--no-source-scan']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /canvas: 724x518/);
+  assert.match(result.stdout, /overall progress: \d+%/);
 });
 
 test('dry-run writes nothing', () => {

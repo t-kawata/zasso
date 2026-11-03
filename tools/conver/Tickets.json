@@ -53505,6 +53505,218 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-03"
+        },
+        {
+          "id": 351,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Progress GIF: seven-column grid, centered ladder, speed/seek UI, distinct adjacent colours, prefix elision, and overall progress bar",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-351.md",
+          "background": "### Goal\nMake the progress GIF match the reviewed improvement list while preserving the PX-350 sample experience: a seven-column circle grid, vertically centered ladder labels, HTML speed and seek controls that also set the GIF delay, perceptually separated adjacent stage-group colours, common-prefix elision in package labels, and a full-width overall progress bar under the title.\n\n### Purpose\nThe renderer is the visual summary of a conver workspace. A five-column grid wastes board width and forces unnecessary vertical growth; top-aligned ladder text reads as a rendering defect; a fixed 10 fps with no seek makes review slow; adjacent blue and violet groups blur together; long shared prefixes hide the distinguishing part of each package name; and a reviewed-only percentage is 0% for most of a project life while its right-aligned text collides with the ladder.\n\n### Motivation\nA browser review of the PX-350 output found these eight deltas. The user accepted the sample composition and asked for only these changes, with no gaia-specific branch.\n\n### Constraints\n- The sample dot field, additive glow, vertical ladder, stage-weighted clock and held final frames stay unchanged.\n- No new runtime dependency and no server; Node writes one self-contained HTML and the browser downloads the GIF.\n- Only WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json may be required; every other absent artifact must still render.\n- The workspace stays read-only except <workspace>/progress-gif/.\n- Tests run with node --test on the impact set; make test is not used.\n- The board width is fixed at 724 and only height grows with rows.",
+          "scope": [
+            "layout.js constants: modify BOARD_WIDTH 640 to 724, BASE_HEIGHT 368 to 372, GRID_Y 56 to 60, GRID_WIDTH 420 to 504, GRID_COLUMNS 5 to 7, MAX_CELL 84 to 72, LADDER_X 444 to 528, LADDER_Y 56 to 60 and LADDER_BAR_X 586 to 670. Before: 5 cells of 84 px. After: 7 cells of 72 px with the same 12 px gutters and the 196 px ladder block. API: exported constant values change; no data schema, config or dependency change.",
+            "layout.js ladder rows: add centerY = (LADDER_Y + index * LADDER_ROW_HEIGHT + gap + 6) * scale to every row. engine.js draws the label and highlight at that y. Before: textBaseline middle at row.y (the top edge). After: centred on the 18 px highlight and on the 6 px bar.",
+            "layout.js palette: replace GROUP_COLOURS with discovery #22D3EE, dialogue #3B82F6, structure #7C3AED, implementation #EA580C, convergence #FDE047, shipping #22C55E and evolution #EC4899. Before: minimum adjacent CIE76 deltaE 22.3. After: minimum 51. groupColor keeps its signature.",
+            "layout.js stripCommonPrefix: add export function stripCommonPrefix(names) returning { prefix, names }. It computes the longest common prefix, cuts it at the last -, _, . or / and strips it only when every remainder is non-empty; otherwise it returns the original names with an empty prefix. No other module imports it yet except computeLayout and tests.",
+            "layout.js computeLayout: add displayName to each cell and build labelLines from displayName; keep cell.name and cell.path as the full values so the viewer tooltip still shows the full name and path. Before: labelLines from pkg.name. After: labelLines from the stripped name.",
+            "layout.js formatters: remove export formatRatio and export formatSplit; add export function formatPercent(progress) returning a rounded 0-100 percent string clamped to [0,1]. Before: reviewed/total and split text. After: one percent used by the header.",
+            "loop.js: export computeDensity and add overallProgress = computeDensity(globalStage) to every frame. frame.density (per-package average) is unchanged. Before: no aggregate progress field. After: a monotonic 0-1 field derived from STAGE_WEIGHT and globalStage.",
+            "engine.js header: delete the right-aligned formatRatio and formatSplit calls and the splitY field. Draw the title, one full-width track and fill bar from x 12 to width-12 at y 30 with height 6, then the date at the left of row 48, the current stage at x 232 and the percent right-aligned at width-12. Before: two overlapping right-aligned lines. After: a bar with no collision.",
+            "engine.js ladder: draw every stage label at row.centerY and keep the highlight rectangle centred on the same point. Before: label baseline at the row top edge. After: vertical centre.",
+            "engine.js makeEngine: remove the unused formatDate, formatRatio, formatSplit and groupColor entries; keep drawFrame, encodeGif, quantizeRgba and estimateGifBytes. No browser caller uses the removed entries.",
+            "html.js controls: add label Speed with input id=speed type=range min=20 max=400 step=10 value=100, label Seek with input id=seek type=range min=0 max=0 step=1 value=0, spans id=speed-value and id=seek-value, and CSS that keeps the controls on one wrapping row. Before: Pause and Download only. After: speed, seek, pause and download.",
+            "viewer.js: add SPEED_MIN_MS 20, SPEED_MAX_MS 400, DEFAULT_SPEED_MS 100, GIF_DELAY_MIN_CS 2, GIF_DELAY_MAX_CS 100, clampSpeedMs(value) and delayCentiseconds(speedMs). Playback compares time - last against speedMs; the seek input pauses, sets the frame index and redraws; download uses delayCentiseconds(current speed). Before: fixed options.fps and round(100/fps). After: one speedMs value drives both playback and GIF delay.",
+            "draw-progress-gif.js: add `- overall progress: NN%` to the Markdown report from the final frame overallProgress. Keep obligations, covered and reviewed lines unchanged. No CLI flag changes.",
+            "fonts.js: change collectUsedText literal from REVIEWED SPLIT to PROGRESS and keep digits, /, :, ., - and %. This keeps the subset covering every glyph the canvas draws.",
+            "tests: update tests/conver/layout.test.mjs (724x372, 7 columns, prefix, palette distance, formatPercent), render.test.mjs (no REVIEWED/SPLIT, bar, centered labels), html.test.mjs (speed and seek controls, new used text) and cli.test.mjs (canvas 724x372, report line); add tests/conver/viewer.test.mjs for clampSpeedMs and delayCentiseconds; extend loop.test.mjs with overallProgress.",
+            "docs: update README.md:1129-1142 and docs/progress-gif/GIF-ANIMATION-INFO.md:49 and :1012 so they describe 724 width, 7 columns, the full-width progress bar, speed and seek, and prefix elision. No other documentation claim changes.",
+            "non-change: the phyllotaxis dot field, additive glow, stage-weighted clock, hold frames, obligation-area radius model, snapshot schema and browser-only output model stay unchanged. The sample HTML is not edited.",
+            "impact: every generated HTML is 724 px wide (or 724 x scale) and has a new header; any consumer of formatRatio or formatSplit, including tests, must use formatPercent or the Markdown report. Downstream GIF consumers see the same GIF89a structure with a delay that follows the HTML speed."
+          ],
+          "testUnit": [
+            "UT C001 [Normal]: computeLayout(withPackageCount(5), { measureText }) returns width 724, height 372, grid.columns 7, grid.width 504, grid.y 60, ladder.x 528 and ladder.y 60.",
+            "UT C001 [Normal]: package counts 1, 5, 7, 8, 14, 29 and 40 all return width 724 and columns 7; rows equal ceil(count/7); heights are 372 for 1-3 rows, 518 for 29 packages and 608 for 40 packages.",
+            "UT C001 [Boundary]: zero packages returns rows 1 and width 724; every cell width is in [64,72]; grid.width equals 7 * cellWidth; only height changes between counts.",
+            "UT C002 [Normal]: drawFrame on a recording context records each stage label fillText y equal to layout.ladder.rows[index].centerY for all 16 stages.",
+            "UT C002 [Invariant]: for every row, centerY is strictly greater than row.y - 3 * scale and strictly less than row.y + 15 * scale, and equals row.barY + row.barHeight / 2.",
+            "UT C003 [Normal]: renderHtml output contains id=speed with min=20 max=400 step=10 value=100, id=seek with min=0 step=1, and the labels Speed and Seek.",
+            "UT C003 [Normal]: delayCentiseconds(20) is 2, delayCentiseconds(100) is 10, delayCentiseconds(400) is 40 and delayCentiseconds(2000) is 100.",
+            "UT C003 [Error]: delayCentiseconds(NaN) is 10, delayCentiseconds(undefined) is 10, clampSpeedMs(-5) is 20 and clampSpeedMs(9999) is 400.",
+            "UT C003 [Invariant]: the viewer source compares the tick interval against speedMs and passes delayCentiseconds(speedMs) to encodeGif, so both derive from one value.",
+            "UT C004 [Normal]: STAGE_ORDER maps to seven distinct colours and every adjacent group pair in LOOP_GROUPS order has CIE76 deltaE at least 40; the measured minimum is 51.",
+            "UT C004 [Invariant]: groupColor returns the same colour for educe and explain, for make and resolve, and a different colour for every adjacent group.",
+            "UT C005 [Normal]: stripCommonPrefix(['gaia-api','gaia-web']) returns prefix 'gaia-' and names ['api','web'].",
+            "UT C005 [Boundary]: stripCommonPrefix(['a','ab']) is unchanged, ['pkg.one','pkg.two'] returns ['one','two'], ['gaia','gaia-api'] is unchanged and [] returns { prefix: '', names: [] }.",
+            "UT C005 [Invariant]: computeLayout builds labelLines from displayName while cell.name and cell.path keep the full values; no display name is empty for any non-empty input.",
+            "UT C006 [Normal]: the first frame overallProgress is 0; a model with one event per stage for every package ends at 1; the sequence never decreases.",
+            "UT C006 [Invariant]: a package with reviewed 0 and stage events produces overallProgress greater than 0, so the percent is independent of reviewed counts.",
+            "UT C006 [Boundary]: computeDensity([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]) is 0 and computeDensity(ones) is 1; out-of-range stage values are clamped by the producer.",
+            "UT C007 [Normal]: drawFrame records one bar fillRect at x 12, y 30, width layout.width - 24 and height 6, and records no text matching /^REVIEWED / or /^SPLIT /.",
+            "UT C007 [Boundary]: bar y + height <= layout.grid.y and <= layout.ladder.y; title, date and stage text are still recorded.",
+            "UT C008 [Normal]: a zero-package model and a root package named '.' both draw without throwing and produce a header with the title.",
+            "UT C008 [Invariant]: no renderer source contains the literal gaia; only WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json are required inputs.",
+            "UT formatPercent [Normal]: formatPercent(0.3047) is '30%', formatPercent(0) is '0%', formatPercent(1) is '100%', formatPercent(1.5) is '100%' and formatPercent(-1) is '0%'.",
+            "UT formatPercent [Error]: formatPercent(NaN) and formatPercent(undefined) return '0%'.",
+            "UT collectUsedText [Invariant]: the used text contains PROGRESS and the digits plus % character, and contains neither REVIEWED nor SPLIT."
+          ],
+          "testIntegration": [
+            "IT: renderHtml with the production loop, layout, engine and viewer sources produces one script that new Function compiles; the script contains id=speed, id=seek, clampSpeedMs and delayCentiseconds, and no network call.",
+            "IT: the CLI on workspace-min writes exactly one HTML and one snapshot, reports canvas 724x372, and the workspace hash outside progress-gif is unchanged.",
+            "IT: the CLI on a synthetic 29-package workspace reports canvas 724x518, a header percent between 0 and 100, and a Markdown report line matching /overall progress: \\d+%/.",
+            "IT: buildFrames then computeLayout then drawFrame on a recording context shows the full-width bar and all 16 centered ladder labels on the same frame.",
+            "IT [Prerequisites]: the committed PX-350 renderer at e01cded0 is the base; no other ticket must complete first. Node 26 with node --test is sufficient; no new dependency is installed.",
+            "IT [Related tickets]: PX-349 introduced the renderer and PX-350 restored the sample grammar; this ticket consumes their exports and changes only the listed deltas."
+          ],
+          "testExceptions": [
+            "Cannot test the perceived smoothness of the speed slider in Node; verification is structural through the input bounds and the pure delayCentiseconds formula. This is not a design defect because the timing rule is deterministic and unit-tested.",
+            "Cannot test actual GIF playback timing without a decoder; the byte-level Graphic Control Extension delay is asserted instead. This is not an architectural defect because the delay field is the complete output contract.",
+            "Cannot test human perception of adjacent colours; CIELAB deltaE is the deterministic proxy. This is not a design defect because the palette is static and the distance check is reproducible."
+          ],
+          "default_files": [
+            ".claude/scripts/conver/progress-gif/layout.js",
+            ".claude/scripts/conver/progress-gif/loop.js",
+            ".claude/scripts/conver/progress-gif/engine.js",
+            ".claude/scripts/conver/progress-gif/html.js",
+            ".claude/scripts/conver/progress-gif/viewer.js",
+            ".claude/scripts/conver/draw-progress-gif.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a 29-package workspace renders a 724x518 board with seven columns, vertically centered ladder labels, a full-width progress bar that advances from 0% to about 30%, working speed and seek controls, and a GIF whose delay follows the selected speed.",
+            "Error path: a missing WORKSPACIFY-TREE-MANIFEST.json or WORKSPACIFY-ALLOCATE-MANIFEST.json exits 2 with Cause and Action; every other missing artifact still renders.",
+            "Edge path: zero packages, one package, the root package, a shared package prefix, a prefix that cannot be removed without an empty name, and adjacent colours all behave without a crash or a gaia-specific branch."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "layout.package-grid -> layout.board",
+              "precondition": "A model with zero or more packages and no manifest-specific assumption",
+              "postcondition": "computeLayout returns grid.columns equal to 7 and width equal to 724 for every package count",
+              "invariant": "The board width and column count never change with package count; only height grows by rows"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "engine.ladder-label -> engine.ladder-row",
+              "precondition": "A built frame with any current stage",
+              "postcondition": "Each stage label is drawn with textBaseline middle at row.centerY, the vertical centre of its highlight",
+              "invariant": "centerY lies strictly inside the highlight rectangle for every ladder row"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "viewer.speed-control -> gif.delay",
+              "precondition": "A speedMs value in [20, 400] selected in the HTML control",
+              "postcondition": "delayCentiseconds(speedMs) equals clamp(round(speedMs/10), 2, 100) and the GIF header uses that value",
+              "invariant": "The playback interval and the GIF delay derive from the same speedMs value"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "layout.group-colour -> layout.adjacent-row",
+              "precondition": "The fixed STAGE_ORDER and GROUP_COLOURS table",
+              "postcondition": "Every adjacent pair in stage-group order has CIE76 deltaE at least 40",
+              "invariant": "All seven group colours remain distinct and each stage maps to exactly one group colour"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "layout.package-label -> layout.display-name",
+              "precondition": "A non-empty list of package names",
+              "postcondition": "The longest common prefix ending at a separator is removed when every remainder is non-empty",
+              "invariant": "No display name becomes empty and the tooltip keeps the full name and path"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "loop.stage-progress -> engine.header-percent",
+              "precondition": "A frame carrying globalStage fractions in [0, 1]",
+              "postcondition": "overallProgress equals sum(STAGE_WEIGHT[i] * globalStage[i]) / sum(STAGE_WEIGHT) and the header renders that percent",
+              "invariant": "overallProgress is monotonic, stays in [0, 1] and is independent of reviewed counts"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "engine.header -> canvas.layout",
+              "precondition": "Any computed layout and frame",
+              "postcondition": "The header draws one progress bar from x equal to 12 to width - 12 under the title and draws no REVIEWED or SPLIT text",
+              "invariant": "The bar bottom stays above the grid top and the ladder top"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "cli.model -> renderer.portability",
+              "precondition": "A workspace with zero packages, one package, the root package or absent optional artifacts",
+              "postcondition": "The CLI exits 0 with a valid HTML unless WORKSPACIFY-TREE-MANIFEST.json or WORKSPACIFY-ALLOCATE-MANIFEST.json is missing",
+              "invariant": "No package name, package count or optional artifact is required for rendering"
+            }
+          ],
+          "notes": "### Implementation steps\n1. layout.js constants and ladder centerY. 2. stripCommonPrefix and displayName. 3. palette. 4. loop.js overallProgress. 5. engine header and ladder. 6. html controls. 7. viewer speed, seek and delay. 8. CLI report and docs. 9. tests.\n\n### Risks\n- The HTML font subset must include every new literal; digits and % are already covered by the date and percent text.\n- The 20-400 ms slider cannot represent the CLI 1 fps (1000 ms); clamp to 400 and document it.\n- Browsers raise GIF delays below 2 cs; the minimum is enforced in delayCentiseconds.\n\n### Caveats\n- The bar percent is stage-weighted ladder completion, not reviewed obligations. The report keeps reviewed counts.\n- Common prefixes are stripped only at a separator and never to an empty remainder.\n- The board is 84 px wider; the existing max-width CSS still scales it down on narrow screens.\n\n### Open items\n- None.\n\n### Future improvements\n- WOFF2 subsetting to shrink the 13 MB HTML remains out of scope.\n- A browser decode test could replace the byte-level GIF delay assertion.\nImplementation summary:\n- Changed files: layout.js, loop.js, engine.js, html.js, viewer.js, fonts.js, draw-progress-gif.js, README.md, GIF-ANIMATION-INFO.md, and the conver test suite.\n- Key changes: 7-column 724 px board, centered ladder labels, CIELAB-separated palette, common-prefix elision, stage-weighted overall progress bar, speed/seek controls with GIF delay coupling.\n- Test results: 70 tests passed, 0 failed (node --test tests/conver/*.test.mjs).\n- Quality: run-quality-checks reported 0 issues on all changed JS/MJS.\n- Gaia dry-run: 29 packages, canvas 724x518, density 0.000 -> 0.305, overall progress 30%.\n- Gaia HTML: 20261103172759.html, 13,351,958 bytes, inline script compiles, speed and seek controls present.\nReview report:\n- Static quality check: passed (0 issues on all changed JS/MJS plus tests/conver/viewer.test.mjs)\n- Transliteration: function names and variables reviewed; hexToRgb and withAlpha replace toRgb and rgba; formatDate parameters are timestamp and precision\n- Dependencies: no new dependency; the renderer still uses only Node built-ins and Canvas\n- Tests: 71 passed, 0 failed\n- Annotations: 13 changed source files verified, 0 missing, 0 ambiguous\n- Documentation: no stale 640-width, five-column, REVIEWED or SPLIT claims remain\n- Issues found and fixes applied:\n  1. The header-percent test only matched a generic percentage, so a regression back to the reviewed ratio could pass. Added an assertion that the header renders formatPercent(frame.overallProgress) and that the value is 100% while reviewed is 0.\n  2. The speed-to-GIF-delay coupling had no assertion. Added a structural test that viewer.js compares the tick interval with speedMs and passes delayCentiseconds(speedMs) to encodeGif.\n- Remaining risk: Safari rendering and real slider feel are not exercised in Node; the browser smoke check is the next layer.",
+          "invariants": "- [Normal establishment] Every layout has grid.columns 7 and width 724; rows equal ceil(packageCount/7); height is max(372, 60 + rows * cellHeight + 8).\n- [Normal establishment] Each ladder label baseline equals row.centerY = row.y + 6 * scale, the same point as the bar centre.\n- [Normal establishment] frame.overallProgress equals sum(STAGE_WEIGHT[i] * globalStage[i]) / sum(STAGE_WEIGHT), stays in [0,1] and never decreases across frames.\n- [Error] A missing required manifest exits 2 with Cause and Action; no other missing artifact throws.\n- [Error] stripCommonPrefix never returns an empty display name.\n- [Internal] After every additive-glow cell the renderer restores globalCompositeOperation to source-over.\n- [Internal] delayCentiseconds stays in [2,100] for any finite or non-finite input.\n- [Boundary] The progress bar bottom is above grid.y and ladder.y; the bar spans x 12 to width-12.\n- [Boundary] Seven group colours are distinct and every adjacent pair has CIE76 deltaE at least 40.",
+          "instrumentation": "- Logging: the CLI keeps its Markdown report as the only console output; add `- overall progress: NN%` next to the existing density line.\n- Metrics: the report continues to print packages, split packages, events, growth events, obligations, covered, reviewed, canvas and frames.\n- Error tracking: WorkspaceError still supplies message, Cause and Action; no new error channel is added.\n- Health check: node --test tests/conver/*.test.mjs must pass, and the CLI workspace-min smoke test must report canvas 724x372 and leave the workspace hash unchanged.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (hexToRgb, withAlpha, formatDate parameter names)\nTests: 71 passed, 0 failed (node --test tests/conver/*.test.mjs)\nAnnotations: 13 files, 0 missing, 0 ambiguous\nCLI smoke: gaia dry-run 724x518, overall progress 30%; HTML inline script compiles",
+          "investigation": "## Source evidence\n- layout.js:24-43 defines BOARD_WIDTH 640, BASE_HEIGHT 368, GRID_X 12, GRID_Y 56, GRID_WIDTH 420, GRID_COLUMNS 5, MIN_CELL 64, MAX_CELL 84, LADDER_X 444, LADDER_Y 56 and LADDER_BAR_X 586. With 5 columns the cell is 420/5 = 84; with 7 columns the same grid gives 60, below MIN_CELL 64, so the board must widen. 7 x 72 = 504 and 12 + 504 + 12 + 196 = 724 keeps the 12 px gutters and the 196 px ladder block.\n- layout.js:126-149 buildLadderRows sets y = LADDER_Y + index * 18 + gap. engine.js:334 draws text with textBaseline middle, and engine.js:522 passes y = row.y, so the label centre sits on the row top edge. The highlight at engine.js:513 spans y-3..y+15 and the bar at rowY+3..rowY+9 has its centre at rowY+6; centerY = rowY + 6 is the shared centre.\n- layout.js:14-22 GROUP_COLOURS. Measured CIE76 deltaE for adjacent groups: discovery-dialogue 73.5, dialogue-structure 22.3, structure-implementation 112.1, implementation-convergence 40.9, convergence-shipping 85.8, shipping-evolution 115.1. The minimum 22.3 is below the required 40.\n- layout.js:190 builds labelLines from pkg.name; package names in one workspace share a generation prefix such as gaia-.\n- engine.js:340-382 drawHeader draws formatRatio at metricX 628 and formatSplit at splitY 56 (layout.js:209-211). LADDER_Y is also 56, so the SPLIT baseline overlaps the first ladder row. The metric is reviewed/total, while frame.density (loop.js:539) is weighted stage progress and reaches about 0.30 for gaia.\n- viewer.js:31-38 ticks on 1000/options.fps; viewer.js:49-54 encodes delayCs = round(100/fps). html.js:62 has only Pause and Download.\n- fonts.js:8 collectUsedText hardcodes REVIEWED SPLIT; it must follow the new header text.\n- draw-progress-gif.js:206-233 builds the Markdown report and line 221 already reports density, so the overall percent needs no new data source.\n- docs/progress-gif/GIF-ANIMATION-INFO.md:49 and README.md:1142 still state the REVIEWED/SPLIT headline; GIF-ANIMATION-INFO.md:1012 says the renderer prints no progress bar percentages. These statements become false after the change.\n- Tests that pin the old contract: layout.test.mjs:24-31 (width 640, columns 5, ladder 444), layout.test.mjs:105-107 (formatRatio/formatSplit), render.test.mjs:92-101 (REVIEWED and SPLIT text), cli.test.mjs:53 (canvas 640x368), html.test.mjs:35-54 (controls).",
+          "boyScoutPlan": "1. Export computeDensity from loop.js instead of adding a second weighted-sum implementation in engine.js.\n2. Delete formatRatio and formatSplit from layout.js and engine.js; they become dead after the header change. Replace them with one formatPercent.\n3. Remove the unused formatDate, formatPercent and groupColor entries from makeEngine; the bundle needs drawFrame, quantizeRgba, encodeGif and estimateGifBytes.\n4. Extract drawProgressBar from drawHeader so the header reads as: draw title; draw bar; draw date, stage and percent.\n5. Add named constants HEADER_BAR_X, HEADER_BAR_Y, HEADER_BAR_HEIGHT, HEADER_PERCENT_SIZE, HEADER_DATE_Y and HEADER_STAGE_X instead of literals in engine.js.\n6. Add SPEED_MIN_MS, SPEED_MAX_MS, DEFAULT_SPEED_MS, GIF_DELAY_MIN_CS and GIF_DELAY_MAX_CS in viewer.js instead of magic 100 and fps divisions.\n7. Keep stripCommonPrefix a pure function returning { prefix, names } so layout and tests share one rule.\n8. Update collectUsedText to the new header text so the font subset still covers every drawn glyph.",
+          "created_at": "2026-11-03",
+          "updated_at": "2026-11-03",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT C001 — Precondition: models with 0..40 packages; Postcondition: width 724 and 7 columns; Invariant: width constant, height grows by rows.\n```js\nconst measure = (text) => String(text).length * 6;\nconst counts = [0, 1, 5, 7, 8, 14, 29, 40];\nconst widths = counts.map((count) => computeLayout(withPackageCount(count), { measureText: measure }).width);\nassert.deepEqual(widths, new Array(counts.length).fill(724));\nconst base = computeLayout(withPackageCount(5), { measureText: measure });\nassert.equal(base.height, 372);\nassert.equal(base.grid.columns, 7);\nassert.equal(base.grid.width, 504);\nassert.equal(base.grid.y, 60);\nassert.equal(base.ladder.x, 528);\nassert.equal(base.ladder.y, 60);\nconst tall = computeLayout(withPackageCount(40), { measureText: measure });\nassert.equal(tall.height, 608);\nassert.ok(tall.cells.every((cell) => cell.cellWidth >= 64 && cell.cellWidth <= 72));\n```",
+            "UT C002 — Precondition: a built frame and computed layout; Postcondition: label baseline equals centerY; Invariant: centerY inside the highlight and equal to the bar centre.\n```js\nconst { ctx, calls } = createRecordingContext();\nconst { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });\ndrawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });\nconst texts = calls.filter((call) => call[0] === 'fillText');\nfor (const row of layout.ladder.rows) {\n  const drawn = texts.find((call) => call[1] === row.stage);\n  assert.equal(drawn[3], row.centerY);\n  assert.ok(row.centerY > row.y - 3);\n  assert.ok(row.centerY < row.y + 15);\n  assert.equal(row.centerY, row.barY + row.barHeight / 2);\n}\n```",
+            "UT C003 — Precondition: speedMs in [20,400] and the rendered HTML; Postcondition: delayCentiseconds formula and GIF delay; Invariant: playback and GIF delay share speedMs.\n```js\nassert.equal(delayCentiseconds(20), 2);\nassert.equal(delayCentiseconds(100), 10);\nassert.equal(delayCentiseconds(400), 40);\nassert.equal(delayCentiseconds(2000), 100);\nassert.equal(delayCentiseconds(Number.NaN), 10);\nassert.equal(clampSpeedMs(-5), 20);\nassert.equal(clampSpeedMs(9999), 400);\nconst html = renderHtml({ model, options: { frames: 2, fps: 10, title: 'PROGRESS: one' }, engineSource: 'export function makeEngine(){}', layoutSource: 'export function computeLayout(){}', loopSource: 'export function buildFrames(){}', viewerSource: 'export function startViewer(){}' });\nconst speedTag = html.match(/<input[^>]*id=\"speed\"[^>]*>/)[0];\nassert.match(speedTag, /min=\"20\"/);\nassert.match(speedTag, /max=\"400\"/);\nassert.match(speedTag, /value=\"100\"/);\nassert.match(html, /<input[^>]*id=\"seek\"[^>]*>/);\nassert.match(extractInlineScript(html), /delayCentiseconds\\(speedMs\\)/);\n```",
+            "UT C004 — Precondition: the fixed stage-group order and palette; Postcondition: adjacent deltaE at least 40; Invariant: seven distinct colours and one colour per stage.\n```js\nconst stageSamples = ['educe', 'grill', 'graphify', 'make', 'consolidate', 'crystalize', 'drill'];\nconst colours = stageSamples.map((stage) => groupColor(stage));\nassert.equal(new Set(colours).size, 7);\nfor (let index = 0; index < colours.length - 1; index += 1) {\n  assert.ok(colourDistance(colours[index], colours[index + 1]) >= 40, colours[index] + ' -> ' + colours[index + 1]);\n}\nassert.equal(groupColor('educe'), groupColor('explain'));\nassert.equal(groupColor('make'), groupColor('resolve'));\n```",
+            "UT C005 — Precondition: non-empty package names; Postcondition: separator-aligned common prefix removed; Invariant: no empty display name and the full name/path stay intact.\n```js\nassert.deepEqual(stripCommonPrefix(['gaia-api', 'gaia-web']), { prefix: 'gaia-', names: ['api', 'web'] });\nassert.deepEqual(stripCommonPrefix(['a', 'ab']), { prefix: '', names: ['a', 'ab'] });\nassert.deepEqual(stripCommonPrefix(['pkg.one', 'pkg.two']), { prefix: 'pkg.', names: ['one', 'two'] });\nconst prefixed = makeModel({ packages: [packageModel({ id: 'p1', name: 'gaia-api' }), packageModel({ id: 'p2', name: 'gaia-web' })] });\nconst layout = computeLayout(prefixed, { measureText: (text) => String(text).length * 6 });\nassert.deepEqual(layout.cells.map((cell) => cell.displayName), ['api', 'web']);\nassert.deepEqual(layout.cells.map((cell) => cell.name), ['gaia-api', 'gaia-web']);\nassert.ok(layout.cells.every((cell) => cell.displayName.length > 0));\n```",
+            "UT C006 — Precondition: frames with globalStage fractions; Postcondition: weighted overallProgress; Invariant: monotonic, in [0,1], independent of reviewed counts.\n```js\nconst moving = makeModel({ packages: withPackageCount(2).packages });\nmoving.events = eventsForEveryStage(moving.packages);\nconst frames = buildFrames(moving, { frames: 60 });\nassert.equal(frames[0].overallProgress, 0);\nassert.ok(frames.at(-1).overallProgress > 0.99);\nfor (let index = 1; index < frames.length; index += 1) {\n  assert.ok(frames[index].overallProgress >= frames[index - 1].overallProgress);\n}\nconst totalWeight = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);\nconst expected = STAGE_ORDER.reduce((sum, stage, index) => sum + STAGE_WEIGHT[index] * frames.at(-1).globalStage[index], 0) / totalWeight;\nassert.ok(Math.abs(frames.at(-1).overallProgress - expected) < 1e-12);\nconst unreviewed = makeModel({ packages: withPackageCount(1, { reviewed: 0 }).packages });\nunreviewed.events = eventsForEveryStage(unreviewed.packages);\nassert.ok(buildFrames(unreviewed, { frames: 60 }).at(-1).overallProgress > 0);\n```",
+            "UT C007 — Precondition: any layout and frame; Postcondition: one full-width bar and no REVIEWED/SPLIT text; Invariant: bar bottom above grid and ladder tops.\n```js\nconst bar = calls.find((call) => call[0] === 'fillRect' && call[1] === 12 && call[2] === 30);\nassert.equal(bar[3], layout.width - 24);\nassert.equal(bar[4], 6);\nassert.ok(layout.header.barY + layout.header.barHeight <= layout.grid.y);\nassert.ok(layout.header.barY + layout.header.barHeight <= layout.ladder.y);\nassert.ok(!texts.some((text) => /^(REVIEWED|SPLIT) /.test(text)));\nassert.ok(texts.some((text) => /^\\d+%$/.test(text)));\n```",
+            "UT C008 — Precondition: zero packages, root package, absent optional artifacts; Postcondition: CLI exits 0 with valid HTML unless a required manifest is missing; Invariant: no gaia literal and no optional file required.\n```js\nfor (const packages of [[], [packageModel({ id: 'root', name: '.', path: '.' })]]) {\n  const edgeModel = makeModel({ packages });\n  const edgeLayout = computeLayout(edgeModel, { measureText: (text) => String(text).length * 6 });\n  const edgeFrame = buildFrames(edgeModel, { frames: 12 }).at(-1);\n  assert.doesNotThrow(() => drawFrame(ctx, edgeLayout, edgeFrame, edgeModel, { title: 'PROGRESS: x' }));\n}\nconst { root } = materializeBundle('workspace-min.json');\nconst cli = spawnSync(process.execPath, [CLI, '-t', root, '--no-open', '--no-source-scan'], { encoding: 'utf8' });\nassert.equal(cli.status, 0, cli.stderr);\nassert.match(cli.stdout, /canvas: 724x372/);\nconst layoutSource = fs.readFileSync(new URL('../../.claude/scripts/conver/progress-gif/layout.js', import.meta.url), 'utf8');\nassert.doesNotMatch(layoutSource, /gaia/i);\n```"
+          ],
+          "startedAt": "2026-11-03",
+          "changes": [
+            {
+              "before": "GRID_COLUMNS 5, GRID_WIDTH 420, BOARD_WIDTH 640, MAX_CELL 84, LADDER_X 444",
+              "after": "GRID_COLUMNS 7, GRID_WIDTH 504, BOARD_WIDTH 724, MAX_CELL 72, LADDER_X 528",
+              "description": "layout.js: seven-column board with the same 12 px gutters and 196 px ladder block; height grows only by rows."
+            },
+            {
+              "before": "Ladder labels drawn at row.y with textBaseline middle",
+              "after": "Ladder labels drawn at row.centerY = rowY + 6",
+              "description": "layout.js and engine.js: the label, highlight and bar share one vertical centre."
+            },
+            {
+              "before": "GROUP_COLOURS minimum adjacent CIE76 distance 22.3",
+              "after": "New palette with minimum adjacent distance 51",
+              "description": "layout.js: discovery #22D3EE, dialogue #3B82F6, structure #7C3AED, implementation #EA580C, convergence #FDE047, shipping #22C55E, evolution #EC4899."
+            },
+            {
+              "before": "Label lines built from pkg.name",
+              "after": "Label lines built from cell.displayName after stripCommonPrefix",
+              "description": "layout.js: separator-aligned common prefix removed; name and path keep full values for the tooltip."
+            },
+            {
+              "before": "formatRatio and formatSplit right-aligned in the header",
+              "after": "formatPercent plus a full-width bar from x=12 to width-12",
+              "description": "layout.js and engine.js: the OVERALL bar replaces the overlapping REVIEWED/SPLIT lines; bar bottom is above the grid and ladder."
+            },
+            {
+              "before": "No aggregate progress field",
+              "after": "frame.overallProgress = sum(STAGE_WEIGHT * globalStage) / sum(STAGE_WEIGHT)",
+              "description": "loop.js: computeDensity exported and reused; progress is independent of reviewed counts and monotonic."
+            },
+            {
+              "before": "Fixed 10 fps, no seek, GIF delay = round(100/fps)",
+              "after": "Speed 20-400 ms and seek sliders; GIF delay = delayCentiseconds(speedMs)",
+              "description": "html.js and viewer.js: one speedMs value drives playback and the GIF Graphic Control Extension delay, clamped to 2-100 cs."
+            },
+            {
+              "before": "collectUsedText literal REVIEWED SPLIT",
+              "after": "collectUsedText literal PROGRESS plus digits and %",
+              "description": "fonts.js: the bundled subset covers every glyph the new header draws."
+            },
+            {
+              "before": "Markdown report had density only",
+              "after": "Markdown report adds overall progress: NN%",
+              "description": "draw-progress-gif.js: the report exposes the same stage-weighted percent as the canvas."
+            },
+            {
+              "before": "README and GIF-ANIMATION-INFO described 640 width and REVIEWED/SPLIT",
+              "after": "Documentation describes 724 width, 7 columns, the bar, speed/seek and prefix elision",
+              "description": "README.md and docs/progress-gif/GIF-ANIMATION-INFO.md updated."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-03"
         }
       ]
     },

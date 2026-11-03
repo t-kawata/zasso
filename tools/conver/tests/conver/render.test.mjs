@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { computeLayout, groupColor } from '../../.claude/scripts/conver/progress-gif/layout.js';
+import { computeLayout, formatPercent, groupColor } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { buildFrames, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { drawFrame, makePalette } from '../../.claude/scripts/conver/progress-gif/engine.js';
 import { eventsForEveryStage, makeModel, withPackageCount } from './models.mjs';
@@ -51,7 +51,7 @@ function createRecordingContext() {
     setLineDash(values) { calls.push(['dash', ...values]); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     createRadialGradient(...args) {
@@ -89,15 +89,24 @@ test('density produces additive glow and the renderer restores source-over', () 
   assert.equal(ctx.globalCompositeOperation, 'source-over');
 });
 
-test('the header carries the title, date, reviewed ratio and split count', () => {
+test('the header carries the title, date, stage and a full-width progress bar', () => {
   const { ctx, calls } = createRecordingContext();
   const { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });
   drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });
   const texts = calls.filter((call) => call[0] === 'fillText').map((call) => call[1]);
   assert.ok(texts.some((text) => text === 'PROGRESS: demo'));
-  assert.ok(texts.some((text) => /^REVIEWED \d+\/\d+ - \d+%$/.test(text)));
-  assert.ok(texts.some((text) => /^SPLIT \d+\/\d+$/.test(text)));
   assert.ok(texts.some((text) => /\d{2}\/\d{2} \d{2}:\d{2}|--:--/.test(text)));
+  assert.ok(texts.includes(formatPercent(frame.overallProgress)));
+  assert.equal(formatPercent(frame.overallProgress), '100%');
+  assert.ok(!texts.some((text) => /^REVIEWED /.test(text)));
+  assert.ok(!texts.some((text) => /^SPLIT /.test(text)));
+  const bars = calls.filter((call) => call[0] === 'fillRect' && call[1] === 12 && call[2] === 30);
+  assert.ok(bars.length >= 1, 'missing progress bar');
+  assert.equal(bars[0][3], layout.header.barWidth);
+  assert.equal(bars[0][4], 6);
+  assert.equal(layout.header.barWidth, layout.width - 24);
+  assert.ok(layout.header.barY + layout.header.barHeight <= layout.grid.y);
+  assert.ok(layout.header.barY + layout.header.barHeight <= layout.ladder.y);
 });
 
 test('the ladder renders every stage name and a progress bar', () => {
@@ -109,6 +118,21 @@ test('the ladder renders every stage name and a progress bar', () => {
     assert.ok(texts.includes(stage), `missing stage label ${stage}`);
   }
   assert.ok(calls.filter((call) => call[0] === 'fillRect').length >= 16);
+});
+
+test('every ladder label is vertically centered on its row', () => {
+  const { ctx, calls } = createRecordingContext();
+  const { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });
+  drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });
+  const labels = calls.filter((call) => call[0] === 'fillText');
+  layout.ladder.rows.forEach((row) => {
+    const drawn = labels.find((call) => call[1] === row.stage);
+    assert.ok(drawn, `missing label ${row.stage}`);
+    assert.equal(drawn[3], row.centerY);
+    assert.ok(row.centerY > row.y - 3 * layout.scale);
+    assert.ok(row.centerY < row.y + 15 * layout.scale);
+    assert.equal(row.centerY, row.barY + row.barHeight / 2);
+  });
 });
 
 test('the palette holds 256 entries and all seven group hues', () => {

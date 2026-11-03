@@ -4,16 +4,42 @@
  * functions from the inline bundle; it owns only the DOM, the animation clock and
  * the download gesture.
  */
+export const SPEED_MIN_MS = 20;
+export const SPEED_MAX_MS = 400;
+export const DEFAULT_SPEED_MS = 100;
+export const GIF_DELAY_MIN_CS = 2;
+export const GIF_DELAY_MAX_CS = 100;
+
+/** Keep the user-selected frame interval inside the slider range. */
+export function clampSpeedMs(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_SPEED_MS;
+  return Math.max(SPEED_MIN_MS, Math.min(SPEED_MAX_MS, Math.round(numeric)));
+}
+
+/** Convert milliseconds per frame into the GIF centisecond delay field. */
+export function delayCentiseconds(speedMs) {
+  const numeric = Number(speedMs);
+  const safe = Number.isFinite(numeric) ? numeric : DEFAULT_SPEED_MS;
+  return Math.max(GIF_DELAY_MIN_CS, Math.min(GIF_DELAY_MAX_CS, Math.round(safe / 10)));
+}
+
 export function startViewer({ model, options, buildFrames, computeLayout, makeEngine }) {
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const errorBox = document.getElementById('error');
   const status = document.getElementById('status');
+  const pauseButton = document.getElementById('pause');
+  const speedInput = document.getElementById('speed');
+  const speedValue = document.getElementById('speed-value');
+  const seekInput = document.getElementById('seek');
+  const seekValue = document.getElementById('seek-value');
   let frames = [];
   let layout = null;
   let index = 0;
   let playing = true;
   let last = 0;
+  let speedMs = clampSpeedMs(1000 / (Number(options.fps) || 10));
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   function showError(error) {
@@ -27,17 +53,30 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
     makeEngine().drawFrame(ctx, layout, frames[position % frames.length], model, options);
   }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+  function syncSpeedControls() {
+    speedInput.value = String(speedMs);
+    speedValue.textContent = `${speedMs} ms/frame`;
+  }
+
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+  function syncSeekControls() {
+    seekInput.value = String(index);
+    seekValue.textContent = `${index}/${Math.max(0, frames.length - 1)}`;
+  }
+
+// [::TICKET::] PX-349, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-351) --for-spec --no-implementation-order`.
   function tick(time) {
-    if (playing && time - last >= 1000 / options.fps) {
+    if (playing && time - last >= speedMs) {
       drawAt(index);
       index = (index + 1) % Math.max(1, frames.length);
       last = time;
+      syncSeekControls();
     }
     requestAnimationFrame(tick);
   }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-349, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-351) --for-spec --no-implementation-order`.
   function encodeAndDownload() {
     status.textContent = 'Encoding GIF...';
     const engine = makeEngine();
@@ -50,14 +89,14 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
       width: layout.width,
       height: layout.height,
       frames: indexed,
-      delayCs: Math.max(1, Math.round(100 / options.fps)),
+      delayCs: delayCentiseconds(speedMs),
     });
     const blob = new Blob([gif], { type: 'image/gif' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = options.stamp + '.gif';
     link.click();
-    status.textContent = 'GIF ready (' + gif.length + ' bytes)';
+    status.textContent = `GIF ready (${gif.length} bytes, ${speedMs} ms/frame)`;
   }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -86,6 +125,9 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
       canvas.height = layout.height;
       frames = buildFrames(model, options);
       index = 0;
+      seekInput.max = String(Math.max(0, frames.length - 1));
+      syncSpeedControls();
+      syncSeekControls();
       drawAt(0);
       requestAnimationFrame(tick);
       document.getElementById('download').addEventListener('click', encodeAndDownload);
@@ -95,9 +137,21 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
         if (tip) tip.hidden = true;
       });
       if (location.hash === '#download') encodeAndDownload();
-      document.getElementById('pause').addEventListener('click', function (event) {
+      pauseButton.addEventListener('click', function () {
         playing = !playing;
-        event.target.textContent = playing ? 'Pause' : 'Play';
+        pauseButton.textContent = playing ? 'Pause' : 'Play';
+        last = 0;
+      });
+      speedInput.addEventListener('input', function () {
+        speedMs = clampSpeedMs(speedInput.value);
+        syncSpeedControls();
+      });
+      seekInput.addEventListener('input', function () {
+        playing = false;
+        pauseButton.textContent = 'Play';
+        index = Math.max(0, Math.min(frames.length - 1, Math.round(Number(seekInput.value) || 0)));
+        drawAt(index);
+        syncSeekControls();
       });
     }).catch(showError);
   } catch (error) {

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // PX-350 @verifies C001 @verifies C003 @verifies C004 @verifies C005
 import { test } from 'node:test';
@@ -5,6 +6,7 @@ import assert from 'node:assert/strict';
 
 import {
   STAGE_ORDER,
+  STAGE_WEIGHT,
   LOOP_GROUPS,
   reconstructTicketGrowth,
   buildFrames,
@@ -167,6 +169,35 @@ test('a zero-package model still produces valid frames', () => {
   assert.equal(frames[0].packages.length, 0);
   assert.equal(frames.at(-1).stage, 'educe');
   assert.equal(frames.at(-1).t, INITIAL_TIME);
+});
+
+test('overall progress is the stage-weighted ladder completion, not the reviewed ratio', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 100, reviewed: 0 });
+  const events = STAGE_ORDER.map((stage, index) => stageEvent(stage, INITIAL_TIME + index * 1000, pkg.id, 1));
+  const frames = buildFrames(makeModel({ packages: [pkg], events }), { frames: 60, fps: 10 });
+  assert.equal(frames[0].overallProgress, 0);
+  assert.ok(frames.at(-1).overallProgress > 0.99);
+  for (let index = 1; index < frames.length; index += 1) {
+    assert.ok(frames[index].overallProgress >= frames[index - 1].overallProgress);
+  }
+  const totalWeight = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
+  const expected = STAGE_ORDER.reduce(
+    (sum, stage, index) => sum + STAGE_WEIGHT[index] * frames.at(-1).globalStage[index],
+    0,
+  ) / totalWeight;
+  assert.ok(Math.abs(frames.at(-1).overallProgress - expected) < 1e-12);
+});
+
+test('overall progress advances from educe before any ticket is reviewed', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 100, reviewed: 0 });
+  const model = makeModel({
+    packages: [pkg],
+    events: [stageEvent('educe', INITIAL_TIME + 10, pkg.id, 1)],
+  });
+  const last = buildFrames(model, { frames: 40, fps: 10 }).at(-1);
+  const totalWeight = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
+  assert.ok(last.overallProgress > 0);
+  assert.equal(last.overallProgress, STAGE_WEIGHT[0] / totalWeight);
 });
 
 test('a growth event without contract mass still adds one scope unit per ticket', () => {

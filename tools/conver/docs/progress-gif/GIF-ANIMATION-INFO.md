@@ -46,12 +46,14 @@ educe  explain  grill  smooth  graphify  boundify  split  make
 plan   start    review resolve consolidate find crystalize drill
 ```
 
-4. the headline `REVIEWED reviewed/total - percent` and `SPLIT split/total`;
-5. one package name under each cell, wrapped to at most two lines;
+4. one full-width overall-progress bar under the title, with the percent at its right end;
+5. one package name under each cell, wrapped to at most two lines, after removing a common
+   prefix that ends at `-`, `_`, `.` or `/`;
 6. the 16 stage names in the right-hand ladder.
 
-This text set is the PX-350 improvement over the original two-string brief. No counts other
-than the two explicit ratios, no axes, no icons, and no legend beyond the ladder.
+This text set is the PX-351 improvement over the original two-string brief. The overall
+progress is the stage-weighted ladder completion, not the reviewed-obligation ratio. There
+are no axes, no icons, and no legend beyond the ladder.
 
 Non-goals:
 
@@ -1006,11 +1008,11 @@ Sub-stage encoding (no text):
 
 ### 10.7 Text rules
 
-Superseded by PX-350. The original brief allowed exactly two strings per frame
+Superseded by PX-350 and PX-351. The original brief allowed exactly two strings per frame
 (`11/03 13:36` and `split`). The implemented viewer keeps the date and the single current
-stage, and adds the agreed title, the two explicit ratios, the package names under the
-cells, and the 16 ladder labels. It still prints no progress bar percentages, no "loading"
-text, and no other decoration.
+stage, and adds the agreed title, a full-width overall-progress bar with its percentage,
+the package names under the cells, and the 16 ladder labels. The HTML also exposes a speed
+slider and a seek slider. It prints no "loading" text and no other decoration.
 
 ### 10.8 Timeline and loop
 

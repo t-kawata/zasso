@@ -1126,11 +1126,12 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 HTML viewer under `<workspace>/progress-gif/YYYYMMDDhhmmss.html` and opens it. The browser
 Canvas renders the board and downloads `YYYYMMDDhhmmss.gif`.
 
-The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a 640-wide dark
-board with a package grid on the left, a vertical 16-stage ladder on the right, and one
-circular cell per package. The cell interior is a phyllotaxis dot field; dots light up with
-stage progress and an additive glow rises with density. PX-350 is the implementation source
-of truth for this renderer.
+The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a dark board with a
+package grid on the left, a vertical 16-stage ladder on the right, and one circular cell per
+package. The cell interior is a phyllotaxis dot field; dots light up with stage progress and
+an additive glow rises with density. PX-350 established the sample grammar; PX-351 widened
+the board to 724 px for seven columns and added the speed/seek controls and the overall
+progress bar.
 
 - The only execution gate is that `WORKSPACIFY-TREE-MANIFEST.json` and
   `WORKSPACIFY-ALLOCATE-MANIFEST.json` exist and are readable JSON. Missing later artifacts
@@ -1138,14 +1139,20 @@ of truth for this renderer.
 - Ticket growth is reconstructed from `Tickets-<ts>`, `OMISSIONS-<ts>`, consolidation
   manifests and drill rounds. The increase is drawn at its recovered stage and time.
 - Circle area is the package's contract-obligation count; the diameter follows the square
-  root. The outer ring closes with reviewed obligations over total obligations. The header
-  prints `REVIEWED reviewed/total - percent` and `SPLIT split/total`.
-- The width and column count are fixed. Additional packages grow the canvas by rows, and
-  the ladder stays at the top.
-- The top line is `PROGRESS: <basename>`. Package names wrap to two lines under each cell.
+  root. The outer ring closes with reviewed obligations over total obligations.
+- The header prints `PROGRESS: <basename>` and one full-width bar from x=12 to width-12.
+  The bar and the percentage are the stage-weighted ladder completion (`overallProgress`),
+  not the reviewed-obligation ratio, so a project that has not reached review still moves.
+- The width is fixed at 724 px with seven columns. Additional packages grow the canvas by
+  rows, and the ladder stays at the top.
+- Package names wrap to two lines under each cell. A common prefix shared by every package
+  name is removed at a `-`, `_`, `.` or `/` boundary; the tooltip keeps the full name and
+  path.
+- The HTML has a speed slider (20-400 ms per frame) and a seek slider. The selected speed
+  sets both playback and the GIF delay field (clamped to 2-100 centiseconds).
 - There is no server. The browser downloads the GIF; Node does not write it.
 - 300MB is a ceiling for a mature workspace, not a target. `--frames`, `--fps`, `--scale`
-  and `--max-bytes` bound the output.
+  and `--max-bytes` bound the output; `--fps` sets the initial speed-slider value.
 - Noto Sans JP is bundled under the SIL Open Font License 1.1.
 
 ## Appendix

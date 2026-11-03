@@ -17,7 +17,7 @@ import {
   ticketKeyOf,
 } from './progress-gif/parse.js';
 import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames } from './progress-gif/loop.js';
-import { computeLayout } from './progress-gif/layout.js';
+import { computeLayout, formatPercent } from './progress-gif/layout.js';
 import { renderHtml } from './progress-gif/html.js';
 import { countUnresolvedStubs } from './progress-gif/stubs.js';
 import { fitFramesToCeiling } from './progress-gif/engine.js';
@@ -202,10 +202,11 @@ function previousSnapshot(root, options) {
   return latest ? readSnapshot(latest.path) : null;
 }
 
-// [::TICKET::] PX-349, PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-349, PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350|PX-351) --for-spec --no-implementation-order`.
 function markdownReport(model, options, output, layout, frames) {
   const firstDensity = frames.length > 0 ? frames[0].density : 0;
   const finalDensity = frames.length > 0 ? frames[frames.length - 1].density : 0;
+  const finalProgress = frames.length > 0 ? frames[frames.length - 1].overallProgress : 0;
   const lines = [
     '# draw-progress-gif',
     '',
@@ -219,6 +220,7 @@ function markdownReport(model, options, output, layout, frames) {
     `- reviewed: ${model.totals.reviewed}`,
     `- canvas: ${layout.width}x${layout.height}`,
     `- density: ${firstDensity.toFixed(3)} -> ${finalDensity.toFixed(3)}`,
+    `- overall progress: ${formatPercent(finalProgress)}`,
     `- frames: ${options.frames}`,
   ];
   if (output) {

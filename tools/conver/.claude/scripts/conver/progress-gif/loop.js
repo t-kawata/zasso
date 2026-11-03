@@ -419,7 +419,8 @@ function computeEventWeight(count) {
 }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-function computeDensity(progress) {
+export function computeDensity(progress) {
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
   let weighted = 0;
   for (let index = 0; index < STAGE_ORDER.length; index += 1) weighted += STAGE_WEIGHT[index] * progress[index];
   return weighted / STAGE_WEIGHT_SUM;
@@ -430,6 +431,7 @@ function computeDensity(progress) {
  * a stage with thousands of grill questions would otherwise consume the whole animation.
  */
 export function buildFrames(model, options = {}) {
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
   const frameCount = Math.max(1, Number(options.frames) || 120);
   const holdStart = Math.min(HOLD_START_FRAMES, Math.floor(frameCount / 4));
   const holdEnd = Math.min(HOLD_END_FRAMES, Math.floor(frameCount / 4));
@@ -533,6 +535,7 @@ export function buildFrames(model, options = {}) {
       packages: packageFrames,
       pi: packageModels.map((pkg) => pkg.progress.slice()),
       globalStage,
+      overallProgress: computeDensity(globalStage),
       active,
       rootPulse,
       growth: growthThisFrame,
