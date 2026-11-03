@@ -100,11 +100,13 @@ test('the header carries the title, date, stage and a full-width progress bar', 
   assert.equal(formatPercent(frame.overallProgress), '100%');
   assert.ok(!texts.some((text) => /^REVIEWED /.test(text)));
   assert.ok(!texts.some((text) => /^SPLIT /.test(text)));
-  const bars = calls.filter((call) => call[0] === 'fillRect' && call[1] === 12 && call[2] === 30);
+  const bars = calls.filter((call) => call[0] === 'fillRect' && call[1] === 12 && call[2] === 34);
   assert.ok(bars.length >= 1, 'missing progress bar');
   assert.equal(bars[0][3], layout.header.barWidth);
   assert.equal(bars[0][4], 6);
   assert.equal(layout.header.barWidth, layout.width - 24);
+  assert.ok(layout.header.barY - layout.header.titleY >= 14);
+  assert.ok(layout.header.dateY - (layout.header.barY + layout.header.barHeight) >= 14);
   assert.ok(layout.header.barY + layout.header.barHeight <= layout.grid.y);
   assert.ok(layout.header.barY + layout.header.barHeight <= layout.ladder.y);
 });

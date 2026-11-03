@@ -22,26 +22,31 @@ const GROUP_COLOURS = Object.freeze({
 });
 
 export const BOARD_WIDTH = 724;
-export const BASE_HEIGHT = 372;
+export const BASE_HEIGHT = 384;
 export const GRID_X = 12;
-export const GRID_Y = 60;
+export const GRID_Y = 72;
 export const GRID_WIDTH = 504;
-export const GRID_COLUMNS = 7;
+export const DEFAULT_COLUMNS = 7;
+export const GRID_COLUMNS = DEFAULT_COLUMNS;
+export const MIN_COLUMNS = 4;
+export const MAX_COLUMNS = 10;
 export const MIN_CELL = 64;
 export const MAX_CELL = 72;
 export const LABEL_HEIGHT = 26;
 export const LADDER_X = 528;
-export const LADDER_Y = 60;
+export const LADDER_Y = 72;
 export const LADDER_ROW_HEIGHT = 18;
 export const LADDER_GROUP_GAP = 3;
 export const LADDER_LABEL_CENTER_OFFSET = 6;
 export const LADDER_BAR_X = 670;
 export const LADDER_BAR_WIDTH = 42;
 export const LADDER_BAR_HEIGHT = 6;
+export const LADDER_BLOCK_WIDTH = BOARD_WIDTH - LADDER_X;
+export const LADDER_BAR_OFFSET = LADDER_BAR_X - LADDER_X;
 export const HEADER_BAR_X = 12;
-export const HEADER_BAR_Y = 30;
+export const HEADER_BAR_Y = 34;
 export const HEADER_BAR_HEIGHT = 6;
-export const HEADER_DATE_Y = 48;
+export const HEADER_DATE_Y = 56;
 export const HEADER_STAGE_X = 232;
 export const DOT_TARGET = 110;
 export const MIN_RADIUS_RATIO = 0.26;
@@ -52,6 +57,13 @@ const WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
 
 export function groupColor(stage) {
   return GROUP_COLOURS[COLOUR_GROUP_BY_STAGE[stage]] || GROUP_COLOURS.discovery;
+}
+
+/** Keep the user-selected column count inside the slider range. */
+export function clampColumns(value) {
+  const numeric = Math.round(Number(value));
+  if (!Number.isFinite(numeric)) return DEFAULT_COLUMNS;
+  return Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, numeric));
 }
 
 /** Area is proportional to obligations, so the diameter follows the square root. */
@@ -155,7 +167,7 @@ export function buildDotField() {
 }
 
 // [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
-function buildLadderRows(scale) {
+function buildLadderRows(scale, ladderX) {
   const rows = [];
   let groupSeen = null;
   let gap = 0;
@@ -168,11 +180,11 @@ function buildLadderRows(scale) {
       stage,
       group,
       colour: groupColor(stage),
-      x: LADDER_X * scale,
+      x: ladderX * scale,
       y: rowY * scale,
       centerY: (rowY + LADDER_LABEL_CENTER_OFFSET) * scale,
-      labelX: (LADDER_X + 4) * scale,
-      barX: LADDER_BAR_X * scale,
+      labelX: (ladderX + 4) * scale,
+      barX: (ladderX + LADDER_BAR_OFFSET) * scale,
       barY: (rowY + 3) * scale,
       barWidth: LADDER_BAR_WIDTH * scale,
       barHeight: LADDER_BAR_HEIGHT * scale,
@@ -189,13 +201,15 @@ export function computeLayout(model, options = {}) {
   const names = packages.map((pkg) => pkg.name || pkg.id);
   const stripped = stripCommonPrefix(names);
   const count = packages.length;
-  const columns = GRID_COLUMNS;
+  const columns = clampColumns(options.columns);
   const rows = Math.max(1, Math.ceil(Math.max(1, count) / columns));
-  const cellFromWidth = GRID_WIDTH / columns;
+  const cellFromWidth = GRID_WIDTH / DEFAULT_COLUMNS;
   const cellFromBaseHeight = (BASE_HEIGHT - GRID_Y - 8) / rows - LABEL_HEIGHT;
   const cell = Math.max(MIN_CELL, Math.min(MAX_CELL, Math.min(cellFromWidth, cellFromBaseHeight)));
   const cellHeight = cell + LABEL_HEIGHT;
-  const baseWidth = BOARD_WIDTH;
+  const contentWidth = GRID_X + columns * cell + 12 + LADDER_BLOCK_WIDTH;
+  const baseWidth = Math.max(BOARD_WIDTH, contentWidth);
+  const ladderX = baseWidth - LADDER_BLOCK_WIDTH;
   const baseHeight = Math.max(BASE_HEIGHT, GRID_Y + rows * cellHeight + 8);
   const widths = packages.map((pkg) => Number(pkg.obligations && pkg.obligations.total) || 0);
   const minTotal = widths.length > 0 ? Math.min(...widths) : 0;
@@ -266,13 +280,13 @@ export function computeLayout(model, options = {}) {
     cells,
     dotCounts: dotField.counts,
     ladder: {
-      x: LADDER_X * scale,
+      x: ladderX * scale,
       y: LADDER_Y * scale,
       rowHeight: LADDER_ROW_HEIGHT * scale,
       groupGap: LADDER_GROUP_GAP * scale,
       barWidth: LADDER_BAR_WIDTH * scale,
       barHeight: LADDER_BAR_HEIGHT * scale,
-      rows: buildLadderRows(scale),
+      rows: buildLadderRows(scale, ladderX),
     },
     colours: GROUP_COLOURS,
   };

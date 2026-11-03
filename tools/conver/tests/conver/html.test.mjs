@@ -55,6 +55,12 @@ test('renderHtml is self-contained and exposes a download button', () => {
   assert.match(speedTag[0], /max="400"/);
   assert.match(speedTag[0], /value="100"/);
   assert.match(html, /<input[^>]*id="seek"[^>]*>/);
+  const columnsTag = /<input[^>]*id="columns"[^>]*>/.exec(html);
+  assert.ok(columnsTag, 'missing column control');
+  assert.match(columnsTag[0], /min="4"/);
+  assert.match(columnsTag[0], /max="10"/);
+  assert.match(columnsTag[0], /step="1"/);
+  assert.match(columnsTag[0], /value="7"/);
   const script = extractInlineScript(html);
   assert.ok(script.length > 0);
   assert.doesNotThrow(() => new Function(script));

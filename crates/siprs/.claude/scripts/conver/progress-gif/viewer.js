@@ -1,4 +1,6 @@
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
+import { clampColumns } from './layout.js';
+
 /**
  * Browser-side viewer. It receives the model, the options and the pure engine
  * functions from the inline bundle; it owns only the DOM, the animation clock and
@@ -32,6 +34,8 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   const pauseButton = document.getElementById('pause');
   const speedInput = document.getElementById('speed');
   const speedValue = document.getElementById('speed-value');
+  const columnsInput = document.getElementById('columns');
+  const columnsValue = document.getElementById('columns-value');
   const seekInput = document.getElementById('seek');
   const seekValue = document.getElementById('seek-value');
   let frames = [];
@@ -40,6 +44,7 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   let playing = true;
   let last = 0;
   let speedMs = clampSpeedMs(1000 / (Number(options.fps) || 10));
+  let columns = clampColumns(options.columns);
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   function showError(error) {
@@ -63,6 +68,24 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   function syncSeekControls() {
     seekInput.value = String(index);
     seekValue.textContent = `${index}/${Math.max(0, frames.length - 1)}`;
+  }
+
+  function syncColumnsControls() {
+    columnsInput.value = String(columns);
+    columnsValue.textContent = String(columns);
+  }
+
+  function relayout() {
+    layout = computeLayout(model, {
+      measureText: (text) => ctx.measureText(text).width,
+      scale: options.scale,
+      columns,
+    });
+    canvas.width = layout.width;
+    canvas.height = layout.height;
+    const tip = document.getElementById('tip');
+    if (tip) tip.hidden = true;
+    drawAt(index);
   }
 
 // [::TICKET::] PX-349, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-351) --for-spec --no-implementation-order`.
@@ -120,15 +143,13 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   try {
     const fontReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
     fontReady.then(function () {
-      layout = computeLayout(model, { measureText: (text) => ctx.measureText(text).width, scale: options.scale });
-      canvas.width = layout.width;
-      canvas.height = layout.height;
       frames = buildFrames(model, options);
       index = 0;
       seekInput.max = String(Math.max(0, frames.length - 1));
       syncSpeedControls();
+      syncColumnsControls();
       syncSeekControls();
-      drawAt(0);
+      relayout();
       requestAnimationFrame(tick);
       document.getElementById('download').addEventListener('click', encodeAndDownload);
       canvas.addEventListener('mousemove', updateTooltip);
@@ -145,6 +166,11 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
       speedInput.addEventListener('input', function () {
         speedMs = clampSpeedMs(speedInput.value);
         syncSpeedControls();
+      });
+      columnsInput.addEventListener('input', function () {
+        columns = clampColumns(columnsInput.value);
+        syncColumnsControls();
+        relayout();
       });
       seekInput.addEventListener('input', function () {
         playing = false;

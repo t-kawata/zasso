@@ -33,9 +33,10 @@ export function renderHtml(input) {
   const fps = options.fps || 10;
   const stamp = options.stamp || 'progress';
   const scale = options.scale || 1;
+  const columns = options.columns || 7;
   const script = `
 const MODEL = ${serializeForScript(model)};
-const OPTIONS = ${serializeForScript({ frames, fps, title, stamp, scale })};
+const OPTIONS = ${serializeForScript({ frames, fps, title, stamp, scale, columns })};
 ${stripExports(loopSource)}
 ${stripExports(layoutSource)}
 ${stripExports(engineSource)}
@@ -66,6 +67,7 @@ button { padding: 8px 18px; background: #1b2430; color: #dfe; border: 1px solid 
 <div id="controls">
 <button id="pause">Pause</button>
 <label>Speed <input id="speed" type="range" min="20" max="400" step="10" value="100"><span id="speed-value">100 ms/frame</span></label>
+<label>Columns <input id="columns" type="range" min="4" max="10" step="1" value="7"><span id="columns-value">7</span></label>
 <label>Seek <input id="seek" type="range" min="0" max="0" step="1" value="0"><span id="seek-value">0/0</span></label>
 <button id="download">Download GIF</button>
 <span id="status"></span>

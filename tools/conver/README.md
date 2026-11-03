@@ -1143,13 +1143,17 @@ progress bar.
 - The header prints `PROGRESS: <basename>` and one full-width bar from x=12 to width-12.
   The bar and the percentage are the stage-weighted ladder completion (`overallProgress`),
   not the reviewed-obligation ratio, so a project that has not reached review still moves.
-- The width is fixed at 724 px with seven columns. Additional packages grow the canvas by
-  rows, and the ladder stays at the top.
+  The track keeps 16 px of clearance above and below it.
+- The default board is 724 px wide with seven columns. Additional packages grow the canvas
+  by rows, and the ladder stays at the top. The HTML column slider selects 4-10 columns:
+  eight or more widen the board, four to six keep 724 px and leave space before the ladder.
 - Package names wrap to two lines under each cell. A common prefix shared by every package
   name is removed at a `-`, `_`, `.` or `/` boundary; the tooltip keeps the full name and
   path.
-- The HTML has a speed slider (20-400 ms per frame) and a seek slider. The selected speed
-  sets both playback and the GIF delay field (clamped to 2-100 centiseconds).
+- The HTML has a columns slider (4-10, default 7), a speed slider (20-400 ms per frame) and
+  a seek slider. A column change recomputes the layout, resizes the canvas and redraws the
+  current frame; the downloaded GIF uses the selected dimensions. The selected speed sets
+  both playback and the GIF delay field (clamped to 2-100 centiseconds).
 - There is no server. The browser downloads the GIF; Node does not write it.
 - 300MB is a ceiling for a mature workspace, not a target. `--frames`, `--fps`, `--scale`
   and `--max-bytes` bound the output; `--fps` sets the initial speed-slider value.

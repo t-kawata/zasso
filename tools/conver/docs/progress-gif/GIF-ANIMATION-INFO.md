@@ -1011,8 +1011,9 @@ Sub-stage encoding (no text):
 Superseded by PX-350 and PX-351. The original brief allowed exactly two strings per frame
 (`11/03 13:36` and `split`). The implemented viewer keeps the date and the single current
 stage, and adds the agreed title, a full-width overall-progress bar with its percentage,
-the package names under the cells, and the 16 ladder labels. The HTML also exposes a speed
-slider and a seek slider. It prints no "loading" text and no other decoration.
+the package names under the cells, and the 16 ladder labels. The HTML exposes a columns
+slider (4-10, default 7), a speed slider and a seek slider. It prints no "loading" text and
+no other decoration.
 
 ### 10.8 Timeline and loop
 

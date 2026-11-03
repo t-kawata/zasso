@@ -48,6 +48,17 @@ test('the viewer drives playback and the GIF delay from the same speed value', (
   assert.match(source, /delayCs: delayCentiseconds\(speedMs\)/);
 });
 
+test('the viewer recomputes the layout and canvas size when the column count changes', () => {
+  const source = fs.readFileSync(
+    new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /columnsInput\.addEventListener\('input'/);
+  assert.match(source, /scale: options\.scale,\s*columns,/);
+  assert.match(source, /canvas\.width = layout\.width/);
+  assert.match(source, /canvas\.height = layout\.height/);
+});
+
 test('the GIF delay stays inside the browser-safe centisecond window', () => {
   for (const value of [-100, 0, 5, 20, 100, 400, 1000, 1e9]) {
     const delay = delayCentiseconds(value);

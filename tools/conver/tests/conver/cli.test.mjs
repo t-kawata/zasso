@@ -51,7 +51,7 @@ test('a manifests-only workspace exits zero and writes HTML and a snapshot', () 
   const result = run(['-t', root, '--no-open', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /PASS:/);
-  assert.match(result.stdout, /canvas: 724x372/);
+  assert.match(result.stdout, /canvas: 724x384/);
   assert.match(result.stdout, /overall progress: \d+%/);
   const outputDir = path.join(root, 'progress-gif');
   const html = fs.readdirSync(outputDir).filter((name) => name.endsWith('.html'));
@@ -73,7 +73,7 @@ test('a 29-package workspace renders five rows at 724x518', () => {
   const root = writeWorkspace({ packages });
   const result = run(['-t', root, '--no-open', '--dry-run', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /canvas: 724x518/);
+  assert.match(result.stdout, /canvas: 724x530/);
   assert.match(result.stdout, /overall progress: \d+%/);
 });
 

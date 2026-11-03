@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import {
   computeLayout,
+  clampColumns,
   radiusForArea,
   wrapLabel,
   groupColor,
@@ -14,6 +15,9 @@ import {
   MIN_CELL,
   MAX_CELL,
   MAX_CELL_RADIUS,
+  DEFAULT_COLUMNS,
+  MIN_COLUMNS,
+  MAX_COLUMNS,
 } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { makeModel, packageModel, withPackageCount } from './models.mjs';
@@ -40,15 +44,15 @@ function hexToLab(hex) {
   const red = linearizeChannel((value >> 16) & 255);
   const green = linearizeChannel((value >> 8) & 255);
   const blue = linearizeChannel(value & 255);
-  const x = (0.4124 * red + 0.3576 * green + 0.1805 * blue) / LAB_WHITE_X;
-  const y = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  const z = (0.0193 * red + 0.1192 * green + 0.9505 * blue) / LAB_WHITE_Z;
+  const tristimulusX = (0.4124 * red + 0.3576 * green + 0.1805 * blue) / LAB_WHITE_X;
+  const tristimulusY = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  const tristimulusZ = (0.0193 * red + 0.1192 * green + 0.9505 * blue) / LAB_WHITE_Z;
   const pivot = (component) => (component > LAB_PIVOT
     ? Math.cbrt(component)
     : 7.787 * component + 16 / 116);
-  const pivotX = pivot(x);
-  const pivotY = pivot(y);
-  const pivotZ = pivot(z);
+  const pivotX = pivot(tristimulusX);
+  const pivotY = pivot(tristimulusY);
+  const pivotZ = pivot(tristimulusZ);
   return [116 * pivotY - 16, 500 * (pivotX - pivotY), 200 * (pivotY - pivotZ)];
 }
 
@@ -62,13 +66,13 @@ function colourDistance(left, right) {
 test('the base board keeps the sample composition with seven columns', () => {
   const layout = computeLayout(withPackageCount(5), { measureText: measure });
   assert.equal(layout.width, 724);
-  assert.equal(layout.height, 372);
+  assert.equal(layout.height, 384);
   assert.equal(layout.grid.x, 12);
-  assert.equal(layout.grid.y, 60);
+  assert.equal(layout.grid.y, 72);
   assert.equal(layout.grid.width, 504);
-  assert.equal(layout.grid.columns, 7);
+  assert.equal(layout.grid.columns, DEFAULT_COLUMNS);
   assert.equal(layout.ladder.x, 528);
-  assert.equal(layout.ladder.y, 60);
+  assert.equal(layout.ladder.y, 72);
   assert.equal(layout.ladder.rows.length, 16);
   assert.deepEqual(layout.ladder.rows.map((row) => row.stage), STAGE_ORDER);
   assert.equal(layout.cells.length, 5);
@@ -78,8 +82,8 @@ test('the base board keeps the sample composition with seven columns', () => {
 test('fourteen packages still fit the one-screen base height', () => {
   const layout = computeLayout(withPackageCount(14), { measureText: measure });
   assert.equal(layout.width, 724);
-  assert.equal(layout.height, 372);
-  assert.equal(layout.grid.columns, 7);
+  assert.equal(layout.height, 384);
+  assert.equal(layout.grid.columns, DEFAULT_COLUMNS);
 });
 
 test('vertical growth changes rows only, never width or columns', () => {
@@ -87,20 +91,50 @@ test('vertical growth changes rows only, never width or columns', () => {
   const tall = computeLayout(withPackageCount(40), { measureText: measure });
   assert.equal(short.width, 724);
   assert.equal(tall.width, 724);
-  assert.equal(short.grid.columns, 7);
-  assert.equal(tall.grid.columns, 7);
+  assert.equal(short.grid.columns, DEFAULT_COLUMNS);
+  assert.equal(tall.grid.columns, DEFAULT_COLUMNS);
   assert.equal(tall.grid.rows, 6);
-  assert.equal(tall.height, 608);
+  assert.equal(tall.height, 620);
   assert.ok(tall.height > short.height);
   assert.ok(tall.cells.every((cell) => cell.cellWidth >= MIN_CELL));
   assert.ok(tall.cells.every((cell) => cell.cellWidth <= MAX_CELL));
 });
 
-test('a 29-package workspace uses five rows at 724x518', () => {
+test('a 29-package workspace uses five rows at 724x530', () => {
   const layout = computeLayout(withPackageCount(29), { measureText: measure });
   assert.equal(layout.grid.rows, 5);
-  assert.equal(layout.height, 518);
+  assert.equal(layout.height, 530);
   assert.equal(layout.width, 724);
+});
+
+test('the column count controls rows and can widen the board', () => {
+  const wide = computeLayout(withPackageCount(29), { measureText: measure, columns: 10 });
+  assert.equal(wide.grid.columns, 10);
+  assert.equal(wide.grid.rows, 3);
+  assert.equal(wide.width, 940);
+  assert.equal(wide.height, 384);
+  const narrow = computeLayout(withPackageCount(29), { measureText: measure, columns: 5 });
+  assert.equal(narrow.grid.columns, 5);
+  assert.equal(narrow.grid.rows, 6);
+  assert.equal(narrow.width, 724);
+  assert.equal(narrow.height, 620);
+  const tighter = computeLayout(withPackageCount(29), { measureText: measure, columns: 4 });
+  assert.equal(tighter.grid.rows, 8);
+  assert.equal(tighter.width, 724);
+  assert.equal(tighter.height, 800);
+});
+
+test('clampColumns keeps the control inside its range with a default of seven', () => {
+  assert.equal(DEFAULT_COLUMNS, 7);
+  assert.equal(MIN_COLUMNS, 4);
+  assert.equal(MAX_COLUMNS, 10);
+  assert.equal(clampColumns(4), 4);
+  assert.equal(clampColumns(10), 10);
+  assert.equal(clampColumns(3), 4);
+  assert.equal(clampColumns(11), 10);
+  assert.equal(clampColumns(Number.NaN), 7);
+  assert.equal(clampColumns(undefined), 7);
+  assert.equal(clampColumns(7.4), 7);
 });
 
 test('every package count keeps the board width and column count', () => {
@@ -191,12 +225,15 @@ test('package labels use the stripped display name while the full name and path 
   assert.ok(layout.cells.every((cell) => cell.displayName.length > 0));
 });
 
-test('the header exposes a full-width bar below the title', () => {
+test('the header exposes a full-width bar below the title with breathing room', () => {
   const layout = computeLayout(withPackageCount(5), { measureText: measure });
   assert.equal(layout.header.barX, 12);
-  assert.equal(layout.header.barY, 30);
+  assert.equal(layout.header.barY, 34);
   assert.equal(layout.header.barWidth, layout.width - 24);
   assert.equal(layout.header.barHeight, 6);
+  assert.equal(layout.header.dateY, 56);
+  assert.ok(layout.header.barY - layout.header.titleY >= 14);
+  assert.ok(layout.header.dateY - (layout.header.barY + layout.header.barHeight) >= 14);
   assert.ok(layout.header.barY + layout.header.barHeight <= layout.grid.y);
   assert.ok(layout.header.barY + layout.header.barHeight <= layout.ladder.y);
 });
