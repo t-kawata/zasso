@@ -5,7 +5,9 @@ purpose: each file contains only the fields a parser needs to make the decisions
 in `docs/progress-gif/GIF-ANIMATION-INFO-SUPPLEMENT.md`.
 
 The implemented renderer consumes these bundles in `tests/conver/`; `workspace-min.json`
-is the manifests-only acceptance case that must exit zero.
+is the manifests-only acceptance case that must exit zero. PX-350 restores the sample
+renderer grammar and adds synthetic models for 0, 1, 5, 7, 14, 29 and 40 packages in
+`tests/conver/models.mjs`; these models are generated in test code, not checked in as data.
 
 ## Materialization
 

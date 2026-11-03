@@ -60,6 +60,24 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
     status.textContent = 'GIF ready (' + gif.length + ' bytes)';
   }
 
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+  function updateTooltip(event) {
+    const tip = document.getElementById('tip');
+    if (!tip || !layout) return;
+    const rect = canvas.getBoundingClientRect();
+    const pointerX = (event.clientX - rect.left) * (layout.width / rect.width);
+    const pointerY = (event.clientY - rect.top) * (layout.height / rect.height);
+    const cell = layout.cells.find((entry) => Math.hypot(entry.centerX - pointerX, entry.centerY - pointerY) <= entry.radius * 1.25);
+    if (!cell) {
+      tip.hidden = true;
+      return;
+    }
+    tip.textContent = cell.name === cell.path ? cell.name : cell.name + '\n' + cell.path;
+    tip.style.left = event.clientX + 12 + 'px';
+    tip.style.top = event.clientY + 12 + 'px';
+    tip.hidden = false;
+  }
+
   try {
     const fontReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
     fontReady.then(function () {
@@ -71,6 +89,11 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
       drawAt(0);
       requestAnimationFrame(tick);
       document.getElementById('download').addEventListener('click', encodeAndDownload);
+      canvas.addEventListener('mousemove', updateTooltip);
+      canvas.addEventListener('mouseleave', function () {
+        const tip = document.getElementById('tip');
+        if (tip) tip.hidden = true;
+      });
       if (location.hash === '#download') encodeAndDownload();
       document.getElementById('pause').addEventListener('click', function (event) {
         playing = !playing;

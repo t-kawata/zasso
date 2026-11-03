@@ -1,3 +1,4 @@
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
 import { test } from 'node:test';
@@ -45,6 +46,7 @@ test('renderHtml is self-contained and exposes a download button', () => {
   assert.doesNotMatch(html, /https?:\/\//);
   assert.doesNotMatch(html, /fetch\(/);
   assert.match(html, /id="download"/);
+  assert.match(html, /id="tip"/);
   assert.match(html, /PROGRESS: one/);
   const script = extractInlineScript(html);
   assert.ok(script.length > 0);

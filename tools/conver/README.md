@@ -1124,15 +1124,25 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 
 `node .claude/scripts/conver/draw-progress-gif.js -t <workspace>` writes a self-contained
 HTML viewer under `<workspace>/progress-gif/YYYYMMDDhhmmss.html` and opens it. The browser
-Canvas renders the 16-stage, five-loop board and downloads `YYYYMMDDhhmmss.gif`.
+Canvas renders the board and downloads `YYYYMMDDhhmmss.gif`.
+
+The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a 640-wide dark
+board with a package grid on the left, a vertical 16-stage ladder on the right, and one
+circular cell per package. The cell interior is a phyllotaxis dot field; dots light up with
+stage progress and an additive glow rises with density. PX-350 is the implementation source
+of truth for this renderer.
 
 - The only execution gate is that `WORKSPACIFY-TREE-MANIFEST.json` and
   `WORKSPACIFY-ALLOCATE-MANIFEST.json` exist and are readable JSON. Missing later artifacts
   are progress zero, not an error.
 - Ticket growth is reconstructed from `Tickets-<ts>`, `OMISSIONS-<ts>`, consolidation
   manifests and drill rounds. The increase is drawn at its recovered stage and time.
-- Circle area is the package's contract-obligation count; inner fill is the reviewed
-  obligation ratio; the ring is the 16-stage loop progress.
+- Circle area is the package's contract-obligation count; the diameter follows the square
+  root. The outer ring closes with reviewed obligations over total obligations. The header
+  prints `REVIEWED reviewed/total - percent` and `SPLIT split/total`.
+- The width and column count are fixed. Additional packages grow the canvas by rows, and
+  the ladder stays at the top.
+- The top line is `PROGRESS: <basename>`. Package names wrap to two lines under each cell.
 - There is no server. The browser downloads the GIF; Node does not write it.
 - 300MB is a ceiling for a mature workspace, not a target. `--frames`, `--fps`, `--scale`
   and `--max-bytes` bound the output.

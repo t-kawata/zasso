@@ -25,6 +25,7 @@ export function extractInlineScript(html) {
  * needs no server.
  */
 export function renderHtml(input) {
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
   const { model, options, engineSource, layoutSource, loopSource, viewerSource, fontCss = '' } = input;
   const title = options.title || 'PROGRESS';
   const frames = options.frames || 120;
@@ -53,11 +54,13 @@ canvas { max-width: 96vw; height: auto; background: #06080c; }
 button { margin: 10px 6px; padding: 8px 18px; background: #1b2430; color: #dfe; border: 1px solid #345; border-radius: 6px; cursor: pointer; }
 #error { color: #ff9a9a; max-width: 90vw; }
 #status { color: #9aa; }
+#tip { position: fixed; pointer-events: none; padding: 4px 8px; border-radius: 4px; background: #111a24; color: #dbe6ff; font: 12px system-ui, sans-serif; white-space: pre; }
 </style>
 </head>
 <body>
 <canvas id="board"></canvas>
 <div><button id="pause">Pause</button><button id="download">Download GIF</button><span id="status"></span></div>
+<div id="tip" hidden></div>
 <div id="error" hidden></div>
 <script>${script}</script>
 </body>

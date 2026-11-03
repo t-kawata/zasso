@@ -1,5 +1,5 @@
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-// PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+// PX-350 @verifies C001 @verifies C003 @verifies C004 @verifies C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -10,15 +10,8 @@ import {
   buildFrames,
   buildModel,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
-
-const packageModel = {
-  id: 'pkg-1',
-  name: 'one',
-  path: 'one',
-  obligations: { graph: 2, boundary: 1, ticketOnly: 0, total: 3, covered: 2, reviewed: 0 },
-  tickets: { total: 1, reviewed: 0, remanded: 0 },
-  stages: Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0])),
-};
+import { HOLD_END_FRAMES, HOLD_START_FRAMES } from '../../.claude/scripts/conver/progress-gif/loop.js';
+import { INITIAL_TIME, makeModel, packageModel, stageEvent } from './models.mjs';
 
 test('STAGE_ORDER is the fixed 16-stage order', () => {
   assert.deepEqual(STAGE_ORDER, [
@@ -76,27 +69,125 @@ test('buildModel keeps a manifests-only workspace at progress zero', () => {
   assert.equal(model.totals.covered, 0);
 });
 
-test('buildFrames produces a frame for every requested index and grows the denominator at growth', () => {
-  const model = buildModel({
-    workspaceRoot: '/tmp/workspace',
-    tree: { run: { generated_at: '2026-11-01T00:00:00.000Z' }, workspace: { packages: [] } },
-    allocate: { contract_registry: [] },
-    packages: [packageModel],
-    events: [],
+test('buildFrames warps stage time so a flood of grill events cannot dominate', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 100 });
+  const events = [];
+  let tick = INITIAL_TIME;
+  for (const stage of STAGE_ORDER) {
+    const count = stage === 'grill' ? 4000 : 10;
+    for (let index = 0; index < count; index += 1) {
+      events.push(stageEvent(stage, tick, pkg.id, 0.001));
+      tick += 1000;
+    }
+  }
+  const model = makeModel({ packages: [pkg], events });
+  const frames = buildFrames(model, { frames: 120, fps: 10 });
+  const body = frames.slice(HOLD_START_FRAMES, frames.length - HOLD_END_FRAMES);
+  const grillFrames = body.filter((frame) => frame.stage === 'grill').length;
+  assert.ok(grillFrames / body.length <= 0.40, `grill share ${grillFrames}/${body.length}`);
+  assert.ok(body.some((frame) => frame.stage === 'explain'));
+  assert.ok(body.some((frame) => frame.stage === 'drill'));
+});
+
+test('buildFrames holds the final state and never resets to the initial frame', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const model = makeModel({
+    packages: [pkg],
+    events: [stageEvent('educe', INITIAL_TIME, pkg.id, 0.1), stageEvent('split', INITIAL_TIME + 10, pkg.id, 1)],
+  });
+  const frames = buildFrames(model, { frames: 120, fps: 10 });
+  const last = frames.at(-1);
+  const previous = frames.at(-2);
+  assert.equal(last.t, INITIAL_TIME + 10);
+  assert.equal(last.stage, 'split');
+  assert.deepEqual(last.pi, previous.pi);
+  assert.notEqual(last.stage, 'educe');
+  for (let index = 1; index < frames.length; index += 1) {
+    assert.ok(frames[index].t >= frames[index - 1].t);
+  }
+});
+
+test('per-package stage progress never decreases and displayed time is monotonic', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const events = STAGE_ORDER.map((stage, index) => stageEvent(stage, INITIAL_TIME + index * 1000, pkg.id, 0.25));
+  const frames = buildFrames(makeModel({ packages: [pkg], events }), { frames: 60, fps: 10 });
+  for (let index = 1; index < frames.length; index += 1) {
+    assert.ok(frames[index].t >= frames[index - 1].t);
+    for (let stage = 0; stage < STAGE_ORDER.length; stage += 1) {
+      assert.ok(frames[index].pi[0][stage] >= frames[index - 1].pi[0][stage]);
+    }
+  }
+});
+
+test('ticket growth increases area inline, persists, and may lower the completion ratio', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 100, reviewed: 10 });
+  const model = makeModel({
+    packages: [pkg],
     growthEvents: [{
-      t: Date.parse('2026-11-02T00:00:00Z'),
+      packageId: pkg.id,
+      t: INITIAL_TIME + 50,
       prec: 'ms',
       stage: 'find',
-      packageId: 'pkg-1',
-      addedTicketKeys: ['P2-1'],
-      addedContracts: 2,
+      addedTicketKeys: ['P1-1'],
+      addedContracts: 7,
+      addedReviewed: 0,
       evidence: 'Tickets-20261102000000.json',
       confidence: 'snapshot',
     }],
-    warnings: [],
   });
-  const frames = buildFrames(model, { frames: 3, fps: 10, scale: 1 });
-  assert.equal(frames.length, 3);
-  assert.equal(frames[0].packages[0].covered, 0);
-  assert.equal(frames[2].packages[0].covered, 2);
+  const frames = buildFrames(model, { frames: 120, fps: 10 });
+  const growthFrame = frames.findIndex((frame) => frame.growth.length > 0);
+  assert.ok(growthFrame > 0);
+  assert.equal(frames[growthFrame - 1].packages[0].total, 93);
+  assert.equal(frames[growthFrame].packages[0].total, 100);
+  assert.equal(frames[growthFrame].growth[0].addedMass, 7);
+  assert.ok(frames[growthFrame].packages[0].fill < frames[growthFrame - 1].packages[0].fill);
+  assert.equal(frames.at(-1).packages[0].total, 100);
+});
+
+test('root events advance every cell without hijacking the current stage label', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const model = makeModel({
+    packages: [pkg],
+    events: [
+      stageEvent('graphify', INITIAL_TIME + 1, pkg.id, 1),
+      stageEvent('educe', INITIAL_TIME + 2, null, 1),
+    ],
+  });
+  const frames = buildFrames(model, { frames: 60, fps: 10 });
+  const last = frames.at(-1);
+  assert.equal(last.stage, 'graphify');
+  assert.ok(last.pi[0][0] > 0);
+  assert.ok(last.pi[0][4] > 0);
+});
+
+test('a zero-package model still produces valid frames', () => {
+  const frames = buildFrames(makeModel({ packages: [] }), { frames: 20, fps: 10 });
+  assert.equal(frames.length, 20);
+  assert.equal(frames[0].packages.length, 0);
+  assert.equal(frames.at(-1).stage, 'educe');
+  assert.equal(frames.at(-1).t, INITIAL_TIME);
+});
+
+test('a growth event without contract mass still adds one scope unit per ticket', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const model = makeModel({
+    packages: [pkg],
+    growthEvents: [{
+      packageId: pkg.id,
+      t: INITIAL_TIME + 50,
+      prec: 'ms',
+      stage: 'find',
+      addedTicketKeys: ['P1-1', 'P1-2'],
+      addedContracts: 0,
+      addedReviewed: 0,
+      evidence: 'OMISSIONS-20261102000000.json',
+      confidence: 'omission',
+    }],
+  });
+  const frames = buildFrames(model, { frames: 60, fps: 10 });
+  const growthFrame = frames.findIndex((frame) => frame.growth.length > 0);
+  assert.equal(frames[growthFrame - 1].packages[0].total, 8);
+  assert.equal(frames[growthFrame].packages[0].total, 10);
+  assert.equal(frames[growthFrame].growth[0].addedMass, 2);
 });

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
 import { test } from 'node:test';
@@ -8,7 +9,8 @@ import {
   countGraphContracts,
   countBoundaryContracts,
   isReviewedStatus,
-  computeReviewedRatio,
+  computePackageObligations,
+  clampReviewed,
 } from '../../.claude/scripts/conver/progress-gif/obligations.js';
 
 const graph = {
@@ -58,7 +60,26 @@ test('isReviewedStatus accepts reviewed and completed rounds only', () => {
   assert.equal(isReviewedStatus(undefined), false);
 });
 
-test('computeReviewedRatio keeps a zero denominator at zero', () => {
-  assert.deepEqual(computeReviewedRatio(0, 0), { reviewed: 0, covered: 0, ratio: 0 });
-  assert.deepEqual(computeReviewedRatio(3, 4), { reviewed: 3, covered: 4, ratio: 0.75 });
+test('the package ratio is reviewed obligations over total contract obligations', () => {
+  const artifacts = {
+    graph,
+    tickets: {
+      phases: [{
+        tickets: [{ id: 1, phaseId: 0, status: 'reviewed', contracts: [{ id: 'C001' }] }],
+      }],
+    },
+  };
+  const result = computePackageObligations({ id: 'pkg-1' }, artifacts, registry);
+  assert.equal(result.obligations.total, 5);
+  assert.equal(result.obligations.covered, 1);
+  assert.equal(result.obligations.reviewed, 1);
+  assert.equal(result.obligations.ratio, 0.2);
+});
+
+test('a reviewed count above the total is clamped and warned', () => {
+  const result = clampReviewed(7, 5);
+  assert.equal(result.reviewed, 5);
+  assert.equal(result.total, 5);
+  assert.ok(result.warnings.some((warning) => /clamp/i.test(warning)));
+  assert.deepEqual(clampReviewed(0, 0), { reviewed: 0, total: 0, warnings: [] });
 });

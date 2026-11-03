@@ -1,26 +1,28 @@
 import { STAGE_ORDER } from './loop.js';
-import { groupColor, formatDate, formatRatio, formatSplit } from './layout.js';
+import {
+  groupColor,
+  formatDate,
+  formatRatio,
+  formatSplit,
+  radiusForArea,
+} from './layout.js';
 
-const BACKGROUND = [6, 8, 12];
+const BACKGROUND = [5, 7, 10];
+const FONT_FAMILY = 'ConverNoto, system-ui, sans-serif';
+const LABEL_COLOUR = '#c8d2e4';
+const UNLIT_DOT_COLOUR = '#222a36';
 
 /** Build the fixed 256-colour palette: background, grayscale ramp and seven group ramps. */
 export function makePalette() {
-  const palette = [];
-  palette.push(BACKGROUND.slice());
-  for (let index = 1; index < 24; index += 1) {
-    const value = Math.round((index * 255) / 23);
+  const palette = [BACKGROUND.slice()];
+  for (let index = 1; index <= 24; index += 1) {
+    const value = Math.round((index * 255) / 24);
     palette.push([value, value, value]);
   }
-  const colours = STAGE_ORDER.map((stage) => groupColor(stage))
-    .filter((value, index, all) => all.indexOf(value) === index)
-    .map((hex) => [
-      parseInt(hex.slice(1, 3), 16),
-      parseInt(hex.slice(3, 5), 16),
-      parseInt(hex.slice(5, 7), 16),
-    ]);
+  const colours = [...new Set(STAGE_ORDER.map((stage) => groupColor(stage)))].map(toRgb);
   for (const colour of colours) {
-    for (let step = 1; step <= 24; step += 1) {
-      palette.push(colour.map((value) => Math.round((value * step) / 24)));
+    for (let step = 1; step <= 20; step += 1) {
+      palette.push(colour.map((value) => Math.round((value * step) / 20)));
     }
     for (let step = 1; step <= 8; step += 1) {
       palette.push(colour.map((value) => Math.round(value + ((255 - value) * step) / 9)));
@@ -30,15 +32,40 @@ export function makePalette() {
   return palette.slice(0, 256);
 }
 
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function toRgb(hex) {
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ];
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function rgba(hex, alpha) {
+  const [red, green, blue] = toRgb(hex);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function mixWithWhite(hex, amount) {
+  const [red, green, blue] = toRgb(hex);
+  return `rgb(${Math.round(red + (255 - red) * amount)}, ${Math.round(green + (255 - green) * amount)}, ${Math.round(blue + (255 - blue) * amount)})`;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function clampUnit(value) {
+  return Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+}
+
 let cachedPalette = null;
 let cachedLut = null;
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-function paletteEntries(palette) {
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function resolvePalette(palette) {
   return palette || (cachedPalette || (cachedPalette = makePalette()));
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function buildLut(palette) {
   const lut = new Uint8Array(32768);
   for (let index = 0; index < 32768; index += 1) {
@@ -62,40 +89,35 @@ function buildLut(palette) {
   return lut;
 }
 
-export function quantizeRgba(rgba, palette, width, height) {
-  const entries = paletteEntries(palette);
+export function quantizeRgba(rgbaPixels, palette, width, height) {
+  const entries = resolvePalette(palette);
   const lut = cachedLut && entries === cachedPalette ? cachedLut : buildLut(entries);
   if (entries === cachedPalette) cachedLut = lut;
   const out = new Uint8Array(width * height);
   for (let pixel = 0, source = 0; pixel < out.length; pixel += 1, source += 4) {
-    const key = ((rgba[source] >> 3) << 10) | ((rgba[source + 1] >> 3) << 5) | (rgba[source + 2] >> 3);
+    const key = ((rgbaPixels[source] >> 3) << 10) | ((rgbaPixels[source + 1] >> 3) << 5) | (rgbaPixels[source + 2] >> 3);
     out[pixel] = lut[key];
   }
   return out;
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 class ByteWriter {
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   constructor() {
     this.chunks = [];
     this.buffer = new Uint8Array(65536);
     this.offset = 0;
   }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   push(value) {
     if (this.offset === this.buffer.length) this.flush();
     this.buffer[this.offset] = value & 255;
     this.offset += 1;
   }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   pushBytes(values) {
     for (const value of values) this.push(value);
   }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   flush() {
     if (this.offset > 0) {
       this.chunks.push(this.buffer.slice(0, this.offset));
@@ -103,7 +125,6 @@ class ByteWriter {
     }
   }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   toUint8Array() {
     this.flush();
     const total = this.chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -117,13 +138,11 @@ class ByteWriter {
   }
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function writeU16(writer, value) {
   writer.push(value & 255);
   writer.push((value >> 8) & 255);
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function lzwEncode(pixels) {
   const CLEAR = 256;
   const EOI = 257;
@@ -171,7 +190,6 @@ function lzwEncode(pixels) {
   return out.toUint8Array();
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function writeSubBlocks(writer, bytes) {
   for (let offset = 0; offset < bytes.length; offset += 255) {
     const length = Math.min(255, bytes.length - offset);
@@ -181,38 +199,80 @@ function writeSubBlocks(writer, bytes) {
   writer.push(0);
 }
 
+/** Bounding box of the palette indices that differ from the previous frame. */
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function findChangedBounds(previous, current, width, height) {
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+  for (let row = 0; row < height; row += 1) {
+    const rowOffset = row * width;
+    for (let column = 0; column < width; column += 1) {
+      if (current[rowOffset + column] === previous[rowOffset + column]) continue;
+      if (column < left) left = column;
+      if (column > right) right = column;
+      if (row < top) top = row;
+      if (row > bottom) bottom = row;
+    }
+  }
+  if (right < 0) return { x: 0, y: 0, width: 1, height: 1 };
+  return { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
+}
+
 /**
- * Encode indexed frames. Each frame is a Uint8Array of width*height palette indices.
- * Frames are written as full images; this keeps the encoder simple and deterministic.
+ * Encode indexed frames. The first frame is full; every later frame writes only the
+ * bounding box that changed, which is what keeps the sample-level file size.
  */
 export function encodeGif({ width, height, frames, delayCs = 10, palette }) {
-  const entries = paletteEntries(palette);
+  const entries = resolvePalette(palette);
   const writer = new ByteWriter();
   writer.pushBytes('GIF89a'.split('').map((character) => character.charCodeAt(0)));
   writeU16(writer, width);
   writeU16(writer, height);
-  writer.push(0xf7, 0, 0);
+  writer.push(0xf7);
+  writer.push(0);
+  writer.push(0);
   for (let index = 0; index < 256; index += 1) {
     const colour = entries[index] || [0, 0, 0];
     writer.push(colour[0]);
     writer.push(colour[1]);
     writer.push(colour[2]);
   }
-  writer.push(0x21, 0xff, 11);
+  writer.push(0x21);
+  writer.push(0xff);
+  writer.push(11);
   writer.pushBytes('NETSCAPE2.0'.split('').map((character) => character.charCodeAt(0)));
-  writer.push(3, 1, 0, 0, 0);
+  writer.push(3);
+  writer.push(1);
+  writer.push(0);
+  writer.push(0);
+  writer.push(0);
+  let previous = null;
   for (const frame of frames) {
-    writer.push(0x21, 0xf9, 4, 0x04);
+    const bounds = previous ? findChangedBounds(previous, frame, width, height) : { x: 0, y: 0, width, height };
+    const pixels = new Uint8Array(bounds.width * bounds.height);
+    for (let row = 0; row < bounds.height; row += 1) {
+      for (let column = 0; column < bounds.width; column += 1) {
+        pixels[row * bounds.width + column] = frame[(bounds.y + row) * width + bounds.x + column];
+      }
+    }
+    writer.push(0x21);
+    writer.push(0xf9);
+    writer.push(4);
+    writer.push(0x04);
     writeU16(writer, delayCs);
-    writer.push(0, 0);
+    writer.push(0);
+    writer.push(0);
     writer.push(0x2c);
-    writeU16(writer, 0);
-    writeU16(writer, 0);
-    writeU16(writer, width);
-    writeU16(writer, height);
+    writeU16(writer, bounds.x);
+    writeU16(writer, bounds.y);
+    writeU16(writer, bounds.width);
+    writeU16(writer, bounds.height);
     writer.push(0);
     writer.push(8);
-    writeSubBlocks(writer, lzwEncode(frame));
+    writeSubBlocks(writer, lzwEncode(pixels));
+    previous = Uint8Array.from(frame);
   }
   writer.push(0x3b);
   return writer.toUint8Array();
@@ -239,101 +299,255 @@ export function fitFramesToCeiling(layout, requestedFrames, maxBytes) {
   return { frames, estimated, warnings };
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function fillRect(ctx, rectangle) {
   ctx.fillStyle = rectangle.colour;
   ctx.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-function drawCenteredText(ctx, textRun) {
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function fillCircle(ctx, centre, radius, colour, alpha = 1) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = colour;
+  ctx.beginPath();
+  ctx.arc(centre.x, centre.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function strokeRing(ctx, ring) {
+  ctx.globalAlpha = ring.alpha === undefined ? 1 : ring.alpha;
+  ctx.strokeStyle = ring.colour;
+  ctx.lineWidth = ring.lineWidth;
+  ctx.beginPath();
+  ctx.arc(ring.centre.x, ring.centre.y, ring.radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function drawText(ctx, textRun) {
+  ctx.globalAlpha = textRun.alpha === undefined ? 1 : textRun.alpha;
   ctx.font = textRun.font;
   ctx.fillStyle = textRun.colour;
-  ctx.textAlign = textRun.align || 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = textRun.align || 'left';
+  ctx.textBaseline = textRun.baseline || 'middle';
   ctx.fillText(textRun.text, textRun.x, textRun.y);
+  ctx.globalAlpha = 1;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function drawHeader(ctx, layout, frame, model, options) {
+  const scale = layout.scale;
+  const header = layout.header;
+  const reviewed = frame.packages.reduce((sum, pkg) => sum + pkg.reviewed, 0);
+  const total = frame.packages.reduce((sum, pkg) => sum + pkg.total, 0);
+  drawText(ctx, {
+    text: options.title || header.title,
+    x: header.titleX,
+    y: header.titleY,
+    font: `600 ${14 * scale}px ${FONT_FAMILY}`,
+    colour: '#eef2ff',
+  });
+  drawText(ctx, {
+    text: formatDate(frame.t, frame.prec),
+    x: header.dateX,
+    y: header.dateY,
+    font: `600 ${20 * scale}px ${FONT_FAMILY}`,
+    colour: '#f4f7ff',
+  });
+  drawText(ctx, {
+    text: String(frame.stage || '').toUpperCase(),
+    x: header.stageX,
+    y: header.stageY,
+    font: `600 ${18 * scale}px ${FONT_FAMILY}`,
+    colour: groupColor(frame.stage),
+  });
+  drawText(ctx, {
+    text: formatRatio(reviewed, total),
+    x: header.metricX,
+    y: header.metricY,
+    font: `500 ${12 * scale}px ${FONT_FAMILY}`,
+    colour: '#b8c2d6',
+    align: 'right',
+  });
+  drawText(ctx, {
+    text: formatSplit(model.totals.splitPackages, model.totals.packages),
+    x: header.metricX,
+    y: header.splitY,
+    font: `500 ${11 * scale}px ${FONT_FAMILY}`,
+    colour: '#8f9bb0',
+    align: 'right',
+  });
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function findTopStage(progress) {
+  for (let index = STAGE_ORDER.length - 1; index >= 0; index -= 1) {
+    if (progress[index] > 0.001) return STAGE_ORDER[index];
+  }
+  return STAGE_ORDER[0];
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function collectActiveStages(frame, packageIndex) {
+  const stages = new Set();
+  for (const value of frame.active || []) {
+    if (value < 0 && value <= -100) stages.add(-100 - value);
+    else if (Math.floor(value / STAGE_ORDER.length) === packageIndex) stages.add(value % STAGE_ORDER.length);
+  }
+  return stages;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function drawCell(ctx, layout, cell, frame, model) {
+  const scale = layout.scale;
+  const view = frame.packages[cell.packageIndex];
+  if (!view) return;
+  const progress = frame.pi[cell.packageIndex] || new Array(STAGE_ORDER.length).fill(0);
+  const total = view.total;
+  const reviewed = Math.min(view.reviewed, total);
+  const fill = total > 0 ? reviewed / total : 0;
+  const radius = radiusForArea(total, layout.grid.minTotal, layout.grid.maxTotal, layout.grid.minRadius, layout.grid.maxRadius);
+  const stage = findTopStage(progress);
+  const hue = groupColor(stage);
+  const centre = { x: cell.centerX, y: cell.centerY };
+  const density = view.density || 0;
+  const pulse = 0.5 + 0.5 * Math.sin(frame.index * 0.9);
+  strokeRing(ctx, { centre, radius: radius * 1.05, colour: '#3c465a', lineWidth: 1.2 * scale, alpha: 0.55 });
+  if (fill > 0) {
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = hue;
+    ctx.lineWidth = 2.5 * scale;
+    ctx.beginPath();
+    ctx.arc(centre.x, centre.y, radius * 1.05, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    fillCircle(ctx, centre, radius * 0.96, hue, 0.18 * fill);
+  }
+  if (total === 0) {
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = '#5a6478';
+    ctx.lineWidth = 1.2 * scale;
+    ctx.setLineDash([3 * scale, 3 * scale]);
+    ctx.beginPath();
+    ctx.arc(centre.x, centre.y, radius * 1.05, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+  if (density > 0.01) {
+    const alpha = 0.04 + 0.34 * density * density + 0.10 * density;
+    const gradient = ctx.createRadialGradient(centre.x, centre.y, 0, centre.x, centre.y, radius * 1.25);
+    gradient.addColorStop(0, rgba(hue, alpha));
+    gradient.addColorStop(1, rgba(hue, 0));
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(centre.x, centre.y, radius * 1.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  const flashStages = collectActiveStages(frame, cell.packageIndex);
+  for (const dot of cell.dots) {
+    const count = layout.dotCounts[dot.stage] || 1;
+    const lit = clampUnit(progress[dot.stage] * count - dot.indexInStage);
+    const dotX = centre.x + Math.cos(dot.angle) * dot.radial * radius;
+    const dotY = centre.y + Math.sin(dot.angle) * dot.radial * radius;
+    if (lit <= 0) {
+      fillCircle(ctx, { x: dotX, y: dotY }, 0.9 * scale, UNLIT_DOT_COLOUR, 0.9);
+      continue;
+    }
+    const flash = flashStages.has(dot.stage);
+    const whiteMix = 0.25 + 0.35 * density + (flash ? 0.45 : 0);
+    fillCircle(
+      ctx,
+      { x: dotX, y: dotY },
+      (1.15 + 0.55 * lit + (flash ? 0.7 : 0)) * scale,
+      mixWithWhite(groupColor(STAGE_ORDER[dot.stage]), whiteMix),
+      0.55 + 0.45 * lit,
+    );
+  }
+  if (flashStages.size > 0) {
+    strokeRing(ctx, { centre, radius: radius * 1.16, colour: '#ffffff', lineWidth: 1.5 * scale, alpha: 0.55 + 0.4 * pulse });
+  }
+  cell.labelLines.forEach((line, lineIndex) => {
+    drawText(ctx, {
+      text: line,
+      x: cell.labelX,
+      y: cell.labelY + lineIndex * 11 * scale,
+      font: `500 ${10 * scale}px ${FONT_FAMILY}`,
+      colour: LABEL_COLOUR,
+      align: 'center',
+      baseline: 'alphabetic',
+      alpha: 0.92,
+    });
+  });
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function drawGrowthPulses(ctx, layout, frame) {
+  for (const event of frame.growth || []) {
+    const cell = layout.cells.find((entry) => entry.id === event.packageId);
+    if (!cell) continue;
+    strokeRing(ctx, {
+      centre: { x: cell.centerX, y: cell.centerY },
+      radius: cell.radius + 8 * layout.scale,
+      colour: groupColor(event.stage),
+      lineWidth: 3 * layout.scale,
+      alpha: 0.8,
+    });
+  }
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function drawLadder(ctx, layout, frame) {
+  const scale = layout.scale;
+  layout.ladder.rows.forEach((row, index) => {
+    const current = frame.stage === row.stage;
+    const active = (frame.active || []).some((value) =>
+      value === -100 - index || (value >= 0 && value % STAGE_ORDER.length === index));
+    if (current || active) {
+      fillRect(ctx, {
+        x: row.x,
+        y: row.y - 3 * scale,
+        width: 188 * scale,
+        height: 18 * scale,
+        colour: rgba(row.colour, current ? 0.22 : 0.12),
+      });
+    }
+    drawText(ctx, {
+      text: row.stage,
+      x: row.labelX,
+      y: row.y,
+      font: `500 ${11 * scale}px ${FONT_FAMILY}`,
+      colour: row.colour,
+      alpha: current || active ? 1 : 0.62,
+    });
+    fillRect(ctx, {
+      x: row.barX,
+      y: row.barY,
+      width: row.barWidth,
+      height: row.barHeight,
+      colour: '#28303c',
+    });
+    fillRect(ctx, {
+      x: row.barX,
+      y: row.barY,
+      width: row.barWidth * clampUnit(frame.globalStage[index] || 0),
+      height: row.barHeight,
+      colour: row.colour,
+    });
+  });
 }
 
 /** Draw one frame on a Canvas 2D context. The browser calls this; Node tests inject a fake. */
 export function drawFrame(ctx, layout, frame, model, options = {}) {
-  fillRect(ctx, { x: 0, y: 0, width: layout.width, height: layout.height, colour: '#06080c' });
-  drawCenteredText(ctx, { text: options.title || 'PROGRESS', x: 16, y: 24, font: '600 18px ConverNoto, system-ui', colour: '#f2f5ff', align: 'left' });
-  drawCenteredText(ctx, { text: formatDate(frame.t, frame.prec), x: layout.width - 16, y: 24, font: '500 14px ConverNoto, system-ui', colour: '#b8c2d6', align: 'right' });
-  drawCenteredText(ctx, { text: String(frame.stage || '').toUpperCase(), x: 16, y: 52, font: '600 14px ConverNoto, system-ui', colour: groupColor(frame.stage), align: 'left' });
-  const totals = frame.packages.reduce((sum, pkg) => ({ covered: sum.covered + pkg.covered, reviewed: sum.reviewed + pkg.reviewed }), { covered: 0, reviewed: 0 });
-  drawCenteredText(ctx, { text: formatRatio(totals.covered, totals.reviewed), x: layout.width - 16, y: 52,
-    font: '500 13px ConverNoto, system-ui', colour: '#b8c2d6', align: 'right' });
-  drawCenteredText(ctx, { text: formatSplit(model.totals.splitPackages, model.totals.packages), x: layout.width - 16, y: 70,
-    font: '500 12px ConverNoto, system-ui', colour: '#8f9bb0', align: 'right' });
-
-  for (const cell of layout.cells) {
-    const pkg = frame.packages.find((item) => item.id === cell.id);
-    if (!pkg) continue;
-    ctx.beginPath();
-    ctx.arc(cell.centerX, cell.centerY, cell.radius, 0, Math.PI * 2);
-    ctx.fillStyle = '#101722';
-    ctx.fill();
-    ctx.strokeStyle = '#2a3545';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    if (pkg.fill > 0) {
-      ctx.beginPath();
-      ctx.moveTo(cell.centerX, cell.centerY);
-      ctx.arc(cell.centerX, cell.centerY, cell.radius - 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pkg.fill);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(255,255,255,0.16)';
-      ctx.fill();
-    }
-    STAGE_ORDER.forEach((stage, index) => {
-      const start = -Math.PI / 2 + (index / STAGE_ORDER.length) * Math.PI * 2;
-      const end = -Math.PI / 2 + ((index + 1) / STAGE_ORDER.length) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.arc(cell.centerX, cell.centerY, cell.radius + 4, start + 0.02, end - 0.02);
-      ctx.strokeStyle = groupColor(stage);
-      ctx.globalAlpha = 0.2 + 0.8 * (pkg.stages[stage] || 0);
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    });
-    cell.labelLines.forEach((line, lineIndex) => {
-      drawCenteredText(ctx, { text: line, x: cell.centerX, y: cell.centerY + cell.radius + 14 + lineIndex * 13,
-        font: '500 11px ConverNoto, system-ui', colour: '#c8d2e4' });
-    });
-  }
-
-  const ring = layout.ring;
-  const drillSubSweep = ['grill', 'graphify', 'boundify', 'split'];
-  const drillStage = frame.stage === 'drill' ? drillSubSweep[frame.index % drillSubSweep.length] : null;
-  const loopBackStage = frame.stage === 'find' && (frame.growth || []).length > 0 ? 'make' : null;
-  STAGE_ORDER.forEach((stage, index) => {
-    const start = ring.segments[index].start;
-    const end = ring.segments[index].end;
-    const highlighted = frame.stage === stage || drillStage === stage || loopBackStage === stage;
-    ctx.beginPath();
-    ctx.arc(ring.centerX, ring.centerY, ring.radius, start + 0.02, end - 0.02);
-    ctx.strokeStyle = groupColor(stage);
-    ctx.globalAlpha = highlighted ? 1 : 0.45;
-    ctx.lineWidth = highlighted ? 10 : 6;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    const middle = (start + end) / 2;
-    drawCenteredText(ctx, { text: stage, x: ring.centerX + Math.cos(middle) * (ring.radius + 20),
-      y: ring.centerY + Math.sin(middle) * (ring.radius + 20), font: '500 10px ConverNoto, system-ui', colour: groupColor(stage) });
-  });
-  drawCenteredText(ctx, { text: String(frame.stage || '').toUpperCase(), x: ring.centerX, y: ring.centerY,
-    font: '600 16px ConverNoto, system-ui', colour: groupColor(frame.stage) });
-
-  for (const event of frame.growth || []) {
-    const cell = layout.cells.find((item) => item.id === event.packageId);
-    if (!cell) continue;
-    ctx.beginPath();
-    ctx.arc(cell.centerX, cell.centerY, cell.radius + 12, 0, Math.PI * 2);
-    ctx.strokeStyle = groupColor(event.stage);
-    ctx.lineWidth = 4;
-    ctx.globalAlpha = 0.8;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
+  fillRect(ctx, { x: 0, y: 0, width: layout.width, height: layout.height, colour: '#05070a' });
+  drawHeader(ctx, layout, frame, model, options);
+  for (const cell of layout.cells) drawCell(ctx, layout, cell, frame, model);
+  drawLadder(ctx, layout, frame);
+  drawGrowthPulses(ctx, layout, frame);
 }
 
 /** The browser engine bundle. It exposes only functions that do not use Node built-ins. */

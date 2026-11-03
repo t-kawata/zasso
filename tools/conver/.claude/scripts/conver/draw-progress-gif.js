@@ -104,7 +104,7 @@ function drillTicketKeys(artifacts) {
   return tickets.filter((ticket) => ticket.forNextRound || ticket.fromStub).map(ticketKeyOf);
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-349, PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350) --for-spec --no-implementation-order`.
 function growthEventsOf(pkg, artifacts) {
   const snapshots = (artifacts.ticketSnapshots || []).map((entry) => ({
     ...entry,
@@ -130,7 +130,11 @@ function growthEventsOf(pkg, artifacts) {
     drills,
     tickets: artifacts.tickets ? ticketsOf(artifacts.tickets) : [],
   });
-  return events.map((event) => ({ ...event, packageId: pkg.id }));
+  return events.map((event) => ({
+    ...event,
+    packageId: pkg.id,
+    addedMass: event.addedContracts > 0 ? event.addedContracts : (event.addedTicketKeys || []).length,
+  }));
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -172,13 +176,15 @@ export function analyzeWorkspace(root, options = {}) {
     for (const change of delta.changed) {
       const alreadyExplained = growthEvents.some((event) => event.packageId === change.id);
       if (change.after > change.before && !alreadyExplained) {
+        const addedContracts = change.after - change.before;
         growthEvents.push({
           packageId: change.id,
           t: initialT,
           prec: 'ms',
           stage: 'find',
           addedTicketKeys: [],
-          addedContracts: change.after - change.before,
+          addedContracts,
+          addedMass: addedContracts,
           addedReviewed: 0,
           evidence: 'previous-snapshot',
           confidence: 'snapshot-diff',
@@ -196,8 +202,10 @@ function previousSnapshot(root, options) {
   return latest ? readSnapshot(latest.path) : null;
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-function markdownReport(model, options, output) {
+// [::TICKET::] PX-349, PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350) --for-spec --no-implementation-order`.
+function markdownReport(model, options, output, layout, frames) {
+  const firstDensity = frames.length > 0 ? frames[0].density : 0;
+  const finalDensity = frames.length > 0 ? frames[frames.length - 1].density : 0;
   const lines = [
     '# draw-progress-gif',
     '',
@@ -209,6 +217,8 @@ function markdownReport(model, options, output) {
     `- obligations: ${model.totals.obligations}`,
     `- covered: ${model.totals.covered}`,
     `- reviewed: ${model.totals.reviewed}`,
+    `- canvas: ${layout.width}x${layout.height}`,
+    `- density: ${firstDensity.toFixed(3)} -> ${finalDensity.toFixed(3)}`,
     `- frames: ${options.frames}`,
   ];
   if (output) {
@@ -262,7 +272,7 @@ export function run(root, options) {
   }
   const frames = buildFrames(model, options);
   if (options.dryRun) {
-    process.stdout.write(markdownReport(model, options, null));
+    process.stdout.write(markdownReport(model, options, null, estimatedLayout, frames));
     return { model, frames, output: null };
   }
   const outputDir = path.join(root, 'progress-gif');
@@ -283,7 +293,7 @@ export function run(root, options) {
   const snapshotDir = options.snapshotDir || path.join(outputDir, 'snapshots');
   const snapshotPath = writeSnapshot(snapshotDir, stamp, snapshotFromModel(model));
   const output = { html: htmlPath, snapshot: snapshotPath };
-  process.stdout.write(markdownReport(model, options, output));
+  process.stdout.write(markdownReport(model, options, output, estimatedLayout, frames));
   if (options.open) openBrowser(htmlPath);
   return { model, frames, output };
 }

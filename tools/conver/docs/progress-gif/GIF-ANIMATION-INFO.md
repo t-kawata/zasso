@@ -2,12 +2,16 @@
 
 Status: design input for an external design/implementation AI.
 Implementation source of truth: `.claude/scripts/conver/draw-progress-gif.js` and
-`.claude/scripts/conver/progress-gif/`.
+`.claude/scripts/conver/progress-gif/`, scoped by ticket `PX-350`.
+Visual baseline: `docs/progress-gif/samples/sample-progress.html`. The implementation keeps
+the sample's board grammar (phyllotaxis dot field, additive glow, vertical 16-stage ladder,
+stage-weighted timeline, held final frame) and applies only the agreed improvements.
 Corrections and source-verified facts: see `docs/progress-gif/GIF-ANIMATION-INFO-SUPPLEMENT.md`.
 Synthetic parser fixtures: see `docs/fixtures/gif-animation/`.
 The density formula in this document is a `[PROPOSAL]`, not producer behaviour. The
-implemented tool uses contract obligations for area and the reviewed-obligation ratio for
-fill, and draws ticket growth at its recovered loop stage.
+implemented tool uses contract obligations for area and reviewed obligations over total
+obligations for the completion cue and the headline, and draws ticket growth at its
+recovered loop stage.
 Audience: an AI that cannot read the conver source tree. Everything needed to discover the
 data, compute the numbers, and render the animation is stated here.
 Sample workspace used for every measured value below: `~/shyme/gaia` on 2026-11-03.
@@ -30,18 +34,24 @@ dashboard. A run writes one GIF:
 <target>/progress-gif/YYYYMMDDhhmmss.gif
 ```
 
-The only text allowed in the image is:
+The text in the image is:
 
-1. the date/time, formatted `MM/DD hh:mm` (the brief writes `hh:ss`; treat it as hour:minute
-   unless `--time-format` is overridden), and
-2. exactly one current stage name from the fixed list:
+1. the title `PROGRESS: <basename of the target>`;
+2. the date/time, formatted `MM/DD hh:mm` (the brief writes `hh:ss`; treat it as hour:minute
+   unless `--time-format` is overridden), or `MM/DD --:--` when only a date is known;
+3. exactly one current stage name from the fixed list:
 
 ```text
 educe  explain  grill  smooth  graphify  boundify  split  make
 plan   start    review resolve consolidate find crystalize drill
 ```
 
-No package names, counts, bars, axes, legends, icons, or titles. Everything else is visual.
+4. the headline `REVIEWED reviewed/total - percent` and `SPLIT split/total`;
+5. one package name under each cell, wrapped to at most two lines;
+6. the 16 stage names in the right-hand ladder.
+
+This text set is the PX-350 improvement over the original two-string brief. No counts other
+than the two explicit ratios, no axes, no icons, and no legend beyond the ladder.
 
 Non-goals:
 
@@ -243,9 +253,10 @@ Let `R(p,t)` be the sum of masses of atoms with `birth <= t` (weights in §9.2).
 density(p,t) = log1p(R(p,t)) / log1p(E(p) + maxR)      # 0..1, clamped
 ```
 
-and the **global density** as the mass-weighted mean over packages. A package's visual
-radius shrinks and its particle count and luminance rise with `density`; this is the single
-most important visual rule.
+and the **global density** as the mass-weighted mean over packages. The implemented
+renderer carries density through the lit particle count and the additive glow; the radius is
+set by contract obligations (PX-350), not by density. The density formula above remains a
+proposal; the implementation uses the stage-weighted progress described in the ticket.
 
 ---
 
@@ -995,15 +1006,11 @@ Sub-stage encoding (no text):
 
 ### 10.7 Text rules
 
-Exactly two strings per frame:
-
-```text
-11/03 13:36
-split
-```
-
-No other text. If the stage is between commands, keep the nearest completed/active stage
-label. Do not print counts, percentages, package names, or "loading".
+Superseded by PX-350. The original brief allowed exactly two strings per frame
+(`11/03 13:36` and `split`). The implemented viewer keeps the date and the single current
+stage, and adds the agreed title, the two explicit ratios, the package names under the
+cells, and the 16 ladder labels. It still prints no progress bar percentages, no "loading"
+text, and no other decoration.
 
 ### 10.8 Timeline and loop
 

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,6 +50,7 @@ test('a manifests-only workspace exits zero and writes HTML and a snapshot', () 
   const result = run(['-t', root, '--no-open', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /PASS:/);
+  assert.match(result.stdout, /canvas: 640x368/);
   const outputDir = path.join(root, 'progress-gif');
   const html = fs.readdirSync(outputDir).filter((name) => name.endsWith('.html'));
   assert.equal(html.length, 1);
