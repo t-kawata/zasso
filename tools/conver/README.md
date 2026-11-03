@@ -1152,8 +1152,8 @@ are uppercase and set larger so they stay readable when the GIF is scaled down.
 - Package names wrap to two lines under each cell. A common prefix shared by every package
   name is removed at a `-`, `_`, `.` or `/` boundary; the tooltip keeps the full name and
   path.
-- The HTML controls are numeric inputs in the order Frames (20-600, default 120), Speed
-  (20-400 ms per frame, default 180) and Columns (4-10, default 8), followed by the seek
+- The HTML controls are numeric inputs in the order Frames (20-600, default 200), Speed
+  (20-400 ms per frame, default 150) and Columns (4-10, default 8), followed by the seek
   slider. Values commit on change (Enter or blur) and are clamped. A frame change rebuilds
   the animation at the same relative position; a column change recomputes the layout,
   resizes the canvas and redraws the current frame. The downloaded GIF uses the selected
@@ -1161,7 +1161,7 @@ are uppercase and set larger so they stay readable when the GIF is scaled down.
   (clamped to 2-100 centiseconds).
 - There is no server. The browser downloads the GIF; Node does not write it.
 - 300MB is a ceiling for a mature workspace, not a target. `--frames` (clamped to 20-600),
-  `--fps`, `--scale` and `--max-bytes` bound the output; the viewer starts at 180 ms per
+  `--fps`, `--scale` and `--max-bytes` bound the output; the viewer starts at 150 ms per
   frame and `--fps` overrides that initial value.
 - The animation shows the ladder in stage order: educe, explain, grill, smooth, graphify.
   Explain completes for every package before grill starts, and the header advances to

@@ -8,10 +8,10 @@ import { clampColumns } from './layout.js';
  */
 export const SPEED_MIN_MS = 20;
 export const SPEED_MAX_MS = 400;
-export const DEFAULT_SPEED_MS = 180;
+export const DEFAULT_SPEED_MS = 150;
 export const MIN_FRAMES = 20;
 export const MAX_FRAMES = 600;
-export const DEFAULT_FRAMES = 120;
+export const DEFAULT_FRAMES = 200;
 export const GIF_DELAY_MIN_CS = 2;
 export const GIF_DELAY_MAX_CS = 100;
 

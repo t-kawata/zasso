@@ -36,7 +36,7 @@ test('serializeForScript escapes a closing script tag', () => {
 test('renderHtml is self-contained and exposes a download button', () => {
   const html = renderHtml({
     model,
-    options: { frames: 120, fps: 10, scale: 1, title: 'PROGRESS: one' },
+    options: { fps: 10, scale: 1, title: 'PROGRESS: one' },
     engineSource: 'export function makeEngine(){ return { draw(){} }; }',
     layoutSource: 'export function computeLayout(){ return {}; }',
     loopSource: 'export function buildFrames(){ return []; }',
@@ -55,15 +55,15 @@ test('renderHtml is self-contained and exposes a download button', () => {
   assert.match(framesTag[0], /min="20"/);
   assert.match(framesTag[0], /max="600"/);
   assert.match(framesTag[0], /step="1"/);
-  assert.match(framesTag[0], /value="120"/);
+  assert.match(framesTag[0], /value="200"/);
   const speedTag = /<input[^>]*id="speed"[^>]*>/.exec(html);
   assert.ok(speedTag, 'missing speed control');
   assert.match(speedTag[0], /type="number"/);
   assert.match(speedTag[0], /min="20"/);
   assert.match(speedTag[0], /max="400"/);
   assert.match(speedTag[0], /step="10"/);
-  assert.match(speedTag[0], /value="180"/);
-  assert.match(html, /180 ms\/frame/);
+  assert.match(speedTag[0], /value="150"/);
+  assert.match(html, /150 ms\/frame/);
   const columnsTag = /<input[^>]*id="columns"[^>]*>/.exec(html);
   assert.ok(columnsTag, 'missing column control');
   assert.match(columnsTag[0], /type="number"/);

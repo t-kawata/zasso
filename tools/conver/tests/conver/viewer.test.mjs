@@ -18,45 +18,45 @@ import {
   delayCentiseconds,
 } from '../../.claude/scripts/conver/progress-gif/viewer.js';
 
-test('the speed control defaults to 180 milliseconds inside the 20 to 400 range', () => {
+test('the speed control defaults to 150 milliseconds inside the 20 to 400 range', () => {
   assert.equal(SPEED_MIN_MS, 20);
   assert.equal(SPEED_MAX_MS, 400);
-  assert.equal(DEFAULT_SPEED_MS, 180);
+  assert.equal(DEFAULT_SPEED_MS, 150);
 });
 
 test('clampSpeedMs keeps every input inside the slider range', () => {
   assert.equal(clampSpeedMs(20), 20);
-  assert.equal(clampSpeedMs(180), 180);
+  assert.equal(clampSpeedMs(150), 150);
   assert.equal(clampSpeedMs(400), 400);
   assert.equal(clampSpeedMs(-5), 20);
   assert.equal(clampSpeedMs(9999), 400);
-  assert.equal(clampSpeedMs(Number.NaN), 180);
-  assert.equal(clampSpeedMs(undefined), 180);
-  assert.equal(clampSpeedMs(''), 180);
+  assert.equal(clampSpeedMs(Number.NaN), 150);
+  assert.equal(clampSpeedMs(undefined), 150);
+  assert.equal(clampSpeedMs(''), 150);
 });
 
 test('the frame count is clamped to the browser-safe 20 to 600 range', () => {
   assert.equal(MIN_FRAMES, 20);
   assert.equal(MAX_FRAMES, 600);
-  assert.equal(DEFAULT_FRAMES, 120);
+  assert.equal(DEFAULT_FRAMES, 200);
   assert.equal(clampFrames(20), 20);
-  assert.equal(clampFrames(120), 120);
+  assert.equal(clampFrames(200), 200);
   assert.equal(clampFrames(600), 600);
   assert.equal(clampFrames(5), 20);
   assert.equal(clampFrames(5000), 600);
-  assert.equal(clampFrames(Number.NaN), 120);
-  assert.equal(clampFrames(undefined), 120);
-  assert.equal(clampFrames(''), 120);
+  assert.equal(clampFrames(Number.NaN), 200);
+  assert.equal(clampFrames(undefined), 200);
+  assert.equal(clampFrames(''), 200);
   assert.equal(clampFrames('240'), 240);
 });
 
 test('delayCentiseconds converts the frame interval into a GIF delay', () => {
   assert.equal(delayCentiseconds(20), 2);
-  assert.equal(delayCentiseconds(180), 18);
+  assert.equal(delayCentiseconds(150), 15);
   assert.equal(delayCentiseconds(400), 40);
   assert.equal(delayCentiseconds(2000), 100);
-  assert.equal(delayCentiseconds(Number.NaN), 18);
-  assert.equal(delayCentiseconds(undefined), 18);
+  assert.equal(delayCentiseconds(Number.NaN), 15);
+  assert.equal(delayCentiseconds(undefined), 15);
 });
 
 test('the viewer starts at the 180 ms default instead of deriving speed from fps', () => {

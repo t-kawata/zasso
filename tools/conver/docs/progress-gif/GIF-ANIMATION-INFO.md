@@ -1012,7 +1012,7 @@ Superseded by PX-350 and PX-351. The original brief allowed exactly two strings 
 (`11/03 13:36` and `split`). The implemented viewer keeps the date and the single current
 stage, and adds the agreed title, a full-width overall-progress bar with its percentage,
 the package names under the cells, and the 16 uppercase ladder labels. The HTML exposes
-numeric inputs for Frames (20-600, default 120), Speed (20-400 ms per frame, default 180)
+numeric inputs for Frames (20-600, default 200), Speed (20-400 ms per frame, default 150)
 and Columns (4-10, default 8), plus a seek slider. It prints no "loading" text and no other
 decoration.
 
