@@ -36,8 +36,21 @@ export function isReviewedStatus(status) {
   return status === 'reviewed' || REVIEWED_ROUND.test(String(status));
 }
 
-export function computeReviewedRatio(reviewed, covered) {
-  return { reviewed, covered, ratio: covered > 0 ? reviewed / covered : 0 };
+/**
+ * The headline denominator is the whole contract-obligation set, not only the
+ * ticket-covered subset. A reviewed count above the total is a data defect, so it is
+ * clamped and reported rather than allowed to produce a percentage above 100.
+ */
+export function clampReviewed(reviewed, total) {
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const safeReviewed = Math.max(0, Number(reviewed) || 0);
+  if (safeReviewed <= safeTotal) return { reviewed: safeReviewed, total: safeTotal, warnings: [] };
+  return {
+    reviewed: safeTotal,
+    total: safeTotal,
+    warnings: [`reviewed obligations ${safeReviewed} exceed total ${safeTotal}; clamped`],
+  };
 }
 
 /**
@@ -68,6 +81,7 @@ export function countObligations(packageId, graph, registry, tickets) {
 
 /** Compute per-package covered and reviewed obligations from the current ticket set. */
 export function computePackageObligations(packageModel, artifacts, registry) {
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
   const tickets = artifacts.tickets ? flattenTickets(artifacts.tickets) : [];
   const counts = countObligations(packageModel.id, artifacts.graph, registry, tickets);
   const coveredIds = counts.ticketIds;
@@ -77,7 +91,7 @@ export function computePackageObligations(packageModel, artifacts, registry) {
     for (const id of countTicketContracts([ticket])) reviewedIds.add(id);
   }
   const reviewed = [...reviewedIds].filter((id) => coveredIds.has(id)).length;
-  const ratio = computeReviewedRatio(reviewed, coveredIds.size);
+  const ratio = counts.total > 0 ? Math.min(reviewed, counts.total) / counts.total : 0;
   return {
     obligations: {
       graph: counts.graph,
@@ -86,7 +100,7 @@ export function computePackageObligations(packageModel, artifacts, registry) {
       total: counts.total,
       covered: coveredIds.size,
       reviewed,
-      ratio: ratio.ratio,
+      ratio,
     },
     tickets: {
       total: tickets.length,

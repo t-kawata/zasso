@@ -19,6 +19,14 @@ export const STAGE_GROUP = Object.freeze(Object.fromEntries(
   LOOP_GROUPS.flatMap((group) => group.stages.map((stage) => [stage, group.name])),
 ));
 
+export const HOLD_START_FRAMES = 4;
+export const HOLD_END_FRAMES = 12;
+export const STAGE_WEIGHT = Object.freeze([3, 3, 6, 3, 6, 6, 6, 6, 6, 14, 8, 6, 3, 6, 6, 4]);
+const STAGE_INDEX = Object.freeze(Object.fromEntries(STAGE_ORDER.map((stage, index) => [stage, index])));
+const STAGE_WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
+const UPSTREAM_STAGES = [1, 2, 4, 5, 6];
+const SMOOTH_STAGE = 3;
+
 const EDuce_PHASES = 18;
 const GRAPH_STEPS = ['0', '1', '2', '3', '4', '5'];
 const BOUNDIFY_STEPS = ['0', '1', '2', '3'];
@@ -356,93 +364,184 @@ export function reconstructTicketGrowth({ snapshots = [], omissions = [], manife
   return events;
 }
 
-/** Build frames. The event sequence is the animation clock; wall-clock gaps are compressed. */
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function computeGrowthMassOf(events, packageId) {
+  return (events || [])
+    .filter((event) => event.packageId === packageId)
+    .reduce((sum, event) => sum + computeGrowthMass(event), 0);
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function computeGrowthMass(event) {
+  if (Number.isFinite(event.addedMass)) return Math.max(0, event.addedMass);
+  const contracts = Math.max(0, Number(event.addedContracts) || 0);
+  if (contracts > 0) return contracts;
+  return (event.addedTicketKeys || []).length;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function stageIndexesOf(events) {
+  const counts = new Array(STAGE_ORDER.length).fill(0);
+  for (const event of events) {
+    const index = STAGE_INDEX[event.stage];
+    if (index !== undefined) counts[index] += 1;
+  }
+  return counts;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function repairUpstreamOrder(events, packageIds) {
+  const endTime = new Map(packageIds.map((id) => [id, new Array(STAGE_ORDER.length).fill(0)]));
+  for (const stageIndex of UPSTREAM_STAGES) {
+    const stageEvents = events
+      .filter((event) => event.kind === 'stage' && STAGE_INDEX[event.stage] === stageIndex && event.packageId)
+      .sort((left, right) => left.t - right.t);
+    for (const event of stageEvents) {
+      const times = endTime.get(event.packageId);
+      if (!times) continue;
+      let previous = 0;
+      for (let candidate = stageIndex - 1; candidate >= 1; candidate -= 1) {
+        if (candidate === SMOOTH_STAGE) continue;
+        if (times[candidate] > 0) {
+          previous = times[candidate];
+          break;
+        }
+      }
+      if (event.t < previous) event.t = previous;
+      times[stageIndex] = Math.max(times[stageIndex], event.t);
+    }
+  }
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+function computeEventWeight(count) {
+  return count > 0 ? (1 + Math.log(1 + count)) / count : 0;
+}
+
+// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+export function computeDensity(progress) {
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+  let weighted = 0;
+  for (let index = 0; index < STAGE_ORDER.length; index += 1) weighted += STAGE_WEIGHT[index] * progress[index];
+  return weighted / STAGE_WEIGHT_SUM;
+}
+
+/**
+ * Build frames with the sample's stage-weighted clock. Raw event count is a poor clock:
+ * a stage with thousands of grill questions would otherwise consume the whole animation.
+ */
 export function buildFrames(model, options = {}) {
+// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
   const frameCount = Math.max(1, Number(options.frames) || 120);
-  const holdStart = Math.min(4, Math.floor(frameCount / 4));
-  const holdEnd = Math.min(12, Math.floor(frameCount / 4));
+  const holdStart = Math.min(HOLD_START_FRAMES, Math.floor(frameCount / 4));
+  const holdEnd = Math.min(HOLD_END_FRAMES, Math.floor(frameCount / 4));
   const span = Math.max(1, frameCount - 1 - holdStart - holdEnd);
-  const stageEvents = [...(model.events || [])].sort((left, right) => left.t - right.t);
-  const growthEvents = [...(model.growthEvents || [])].sort((left, right) => left.t - right.t);
-  const timeline = [
-    ...stageEvents.map((event) => ({ kind: 'stage', ...event })),
-    ...growthEvents.map((event) => ({ kind: 'growth', ...event })),
-  ].sort((left, right) => left.t - right.t || (left.kind === 'stage' ? 0 : 1));
-  const packages = (model.packages || []).map((pkg) => {
-    const growth = growthEvents.filter((event) => event.packageId === pkg.id);
-    const addedContracts = growth.reduce((sum, event) => sum + (event.addedContracts || 0), 0);
-    const addedReviewed = growth.reduce((sum, event) => sum + (event.addedReviewed || 0), 0);
-    return {
-      id: pkg.id,
-      name: pkg.name,
-      path: pkg.path,
-      total: Math.max(0, pkg.obligations.total - addedContracts),
-      covered: Math.max(0, pkg.obligations.covered - addedContracts),
-      reviewed: Math.max(0, pkg.obligations.reviewed - addedReviewed),
-      stages: Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0])),
-      current: 0,
-    };
-  });
-  const byId = new Map(packages.map((pkg) => [pkg.id, pkg]));
-  const frames = [];
+  const packageModels = (model.packages || []).map((pkg, index) => ({
+    id: pkg.id,
+    name: pkg.name,
+    path: pkg.path,
+    index,
+    total: Math.max(0, (pkg.obligations.total || 0) - computeGrowthMassOf(model.growthEvents, pkg.id)),
+    reviewed: Math.max(0, pkg.obligations.reviewed || 0),
+    progress: new Array(STAGE_ORDER.length).fill(0),
+  }));
+  const byId = new Map(packageModels.map((pkg) => [pkg.id, pkg]));
+  const timeline = [];
+  for (const event of model.events || []) {
+    if (!Number.isFinite(event.t) || !(event.inc > 0)) continue;
+    if (STAGE_INDEX[event.stage] === undefined) continue;
+    timeline.push({ kind: 'stage', t: event.t, prec: event.prec || 'ms', stage: event.stage, packageId: event.packageId, inc: event.inc, seq: timeline.length });
+  }
+  for (const event of model.growthEvents || []) {
+    if (!Number.isFinite(event.t) || STAGE_INDEX[event.stage] === undefined) continue;
+    timeline.push({ kind: 'growth', t: event.t, prec: event.prec || 'ms', stage: event.stage, packageId: event.packageId, addedMass: computeGrowthMass(event), seq: timeline.length, evidence: event.evidence });
+  }
+  repairUpstreamOrder(timeline, packageModels.map((pkg) => pkg.id));
+  timeline.sort((left, right) =>
+    left.t - right.t || STAGE_INDEX[left.stage] - STAGE_INDEX[right.stage] || left.seq - right.seq);
+  const stageCounts = stageIndexesOf(timeline);
+  const weights = timeline.map((event) => computeEventWeight(stageCounts[STAGE_INDEX[event.stage]]));
+  const cumulative = [];
+  let totalWeight = 0;
+  for (const weight of weights) {
+    totalWeight += weight;
+    cumulative.push(totalWeight);
+  }
+  const timelineStart = timeline.length > 0 ? timeline[0].t : (model.initialT || 0);
+  let lastT = timelineStart;
+  let lastStage = STAGE_ORDER[0];
+  let lastPrec = 'ms';
   let cursor = 0;
+  const frames = [];
   for (let index = 0; index < frameCount; index += 1) {
-    const progress = holdStart >= frameCount - holdEnd
-      ? (index === frameCount - 1 ? 1 : 0)
-      : Math.min(1, Math.max(0, (index - holdStart) / span));
-    const target = progress >= 1 ? timeline.length : Math.floor(progress * timeline.length);
-    const nextCursor = Math.max(cursor, target);
+    const rawProgress = span <= 0 ? (index === frameCount - 1 ? 1 : 0) : (index - holdStart) / span;
+    const progress = Math.max(0, Math.min(1, rawProgress));
+    const targetWeight = progress >= 1 ? totalWeight : progress * totalWeight;
     const applied = [];
-    for (let position = cursor; position < nextCursor; position += 1) applied.push(timeline[position]);
-    cursor = Math.max(cursor, nextCursor);
+    while (cursor < timeline.length && cumulative[cursor] <= targetWeight) {
+      applied.push(timeline[cursor]);
+      cursor += 1;
+    }
     const growthThisFrame = [];
-    let lastStage = 'educe';
-    let lastT = model.initialT || 0;
-    let lastPrec = 'ms';
+    const active = [];
+    let rootPulse = false;
     for (const event of applied) {
       lastT = event.t;
       lastPrec = event.prec || 'ms';
-      if (event.kind === 'stage') {
+      // Root events (educe, smooth) advance every cell, but they are background
+      // prerequisites, not the command the project is currently executing.
+      if (event.kind === 'growth' || (event.packageId !== null && event.packageId !== undefined)) {
         lastStage = event.stage;
+      }
+      if (event.kind === 'stage') {
         const targets = event.packageId === null || event.packageId === undefined
-          ? packages
+          ? packageModels
           : [byId.get(event.packageId)].filter(Boolean);
-        for (const pkg of targets) pkg.stages[event.stage] = clamp01(pkg.stages[event.stage] + event.inc);
-      } else {
-        growthThisFrame.push(event);
-        const pkg = byId.get(event.packageId);
-        if (pkg) {
-          pkg.total += event.addedContracts || 0;
-          pkg.covered += event.addedContracts || 0;
-          pkg.reviewed += event.addedReviewed || 0;
+        const stageIndex = STAGE_INDEX[event.stage];
+        for (const pkg of targets) {
+          pkg.progress[stageIndex] = clamp01(pkg.progress[stageIndex] + event.inc);
+          active.push(event.packageId === null || event.packageId === undefined ? -100 - stageIndex : pkg.index * STAGE_ORDER.length + stageIndex);
         }
+        if (event.packageId === null || event.packageId === undefined) rootPulse = true;
+      } else {
+        const pkg = byId.get(event.packageId);
+        if (pkg) pkg.total = Math.max(0, pkg.total + event.addedMass);
+        growthThisFrame.push({ packageId: event.packageId, stage: event.stage, addedMass: event.addedMass, evidence: event.evidence });
       }
     }
-    const packageFrames = packages.map((pkg) => ({
-      id: pkg.id,
-      name: pkg.name,
-      path: pkg.path,
-      total: pkg.total,
-      covered: pkg.covered,
-      reviewed: pkg.reviewed,
-      fill: pkg.covered > 0 ? pkg.reviewed / pkg.covered : 0,
-      stages: { ...pkg.stages },
-    }));
-    const globalStage = {};
-    for (const stage of STAGE_ORDER) {
+    const packageFrames = packageModels.map((pkg) => {
+      const reviewed = Math.min(pkg.reviewed, pkg.total);
+      return {
+        id: pkg.id,
+        name: pkg.name,
+        path: pkg.path,
+        total: pkg.total,
+        reviewed,
+        fill: pkg.total > 0 ? reviewed / pkg.total : 0,
+        density: computeDensity(pkg.progress),
+      };
+    });
+    const globalStage = STAGE_ORDER.map((stage, stageIndex) => {
       const weight = packageFrames.reduce((sum, pkg) => sum + Math.max(1, pkg.total), 0);
-      globalStage[stage] = weight > 0
-        ? packageFrames.reduce((sum, pkg) => sum + pkg.stages[stage] * Math.max(1, pkg.total), 0) / weight
-        : 0;
-    }
+      if (weight <= 0) return 0;
+      const weighted = packageModels.reduce((sum, pkg) => sum + pkg.progress[stageIndex] * Math.max(1, pkg.total), 0);
+      return weighted / weight;
+    });
     frames.push({
       index,
       t: lastT,
       prec: lastPrec,
       stage: lastStage,
       packages: packageFrames,
+      pi: packageModels.map((pkg) => pkg.progress.slice()),
       globalStage,
+      overallProgress: computeDensity(globalStage),
+      active,
+      rootPulse,
       growth: growthThisFrame,
+      density: packageFrames.length > 0
+        ? packageFrames.reduce((sum, pkg) => sum + pkg.density, 0) / packageFrames.length
+        : 0,
     });
   }
   return frames;

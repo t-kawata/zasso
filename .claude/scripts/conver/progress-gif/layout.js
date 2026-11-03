@@ -1,5 +1,4 @@
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-import { STAGE_ORDER, LOOP_GROUPS, STAGE_GROUP } from './loop.js';
+import { STAGE_ORDER, STAGE_GROUP, STAGE_WEIGHT } from './loop.js';
 
 const COLOUR_GROUP_BY_STAGE = Object.freeze({
   educe: 'discovery', explain: 'discovery',
@@ -13,34 +12,52 @@ const COLOUR_GROUP_BY_STAGE = Object.freeze({
 });
 
 const GROUP_COLOURS = Object.freeze({
-  discovery: '#5BC8C0',
-  dialogue: '#5B8DEF',
-  structure: '#A78BFA',
-  implementation: '#F59E0B',
-  convergence: '#EAB308',
-  shipping: '#34D399',
-  evolution: '#F472B6',
+  discovery: '#22D3EE',
+  dialogue: '#3B82F6',
+  structure: '#7C3AED',
+  implementation: '#EA580C',
+  convergence: '#FDE047',
+  shipping: '#22C55E',
+  evolution: '#EC4899',
 });
 
-export const HEADER_HEIGHT = 92;
-export const CELL_WIDTH = 180;
-export const CELL_HEIGHT = 200;
-export const RING_WIDTH = 280;
-export const MIN_RADIUS = 18;
-export const MAX_RADIUS = 54;
-const MIN_CANVAS_WIDTH = 640;
-const MIN_CANVAS_HEIGHT = 420;
-const RING_ROW_HEIGHT = 54;
-const LAYOUT_MARGIN = 24;
-const MIN_RING_RADIUS = 70;
-const MAX_RING_RADIUS = 110;
-const RING_PADDING = 20;
+export const BOARD_WIDTH = 724;
+export const BASE_HEIGHT = 372;
+export const GRID_X = 12;
+export const GRID_Y = 60;
+export const GRID_WIDTH = 504;
+export const GRID_COLUMNS = 7;
+export const MIN_CELL = 64;
+export const MAX_CELL = 72;
+export const LABEL_HEIGHT = 26;
+export const LADDER_X = 528;
+export const LADDER_Y = 60;
+export const LADDER_ROW_HEIGHT = 18;
+export const LADDER_GROUP_GAP = 3;
+export const LADDER_LABEL_CENTER_OFFSET = 6;
+export const LADDER_BAR_X = 670;
+export const LADDER_BAR_WIDTH = 42;
+export const LADDER_BAR_HEIGHT = 6;
+export const HEADER_BAR_X = 12;
+export const HEADER_BAR_Y = 30;
+export const HEADER_BAR_HEIGHT = 6;
+export const HEADER_DATE_Y = 48;
+export const HEADER_STAGE_X = 232;
+export const DOT_TARGET = 110;
+export const MIN_RADIUS_RATIO = 0.26;
+export const MAX_RADIUS_RATIO = 0.40;
+export const MAX_CELL_RADIUS = MAX_CELL * MAX_RADIUS_RATIO;
+
+const WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
 
 export function groupColor(stage) {
   return GROUP_COLOURS[COLOUR_GROUP_BY_STAGE[stage]] || GROUP_COLOURS.discovery;
 }
 
-export function radiusFor(total, minTotal, maxTotal, minRadius, maxRadius) {
+/** Area is proportional to obligations, so the diameter follows the square root. */
+export function radiusForArea(total, minTotal, maxTotal, minRadius, maxRadius) {
+  // An unknown scope must not look as large as a fully measured package.
+  if (total <= 0) return minRadius;
   if (maxTotal <= minTotal) return maxRadius;
   const normalized = Math.sqrt(Math.max(0, Math.min(1, (total - minTotal) / (maxTotal - minTotal))));
   return minRadius + normalized * (maxRadius - minRadius);
@@ -52,102 +69,226 @@ export function radiusFor(total, minTotal, maxTotal, minRadius, maxRadius) {
  * tested in Node and used with Canvas measureText in the browser.
  */
 export function wrapLabel(measureText, text, maxWidth, maxLines = 2) {
-  const characters = [...String(text || '')];
-  if (characters.length === 0) return [''];
+  const source = String(text || '');
+  if (source.length === 0) return [''];
+  if (measureText(source) <= maxWidth) return [source];
+  const tokens = source.match(/[^-_ ]+[-_ ]?/g) || [source];
   const lines = [];
   let current = '';
-  for (let index = 0; index < characters.length; index += 1) {
-    const character = characters[index];
-    if (measureText(current + character) <= maxWidth) {
-      current += character;
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (measureText(current + token) <= maxWidth) {
+      current += token;
       continue;
     }
-    if (lines.length === maxLines - 1) {
+    if (current !== '') lines.push(current);
+    current = token;
+    while (measureText(current) > maxWidth) {
       let cut = current;
+      while (cut.length > 0 && measureText(`${cut}…`) > maxWidth) cut = cut.slice(0, -1);
+      if (lines.length === maxLines - 1) {
+        lines.push(`${cut}…`);
+        return lines;
+      }
+      lines.push(cut);
+      current = cut === '' ? '' : current.slice(cut.length);
+      if (current === '') break;
+    }
+    if (lines.length === maxLines - 1) {
+      const remaining = tokens.slice(index + 1);
+      if (remaining.length === 0 && measureText(current) <= maxWidth) break;
+      const remainder = current + remaining.join('');
+      let cut = remainder;
       while (cut.length > 0 && measureText(`${cut}…`) > maxWidth) cut = cut.slice(0, -1);
       lines.push(`${cut}…`);
       return lines;
     }
-    lines.push(current);
-    current = character;
   }
   if (current !== '') lines.push(current);
   return lines.slice(0, maxLines);
 }
 
-/** Compute the vertical package grid, circle radii, labels and the right-side loop ring. */
+const PREFIX_SEPARATORS = Object.freeze(['-', '_', '.', '/']);
+
+/**
+ * Remove the longest common prefix of a package-name set when it ends at a separator
+ * and every remainder is non-empty. The caller keeps the original names for tooltips.
+ */
+export function stripCommonPrefix(names) {
+  const source = (names || []).map((name) => String(name === undefined || name === null ? '' : name));
+  if (source.length === 0) return { prefix: '', names: [] };
+  let common = source[0];
+  for (const name of source.slice(1)) {
+    let matching = 0;
+    while (matching < common.length && matching < name.length && common[matching] === name[matching]) matching += 1;
+    common = common.slice(0, matching);
+  }
+  const separatorIndex = PREFIX_SEPARATORS.reduce(
+    (best, separator) => Math.max(best, common.lastIndexOf(separator)),
+    -1,
+  );
+  if (separatorIndex < 0) return { prefix: '', names: source };
+  const prefix = common.slice(0, separatorIndex + 1);
+  const stripped = source.map((name) => name.slice(prefix.length));
+  if (stripped.every((name) => name.length > 0)) return { prefix, names: stripped };
+  return { prefix: '', names: source };
+}
+
+/** The shared Fermat-spiral dot field, ordered by stage weight. */
+export function buildDotField() {
+  const counts = STAGE_WEIGHT.map((weight) => Math.max(2, Math.round((weight / WEIGHT_SUM) * DOT_TARGET)));
+  const totalDots = counts.reduce((sum, count) => sum + count, 0);
+  const dots = [];
+  let index = 0;
+  counts.forEach((count, stage) => {
+    for (let inStage = 0; inStage < count; inStage += 1) {
+      dots.push({
+        stage,
+        indexInStage: inStage,
+        angle: index * 2.39996323,
+        radial: Math.sqrt((index + 0.5) / totalDots),
+      });
+      index += 1;
+    }
+  });
+  return { counts, dots, totalDots };
+}
+
+// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
+function buildLadderRows(scale) {
+  const rows = [];
+  let groupSeen = null;
+  let gap = 0;
+  STAGE_ORDER.forEach((stage, index) => {
+    const group = STAGE_GROUP[stage];
+    if (groupSeen !== null && group !== groupSeen) gap += LADDER_GROUP_GAP;
+    groupSeen = group;
+    const rowY = LADDER_Y + index * LADDER_ROW_HEIGHT + gap;
+    rows.push({
+      stage,
+      group,
+      colour: groupColor(stage),
+      x: LADDER_X * scale,
+      y: rowY * scale,
+      centerY: (rowY + LADDER_LABEL_CENTER_OFFSET) * scale,
+      labelX: (LADDER_X + 4) * scale,
+      barX: LADDER_BAR_X * scale,
+      barY: (rowY + 3) * scale,
+      barWidth: LADDER_BAR_WIDTH * scale,
+      barHeight: LADDER_BAR_HEIGHT * scale,
+    });
+  });
+  return rows;
+}
+
+/** Compute the fixed 724-wide board; only the row count grows the height. */
 export function computeLayout(model, options = {}) {
   const scale = Math.max(0.5, Math.min(3, Number(options.scale) || 1));
-  const measureText = options.measureText || ((text) => String(text).length * 7);
+  const measureText = options.measureText || ((text) => String(text).length * 6);
   const packages = model.packages || [];
+  const names = packages.map((pkg) => pkg.name || pkg.id);
+  const stripped = stripCommonPrefix(names);
   const count = packages.length;
-  const cols = Math.max(1, Math.min(6, Math.ceil(Math.sqrt(Math.max(1, count)))));
-  const rows = Math.max(1, Math.ceil(Math.max(1, count) / cols));
-  const cellWidth = CELL_WIDTH * scale;
-  const cellHeight = CELL_HEIGHT * scale;
-  const gridWidth = cols * cellWidth;
-  const width = Math.max(MIN_CANVAS_WIDTH, gridWidth + RING_WIDTH * scale + LAYOUT_MARGIN * scale);
-  const gridHeight = rows * cellHeight;
-  const ringHeight = (LOOP_GROUPS.length * RING_ROW_HEIGHT + LAYOUT_MARGIN) * scale;
-  const height = Math.max(MIN_CANVAS_HEIGHT, HEADER_HEIGHT * scale + Math.max(gridHeight, ringHeight) + LAYOUT_MARGIN * scale);
-  const totals = packages.map((pkg) => pkg.obligations.total);
-  const minTotal = totals.length > 0 ? Math.min(...totals) : 0;
-  const maxTotal = totals.length > 0 ? Math.max(...totals) : 0;
+  const columns = GRID_COLUMNS;
+  const rows = Math.max(1, Math.ceil(Math.max(1, count) / columns));
+  const cellFromWidth = GRID_WIDTH / columns;
+  const cellFromBaseHeight = (BASE_HEIGHT - GRID_Y - 8) / rows - LABEL_HEIGHT;
+  const cell = Math.max(MIN_CELL, Math.min(MAX_CELL, Math.min(cellFromWidth, cellFromBaseHeight)));
+  const cellHeight = cell + LABEL_HEIGHT;
+  const baseWidth = BOARD_WIDTH;
+  const baseHeight = Math.max(BASE_HEIGHT, GRID_Y + rows * cellHeight + 8);
+  const widths = packages.map((pkg) => Number(pkg.obligations && pkg.obligations.total) || 0);
+  const minTotal = widths.length > 0 ? Math.min(...widths) : 0;
+  const maxTotal = widths.length > 0 ? Math.max(...widths) : 0;
+  const minRadius = cell * MIN_RADIUS_RATIO;
+  const maxRadius = cell * MAX_RADIUS_RATIO;
+  const dotField = buildDotField();
   const cells = packages.map((pkg, index) => {
-    const column = index % cols;
-    const row = Math.floor(index / cols);
-    const centerX = (LAYOUT_MARGIN / 2) * scale + column * cellWidth + cellWidth / 2;
-    const centerY = HEADER_HEIGHT * scale + row * cellHeight + cellHeight / 2 - 16 * scale;
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const left = GRID_X + column * cell;
+    const top = GRID_Y + row * cellHeight;
+    const centerX = left + cell / 2;
+    const centerY = top + cell / 2;
     return {
       id: pkg.id,
-      name: pkg.name,
-      path: pkg.path,
-      centerX,
-      centerY,
-      radius: radiusFor(pkg.obligations.total, minTotal, maxTotal, MIN_RADIUS * scale, MAX_RADIUS * scale),
-      labelLines: wrapLabel(measureText, pkg.name || pkg.id, cellWidth - 16 * scale, 2),
+      name: pkg.name || pkg.id,
+      path: pkg.path || pkg.name || pkg.id,
+      displayName: stripped.names[index],
+      packageIndex: index,
+      cellWidth: cell * scale,
+      cellHeight: cellHeight * scale,
+      centerX: centerX * scale,
+      centerY: centerY * scale,
+      left: left * scale,
+      top: top * scale,
+      radius: radiusForArea(widths[index], minTotal, maxTotal, minRadius, maxRadius) * scale,
+      labelLines: wrapLabel(measureText, stripped.names[index], cell - 4, 2),
+      labelX: centerX * scale,
+      labelY: (top + cell + 12) * scale,
+      dots: dotField.dots,
     };
   });
-  const ringCenterX = gridWidth + (RING_WIDTH * scale) / 2 + (LAYOUT_MARGIN / 2) * scale;
-  const ringCenterY = HEADER_HEIGHT * scale + Math.min(gridHeight, ringHeight) / 2;
-  const ringRadius = Math.min(MAX_RING_RADIUS * scale, Math.max(MIN_RING_RADIUS * scale, ringHeight / 2 - RING_PADDING * scale));
   return {
-    width,
-    height,
-    headerHeight: HEADER_HEIGHT * scale,
-    cols,
-    rows,
+    width: baseWidth * scale,
+    height: baseHeight * scale,
+    scale,
+    header: {
+      height: GRID_Y * scale,
+      title: options.title || 'PROGRESS',
+      titleX: 12 * scale,
+      titleY: 18 * scale,
+      barX: HEADER_BAR_X * scale,
+      barY: HEADER_BAR_Y * scale,
+      barWidth: (baseWidth - HEADER_BAR_X * 2) * scale,
+      barHeight: HEADER_BAR_HEIGHT * scale,
+      dateX: 12 * scale,
+      dateY: HEADER_DATE_Y * scale,
+      stageX: HEADER_STAGE_X * scale,
+      stageY: HEADER_DATE_Y * scale,
+      percentX: (baseWidth - HEADER_BAR_X) * scale,
+      percentY: HEADER_DATE_Y * scale,
+    },
+    grid: {
+      x: GRID_X * scale,
+      y: GRID_Y * scale,
+      width: (columns * cell) * scale,
+      columns,
+      rows,
+      cellWidth: cell * scale,
+      cellHeight: cellHeight * scale,
+      labelHeight: LABEL_HEIGHT * scale,
+      minTotal,
+      maxTotal,
+      minRadius: minRadius * scale,
+      maxRadius: maxRadius * scale,
+    },
     cells,
-    ring: {
-      centerX: ringCenterX,
-      centerY: ringCenterY,
-      radius: ringRadius,
-      segments: STAGE_ORDER.map((stage, index) => ({
-        stage,
-        group: STAGE_GROUP[stage],
-        color: groupColor(stage),
-        start: (index / STAGE_ORDER.length) * Math.PI * 2 - Math.PI / 2,
-        end: ((index + 1) / STAGE_ORDER.length) * Math.PI * 2 - Math.PI / 2,
-      })),
+    dotCounts: dotField.counts,
+    ladder: {
+      x: LADDER_X * scale,
+      y: LADDER_Y * scale,
+      rowHeight: LADDER_ROW_HEIGHT * scale,
+      groupGap: LADDER_GROUP_GAP * scale,
+      barWidth: LADDER_BAR_WIDTH * scale,
+      barHeight: LADDER_BAR_HEIGHT * scale,
+      rows: buildLadderRows(scale),
     },
     colours: GROUP_COLOURS,
   };
 }
 
-export function formatDate(t, prec) {
-  const date = new Date(t || 0);
+export function formatDate(timestamp, precision) {
+  const date = new Date(timestamp || 0);
   const pad = (value) => String(value).padStart(2, '0');
-  const month = pad((prec === 'day' ? date.getUTCMonth() : date.getMonth()) + 1);
-  const day = pad(prec === 'day' ? date.getUTCDate() : date.getDate());
-  const time = prec === 'day' ? '--:--' : `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const month = pad((precision === 'day' ? date.getUTCMonth() : date.getMonth()) + 1);
+  const day = pad(precision === 'day' ? date.getUTCDate() : date.getDate());
+  const time = precision === 'day' ? '--:--' : `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   return `${month}/${day} ${time}`;
 }
 
-export function formatRatio(covered, reviewed) {
-  const percent = covered > 0 ? Math.round((reviewed / covered) * 100) : 0;
-  return `REVIEWED ${reviewed}/${covered} · ${percent}%`;
-}
-
-export function formatSplit(splitPackages, packages) {
-  return `SPLIT ${splitPackages}/${packages}`;
+/** Format the stage-weighted ladder completion as a rounded 0-100 percent. */
+export function formatPercent(progress) {
+  const clamped = Math.max(0, Math.min(1, Number(progress) || 0));
+  return `${Math.round(clamped * 100)}%`;
 }
