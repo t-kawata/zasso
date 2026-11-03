@@ -63,15 +63,16 @@ function colourDistance(left, right) {
   return Math.hypot(first[0] - second[0], first[1] - second[1], first[2] - second[2]);
 }
 
-test('the base board keeps the sample composition with seven columns', () => {
+test('the base board keeps the sample cell size while showing eight columns', () => {
   const layout = computeLayout(withPackageCount(5), { measureText: measure });
-  assert.equal(layout.width, 724);
+  assert.equal(layout.width, 796);
   assert.equal(layout.height, 384);
   assert.equal(layout.grid.x, 12);
   assert.equal(layout.grid.y, 72);
-  assert.equal(layout.grid.width, 504);
+  assert.equal(layout.grid.width, 576);
+  assert.equal(layout.grid.cellWidth, MAX_CELL);
   assert.equal(layout.grid.columns, DEFAULT_COLUMNS);
-  assert.equal(layout.ladder.x, 528);
+  assert.equal(layout.ladder.x, 600);
   assert.equal(layout.ladder.y, 72);
   assert.equal(layout.ladder.rows.length, 16);
   assert.deepEqual(layout.ladder.rows.map((row) => row.stage), STAGE_ORDER);
@@ -81,30 +82,30 @@ test('the base board keeps the sample composition with seven columns', () => {
 
 test('fourteen packages still fit the one-screen base height', () => {
   const layout = computeLayout(withPackageCount(14), { measureText: measure });
-  assert.equal(layout.width, 724);
+  assert.equal(layout.width, 796);
   assert.equal(layout.height, 384);
   assert.equal(layout.grid.columns, DEFAULT_COLUMNS);
 });
 
-test('vertical growth changes rows only, never width or columns', () => {
+test('vertical growth changes rows and height only, never width or columns', () => {
   const short = computeLayout(withPackageCount(5), { measureText: measure });
   const tall = computeLayout(withPackageCount(40), { measureText: measure });
-  assert.equal(short.width, 724);
-  assert.equal(tall.width, 724);
+  assert.equal(short.width, 796);
+  assert.equal(tall.width, 796);
   assert.equal(short.grid.columns, DEFAULT_COLUMNS);
   assert.equal(tall.grid.columns, DEFAULT_COLUMNS);
-  assert.equal(tall.grid.rows, 6);
-  assert.equal(tall.height, 620);
+  assert.equal(tall.grid.rows, 5);
+  assert.equal(tall.height, 530);
   assert.ok(tall.height > short.height);
   assert.ok(tall.cells.every((cell) => cell.cellWidth >= MIN_CELL));
   assert.ok(tall.cells.every((cell) => cell.cellWidth <= MAX_CELL));
 });
 
-test('a 29-package workspace uses five rows at 724x530', () => {
+test('a 29-package workspace uses four rows at 796x440', () => {
   const layout = computeLayout(withPackageCount(29), { measureText: measure });
-  assert.equal(layout.grid.rows, 5);
-  assert.equal(layout.height, 530);
-  assert.equal(layout.width, 724);
+  assert.equal(layout.grid.rows, 4);
+  assert.equal(layout.height, 440);
+  assert.equal(layout.width, 796);
 });
 
 test('the column count controls rows and can widen the board', () => {
@@ -124,25 +125,27 @@ test('the column count controls rows and can widen the board', () => {
   assert.equal(tighter.height, 800);
 });
 
-test('clampColumns keeps the control inside its range with a default of seven', () => {
-  assert.equal(DEFAULT_COLUMNS, 7);
+test('clampColumns keeps the control inside its range with a default of eight', () => {
+  assert.equal(DEFAULT_COLUMNS, 8);
   assert.equal(MIN_COLUMNS, 4);
   assert.equal(MAX_COLUMNS, 10);
   assert.equal(clampColumns(4), 4);
   assert.equal(clampColumns(10), 10);
   assert.equal(clampColumns(3), 4);
   assert.equal(clampColumns(11), 10);
-  assert.equal(clampColumns(Number.NaN), 7);
-  assert.equal(clampColumns(undefined), 7);
+  assert.equal(clampColumns(Number.NaN), 8);
+  assert.equal(clampColumns(undefined), 8);
+  assert.equal(clampColumns(''), 8);
   assert.equal(clampColumns(7.4), 7);
+  assert.equal(clampColumns('9'), 9);
 });
 
 test('every package count keeps the board width and column count', () => {
   for (const count of [0, 1, 5, 7, 8, 14, 29, 40]) {
     const layout = computeLayout(withPackageCount(count), { measureText: measure });
-    assert.equal(layout.width, 724, `count ${count}`);
-    assert.equal(layout.grid.columns, 7, `count ${count}`);
-    assert.equal(layout.grid.rows, Math.max(1, Math.ceil(count / 7)), `count ${count}`);
+    assert.equal(layout.width, 796, `count ${count}`);
+    assert.equal(layout.grid.columns, 8, `count ${count}`);
+    assert.equal(layout.grid.rows, Math.max(1, Math.ceil(count / 8)), `count ${count}`);
   }
 });
 

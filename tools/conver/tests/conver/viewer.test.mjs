@@ -8,35 +8,64 @@ import {
   SPEED_MIN_MS,
   SPEED_MAX_MS,
   DEFAULT_SPEED_MS,
+  MIN_FRAMES,
+  MAX_FRAMES,
+  DEFAULT_FRAMES,
   GIF_DELAY_MIN_CS,
   GIF_DELAY_MAX_CS,
+  clampFrames,
   clampSpeedMs,
   delayCentiseconds,
 } from '../../.claude/scripts/conver/progress-gif/viewer.js';
 
-test('the speed control bounds are the documented 20 to 400 milliseconds', () => {
+test('the speed control defaults to 180 milliseconds inside the 20 to 400 range', () => {
   assert.equal(SPEED_MIN_MS, 20);
   assert.equal(SPEED_MAX_MS, 400);
-  assert.equal(DEFAULT_SPEED_MS, 100);
+  assert.equal(DEFAULT_SPEED_MS, 180);
 });
 
 test('clampSpeedMs keeps every input inside the slider range', () => {
   assert.equal(clampSpeedMs(20), 20);
-  assert.equal(clampSpeedMs(100), 100);
+  assert.equal(clampSpeedMs(180), 180);
   assert.equal(clampSpeedMs(400), 400);
   assert.equal(clampSpeedMs(-5), 20);
   assert.equal(clampSpeedMs(9999), 400);
-  assert.equal(clampSpeedMs(Number.NaN), 100);
-  assert.equal(clampSpeedMs(undefined), 100);
+  assert.equal(clampSpeedMs(Number.NaN), 180);
+  assert.equal(clampSpeedMs(undefined), 180);
+  assert.equal(clampSpeedMs(''), 180);
+});
+
+test('the frame count is clamped to the browser-safe 20 to 600 range', () => {
+  assert.equal(MIN_FRAMES, 20);
+  assert.equal(MAX_FRAMES, 600);
+  assert.equal(DEFAULT_FRAMES, 120);
+  assert.equal(clampFrames(20), 20);
+  assert.equal(clampFrames(120), 120);
+  assert.equal(clampFrames(600), 600);
+  assert.equal(clampFrames(5), 20);
+  assert.equal(clampFrames(5000), 600);
+  assert.equal(clampFrames(Number.NaN), 120);
+  assert.equal(clampFrames(undefined), 120);
+  assert.equal(clampFrames(''), 120);
+  assert.equal(clampFrames('240'), 240);
 });
 
 test('delayCentiseconds converts the frame interval into a GIF delay', () => {
   assert.equal(delayCentiseconds(20), 2);
-  assert.equal(delayCentiseconds(100), 10);
+  assert.equal(delayCentiseconds(180), 18);
   assert.equal(delayCentiseconds(400), 40);
   assert.equal(delayCentiseconds(2000), 100);
-  assert.equal(delayCentiseconds(Number.NaN), 10);
-  assert.equal(delayCentiseconds(undefined), 10);
+  assert.equal(delayCentiseconds(Number.NaN), 18);
+  assert.equal(delayCentiseconds(undefined), 18);
+});
+
+test('the viewer starts at the 180 ms default instead of deriving speed from fps', () => {
+  const source = fs.readFileSync(
+    new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /let speedMs = clampSpeedMs\(options\.speedMs\)/);
+  assert.doesNotMatch(source, /1000 \/ \(Number\(options\.fps\)/);
 });
 
 test('the viewer drives playback and the GIF delay from the same speed value', () => {
@@ -53,10 +82,22 @@ test('the viewer recomputes the layout and canvas size when the column count cha
     new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
     'utf8',
   );
-  assert.match(source, /columnsInput\.addEventListener\('input'/);
+  assert.match(source, /columnsInput\.addEventListener\('change'/);
   assert.match(source, /scale: options\.scale,\s*columns,/);
   assert.match(source, /canvas\.width = layout\.width/);
   assert.match(source, /canvas\.height = layout\.height/);
+});
+
+test('the numeric controls commit on change and the frame count rebuilds the animation', () => {
+  const source = fs.readFileSync(
+    new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /framesInput\.addEventListener\('change'/);
+  assert.match(source, /speedInput\.addEventListener\('change'/);
+  assert.match(source, /columnsInput\.addEventListener\('change'/);
+  assert.match(source, /frames = buildFrames\(model, \{ \.\.\.options, frames: frameCount \}\)/);
+  assert.match(source, /seekInput\.max = String\(Math\.max\(0, frames\.length - 1\)\)/);
 });
 
 test('the GIF delay stays inside the browser-safe centisecond window', () => {

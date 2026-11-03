@@ -45,13 +45,26 @@ test('parseArgs requires a target and accepts the documented flags', () => {
   assert.equal(options.maxBytes, 1000);
 });
 
+test('--frames is clamped to the browser-safe 20 to 600 range', () => {
+  assert.equal(parseArgs(['-t', '/tmp/one', '--frames', '5000']).frames, 600);
+  assert.equal(parseArgs(['-t', '/tmp/one', '--frames', '5']).frames, 20);
+  assert.equal(parseArgs(['-t', '/tmp/one', '--frames', '240']).frames, 240);
+});
+
+test('an explicit --fps sets the initial speed while the default stays 180 ms', () => {
+  const defaults = parseArgs(['-t', '/tmp/one']);
+  assert.equal(defaults.speedMs, null);
+  const explicit = parseArgs(['-t', '/tmp/one', '--fps', '5']);
+  assert.equal(explicit.speedMs, 200);
+});
+
 test('a manifests-only workspace exits zero and writes HTML and a snapshot', () => {
   const { root } = materializeBundle('workspace-min.json');
   const before = hashTree(root);
   const result = run(['-t', root, '--no-open', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /PASS:/);
-  assert.match(result.stdout, /canvas: 724x384/);
+  assert.match(result.stdout, /canvas: 796x384/);
   assert.match(result.stdout, /overall progress: \d+%/);
   const outputDir = path.join(root, 'progress-gif');
   const html = fs.readdirSync(outputDir).filter((name) => name.endsWith('.html'));
@@ -61,7 +74,7 @@ test('a manifests-only workspace exits zero and writes HTML and a snapshot', () 
   assert.equal(hashTree(root), before);
 });
 
-test('a 29-package workspace renders five rows at 724x518', () => {
+test('a 29-package workspace renders four rows at 796x440', () => {
   const packages = Array.from({ length: 29 }, (_, index) => ({
     id: `pkg-${index + 1}`,
     name: `pkg-${index + 1}`,
@@ -73,7 +86,7 @@ test('a 29-package workspace renders five rows at 724x518', () => {
   const root = writeWorkspace({ packages });
   const result = run(['-t', root, '--no-open', '--dry-run', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /canvas: 724x530/);
+  assert.match(result.stdout, /canvas: 796x440/);
   assert.match(result.stdout, /overall progress: \d+%/);
 });
 

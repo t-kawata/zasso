@@ -23,11 +23,14 @@ const GROUP_COLOURS = Object.freeze({
 
 export const BOARD_WIDTH = 724;
 export const BASE_HEIGHT = 384;
-export const GRID_X = 12;
+export const BOARD_GUTTER = 12;
+export const GRID_X = BOARD_GUTTER;
 export const GRID_Y = 72;
 export const GRID_WIDTH = 504;
-export const DEFAULT_COLUMNS = 7;
-export const GRID_COLUMNS = DEFAULT_COLUMNS;
+// Cell size is calibrated against the seven-column sample. The slider default is
+// independent so raising it widens the board instead of shrinking every circle.
+export const GRID_COLUMNS = 7;
+export const DEFAULT_COLUMNS = 8;
 export const MIN_COLUMNS = 4;
 export const MAX_COLUMNS = 10;
 export const MIN_CELL = 64;
@@ -43,7 +46,7 @@ export const LADDER_BAR_WIDTH = 42;
 export const LADDER_BAR_HEIGHT = 6;
 export const LADDER_BLOCK_WIDTH = BOARD_WIDTH - LADDER_X;
 export const LADDER_BAR_OFFSET = LADDER_BAR_X - LADDER_X;
-export const HEADER_BAR_X = 12;
+export const HEADER_BAR_X = BOARD_GUTTER;
 export const HEADER_BAR_Y = 34;
 export const HEADER_BAR_HEIGHT = 6;
 export const HEADER_DATE_Y = 56;
@@ -59,9 +62,11 @@ export function groupColor(stage) {
   return GROUP_COLOURS[COLOUR_GROUP_BY_STAGE[stage]] || GROUP_COLOURS.discovery;
 }
 
-/** Keep the user-selected column count inside the slider range. */
+/** Keep the user-selected column count inside the numeric input range. */
 export function clampColumns(value) {
-  const numeric = Math.round(Number(value));
+  const raw = String(value ?? '').trim();
+  if (raw === '') return DEFAULT_COLUMNS;
+  const numeric = Math.round(Number(raw));
   if (!Number.isFinite(numeric)) return DEFAULT_COLUMNS;
   return Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, numeric));
 }
@@ -203,11 +208,11 @@ export function computeLayout(model, options = {}) {
   const count = packages.length;
   const columns = clampColumns(options.columns);
   const rows = Math.max(1, Math.ceil(Math.max(1, count) / columns));
-  const cellFromWidth = GRID_WIDTH / DEFAULT_COLUMNS;
+  const cellFromWidth = GRID_WIDTH / GRID_COLUMNS;
   const cellFromBaseHeight = (BASE_HEIGHT - GRID_Y - 8) / rows - LABEL_HEIGHT;
   const cell = Math.max(MIN_CELL, Math.min(MAX_CELL, Math.min(cellFromWidth, cellFromBaseHeight)));
   const cellHeight = cell + LABEL_HEIGHT;
-  const contentWidth = GRID_X + columns * cell + 12 + LADDER_BLOCK_WIDTH;
+  const contentWidth = GRID_X + columns * MAX_CELL + BOARD_GUTTER + LADDER_BLOCK_WIDTH;
   const baseWidth = Math.max(BOARD_WIDTH, contentWidth);
   const ladderX = baseWidth - LADDER_BLOCK_WIDTH;
   const baseHeight = Math.max(BASE_HEIGHT, GRID_Y + rows * cellHeight + 8);

@@ -26,6 +26,7 @@ const STAGE_INDEX = Object.freeze(Object.fromEntries(STAGE_ORDER.map((stage, ind
 const STAGE_WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
 const UPSTREAM_STAGES = [1, 2, 4, 5, 6];
 const SMOOTH_STAGE = 3;
+const PRE_SMOOTH_STAGES = Object.freeze(['explain', 'grill']);
 
 const EDuce_PHASES = 18;
 const GRAPH_STEPS = ['0', '1', '2', '3', '4', '5'];
@@ -411,6 +412,39 @@ function repairUpstreamOrder(events, packageIds) {
       times[stageIndex] = Math.max(times[stageIndex], event.t);
     }
   }
+  orderGrillAfterExplain(events);
+  placeSmoothAfterExplainAndGrill(events);
+}
+
+/**
+ * The ladder is displayed globally, so every package must finish explain before
+ * grill begins. Per-package ordering alone lets one package's grill run while
+ * another package is still explaining.
+ */
+function orderGrillAfterExplain(events) {
+  const explainEnd = events.reduce((latest, event) => (
+    event.kind === 'stage' && event.stage === 'explain' ? Math.max(latest, event.t) : latest
+  ), -Infinity);
+  if (!Number.isFinite(explainEnd)) return;
+  for (const event of events) {
+    if (event.kind === 'stage' && event.stage === 'grill') event.t = Math.max(event.t, explainEnd);
+  }
+}
+
+/**
+ * Smooth is a workspace-level step that applies to every cell. Its artifact can be
+ * measured after graphify or fall back to the initial time; either way the animation
+ * must show it after explain and grill and before graphify.
+ */
+function placeSmoothAfterExplainAndGrill(events) {
+  const predecessorEnd = events.reduce((latest, event) => {
+    if (event.kind !== 'stage' || !PRE_SMOOTH_STAGES.includes(event.stage)) return latest;
+    return Math.max(latest, event.t);
+  }, -Infinity);
+  if (!Number.isFinite(predecessorEnd)) return;
+  for (const event of events) {
+    if (event.kind === 'stage' && event.stage === 'smooth') event.t = predecessorEnd;
+  }
 }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -488,9 +522,10 @@ export function buildFrames(model, options = {}) {
     for (const event of applied) {
       lastT = event.t;
       lastPrec = event.prec || 'ms';
-      // Root events (educe, smooth) advance every cell, but they are background
-      // prerequisites, not the command the project is currently executing.
-      if (event.kind === 'growth' || (event.packageId !== null && event.packageId !== undefined)) {
+      const packageScoped = event.packageId !== null && event.packageId !== undefined;
+      // A workspace-level stage still names the running command when it moves the
+      // ladder forward; a late educe event must not pull the label backwards.
+      if (event.kind === 'growth' || packageScoped || STAGE_INDEX[event.stage] > STAGE_INDEX[lastStage]) {
         lastStage = event.stage;
       }
       if (event.kind === 'stage') {
@@ -547,6 +582,16 @@ export function buildFrames(model, options = {}) {
   return frames;
 }
 
+/**
+ * A workspace-level event advances every cell, so it already covers the package.
+ * Treating it as missing would add a duplicate at the initial time and pull the
+ * stage to the front of the animation.
+ */
+function isStageCoveredFor(events, stage, packageId) {
+  return events.some((event) => event.stage === stage
+    && (event.packageId === packageId || event.packageId === null || event.packageId === undefined));
+}
+
 /** Derive one package's obligations, stage fractions and events. */
 export function derivePackageState(pkg, artifacts, workspaceArtifacts, registry, warnings) {
   const computed = computePackageObligations(pkg, artifacts, registry);
@@ -555,7 +600,7 @@ export function derivePackageState(pkg, artifacts, workspaceArtifacts, registry,
   const events = stageEventsOf(pkg, artifacts, workspaceArtifacts);
   for (const stage of STAGE_ORDER) {
     if (stages[stage] <= 0) continue;
-    if (!events.some((event) => event.stage === stage && event.packageId === pkg.id)) {
+    if (!isStageCoveredFor(events, stage, pkg.id)) {
       events.push({ t: workspaceArtifacts.initialT || 0, prec: 'ms', stage, packageId: pkg.id, inc: stages[stage], evidence: 'artifact-presence' });
     }
   }

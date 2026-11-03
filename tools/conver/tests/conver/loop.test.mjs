@@ -11,6 +11,7 @@ import {
   reconstructTicketGrowth,
   buildFrames,
   buildModel,
+  derivePackageState,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { HOLD_END_FRAMES, HOLD_START_FRAMES } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { INITIAL_TIME, makeModel, packageModel, stageEvent } from './models.mjs';
@@ -198,6 +199,78 @@ test('overall progress advances from educe before any ticket is reviewed', () =>
   const totalWeight = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
   assert.ok(last.overallProgress > 0);
   assert.equal(last.overallProgress, STAGE_WEIGHT[0] / totalWeight);
+});
+
+test('a workspace-level smooth event covers every package without a zero-time fallback', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const measuredAt = '2026-11-02T00:00:00.000Z';
+  const workspaceArtifacts = {
+    initialT: INITIAL_TIME,
+    educeStatus: null,
+    smoothStatus: {
+      measuredAt,
+      verdict: { exitCode: 0, findings: 0, blocked: 0, readings: 0, withheld: 0 },
+    },
+  };
+  const state = derivePackageState(pkg, {}, workspaceArtifacts, [], []);
+  const smoothEvents = state.events.filter((event) => event.stage === 'smooth');
+  assert.ok(smoothEvents.length > 0);
+  assert.ok(smoothEvents.every((event) => event.packageId === null || event.packageId === undefined));
+  assert.ok(smoothEvents.every((event) => event.t === Date.parse(measuredAt)));
+});
+
+test('the header names smooth while smooth is the running stage', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const events = [
+    stageEvent('educe', INITIAL_TIME, null, 1),
+    stageEvent('explain', INITIAL_TIME + 1000, pkg.id, 1),
+    stageEvent('grill', INITIAL_TIME + 2000, pkg.id, 1),
+    stageEvent('smooth', INITIAL_TIME + 5000, null, 1),
+    stageEvent('graphify', INITIAL_TIME + 6000, pkg.id, 1),
+  ];
+  const frames = buildFrames(makeModel({ packages: [pkg], events }), { frames: 120, fps: 10 });
+  const smoothStart = frames.findIndex((frame) => frame.globalStage[3] > 0);
+  assert.ok(smoothStart > 0);
+  assert.equal(frames[smoothStart].stage, 'smooth');
+});
+
+test('grill does not start until every package has finished explain', () => {
+  const first = packageModel({ id: 'pkg-1', total: 10 });
+  const second = packageModel({ id: 'pkg-2', total: 10 });
+  const events = [
+    stageEvent('educe', INITIAL_TIME, null, 1),
+    stageEvent('explain', INITIAL_TIME + 1000, first.id, 1),
+    stageEvent('grill', INITIAL_TIME + 2000, first.id, 1),
+    stageEvent('explain', INITIAL_TIME + 3000, second.id, 1),
+    stageEvent('grill', INITIAL_TIME + 4000, second.id, 1),
+  ];
+  const frames = buildFrames(makeModel({ packages: [first, second], events }), { frames: 120, fps: 10 });
+  const firstGrill = frames.findIndex((frame) => frame.globalStage[2] > 0);
+  assert.ok(firstGrill > 0);
+  assert.ok(frames.slice(0, firstGrill).some((frame) => frame.globalStage[1] > 0));
+  assert.ok(frames.slice(0, firstGrill).every((frame) => frame.globalStage[2] === 0));
+  assert.equal(frames[firstGrill].globalStage[1], 1);
+});
+
+test('smooth is displayed after grill and before graphify even when measured later', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const events = [
+    stageEvent('educe', INITIAL_TIME, null, 1),
+    stageEvent('explain', INITIAL_TIME + 1000, pkg.id, 1),
+    stageEvent('grill', INITIAL_TIME + 2000, pkg.id, 1),
+    stageEvent('graphify', INITIAL_TIME + 4000, pkg.id, 1),
+    stageEvent('smooth', INITIAL_TIME + 9000, null, 1),
+  ];
+  const frames = buildFrames(makeModel({ packages: [pkg], events }), { frames: 120, fps: 10 });
+  const firstFrameAt = (stageIndex) => frames.findIndex((frame) => frame.pi[0][stageIndex] > 0);
+  const explain = firstFrameAt(1);
+  const grill = firstFrameAt(2);
+  const smooth = firstFrameAt(3);
+  const graphify = firstFrameAt(4);
+  assert.ok(explain >= 0);
+  assert.ok(grill > explain);
+  assert.ok(smooth > grill);
+  assert.ok(graphify > smooth);
 });
 
 test('a growth event without contract mass still adds one scope unit per ticket', () => {

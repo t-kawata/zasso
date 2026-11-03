@@ -16,7 +16,7 @@ const HEADER_TITLE_SIZE = 14;
 const HEADER_DATE_SIZE = 20;
 const HEADER_STAGE_SIZE = 18;
 const HEADER_PERCENT_SIZE = 11;
-const LADDER_LABEL_SIZE = 11;
+export const LADDER_LABEL_SIZE = 14;
 
 /** Build the fixed 256-colour palette: background, grayscale ramp and seven group ramps. */
 export function makePalette() {
@@ -534,10 +534,10 @@ function drawLadder(ctx, layout, frame) {
       });
     }
     drawText(ctx, {
-      text: row.stage,
+      text: row.stage.toUpperCase(),
       x: row.labelX,
       y: row.centerY,
-      font: `500 ${LADDER_LABEL_SIZE * scale}px ${FONT_FAMILY}`,
+      font: `600 ${LADDER_LABEL_SIZE * scale}px ${FONT_FAMILY}`,
       colour: row.colour,
       alpha: current || active ? 1 : 0.62,
     });

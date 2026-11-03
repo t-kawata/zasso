@@ -8,15 +8,32 @@ import { clampColumns } from './layout.js';
  */
 export const SPEED_MIN_MS = 20;
 export const SPEED_MAX_MS = 400;
-export const DEFAULT_SPEED_MS = 100;
+export const DEFAULT_SPEED_MS = 180;
+export const MIN_FRAMES = 20;
+export const MAX_FRAMES = 600;
+export const DEFAULT_FRAMES = 120;
 export const GIF_DELAY_MIN_CS = 2;
 export const GIF_DELAY_MAX_CS = 100;
 
-/** Keep the user-selected frame interval inside the slider range. */
+/** Keep the user-selected frame interval inside the numeric input range. */
 export function clampSpeedMs(value) {
-  const numeric = Number(value);
+  const raw = String(value ?? '').trim();
+  if (raw === '') return DEFAULT_SPEED_MS;
+  const numeric = Number(raw);
   if (!Number.isFinite(numeric)) return DEFAULT_SPEED_MS;
   return Math.max(SPEED_MIN_MS, Math.min(SPEED_MAX_MS, Math.round(numeric)));
+}
+
+/**
+ * Keep the requested frame count inside the range the browser can encode safely.
+ * The upper bound caps the indexed pixel buffer held during GIF download.
+ */
+export function clampFrames(value) {
+  const raw = String(value ?? '').trim();
+  if (raw === '') return DEFAULT_FRAMES;
+  const numeric = Math.round(Number(raw));
+  if (!Number.isFinite(numeric)) return DEFAULT_FRAMES;
+  return Math.max(MIN_FRAMES, Math.min(MAX_FRAMES, numeric));
 }
 
 /** Convert milliseconds per frame into the GIF centisecond delay field. */
@@ -32,10 +49,10 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   const errorBox = document.getElementById('error');
   const status = document.getElementById('status');
   const pauseButton = document.getElementById('pause');
+  const framesInput = document.getElementById('frames');
   const speedInput = document.getElementById('speed');
   const speedValue = document.getElementById('speed-value');
   const columnsInput = document.getElementById('columns');
-  const columnsValue = document.getElementById('columns-value');
   const seekInput = document.getElementById('seek');
   const seekValue = document.getElementById('seek-value');
   let frames = [];
@@ -43,7 +60,8 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   let index = 0;
   let playing = true;
   let last = 0;
-  let speedMs = clampSpeedMs(1000 / (Number(options.fps) || 10));
+  let frameCount = clampFrames(options.frames);
+  let speedMs = clampSpeedMs(options.speedMs);
   let columns = clampColumns(options.columns);
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -59,6 +77,10 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   }
 
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+  function syncFramesControls() {
+    framesInput.value = String(frameCount);
+  }
+
   function syncSpeedControls() {
     speedInput.value = String(speedMs);
     speedValue.textContent = `${speedMs} ms/frame`;
@@ -72,7 +94,6 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
 
   function syncColumnsControls() {
     columnsInput.value = String(columns);
-    columnsValue.textContent = String(columns);
   }
 
   function relayout() {
@@ -85,6 +106,21 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
     canvas.height = layout.height;
     const tip = document.getElementById('tip');
     if (tip) tip.hidden = true;
+    drawAt(index);
+  }
+
+  /**
+   * Rebuilding keeps the viewer at the same relative position in the timeline.
+   * The new frame count changes how many frames the same events are spread over.
+   */
+  function rebuildFrames() {
+    const previousLastIndex = Math.max(0, frames.length - 1);
+    const positionRatio = previousLastIndex > 0 ? index / previousLastIndex : 0;
+    frames = buildFrames(model, { ...options, frames: frameCount });
+    const lastIndex = Math.max(0, frames.length - 1);
+    index = Math.max(0, Math.min(lastIndex, Math.round(positionRatio * lastIndex)));
+    seekInput.max = String(lastIndex);
+    syncSeekControls();
     drawAt(index);
   }
 
@@ -143,9 +179,10 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   try {
     const fontReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
     fontReady.then(function () {
-      frames = buildFrames(model, options);
+      frames = buildFrames(model, { ...options, frames: frameCount });
       index = 0;
       seekInput.max = String(Math.max(0, frames.length - 1));
+      syncFramesControls();
       syncSpeedControls();
       syncColumnsControls();
       syncSeekControls();
@@ -163,11 +200,16 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
         pauseButton.textContent = playing ? 'Pause' : 'Play';
         last = 0;
       });
-      speedInput.addEventListener('input', function () {
+      framesInput.addEventListener('change', function () {
+        frameCount = clampFrames(framesInput.value);
+        syncFramesControls();
+        rebuildFrames();
+      });
+      speedInput.addEventListener('change', function () {
         speedMs = clampSpeedMs(speedInput.value);
         syncSpeedControls();
       });
-      columnsInput.addEventListener('input', function () {
+      columnsInput.addEventListener('change', function () {
         columns = clampColumns(columnsInput.value);
         syncColumnsControls();
         relayout();

@@ -21,12 +21,12 @@ import { computeLayout, formatPercent } from './progress-gif/layout.js';
 import { renderHtml } from './progress-gif/html.js';
 import { countUnresolvedStubs } from './progress-gif/stubs.js';
 import { fitFramesToCeiling } from './progress-gif/engine.js';
+import { DEFAULT_FRAMES, clampFrames } from './progress-gif/viewer.js';
 import { loadFontBundle, collectUsedText } from './progress-gif/fonts.js';
 import { snapshotFromModel, writeSnapshot, listSnapshots, readSnapshot, diffSnapshots } from './progress-gif/snapshot.js';
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_MAX_BYTES = 300 * 1024 * 1024;
-const DEFAULT_FRAMES = 120;
 const DEFAULT_FPS = 10;
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -51,6 +51,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     sourceScan: true,
     frames: DEFAULT_FRAMES,
     fps: DEFAULT_FPS,
+    speedMs: null,
     scale: 1,
     maxBytes: DEFAULT_MAX_BYTES,
     snapshotDir: null,
@@ -61,8 +62,11 @@ export function parseArgs(argv = process.argv.slice(2)) {
     else if (argument === '--no-open') options.open = false;
     else if (argument === '--dry-run') options.dryRun = true;
     else if (argument === '--no-source-scan') options.sourceScan = false;
-    else if (argument === '--frames') options.frames = Math.max(1, Number(argv[++index]) || DEFAULT_FRAMES);
-    else if (argument === '--fps') options.fps = Math.max(1, Math.min(30, Number(argv[++index]) || DEFAULT_FPS));
+    else if (argument === '--frames') options.frames = clampFrames(argv[++index]);
+    else if (argument === '--fps') {
+      options.fps = Math.max(1, Math.min(30, Number(argv[++index]) || DEFAULT_FPS));
+      options.speedMs = Math.round(1000 / options.fps);
+    }
     else if (argument === '--scale') options.scale = Math.max(0.5, Math.min(3, Number(argv[++index]) || 1));
     else if (argument === '--max-bytes') options.maxBytes = Math.max(1, Number(argv[++index]) || DEFAULT_MAX_BYTES);
     else if (argument === '--snapshot-dir') options.snapshotDir = argv[++index];

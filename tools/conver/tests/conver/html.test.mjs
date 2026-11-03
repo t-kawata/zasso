@@ -36,7 +36,7 @@ test('serializeForScript escapes a closing script tag', () => {
 test('renderHtml is self-contained and exposes a download button', () => {
   const html = renderHtml({
     model,
-    options: { frames: 2, fps: 10, scale: 1, title: 'PROGRESS: one' },
+    options: { frames: 120, fps: 10, scale: 1, title: 'PROGRESS: one' },
     engineSource: 'export function makeEngine(){ return { draw(){} }; }',
     layoutSource: 'export function computeLayout(){ return {}; }',
     loopSource: 'export function buildFrames(){ return []; }',
@@ -49,18 +49,34 @@ test('renderHtml is self-contained and exposes a download button', () => {
   assert.match(html, /id="download"/);
   assert.match(html, /id="tip"/);
   assert.match(html, /PROGRESS: one/);
+  const framesTag = /<input[^>]*id="frames"[^>]*>/.exec(html);
+  assert.ok(framesTag, 'missing frame control');
+  assert.match(framesTag[0], /type="number"/);
+  assert.match(framesTag[0], /min="20"/);
+  assert.match(framesTag[0], /max="600"/);
+  assert.match(framesTag[0], /step="1"/);
+  assert.match(framesTag[0], /value="120"/);
   const speedTag = /<input[^>]*id="speed"[^>]*>/.exec(html);
   assert.ok(speedTag, 'missing speed control');
+  assert.match(speedTag[0], /type="number"/);
   assert.match(speedTag[0], /min="20"/);
   assert.match(speedTag[0], /max="400"/);
-  assert.match(speedTag[0], /value="100"/);
-  assert.match(html, /<input[^>]*id="seek"[^>]*>/);
+  assert.match(speedTag[0], /step="10"/);
+  assert.match(speedTag[0], /value="180"/);
+  assert.match(html, /180 ms\/frame/);
   const columnsTag = /<input[^>]*id="columns"[^>]*>/.exec(html);
   assert.ok(columnsTag, 'missing column control');
+  assert.match(columnsTag[0], /type="number"/);
   assert.match(columnsTag[0], /min="4"/);
   assert.match(columnsTag[0], /max="10"/);
   assert.match(columnsTag[0], /step="1"/);
-  assert.match(columnsTag[0], /value="7"/);
+  assert.match(columnsTag[0], /value="8"/);
+  const seekTag = /<input[^>]*id="seek"[^>]*>/.exec(html);
+  assert.ok(seekTag, 'missing seek control');
+  assert.match(seekTag[0], /type="range"/);
+  assert.ok(html.indexOf('id="frames"') < html.indexOf('id="speed"'));
+  assert.ok(html.indexOf('id="speed"') < html.indexOf('id="columns"'));
+  assert.ok(html.indexOf('id="columns"') < html.indexOf('id="seek"'));
   const script = extractInlineScript(html);
   assert.ok(script.length > 0);
   assert.doesNotThrow(() => new Function(script));

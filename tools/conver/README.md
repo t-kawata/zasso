@@ -1130,8 +1130,8 @@ The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a dark 
 package grid on the left, a vertical 16-stage ladder on the right, and one circular cell per
 package. The cell interior is a phyllotaxis dot field; dots light up with stage progress and
 an additive glow rises with density. PX-350 established the sample grammar; PX-351 widened
-the board to 724 px for seven columns and added the speed/seek controls and the overall
-progress bar.
+the board and added the speed/seek controls and the overall progress bar. The ladder labels
+are uppercase and set larger so they stay readable when the GIF is scaled down.
 
 - The only execution gate is that `WORKSPACIFY-TREE-MANIFEST.json` and
   `WORKSPACIFY-ALLOCATE-MANIFEST.json` exist and are readable JSON. Missing later artifacts
@@ -1144,19 +1144,30 @@ progress bar.
   The bar and the percentage are the stage-weighted ladder completion (`overallProgress`),
   not the reviewed-obligation ratio, so a project that has not reached review still moves.
   The track keeps 16 px of clearance above and below it.
-- The default board is 724 px wide with seven columns. Additional packages grow the canvas
-  by rows, and the ladder stays at the top. The HTML column slider selects 4-10 columns:
-  eight or more widen the board, four to six keep 724 px and leave space before the ladder.
+- The default board is 796 px wide with eight columns; cells are 72 px and shrink to the
+  64 px floor as rows increase. Raising the column count widens the board and lowering it
+  keeps the 724 px minimum with extra space before the ladder. Additional packages grow
+  the canvas by rows, never by width, and the ladder stays at the top. The HTML column
+  slider selects 4-10 columns (default 8).
 - Package names wrap to two lines under each cell. A common prefix shared by every package
   name is removed at a `-`, `_`, `.` or `/` boundary; the tooltip keeps the full name and
   path.
-- The HTML has a columns slider (4-10, default 7), a speed slider (20-400 ms per frame) and
-  a seek slider. A column change recomputes the layout, resizes the canvas and redraws the
-  current frame; the downloaded GIF uses the selected dimensions. The selected speed sets
-  both playback and the GIF delay field (clamped to 2-100 centiseconds).
+- The HTML controls are numeric inputs in the order Frames (20-600, default 120), Speed
+  (20-400 ms per frame, default 180) and Columns (4-10, default 8), followed by the seek
+  slider. Values commit on change (Enter or blur) and are clamped. A frame change rebuilds
+  the animation at the same relative position; a column change recomputes the layout,
+  resizes the canvas and redraws the current frame. The downloaded GIF uses the selected
+  frames, dimensions and speed; the speed sets both playback and the GIF delay field
+  (clamped to 2-100 centiseconds).
 - There is no server. The browser downloads the GIF; Node does not write it.
-- 300MB is a ceiling for a mature workspace, not a target. `--frames`, `--fps`, `--scale`
-  and `--max-bytes` bound the output; `--fps` sets the initial speed-slider value.
+- 300MB is a ceiling for a mature workspace, not a target. `--frames` (clamped to 20-600),
+  `--fps`, `--scale` and `--max-bytes` bound the output; the viewer starts at 180 ms per
+  frame and `--fps` overrides that initial value.
+- The animation shows the ladder in stage order: educe, explain, grill, smooth, graphify.
+  Explain completes for every package before grill starts, and the header advances to
+  SMOOTH while that workspace-level step runs. Smooth evidence is placed after explain and
+  grill even when its artifact is measured later, and no synthetic zero-time duplicate is
+  added per package.
 - Noto Sans JP is bundled under the SIL Open Font License 1.1.
 
 ## Appendix

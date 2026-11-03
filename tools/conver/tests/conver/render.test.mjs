@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 import { computeLayout, formatPercent, groupColor } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { buildFrames, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
-import { drawFrame, makePalette } from '../../.claude/scripts/conver/progress-gif/engine.js';
+import { drawFrame, makePalette, LADDER_LABEL_SIZE } from '../../.claude/scripts/conver/progress-gif/engine.js';
 import { eventsForEveryStage, makeModel, withPackageCount } from './models.mjs';
 
 /** A Canvas 2D stand-in that records every drawing call the renderer makes. */
@@ -44,7 +44,7 @@ function createRecordingContext() {
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     stroke() { calls.push(['stroke']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-    fillText(text, x, y) { calls.push(['fillText', text, x, y]); },
+    fillText(text, x, y) { calls.push(['fillText', text, x, y, ctx.font]); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     measureText(text) { return { width: String(text).length * 6 }; },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -111,15 +111,30 @@ test('the header carries the title, date, stage and a full-width progress bar', 
   assert.ok(layout.header.barY + layout.header.barHeight <= layout.ladder.y);
 });
 
-test('the ladder renders every stage name and a progress bar', () => {
+test('the ladder renders every uppercase stage name and a progress bar', () => {
   const { ctx, calls } = createRecordingContext();
   const { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });
   drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });
   const texts = calls.filter((call) => call[0] === 'fillText').map((call) => call[1]);
   for (const stage of STAGE_ORDER) {
-    assert.ok(texts.includes(stage), `missing stage label ${stage}`);
+    assert.ok(texts.includes(stage.toUpperCase()), `missing stage label ${stage.toUpperCase()}`);
   }
   assert.ok(calls.filter((call) => call[0] === 'fillRect').length >= 16);
+});
+
+test('ladder labels are large enough to read when the GIF is scaled down', () => {
+  const { ctx, calls } = createRecordingContext();
+  const { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });
+  drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });
+  assert.ok(LADDER_LABEL_SIZE >= 13);
+  for (const row of layout.ladder.rows) {
+    const drawn = calls.find((call) => call[0] === 'fillText'
+      && call[1] === row.stage.toUpperCase()
+      && call[2] === row.labelX
+      && call[3] === row.centerY);
+    assert.ok(drawn, `missing label ${row.stage}`);
+    assert.match(drawn[4], new RegExp(`${LADDER_LABEL_SIZE}px`));
+  }
 });
 
 test('every ladder label is vertically centered on its row', () => {
@@ -128,7 +143,8 @@ test('every ladder label is vertically centered on its row', () => {
   drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });
   const labels = calls.filter((call) => call[0] === 'fillText');
   layout.ladder.rows.forEach((row) => {
-    const drawn = labels.find((call) => call[1] === row.stage);
+    const drawn = labels.find((call) => call[1] === row.stage.toUpperCase()
+      && call[2] === row.labelX);
     assert.ok(drawn, `missing label ${row.stage}`);
     assert.equal(drawn[3], row.centerY);
     assert.ok(row.centerY > row.y - 3 * layout.scale);
