@@ -1,0 +1,476 @@
+{
+  "description": "Synthetic fixture bundle for cases 2-7. Materialize each files[] entry under root; object values are JSON, string values are raw text. All hashes are synthetic. No ellipses.",
+  "synthetic": true,
+  "root": "workspace-mixed",
+  "files": {
+    "WORKSPACIFY-TREE-MANIFEST.json": {
+      "artifact_kind": "workspacify-tree-manifest",
+      "schema_version": "1.0.0",
+      "status": "COMPLETE",
+      "run": {"generated_at": "2026-11-01T00:00:00.000Z"},
+      "input": {
+        "spec_path": "spec.md",
+        "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_lines": 3
+      },
+      "workspace": {
+        "packages": [
+          {"id": "pkg-0000", "name": "root", "path": ".", "layer": "foundation", "kind": "production-library", "seed_required": true},
+          {"id": "pkg-0001", "name": "alpha", "path": "pkgs/alpha", "layer": "foundation", "kind": "production-library", "seed_required": true},
+          {"id": "pkg-0002", "name": "beta", "path": "pkgs/beta", "layer": "protocol", "kind": "production-library", "seed_required": true},
+          {"id": "pkg-0003", "name": "gamma", "path": "pkgs/gamma", "layer": "protocol", "kind": "production-library", "seed_required": true},
+          {"id": "pkg-0004", "name": "delta", "path": "pkgs/delta", "layer": "core", "kind": "production-library", "seed_required": true},
+          {"id": "pkg-0005", "name": "epsilon", "path": "pkgs/epsilon", "layer": "core", "kind": "production-library", "seed_required": true},
+          {"id": "pkg-0006", "name": "zeta", "path": "pkgs/zeta", "layer": "interfaces", "kind": "production-library", "seed_required": true},
+          {"id": "pkg-0007", "name": "eta", "path": "pkgs/eta", "layer": "adapters", "kind": "production-library", "seed_required": true}
+        ]
+      },
+      "integrity": {
+        "manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    "WORKSPACIFY-ALLOCATE-MANIFEST.json": {
+      "artifact_kind": "workspacify-allocate-manifest",
+      "schema_version": "1.0.0",
+      "status": "COMPLETE",
+      "completion_decision": "COMPLETE",
+      "semantic_review": {"status": "APPROVED"},
+      "run": {"workspace_root": ".", "planned_directory_count": 8},
+      "input_tree_manifest": {
+        "path": "WORKSPACIFY-TREE-MANIFEST.json",
+        "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "spec": {"path": "spec.md", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+      },
+      "seed_index": [
+        {"package": "pkg-0000", "path": "./RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        {"package": "pkg-0001", "path": "pkgs/alpha/RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        {"package": "pkg-0002", "path": "pkgs/beta/RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        {"package": "pkg-0003", "path": "pkgs/gamma/RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        {"package": "pkg-0004", "path": "pkgs/delta/RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        {"package": "pkg-0005", "path": "pkgs/epsilon/RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        {"package": "pkg-0006", "path": "pkgs/zeta/RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+        {"package": "pkg-0007", "path": "pkgs/eta/RFC-SEED.md", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+      ],
+      "allocation": {"package_count": 8, "seed_count": 8, "parsed_package_count": 8},
+      "implementation_order": {
+        "serial": ["pkg-0000", "pkg-0001", "pkg-0002", "pkg-0003", "pkg-0004", "pkg-0005", "pkg-0006", "pkg-0007"],
+        "levels": [["pkg-0000"], ["pkg-0001"], ["pkg-0002"], ["pkg-0003"], ["pkg-0004"], ["pkg-0005"], ["pkg-0006"], ["pkg-0007"]]
+      }
+    },
+    "spec.md": "# Fixture spec\n\nEight packages, mixed stages.\n",
+    "spec-sequences.json": {
+      "schema_version": 3,
+      "spec": {"path": "spec.md", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "lines": 3},
+      "supplied": {"digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+      "pins": {},
+      "sequences": [],
+      "steps": [],
+      "operations": [],
+      "adjudications": [],
+      "sections": [],
+      "exemptions": [],
+      "verify": {},
+      "demand": {},
+      "groundedObjects": [],
+      "sequence_flow_grounds": [],
+      "migration": {},
+      "boundary_grounds": []
+    },
+    "educe-sequences/status.json": {
+      "spec": {"path": "spec.md", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "lines": 3},
+      "generation": 1,
+      "entered": true,
+      "generationStartedAt": "2026-11-01T00:10:00.000Z",
+      "history": [],
+      "readings": {},
+      "phases": [
+        {"id": 1, "tag": "det", "status": "done", "verdict": "identity recorded", "loops": 0},
+        {"id": 2, "tag": "read", "status": "done", "verdict": "predicate read", "loops": 0},
+        {"id": 3, "tag": "read", "status": "done", "verdict": "row schema read", "loops": 0},
+        {"id": 4, "tag": "read", "status": "done", "verdict": "enumerations read", "loops": 0},
+        {"id": 5, "tag": "read", "status": "done", "verdict": "blocks read", "loops": 0},
+        {"id": 6, "tag": "det", "status": "done", "verdict": "pins established", "loops": 0},
+        {"id": 7, "tag": "det", "status": "done", "verdict": "worklist built", "loops": 0},
+        {"id": 8, "tag": "read", "status": "done", "verdict": "span read", "loops": 0},
+        {"id": 9, "tag": "det", "status": "done", "verdict": "artifact integrated", "loops": 0},
+        {"id": 10, "tag": "read", "status": "done", "verdict": "adversarial read", "loops": 0},
+        {"id": 11, "tag": "read", "status": "done", "verdict": "reroute read", "loops": 0},
+        {"id": 12, "tag": "read", "status": "done", "verdict": "adjudicate read", "loops": 0},
+        {"id": 13, "tag": "read", "status": "done", "verdict": "inquest read", "loops": 0},
+        {"id": 14, "tag": "det", "status": "done", "verdict": "checks pass", "loops": 0},
+        {"id": 15, "tag": "det", "status": "done", "verdict": "re-derived", "loops": 0},
+        {"id": 16, "tag": "det", "status": "done", "verdict": "falsified nothing", "loops": 0},
+        {"id": 17, "tag": "ad-hoc", "status": "done", "verdict": "no rail exit", "loops": 0},
+        {"id": 18, "tag": "det", "status": "done", "verdict": "report written", "loops": 0}
+      ]
+    },
+    "educe-sequences/demand.json": {
+      "measuredAgainst": {"spec": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "path": "spec.md"},
+      "facts": {
+        "candidateColumns": [],
+        "boundaryCount": 0,
+        "counts": {"operations": 8, "sequences": 4, "boundaries": 2, "surfaces": 1}
+      },
+      "coverage": {
+        "verdict": "holds",
+        "unassigned": [],
+        "refusedExemptions": [],
+        "denominatorGaps": [],
+        "assignmentDistribution": [
+          {"packageId": "pkg-0000", "count": 1},
+          {"packageId": "pkg-0001", "count": 1},
+          {"packageId": "pkg-0002", "count": 1},
+          {"packageId": "pkg-0003", "count": 1},
+          {"packageId": "pkg-0004", "count": 1},
+          {"packageId": "pkg-0005", "count": 1},
+          {"packageId": "pkg-0006", "count": 1},
+          {"packageId": "pkg-0007", "count": 1}
+        ]
+      }
+    },
+    "smooth-sequences/status.json": {
+      "schemaVersion": 2,
+      "generation": 1,
+      "mode": "new generation",
+      "measuredAt": "2026-11-01T00:20:00.000Z",
+      "inputDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "reportDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "findingKeysDigest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "schemaHistory": [2],
+      "calibrationDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "verdict": {"exitCode": 0, "findings": 0, "blocked": 0, "withheld": 0, "readings": 0},
+      "remainingOpen": 0,
+      "effortDebt": 0,
+      "assuranceSchemaVersion": 1
+    },
+    "smooth-sequences/COMPLETION-CERTIFICATE.json": {
+      "schemaVersion": 3,
+      "assuranceSchemaVersion": 1,
+      "status": "complete",
+      "inputs": {
+        "spec": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "evidenceManifest": 1,
+        "exemptions": 0
+      },
+      "obligations": {"total": 1, "closed": 1, "open": 0, "stuck": 0, "notApplicable": 0},
+      "receipts": {"open": 0, "stale": 0, "missingWrite": 0},
+      "proven": {"mechanical": 1, "claims": 1},
+      "judged": {"total": 1, "held": 1, "broken": 0, "unresolved": 0, "stuck": 0},
+      "readings": {"held": 1},
+      "assurance": {},
+      "accepted": {"riskDispositions": 0, "exemptions": 0},
+      "residue": []
+    },
+    "SMOOTH-VERDICT.json": {
+      "schemaVersion": 3,
+      "workspaceRoot": ".",
+      "statusDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "inputDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "reportDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "generation": 1,
+      "artifactDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "viewDigests": {},
+      "mapDigests": {},
+      "certificateStatus": "complete",
+      "verdictPass": true,
+      "legacy": false,
+      "checkedAt": "2026-11-01T00:21:00.000Z"
+    },
+
+    "RFC-SEED.md": "# RFC Seed: root\n",
+    "RFC.md": "# Root RFC\n",
+    "RFC-GRAPH.json": {
+      "sourceFile": "RFC.md",
+      "mainLanguage": "rust",
+      "nodes": [
+        {"id": "N0001", "title": "Root requirement", "kind": "architecture", "summary": "s", "language": "rust", "slug": "root_requirement", "headingRefs": [{"refId": "REF001", "heading": 1, "texts": ["Root requirement"]}]}
+      ],
+      "edges": []
+    },
+    "RFC-Dirs-Tree.json": {
+      "schemaVersion": "1.0.0",
+      "generatedAt": "2026-11-01T00:30:00.000Z",
+      "sourceGraph": "RFC-GRAPH.json",
+      "sourceFile": "RFC.md",
+      "analysis": {"nodeCount": 1, "edgeCount": 0, "kindCounts": {}, "edgeTypeCounts": {}, "circularDependencies": []},
+      "trees": {"rust": {"name": "src", "type": "directory", "kind": "root", "children": [{"name": "lib.rs", "type": "file", "kind": "architecture", "mappedNodeIds": [{"nodeId": "N0001", "title": "Root requirement"}]}]}},
+      "dependencyDirections": {"rust": []},
+      "warnings": []
+    },
+    "RFC-SPLIT-Status.json": {
+      "sourceFile": "RFC.md",
+      "graphFile": "RFC-GRAPH.json",
+      "currentStep": "6",
+      "steps": {"0-1": "done", "0-2": "done", "1": "done", "2": "done", "3": "done", "4-1": "done", "4-2": "done", "5-1": "done", "5-2": "done", "5-3": "done", "6": "done"},
+      "generation": 1,
+      "runs": 1,
+      "runId": "1793600000000000000-1",
+      "lastOutputDigest": null,
+      "coverage": {"units": 0, "steps": 0, "boundaries": 0}
+    },
+    "Tickets.json": {
+      "title": "root package tickets",
+      "round": 1,
+      "metadata": {
+        "source": "RFC.md",
+        "generatedAt": "2026-11-01",
+        "resolvedPaths": {"rfcPath": "RFC.md", "graphPath": "RFC-GRAPH.json", "dirsTreePath": "RFC-Dirs-Tree.json"}
+      },
+      "phases": [
+        {
+          "id": 0,
+          "name": "P0",
+          "tickets": [
+            {
+              "id": 1,
+              "phaseId": 0,
+              "title": "Root ticket",
+              "status": "reviewed",
+              "completedAt": "2026-11-02",
+              "nodeIds": ["N0001"],
+              "contracts": [{"id": "C001", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]
+            }
+          ]
+        }
+      ]
+    },
+
+    "pkgs/alpha/RFC-SEED.md": "# RFC Seed: alpha\n",
+    "pkgs/alpha/INFO-RFC-SEED.md": "# RFC-SEED record: alpha\n\n## 1. What this document verified\n\nFact.\n",
+    "pkgs/alpha/EXPLAIN-RFC-SEED.md": "# RFC-SEED の解説: alpha\n\n<!-- explain-seed:facts\n{\"schema\":\"explain-seed-facts-v1\",\"sections\":{\"E1\":{\"digest\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"facts\":[{\"id\":\"I1\",\"digest\":\"5555555555555555555555555555555555555555555555555555555555555555\"}]},\"E2\":{\"digest\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"facts\":[]},\"E3\":{\"digest\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"facts\":[]},\"E4\":{\"digest\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"facts\":[]},\"E5\":{\"digest\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"facts\":[]},\"E6\":{\"digest\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"facts\":[]},\"E7\":{\"digest\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"facts\":[]}}}\n-->\n",
+
+    "pkgs/beta/RFC-SEED.md": "# RFC Seed: beta\n",
+    "pkgs/beta/INFO-RFC-SEED.md": "# RFC-SEED record: beta\n",
+    "pkgs/beta/EXPLAIN-RFC-SEED.md": "# RFC-SEED の解説: beta\n\n<!-- explain-seed:facts\n{\"schema\":\"explain-seed-facts-v1\",\"sections\":{\"E1\":{\"digest\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"facts\":[]},\"E2\":{\"digest\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"facts\":[]},\"E3\":{\"digest\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"facts\":[]},\"E4\":{\"digest\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"facts\":[]},\"E5\":{\"digest\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"facts\":[]},\"E6\":{\"digest\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"facts\":[]},\"E7\":{\"digest\":\"6666666666666666666666666666666666666666666666666666666666666666\",\"facts\":[]}}}\n-->\n",
+    "pkgs/beta/RFC.md": "# Beta RFC\n",
+    "pkgs/beta/Status.json": {"state": "GRILLING", "createdAt": "2026-11-01T02:00:00.000Z", "updatedAt": "2026-11-01T02:10:00.000Z", "reviewLoopCount": 0, "grillGeneration": 1},
+    "pkgs/beta/DesignTree.json": {"version": 1, "updatedAt": "2026-11-01T02:10:00.000Z", "nodes": [{"id": "Q1", "title": "resolved", "status": "resolved", "questions": [{"resolvedAt": "2026-11-01T02:05:00.000Z", "answer": "a"}], "children": []}, {"id": "Q2", "title": "open", "status": "open", "questions": [], "children": []}], "questions": []},
+    "pkgs/beta/RFC-GRAPH.json": {
+      "sourceFile": "RFC.md",
+      "mainLanguage": "rust",
+      "nodes": [
+        {"id": "N0001", "title": "Beta one", "kind": "architecture", "summary": "s", "language": "rust", "slug": "beta_one", "headingRefs": [{"refId": "REF001", "heading": 1, "texts": ["Beta one"]}]},
+        {"id": "N0002", "title": "Beta two", "kind": "requirement", "summary": "s", "language": "rust", "slug": "beta_two", "headingRefs": [{"refId": "REF002", "heading": 1, "texts": ["Beta two"]}]}
+      ],
+      "edges": [{"from": "N0001", "to": "N0002", "type": "depends_on", "attributes": {"strength": "hard", "bidirectional": false}, "contracts": [{"id": "C001", "precondition": "p", "postcondition": "q", "invariant": "r"}]}]
+    },
+    "pkgs/beta/RFC-GRAPHIFY-Status.json": {
+      "sourceFile": "RFC.md",
+      "graphFile": "RFC-GRAPH.json",
+      "currentStep": 3,
+      "steps": {"0": "done", "1": "done", "2": "done", "3": "running", "4": "pending", "5": "pending"},
+      "generation": 0,
+      "runs": 1,
+      "runId": "1793600100000000000-2",
+      "lastOutputDigest": null,
+      "coverage": {"units": 0, "steps": 0, "boundaries": 0}
+    },
+    "pkgs/beta/RFC-GRAPH.json.delta.json": {"note": "decoy delta, not a graph"},
+    "pkgs/beta/archive/RFC-GRAPH.json": {"note": "decoy archived graph"},
+    "pkgs/beta/Tickets.json.bak-20260101000000": {"note": "decoy backup"},
+
+    "pkgs/gamma/RFC-SEED.md": "# RFC Seed: gamma\n",
+    "pkgs/gamma/RFC.md": "# Gamma RFC\n",
+    "pkgs/gamma/Status.json": {"state": "DONE", "createdAt": "2026-11-01T03:00:00.000Z", "updatedAt": "2026-11-01T03:10:00.000Z", "completedAt": "2026-11-01T03:10:00.000Z", "reviewLoopCount": 0, "grillGeneration": 1},
+    "pkgs/gamma/DesignTree.json": {"version": 1, "updatedAt": "2026-11-01T03:10:00.000Z", "nodes": [{"id": "Q1", "title": "done", "status": "resolved", "questions": [{"resolvedAt": "2026-11-01T03:05:00.000Z", "answer": "a"}], "children": []}], "questions": []},
+    "pkgs/gamma/RFC-GRAPH.json": {
+      "sourceFile": "RFC.md",
+      "mainLanguage": "rust",
+      "nodes": [
+        {"id": "N0001", "title": "Gamma one", "kind": "architecture", "summary": "s", "language": "rust", "slug": "gamma_one", "headingRefs": [{"refId": "REF001", "heading": 1, "texts": ["Gamma one"]}]},
+        {"id": "N0002", "title": "Gamma two", "kind": "requirement", "summary": "s", "language": "rust", "slug": "gamma_two", "headingRefs": [{"refId": "REF002", "heading": 1, "texts": ["Gamma two"]}]}
+      ],
+      "edges": [{"from": "N0001", "to": "N0002", "type": "depends_on", "attributes": {"strength": "hard", "bidirectional": false}, "contracts": [{"id": "C001", "precondition": "p", "postcondition": "q", "invariant": "r"}]}]
+    },
+    "pkgs/gamma/RFC-GRAPHIFY-Status.json": {
+      "sourceFile": "RFC.md",
+      "graphFile": "RFC-GRAPH.json",
+      "currentStep": 6,
+      "steps": {"0": "done", "1": "done", "2": "done", "3": "done", "4": "done", "5": "done"},
+      "generation": 1,
+      "runs": 1,
+      "runId": "1793600200000000000-3",
+      "lastOutputDigest": null,
+      "coverage": {"units": 0, "steps": 0, "boundaries": 0}
+    },
+    "pkgs/gamma/RFC-Dirs-Tree.json": {
+      "schemaVersion": "1.0.0",
+      "generatedAt": "2026-11-01T03:20:00.000Z",
+      "sourceGraph": "RFC-GRAPH.json",
+      "sourceFile": "RFC.md",
+      "analysis": {"nodeCount": 2, "edgeCount": 1, "kindCounts": {}, "edgeTypeCounts": {}, "circularDependencies": []},
+      "trees": {"rust": {"name": "src", "type": "directory", "kind": "root", "children": [{"name": "lib.rs", "type": "file", "kind": "architecture", "mappedNodeIds": [{"nodeId": "N0001", "title": "Gamma one"}]}]}},
+      "dependencyDirections": {"rust": []},
+      "warnings": []
+    },
+    "pkgs/gamma/RFC-BOUNDIFY-Status.json": {
+      "sourceFile": "RFC.md",
+      "graphFile": "RFC-GRAPH.json",
+      "currentStep": 4,
+      "steps": {"0": "done", "1": "done", "2": "done", "3": "done"},
+      "generation": 1,
+      "runs": 1,
+      "runId": "1793600300000000000-4",
+      "lastOutputDigest": null,
+      "coverage": {"units": 0, "steps": 0, "boundaries": 0}
+    },
+
+    "pkgs/delta/RFC-SEED.md": "# RFC Seed: delta\n",
+    "pkgs/delta/RFC.md": "# Delta RFC\n",
+    "pkgs/delta/Status.json": {"state": "DONE", "createdAt": "2026-11-01T04:00:00.000Z", "updatedAt": "2026-11-01T04:10:00.000Z", "completedAt": "2026-11-01T04:10:00.000Z", "reviewLoopCount": 0, "grillGeneration": 1},
+    "pkgs/delta/DesignTree.json": {"version": 1, "updatedAt": "2026-11-01T04:10:00.000Z", "nodes": [{"id": "Q1", "title": "done", "status": "resolved", "questions": [{"resolvedAt": "2026-11-01T04:05:00.000Z", "answer": "a"}], "children": []}], "questions": []},
+    "pkgs/delta/RFC-GRAPH.json": {
+      "sourceFile": "RFC.md",
+      "mainLanguage": "rust",
+      "nodes": [
+        {"id": "N0001", "title": "Delta one", "kind": "architecture", "summary": "s", "language": "rust", "slug": "delta_one", "headingRefs": [{"refId": "REF001", "heading": 1, "texts": ["Delta one"]}]}
+      ],
+      "edges": []
+    },
+    "pkgs/delta/RFC-GRAPHIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 6, "steps": {"0": "done", "1": "done", "2": "done", "3": "done", "4": "done", "5": "done"}, "generation": 1, "runs": 1, "runId": "1793600400000000000-5", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/delta/RFC-Dirs-Tree.json": {"schemaVersion": "1.0.0", "generatedAt": "2026-11-01T04:20:00.000Z", "sourceGraph": "RFC-GRAPH.json", "sourceFile": "RFC.md", "analysis": {"nodeCount": 1, "edgeCount": 0, "kindCounts": {}, "edgeTypeCounts": {}, "circularDependencies": []}, "trees": {"rust": {"name": "src", "type": "directory", "kind": "root", "children": [{"name": "lib.rs", "type": "file", "kind": "architecture", "mappedNodeIds": [{"nodeId": "N0001", "title": "Delta one"}]}]}}, "dependencyDirections": {"rust": []}, "warnings": []},
+    "pkgs/delta/RFC-BOUNDIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 4, "steps": {"0": "done", "1": "done", "2": "done", "3": "done"}, "generation": 1, "runs": 1, "runId": "1793600500000000000-6", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/delta/RFC-SPLIT-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": "6", "steps": {"0-1": "done", "0-2": "done", "1": "done", "2": "done", "3": "done", "4-1": "done", "4-2": "done", "5-1": "done", "5-2": "done", "5-3": "done", "6": "done"}, "generation": 1, "runs": 1, "runId": "1793600600000000000-7", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/delta/IMPLEMENTATION-ORDER.json": {"schemaVersion": 1, "packageId": "pkg-0004", "buildOrder": {"serial": ["pkg-0004"], "levels": [["pkg-0004"]]}, "implementationOrder": {"serial": ["pkg-0004"], "levels": [["pkg-0004"]]}},
+    "pkgs/delta/Tickets.json": {
+      "title": "delta tickets",
+      "round": 1,
+      "metadata": {"source": "RFC.md", "generatedAt": "2026-11-01", "resolvedPaths": {"rfcPath": "RFC.md", "graphPath": "RFC-GRAPH.json", "dirsTreePath": "RFC-Dirs-Tree.json"}},
+      "phases": [
+        {
+          "id": 0,
+          "name": "P0",
+          "tickets": [
+            {"id": 1, "phaseId": 0, "title": "todo ticket", "status": "todo", "contracts": [{"id": "C001", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]},
+            {"id": 2, "phaseId": 0, "title": "made ticket", "status": "made", "created_at": "2026-11-01", "updated_at": "2026-11-01", "specPath": "specs/P0-2.md", "contracts": [{"id": "C002", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]},
+            {"id": 3, "phaseId": 0, "title": "planned ticket", "status": "planned", "created_at": "2026-11-01", "updated_at": "2026-11-01", "specPath": "specs/P0-3.md", "planTestCode": ["UT: planned"], "contracts": [{"id": "C003", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]},
+            {"id": 4, "phaseId": 0, "title": "done ticket", "status": "done", "created_at": "2026-11-01", "updated_at": "2026-11-02", "startedAt": "2026-11-02", "specPath": "specs/P0-4.md", "planTestCode": ["UT: done"], "changes": [{"before": "old", "after": "new", "description": "implemented"}], "contracts": [{"id": "C004", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]},
+            {"id": 5, "phaseId": 0, "title": "reviewed ticket", "status": "reviewed", "created_at": "2026-11-01", "updated_at": "2026-11-03", "startedAt": "2026-11-02", "completedAt": "2026-11-03", "specPath": "specs/P0-5.md", "planTestCode": ["UT: reviewed"], "changes": [{"before": "old", "after": "new", "description": "implemented and reviewed"}], "contracts": [{"id": "C005", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]}
+          ]
+        }
+      ]
+    },
+    "pkgs/delta/specs/P0-2.md": "# P0-2 spec\n",
+    "pkgs/delta/specs/P0-3.md": "# P0-3 spec\n",
+    "pkgs/delta/specs/P0-4.md": "# P0-4 spec\n",
+    "pkgs/delta/specs/P0-5.md": "# P0-5 spec\n",
+
+    "pkgs/epsilon/RFC-SEED.md": "# RFC Seed: epsilon\n",
+    "pkgs/epsilon/RFC.md": "# Epsilon RFC\n",
+    "pkgs/epsilon/Status.json": {"state": "DONE", "createdAt": "2026-11-01T05:00:00.000Z", "updatedAt": "2026-11-01T05:10:00.000Z", "completedAt": "2026-11-01T05:10:00.000Z", "reviewLoopCount": 0, "grillGeneration": 1},
+    "pkgs/epsilon/DesignTree.json": {"version": 1, "updatedAt": "2026-11-01T05:10:00.000Z", "nodes": [{"id": "Q1", "title": "done", "status": "resolved", "questions": [{"resolvedAt": "2026-11-01T05:05:00.000Z", "answer": "a"}], "children": []}], "questions": []},
+    "pkgs/epsilon/RFC-GRAPH.json": {"sourceFile": "RFC.md", "mainLanguage": "rust", "nodes": [{"id": "N0001", "title": "Epsilon one", "kind": "architecture", "summary": "s", "language": "rust", "slug": "epsilon_one", "headingRefs": [{"refId": "REF001", "heading": 1, "texts": ["Epsilon one"]}]}], "edges": []},
+    "pkgs/epsilon/RFC-GRAPHIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 6, "steps": {"0": "done", "1": "done", "2": "done", "3": "done", "4": "done", "5": "done"}, "generation": 1, "runs": 1, "runId": "1793600700000000000-8", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/epsilon/RFC-Dirs-Tree.json": {"schemaVersion": "1.0.0", "generatedAt": "2026-11-01T05:20:00.000Z", "sourceGraph": "RFC-GRAPH.json", "sourceFile": "RFC.md", "analysis": {"nodeCount": 1, "edgeCount": 0, "kindCounts": {}, "edgeTypeCounts": {}, "circularDependencies": []}, "trees": {"rust": {"name": "src", "type": "directory", "kind": "root", "children": [{"name": "impl.rs", "type": "file", "kind": "architecture", "mappedNodeIds": [{"nodeId": "N0001", "title": "Epsilon one"}]}]}}, "dependencyDirections": {"rust": []}, "warnings": []},
+    "pkgs/epsilon/RFC-BOUNDIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 4, "steps": {"0": "done", "1": "done", "2": "done", "3": "done"}, "generation": 1, "runs": 1, "runId": "1793600800000000000-9", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/epsilon/RFC-SPLIT-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": "6", "steps": {"0-1": "done", "0-2": "done", "1": "done", "2": "done", "3": "done", "4-1": "done", "4-2": "done", "5-1": "done", "5-2": "done", "5-3": "done", "6": "done"}, "generation": 1, "runs": 1, "runId": "1793600900000000000-10", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/epsilon/Tickets.json": {
+      "title": "epsilon tickets",
+      "round": 2,
+      "metadata": {"source": "RFC.md", "generatedAt": "2026-11-01", "resolvedPaths": {"rfcPath": "RFC.md", "graphPath": "RFC-GRAPH.json", "dirsTreePath": "RFC-Dirs-Tree.json"}},
+      "phases": [
+        {
+          "id": 0,
+          "name": "P0",
+          "tickets": [
+            {"id": 1, "phaseId": 0, "title": "reviewed with stale marker", "status": "reviewed", "completedAt": "2026-11-02", "changes": [{"before": "a", "after": "b", "description": "implemented"}], "contracts": [{"id": "C001", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]},
+            {"id": 2, "phaseId": 0, "title": "remanded after inspection", "status": "remanded", "completedAt": "2026-11-02", "foundOmissions": [{"evaluations": [{"criterion": "A", "passed": false, "reason": "missing test", "evidence": [{"file": "src/impl.rs", "line": 2}]}]}], "contracts": [{"id": "C002", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]}
+          ]
+        }
+      ]
+    },
+    "pkgs/epsilon/src/impl.rs": "pub fn implemented() -> i32 { 1 }\n// [::STUB::] P0-1: unfinished work -- Implement the remaining branch\n",
+    "pkgs/epsilon/Malfeasance.json": {
+      "version": 1,
+      "records": [
+        {"id": 1, "file": "src/impl.rs", "line": 2, "description": "[::STUB::] P0-1: unfinished work", "detected_at": "2026-11-01T06:00:00.000Z", "status": "open"},
+        {"id": 2, "file": "src/impl.rs", "line": 2, "description": "old crime", "detected_at": "2026-11-01T06:00:00.000Z", "status": "resolved", "resolved_at": "2026-11-02T06:00:00.000Z", "resolved_by_ticket": 1}
+      ]
+    },
+    "pkgs/epsilon/manifests/CONSOLIDATED-MANIFEST-20261101000000.json": [
+      {"sourceKey": "P0-1", "stubs": [{"file": "src/impl.rs", "line": 2, "content": "// [::STUB::] P0-1: unfinished work -- Implement the remaining branch"}]}
+    ],
+    "pkgs/epsilon/manifests/ROLLBACK-20261101000000.json": [{"file": "src/impl.rs", "line": 2, "content": "// [::STUB::] P0-1: unfinished work -- Implement the remaining branch"}],
+    "pkgs/epsilon/OMISSIONS-20261101010101.json": {
+      "title": "epsilon omissions",
+      "metadata": {"source": "RFC.md", "generatedAt": "2026-11-01"},
+      "phases": [
+        {
+          "id": 0,
+          "name": "P0",
+          "tickets": [
+            {
+              "id": 1,
+              "phaseId": 0,
+              "title": "rework clone",
+              "status": "todo",
+              "originalTicketKey": "P0-1",
+              "fromStub": false,
+              "stubs": [],
+              "forNextRound": true,
+              "foundOmissions": [{"evaluations": [{"criterion": "A", "passed": false, "reason": "missing test", "evidence": [{"file": "src/impl.rs", "line": 2}]}]}],
+              "contracts": [{"id": "C001", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]
+            }
+          ]
+        }
+      ]
+    },
+
+    "pkgs/zeta/RFC-SEED.md": "# RFC Seed: zeta\n",
+    "pkgs/zeta/RFC.md": "# Zeta RFC\n",
+    "pkgs/zeta/Status.json": {"state": "DONE", "createdAt": "2026-11-01T07:00:00.000Z", "updatedAt": "2026-11-01T07:10:00.000Z", "completedAt": "2026-11-01T07:10:00.000Z", "reviewLoopCount": 0, "grillGeneration": 1},
+    "pkgs/zeta/DesignTree.json": {"version": 1, "updatedAt": "2026-11-01T07:10:00.000Z", "nodes": [{"id": "Q1", "title": "done", "status": "resolved", "questions": [{"resolvedAt": "2026-11-01T07:05:00.000Z", "answer": "a"}], "children": []}], "questions": []},
+    "pkgs/zeta/RFC-GRAPH.json": {"sourceFile": "RFC.md", "mainLanguage": "rust", "nodes": [{"id": "N0001", "title": "Zeta one", "kind": "architecture", "summary": "s", "language": "rust", "slug": "zeta_one", "headingRefs": [{"refId": "REF001", "heading": 1, "texts": ["Zeta one"]}]}], "edges": []},
+    "pkgs/zeta/RFC-GRAPHIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 6, "steps": {"0": "done", "1": "done", "2": "done", "3": "done", "4": "done", "5": "done"}, "generation": 1, "runs": 1, "runId": "1793601000000000000-11", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/zeta/RFC-Dirs-Tree.json": {"schemaVersion": "1.0.0", "generatedAt": "2026-11-01T07:20:00.000Z", "sourceGraph": "RFC-GRAPH.json", "sourceFile": "RFC.md", "analysis": {"nodeCount": 1, "edgeCount": 0, "kindCounts": {}, "edgeTypeCounts": {}, "circularDependencies": []}, "trees": {"rust": {"name": "src", "type": "directory", "kind": "root", "children": [{"name": "lib.rs", "type": "file", "kind": "architecture", "mappedNodeIds": [{"nodeId": "N0001", "title": "Zeta one"}]}]}}, "dependencyDirections": {"rust": []}, "warnings": []},
+    "pkgs/zeta/RFC-BOUNDIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 4, "steps": {"0": "done", "1": "done", "2": "done", "3": "done"}, "generation": 1, "runs": 1, "runId": "1793601100000000000-12", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/zeta/RFC-SPLIT-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": "6", "steps": {"0-1": "done", "0-2": "done", "1": "done", "2": "done", "3": "done", "4-1": "done", "4-2": "done", "5-1": "done", "5-2": "done", "5-3": "done", "6": "done"}, "generation": 1, "runs": 1, "runId": "1793601200000000000-13", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/zeta/Tickets.json": {
+      "title": "zeta tickets",
+      "round": 1,
+      "metadata": {"source": "RFC.md", "generatedAt": "2026-11-01", "resolvedPaths": {"rfcPath": "RFC.md", "graphPath": "RFC-GRAPH.json", "dirsTreePath": "RFC-Dirs-Tree.json"}},
+      "phases": [{"id": 0, "name": "P0", "tickets": [{"id": 1, "phaseId": 0, "title": "zeta ticket", "status": "reviewed", "completedAt": "2026-11-02", "changes": [{"before": "a", "after": "b", "description": "implemented"}], "contracts": [{"id": "C001", "sourceEdge": "N0001→N0001", "precondition": "p", "postcondition": "q", "invariant": "r"}]}]}]
+    },
+    "pkgs/zeta/CRYSTALIZE-Status.json": {
+      "sourceFile": "RFC.md",
+      "graphFile": "RFC-GRAPH.json",
+      "currentStep": 4,
+      "steps": {"0": "done", "1": "done", "2": "done", "3": "done"},
+      "grill": {
+        "tocApproved": true,
+        "examplesApproved": true,
+        "toc": {"nodes": [{"id": "H1", "heading": "Usage", "level": 1, "confirmedContent": "usage", "status": "confirmed"}]},
+        "sections": [
+          {"id": "H1", "heading": "Usage", "state": "complete", "confirmedContent": "usage"},
+          {"id": "H2", "heading": "Errors", "state": "residue", "confirmedContent": "residue evidence"}
+        ]
+      }
+    },
+    "pkgs/zeta/README.md": "# zeta\n\n## Usage\n\nUsage.\n\n## Errors\n\n<::README-RESIDUE::>\n",
+    "pkgs/zeta/drills/Status.json": {"state": "GRILLING", "researchPath": "RFC.md", "rfcPath": "RFC.md", "rfcDir": ".", "reviewLoopCount": 1, "createdAt": "2026-11-02T00:00:00.000Z", "updatedAt": "2026-11-03T00:00:00.000Z", "currentStep": "1-5"},
+    "pkgs/zeta/drills/DesignTree.json": {
+      "version": 1,
+      "updatedAt": "2026-11-03T00:00:00.000Z",
+      "nodes": [
+        {"id": "Q1", "title": "resolved drill question", "status": "resolved", "questions": [{"resolvedAt": "2026-11-02T12:00:00.000Z", "answer": "a"}], "children": []},
+        {"id": "Q2", "title": "open drill question", "status": "open", "questions": [], "children": []}
+      ],
+      "questions": []
+    },
+    "pkgs/zeta/drills/CheckList.md": "# RFC 要件チェックリスト\n",
+    "pkgs/zeta/drills/baseline.json": {"capturedAt": "2026-11-02T00:00:00.000Z"},
+
+    "pkgs/eta/RFC-SEED.md": "# RFC Seed: eta\n",
+    "pkgs/eta/RFC.md": "# Eta RFC\n",
+    "pkgs/eta/Status.json": {"state": "DONE", "createdAt": "2026-11-01T08:00:00.000Z", "updatedAt": "2026-11-01T08:10:00.000Z", "completedAt": "2026-11-01T08:10:00.000Z", "reviewLoopCount": 0, "grillGeneration": 1},
+    "pkgs/eta/DesignTree.json": {"version": 1, "updatedAt": "2026-11-01T08:10:00.000Z", "nodes": [{"id": "Q1", "title": "done", "status": "resolved", "questions": [{"resolvedAt": "2026-11-01T08:05:00.000Z", "answer": "a"}], "children": []}], "questions": []},
+    "pkgs/eta/RFC-GRAPH.json": {"sourceFile": "RFC.md", "mainLanguage": "rust", "nodes": [{"id": "N0001", "title": "Eta one", "kind": "architecture", "summary": "s", "language": "rust", "slug": "eta_one", "headingRefs": [{"refId": "REF001", "heading": 1, "texts": ["Eta one"]}]}], "edges": []},
+    "pkgs/eta/RFC-GRAPHIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 6, "steps": {"0": "done", "1": "done", "2": "done", "3": "done", "4": "done", "5": "done"}, "generation": 1, "runs": 1, "runId": "1793601300000000000-14", "lastOutputDigest": "0000000000000000000000000000000000000000000000000000000000000000", "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/eta/RFC-Dirs-Tree.json": {"schemaVersion": "1.0.0", "generatedAt": "2026-11-01T08:20:00.000Z", "sourceGraph": "RFC-GRAPH.json", "sourceFile": "RFC.md", "analysis": {"nodeCount": 1, "edgeCount": 0, "kindCounts": {}, "edgeTypeCounts": {}, "circularDependencies": []}, "trees": {"rust": {"name": "src", "type": "directory", "kind": "root", "children": [{"name": "lib.rs", "type": "file", "kind": "architecture", "mappedNodeIds": [{"nodeId": "N0001", "title": "Eta one"}]}]}}, "dependencyDirections": {"rust": []}, "warnings": []},
+    "pkgs/eta/RFC-BOUNDIFY-Status.json": {"sourceFile": "RFC.md", "graphFile": "RFC-GRAPH.json", "currentStep": 4, "steps": {"0": "done", "1": "done", "2": "done", "3": "done"}, "generation": 1, "runs": 1, "runId": "1793601400000000000-15", "lastOutputDigest": null, "coverage": {"units": 0, "steps": 0, "boundaries": 0}},
+    "pkgs/eta/RFC-GRAPH.json.delta.json": {"note": "decoy delta"},
+    "pkgs/eta/Tickets.json.bak-20260101000000": {"note": "decoy backup"},
+    "pkgs/eta/archive/RFC-GRAPH.json": {"note": "decoy archived graph"}
+  }
+}

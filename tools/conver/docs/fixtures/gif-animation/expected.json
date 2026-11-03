@@ -1,0 +1,350 @@
+{
+  "fixtures": "synthetic",
+  "note": "Expected outputs are for the parser described in docs/GIF-ANIMATION-INFO-SUPPLEMENT.md. 'state' uses not_started|running|complete|failed|insufficient_evidence|stale|undeterminable. Time precision is stated per event. Synthetic digests do not match a real sha256; freshness conclusions that depend on recomputation are recorded as warnings or undeterminable.",
+  "cases": [
+    {
+      "id": "case-01",
+      "bundle": "workspace-min.json",
+      "description": "workspacify complete, no later artifacts; unowned legacy root Tickets.json",
+      "detectedPackages": ["pkg-0001:pkg-only"],
+      "adoptedArtifacts": [
+        "WORKSPACIFY-TREE-MANIFEST.json",
+        "WORKSPACIFY-ALLOCATE-MANIFEST.json",
+        "spec.md",
+        "pkg-only/RFC-SEED.md"
+      ],
+      "ignoredArtifacts": [
+        {"path": "Tickets.json", "reason": "no package path '.' is declared; root Tickets is unowned/legacy"}
+      ],
+      "stages": [
+        {"package": "pkg-0001", "stage": "educe", "state": "not_started", "evidence": "no root *-sequences.json and no educe-sequences/status.json"},
+        {"package": "pkg-0001", "stage": "explain", "state": "not_started", "evidence": "no INFO-RFC-SEED.md / EXPLAIN-RFC-SEED.md"},
+        {"package": "pkg-0001", "stage": "grill", "state": "not_started", "evidence": "no RFC.md / DesignTree.json / Status.json"},
+        {"package": "pkg-0001", "stage": "smooth", "state": "not_started", "evidence": "no smooth-sequences/status.json"},
+        {"package": "pkg-0001", "stage": "graphify", "state": "not_started", "evidence": "no graph and no graph status"},
+        {"package": "pkg-0001", "stage": "boundify", "state": "not_started", "evidence": "no Dirs-Tree"},
+        {"package": "pkg-0001", "stage": "split", "state": "not_started", "evidence": "no package Tickets.json and no split status"},
+        {"package": "pkg-0001", "stage": "make", "state": "not_started", "evidence": "no tickets"},
+        {"package": "pkg-0001", "stage": "plan", "state": "not_started", "evidence": "no tickets"},
+        {"package": "pkg-0001", "stage": "start", "state": "not_started", "evidence": "no tickets"},
+        {"package": "pkg-0001", "stage": "review", "state": "not_started", "evidence": "no tickets"},
+        {"package": "pkg-0001", "stage": "resolve", "state": "undeterminable", "evidence": "no source scan requested; no Malfeasance.json"},
+        {"package": "pkg-0001", "stage": "consolidate", "state": "not_started", "evidence": "no manifests/ and no stubs"},
+        {"package": "pkg-0001", "stage": "find", "state": "not_started", "evidence": "no OMISSIONS file"},
+        {"package": "pkg-0001", "stage": "crystalize", "state": "not_started", "evidence": "no README/CRYSTALIZE status"},
+        {"package": "pkg-0001", "stage": "drill", "state": "not_started", "evidence": "no drills/"}
+      ],
+      "counts": {
+        "packages": 1,
+        "seed_entries": 1,
+        "legacy_root_tickets_ignored": 1
+      },
+      "events": [
+        {"time": "2026-11-01T00:00:00.000Z", "precision": "ISO millisecond", "source": "tree.run.generated_at"}
+      ],
+      "undeterminable": [
+        "allocate run time (no timestamp; mtime is materialization time)",
+        "every stage after workspacify (no artifacts)"
+      ],
+      "warnings": [
+        "root Tickets.json ignored: no package path '.'"
+      ]
+    },
+    {
+      "id": "case-02",
+      "bundle": "workspace-mixed.json",
+      "description": "packages at explain, graphify, boundify",
+      "detectedPackages": [
+        "pkg-0000:.",
+        "pkg-0001:pkgs/alpha",
+        "pkg-0002:pkgs/beta",
+        "pkg-0003:pkgs/gamma",
+        "pkg-0004:pkgs/delta",
+        "pkg-0005:pkgs/epsilon",
+        "pkg-0006:pkgs/zeta",
+        "pkg-0007:pkgs/eta"
+      ],
+      "adoptedArtifacts": [
+        "WORKSPACIFY-TREE-MANIFEST.json",
+        "WORKSPACIFY-ALLOCATE-MANIFEST.json",
+        "spec-sequences.json",
+        "educe-sequences/status.json",
+        "educe-sequences/demand.json",
+        "smooth-sequences/status.json",
+        "smooth-sequences/COMPLETION-CERTIFICATE.json",
+        "SMOOTH-VERDICT.json",
+        "pkgs/alpha/INFO-RFC-SEED.md",
+        "pkgs/alpha/EXPLAIN-RFC-SEED.md",
+        "pkgs/beta/RFC-GRAPH.json",
+        "pkgs/beta/RFC-GRAPHIFY-Status.json",
+        "pkgs/gamma/RFC-Dirs-Tree.json",
+        "pkgs/gamma/RFC-BOUNDIFY-Status.json"
+      ],
+      "ignoredArtifacts": [
+        {"path": "pkgs/beta/RFC-GRAPH.json.delta.json", "reason": "delta is not a graph"},
+        {"path": "pkgs/beta/archive/RFC-GRAPH.json", "reason": "archive is history, not current"},
+        {"path": "pkgs/beta/Tickets.json.bak-20260101000000", "reason": "backup"},
+        {"path": "pkgs/eta/RFC-GRAPH.json.delta.json", "reason": "delta is not a graph"},
+        {"path": "pkgs/eta/Tickets.json.bak-20260101000000", "reason": "backup"},
+        {"path": "pkgs/eta/archive/RFC-GRAPH.json", "reason": "archive is history, not current"}
+      ],
+      "stages": [
+        {"package": "pkg-0001", "stage": "explain", "state": "running", "evidence": "INFO + EXPLAIN exist; no RFC.md, so completion is undeterminable"},
+        {"package": "pkg-0002", "stage": "explain", "state": "complete", "evidence": "heuristic: RFC.md + DesignTree exist; exact answers gate not persisted"},
+        {"package": "pkg-0002", "stage": "grill", "state": "running", "evidence": "Status.state=GRILLING; DesignTree has 1 open node"},
+        {"package": "pkg-0002", "stage": "graphify", "state": "running", "evidence": "RFC-GRAPHIFY-Status: steps 0-2 done, step 3 running, currentStep 3"},
+        {"package": "pkg-0003", "stage": "grill", "state": "complete", "evidence": "Status.state=DONE, all nodes resolved"},
+        {"package": "pkg-0003", "stage": "graphify", "state": "complete", "evidence": "steps 0-5 done, currentStep 6, graph exists"},
+        {"package": "pkg-0003", "stage": "boundify", "state": "complete", "evidence": "steps 0-3 done, currentStep 4, dirs-tree exists"},
+        {"package": "pkg-0003", "stage": "split", "state": "not_started", "evidence": "no package Tickets.json / split status"},
+        {"package": "pkg-0004", "stage": "split", "state": "complete", "evidence": "step '6' done and Tickets.json exists"},
+        {"package": "pkg-0004", "stage": "make", "state": "running", "evidence": "4 of 5 tickets rank >= made"},
+        {"package": "pkg-0004", "stage": "plan", "state": "running", "evidence": "3 of 5 tickets rank >= planned"},
+        {"package": "pkg-0004", "stage": "start", "state": "running", "evidence": "2 of 5 tickets carry startedAt"},
+        {"package": "pkg-0004", "stage": "review", "state": "running", "evidence": "1 of 5 tickets is reviewed"},
+        {"package": "pkg-0005", "stage": "resolve", "state": "running", "evidence": "Malfeasance has 1 open and 1 resolved crime; one strict marker remains"},
+        {"package": "pkg-0005", "stage": "consolidate", "state": "running", "evidence": "CONSOLIDATED-MANIFEST exists"},
+        {"package": "pkg-0005", "stage": "find", "state": "running", "evidence": "OMISSIONS-20261101010101.json exists; 1 ticket remanded"},
+        {"package": "pkg-0006", "stage": "crystalize", "state": "complete", "evidence": "currentStep 4; 1 complete and 1 residue section; examplesApproved=true"},
+        {"package": "pkg-0006", "stage": "drill", "state": "running", "evidence": "drills/Status currentStep 1-5, state GRILLING; 1 open node"},
+        {"package": "pkg-0007", "stage": "graphify", "state": "stale", "evidence": "lastOutputDigest is 64 zeros; recomputed graph hash differs"},
+        {"package": "pkg-0007", "stage": "boundify", "state": "complete", "evidence": "steps 0-3 done, currentStep 4"},
+        {"package": "pkg-0000", "stage": "split", "state": "complete", "evidence": "root package '.' declared; root Tickets.json adopted"},
+        {"package": "pkg-0000", "stage": "review", "state": "running", "evidence": "1 reviewed ticket"}
+      ],
+      "counts": {
+        "packages": 8,
+        "seed_entries": 8,
+        "educe_phases_done": 18,
+        "smooth_obligations_total": 1,
+        "smooth_obligations_closed": 1,
+        "delta_tickets": 5,
+        "delta_status_todo": 1,
+        "delta_status_made": 1,
+        "delta_status_planned": 1,
+        "delta_status_done": 1,
+        "delta_status_reviewed": 1,
+        "epsilon_strict_markers": 1,
+        "epsilon_crimes_open": 1,
+        "epsilon_crimes_resolved": 1,
+        "epsilon_omission_clones": 1,
+        "epsilon_consolidated_units": 1,
+        "zeta_sections_complete": 1,
+        "zeta_sections_residue": 1,
+        "zeta_drill_nodes_resolved": 1,
+        "zeta_drill_nodes_open": 1
+      },
+      "events": [
+        {"time": "2026-11-01T00:00:00.000Z", "precision": "ISO millisecond", "source": "tree.run.generated_at"},
+        {"time": "2026-11-01T00:10:00.000Z", "precision": "ISO millisecond", "source": "educe status.generationStartedAt"},
+        {"time": "2026-11-01T00:20:00.000Z", "precision": "ISO millisecond", "source": "smooth status.measuredAt"},
+        {"time": "epoch seconds from 1793600100000000000", "precision": "second", "source": "pkgs/beta graphify runId"},
+        {"time": "2026-11-01", "precision": "day", "source": "delta ticket created_at/updated_at"},
+        {"time": "2026-11-02", "precision": "day", "source": "delta startedAt"},
+        {"time": "2026-11-03", "precision": "day", "source": "delta completedAt"},
+        {"time": "2026-11-01T06:00:00.000Z", "precision": "ISO millisecond", "source": "epsilon Malfeasance detected_at"},
+        {"time": "2026-11-02T06:00:00.000Z", "precision": "ISO millisecond", "source": "epsilon Malfeasance resolved_at"},
+        {"time": "2026-11-01T01:01:01", "precision": "second", "source": "OMISSIONS filename timestamp"},
+        {"time": "2026-11-02T00:00:00.000Z", "precision": "ISO millisecond", "source": "zeta drills/Status.createdAt"},
+        {"time": "2026-11-03T00:00:00.000Z", "precision": "ISO millisecond", "source": "zeta drills/Status.updatedAt"}
+      ],
+      "undeterminable": [
+        "explain completion for every package (answers gate not persisted)",
+        "open/bound/settled counts without reimplementing the ledger",
+        "which reviewed tickets passed find inspection",
+        "whether resolve or consolidate ran as commands",
+        "crystalize run time (mtime only)",
+        "prior drill sessions",
+        "smooth digest freshness (synthetic digests do not recompute)"
+      ],
+      "warnings": [
+        "beta: graph exists while grill Status.state is GRILLING; downstream presence is not proof of current upstream validity",
+        "eta: graphify lastOutputDigest mismatch -> stale evidence",
+        "smooth inputDigest is synthetic and does not match a recomputed design snapshot",
+        "alpha: explain has INFO+EXPLAIN but no RFC.md",
+        "epsilon: the remaining strict marker references a reviewed ticket; classify as resolvedCandidate, not automatically unresolved",
+        "root package '.': root Tickets.json is legitimate and adopted",
+        "all .delta/.bak/archive decoys ignored"
+      ]
+    },
+    {
+      "id": "case-03",
+      "bundle": "workspace-mixed.json",
+      "description": "ticket lifecycle differences in pkgs/delta",
+      "detectedPackages": ["pkg-0004:pkgs/delta"],
+      "adoptedArtifacts": ["pkgs/delta/Tickets.json", "pkgs/delta/RFC-SPLIT-Status.json", "pkgs/delta/specs/P0-2.md", "pkgs/delta/specs/P0-3.md", "pkgs/delta/specs/P0-4.md", "pkgs/delta/specs/P0-5.md"],
+      "ignoredArtifacts": [],
+      "stages": [
+        {"package": "pkg-0004", "stage": "make", "state": "running", "evidence": "ticket statuses made/planned/done/reviewed = 4 of 5"},
+        {"package": "pkg-0004", "stage": "plan", "state": "running", "evidence": "planned/done/reviewed = 3 of 5"},
+        {"package": "pkg-0004", "stage": "start", "state": "running", "evidence": "startedAt present on done/reviewed = 2 of 5"},
+        {"package": "pkg-0004", "stage": "review", "state": "running", "evidence": "reviewed = 1 of 5"}
+      ],
+      "counts": {
+        "tickets": 5,
+        "todo": 1,
+        "made": 1,
+        "planned": 1,
+        "done": 1,
+        "reviewed": 1,
+        "with_changes": 2,
+        "with_spec": 4
+      },
+      "events": [
+        {"time": "2026-11-01", "precision": "day", "source": "created_at/updated_at"},
+        {"time": "2026-11-02", "precision": "day", "source": "startedAt"},
+        {"time": "2026-11-03", "precision": "day", "source": "completedAt"}
+      ],
+      "undeterminable": [
+        "exact make/plan/start/review times (date-only)",
+        "Gate P result for plan (not persisted)",
+        "which change belongs to which run (changes have no id/time)"
+      ],
+      "warnings": [
+        "changes[] is AI prose with no dedup key; repeated start could append duplicates"
+      ]
+    },
+    {
+      "id": "case-04",
+      "bundle": "workspace-mixed.json",
+      "description": "stubs, crimes, omissions, consolidation in pkgs/epsilon",
+      "detectedPackages": ["pkg-0005:pkgs/epsilon"],
+      "adoptedArtifacts": ["pkgs/epsilon/Tickets.json", "pkgs/epsilon/Malfeasance.json", "pkgs/epsilon/manifests/CONSOLIDATED-MANIFEST-20261101000000.json", "pkgs/epsilon/manifests/ROLLBACK-20261101000000.json", "pkgs/epsilon/OMISSIONS-20261101010101.json", "pkgs/epsilon/src/impl.rs"],
+      "ignoredArtifacts": [],
+      "stages": [
+        {"package": "pkg-0005", "stage": "resolve", "state": "running", "evidence": "1 open crime, 1 resolved crime, 1 strict marker remaining"},
+        {"package": "pkg-0005", "stage": "consolidate", "state": "running", "evidence": "manifest and rollback exist"},
+        {"package": "pkg-0005", "stage": "find", "state": "running", "evidence": "OMISSIONS file exists; 1 remanded ticket"},
+        {"package": "pkg-0005", "stage": "make", "state": "undeterminable", "evidence": "both tickets are reviewed/remanded with no created_at/specPath"}
+      ],
+      "counts": {
+        "strict_markers": 1,
+        "generated_markers": 0,
+        "crimes_open": 1,
+        "crimes_resolved": 1,
+        "consolidated_units": 1,
+        "manifest_stubs": 1,
+        "omission_clones": 1,
+        "remanded_tickets": 1,
+        "found_omission_evaluations": 1
+      },
+      "events": [
+        {"time": "2026-11-01T06:00:00.000Z", "precision": "ISO millisecond", "source": "Malfeasance.detected_at"},
+        {"time": "2026-11-02T06:00:00.000Z", "precision": "ISO millisecond", "source": "Malfeasance.resolved_at"},
+        {"time": "2026-11-01T00:00:00", "precision": "second", "source": "manifest filename"},
+        {"time": "2026-11-01T01:01:01", "precision": "second", "source": "OMISSIONS filename"}
+      ],
+      "undeterminable": [
+        "whether resolve ran as a command",
+        "whether consolidation ran or the manifest is left over",
+        "which reviewed tickets passed find inspection",
+        "a stable omission id (none exists)",
+        "whether the remaining marker's defect is actually resolved in code"
+      ],
+      "warnings": [
+        "the strict marker references a reviewed ticket: resolvedCandidate, not automatically unresolved",
+        "generated `MUST implement NODE_ID=` markers are not strict stubs; none in this package",
+        "foundOmissions entries have no id; the clone is linked by originalTicketKey snapshot"
+      ]
+    },
+    {
+      "id": "case-05",
+      "bundle": "workspace-mixed.json",
+      "description": "crystalize residue/complete and drill mid-session in pkgs/zeta",
+      "detectedPackages": ["pkg-0006:pkgs/zeta"],
+      "adoptedArtifacts": ["pkgs/zeta/CRYSTALIZE-Status.json", "pkgs/zeta/README.md", "pkgs/zeta/drills/Status.json", "pkgs/zeta/drills/DesignTree.json", "pkgs/zeta/drills/CheckList.md", "pkgs/zeta/drills/baseline.json"],
+      "ignoredArtifacts": [],
+      "stages": [
+        {"package": "pkg-0006", "stage": "crystalize", "state": "complete", "evidence": "steps 0-3 done, currentStep 4; tocApproved/examplesApproved true; 1 complete + 1 residue section"},
+        {"package": "pkg-0006", "stage": "drill", "state": "running", "evidence": "drills/Status currentStep 1-5, state GRILLING; 1 resolved and 1 open node"}
+      ],
+      "counts": {
+        "crystalize_steps_done": 4,
+        "toc_nodes_confirmed": 1,
+        "sections_complete": 1,
+        "sections_residue": 1,
+        "drill_nodes_resolved": 1,
+        "drill_nodes_open": 1,
+        "drill_step": 5
+      },
+      "events": [
+        {"time": "2026-11-02T00:00:00.000Z", "precision": "ISO millisecond", "source": "drills/Status.createdAt"},
+        {"time": "2026-11-03T00:00:00.000Z", "precision": "ISO millisecond", "source": "drills/Status.updatedAt"},
+        {"time": "2026-11-02T12:00:00.000Z", "precision": "ISO millisecond", "source": "drills DesignTree question.resolvedAt"}
+      ],
+      "undeterminable": [
+        "crystalize run time (no timestamp; mtime only)",
+        "crystalize run count",
+        "prior drill sessions",
+        "exact drill step times"
+      ],
+      "warnings": [
+        "crystalize has a residue section; completion is not the same as all sections complete",
+        "drill is mid-session (state GRILLING), not DONE"
+      ]
+    },
+    {
+      "id": "case-06",
+      "bundle": "workspace-mixed.json",
+      "description": "root package '.' vs unowned legacy root Tickets",
+      "detectedPackages": ["pkg-0000:."],
+      "adoptedArtifacts": ["RFC-SEED.md", "RFC.md", "RFC-GRAPH.json", "RFC-Dirs-Tree.json", "RFC-SPLIT-Status.json", "Tickets.json"],
+      "ignoredArtifacts": [],
+      "stages": [
+        {"package": "pkg-0000", "stage": "split", "state": "complete", "evidence": "root package '.' declared; split step 6 done"},
+        {"package": "pkg-0000", "stage": "review", "state": "running", "evidence": "1 reviewed root ticket"}
+      ],
+      "counts": {
+        "root_package_declared": 1,
+        "root_tickets": 1,
+        "reviewed_root_tickets": 1
+      },
+      "events": [
+        {"time": "1793600000000000000", "precision": "epoch seconds prefix", "source": "root split runId"},
+        {"time": "2026-11-02", "precision": "day", "source": "root ticket completedAt"}
+      ],
+      "undeterminable": [
+        "whether the root package's artifacts would be regenerated by the current allocator (G2.4 refuses a non-empty root plan)"
+      ],
+      "warnings": [
+        "contrast with workspace-min: there the root Tickets.json is ignored because no '.' package is declared"
+      ]
+    },
+    {
+      "id": "case-07",
+      "bundle": "workspace-mixed.json",
+      "description": "stale evidence, regenerated artifact, decoys",
+      "detectedPackages": ["pkg-0002:pkgs/beta", "pkg-0007:pkgs/eta"],
+      "adoptedArtifacts": ["pkgs/beta/RFC-GRAPH.json", "pkgs/beta/RFC-GRAPHIFY-Status.json", "pkgs/eta/RFC-GRAPH.json", "pkgs/eta/RFC-GRAPHIFY-Status.json", "pkgs/eta/RFC-Dirs-Tree.json", "pkgs/eta/RFC-BOUNDIFY-Status.json"],
+      "ignoredArtifacts": [
+        {"path": "pkgs/beta/RFC-GRAPH.json.delta.json", "reason": "delta"},
+        {"path": "pkgs/beta/archive/RFC-GRAPH.json", "reason": "archive"},
+        {"path": "pkgs/beta/Tickets.json.bak-20260101000000", "reason": "backup"},
+        {"path": "pkgs/eta/RFC-GRAPH.json.delta.json", "reason": "delta"},
+        {"path": "pkgs/eta/archive/RFC-GRAPH.json", "reason": "archive"},
+        {"path": "pkgs/eta/Tickets.json.bak-20260101000000", "reason": "backup"}
+      ],
+      "stages": [
+        {"package": "pkg-0002", "stage": "graphify", "state": "running", "evidence": "step 3 running; partial graph exists"},
+        {"package": "pkg-0007", "stage": "graphify", "state": "stale", "evidence": "sha256(graph) != lastOutputDigest (64 zeros)"},
+        {"package": "pkg-0007", "stage": "boundify", "state": "complete", "evidence": "steps 0-3 done; no lastOutputDigest for dirs-tree"}
+      ],
+      "counts": {
+        "decoy_files_ignored": 6,
+        "stale_packages": 1
+      },
+      "events": [
+        {"time": "1793600100000000000", "precision": "epoch seconds prefix", "source": "beta graphify runId"},
+        {"time": "1793601300000000000", "precision": "epoch seconds prefix", "source": "eta graphify runId"}
+      ],
+      "undeterminable": [
+        "when the eta graph was modified after its status was written (mtime only)",
+        "whether the beta partial graph is usable (status says step 3 running)"
+      ],
+      "warnings": [
+        "eta graphify is stale by digest; do not treat it as a completed current graph",
+        "delta/bak/archive files are ignored for current state"
+      ]
+    }
+  ]
+}

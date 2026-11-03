@@ -1120,6 +1120,24 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 
 ※ 次の周のラウンドが必要と判断したら、上記 8 以降を繰り返す。
 
+## Progress GIF
+
+`node .claude/scripts/conver/draw-progress-gif.js -t <workspace>` writes a self-contained
+HTML viewer under `<workspace>/progress-gif/YYYYMMDDhhmmss.html` and opens it. The browser
+Canvas renders the 16-stage, five-loop board and downloads `YYYYMMDDhhmmss.gif`.
+
+- The only execution gate is that `WORKSPACIFY-TREE-MANIFEST.json` and
+  `WORKSPACIFY-ALLOCATE-MANIFEST.json` exist and are readable JSON. Missing later artifacts
+  are progress zero, not an error.
+- Ticket growth is reconstructed from `Tickets-<ts>`, `OMISSIONS-<ts>`, consolidation
+  manifests and drill rounds. The increase is drawn at its recovered stage and time.
+- Circle area is the package's contract-obligation count; inner fill is the reviewed
+  obligation ratio; the ring is the 16-stage loop progress.
+- There is no server. The browser downloads the GIF; Node does not write it.
+- 300MB is a ceiling for a mature workspace, not a target. `--frames`, `--fps`, `--scale`
+  and `--max-bytes` bound the output.
+- Noto Sans JP is bundled under the SIL Open Font License 1.1.
+
 ## Appendix
 - skills や plugin は、完全に内容を理解しているもの以外は絶対に入れるな
 - context-mode だけは予め入れておけ

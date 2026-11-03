@@ -1,0 +1,88 @@
+{
+  "description": "Synthetic fixture bundle for case 1: a workspacify-complete workspace with no later artifacts. Materialize each files[] entry under root; object values are JSON, string values are raw text.",
+  "synthetic": true,
+  "root": "workspace-min",
+  "files": {
+    "WORKSPACIFY-TREE-MANIFEST.json": {
+      "artifact_kind": "workspacify-tree-manifest",
+      "schema_version": "1.0.0",
+      "status": "COMPLETE",
+      "run": {"generated_at": "2026-11-01T00:00:00.000Z"},
+      "input": {
+        "spec_path": "spec.md",
+        "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_lines": 3
+      },
+      "workspace": {
+        "packages": [
+          {
+            "id": "pkg-0001",
+            "name": "only",
+            "path": "pkg-only",
+            "layer": "foundation",
+            "kind": "production-library",
+            "seed_required": true
+          }
+        ]
+      },
+      "integrity": {
+        "manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    "WORKSPACIFY-ALLOCATE-MANIFEST.json": {
+      "artifact_kind": "workspacify-allocate-manifest",
+      "schema_version": "1.0.0",
+      "status": "COMPLETE",
+      "completion_decision": "COMPLETE",
+      "semantic_review": {"status": "APPROVED"},
+      "run": {"workspace_root": ".", "planned_directory_count": 1},
+      "input_tree_manifest": {
+        "path": "WORKSPACIFY-TREE-MANIFEST.json",
+        "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "spec": {
+          "path": "spec.md",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "seed_index": [
+        {
+          "package": "pkg-0001",
+          "path": "pkg-only/RFC-SEED.md",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ],
+      "allocation": {"package_count": 1, "seed_count": 1, "parsed_package_count": 1},
+      "implementation_order": {"serial": ["pkg-0001"], "levels": [["pkg-0001"]]}
+    },
+    "spec.md": "# Fixture spec\n\nOne package.\n",
+    "pkg-only/RFC-SEED.md": "# RFC Seed: only\n\nSynthetic seed for pkg-0001.\n",
+    "Tickets.json": {
+      "title": "legacy aggregate",
+      "round": 1,
+      "metadata": {"source": "legacy-spec.md", "generatedAt": "2026-09-11"},
+      "phases": [
+        {
+          "id": 0,
+          "name": "P0",
+          "tickets": [
+            {
+              "id": 1,
+              "phaseId": 0,
+              "title": "legacy reviewed ticket",
+              "status": "reviewed",
+              "contracts": [
+                {
+                  "id": "C001",
+                  "sourceEdge": "legacy",
+                  "precondition": "legacy precondition",
+                  "postcondition": "legacy postcondition",
+                  "invariant": "legacy invariant"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
