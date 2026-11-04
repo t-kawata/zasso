@@ -87,10 +87,61 @@ function derivePackagePaths(ticketsJsonPath) {
   };
 }
 
+/**
+ * The flags whose value is a separate argument. A positional reader must skip that value,
+ * or a path such as `--graph /tmp/RFC-GRAPH.json` would be mistaken for Tickets.json.
+ */
+const VALUE_FLAGS = new Set(["--graph", "--view", "--ledger", "--dirs-tree", "--map", "--artifact"]);
+
+/**
+ * The first argument that is not a flag and is not a flag's value.
+ *
+ * @param {string[]} argv
+ * @returns {string|null}
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function firstPositional(argv) {
+  for (let index = 0; index < argv.length; index++) {
+    const entry = argv[index];
+    if (entry.startsWith("--")) {
+      if (!entry.includes("=") && VALUE_FLAGS.has(entry)) index++;
+      continue;
+    }
+    return entry;
+  }
+  return null;
+}
+
+/**
+ * Resolve the two things the gate needs from its command line.
+ *
+ * The pipeline calls the gate with no argument, so the Tickets.json is the canonical one
+ * beside the working directory and nothing on the line names it. The material reader derives
+ * the graph, the Dirs-Tree, the view and the root sidecar from the Tickets.json it is given,
+ * so in the no-argument shape it has to be handed the resolved path: a caller that omitted it
+ * ran the gate without the sidecar and reported MISSING_SIDECAR for a sidecar that exists.
+ *
+ * @param {string[]} argv — the arguments after the script name
+ * @param {string|null} fallbackTicketsPath — the canonical Tickets.json resolved from the cwd
+ * @returns {{ticketsPath: string|null, materialArgv: string[]}}
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function resolveInvocation(argv, fallbackTicketsPath = null) {
+  const entries = (Array.isArray(argv) ? argv : []).filter((entry) => typeof entry === "string");
+  const explicitTicketsPath = firstPositional(entries);
+  if (explicitTicketsPath !== null) {
+    return { ticketsPath: explicitTicketsPath, materialArgv: entries };
+  }
+  return {
+    ticketsPath: fallbackTicketsPath,
+    materialArgv: fallbackTicketsPath === null ? entries : [fallbackTicketsPath, ...entries],
+  };
+}
+
 /** The unit material the CLI supplied, or derived from the Tickets.json beside it. */
-// [::TICKET::] PX-306, PX-307, PX-309, PX-312, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-307|PX-309|PX-312|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-307, PX-309, PX-312, PX-313, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-307|PX-309|PX-312|PX-313|PX-356) --for-spec --no-implementation-order`.
 function readUnitMaterial(argv) {
-  const ticketsJsonPath = argv.find((entry) => !entry.startsWith("--")) ?? null;
+  const ticketsJsonPath = firstPositional(argv);
   const derived = ticketsJsonPath === null ? {} : derivePackagePaths(ticketsJsonPath);
   const graphPath = argumentFor(argv, "graph") ?? derived.graphPath ?? null;
   const viewPath = argumentFor(argv, "view") ?? derived.viewPath ?? null;
@@ -414,9 +465,10 @@ function formatReport(report) {
 // Main Entry Point
 // ============================================================
 
-// [::TICKET::] PX-306, PX-308, PX-314, PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-308|PX-314|PX-334) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-308, PX-314, PX-334, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-308|PX-314|PX-334|PX-356) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  let ticketsJsonPath = argv[2] ?? null;
+  const explicitTicketsPath = firstPositional(argv);
+  let ticketsJsonPath = explicitTicketsPath;
 
   if (!ticketsJsonPath) {
     ticketsJsonPath = resolveTicketsPath({ cwd: process.cwd() });
@@ -433,7 +485,7 @@ function main(argv = process.argv.slice(2)) {
     process.exit(EXIT_FAILURE);
   }
 
-  const material = readUnitMaterial(argv.slice(2));
+  const material = readUnitMaterial(resolveInvocation(argv, ticketsJsonPath).materialArgv);
   const workspaceManifest = findAllocateManifest(path.dirname(path.resolve(ticketsJsonPath)));
   if (workspaceManifest !== null && material.artifact === undefined) {
     console.error('[ERROR] MISSING_SIDECAR: the workspace has an allocate manifest, and the root *-sequences.json is missing or unreadable');
@@ -518,5 +570,6 @@ module.exports = {
   verifyDistributionDigests,
   derivePackagePaths,
   readUnitMaterial,
+  resolveInvocation,
   viewCarriesUnits,
 };

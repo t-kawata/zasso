@@ -30,7 +30,7 @@ const path = require("path");
 const { bulkAddTickets } = require("./bulk-add-tickets.js");
 const { buildNodeToFileMap } = require("../rfc-graph/validate-phasify.js");
 const { isUnitId, writeUnitIdsToTicket } = require("../rfc-graph/lib/unit-ids.mjs");
-const { ticketIdentity } = require("./lib/ticket-identity.js");
+const { ticketIdentity, ticketIdentityOf } = require("./lib/ticket-identity.js");
 const {
   WORKLOAD_CODES,
   parseWorkBudget,
@@ -72,6 +72,15 @@ const DEFAULT_WORK_BUDGET_PATH = path.join(__dirname, 'ticket-work-budget.json')
 
 /** The phase-local view the package exposes beside Tickets.json. */
 const VIEW_FILE_NAME = 'SEQUENCES.json';
+
+/**
+ * Marks a unit whose implementer belongs to a phase already present in Tickets.json.
+ *
+ * A symbol rather than a ticket id: no numeric id can equal it, so the ownership comparison
+ * keeps treating the unit as the earlier phase's and the id is never mistaken for this
+ * phase's ticket.
+ */
+const PRIOR_PHASE_OWNER = Symbol('prior-phase-owner');
 
 // ============================================================
 // Auto-resolve default_files
@@ -504,6 +513,37 @@ function implementingTicketFor(tickets, operationId) {
 }
 
 /**
+ * The operation units an earlier phase already implements.
+ *
+ * Phase order is document order: the split adds one phase at a time, and a phase appended
+ * later must not be read as a prerequisite of an earlier one. The value is the implementing
+ * ticket's durable key because the numeric id is phase-local.
+ *
+ * @param {object} ticketsDocument — the whole Tickets.json
+ * @param {object|null} currentPhase — the phase being added
+ * @returns {Map<string, string>} unit id → implementing ticket key
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function priorImplementedUnits(ticketsDocument, currentPhase) {
+  const phases = Array.isArray(ticketsDocument?.phases) ? ticketsDocument.phases : [];
+  const currentIndex = phases.findIndex((phase) => phase?.id === currentPhase?.id);
+  const priorPhases = currentIndex === -1 ? phases : phases.slice(0, currentIndex);
+  const implemented = new Map();
+
+  for (const priorPhase of priorPhases) {
+    for (const priorTicket of priorPhase?.tickets ?? []) {
+      const ticketKey = ticketIdentityOf(priorPhase.id, priorTicket.id);
+      for (const unit of priorTicket?.distribution?.units ?? []) {
+        if (unit?.kind !== 'operation' || unit?.obligation?.mode !== 'implement') continue;
+        if (!implemented.has(unit.unitId)) implemented.set(unit.unitId, ticketKey);
+      }
+    }
+  }
+
+  return implemented;
+}
+
+/**
  * Build the operation → package (and local ticket) index the prerequisite derivation reads.
  *
  * The implementer role is the authority. A foreign view that lists a consumer operation
@@ -696,7 +736,7 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
   }
 }
 
-// [::TICKET::] PX-323, PX-328, PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328|PX-342|PX-347) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-328, PX-342, PX-347, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328|PX-342|PX-347|PX-356) --for-spec --no-implementation-order`.
 async function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -899,7 +939,10 @@ async function main() {
       const { readDistributionMap } = await import("../rfc-graph/lib/unit-ids.mjs");
       map = readDistributionMap(fs.readFileSync(rfcPath, "utf8"));
     }
-    const populated = await populateTicketDistribution(phase, graphData, dirsTreeData, view, map);
+    const populated = await populateTicketDistribution(
+      phase, graphData, dirsTreeData, view, map,
+      priorImplementedUnits(ticketsDocument, phase),
+    );
     phase.tickets = populated.tickets;
     const distributionFindings = verifyTicketDistribution(phase, view, graphData, dirsTreeData);
     if (distributionFindings.length > 0) {
@@ -964,10 +1007,14 @@ if (require.main === module) {
  * @param {object} view
  * @returns {Map<string, object>}
  */
-// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-356) --for-spec --no-implementation-order`.
 function viewUnitMap(view) {
   const units = new Map();
-  for (const field of ['ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits', 'obligationUnits']) {
+  // `obligationUnits` can name a unit an owned array also carries: the projection places
+  // a sequence both as an owned record and as an `assigns` obligation row. Read the
+  // obligation rows first so the owned record wins, because only the owned record carries
+  // the steps a ticket's distribution must keep.
+  for (const field of ['obligationUnits', 'ownedOperationUnits', 'ownedSequenceUnits', 'crossBoundarySequenceUnits']) {
     for (const unit of Array.isArray(view?.[field]) ? view[field] : []) {
       if (typeof unit?.unitId === 'string' && unit.unitId.length > 0) units.set(unit.unitId, unit);
     }
@@ -997,6 +1044,33 @@ function placementOf(unitId, ticket, nodeById, dirsTree) {
 }
 
 /**
+ * The role an operation unit plays for this package.
+ *
+ * `undecided` is not a decision. When the projection leaves the role open and the
+ * distribution ledger names this package as the unit's only owner, the ledger has
+ * adjudicated the unit to this package; reading that as a consumer reference would leave
+ * the operation with no implementer anywhere, which the coverage gate refuses. A unit owned
+ * jointly, or owned elsewhere, stays a consumer reference so a foreign implementer is never
+ * overwritten here.
+ *
+ * @param {object|null} mapEntry — the ledger row for the unit
+ * @param {object} record — the view record for the unit
+ * @param {string} packageId
+ * @returns {'implementer'|'consumer'|null}
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function resolvedOperationRole(mapEntry, record, packageId) {
+  const declared = mapEntry?.role;
+  if (declared === 'implementer' || declared === 'consumer') return declared;
+
+  const candidate = record?.roleCandidate ?? null;
+  if (candidate === 'implementer' || candidate === 'consumer') return candidate;
+
+  const owners = Array.isArray(mapEntry?.owners) ? mapEntry.owners : [];
+  return owners.length === 1 && owners[0] === packageId ? 'implementer' : candidate;
+}
+
+/**
  * The obligation a ticket owes for one unit.
  *
  * An operation implementer receives the implementation payload; a consumer receives a
@@ -1010,19 +1084,33 @@ function placementOf(unitId, ticket, nodeById, dirsTree) {
  * @param {object} record
  * @param {number} ticketId
  * @param {Map<string, number>} ownerTicketByUnit
- * @param {Map<string, number>} implementingTicketByUnit
+ * @param {Map<string, number|symbol>} implementingTicketByUnit
  * @param {object|null} mapEntry
+ * @param {string} packageId
+ * @param {Map<string, string>} [priorImplementerKeyByUnit] — durable keys of units an earlier
+ *   phase already implements
  * @returns {object}
  */
-// [::TICKET::] PX-307, PX-308, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-322) --for-spec --no-implementation-order`.
-function obligationOf(unitId, kind, record, ticketId, ownerTicketByUnit, implementingTicketByUnit, mapEntry, packageId) {
+// [::TICKET::] PX-307, PX-308, PX-322, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-322|PX-356) --for-spec --no-implementation-order`.
+function obligationOf(unitId, kind, record, ticketId, ownerTicketByUnit, implementingTicketByUnit, mapEntry, packageId, priorImplementerKeyByUnit = new Map()) {
   if (kind === 'operation') {
-    const role = mapEntry?.role ?? (record.roleCandidate === 'implementer' ? 'implementer' : 'consumer');
+    const role = resolvedOperationRole(mapEntry, record, packageId);
     const providers = (Array.isArray(record.ownerPackageIds) ? record.ownerPackageIds : [])
       .filter((ownerPackageId) => ownerPackageId !== packageId);
-    if (role === 'consumer') return { mode: 'reference', providers, implementerTicketId: null, boundaryContracts: [] };
-    if (implementingTicketByUnit.get(unitId) !== ticketId) {
-      return { mode: 'reference', providers, implementerTicketId: implementingTicketByUnit.get(unitId) ?? null, boundaryContracts: [] };
+    if (role !== 'implementer') return { mode: 'reference', providers, implementerTicketId: null, boundaryContracts: [] };
+    const implementerId = implementingTicketByUnit.get(unitId);
+    if (implementerId !== ticketId) {
+      // A prerequisite implemented by a ticket from an earlier phase names that ticket by its
+      // durable key: the numeric id is phase-local and would point at an unrelated ticket.
+      const localImplementerId = typeof implementerId === 'number' ? implementerId : null;
+      const priorKey = localImplementerId === null ? (priorImplementerKeyByUnit.get(unitId) ?? null) : null;
+      return {
+        mode: 'reference',
+        providers,
+        implementerTicketId: localImplementerId,
+        ...(priorKey === null ? {} : { implementerTicketKey: priorKey }),
+        boundaryContracts: [],
+      };
     }
     return { mode: 'implement', ...(record.obligation ?? {}) };
   }
@@ -1133,10 +1221,12 @@ function specRefsForUnit(unitId, kind, record, obligation, ticket, defaultSpecPa
  * @param {object} dirsTree
  * @param {object} view
  * @param {object|null} map
+ * @param {Map<string, string>} [priorImplementerKeyByUnit] — durable keys of units an earlier
+ *   phase already implements
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-307, PX-308, PX-311, PX-321, PX-322, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-311|PX-321|PX-322|PX-325) --for-spec --no-implementation-order`.
-async function populateTicketDistribution(phase, graph, dirsTree, view, map = null) {
+// [::TICKET::] PX-307, PX-308, PX-311, PX-321, PX-322, PX-325, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-311|PX-321|PX-322|PX-325|PX-356) --for-spec --no-implementation-order`.
+async function populateTicketDistribution(phase, graph, dirsTree, view, map = null, priorImplementerKeyByUnit = new Map()) {
   const { viewDigest, kindOfUnit } = await import('../sequences-slice/lib/distribution-map.mjs');
 
   const nodeById = new Map((graph?.nodes ?? []).map((node) => [node.id, node]));
@@ -1147,10 +1237,18 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
   // recorded; the lowest owning ticket id is the single implementer of an operation.
   const ownerTicketByUnit = new Map();
   const implementingTicketByUnit = new Map();
+  for (const [unitId] of priorImplementerKeyByUnit) {
+    ownerTicketByUnit.set(unitId, PRIOR_PHASE_OWNER);
+    implementingTicketByUnit.set(unitId, PRIOR_PHASE_OWNER);
+  }
   for (const ticket of phase?.tickets ?? []) {
     for (const nodeId of Array.isArray(ticket.nodeIds) ? ticket.nodeIds : []) {
       for (const unitId of nodeById.get(nodeId)?.unitIds ?? []) {
-        if (!ownerTicketByUnit.has(unitId) || ticket.id < ownerTicketByUnit.get(unitId)) {
+        // A prior-phase owner is never overwritten. Inside this phase the lowest ticket id
+        // owns the unit, so the result does not depend on the ticket array order.
+        const owner = ownerTicketByUnit.get(unitId);
+        const isLowerLocalTicket = typeof owner === 'number' && ticket.id < owner;
+        if (owner === undefined || isLowerLocalTicket) {
           ownerTicketByUnit.set(unitId, ticket.id);
           implementingTicketByUnit.set(unitId, ticket.id);
         }
@@ -1167,7 +1265,7 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
       const record = viewUnits.get(unitId);
       if (record === undefined) return;
       const mapEntry = mapUnits.get(unitId) ?? null;
-      const baseObligation = obligationOf(unitId, kind, record, ticket.id, ownerTicketByUnit, implementingTicketByUnit, mapEntry, view.packageId);
+      const baseObligation = obligationOf(unitId, kind, record, ticket.id, ownerTicketByUnit, implementingTicketByUnit, mapEntry, view.packageId, priorImplementerKeyByUnit);
       // The numeric id is phase-local; the full key is the durable reference a later
       // consolidation can remap without guessing which phase the number belonged to.
       const obligation = baseObligation.mode === 'reference'
@@ -1178,7 +1276,9 @@ async function populateTicketDistribution(phase, graph, dirsTree, view, map = nu
       records.set(unitId, {
         unitId,
         kind,
-        role: mapEntry?.role ?? (record.roleCandidate ?? null),
+        role: kind === 'operation'
+          ? resolvedOperationRole(mapEntry, record, view.packageId)
+          : (mapEntry?.role ?? record.roleCandidate ?? null),
         surface: mapEntry?.surface ?? null,
         placement: placementOf(unitId, ticket, nodeById, dirsTree),
         obligation,
@@ -1331,7 +1431,7 @@ function verifyTicketDistribution(phase, view, graph, dirsTree) {
  * @param {{ nodes?: Array<object> }} graph
  * @returns {Array<{ code: string, stepId?: string, unitId: string, layer: string, message: string }>}
  */
-// [::TICKET::] PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-319, PX-321 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-319|PX-321) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-308, PX-312, PX-313, PX-314, PX-315, PX-318, PX-319, PX-321, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-308|PX-312|PX-313|PX-314|PX-315|PX-318|PX-319|PX-321|PX-356) --for-spec --no-implementation-order`.
 function verifySequenceSteps(phase, view, graph, artifact = null) {
   const findings = [];
   // A step whose operation this phase does not carry belongs to another phase or package.
@@ -1439,7 +1539,12 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
       // A consumer owner does not implement the step here; the implementation is owed by
       // the other package. Missing and unowned steps are therefore not local failures.
       const requiresImplementer = operationRoles.get(operationUnitId) !== 'consumer';
-      const isPackageStep = requiresImplementer && graphUnits.has(operationUnitId);
+      // A phase that only references an operation implemented earlier does not owe its
+      // steps: the package has one implementer and the steps stay with it. A step that is
+      // present without any implementer in this package is still a malformed distribution.
+      const carriesOperation = requiresImplementer && graphUnits.has(operationUnitId);
+      const implementsHere = implementedOperations.has(operationUnitId);
+      const isPackageStep = carriesOperation && implementsHere;
       if (hit === undefined) {
         if (isPackageStep) {
           findings.push({ code: 'MISSING_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${unitId} step ${step.stepId} reaches no ticket` });
@@ -1449,7 +1554,7 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
       if (hit.ticketIds.size > 1 || hit.occurrences > 1) {
         findings.push({ code: 'DUPLICATE_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${unitId} step ${step.stepId} appears ${hit.occurrences} time(s) in tickets ${[...hit.ticketIds].join(', ')}` });
       }
-      if (isPackageStep && !implementedOperations.has(operationUnitId)) {
+      if (carriesOperation && !implementsHere) {
         findings.push({ code: 'SEQUENCE_STEP_WITHOUT_IMPLEMENTER', stepId: step.stepId, unitId, layer: 'ticket', message: `step ${step.stepId} owes operation ${operationUnitId} and no ticket implements it` });
       }
     }
@@ -1528,6 +1633,31 @@ function digestUnitObligation(obligation) {
   return digestValue(obligation ?? null);
 }
 
+/**
+ * Recompute every ticket's distribution digest from its current units.
+ *
+ * Phase consolidation rewrites the ticket key an obligation references, because the numeric
+ * id is phase-local and a merged ticket gets a new one. The digest covers those references,
+ * so a rewrite without this refresh leaves the moved tickets failing TICKET_DIGEST_MISMATCH
+ * even though nothing about their work changed.
+ *
+ * @param {Array<{tickets?: Array<object>}>} phases — mutated in place
+ * @returns {Array<{tickets?: Array<object>}>} the same array
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function refreshTicketDistributionDigests(phases) {
+  for (const phase of phases ?? []) {
+    for (const ticket of phase?.tickets ?? []) {
+      if (ticket?.distribution === undefined || ticket.distribution === null) continue;
+      for (const unit of ticket.distribution.units ?? []) {
+        unit.obligationDigest = digestUnitObligation(unit.obligation);
+      }
+      ticket.distribution.digest = digestTicketDistribution(ticket.distribution);
+    }
+  }
+  return phases;
+}
+
 /** Write a JSON document by staging it beside its target and renaming it into place. */
 // [::TICKET::] PX-307, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-347) --for-spec --no-implementation-order`.
 function writeJsonAtomically(filePath, document) {
@@ -1545,6 +1675,9 @@ module.exports = {
   resolveReferenceSection,
   parseCliArguments,
   populateTicketDistribution,
+  priorImplementedUnits,
+  resolvedOperationRole,
+  viewUnitMap,
   reconstructSequenceOrder,
   verifyTicketDistribution,
   verifySequenceSteps,
@@ -1553,6 +1686,7 @@ module.exports = {
   buildRolesByPackage,
   localRelevanceOf,
   writeTicketDistributionAggregate,
+  refreshTicketDistributionDigests,
   digestTicketDistribution,
   digestUnitObligation,
   writeJsonAtomically,

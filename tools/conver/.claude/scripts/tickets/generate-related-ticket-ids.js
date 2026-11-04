@@ -16,6 +16,11 @@
 
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+const { resolveStoredPath } = require('../lib/path-utils.js');
+const { ticketIdentityOf } = require('./lib/ticket-identity.js');
+
 // ============================================================
 // Edge type direction label map
 // ============================================================
@@ -53,6 +58,7 @@ const DIRECTION_LABELS = {
  * @param {Object[]} graphEdges — GRAPH.json edges array (each requires from, to, type)
  * @returns {Map<string, string>} Map from ticketId to prose string
  */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
 function generateRelatedTicketIds(tickets, graphEdges) {
   const result = new Map();
 
@@ -107,7 +113,7 @@ function generateRelatedTicketIds(tickets, graphEdges) {
         : 'Dependency source (dependent)';
 
       // Display ticket ID: uniquely identifiable as "P{phaseId}-{ticketId}"
-      const displayId = 'P' + targetInfo.phaseId + '-' + targetInfo.id;
+      const displayId = ticketIdentityOf(targetInfo.phaseId, targetInfo.id);
       const targetKey = targetInfo.phaseId + ':' + targetInfo.id;
       const targetTitle = (ticketMap[targetKey] || {}).title || '';
 
@@ -129,43 +135,89 @@ function generateRelatedTicketIds(tickets, graphEdges) {
 // GRAPH.json loading helper
 // ============================================================
 
-/**
- * Reads GRAPH.json by computing its path from Tickets.json's metadata.source.
- *
- * @param {string} ticketsPath — Absolute path to Tickets.json
- * @param {string} projectRoot — Absolute path to project root (defaults to 2 levels above ticketsPath)
- * @returns {{ edges: Object[] }|null} GRAPH.json edges array, or null if file does not exist
- */
-function loadGraphEdgesFromTickets(ticketsPath, projectRoot) {
-  const path = require('path');
-  const fs = require('fs');
+/** The graph suffix beside a source document. */
+const GRAPH_SUFFIX = '-GRAPH.json';
 
-  let root = projectRoot;
-  if (!root) {
-    // When Tickets.json is at tools/conver/Tickets.json,
-    // the project root is 2 levels above tools/conver
-    root = path.resolve(path.dirname(ticketsPath), '..', '..');
+/** The source document suffix. */
+const DOC_SUFFIX = '.md';
+
+/** The legacy project-root guess: two directories above Tickets.json. */
+const LEGACY_PROJECT_ROOT_DEPTH = 2;
+
+/**
+ * The graph paths a Tickets.json may name, most specific first.
+ *
+ * A split package writes Tickets.json beside RFC.md and RFC-GRAPH.json, and metadata may
+ * store the paths home-relative. Treating `~/...` as relative to a guessed project root
+ * produces a path that names no file, which silently leaves relatedTicketIds empty.
+ *
+ * @param {string} ticketsPath
+ * @param {object} metadata
+ * @param {string|undefined} projectRoot
+ * @returns {string[]}
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function candidateGraphPaths(ticketsPath, metadata, projectRoot) {
+  const packageDirectory = path.dirname(path.resolve(ticketsPath));
+  const legacyRoot = projectRoot ?? path.resolve(
+    packageDirectory,
+    ...Array(LEGACY_PROJECT_ROOT_DEPTH).fill('..'),
+  );
+  const candidates = [];
+  const addCandidate = (candidate) => {
+    if (typeof candidate === 'string' && candidate.length > 0 && !candidates.includes(candidate)) {
+      candidates.push(candidate);
+    }
+  };
+
+  const resolvedGraphPath = metadata?.resolvedPaths?.graphPath;
+  if (typeof resolvedGraphPath === 'string' && resolvedGraphPath.length > 0) {
+    addCandidate(resolveStoredPath(resolvedGraphPath, packageDirectory));
   }
 
-  let sourcePath;
+  const sourcePath = metadata?.source;
+  if (typeof sourcePath === 'string' && sourcePath.length > 0) {
+    const sourceBases = [resolveStoredPath(sourcePath, packageDirectory)];
+    // A stored `~/...` path is home-relative, never relative to a guessed project root;
+    // adding the legacy candidate for it would create a literal `~` directory path.
+    const isHomeRelative = sourcePath === '~' || sourcePath.startsWith('~/');
+    if (!isHomeRelative) sourceBases.push(path.resolve(legacyRoot, sourcePath));
+    for (const sourceBase of sourceBases) {
+      addCandidate(sourceBase.replace(/\.md$/, GRAPH_SUFFIX));
+      addCandidate(path.join(path.dirname(sourceBase), path.basename(sourceBase, DOC_SUFFIX) + GRAPH_SUFFIX));
+    }
+  }
+
+  addCandidate(path.join(packageDirectory, 'RFC' + GRAPH_SUFFIX));
+  return candidates;
+}
+
+/**
+ * Reads GRAPH.json from the paths Tickets.json names.
+ *
+ * @param {string} ticketsPath — absolute path to Tickets.json
+ * @param {string} projectRoot — legacy project root override
+ * @returns {{ edges: Object[] }|null} GRAPH.json edges array, or null
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function loadGraphEdgesFromTickets(ticketsPath, projectRoot) {
+  let ticketsData;
   try {
-    const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
-    sourcePath = ticketsData.metadata && ticketsData.metadata.source;
+    ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   } catch (_) {
     return null;
   }
 
-  if (!sourcePath) return null;
-
-  // metadata.source is a relative path from the project root
-  const graphPath = path.resolve(root, sourcePath.replace(/\.md$/, '-GRAPH.json'));
-
-  if (!fs.existsSync(graphPath)) return null;
+  const graphPath = candidateGraphPaths(ticketsPath, ticketsData.metadata ?? {}, projectRoot)
+    .find((candidate) => fs.existsSync(candidate));
+  if (graphPath === undefined) return null;
 
   try {
     const graphData = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
     return graphData.edges || null;
-  } catch (_) {
+  } catch (error) {
+    // An existing but malformed graph is a defect, not a reason to try another candidate.
+    console.error('[WARN] GRAPH.json read failed: ' + graphPath + ' (' + error.message + ')');
     return null;
   }
 }

@@ -29,6 +29,7 @@
 const fs = require('fs');
 const path = require('path');
 const { directionOf, isHardEdge } = require('./lib/edge-order.js');
+const { writeLine } = require('../lib/cli-output');
 
 /** Normalize a hard edge to consumer -> provider for the phase merger. */
 // [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
@@ -86,7 +87,7 @@ const AUTO_SIZE_DIVISOR = 7;
  */
 
 // ============================================================
-// Pure functions (exported for testing)
+// Pure helpers (exported for testing)
 // ============================================================
 
 /**
@@ -861,7 +862,7 @@ function rewriteSourceMarkerLines(stubs, oldToNew) {
 }
 
 // ============================================================
-// PX-108: Auto-merge pipeline functions
+// PX-108: Auto-merge pipeline helpers
 // ============================================================
 
 /**
@@ -1143,7 +1144,7 @@ function createSnapshot(sourcePath, ts) {
 // ============================================================
 
 // [::TICKET::] PX-112: move artifacts. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-112 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-112 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-112 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-112, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-112|PX-356) --for-spec --no-implementation-order`.
 function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
   try {
     var baseDir = path.dirname(opts.ticketsPath);
@@ -1154,7 +1155,7 @@ function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
       if (fs.existsSync(phasifiedPath)) {
         var dstPhasified = path.join(baseDir, 'omissions', path.basename(phasifiedPath));
         fs.renameSync(phasifiedPath, dstPhasified);
-        console.log('Moved to omissions/: ' + path.basename(phasifiedPath));
+        writeLine('Moved to omissions/: ' + path.basename(phasifiedPath));
       }
     }
 
@@ -1164,7 +1165,7 @@ function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
       if (fs.existsSync(snapshotPath)) {
         var dstSnapshot = path.join(baseDir, 'tickets', path.basename(snapshotPath));
         fs.renameSync(snapshotPath, dstSnapshot);
-        console.log('Moved to tickets/: ' + path.basename(snapshotPath));
+        writeLine('Moved to tickets/: ' + path.basename(snapshotPath));
       }
     }
 
@@ -1182,7 +1183,7 @@ function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
       if (/^OMISSIONS-\d{14}\.json$/.test(omBasename) && fs.existsSync(opts.omissionsPath)) {
         var dstOm = path.join(baseDir, 'omissions', omBasename);
         fs.renameSync(opts.omissionsPath, dstOm);
-        console.log('Moved to omissions/: ' + omBasename);
+        writeLine('Moved to omissions/: ' + omBasename);
       }
     }
   } catch (e) {
@@ -1191,7 +1192,7 @@ function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
 }
 
 // ============================================================
-// PX-109: Rollback function
+// PX-109: Rollback operation
 // ============================================================
 
 /**
@@ -1304,13 +1305,13 @@ function rollbackFromSnapshot(ticketsPath, withBackup) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127|PX-341) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127, PX-341, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127|PX-341|PX-356) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
   // ============================================================
   if (opts.rollback) {
-    if (opts.verbose) console.log('[VERBOSE] Rollback mode (snapshot restore)...');
+    if (opts.verbose) writeLine('[VERBOSE] Rollback mode (snapshot restore)...');
 
     var snapshotPath;
     try {
@@ -1324,10 +1325,10 @@ function runPhasifyOmissions(opts) {
     }
 
     if (opts.dryRun) {
-      console.log('');
-      console.log('=== Rollback Preview (--dry-run) ===');
-      console.log('Snapshot to restore: ' + snapshotPath);
-      console.log('No files written.');
+      writeLine('');
+      writeLine('=== Rollback Preview (--dry-run) ===');
+      writeLine('Snapshot to restore: ' + snapshotPath);
+      writeLine('No files written.');
       return;
     }
 
@@ -1339,16 +1340,16 @@ function runPhasifyOmissions(opts) {
       process.exit(1);
     }
 
-    console.log('');
-    console.log('Rollback complete. Restored snapshot: ' + rollbackResult.snapshotPath);
+    writeLine('');
+    writeLine('Rollback complete. Restored snapshot: ' + rollbackResult.snapshotPath);
     if (opts.withBackup) {
       var rollbackTsMatch = rollbackResult.snapshotPath.match(/Tickets-(\d{14})\.json$/);
-      if (rollbackTsMatch) console.log('Backup: tmp-Tickets-' + rollbackTsMatch[1] + '.json');
+      if (rollbackTsMatch) writeLine('Backup: tmp-Tickets-' + rollbackTsMatch[1] + '.json');
     }
     return;
   }
 
-  if (opts.verbose) console.log('[VERBOSE] Loading input files...');
+  if (opts.verbose) writeLine('[VERBOSE] Loading input files...');
 
   // Validate files exist
   validateFileExists(opts.omissionsPath, 'OMISSIONS');
@@ -1366,7 +1367,7 @@ function runPhasifyOmissions(opts) {
   }
 
   // Step A: Collect all tickets and deduplicate
-  if (opts.verbose) console.log('[VERBOSE] Collecting tickets from OMISSIONS...');
+  if (opts.verbose) writeLine('[VERBOSE] Collecting tickets from OMISSIONS...');
   const allTickets = [];
   const phaseList = omissionsData.phases || [];
   for (const phase of phaseList) {
@@ -1385,17 +1386,17 @@ function runPhasifyOmissions(opts) {
   const referenceTickets = [];
   const actionTicketKeys = new Set();
   if (opts.verbose) {
-    console.log('[VERBOSE] All tickets: ' + actionTickets.length);
+    writeLine('[VERBOSE] All tickets: ' + actionTickets.length);
   }
 
   // Step B: Extract subgraph
-  if (opts.verbose) console.log('[VERBOSE] Extracting omission subgraph...');
+  if (opts.verbose) writeLine('[VERBOSE] Extracting omission subgraph...');
   const { nodes, edges, omissionNodeIds } = extractOmissionSubgraph(omissionsData, graphData);
   const totalOmissionNodes = omissionNodeIds.size;
 
   if (opts.verbose) {
-    console.log('[VERBOSE] Omission nodes: ' + totalOmissionNodes);
-    console.log('[VERBOSE] Subgraph edges: ' + edges.length);
+    writeLine('[VERBOSE] Omission nodes: ' + totalOmissionNodes);
+    writeLine('[VERBOSE] Subgraph edges: ' + edges.length);
   }
 
   // Count cross-boundary edges for reporting
@@ -1407,16 +1408,16 @@ function runPhasifyOmissions(opts) {
     return !omissionNodeIds.has(e.from) && omissionNodeIds.has(e.to) && (e.type === 'depends_on' || e.type === 'implements');
   });
   if (opts.verbose) {
-    console.log('[VERBOSE] Cross-boundary depends_on (from omission): ' + crossFromOmission.length);
-    console.log('[VERBOSE] Cross-boundary depends_on (to omission): ' + crossToOmission.length);
+    writeLine('[VERBOSE] Cross-boundary depends_on (from omission): ' + crossFromOmission.length);
+    writeLine('[VERBOSE] Cross-boundary depends_on (to omission): ' + crossToOmission.length);
   }
 
   // Step C: Determine min nodes per phase
   const minSize = opts.minNodes > 0 ? opts.minNodes : autoMinSize(Math.max(totalOmissionNodes, 1));
-  if (opts.verbose) console.log('[VERBOSE] Min nodes per phase: ' + minSize);
+  if (opts.verbose) writeLine('[VERBOSE] Min nodes per phase: ' + minSize);
 
-  // Step D: Run phasify pipeline (import functions lazily)
-  if (opts.verbose) console.log('[VERBOSE] Loading phasify algorithm modules...');
+  // Step D: Run phasify pipeline (import helper modules lazily)
+  if (opts.verbose) writeLine('[VERBOSE] Loading phasify algorithm modules...');
 
   // Import phasify-helpers
   let phasify;
@@ -1427,26 +1428,24 @@ function runPhasifyOmissions(opts) {
     process.exit(3);
   }
 
-  const { tarjanSCC } = require('./boundify-helpers.js');
-
   // ============================================================
   // Phase 1: SCC condensation
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Phase 1: SCC condensation...');
-  const sccResult = tarjanSCC(edges);
+  if (opts.verbose) writeLine('[VERBOSE] Phase 1: SCC condensation...');
+  const sccResult = phasify.condenseOrderingGraph(edges);
   const { sccMap, sccIds } = phasify.buildSccConstraint(sccResult);
   if (opts.verbose) {
     if (sccResult.length > 0) {
-      console.log('[VERBOSE] SCC components: ' + sccResult.length + ' (multi-node: ' + Object.keys(sccMap).length + ' nodes)');
+      writeLine('[VERBOSE] SCC components: ' + sccResult.length + ' (multi-node: ' + Object.keys(sccMap).length + ' nodes)');
     } else {
-      console.log('[VERBOSE] No SCC components detected.');
+      writeLine('[VERBOSE] No SCC components detected.');
     }
   }
 
   // ============================================================
   // Phase 2: Kahn topological sort
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Phase 2: Topological sort...');
+  if (opts.verbose) writeLine('[VERBOSE] Phase 2: Topological sort...');
   const allNodeIds = Array.from(omissionNodeIds);
   const sortResult = phasify.kahnTopologicalSort(allNodeIds, edges, phasify.getWeight);
 
@@ -1464,29 +1463,29 @@ function runPhasifyOmissions(opts) {
   // No directory constraints for omission phasing (directories already exist)
   let finalOrder = sccAppliedOrder;
 
-  if (opts.verbose) console.log('[VERBOSE] Sort completed: ' + finalOrder.length + ' nodes');
+  if (opts.verbose) writeLine('[VERBOSE] Sort completed: ' + finalOrder.length + ' nodes');
 
   // ============================================================
   // Phase 3: Soft constraint violation cost (informational)
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Phase 3: Soft constraint violations...');
+  if (opts.verbose) writeLine('[VERBOSE] Phase 3: Soft constraint violations...');
   const softResult = phasify.computeSoftViolations(finalOrder, edges, phasify.getWeight);
   if (opts.verbose) {
     if (softResult.violations.length > 0) {
-      console.log('[VERBOSE] Soft constraint violations: ' + softResult.violations.length + ', total cost: ' + softResult.totalCost);
+      writeLine('[VERBOSE] Soft constraint violations: ' + softResult.violations.length + ', total cost: ' + softResult.totalCost);
     } else {
-      console.log('[VERBOSE] No soft constraint violations.');
+      writeLine('[VERBOSE] No soft constraint violations.');
     }
   }
 
   // ============================================================
   // Phase 4: Phase merging + hard constraint enforcement + consolidation
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Phase 4: Phase merging (min: ' + minSize + ')...');
+  if (opts.verbose) writeLine('[VERBOSE] Phase 4: Phase merging (min: ' + minSize + ')...');
 
   // Extract hard edges
   const hardEdges = edges.filter((edge) => isHardEdge(edge)).map(toConsumerProviderEdge);
-  if (opts.verbose) console.log('[VERBOSE] Hard edges in subgraph: ' + hardEdges.length);
+  if (opts.verbose) writeLine('[VERBOSE] Hard edges in subgraph: ' + hardEdges.length);
 
   let phaseAssignments = phasify.mergePhases(finalOrder, minSize, hardEdges);
 
@@ -1499,7 +1498,7 @@ function runPhasifyOmissions(opts) {
 
   // Reassign phase IDs (0-based, sequential)
   phaseAssignments = phasify.reassignPhaseIds(phaseAssignments);
-  if (opts.verbose) console.log('[VERBOSE] Phases: ' + phaseAssignments.length);
+  if (opts.verbose) writeLine('[VERBOSE] Phases: ' + phaseAssignments.length);
 
   // Warn for small phases (suppress in dry-run to keep output clean)
   for (const phase of phaseAssignments) {
@@ -1512,22 +1511,22 @@ function runPhasifyOmissions(opts) {
   // ============================================================
   // Step E: Apply phase ID offset
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Computing phase ID offset...');
+  if (opts.verbose) writeLine('[VERBOSE] Computing phase ID offset...');
   const offset = computePhaseIdOffset(opts.ticketsPath);
-  if (opts.verbose) console.log('[VERBOSE] Phase ID offset: ' + offset);
+  if (opts.verbose) writeLine('[VERBOSE] Phase ID offset: ' + offset);
 
   const offsetPhases = reassignPhaseIdsWithOffset(phaseAssignments, offset);
 
   // ============================================================
   // Step F: Assign tickets to phases
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Assigning tickets to phases...');
+  if (opts.verbose) writeLine('[VERBOSE] Assigning tickets to phases...');
   const phasedTickets = assignTicketsToPhases(offsetPhases, actionTickets, finalOrder);
 
   // ============================================================
   // Step G: Consolidate phases by ticket count (min 3 tickets per phase, per split-to-tickets.md Step 5-3)
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Phases before consolidation: ' + phasedTickets.length);
+  if (opts.verbose) writeLine('[VERBOSE] Phases before consolidation: ' + phasedTickets.length);
   // PX-115: Restore Step 5-3 consolidation (PX-113 disabled it). Phases with fewer
   // than 3 tickets are merged backward into the following phase, then ticket IDs
   // are re-indexed 1..N within each phase (re-index IDs substep 5-3-5).
@@ -1535,19 +1534,19 @@ function runPhasifyOmissions(opts) {
     consolidatePhasesByTicketCount(phasedTickets, hardEdges)
   );
   if (opts.verbose) {
-    console.log('[VERBOSE] Phases (consolidated): ' + consolidatedPhases.length);
+    writeLine('[VERBOSE] Phases (consolidated): ' + consolidatedPhases.length);
   }
 
   // ============================================================
   // Step H: Repair inspection prefixes
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Repairing inspection prefixes...');
+  if (opts.verbose) writeLine('[VERBOSE] Repairing inspection prefixes...');
   repairInspectionPrefixes(actionTickets, true);
 
   // ============================================================
   // Step H: Build output
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Building output...');
+  if (opts.verbose) writeLine('[VERBOSE] Building output...');
   // Derive timestamp from input OMISSIONS filename (OMISSIONS-YYYYMMDDHHmmss.json -> YYYYMMDDHHmmss)
   const omissionsBasename = path.basename(opts.omissionsPath);
   const tsMatch = omissionsBasename.match(/^OMISSIONS-(\d{14})\.json$/);
@@ -1582,13 +1581,13 @@ function runPhasifyOmissions(opts) {
   // The clone's stubs[].content may still carry the ORIGINAL ticket key. Rewrite
   // every marker key to the clone's new key so provenance points forward, and
   // reject the merge if any terminal-excuse stub survived preflight.
-  if (opts.verbose) console.log('[VERBOSE] Rewriting STUB keys on cloned tickets...');
+  if (opts.verbose) writeLine('[VERBOSE] Rewriting STUB keys on cloned tickets...');
   rewriteOutputStubKeys(output);
 
   // ============================================================
   // Step I: Validation (against pre-filter phase structure to ensure full coverage)
   // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Validating output...');
+  if (opts.verbose) writeLine('[VERBOSE] Validating output...');
   // Validate against consolidatedPhases (includes pre-filter phases) for coverage completeness
   const preOutput = {
     title: 'phasify-omissions auto-generated re-implementation plan',
@@ -1607,8 +1606,8 @@ function runPhasifyOmissions(opts) {
   const allCovered = validateResult.checks.allNodesCovered ? validateResult.checks.allNodesCovered.passed : false;
   const noDupes = validateResult.checks.noDuplicateNodes ? validateResult.checks.noDuplicateNodes.passed : false;
 
-  console.log('');
-  console.log((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
+  writeLine('');
+  writeLine((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
     output.phases.length + ' implementation phases' +
     (consolidatedPhases.length > output.phases.length ? ' (' + (consolidatedPhases.length - output.phases.length) + ' reference-only phases filtered)' : '') +
     ', ' + (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
@@ -1685,8 +1684,8 @@ function runPhasifyOmissions(opts) {
 
   // Phase info for AI naming (always shown)
   if (output.phases.length > 0) {
-    console.log('');
-    console.log('[Re-implementation phases — assign meaningful names]');
+    writeLine('');
+    writeLine('[Re-implementation phases — assign meaningful names]');
     // Build node title map
     var nodeTitleMap = {};
     for (var ni = 0; ni < (graphData.nodes || []).length; ni++) {
@@ -1699,31 +1698,31 @@ function runPhasifyOmissions(opts) {
       var nodeCount = nodeIds.length;
       var maxShown = 5;
       var nodeSuffix = nodeCount > maxShown ? '\n    ... (' + (nodeCount - maxShown) + ' more)' : '';
-      console.log('');
-      console.log('Phase ' + phase.id + ' (' + phase.name + '): ' + tickets.length + ' ticket(s), ' + nodeCount + ' node(s)');
-      console.log('  Nodes:');
+      writeLine('');
+      writeLine('Phase ' + phase.id + ' (' + phase.name + '): ' + tickets.length + ' ticket(s), ' + nodeCount + ' node(s)');
+      writeLine('  Nodes:');
       for (var nsi = 0; nsi < Math.min(nodeIds.length, maxShown); nsi++) {
         var nid = nodeIds[nsi];
-        console.log('    ' + nid + '  ' + (nodeTitleMap[nid] || '(unknown)'));
+        writeLine('    ' + nid + '  ' + (nodeTitleMap[nid] || '(unknown)'));
       }
-      if (nodeSuffix) console.log(nodeSuffix);
-      console.log('  Tickets:');
+      if (nodeSuffix) writeLine(nodeSuffix);
+      writeLine('  Tickets:');
       for (var ti = 0; ti < tickets.length; ti++) {
-        console.log('    P' + phase.id + '-' + tickets[ti].id + '  ' + (tickets[ti].title || '(no title)'));
+        writeLine('    P' + phase.id + '-' + tickets[ti].id + '  ' + (tickets[ti].title || '(no title)'));
       }
     }
     // Generate rename command examples
-    console.log('');
-    console.log('After assigning meaningful names, rename each phase:');
+    writeLine('');
+    writeLine('After assigning meaningful names, rename each phase:');
     for (var cpi = 0; cpi < output.phases.length; cpi++) {
       var cp = output.phases[cpi];
-      console.log('  node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/rename-phases.js" --phase=' + cp.id + ' --name="Omissions: <meaningful name for phase ' + cp.id + '>"');
+      writeLine('  node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/rename-phases.js" --phase=' + cp.id + ' --name="Omissions: <meaningful name for phase ' + cp.id + '>"');
     }
-    console.log('');
+    writeLine('');
   }
 
   // Schema validation (always shown)
-  console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
+  writeLine('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
 
   if (!mergeValidation.valid) {
     console.error('[ERROR] Merge validation failed:');
@@ -1731,11 +1730,11 @@ function runPhasifyOmissions(opts) {
       console.error('  - ' + mergeValidation.errors[mi]);
     }
     if (opts.dryRun) {
-      console.log('');
-      console.log('[--dry-run mode] No files written.');
+      writeLine('');
+      writeLine('[--dry-run mode] No files written.');
     } else {
-      console.log('');
-      console.log('[WARN] Tickets.json was NOT modified. Backup preserved: ' + backupPath);
+      writeLine('');
+      writeLine('[WARN] Tickets.json was NOT modified. Backup preserved: ' + backupPath);
     }
     process.exit(1);
   }
@@ -1747,7 +1746,7 @@ function runPhasifyOmissions(opts) {
   var snapshotResult = createSnapshot(opts.ticketsPath, ts);
   var snapshotPath = snapshotResult.success ? snapshotResult.snapshotPath : null;
   if (snapshotResult.success) {
-    console.log('Snapshot: Tickets-' + ts + '.json');
+    writeLine('Snapshot: Tickets-' + ts + '.json');
   } else {
     console.warn('[WARN] Snapshot creation failed (best-effort, continuing).');
   }
@@ -1767,7 +1766,7 @@ function runPhasifyOmissions(opts) {
       }
     }
   }
-  console.log('Round-aware status present on ' + reviewedCount + ' pre-merge tickets (current round R' + currentRound + ').');
+  writeLine('Round-aware status present on ' + reviewedCount + ' pre-merge tickets (current round R' + currentRound + ').');
   mergedResult.data = incrementRound(mergedResult.data);
 
   // Inject merge metadata (PX-109: enables --rollback; PX-115: snapshotPath + timestamp)
@@ -1797,7 +1796,7 @@ function runPhasifyOmissions(opts) {
   for (var pi = 0; pi < output.phases.length; pi++) {
     totalMergedTickets += (output.phases[pi].tickets || []).length;
   }
-  console.log('Tickets.json: merged ' + output.phases.length + ' phase(s), ' + totalMergedTickets + ' ticket(s)');
+  writeLine('Tickets.json: merged ' + output.phases.length + ' phase(s), ' + totalMergedTickets + ' ticket(s)');
 }
 
 // ============================================================

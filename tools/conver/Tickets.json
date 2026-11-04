@@ -54499,6 +54499,214 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-04"
+        },
+        {
+          "id": 356,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make the split pipeline package-agnostic: ordering-only SCC, cross-phase ownership, digest refresh, and path resolution",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-356.md",
+          "background": "- Goal: make the split pipeline behave identically for every workspacify package.\n- Purpose: fix the producers that generated the gaia-time defects instead of editing the generated RFC or Tickets.\n- Motivation: the same defects reproduce in any package with citation cycles, sole-owner undecided operations, cross-phase operations, key remaps, or home-relative metadata; project-specific patches would drift and install would overwrite them.\n- Constraints: no RFC.md edits; no new dependency; no change to the meaning of existing edge types; preserve legacy readers and durable ticket-key spellings; delivery only after review via make install-to-projects.",
+          "scope": [
+            "Change path: .claude/scripts/rfc-graph/lib/edge-order.js, phasify-helpers.js, phasify-graph-and-dirs-files-tree.js, phasify-omissions.js - add orderingEdges and route both SCC call sites through it.",
+            "Change action: in tickets/verify-all-ticket-coverage.js, replace argv[2] and argv.slice(2) with a resolveInvocation that returns the canonical Tickets.json and the material argv.",
+            "Change detail: in tickets/add-tickets-for-phase.js, add resolvedOperationRole, priorImplementedUnits, and implementedHere; keep sequence roles unchanged.",
+            "Change before/after: before, a citation cycle can hoist a node ahead of a hard prerequisite, a sole-owner undecided operation has no implementer, and a later phase re-implements a prior operation; after, the order is preserved, one implementer exists per package, and the later phase references the durable key.",
+            "Change API: export orderingEdges, resolveInvocation, resolvedOperationRole, refreshTicketDistributionDigests, and viewUnitMap; all additions are backward-compatible CommonJS exports.",
+            "Change schema: no Tickets.json or SEQUENCES.json schema change; distribution.digest and obligationDigest keep their current shapes and are recomputed after remap.",
+            "Change config: no environment variable or config file change; graph resolution uses existing metadata.resolvedPaths and path-utils helpers.",
+            "Change dependency: no new npm dependency; reuse node:fs, node:path, fromHomeRelative, and resolveStoredPath.",
+            "Non-change item: do not edit any RFC.md distribution map, do not change workspace-wide verify-implementation-order semantics, and do not modify generated Tickets.json artifacts as a workaround.",
+            "Non-change why: editing the map breaks the map-graph-view-SMOOTH-VERDICT digest chain, and the workspace gate fails because sibling packages are unsplit, not because of this code.",
+            "Impact component: /split-to-tickets, /find-omissions, verify-all-ticket-coverage, consolidate-phase-tickets, generate-related-ticket-ids, and every package that runs them.",
+            "Impact nature: phase order, operation ownership, sequence-step coverage, distribution digest integrity, and related-ticket graph resolution.",
+            "Impact response: run the impact-set node --test; after review, run make install-to-projects; re-run the gaia-time package-scoped split gates and confirm no project-specific path is embedded."
+          ],
+          "testUnit": [
+            "UT: [C001 normal] orderingEdges over N_A references N_B, N_B refines N_A, N_B depends_on N_C, N_C constrains N_A, and soft N_A precedes N_C returns only N_B->N_C depends_on and N_C->N_A constrains; references, refines, and soft precedes are excluded.",
+            "UT: [C001 invariant] With hard A depends_on P and non-ordering A references B and B refines A, tarjanSCC(orderingEdges(edges)) yields no multi-node group and applySccToOrder keeps P before A; tarjanSCC(edges) groups A with B and hoists A before P.",
+            "UT: [C001 boundary] A hard depends_on cycle still makes kahnTopologicalSort fail; filtering non-ordering edges does not hide a real ordering cycle.",
+            "UT: [C002 normal] resolveInvocation([], Pkg/Tickets.json) returns ticketsPath Pkg/Tickets.json and materialArgv [Pkg/Tickets.json]; resolveInvocation([--artifact=/root/RFC-sequences.json], Pkg/Tickets.json) keeps the canonical Tickets.json first and passes the flag through.",
+            "UT: [C002 normal] resolveInvocation([Pkg/Tickets.json, --artifact=/root/RFC-sequences.json], fallback) returns the explicit Tickets.json and preserves the flag.",
+            "UT: [C002 error] A no-argument main in a temporary package with WORKSPACIFY-ALLOCATE-MANIFEST.json at the workspace root and a readable root *-sequences.json exits 0 and does not print MISSING_SIDECAR.",
+            "UT: [C002 boundary] A genuinely missing root sidecar still exits 1 with MISSING_SIDECAR.",
+            "UT: [C003 normal] A map unit op-A with owners [pkg-A] and a view roleCandidate undecided yields obligation.mode implement and role implementer for pkg-A.",
+            "UT: [C003 error] A map role consumer keeps every ticket on obligation.mode reference; a map with owners [pkg-A, pkg-B] and roleCandidate undecided leaves no implementer so the coverage gate reports it.",
+            "UT: [C003 invariant] A sequence unit with the same map shape keeps role null and is not promoted to implementer.",
+            "UT: [C004 normal] Phase 0 ticket P0-3 implements op-A; populating phase 1 with priorImplementedUnits {op-A: P0-3} yields obligation.mode reference with implementerTicketKey P0-3 and no implement.",
+            "UT: [C004 invariant] The whole Tickets document has at most one implement unit for op-A across all phases; verifyTicketDistribution reports no DUPLICATE_UNIT_AT_TICKET.",
+            "UT: [C004 boundary] A phase added when a later phase already exists treats only phases before it in document order as prior; re-running an earlier phase does not reference a future implementer.",
+            "UT: [C004 boundary] Inside one phase, two tickets owning the same operation unit keep the lowest ticket id as implementer and the other as reference.",
+            "UT: [C005 normal] Phase 1 carries the sequence node and a reference to op-A implemented by P0-3; verifySequenceSteps returns no MISSING_SEQUENCE_STEP.",
+            "UT: [C005 error] Phase 1 implements op-A and its ticket carries the sequence unit without the step; verifySequenceSteps still reports MISSING_SEQUENCE_STEP.",
+            "UT: [C005 invariant] A consumer role keeps the existing exemption; no step is required from a consumer package.",
+            "UT: [C006 normal] A distribution whose obligation references P9-3 is remapped to P3-1; refreshTicketDistributionDigests recomputes obligationDigest and distribution.digest so both equal digestUnitObligation(obligation) and digestTicketDistribution(distribution).",
+            "UT: [C006 error] Without refresh, verifyDistributionDigests reports TICKET_DIGEST_MISMATCH; with refresh it returns an empty finding list.",
+            "UT: [C006 invariant] writeTicketDistributionAggregate uses the refreshed per-ticket digests and its own digest covers only the sorted ticketDigests.",
+            "UT: [C007 normal] loadGraphEdgesFromTickets reads metadata.resolvedPaths.graphPath when it is a ~/ path; the returned edge count equals the graph file edge count.",
+            "UT: [C007 normal] When resolvedPaths is absent, metadata.source ~/.../RFC.md is home-expanded and the sibling RFC-GRAPH.json is read; a non-RFC.md basename uses <basename>-GRAPH.json.",
+            "UT: [C007 error] When no graph exists at any candidate path, the function returns null and consolidation skips relatedTicketIds without inventing edges.",
+            "UT: [C007 boundary] A nested package Tickets.json is resolved relative to its own directory, not two levels above it.",
+            "UT: [C008 normal] view.ownedSequenceUnits with seq-S steps [s1] plus view.obligationUnits with seq-S relation assigns yields a distribution unit seq-S with obligation.mode steps and one step.",
+            "UT: [C008 invariant] An obligation-only unit with no owned record still resolves as an obligation record; viewUnitMap is exported and collectViewUnits still exposes both records.",
+            "UT: [C008 boundary] An owned operation record with the same unitId as an obligation row keeps roleCandidate and the obligation payload."
+          ],
+          "testIntegration": [
+            "IT: C001+C002+C003+C004+C005+C006+C007+C008 gaia-time-like fixture: run the split pipeline functions over a graph with a citation cycle, a sole-owner undecided operation, an operation spanning two phases, a consolidation key remap, and home-relative metadata; assert phase order, one implementer, no MISSING_SEQUENCE_STEP, consistent digests, and non-empty relatedTicketIds.",
+            "IT: C002 spawn verify-all-ticket-coverage.js with no arguments in a temporary workspacify package with a root sidecar; assert exit 0 and PASS.",
+            "IT: C003+C004+C005 populate P0 and P1 from one view; assert op-A is implement only in P0, P1 references P0-3, the sequence step is carried by P0, and no duplicate exists.",
+            "IT: C006 run consolidate-phase-tickets.js on a two-phase document with distribution and a remapped reference; assert verify-chain and digest gates pass.",
+            "IT: C007 run generate-related-ticket-ids.js after consolidation with metadata.source ~/.../RFC.md; assert relatedTicketIds is non-empty and names cross-ticket edges.",
+            "IT: C008 run populateTicketDistribution and verifyTicketDistribution on a duplicated seq unit; assert no SEQUENCE_STEPS_UNDISTRIBUTED and the step is distributed.",
+            "IT: C001-C008 impact set: node --test over the changed test files passes; gaia-time artifacts are fixtures only and are never edited."
+          ],
+          "testExceptions": [
+            "The workspace-wide verify-implementation-order --workspace gate cannot test the package in isolation because sibling packages are unsplit; this is external workspace state, not a design defect. Alternative verification: run the package-scoped verify-implementation-order gate and assert its operation set is complete.",
+            "The 14 baseline failures in gaia are impossible to test as part of this ticket because they predate the changed code and live in hooks, integration, and resolve-ecc-root; this is not an architectural defect. Alternative verification: reproduce the same failure set at HEAD with stash comparison and exclude it from the impact set."
+          ],
+          "default_files": [
+            ".claude/scripts/rfc-graph/lib/edge-order.js",
+            ".claude/scripts/rfc-graph/phasify-helpers.js",
+            ".claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/scripts/tickets/verify-all-ticket-coverage.js",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/tickets/consolidate-phase-tickets.js",
+            ".claude/scripts/tickets/generate-related-ticket-ids.js",
+            "tests/rfc-graph/phasify-ordering-scc.test.mjs",
+            "tests/tickets/verify-all-ticket-coverage-argv.test.mjs",
+            "tests/tickets/role-and-phase-ownership.test.mjs",
+            "tests/tickets/consolidation-digest-refresh.test.mjs",
+            "tests/tickets/related-ticket-graph-resolution.test.mjs",
+            "tests/tickets/view-unit-map.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: all eight contracts pass their unit and integration tests; a gaia-time-like split produces one implementer per operation, no MISSING_SEQUENCE_STEP, consistent digests, and non-empty relatedTicketIds.",
+            "Error case: a missing sidecar still fails closed; an unknown operation role still fails the coverage gate; a real hard cycle still fails phasify; a missing graph still returns null; a missing step in the implementing phase is still reported.",
+            "Edge case: home-relative metadata, nested packages, non-RFC.md graph names, duplicate owned and obligation records, out-of-order phase re-runs, and PX (-1) keys behave generically; no RFC.md distribution map is edited."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "graph edges -> phasify SCC condensation (phasify-helpers.orderingEdges, tarjanSCC)",
+              "precondition": "Edges contain hard directed ordering edges and non-ordering references or refines edges; node ids are non-empty.",
+              "postcondition": "orderingEdges returns exactly the edges with effectiveStrength hard and directionOf non-null; tarjanSCC over that set groups only mutually reachable ordering nodes; applySccToOrder preserves every hard prerequisite before its consumer.",
+              "invariant": "For every hard directed edge from provider P to consumer C, C is after P in the applied order; no non-ordering edge can create or move an SCC group."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "CLI argv -> verify-all-ticket-coverage.main -> readUnitMaterial",
+              "precondition": "main receives the arguments after the script name; a Tickets.json exists at the first positional path or at resolveTicketsPath({cwd}); an allocate manifest may exist at the workspace root.",
+              "postcondition": "The resolved Tickets.json path is always the first non-flag material argument; a root *-sequences.json beside it is read; the command exits 0 when coverage passes and 1 with MISSING_SIDECAR only when the sidecar is genuinely absent.",
+              "invariant": "No argument shape removes the canonical Tickets.json from the material reader; flags are passed through unchanged."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "distribution map unit -> operation role -> obligation.mode",
+              "precondition": "A view unit has unitId op-*, a roleCandidate of implementer, undecided, or null, and the ledger row may have role implementer or consumer and owners string[].",
+              "postcondition": "An explicit ledger role wins; otherwise an implementer or consumer roleCandidate wins; otherwise a sole owner equal to packageId yields implementer; otherwise the role stays null or undecided and no implementer is invented.",
+              "invariant": "Exactly one ticket implements an operation per package when the ledger or view names an implementer; a consumer role never creates an implementer; sequence units are not assigned an operation role."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "Tickets.json phases -> populateTicketDistribution -> operation ownership",
+              "precondition": "The Tickets document contains zero or more phases in document order; each prior ticket may carry distribution.units with kind operation and obligation.mode implement.",
+              "postcondition": "A unit already implemented by a phase before the current one is seeded as prior-owned; the current phase emits obligation.mode reference with the prior ticket durable key; no current ticket emits implement for that unit.",
+              "invariant": "Across the whole package, every operation unit has at most one obligation.mode implement; the implementer key is the durable P{phase}-{id} or PX-{id} spelling."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "phase tickets -> verifySequenceSteps -> MISSING_SEQUENCE_STEP",
+              "precondition": "A view declares a step-bearing sequence; a phase carries the sequence node and may implement or reference the step operation.",
+              "postcondition": "MISSING_SEQUENCE_STEP is reported only when the phase implements the operation and no ticket carries the step; a reference to a prior-phase implementer produces no finding.",
+              "invariant": "The consumer exemption and the implemented-operation predicate are both required; a missing step in the implementing phase is never suppressed."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "consolidate-phase-tickets key remap -> distribution digest",
+              "precondition": "A Tickets document carries per-ticket distribution.units with obligation.implementerTicketKey and stored obligationDigest and distribution.digest.",
+              "postcondition": "refreshTicketDistributionDigests recomputes every unit obligationDigest and ticket distribution.digest from the current obligation; writeTicketDistributionAggregate then records the refreshed digests.",
+              "invariant": "For every ticket, distribution.digest equals digestTicketDistribution(distribution) after the remap; the aggregate digest is a function of the refreshed ticketDigests only."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "Tickets.json metadata -> loadGraphEdgesFromTickets",
+              "precondition": "Tickets.json has metadata.source, optional metadata.resolvedPaths.graphPath, and sits beside RFC.md and RFC-GRAPH.json or in a nested package.",
+              "postcondition": "The graph is read from resolvedPaths.graphPath when present and readable, else from the home-expanded metadata.source with .md replaced by -GRAPH.json, else from the sibling <rfcBasename>-GRAPH.json; null is returned only when no candidate exists or parses.",
+              "invariant": "No candidate path is constructed by treating a ~/ path as relative; the chosen path is inside the package directory or explicitly named by metadata."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "SEQUENCES.json view arrays -> viewUnitMap -> ticket distribution",
+              "precondition": "The view may carry the same unitId in obligationUnits and in an owned operation or sequence array; the owned record may carry steps.",
+              "postcondition": "The owned record wins; the obligation record is used only when no owned record exists; the resulting distribution unit preserves the owned steps.",
+              "invariant": "No unit step list is emptied by a duplicate obligation row; obligation-only units still resolve."
+            }
+          ],
+          "notes": "- Steps: implement C001-C008 in TDD order; add the regression tests before each fix; run the impact-set node --test; do not run make test; after review run make install-to-projects.\n- Risks: the SCC change can reorder phases; mitigate with the citation-cycle fixture, validate-phasify, and a gaia-time-like split. Cross-phase ownership must use document order, not numeric ids alone. Graph resolution must not swallow a malformed existing candidate.\n- Caveats: gaia working tree is a reference implementation, not a source to copy verbatim; upstream the gaia HEAD viewUnitMap fix before install or the install will revert it.\n- Open items: workspace-wide verify-implementation-order --workspace still reports MISSING_IMPLEMENTER for unsplit sibling packages; the 14 gaia baseline failures remain.\n- Future: unify viewUnitMap with collectViewUnits, and canonicalize the legacy P-1- spelling to PX-.\nImplementation summary:\n- Changed files: .claude/scripts/rfc-graph/lib/edge-order.js, phasify-helpers.js, phasify-graph-and-dirs-files-tree.js, phasify-omissions.js, .claude/scripts/tickets/verify-all-ticket-coverage.js, add-tickets-for-phase.js, consolidate-phase-tickets.js, generate-related-ticket-ids.js\n- New tests: phasify-ordering-scc.test.mjs, verify-all-ticket-coverage-argv.test.mjs, role-and-phase-ownership.test.mjs, consolidation-digest-refresh.test.mjs, related-ticket-graph-resolution.test.mjs, view-unit-map.test.mjs\n- Red: 6 files / 22 tests failed for absent exports or absent behavior.\n- Green: all 22 new tests pass; the impact set passes 149/149; phasify-omissions and phasify-fornextround pass.\n- Quality: 0 issues after replacing console.log with writeLine and removing false-positive comment wording.\n- Stubs/crimes: 0.\nReview report:\n- Static quality check: 0 issues (run-quality-checks.js + generate-report.js).\n- Translatability: no new generic variable names, no debug output, no new hardcoded numeric literals.\n- Tests: 27 new tests pass; impact set 154/154; phasify-omissions and phasify-fornextround pass.\n- Annotations: annotate --verify reports 0 missing, 0 ambiguous, 0 errors; no [::AMBIGUOUS::] remains.\n- Issues found and fixed during review:\n  * SEQUENCE_STEP_WITHOUT_IMPLEMENTER was over-suppressed; split carriesOperation from implementsHere so a present step without an implementer still fails.\n  * candidateGraphPaths no longer creates a literal ~ directory candidate for a home-relative metadata.source.\n  * Added coverage for a separate flag value, a multi-owner undecided operation, document-order prior phases, aggregate digest refresh, and distribution step preservation.\n  * Moved the readUnitMaterial JSDoc back onto its function and added the missing populateTicketDistribution parameter documentation.\n- Dependencies: no new dependency; CommonJS/ESM boundaries preserved.\n- Out of scope: workspace-wide verify-implementation-order MISSING_IMPLEMENTER for unsplit sibling packages and the 14 gaia baseline failures.",
+          "invariants": "- Normal establishment: orderingEdges selects only hard directed edges; the coverage gate always receives the canonical Tickets.json; a sole ledger owner with an undecided view role becomes the single implementer; a later phase references a prior implementer; a step is required only in the implementing phase; consolidation recomputes unit and ticket digests; the graph is resolved from metadata; the owned view record wins over an obligation row.\n- Invariant on error: a hard ordering cycle still fails kahnTopologicalSort; a genuinely missing sidecar still exits 1; an unknown or multi-owner undecided operation still fails the coverage gate; a missing or malformed graph candidate returns null or a named error, never invented edges; a missing step in the implementing phase is still reported.\n- State invariant: no RFC.md distribution map is edited; persisted Tickets.json digests are internally consistent after any key remap; no absolute or project-specific path is written into a shared script or generated artifact.\n- Boundary invariant: root and nested packages, home-relative metadata.source, non-RFC.md graph names, duplicate owned and obligation records, phase re-runs, and PX (-1) phase keys behave the same as ordinary P{id} phases.",
+          "instrumentation": "- Logging: verify-all-ticket-coverage keeps resolved tickets: and the PASS/fail summary; consolidation logs the number of refreshed ticket digests; graph resolution logs the chosen path and edge count under verbose.\n- Metrics: count of prior-owned operation units seeded, count of refreshed distributions, and count of graph edges read.\n- Error tracking: existing codes MISSING_SIDECAR, TICKET_DIGEST_MISMATCH, MISSING_SEQUENCE_STEP, DUPLICATE_UNIT_AT_TICKET, and SEQUENCE_STEP_WITHOUT_IMPLEMENTER remain the observable signals; no new silent fallback.\n- Health check: all changed scripts exit 0 on the passing fixture and 1 on the failing fixture; no network access and no machine-specific path.\nStatic quality check: 0 issues\nTranslatability: no generic names, debug output, or new magic numbers\nTests: 27 new tests pass; impact set 154/154\nAnnotations: 0 missing, 0 ambiguous, 0 errors",
+          "investigation": "Source investigation (conver HEAD 23096bbb unless noted):\n- rfc-graph/phasify-graph-and-dirs-files-tree.js:314 calls tarjanSCC(edges) over every edge; phasify-omissions.js:1436 does the same. lib/edge-order.js:13-45 defines the only ordering relation: depends_on and implements are provider-is-to; precedes, triggers, and constrains are provider-is-from; references, refines, and extends have directionOf null and weightOf 0. A fixture with hard A depends_on P and non-ordering A references B, B refines A sorts B,P,A; full-edge SCC groups A with B and applies B,A,P (A before P), while ordering-only SCC keeps B,P,A.\n- tickets/verify-all-ticket-coverage.js:419 reads argv[2] and :436 reads argv.slice(2) inside main(argv = process.argv.slice(2)). Running the script with no args from gaia/crates/protocol/gaia-time exits 1 MISSING_SIDECAR; the gaia-patched copy exits 0 PASS.\n- tickets/add-tickets-for-phase.js:1020 computes mapEntry?.role ?? (record.roleCandidate === implementer ? implementer : consumer). The gaia-time distribution map has 30 units, 23 without role, all with owners [pkg-0013]; the same input yields reference/undecided in conver and implement/implementer with the role resolution. The records.set at :1181 writes role for every kind; the fix must guard operation.\n- tickets/add-tickets-for-phase.js:1150-1158 builds ownership only from the current phase. A phase-1 population with priorImplementerKeyByUnit {op-A: P0-3} yields implement in conver and reference with implementerTicketKey P0-3 in gaia. bulk-add-tickets.js:30-45 appends tickets in input order and assigns ascending ids, so the current ticket.id < owner comparison is the robust lowest-id rule; the gaia patch first-wins must be replaced.\n- tickets/add-tickets-for-phase.js:1442 sets isPackageStep = requiresImplementer && graphUnits.has(operationUnitId). A phase carrying the sequence node and a reference to a prior implementer reports MISSING_SEQUENCE_STEP in conver and an empty list in gaia; adding implementedHere.has(operationUnitId) fixes it.\n- tickets/consolidate-phase-tickets.js:773 calls remapTicketKeyReferences; :821-824 calls writeTicketDistributionAggregate without refreshing per-unit and per-ticket digests. digestTicketDistribution at add-tickets-for-phase.js:1515-1522 covers units, including obligation.implementerTicketKey. The gaia-time final Tickets has 20 tickets and 0 bad ticket or unit digests after the refresh.\n- tickets/generate-related-ticket-ids.js:161-167 resolves metadata.source with path.resolve(root, ~/...), which produces <root>/~/.... loadGraphEdgesFromTickets(gaia-time/Tickets.json) returns null in conver and 188 edges in gaia. The generic order must use metadata.resolvedPaths.graphPath and fromHomeRelative or resolveStoredPath, not a hardcoded RFC-GRAPH.json.\n- tickets/add-tickets-for-phase.js:968-975 reads obligationUnits last, so a duplicate seq-* obligation row overwrites the owned record. A view with ownedSequenceUnits steps [s1] and an obligationUnits row for the same unit yields flow with 0 steps in conver and steps with 1 step in gaia. The fix exists in gaia HEAD v0.0.329 and must be upstreamed before install.\n- Existing coverage: tests/rfc-graph/edge-order.test.cjs, tests/tickets/single-implementing-ticket.test.mjs, tests/tickets/consumer-owner-role.test.mjs, tests/tickets/step-contract-chain.test.cjs, tests/tickets/distribution-digest-chain.test.mjs, and tests/generate-related-ticket-ids.test.cjs.",
+          "boyScoutPlan": "- Function names become verb phrases: orderingEdges, resolveInvocation, resolvedOperationRole, priorImplementedUnits, refreshTicketDistributionDigests, resolveGraphPath.\n- Variables become domain concepts: canonicalTicketsPath, materialArgv, operationRole, priorImplementerKeyByUnit, ownedUnitRecord, candidateGraphPaths.\n- One responsibility per function: extract role resolution out of obligationOf and digest refresh out of consolidation; do not add a second private edge-weight table.\n- Hardcoded values become named constants: PRIOR_PHASE_OWNER, GRAPH_SUFFIX, DOC_SUFFIX, PX_PHASE_ID.\n- No swallowed errors: a malformed graph candidate that exists is reported or returned as null with a named reason; a missing candidate is not an error.\n- Proactive Boy Scout: while touching generate-related-ticket-ids.js, replace the P-1- display spelling with ticketIdentityOf; while touching viewUnitMap, document the owned-wins rule.",
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 precondition/postcondition/invariant] Ordering-only SCC\n```js\n// C001 precondition: hard ordering edges and non-ordering citation edges coexist.\nconst edges = [\n  { from: 'A', to: 'P', type: 'depends_on', attributes: { strength: 'hard' } },\n  { from: 'A', to: 'B', type: 'references', attributes: { strength: 'hard' } },\n  { from: 'B', to: 'A', type: 'refines', attributes: { strength: 'hard' } },\n];\nconst selected = orderingEdges(edges);\nassert.deepEqual(selected.map((edge) => `${edge.from}->${edge.to}`), ['A->P']);\n\n// C001 postcondition: ordering-only condensation leaves no group and keeps P before A.\nconst sort = kahnTopologicalSort(['A', 'B', 'P'], edges, getWeight);\nconst allGroups = buildSccConstraint(tarjanSCC(edges)).sccMap;\nconst orderingGroups = buildSccConstraint(tarjanSCC(selected)).sccMap;\nassert.equal(allGroups.A, allGroups.B);\nassert.deepEqual(orderingGroups, {});\n\n// C001 invariant: the provider stays before the consumer after SCC application.\nconst applied = applySccToOrder(sort.order, orderingGroups);\nassert.ok(applied.indexOf('P') < applied.indexOf('A'));\n```",
+            "UT: [C002 precondition/postcondition/invariant] Coverage gate argv\n```js\n// C002 precondition: argv may omit Tickets.json or name it explicitly.\nconst noArg = resolveInvocation([], 'pkg/Tickets.json');\nconst flagsOnly = resolveInvocation(['--artifact=/root/RFC-sequences.json'], 'pkg/Tickets.json');\nconst explicit = resolveInvocation(['pkg/Tickets.json', '--artifact=/root/RFC-sequences.json'], 'fallback/Tickets.json');\n\n// C002 postcondition: the canonical Tickets.json is always the first material argument.\nassert.deepEqual(noArg.materialArgv, ['pkg/Tickets.json']);\nassert.deepEqual(flagsOnly.materialArgv, ['pkg/Tickets.json', '--artifact=/root/RFC-sequences.json']);\nassert.equal(explicit.ticketsPath, 'pkg/Tickets.json');\n\n// C002 invariant: a no-argument run in a workspace with a root sidecar exits 0.\nconst result = spawnSync(process.execPath, [coverageScript], { cwd: packageDir, encoding: 'utf8' });\nassert.equal(result.status, 0);\nassert.doesNotMatch(result.stdout + result.stderr, /MISSING_SIDECAR/);\n```",
+            "UT: [C003 precondition/postcondition/invariant] Operation role resolution\n```js\n// C003 precondition: an undecided view role with a sole ledger owner.\nconst view = {\n  packageId: 'pkg-A',\n  ownedOperationUnits: [{ unitId: 'op-A', operationId: 'A', roleCandidate: 'undecided', ownerPackageIds: ['pkg-A', 'pkg-B'], obligation: {} }],\n  ownedSequenceUnits: [],\n  crossBoundarySequenceUnits: [],\n  obligationUnits: [],\n};\nconst map = { units: [{ unitId: 'op-A', kind: 'operation', owners: ['pkg-A'] }] };\nconst populated = await populateTicketDistribution(phase, graph, dirsTree, view, map);\nconst unit = populated.tickets[0].distribution.units.find((entry) => entry.unitId === 'op-A');\n\n// C003 postcondition: the sole owner implements the operation.\nassert.equal(unit.role, 'implementer');\nassert.equal(unit.obligation.mode, 'implement');\n\n// C003 invariant: an explicit consumer role stays a reference.\nconst consumer = { units: [{ unitId: 'op-A', kind: 'operation', role: 'consumer', owners: ['pkg-A'] }] };\nconst consumerPhase = await populateTicketDistribution(phase, graph, dirsTree, view, consumer);\nassert.equal(consumerPhase.tickets[0].distribution.units.find((entry) => entry.unitId === 'op-A').obligation.mode, 'reference');\n```",
+            "UT: [C004 precondition/postcondition/invariant] Cross-phase ownership\n```js\n// C004 precondition: phase 0 already implements op-A and phase 1 carries the same unit.\nconst priorImplementerKeyByUnit = new Map([['op-A', 'P0-3']]);\nconst populated = await populateTicketDistribution(phaseOne, graph, dirsTree, view, null, priorImplementerKeyByUnit);\n\n// C004 postcondition: phase 1 references the durable key and does not implement again.\nconst unit = populated.tickets[0].distribution.units.find((entry) => entry.unitId === 'op-A');\nassert.equal(unit.obligation.mode, 'reference');\nassert.equal(unit.obligation.implementerTicketKey, 'P0-3');\nassert.equal(populated.tickets.some((ticket) => ticket.distribution.units.some((entry) => entry.unitId === 'op-A' && entry.obligation.mode === 'implement')), false);\n\n// C004 invariant: inside one phase the lowest ticket id owns the operation.\nconst lowest = await populateTicketDistribution({\n  id: 0,\n  nodeIds: ['N1', 'N2'],\n  tickets: [{ id: 2, phaseId: 0, nodeIds: ['N2'] }, { id: 1, phaseId: 0, nodeIds: ['N1'] }],\n}, graph, dirsTree, view, null);\nassert.equal(lowest.tickets.find((ticket) => ticket.id === 1).distribution.units.find((entry) => entry.unitId === 'op-A').obligation.mode, 'implement');\nassert.equal(lowest.tickets.find((ticket) => ticket.id === 2).distribution.units.find((entry) => entry.unitId === 'op-A').obligation.mode, 'reference');\n```",
+            "UT: [C005 precondition/postcondition/invariant] Phase-local step coverage\n```js\n// C005 precondition: phase 1 carries the sequence node and references a prior implementer.\nconst findings = verifySequenceSteps(phaseOne, view, graph, artifact);\n\n// C005 postcondition: no missing-step finding for a reference-only phase.\nassert.equal(findings.some((finding) => finding.code === 'MISSING_SEQUENCE_STEP'), false);\n\n// C005 invariant: the implementing phase still reports the missing step.\nconst implementing = {\n  ...phaseOne,\n  tickets: [{\n    ...phaseOne.tickets[0],\n    distribution: { units: [\n      { unitId: 'op-A', kind: 'operation', role: 'implementer', obligation: { mode: 'implement' } },\n      { unitId: 'seq-S', kind: 'sequence', obligation: { mode: 'flow' } },\n    ] },\n  }],\n};\nassert.ok(verifySequenceSteps(implementing, view, graph, artifact).some((finding) => finding.code === 'MISSING_SEQUENCE_STEP'));\n```",
+            "UT: [C006 precondition/postcondition/invariant] Consolidation digest refresh\n```js\n// C006 precondition: a consolidation remap changed the durable implementer key.\nconst phases = [{ id: 0, tickets: [{ id: 1, distribution: {\n  sourceMapDigest: 'a'.repeat(64),\n  sourceViewDigest: 'b'.repeat(64),\n  units: [{ unitId: 'op-A', kind: 'operation', obligation: { mode: 'reference', implementerTicketKey: 'P9-3' } }],\n} }] }];\nphases[0].tickets[0].distribution.units[0].obligation.implementerTicketKey = 'P3-1';\n\n// C006 postcondition: refresh recomputes both digests from the current obligation.\nrefreshTicketDistributionDigests(phases);\nconst distribution = phases[0].tickets[0].distribution;\nassert.equal(distribution.units[0].obligationDigest, digestUnitObligation(distribution.units[0].obligation));\nassert.equal(distribution.digest, digestTicketDistribution(distribution));\n\n// C006 invariant: the digest verifier reports no mismatch after the refresh.\nassert.deepEqual(verifyDistributionDigests(phases[0]), []);\n```",
+            "UT: [C007 precondition/postcondition/invariant] Related graph resolution\n```js\n// C007 precondition: metadata.source is home-relative and resolvedPaths names the graph.\nprocess.env.HOME = tempHome;\nconst packageDir = path.join(tempHome, 'shyme', 'example', 'crates', 'pkg');\nfs.mkdirSync(packageDir, { recursive: true });\nfs.writeFileSync(path.join(packageDir, 'RFC-GRAPH.json'), JSON.stringify({ edges: [{ from: 'N1', to: 'N2', type: 'depends_on' }] }));\nfs.writeFileSync(path.join(packageDir, 'Tickets.json'), JSON.stringify({\n  metadata: {\n    source: '~/shyme/example/crates/pkg/RFC.md',\n    resolvedPaths: { graphPath: '~/shyme/example/crates/pkg/RFC-GRAPH.json' },\n  },\n}));\n\n// C007 postcondition: the graph is read through the resolved, home-expanded path.\nconst edges = loadGraphEdgesFromTickets(path.join(packageDir, 'Tickets.json'));\nassert.equal(edges.length, 1);\nassert.equal(edges[0].from, 'N1');\n\n// C007 invariant: a missing candidate returns null instead of inventing edges.\nfs.rmSync(path.join(packageDir, 'RFC-GRAPH.json'));\nassert.equal(loadGraphEdgesFromTickets(path.join(packageDir, 'Tickets.json')), null);\n```",
+            "UT: [C008 precondition/postcondition/invariant] Owned record precedence\n```js\n// C008 precondition: obligationUnits duplicates an owned sequence record with steps.\nconst view = {\n  packageId: 'pkg-A',\n  ownedOperationUnits: [{ unitId: 'op-A', operationId: 'A', roleCandidate: 'implementer', obligation: {} }],\n  ownedSequenceUnits: [{ unitId: 'seq-S', sequenceId: 'S', outcome: 'singleStep', steps: [{ stepId: 's1', operationId: 'A', order: 0 }] }],\n  crossBoundarySequenceUnits: [],\n  obligationUnits: [{ unitId: 'seq-S', relation: 'assigns', subject: 'S', kind: 'sequence' }],\n};\nconst record = viewUnitMap(view).get('seq-S');\n\n// C008 postcondition: the owned record wins and keeps its step.\nassert.equal((record.steps ?? []).length, 1);\n\n// C008 invariant: the distribution unit stays in steps mode with the step attached.\nconst populated = await populateTicketDistribution(phase, graph, dirsTree, view, null);\nconst sequenceUnit = populated.tickets[0].distribution.units.find((entry) => entry.unitId === 'seq-S');\nassert.equal(sequenceUnit.obligation.mode, 'steps');\nassert.equal(sequenceUnit.obligation.steps.length, 1);\n```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "SCC condensation read every edge, so a non-ordering citation cycle could group two nodes and hoist a consumer ahead of its hard prerequisite.",
+              "after": "orderingEdges selects only hard directed edges; condenseOrderingGraph is the single SCC entry point used by phasify and omission phasing.",
+              "description": "C001 ordering-only SCC"
+            },
+            {
+              "before": "main read argv[2] and the material reader read argv.slice(2), so a no-argument run lost the canonical Tickets.json and reported MISSING_SIDECAR for a readable sidecar.",
+              "after": "firstPositional and resolveInvocation hand the canonical Tickets.json plus flags to readUnitMaterial for the no-argument, flag-only and explicit-path shapes.",
+              "description": "C002 coverage gate argv resolution"
+            },
+            {
+              "before": "An undecided view role fell back to consumer, leaving a sole-owner operation with no implementer anywhere.",
+              "after": "resolvedOperationRole applies the explicit ledger role, then the view candidate, then a sole ledger owner equal to packageId, otherwise fails closed; sequence records keep role null.",
+              "description": "C003 operation role resolution"
+            },
+            {
+              "before": "Operation ownership was phase-local, so a later phase re-implemented an operation an earlier phase already implemented.",
+              "after": "priorImplementedUnits seeds earlier-phase implementers by document order; the later phase references the durable ticket key and the lowest local ticket id still owns.",
+              "description": "C004 cross-phase ownership"
+            },
+            {
+              "before": "A phase carrying the sequence node but only referencing a prior implementer was forced to own the step.",
+              "after": "MISSING_SEQUENCE_STEP requires the phase to implement the operation; a present step with no implementer still raises SEQUENCE_STEP_WITHOUT_IMPLEMENTER.",
+              "description": "C005 phase-local step coverage"
+            },
+            {
+              "before": "Consolidation remapped implementer keys without recomputing the per-unit and per-ticket digests.",
+              "after": "refreshTicketDistributionDigests recomputes both digests before writeTicketDistributionAggregate records the aggregate.",
+              "description": "C006 consolidation digest refresh"
+            },
+            {
+              "before": "metadata.source was resolved as a relative path, so a ~/ path or a non-RFC basename produced no graph and left relatedTicketIds empty.",
+              "after": "candidateGraphPaths resolves metadata.resolvedPaths.graphPath, the home-expanded source, the package sibling, RFC-GRAPH.json and the legacy root in order.",
+              "description": "C007 related-ticket graph resolution"
+            },
+            {
+              "before": "obligationUnits was read last, so a duplicate row overwrote the owned sequence record and lost its steps.",
+              "after": "Obligation rows are read first; the owned record wins and keeps its steps; viewUnitMap is exported for the regression test.",
+              "description": "C008 owned record precedence"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
         }
       ]
     },
