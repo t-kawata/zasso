@@ -28,7 +28,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { directionOf, isHardEdge } = require('./lib/edge-order.js');
+const { directionOf, isHardEdge, providerConsumerEdge } = require('./lib/edge-order.js');
 const { writeLine } = require('../lib/cli-output');
 
 /** Normalize a hard edge to consumer -> provider for the phase merger. */
@@ -617,7 +617,7 @@ function repairInspectionPrefixes(actionTickets, quiet) {
  * @returns {{ valid: boolean, checks: object }}
  */
 // [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-344, PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-344|PX-358) --for-spec --no-implementation-order`.
 function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds) {
   const checks = {};
   let valid = true;
@@ -665,12 +665,10 @@ function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds)
     }
   }
   for (const edge of hardEdges) {
-    const direction = directionOf(edge);
-    if (direction === null) continue;
-    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
-    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
-    const pu = nodePhase[consumer];
-    const pv = nodePhase[provider];
+    const pair = providerConsumerEdge(edge);
+    if (pair === null) continue;
+    const pu = nodePhase[pair.to];
+    const pv = nodePhase[pair.from];
     if (pu !== undefined && pv !== undefined) {
       const idxProvider = phaseList.findIndex(function(p) { return p.id === pv; });
       const idxConsumer = phaseList.findIndex(function(p) { return p.id === pu; });

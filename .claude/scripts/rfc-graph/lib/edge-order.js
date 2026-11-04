@@ -126,6 +126,27 @@ function orderingEdges(edges) {
   return (edges || []).filter((edge) => isHardEdge(edge) && directionOf(edge) !== null);
 }
 
+/**
+ * The same edge stated in implementation order: provider first, consumer second.
+ *
+ * An edge's `from`/`to` are the orientation the author wrote, not the order it declares.
+ * `A depends_on B` and `B constrains A` both order B before A, so a reader that walks the
+ * raw orientation turns agreement into a cycle. A directionless edge has no order.
+ *
+ * This is a projection, not a toggle: apply it once to an edge as read from the graph.
+ *
+ * @param {object} edge — a graph edge
+ * @returns {{from: string, to: string}|null} provider-first copy, or null
+ */
+// [::TICKET::] PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-358 --for-spec --no-implementation-order`.
+function providerConsumerEdge(edge) {
+  const direction = directionOf(edge);
+  if (direction === null) return null;
+  const provider = direction === PROVIDER_IS_TO ? edge.to : edge.from;
+  const consumer = direction === PROVIDER_IS_TO ? edge.from : edge.to;
+  return { ...edge, from: provider, to: consumer };
+}
+
 /** Backward-compatible alias used by the existing phasify helpers. */
 // [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
 function getWeight(edgeOrType) {
@@ -150,6 +171,7 @@ module.exports = {
   weightOf,
   isHardEdge,
   orderingEdges,
+  providerConsumerEdge,
   getWeight,
   isHard,
 };

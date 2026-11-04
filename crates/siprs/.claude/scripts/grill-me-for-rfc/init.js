@@ -3,8 +3,9 @@
  * init.js <rfc-dir> [<material-path>...]
  *
  * Initialises a grill session in <rfc-dir>: writes Status.json, DesignTree.json and
- * CheckList.md, and records the material paths the caller handed over so later
- * scripts read them from Status.json rather than from the command line.
+ * CheckList.md, and records the material the run reads — discovered from the package
+ * directory and the workspace root, plus every path the caller added — so later
+ * scripts read it from Status.json rather than from the command line.
  *
  * The RFC is deliberately not an argument. It is always <rfc-dir>/RFC.md, so the
  * name of the design document is a rule of the command rather than a choice of the
@@ -16,8 +17,14 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { createRequire } from "node:module";
 import { validateAll } from "./check-all-schema.js";
 import { AI_SUPPLEMENT_COMMENT } from "./lib/checklist-fence.mjs";
+import {
+  MaterialUnreadableError,
+  mergeDiscoveredWithArguments,
+  resolveDefaultMaterial,
+} from "./lib/default-material.mjs";
 import {
   VIEW_JSON_NAME,
   VIEW_MARKDOWN_NAME,
@@ -31,42 +38,62 @@ import { ProjectionRefused, projectPackageView } from "../sequences-slice/lib/pr
 import { toHomeRelative } from "../lib/path-utils.js";
 
 const HOME_DIRECTORY = os.homedir();
+const require = createRequire(import.meta.url);
+const { findAllocateManifest } = require("../lib/package-artifacts.js");
 
 /**
- * The view this run was handed an artifact for, made current.
+ * The file system the discovery rule reads.
  *
- * A session records the material it was given and then reads whatever is on disk, so a view
+ * The workspace root is the nearest ancestor holding both workspace manifests, which is
+ * the rule `/explain-seed` and the sequences rail already apply. Reusing it here rather
+ * than spelling a second rule is what keeps the artifact this run reads the same one the
+ * distribution gates read.
+ */
+const discoveryIo = {
+  readDirectory: (directory) => fs.readdirSync(directory),
+  workspaceRootOf: (directory) => {
+    const manifest = findAllocateManifest(directory);
+    return manifest === null ? null : path.dirname(manifest);
+  },
+  join: path.join,
+  resolvePath: (materialPath) => path.resolve(materialPath),
+};
+
+/**
+ * The view this run has an artifact for, made current.
+ *
+ * A session records the material it reads and then reads whatever is on disk, so a view
  * projected from an older artifact was read as material by every later run and nothing in the run's
  * own state said it predated the obligation carriage. The repair belongs at initialization rather
- * than in the command's prose because the arguments are already here: the run cannot forget a step
- * it never had to take.
+ * than in the command's prose because the merged material list is already here: the run cannot
+ * forget a step it never had to take.
  *
- * It happens only when an argument names an artifact, which is the condition under which a run owes
- * this directory a carriage at all. A session resumed with no artifact — the ordinary case for a
- * project that has none — reaches none of this and writes nothing.
+ * It happens only when that list holds an artifact, discovered at the workspace root or added
+ * on the command line, which is the condition under which a run owes this directory a carriage
+ * at all. A session in a project that has no artifact reaches none of this and writes nothing.
  *
  * The two view files are recorded as material in the same step, because the strict readers walk
  * the recorded list: a view that was written and not recorded is a view the run does not read.
  *
- * The artifact is looked for in what the session recorded and in what this invocation was handed,
- * because on the run that first reaches a directory the artifact is only in the second: the session
- * record is written at the end of this function, so it cannot be the only place the argument is
- * read from. An unusable artifact that is still on disk is attempted anyway, so the refusal names
- * what is wrong with it instead of the run reporting that it had nothing to do.
+ * The artifact is looked for in what the session recorded and in the material this run
+ * reads, because on the run that first reaches a directory the artifact may be only in
+ * the second: the session record is written at the end of this function, so it cannot be
+ * the only place the artifact is read from. An unusable artifact that is still on disk is
+ * attempted anyway, so the refusal names what is wrong with it instead of the run
+ * reporting that it had nothing to do.
  *
  * @param {string} rfcDir
- * @param {string[]} givenMaterialPaths — this invocation's arguments, already resolved
+ * @param {string[]} mergedMaterialPaths — discovered material plus this invocation's arguments, already resolved
  * @returns {{ refreshed: Array<{view: string, packageId: string}>, recordedMaterials: string[], reason: string|null }}
  */
-// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
-function refreshRecordedView(rfcDir, givenMaterialPaths) {
+// [::TICKET::] PX-270, PX-357 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-270|PX-357) --for-spec --no-implementation-order`.
+function refreshRecordedView(rfcDir, mergedMaterialPaths) {
   const io = { ...nodeFileSystem(fs), basename: path.basename, join: path.join };
   const answer = findSequenceMaterial({ rfcDir, homeDirectory: HOME_DIRECTORY, io });
   const candidates = [
     ...answer.materialPaths.map((materialPath) => expandHomePath(materialPath, HOME_DIRECTORY)),
-    ...givenMaterialPaths,
+    ...mergedMaterialPaths,
   ].filter((materialPath) => materialPath.endsWith(SOURCE_ARTIFACT_SUFFIX));
-
   const artifactPath = candidates.find((materialPath) => isUsableSourceArtifact(io, materialPath))
     ?? candidates.find((materialPath) => fs.existsSync(materialPath))
     ?? null;
@@ -95,9 +122,9 @@ if (!packageDir) {
   process.exit(1);
 }
 
-const materialPaths = process.argv.slice(3)
+const argumentPaths = process.argv.slice(3)
   .map((materialPath) => path.resolve(expandHomePath(materialPath, HOME_DIRECTORY)));
-const missingMaterials = materialPaths.filter((materialPath) => !fs.existsSync(materialPath));
+const missingMaterials = argumentPaths.filter((materialPath) => !fs.existsSync(materialPath));
 if (missingMaterials.length > 0) {
   console.error(`Material not found: ${missingMaterials.join(", ")}`);
   process.exit(1);
@@ -119,6 +146,49 @@ if (statusExists) {
 } else if (rfcExists) {
   mode = "overwrite_confirm";
 }
+
+// A new session creates its own directory, so discovery can read it. The directory is
+// made only after every argument has been validated, which keeps a refused call from
+// leaving a directory behind.
+if (mode === "new") {
+  fs.mkdirSync(rfcDir, { recursive: true });
+}
+
+/**
+ * The material this run reads, discovered before the arguments are added to it.
+ *
+ * Discovery is unconditional: a bare invocation still reads the package directory and
+ * the workspace root artifact. An argument is an addition, never a replacement, which is
+ * why the merged list starts from the discovered paths.
+ */
+let discovery;
+try {
+  discovery = resolveDefaultMaterial({ rfcDir, io: discoveryIo });
+} catch (error) {
+  if (!(error instanceof MaterialUnreadableError)) throw error;
+  console.error(`${error.code}: ${error.message}`);
+  process.exit(1);
+}
+if (discovery.ambiguousSequenceArtifacts.length > 0) {
+  console.error(`Ambiguous sequences artifacts in ${discovery.workspaceRoot}: ${discovery.ambiguousSequenceArtifacts.join(", ")}`);
+  process.exit(1);
+}
+
+const { materialPaths, addedArguments } = mergeDiscoveredWithArguments({
+  discovered: discovery.materialPaths,
+  argumentPaths,
+  resolvePath: (materialPath) => materialPath,
+});
+
+/** What the run discovered, printed beside the material it recorded. */
+const discoveryReport = {
+  discovered: discovery.materialPaths,
+  addedArguments,
+  workspaceRoot: discovery.workspaceRoot,
+  sequenceArtifact: discovery.sequenceArtifact,
+  ambiguousSequenceArtifacts: discovery.ambiguousSequenceArtifacts,
+  excluded: discovery.excluded,
+};
 
 /**
  * The material the session already holds.
@@ -195,21 +265,21 @@ if (mode === "resume") {
   }
   fs.writeFileSync(statusPath, JSON.stringify(status, null, 2), "utf-8");
 
-  process.stdout.write(JSON.stringify({ mode: "resume", status, addedMaterials: added, ...refresh }) + "\n");
+  process.stdout.write(JSON.stringify({ mode: "resume", status, addedMaterials: added, ...refresh, ...discoveryReport }) + "\n");
   process.exit(0);
 }
 
 if (mode === "overwrite_confirm") {
-  process.stdout.write(JSON.stringify({ mode: "overwrite_confirm", materialPaths, rfcPath }) + "\n");
+  process.stdout.write(JSON.stringify({ mode: "overwrite_confirm", materialPaths, rfcPath, ...discoveryReport }) + "\n");
   process.exit(0);
 }
 
-// New mode: generate template files
-fs.mkdirSync(rfcDir, { recursive: true });
+// New mode: generate template files. The directory was created before discovery.
 
 // Status.json template.
 //
-// materialPaths is the list this run was given. researchPath repeats its first
+// materialPaths is the discovered material plus the arguments this run was given, in
+// that order. researchPath repeats its first
 // entry because every Status.json written before materialPaths existed carries it
 // and check-all-schema.js still requires it; a run with no material records the
 // empty string rather than null, which that same check rejects as missing.
@@ -277,4 +347,5 @@ process.stdout.write(JSON.stringify({
     checklist: checklistPath,
   },
   ...refresh,
+  ...discoveryReport,
 }) + "\n");

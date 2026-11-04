@@ -12,7 +12,8 @@
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { directionOf, isHardEdge } = require('../../rfc-graph/lib/edge-order.js');
+// [::TICKET::] PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-358 --for-spec --no-implementation-order`.
+const { isHardEdge, providerConsumerEdge } = require('../../rfc-graph/lib/edge-order.js');
 
 /** The named findings this module can report. */
 export const PREREQUISITE_CODES = Object.freeze({
@@ -635,6 +636,7 @@ function prerequisiteKey(entry) {
  */
 // [::TICKET::] PX-323, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-330 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-330 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-358 --for-spec --no-implementation-order`.
 export function ticketPrerequisites({
   tickets = [],
   graph = null,
@@ -690,12 +692,10 @@ export function ticketPrerequisites({
 
   for (const edge of graph?.edges ?? []) {
     if (!isHardOrderEdge(edge)) continue;
-    const direction = directionOf(edge);
-    if (direction === null) continue;
-    const providerNode = direction === 'provider-is-from' ? edge.from : edge.to;
-    const consumerNode = direction === 'provider-is-from' ? edge.to : edge.from;
-    const providerTicket = byNode.get(providerNode);
-    const consumerTicket = byNode.get(consumerNode);
+    const pair = providerConsumerEdge(edge);
+    if (pair === null) continue;
+    const providerTicket = byNode.get(pair.from);
+    const consumerTicket = byNode.get(pair.to);
     if (providerTicket === undefined || consumerTicket === undefined) continue;
     if (providerTicket === consumerTicket) continue;
     add(consumerTicket, {

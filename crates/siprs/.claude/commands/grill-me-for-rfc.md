@@ -220,29 +220,38 @@ writer it is belongs to that command's own section, not to this one.
 ```
 /grill-me-for-rfc [<material file|directory>...]
 ```
-- material: a file, or a directory whose every file is material
-- zero or more: a run with no material works from the prior artifacts already in the
-  package directory and from the conversation alone
+- material: discovered mechanically on every invocation — every non-hidden entry of
+  `$RFC_DIR` except this command's own outputs (`RFC.md`, `Status.json`,
+  `DesignTree.json`, `CheckList.md`, `SEQUENCES.md`, `SEQUENCES.json`,
+  `SEQUENCES-DISTRIBUTIONS.json`, `*.bak.md`),
+  plus the workspace root's single `*-sequences.json`
+- arguments are **additions**: every argument is appended to the discovered list,
+  deduplicated, in argument order. An argument never replaces or suppresses discovery
+- zero arguments is a complete invocation. A workspace root with no artifact runs
+  without one; two artifacts stop the run naming both
 - the RFC is not an argument. The run writes `./RFC.md`, always
 
 Invocation:
 ```bash
-/grill-me-for-rfc <material-file-or-dir> <material-file-or-dir> ...
+/grill-me-for-rfc
+/grill-me-for-rfc <material-file-or-dir> ...
 ```
 
 ---
 
-## Mechanical Variable Binding from Arguments
+## Mechanical Variable Binding
 
 | Variable | Derivation | Value |
 |----------|------------|-------|
-| `$MATERIAL_PATHS` | the arguments, in order | the files/directories this run reads |
+| `$MATERIAL_PATHS` | discovered entries then arguments, recorded by `init.js` | the files/directories this run reads |
 | `$RFC_DIR` | the invocation directory | dir holding RFC artifacts (Status.json, DesignTree.json, CheckList.md, etc.) |
 | `$RFC_PATH` | `"$RFC_DIR/RFC.md"` | the canonical RFC this run writes |
+| `$WORKSPACE_ROOT` | `init.js` stdout `workspaceRoot`; null → `$RFC_DIR` | root the obligation gates read |
+| `$SEQUENCES_ARTIFACT` | `init.js` stdout `sequenceArtifact` | the one artifact the carriage reads |
 
 `$ARGUMENTS` is deliberately unquoted, as in `/drill-rfc-down`: the shell passes each
-space-separated argument as argv, and init.js resolves each one. No argument means no
-material — never the current directory.
+space-separated argument as argv, and init.js appends each one to the material it
+discovers. Discovery is unconditional; arguments never replace it.
 
 invariant: once `init.js` runs, `$MATERIAL_PATHS` persist in `Status.json` — only `$RFC_DIR` needs tracking thereafter.
 
@@ -282,14 +291,14 @@ node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" begin-ru
 takes — a fresh session, a resume, or a re-entry after DONE — so the number answers "how many
 times was the grill run", not "how many sessions reached DONE".
 
-generates in `$RFC_DIR`: `CheckList.md` (populated at STEP 4), `DesignTree.json` (empty), `Status.json` (state: GRILLING), and records the material list and the fixed RFC path in `Status.json`. A material path that does not exist is reported and the run stops before writing anything.
+generates in `$RFC_DIR`: `CheckList.md` (populated at STEP 4), `DesignTree.json` (empty), `Status.json` (state: GRILLING), and records the material list and the fixed RFC path in `Status.json`. The material list is what discovery found in `$RFC_DIR` and at the workspace root, then every argument. A material path that does not exist is reported and the run stops before writing anything. Its stdout names `discovered`, `addedArguments`, `workspaceRoot`, `sequenceArtifact`, `ambiguousSequenceArtifacts` and `excluded`: record `workspaceRoot` as `$WORKSPACE_ROOT` (null → `$RFC_DIR`) and `sequenceArtifact` as `$SEQUENCES_ARTIFACT`.
 
-It also makes the recorded view current, in this call and under the same condition the sequences rail below is owed at all: when one of the arguments names a `*-sequences.json`. A view projected from an older artifact was read as material by every later run and nothing in the run's state said it predated the obligation carriage, so the repair is done where the arguments already are rather than as a step a run has to remember. It reports what it refreshed in `refreshed`, and it records the two view files it wrote as material in the same step, because a view written and not recorded is a view the strict readers never walk. With no artifact among the arguments nothing of this runs and the files are exactly what they were.
+It also makes the recorded view current, in this call and under the same condition the sequences rail below is owed at all: when the merged material list holds a `*-sequences.json`, discovered at the workspace root or added on the command line. A view projected from an older artifact was read as material by every later run and nothing in the run's state said it predated the obligation carriage, so the repair is done where the material already is rather than as a step a run has to remember. It reports what it refreshed in `refreshed`, and it records the two view files it wrote as material in the same step, because a view written and not recorded is a view the strict readers never walk. With no artifact in the material nothing of this runs and the files are exactly what they were.
 
 ask; stop — Resume mode: `Status.json` exists → ask the user: "Resume from where we left off?" (the RFC may or may not exist yet — first written at STEP 5).
 ask; stop — Overwrite mode: `$RFC_PATH` exists but `Status.json` doesn't → ask the user to confirm overwrite. approved → delete the old RFC, re-run `init.js`.
 
-Resume mode carrying material: arguments that add paths to the session are a re-entry round, not a fresh read. `init.js` records the added paths beside the ones already held — in the order given, each once — and reports them in `addedMaterials`; the material list is never replaced, and an argument already recorded changes nothing. `list-files.js` below walks the whole recorded list, so the new material reaches the reading step with no second command to run.
+Resume mode carrying material: arguments and newly discovered entries are a re-entry round, not a fresh read. `init.js` records them beside the ones already held — in the order given, each once — and reports the paths this invocation appended in `addedMaterials`; the material list is never replaced, and a path already recorded changes nothing. `list-files.js` below walks the whole recorded list, so the new material reaches the reading step with no second command to run.
 
 Guard — before any question is drafted and before anything is written, confirm the canon still stands alone:
 
@@ -309,13 +318,13 @@ one JSON object: `present`, `source`, `view`, `viewExists`, `viewIsCurrent`, `vi
 
 - `present` false → this package has no sequences material. Read no sequences and continue; the run is exactly the run it would have been before this input existed.
 - `present` true and `view` non-null → the view is already at `$RFC_DIR/SEQUENCES.md`. Read it as material alongside the files below.
-- `present` true and `view` null → the view is missing. Initialization has already written it and recorded it when the arguments name an artifact, so there is nothing to run here; when the arguments name none, this package owes no carriage and the run continues without one. A view that was recorded and then deleted is regenerated by that same call, byte for byte, before `list-files.js` looks for it — which is what makes the deletion survivable.
-- `viewIsCurrent` false with a view on disk → the view is there and was written by a reader that did not know about obligations. Initialization has replaced it when an artifact is among the arguments. `viewStalenessReason` names which absence it is, in the same words the verdict uses, and it is printed so a run that named no artifact can tell that this directory still owes a carriage.
+- `present` true and `view` null → the view is missing. Initialization has already written it and recorded it when the run has an artifact, discovered or added, so there is nothing to run here; when the run has none, this package owes no carriage and the run continues without one. A view that was recorded and then deleted is regenerated by that same call, byte for byte, before `list-files.js` looks for it — which is what makes the deletion survivable.
+- `viewIsCurrent` false with a view on disk → the view is there and was written by a reader that did not know about obligations. Initialization has replaced it when the run has an artifact. `viewStalenessReason` names which absence it is, in the same words the verdict uses, and it is printed so a run with no artifact can tell that this directory still owes a carriage.
 
 The carriage read says which directory needs what. It is advisory, in the shape `report-obligation-state.js` has always had:
 
 ```bash
-node "$CLAUDE_DIR/scripts/grill-me-for-rfc/report-obligation-state.js" "$WORKSPACE_ROOT" $ARGUMENTS
+node "$CLAUDE_DIR/scripts/grill-me-for-rfc/report-obligation-state.js" "$WORKSPACE_ROOT" ${SEQUENCES_ARTIFACT:+"$SEQUENCES_ARTIFACT"}
 ```
 
 It prints the two gate summaries it has always printed, and — only when one of the arguments ends in `-sequences.json` — a section per directory naming the state, the reason in words, every unit the directory has carried and not accounted for, what has to be written, and the commands that verify it afterwards. It exits 0 on every path, so it is a read and not a second blocking point; the blocking stays with the gate at STEP 8. A directory the section reports as failed is the one to open next, and the units it lists are the rows the ledger is missing.
@@ -325,7 +334,7 @@ Do not pass the view paths to `preflight`-style material walking, and never hand
 ```bash
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/list-files.js" "$RFC_DIR"
 ```
-flat JSON array of every file beneath every material the run was given, in the order it was given them. An empty array means the run has no material. read all, internalize as research material.
+flat JSON array of every file beneath every material the run reads, in discovery-then-argument order. An empty array means the run has no material. read all, internalize as research material.
 
 **Before any question is drafted, read what this package already holds.**
 
@@ -699,7 +708,7 @@ The renderer is the only writer of the ledger, the map block and the managed anc
 
 **Owner-cell role grammar.** The Distribution ledger is the authored authority for an operation's role. An Owner cell may annotate the row's own package as `pkg-xxxx (implementer)` or `pkg-xxxx (consumer)`; a co-owner's name stays unannotated because that package's own row carries its declaration. The renderer reads the annotation before it writes the map, so a role is authored in the table and never in the generated `json distribution-map` block or `SEQUENCES.json`. An unannotated legacy row keeps the `roleCandidate` fallback; anything else in parentheses is prose.
 
-gate (all 9 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every owned active operation declares `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" $ARGUMENTS` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
+gate (all 9 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every owned active operation declares `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" "$SEQUENCES_ARTIFACT"` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
 
 The two gates answer the two halves of one guarantee. The coverage gate is measured over the workspace and can be satisfied before this package has an RFC; the discharge gate answers the accounting half, so no package can declare DONE while another package's ledger still omits a unit it was handed.
 
