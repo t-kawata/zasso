@@ -292,6 +292,7 @@ test('displayDateKey uses the same date components as formatDate', () => {
 });
 
 test('the three script copies are identical', () => {
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
   const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
   const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
   const local = path.join(packageRoot, '.claude/scripts/conver');
@@ -300,6 +301,7 @@ test('the three script copies are identical', () => {
   const files = [
     'claude-usage.js',
     'draw-progress-gif.js',
+    'progress-gif/usage-cache.js',
     'progress-gif/usage.js',
     'progress-gif/loop.js',
     'progress-gif/engine.js',

@@ -18,6 +18,7 @@ import {
 } from './progress-gif/parse.js';
 import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, displayDateKey } from './progress-gif/loop.js';
 import { aggregateUsage, dailySeries } from './progress-gif/usage.js';
+import { CACHE_FILE_NAME } from './progress-gif/usage-cache.js';
 import { computeLayout, formatPercent } from './progress-gif/layout.js';
 import { renderHtml } from './progress-gif/html.js';
 import { countUnresolvedStubs } from './progress-gif/stubs.js';
@@ -200,11 +201,22 @@ export function analyzeWorkspace(root, options = {}) {
   return buildModel({ workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, warnings, initialT });
 }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-349, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-353) --for-spec --no-implementation-order`.
+function snapshotDirectory(root, options, outputDir = path.join(root, 'progress-gif')) {
+  return options.snapshotDir || path.join(outputDir, 'snapshots');
+}
+
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
 function previousSnapshot(root, options) {
-  const snapshotDir = options.snapshotDir || path.join(root, 'progress-gif', 'snapshots');
-  const latest = listSnapshots(snapshotDir)[0];
+  const latest = listSnapshots(snapshotDirectory(root, options))[0];
   return latest ? readSnapshot(latest.path) : null;
+}
+
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
+function usageCachePath(root, options) {
+  // A dry run promises no filesystem writes, so it never touches the cache.
+  if (options.dryRun) return null;
+  return path.join(snapshotDirectory(root, options), CACHE_FILE_NAME);
 }
 
 // [::TICKET::] PX-349, PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350|PX-351) --for-spec --no-implementation-order`.
@@ -269,11 +281,12 @@ function sources() {
   };
 }
 
-// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
-async function collectUsageSeries(root, model) {
+// [::TICKET::] PX-352, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-353) --for-spec --no-implementation-order`.
+async function collectUsageSeries(root, model, options) {
   try {
     const result = await aggregateUsage({
       directory: root,
+      cachePath: usageCachePath(root, options),
       dateKey: (ms) => displayDateKey(ms, 'ms'),
     });
     model.warnings.push(...result.warnings);
@@ -288,7 +301,7 @@ export async function run(root, options) {
   const model = analyzeWorkspace(root, options);
   const titleName = path.basename(root);
   model.titleName = titleName;
-  model.usage = await collectUsageSeries(root, model);
+  model.usage = await collectUsageSeries(root, model, options);
   const estimatedLayout = computeLayout(model, { measureText: (text) => String(text).length * 7, scale: options.scale });
   const fitted = fitFramesToCeiling(estimatedLayout, options.frames, options.maxBytes);
   if (fitted.frames !== options.frames) {
@@ -315,8 +328,7 @@ export async function run(root, options) {
   });
   const htmlPath = `${base}.html`;
   writeHtmlFile(htmlPath, html);
-  const snapshotDir = options.snapshotDir || path.join(outputDir, 'snapshots');
-  const snapshotPath = writeSnapshot(snapshotDir, stamp, snapshotFromModel(model));
+  const snapshotPath = writeSnapshot(snapshotDirectory(root, options, outputDir), stamp, snapshotFromModel(model));
   const output = { html: htmlPath, snapshot: snapshotPath };
   process.stdout.write(markdownReport(model, options, output, estimatedLayout, frames));
   if (options.open) openBrowser(htmlPath);

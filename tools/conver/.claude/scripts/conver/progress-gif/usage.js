@@ -4,9 +4,17 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 
+import {
+  fingerprintFile,
+  isSameFingerprint,
+  readUsageCache,
+  writeUsageCache,
+} from './usage-cache.js';
+
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const MILLION = 1e6;
 const COST_ROUNDING_SCALE = 1e8;
+const MODEL_FALLBACK = 'unknown';
 
 export const DEFAULT_PRICES = Object.freeze({
   offpeak: Object.freeze({ cache_miss_input: 0.15, cache_hit_input: 0.003, output: 0.6 }),
@@ -161,6 +169,75 @@ function expandConfigDir(configDir) {
 }
 
 /**
+ * Parse one JSONL log into raw message records.
+ *
+ * The line number is part of the key for records that carry neither message.id
+ * nor requestId, which keeps their identity stable across repeated scans of an
+ * unchanged file. It is therefore counted on every read line, malformed or not.
+ */
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
+async function parseUsageFile(file) {
+  const records = [];
+  let invalidJson = 0;
+  let invalidTimestamp = 0;
+  let lineNumber = 0;
+  const input = fs.createReadStream(file, { encoding: 'utf8' });
+  const lines = readline.createInterface({ input, crlfDelay: Infinity });
+  input.on('error', (error) => lines.destroy(error));
+  try {
+    for await (const line of lines) {
+      lineNumber += 1;
+      if (!line.trim()) continue;
+      let record;
+      try {
+        record = JSON.parse(line);
+      } catch {
+        invalidJson += 1;
+        continue;
+      }
+      const usage = record?.message?.usage;
+      if (record?.type !== 'assistant' || !usage) continue;
+      const ms = typeof record.timestamp === 'string' ? Date.parse(record.timestamp) : NaN;
+      if (!Number.isFinite(ms)) {
+        invalidTimestamp += 1;
+        continue;
+      }
+      records.push({
+        key: record.message.id || record.requestId || `${file}:${lineNumber}`,
+        ms,
+        model: record.message.model ?? MODEL_FALLBACK,
+        miss: tokenCount(usage.input_tokens) + tokenCount(usage.cache_creation_input_tokens),
+        hit: tokenCount(usage.cache_read_input_tokens),
+        out: tokenCount(usage.output_tokens),
+      });
+    }
+  } finally {
+    lines.close();
+    input.destroy();
+  }
+  return { records, invalidJson, invalidTimestamp };
+}
+
+/**
+ * Merge one message snapshot, keeping the largest value seen for each field.
+ *
+ * Claude Code repeats a message across content-block lines and across files, so
+ * the same key must resolve to one record and never to a sum.
+ */
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
+function mergeUsageRecord(unique, record) {
+  const current = unique.get(record.key);
+  if (!current) {
+    unique.set(record.key, { ...record });
+    return;
+  }
+  current.ms = Math.max(current.ms, record.ms);
+  current.miss = Math.max(current.miss, record.miss);
+  current.hit = Math.max(current.hit, record.hit);
+  current.out = Math.max(current.out, record.out);
+}
+
+/**
  * Aggregate assistant usage from Claude Code JSONL logs.
  *
  * Claude Code writes one line per content block, and every line repeats the same
@@ -175,9 +252,12 @@ export async function aggregateUsage({
   to,
   holidays = new Set(),
   dateKey = jstDateKey,
+  cachePath = null,
+  onFileParsed = null,
 } = {}) {
   const root = path.resolve(directory);
-  const projectsDir = path.join(expandConfigDir(configDir), 'projects');
+  const resolvedConfigDir = expandConfigDir(configDir);
+  const projectsDir = path.join(resolvedConfigDir, 'projects');
   const warnings = [];
   let entries = [];
   let projectsDirMissing = false;
@@ -199,53 +279,56 @@ export async function aggregateUsage({
     if (cwd === null || isInside(cwd, root)) logDirs.push({ dir, cwd });
   }
 
+  const cacheRequested = Boolean(cachePath);
+  const cacheFileWasPresent = cacheRequested && fs.existsSync(cachePath);
+  const cached = cacheRequested
+    ? await readUsageCache({ cachePath, configDir: resolvedConfigDir, projectKey })
+    : null;
+  const cachedFiles = cached ? cached.files : new Map();
+  const cacheStats = {
+    filesReused: 0,
+    filesParsed: 0,
+    filesDropped: 0,
+    bypassed: cacheRequested && cached === null,
+  };
+
   const unique = new Map();
+  const nextFiles = new Map();
   let invalidJson = 0;
   let invalidTimestamp = 0;
-  let anonymous = 0;
   for await (const file of walkAll(logDirs.map((entry) => entry.dir))) {
-    const input = fs.createReadStream(file, { encoding: 'utf8' });
-    const lines = readline.createInterface({ input, crlfDelay: Infinity });
-    input.on('error', (error) => lines.destroy(error));
-    try {
-      for await (const line of lines) {
-        if (!line.trim()) continue;
-        let record;
-        try {
-          record = JSON.parse(line);
-        } catch {
-          invalidJson += 1;
-          continue;
-        }
-        const usage = record?.message?.usage;
-        if (record?.type !== 'assistant' || !usage) continue;
-        const ms = typeof record.timestamp === 'string' ? Date.parse(record.timestamp) : NaN;
-        if (!Number.isFinite(ms)) {
-          invalidTimestamp += 1;
-          continue;
-        }
-        const id = record.message.id || record.requestId || `anonymous-${anonymous++}`;
-        const next = {
-          ms,
-          model: record.message.model ?? 'unknown',
-          miss: tokenCount(usage.input_tokens) + tokenCount(usage.cache_creation_input_tokens),
-          hit: tokenCount(usage.cache_read_input_tokens),
-          out: tokenCount(usage.output_tokens),
-        };
-        const current = unique.get(id);
-        if (!current) {
-          unique.set(id, next);
-        } else {
-          current.ms = Math.max(current.ms, next.ms);
-          current.miss = Math.max(current.miss, next.miss);
-          current.hit = Math.max(current.hit, next.hit);
-          current.out = Math.max(current.out, next.out);
-        }
-      }
-    } finally {
-      lines.close();
-      input.destroy();
+    const fingerprint = await fingerprintFile(file);
+    if (!fingerprint) continue;
+    const cachedEntry = cachedFiles.get(file);
+    let records;
+    if (cachedEntry && isSameFingerprint(cachedEntry, fingerprint)) {
+      records = cachedEntry.records;
+      cacheStats.filesReused += 1;
+    } else {
+      const parsed = await parseUsageFile(file);
+      records = parsed.records;
+      invalidJson += parsed.invalidJson;
+      invalidTimestamp += parsed.invalidTimestamp;
+      cacheStats.filesParsed += 1;
+      if (typeof onFileParsed === 'function') onFileParsed(file);
     }
+    nextFiles.set(file, { ...fingerprint, records });
+    for (const record of records) mergeUsageRecord(unique, record);
+  }
+  for (const file of cachedFiles.keys()) {
+    if (!nextFiles.has(file)) cacheStats.filesDropped += 1;
+  }
+
+  // A workspace that never had logs keeps no cache; an existing cache is
+  // rewritten so files that disappeared are actually dropped from disk.
+  if (cacheRequested && (nextFiles.size > 0 || cacheFileWasPresent)) {
+    const written = await writeUsageCache({
+      cachePath,
+      configDir: resolvedConfigDir,
+      projectKey,
+      files: nextFiles,
+    });
+    if (!written) cacheStats.bypassed = true;
   }
 
   const groups = new Map();
@@ -286,6 +369,7 @@ export async function aggregateUsage({
     warnings,
     invalidJson,
     invalidTimestamp,
+    cacheStats,
     scannedAt: new Date().toISOString(),
   };
 }

@@ -53889,6 +53889,186 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-04"
+        },
+        {
+          "id": 353,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Usage snapshot cache: reuse per-file message aggregates to cut progress GIF log scanning",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-353.md",
+          "background": "### Goal\nMake repeated draw-progress-gif runs reuse usage aggregation work for unchanged Claude Code JSONL files instead of rescanning the whole ~/.claude/projects log tree, while keeping the title numbers identical to a cache-free run.\n\n### Purpose\nReduce the measured 5.89 second scan for 99 files and 1.05 GB of logs, especially when the same workspace is rendered repeatedly.\n\n### Motivation\nPX-352 added cumulative usage to the GIF title, but every run re-scans every log file. The progress-gif/snapshots directory currently stores model snapshots only; it is not a usage cache.\n\n### Constraints\n- A cached run must produce exactly the same daily series as a cache-free run.\n- Only raw unique message records may be cached, never daily aggregates or cost, so price, holiday and date-key changes stay correct.\n- Global message.id deduplication across files must be preserved.\n- Invalidation uses path plus size plus mtime and inode where available.\n- Truncation, rotation, deletion and config-dir or project-key changes invalidate.\n- A corrupt, unreadable or schema-mismatched cache falls back to a full scan and never fails GIF generation.\n- Writes are atomic and concurrent runs are last-writer-wins.\n- The cache lives at <root>/progress-gif/snapshots/usage-cache.json and must not be read as a model snapshot.\n- claude-usage.js stays read-only and writes nothing unless a cache path is explicitly supplied.\n- The model snapshot, HTML, Markdown report and CLI flags stay unchanged.\n- No new dependency; the three script copies stay byte-identical.\n- Tests run with node --test on the impact set.",
+          "scope": [
+            "progress-gif/usage-cache.js (new): add readUsageCache, writeUsageCache and validateUsageCache. The header is { schema: 'conver-usage-cache-v1', configDir, projectKey, updatedAt, files }; each file entry is { path, size, mtimeMs, ino, records } and each record is { key, ms, model, miss, hit, out }.",
+            "progress-gif/usage-cache.js: write to a unique temporary path usage-cache.json.tmp.<pid>.<counter> and rename atomically. Remove the temporary file when the write fails. A reader never sees partial JSON.",
+            "progress-gif/usage.js: aggregateUsage accepts optional cachePath and onFileParsed. When cachePath is supplied, read and validate the cache; when it is absent, the function stays fully read-only so claude-usage.js never writes to the target.",
+            "progress-gif/usage.js: for each discovered JSONL file, stat it and compare path, size, mtimeMs and ino with the cache entry. A match reuses cached records without parsing; a mismatch reparses the whole file and replaces its entry.",
+            "progress-gif/usage.js: drop cache entries for files that are no longer discovered, and treat a size decrease or inode change as truncation or rotation.",
+            "progress-gif/usage.js: preserve global deduplication. Merge records from all files by key and keep the maximum value of miss, hit and out plus the maximum timestamp, so file-level sums cannot double count.",
+            "progress-gif/usage.js: replace the per-scan anonymous counter with a stable key filePath:lineNumber for records without message.id or requestId, so an unchanged file keeps the same identity across runs.",
+            "progress-gif/usage.js: apply from/to filtering, isPeak, prices and dateKey after the global merge. The cache never stores date buckets, cost or peak classification.",
+            "progress-gif/usage.js: return cacheStats { filesReused, filesParsed, filesDropped, bypassed }. draw-progress-gif does not print cacheStats.",
+            "draw-progress-gif.js: pass <root>/progress-gif/snapshots/usage-cache.json to aggregateUsage. The file name does not match the 14-digit snapshot pattern, so listSnapshots never reads it.",
+            "claude-usage.js: call aggregateUsage without cachePath so the CLI remains read-only and never creates files in the target directory. Flags, JSON fields, exit codes and stdout stay unchanged.",
+            "Cache failure handling: ENOENT, corrupt JSON, wrong schema, wrong config dir or project key, permission errors and write failures are treated as cache misses. The run falls back to a full scan, returns the same series and keeps exit 0; no report line is added.",
+            "Non-change: the model snapshot schema and contents, HTML/GIF output for the same usage series, Markdown report lines, exit codes and CLI flags are untouched. The only observable differences are scan time and the cache file.",
+            "Dependency and config: no new npm dependency and no configuration file; the cache path is internal and derived from the target workspace.",
+            "Copies: apply the same content to .claude/scripts/conver, tools/conver/.claude/scripts/conver and crates/siprs/.claude/scripts/conver.",
+            "Impact: the first run adds one cache write after the scan; later runs parse only changed files. Memory and cache size grow with the number of unique messages, not with raw line count."
+          ],
+          "testUnit": [
+            "UT: [Normal] a cache hit returns the same records without reparsing an unchanged file; the parse counter stays at zero for that file.",
+            "UT: [Normal] a changed file (size or mtime differs) is reparsed and its cached records are replaced.",
+            "UT: [Boundary] a file whose size decreased or inode changed is treated as truncated or rotated and reparsed from the beginning.",
+            "UT: [Boundary] a deleted file is removed from the cache and contributes nothing.",
+            "UT: [Invariant] records with the same message.id in two different files are merged once with the maximum value of each field, matching a cache-free scan.",
+            "UT: [Boundary] records without message.id or requestId receive stable file-plus-line keys and keep their identity across an unchanged-file cache hit.",
+            "UT: [Invariant] a warm cache and a cold scan produce byte-identical dailySeries for duplicate ids, streaming snapshots, missing dates and peak/offpeak records.",
+            "UT: [Invariant] changing prices, holidays or the dateKey after a cache hit still recomputes the series correctly from raw records.",
+            "UT: [Error] corrupt JSON, a wrong schema version, a wrong config dir or project key, and an unreadable cache all bypass the cache and run a full scan without throwing.",
+            "UT: [Error] an unwritable cache directory falls back to a full scan and does not change the result or exit code, and leaves no temporary file.",
+            "UT: [Boundary] two writers using distinct temporary files both rename successfully; after both finish the cache parses as valid JSON.",
+            "UT: [Invariant] the cache file is never listed as a model snapshot, and snapshotFromModel emits no cache or usage field.",
+            "UT: [Boundary] an empty cache file, an empty files map and a cache with a single file entry are all accepted and produce the same result as a cold scan.",
+            "UT: [Normal] the first run creates the cache file; the second run reports filesReused greater than zero and filesParsed equal to zero when nothing changed."
+          ],
+          "testIntegration": [
+            "IT: draw-progress-gif first run writes progress-gif/snapshots/usage-cache.json; a second run with unchanged logs reports filesReused greater than zero and produces the same HTML model usage series.",
+            "IT: appending one record to the active JSONL file reparses only that file and includes the new record in the next series.",
+            "IT: claude-usage.js with no cachePath writes nothing under the target directory and keeps its JSON shape and exit codes.",
+            "IT: a corrupt cache generated between two runs is bypassed; the second run still writes valid HTML and exits 0.",
+            "IT: the three copies of usage-cache.js, usage.js, draw-progress-gif.js and claude-usage.js are byte-identical after delivery.",
+            "IT: the existing 22 tests in tests/conver/usage.test.mjs, cli.test.mjs and source-scan.test.mjs stay green."
+          ],
+          "testExceptions": [
+            "True simultaneous multi-process cache writes are not testable deterministically in a unit test because process scheduling is external; the test simulates two writers with distinct temporary files and verifies the rename invariant, and a real concurrent run is supplementary verification. This is an external-scheduling limitation, not a design defect.",
+            "Filesystem mtime granularity is not testable portably because it differs by platform and cannot be forced; tests inject explicit fingerprints and use size changes as the primary invalidation signal. This is a platform-timing limitation, not a design defect."
+          ],
+          "default_files": [
+            "tools/conver/.claude/scripts/conver/progress-gif/usage-cache.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/usage.js",
+            "tools/conver/.claude/scripts/conver/draw-progress-gif.js",
+            "tools/conver/.claude/scripts/conver/claude-usage.js",
+            "tools/conver/tests/conver/usage-cache.test.mjs",
+            "tools/conver/tests/conver/usage.test.mjs",
+            ".claude/scripts/conver/progress-gif/usage-cache.js",
+            ".claude/scripts/conver/progress-gif/usage.js",
+            ".claude/scripts/conver/draw-progress-gif.js",
+            ".claude/scripts/conver/claude-usage.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/usage-cache.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/usage.js",
+            "crates/siprs/.claude/scripts/conver/draw-progress-gif.js",
+            "crates/siprs/.claude/scripts/conver/claude-usage.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a second draw-progress-gif run with unchanged logs reuses cached records, reports filesReused greater than zero, produces the same usage series and writes the same HTML model as the first run.",
+            "Error case: a corrupt, unreadable, schema-mismatched or unwritable cache falls back to a full scan, produces the same series and keeps exit 0.",
+            "Edge case: appended, truncated, rotated, renamed and deleted log files, duplicate message ids across files, anonymous records, and changed prices, holidays or dateKey all produce the cache-free result.",
+            "Preservation: the first-run result matches PX-352, claude-usage.js remains read-only, and the model snapshot, Markdown report, HTML and CLI flags are unchanged."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "cache identity and invalidation",
+              "precondition": "A JSONL file has a cached entry and the current path, size, mtime and inode match the entry.",
+              "postcondition": "The cached records are reused and the file is not parsed again.",
+              "invariant": "A missing file, a size decrease, an inode change, or a different size or mtime forces a reparse and replaces the entry."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "global dedupe across files",
+              "precondition": "Two files contain records with the same message.id and different streaming snapshots.",
+              "postcondition": "The merged series counts that id once with the maximum value of each field and the maximum timestamp.",
+              "invariant": "The merged series equals a cache-free scan for the same files."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "deterministic equivalence",
+              "precondition": "The same log files are aggregated once with a warm cache and once with no cache.",
+              "postcondition": "Both runs return an identical dailySeries and identical totals.",
+              "invariant": "Changing prices, holidays or dateKey after a cache hit still recomputes from raw records and remains identical to a cold scan."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "cache failure isolation",
+              "precondition": "The cache is missing, corrupt, schema-mismatched, unreadable or unwritable.",
+              "postcondition": "The run performs a full scan, returns the cache-free series and exits 0; a write failure leaves no partial cache file.",
+              "invariant": "No cache failure changes the HTML, GIF, snapshot, report or exit code."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "read-only CLI and snapshot preservation",
+              "precondition": "claude-usage.js runs without an explicit cachePath, and the model snapshot is written after a draw run.",
+              "postcondition": "The CLI writes nothing under the target directory, and the model snapshot contains no cache or usage field.",
+              "invariant": "The cache file name is ignored by listSnapshots and the snapshot schema is unchanged."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "atomic concurrent writes",
+              "precondition": "Two writers build cache payloads from distinct temporary files.",
+              "postcondition": "Both may rename; after both finish the cache parses as complete JSON from one writer.",
+              "invariant": "A reader never observes a partial JSON cache file."
+            }
+          ],
+          "notes": "- [Implementation steps] Red tests for fingerprints, reuse, reparse, global merge, anonymous keys, equivalence, corruption fallback and atomic writes; then Green; then Refactor. Cache only raw unique records. Keep the cache path explicit so claude-usage.js stays read-only.\n- [Risks] Cache size and memory grow with unique messages; the active session file is reparsed in full on every run; mtime granularity varies by filesystem; a stale cache from a copied workspace is prevented by the config-dir and project-key header.\n- [Caveats] Do not store daily aggregates or cost in the cache; those depend on prices, holidays and dateKey. Do not include the cache file in the model snapshot; listSnapshots must keep seeing only 14-digit JSON files.\n- [Open items] Tail-offset incremental parsing, cache pruning by age and time, and a shared cache across workspaces are out of scope for this ticket.\n- [Future improvements] Add a tail-offset mode for append-only files and a bounded-size eviction policy if cache size or memory becomes a problem.\nImplementation summary:\n- New: progress-gif/usage-cache.js (schema conver-usage-cache-v1, atomic write, validation).\n- Changed: progress-gif/usage.js (cache integration, parseUsageFile, mergeUsageRecord, stable file:line keys), draw-progress-gif.js (usageCachePath, snapshotDirectory).\n- Unchanged by design: claude-usage.js still calls aggregateUsage without cachePath, so it writes nothing under the target.\n- Cache file: <root>/progress-gif/snapshots/usage-cache.json; write skipped in dry-run and when a workspace has no logs and no prior cache.\n- Tests: 114 conver tests pass (15 new cache tests, 2 new CLI integration tests); the original 22 stay green.\n- Copies: tools/conver, .claude/scripts/conver and crates/siprs/.claude/scripts/conver are byte-identical.\n- Preflight note: preflight-stub-cleanup reported 10 pre-existing P4-3 markers under crates/siprs-server; they belong to another package's ticket set, are unrelated to PX-353, and were left untouched. No open crime was recorded.\nReview report:\n- Status gate: done -> reviewed after all gates passed.\n- Static quality check: passed, 0 issues.\n- Translatability: no issues; snapshotDirectory and mergeUsageRecord extracted, schema/file/temp names are constants, cache failures become an explicit bypass status.\n- Dependencies: no new npm dependency; three script copies byte-identical (sha256 single value per file).\n- Crime/stub status: 0 open crimes in the ticket scope; the only stub scan hit is the pre-existing docstring in progress-gif/stubs.js:10 that quotes the marker grammar (false positive).\n- Incomplete-implementation scan: no TODO/FIXME/panic/commented-out/mock patterns in the changed lines.\n- Annotation: 12 files verified, 0 missing, 0 ambiguous; the unrelated untracked delete-claude-jsonls.js is locally excluded from annotation scope and carries no false provenance.\n- No-excuse gate: passes in the ticket package (tools/conver). Running it from the repository root also reports 10 pre-existing P4-3 markers under crates/siprs-server; P4-3 does not exist in that package's Tickets.json, they predate this ticket, and they are outside PX-353's scope.\n- Performance: 99 files cold 5371 ms, warm 160 ms, 99 reused / 0 parsed, dailySeries byte-identical.\n- Issues found and fixed during review: none.",
+          "invariants": "- [Normal establishment] A cache hit returns the same records as a fresh parse of the same file, and dailySeries is identical to a cache-free scan.\n- [Error invariant] Any cache read, validation or write failure is treated as a cache bypass: the run performs a full scan, returns the same series and exits 0.\n- [Internal state invariant] The cache stores only raw unique message records (key, ms, model, miss, hit, out); date filtering, peak/offpeak classification, prices and the date key are applied after the global merge.\n- [Boundary invariant] A missing file, size decrease, inode change, or different size or mtime invalidates that file; deleted files are dropped; records without message.id or requestId use a stable file-plus-line key.",
+          "instrumentation": "- [Logging] No new runtime logs. The cache is internal and draw-progress-gif prints no cache statistics.\n- [Metrics] aggregateUsage returns cacheStats filesReused, filesParsed, filesDropped and bypassed for tests and diagnostics.\n- [Error tracking] Cache read, validation and write failures are treated as cache misses rather than generation failures; stderr and exit codes are unchanged.\n- [Health check] The cache file parses as complete JSON after every write; a corrupt cache is replaced by the next successful run.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-phrase functions, no generic variables, no magic numbers, no debug output)\nTests: 114/114 passed in the conver impact set (15 new cache tests + 2 new CLI integration tests)\nCrime scan: 0 open\nAnnotation verify: 12 files, 0 missing, 0 ambiguous\nPerformance proof: cold 5371 ms -> warm 160 ms over 99 log files, identical daily series",
+          "investigation": "## Source investigation (2026-11-04)\n\n### Current scan path\n- draw-progress-gif.js:291 assigns model.usage = await collectUsageSeries(...) on every run; collectUsageSeries at 273-286 calls aggregateUsage.\n- progress-gif/usage.js:171 aggregateUsage walks every matching JSONL file via walkJsonl (108) and findCwd (126); there is no cache lookup or write.\n- usage.js:202 builds the unique map; 227 keys records by message.id, requestId, or a per-scan anonymous counter; 251 buckets by date and model; 295 builds dailySeries. Prices, holidays and dateKey are applied after dedupe.\n- Measured baseline: the zasso tools/conver log tree contains 99 JSONL files, 1.05 GB, and 29,206 unique records; a full claude-usage run takes 5.89 seconds (minimum 5.13 seconds warm).\n\n### Snapshot mechanism\n- progress-gif/snapshot.js:10-26 snapshotFromModel stores only schema, generatedAt, workspaceRoot, packages and totals; it contains no usage or cache data.\n- snapshot.js:29-39 listSnapshots matches only ^(\\d{14})\\.json$, so a file named usage-cache.json in the same directory is invisible to the model-snapshot reader.\n- draw-progress-gif.js:177/204-207 reads the latest model snapshot only to derive growth events; it does not reuse usage work.\n\n### CLI read-only surface\n- claude-usage.js:147-149 calls aggregateUsage(directory, from, to, holidays) without a cache path. Giving aggregateUsage a default cache location would make the CLI write under the target, which would be a behavior change; the cache path must therefore be explicit.\n\n### Dedupe and identity evidence\n- The same message.id can appear in multiple files because Claude Code writes one line per content block and resumed sessions can repeat messages. A file-level sum would double count; the global max-by-field merge is required.\n- Records without message.id or requestId currently use anonymous-N, which restarts on every scan. A stable filePath:lineNumber key is required for cache reuse.\n- The cache must store raw records, not date buckets: prices (DEFAULT_PRICES), holidays and dateKey can change between runs and are applied after the merge.\n\n### Safety evidence\n- The cache is advisory: a miss, corrupt file, schema mismatch or write failure can always fall back to the full scan, so correctness never depends on the cache.\n- Atomic rename is the only concurrency requirement; two writers may both succeed and the last rename wins because the payload is a complete snapshot of the per-file records observed by that writer.\n- The existing test surface is 22 tests across usage.test.mjs (314 lines), cli.test.mjs (165 lines) and source-scan.test.mjs (35 lines); the new cache tests must keep all 22 green and add equivalence, invalidation and fallback coverage.",
+          "boyScoutPlan": "- New module progress-gif/usage-cache.js with verb-phrase functions: readUsageCache, writeUsageCache, validateUsageCache, fingerprintFile, mergeRecordMaps. Use domain names (fileFingerprints, records, cacheStats, cachePath).\n- One responsibility per function: cache I/O, validation, fingerprint comparison, record merging and parsing stay separate.\n- Extract the cache schema version, temporary-file suffix and fingerprint fields into named constants; no magic strings or numbers in the aggregator.\n- Replace the per-scan anonymous counter with a stable key built from file path and line number.\n- Never swallow cache errors: convert every cache read or write failure into an explicit bypass status so the caller can fall back without hiding the failure.\n- Keep claude-usage.js read-only by making the cache path an explicit parameter rather than a default.\n- Touch only the cache module, usage.js, draw-progress-gif.js, claude-usage.js and the new tests; leave the model snapshot, renderer and HTML code unchanged.",
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 cache hit reuses records without reparsing an unchanged file\n  ```js\n  const cachePath = path.join(root, 'progress-gif', 'snapshots', 'usage-cache.json');\n  let parseCount = 0;\n  const onFileParsed = () => { parseCount += 1; };\n  const first = await aggregateUsage({ directory: root, configDir, cachePath, onFileParsed });\n  assert.equal(parseCount, 1);\n  const second = await aggregateUsage({ directory: root, configDir, cachePath, onFileParsed });\n  assert.equal(second.cacheStats.filesReused, 1);\n  assert.equal(second.cacheStats.filesParsed, 0);\n  assert.equal(parseCount, 1);\n  assert.deepEqual(dailySeries(second.groups), dailySeries(first.groups));\n  ```",
+            "UT: [Boundary] C001 invariant: a changed size or mtime, a size decrease, an inode change and a deleted file each force a reparse or a drop\n  ```js\n  fs.appendFileSync(logFile, JSON.stringify(assistantRecord({ id: 'msg-2', output: 7 })) + '\\n');\n  const appended = await aggregateUsage({ directory: root, configDir, cachePath });\n  assert.equal(appended.cacheStats.filesParsed, 1);\n  assert.equal(appended.cacheStats.filesReused, 0);\n  assert.equal(appended.groups[0].offpeak.output_tokens, 12);\n  const entry = { path: logFile, size: 10, mtimeMs: 20, ino: 30 };\n  assert.equal(isSameFingerprint(entry, { path: logFile, size: 10, mtimeMs: 20, ino: 30 }), true);\n  assert.equal(isSameFingerprint(entry, { path: logFile, size: 10, mtimeMs: 20, ino: 31 }), false);\n  assert.equal(isSameFingerprint(entry, { path: logFile, size: 9, mtimeMs: 20, ino: 30 }), false);\n  assert.equal(isSameFingerprint(entry, { path: logFile, size: 10, mtimeMs: 21, ino: 30 }), false);\n  fs.unlinkSync(logFile);\n  const deleted = await aggregateUsage({ directory: root, configDir, cachePath });\n  assert.equal(deleted.cacheStats.filesDropped >= 1, true);\n  assert.equal(deleted.groups.length, 0);\n  ```",
+            "UT: [Invariant] C002 global dedupe merges the same message.id from two files once with the maximum value of each field\n  ```js\n  writeLog(configDir, root, 'a.jsonl', [assistantRecord({ id: 'dup', output: 100, cacheRead: 10 })]);\n  writeLog(configDir, root, 'b.jsonl', [assistantRecord({ id: 'dup', output: 250, cacheRead: 40 })]);\n  const cold = await aggregateUsage({ directory: root, configDir });\n  assert.equal(cold.groups[0].offpeak.records, 1);\n  assert.equal(cold.groups[0].offpeak.output_tokens, 250);\n  assert.equal(cold.groups[0].offpeak.cache_hit_input_tokens, 40);\n  const warm = await aggregateUsage({ directory: root, configDir, cachePath });\n  assert.deepEqual(dailySeries(warm.groups), dailySeries(cold.groups));\n  ```",
+            "UT: [Invariant] C003 a warm cache and a cold scan produce identical series, and prices, holidays and dateKey still apply after a hit\n  ```js\n  const cold = await aggregateUsage({ directory: root, configDir });\n  await aggregateUsage({ directory: root, configDir, cachePath });\n  const warm = await aggregateUsage({ directory: root, configDir, cachePath });\n  assert.ok(warm.cacheStats.filesReused > 0);\n  assert.deepEqual(dailySeries(warm.groups, DEFAULT_PRICES), dailySeries(cold.groups, DEFAULT_PRICES));\n  const repriced = dailySeries(warm.groups, { offpeak: { cache_miss_input: 1, cache_hit_input: 1, output: 1 }, peak: { cache_miss_input: 2, cache_hit_input: 2, output: 2 } });\n  assert.ok(repriced[0].dailyCostUsd > dailySeries(cold.groups, DEFAULT_PRICES)[0].dailyCostUsd);\n  const byHoliday = await aggregateUsage({ directory: root, configDir, cachePath, holidays: new Set([utcDateKey(recordMs)]) });\n  assert.equal(dailySeries(byHoliday.groups)[0].dailyCostUsd, dailySeries(cold.groups, { offpeak: { cache_miss_input: 0.3, cache_hit_input: 0.006, output: 1.2 }, peak: { cache_miss_input: 0.3, cache_hit_input: 0.006, output: 1.2 } })[0].dailyCostUsd);\n  ```",
+            "UT: [Error] C004 corrupt, schema-mismatched, wrong config-dir, wrong project-key and unwritable caches all bypass and keep the cache-free series\n  ```js\n  const cold = await aggregateUsage({ directory: root, configDir });\n  for (const payload of ['{not json', JSON.stringify({ schema: 'other-v1', files: {} }), JSON.stringify({ schema: 'conver-usage-cache-v1', configDir: '/elsewhere', projectKey: 'x', files: {} })]) {\n    fs.mkdirSync(path.dirname(cachePath), { recursive: true });\n    fs.writeFileSync(cachePath, payload);\n    const result = await aggregateUsage({ directory: root, configDir, cachePath });\n    assert.equal(result.cacheStats.bypassed, true);\n    assert.deepEqual(dailySeries(result.groups), dailySeries(cold.groups));\n  }\n  const blocker = path.join(root, 'blocked-parent');\n  fs.writeFileSync(blocker, 'not a directory');\n  const unwritable = path.join(blocker, 'usage-cache.json');\n  const failed = await aggregateUsage({ directory: root, configDir, cachePath: unwritable });\n  assert.deepEqual(dailySeries(failed.groups), dailySeries(cold.groups));\n  assert.equal(fs.existsSync(unwritable), false);\n  assert.equal(fs.readdirSync(path.dirname(blocker)).some((name) => name.includes('.tmp')), false);\n  ```",
+            "UT: [Boundary] C005 the CLI stays read-only and the cache file is never listed as a model snapshot\n  ```js\n  const snapshotDir = path.join(root, 'progress-gif', 'snapshots');\n  fs.mkdirSync(snapshotDir, { recursive: true });\n  fs.writeFileSync(path.join(snapshotDir, 'usage-cache.json'), JSON.stringify({ schema: 'conver-usage-cache-v1', files: {} }));\n  assert.deepEqual(listSnapshots(snapshotDir), []);\n  const snapshot = snapshotFromModel(model);\n  assert.equal('usage' in snapshot, false);\n  assert.equal('cache' in snapshot, false);\n  const cli = spawnSync(process.execPath, [CLAUDE_USAGE, '-d', root], { encoding: 'utf8', env: { ...process.env, CLAUDE_CONFIG_DIR: configDir } });\n  assert.equal(cli.status, 0);\n  assert.equal(fs.existsSync(path.join(root, 'progress-gif', 'snapshots', 'usage-cache.json.tmp')), false);\n  assert.deepEqual(Object.keys(JSON.parse(cli.stdout)), ['period', 'prices_usd_per_1m', 'projects', 'holidays', 'rows', 'total']);\n  ```",
+            "UT: [Boundary] C006 two writers with distinct temporary files both rename, and the result parses as complete JSON\n  ```js\n  const files = new Map([[logFile, { path: logFile, size: 12, mtimeMs: 34, ino: 56, records: [] }]]);\n  const [first, second] = await Promise.all([\n    writeUsageCache({ cachePath, configDir, projectKey, files }),\n    writeUsageCache({ cachePath, configDir, projectKey, files }),\n  ]);\n  assert.equal(first, true);\n  assert.equal(second, true);\n  const payload = JSON.parse(fs.readFileSync(cachePath, 'utf8'));\n  assert.equal(payload.schema, 'conver-usage-cache-v1');\n  assert.deepEqual(fs.readdirSync(path.dirname(cachePath)).filter((name) => name.includes('.tmp')), []);\n  ```",
+            "UT: [Boundary] anonymous records keep stable file-plus-line identity across an unchanged-file cache hit\n  ```js\n  writeLog(configDir, root, 'anon.jsonl', [assistantRecord({ id: undefined, output: 5 }), assistantRecord({ id: undefined, output: 7 })]);\n  const first = await aggregateUsage({ directory: root, configDir, cachePath });\n  const second = await aggregateUsage({ directory: root, configDir, cachePath });\n  assert.equal(first.groups[0].offpeak.output_tokens, 12);\n  assert.equal(second.groups[0].offpeak.output_tokens, 12);\n  assert.equal(second.cacheStats.filesReused, 1);\n  ```",
+            "UT: [Boundary] empty cache file, empty files map and a single-file cache all match a cold scan\n  ```js\n  const cold = await aggregateUsage({ directory: root, configDir });\n  for (const payload of ['', JSON.stringify({ schema: 'conver-usage-cache-v1', configDir, projectKey, files: {} })]) {\n    fs.mkdirSync(path.dirname(cachePath), { recursive: true });\n    fs.writeFileSync(cachePath, payload);\n    const result = await aggregateUsage({ directory: root, configDir, cachePath });\n    assert.deepEqual(dailySeries(result.groups), dailySeries(cold.groups));\n  }\n  await aggregateUsage({ directory: root, configDir, cachePath });\n  const single = await aggregateUsage({ directory: root, configDir, cachePath });\n  assert.equal(single.cacheStats.filesParsed, 0);\n  assert.deepEqual(dailySeries(single.groups), dailySeries(cold.groups));\n  ```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "No usage cache module; every draw run parsed every JSONL file",
+              "after": "progress-gif/usage-cache.js provides fingerprintFile, isSameFingerprint, validateUsageCache, readUsageCache and writeUsageCache",
+              "description": "Add the advisory cache module with raw-record storage, atomic temp+rename writes and strict schema/config/project validation"
+            },
+            {
+              "before": "aggregateUsage parsed every discovered file and used an anonymous-N key for records without an id",
+              "after": "aggregateUsage accepts cachePath and onFileParsed, reuses matching fingerprints, reparses changed files, drops deleted entries and returns cacheStats",
+              "description": "Wire the cache into aggregation while keeping the cache-free path unchanged"
+            },
+            {
+              "before": "Records without message.id or requestId were keyed by a per-scan counter",
+              "after": "They are keyed by filePath:lineNumber and stay stable across scans",
+              "description": "Make anonymous identity stable so an unchanged file can be reused"
+            },
+            {
+              "before": "Parsing, merging and bucketing lived in one loop",
+              "after": "parseUsageFile and mergeUsageRecord are named responsibilities used by both the cold and cached paths",
+              "description": "Extract the parser and the max-by-field merge so both paths share one implementation"
+            },
+            {
+              "before": "draw-progress-gif passed no cache path and duplicated the snapshot-directory expression",
+              "after": "usageCachePath passes <root>/progress-gif/snapshots/usage-cache.json outside dry-run, and snapshotDirectory is the single expression for reads, writes and the cache",
+              "description": "Enable reuse for draw runs while keeping dry-run side-effect-free"
+            },
+            {
+              "before": "claude-usage.js shared only the scan path",
+              "after": "It still calls aggregateUsage without cachePath and writes nothing under the target",
+              "description": "Preserve the read-only CLI surface; no code change was required"
+            },
+            {
+              "before": "No tests covered cache identity, invalidation, equivalence or failure isolation",
+              "after": "15 new unit tests, 2 new CLI integration tests and the extended three-copy test cover C001-C006",
+              "description": "Add the Red-first test surface and keep every pre-existing test green"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
         }
       ]
     },

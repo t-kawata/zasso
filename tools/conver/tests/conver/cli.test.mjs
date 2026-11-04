@@ -10,6 +10,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { parseArgs } from '../../.claude/scripts/conver/draw-progress-gif.js';
+import { aggregateUsage } from '../../.claude/scripts/conver/progress-gif/usage.js';
+import { CACHE_FILE_NAME } from '../../.claude/scripts/conver/progress-gif/usage-cache.js';
 import { materializeBundle, writeWorkspace } from './fixtures.mjs';
 
 const CLI = path.resolve(new URL('../../.claude/scripts/conver/draw-progress-gif.js', import.meta.url).pathname);
@@ -23,6 +25,43 @@ function run(args) {
     maxBuffer: 64 * 1024 * 1024,
     env: { ...process.env, CLAUDE_CONFIG_DIR: EMPTY_CONFIG_DIR },
   });
+}
+
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
+function runWithConfig(args, configDir) {
+  return spawnSync(process.execPath, [CLI, ...args], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, CLAUDE_CONFIG_DIR: configDir },
+  });
+}
+
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
+function writeUsageLog(root, configDir, record) {
+  const projectDir = path.join(configDir, 'projects', root.replace(/[^a-zA-Z0-9]/g, '-'));
+  fs.mkdirSync(projectDir, { recursive: true });
+  fs.writeFileSync(path.join(projectDir, 'session.jsonl'), `${JSON.stringify(record)}\n`);
+  return path.join(root, 'progress-gif', 'snapshots', CACHE_FILE_NAME);
+}
+
+// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
+function usageRecordOf(root) {
+  return {
+    type: 'assistant',
+    timestamp: '2026-01-01T12:00:00.000Z',
+    cwd: root,
+    message: {
+      id: 'msg-1',
+      model: 'deepseek-flash',
+      usage: {
+        input_tokens: 1000000,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 1000000,
+        output_tokens: 1000000,
+      },
+      content: [{ type: 'text' }],
+    },
+  };
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -162,4 +201,49 @@ test('an empty usage config keeps the legacy title and adds no warning', () => {
   const html = fs.readFileSync(path.join(root, 'progress-gif', htmlName), 'utf8');
   assert.match(html, /"usage":\[\]/);
   assert.doesNotMatch(result.stdout, /usage unavailable/);
+});
+
+test('draw writes a usage cache and later runs reuse every unchanged file', async () => {
+  const { root } = materializeBundle('workspace-min.json');
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-usage-config-'));
+  const cachePath = writeUsageLog(root, configDir, usageRecordOf(root));
+
+  const first = runWithConfig(['-t', root, '--no-open'], configDir);
+  assert.equal(first.status, 0, first.stderr);
+  assert.equal(fs.existsSync(cachePath), true);
+
+  const second = runWithConfig(['-t', root, '--no-open'], configDir);
+  assert.equal(second.status, 0, second.stderr);
+
+  const htmlNames = fs.readdirSync(path.join(root, 'progress-gif'))
+    .filter((name) => name.endsWith('.html'));
+  assert.equal(htmlNames.length, 2);
+  for (const name of htmlNames) {
+    const html = fs.readFileSync(path.join(root, 'progress-gif', name), 'utf8');
+    assert.match(html, /"cacheHitInputTokens":1000000/);
+    assert.match(html, /"cacheMissInputTokens":1000000/);
+  }
+
+  const reused = await aggregateUsage({ directory: root, configDir, cachePath });
+  assert.equal(reused.cacheStats.filesReused, 1);
+  assert.equal(reused.cacheStats.filesParsed, 0);
+});
+
+test('a corrupt usage cache is bypassed and the next draw still succeeds', () => {
+  const { root } = materializeBundle('workspace-min.json');
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-usage-config-'));
+  const cachePath = writeUsageLog(root, configDir, usageRecordOf(root));
+
+  const first = runWithConfig(['-t', root, '--no-open'], configDir);
+  assert.equal(first.status, 0, first.stderr);
+  fs.writeFileSync(cachePath, '{not json');
+
+  const second = runWithConfig(['-t', root, '--no-open'], configDir);
+  assert.equal(second.status, 0, second.stderr);
+  assert.match(second.stdout, /PASS:/);
+  assert.doesNotMatch(second.stdout, /usage unavailable/);
+
+  const repaired = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+  assert.equal(repaired.schema, 'conver-usage-cache-v1');
+  assert.equal(Object.keys(repaired.files).length, 1);
 });
