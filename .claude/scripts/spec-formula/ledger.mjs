@@ -23,10 +23,21 @@ const ALL_LEDGER_HEADINGS = /^#{1,6}\s+Formula ledger\s*$/gm;
 const METADATA_LINE = /^-\s+([A-Za-z]+):\s+`([0-9a-f]{64})`\s*$/gm;
 const LOCATION = /^(.*?):L(\d+)(?:-L(\d+))?$/;
 
-/** Split a Markdown table line into trimmed cells. */
+/**
+ * Split a Markdown table line into trimmed cells.
+ *
+ * A cell escapes a literal pipe as `\|`; splitting on every pipe would turn a formula
+ * such as `|X^4|=4^4=256` into extra columns and shift every field after it. Split on
+ * unescaped pipes only, then restore the escaped pipe in the cell text.
+ */
 // [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
 function splitRow(line) {
-  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split(/(?<!\\)\|/)
+    .map((cell) => cell.replace(/\\\|/g, '|').trim());
 }
 
 /** The text between a heading and the next heading of the same or higher level. */

@@ -83,6 +83,22 @@ test('C001 postcondition: the ledger parses metadata and one structured row', ()
   assert.deepEqual(ledger.rows[0].tests, ['tests/format.rs::bit_width_is_eight']);
 });
 
+test('C001 invariant: an escaped pipe inside a cell is a literal, not a column break', () => {
+  const escapedRow = LEDGER_ROW
+    .replace('( M=2^b )', '( \\|X^4\\|=4^4=256 )')
+    .replace('symbols: M = bit width; normative: M=2^b', 'symbols: \\|X^4\\| = the cardinality of the tuple domain; normative: E0533 states the domain holds 256 members');
+  const ledger = readFormulaLedger(renderLedger({ rows: [escapedRow] }));
+
+  assert.equal(ledger.rows.length, 1);
+  assert.equal(ledger.rows[0].id, 'fx-0123456789ab');
+  assert.equal(ledger.rows[0].body, '|X^4|=4^4=256');
+  assert.equal(ledger.rows[0].implementation.class, 'structural');
+  assert.equal(ledger.rows[0].specLocation.lineStart, 10);
+  assert.deepEqual(ledger.rows[0].theory.symbols, [{ symbol: '|X^4|', definition: 'the cardinality of the tuple domain' }]);
+  assert.deepEqual(ledger.rows[0].tests, ['tests/format.rs::bit_width_is_eight']);
+  assert.deepEqual(validateFormulaLedger(ledger), []);
+});
+
 test('C001 invariant: all four realization classes are accepted', () => {
   assert.deepEqual([...FORMULA_CLASSES], ['computational', 'structural', 'constraint', 'notation']);
 
