@@ -82,6 +82,7 @@ import {
   verifyExplanation,
 } from './lib/frame.mjs';
 import { deriveLedger } from './lib/ledger.mjs';
+import { withRunHistory } from '../conver/run-history.js';
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
@@ -500,8 +501,9 @@ function runRevise(seedPath, payloadArgument) {
   return EXIT_OK;
 }
 
-// [::TICKET::] PX-221, PX-222, PX-226, PX-229, PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-226|PX-229|PX-236) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-221, PX-222, PX-226, PX-229, PX-236, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-226|PX-229|PX-236|PX-366) --for-spec --no-implementation-order`.
 function main(argv) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   try {
     const { operation, seedPath, size, payload } = parseArguments(argv);
     if (operation === OPERATIONS.NEXT) return runNext(seedPath, size);
@@ -525,5 +527,6 @@ function isProgramRun() {
 }
 
 if (isProgramRun()) {
-  process.exitCode = main(process.argv.slice(2));
+  withRunHistory({ command: 'explain-seed', stage: 'explain' }, () => main(process.argv.slice(2)))
+    .then((exitCode) => { process.exitCode = exitCode; });
 }

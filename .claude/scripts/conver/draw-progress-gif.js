@@ -17,6 +17,7 @@ import {
   ticketKeyOf,
 } from './progress-gif/parse.js';
 import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, displayDateKey } from './progress-gif/loop.js';
+import { historyRunMarkers } from './progress-gif/history.js';
 import { aggregateUsage, dailySeries } from './progress-gif/usage.js';
 import { CACHE_FILE_NAME } from './progress-gif/usage-cache.js';
 import { computeLayout, formatPercent } from './progress-gif/layout.js';
@@ -110,7 +111,32 @@ function drillTicketKeys(artifacts) {
   return tickets.filter((ticket) => ticket.forNextRound || ticket.fromStub).map(ticketKeyOf);
 }
 
-// [::TICKET::] PX-349, PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350) --for-spec --no-implementation-order`.
+/** The drill growth source: history runs when present, the single status file otherwise. */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+function drillGrowthRuns(artifacts) {
+  const finishes = (artifacts.historyRecords ?? []).filter(
+    (record) => record.event === 'finish' && record.stage === 'drill',
+  );
+  if (finishes.length > 0) {
+    const runs = finishes
+      .map((record) => ({
+        path: artifacts.historyPath,
+        t: parseTimestamp(record.at)?.t,
+        prec: 'ms',
+        ticketKeys: record.addedTicketKeys ?? [],
+      }))
+      .filter((run) => Number.isFinite(run.t));
+    return { fromHistory: true, runs };
+  }
+  if (!artifacts.drillStatus) return { fromHistory: false, runs: [] };
+  const at = parseTimestamp(artifacts.drillStatus.updatedAt);
+  return {
+    fromHistory: false,
+    runs: at ? [{ path: artifacts.drillStatusPath, ...at, ticketKeys: drillTicketKeys(artifacts) }] : [],
+  };
+}
+
+// [::TICKET::] PX-349, PX-350, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350|PX-366) --for-spec --no-implementation-order`.
 function growthEventsOf(pkg, artifacts) {
   const snapshots = (artifacts.ticketSnapshots || []).map((entry) => ({
     ...entry,
@@ -124,16 +150,13 @@ function growthEventsOf(pkg, artifacts) {
     ...entry,
     ticketKeys: manifestTicketKeys(readJson(entry.path)),
   }));
-  const drills = [];
-  if (artifacts.drillStatus) {
-    const at = parseTimestamp(artifacts.drillStatus.updatedAt);
-    if (at) drills.push({ path: artifacts.drillStatusPath, ...at, ticketKeys: drillTicketKeys(artifacts) });
-  }
+  const drillSource = drillGrowthRuns(artifacts);
   const events = reconstructTicketGrowth({
     snapshots,
     omissions,
     manifests,
-    drills,
+    drills: drillSource.fromHistory ? [] : drillSource.runs,
+    priorityDrills: drillSource.fromHistory ? drillSource.runs : [],
     tickets: artifacts.tickets ? ticketsOf(artifacts.tickets) : [],
   });
   return events.map((event) => ({
@@ -166,6 +189,7 @@ export function analyzeWorkspace(root, options = {}) {
   const packages = [];
   const events = [];
   const growthEvents = [];
+  const runs = [];
   const packageDirs = new Set(discovered.packages.map((pkg) => pkg.dir));
   for (const pkg of discovered.packages) {
     const artifacts = discoverPackageArtifacts(root, pkg, warnings);
@@ -175,8 +199,10 @@ export function analyzeWorkspace(root, options = {}) {
     packages.push(state.packageModel);
     events.push(...state.events);
     growthEvents.push(...growthEventsOf(pkg, artifacts));
+    runs.push(...historyRunMarkers(pkg.id, artifacts.historyRecords));
   }
-  return buildModel({ workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, warnings, initialT });
+  runs.push(...historyRunMarkers(null, workspaceArtifacts.historyRecords));
+  return buildModel({ workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, runs, warnings, initialT });
 }
 
 // [::TICKET::] PX-349, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-353) --for-spec --no-implementation-order`.

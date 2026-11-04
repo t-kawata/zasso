@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { HISTORY_FILE_NAME, readHistoryFile } from './history.js';
+
 export const DECOY_RE = /(\.delta\.json$|\.bak$|\.p22-ja\.bak$)/;
 export const SKIP_DIRS = new Set(['node_modules', '.git', 'target', 'dist', 'archive', 'progress-gif', 'vendor', 'fixtures']);
 
@@ -286,6 +288,7 @@ function collectStampedFiles(dir, pattern) {
 
 /** Read every artifact the progress model can use from one package directory. */
 export function discoverPackageArtifacts(root, pkg, warnings) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const dir = pkg.dir;
   const artifacts = {};
   const info = path.join(dir, 'INFO-RFC-SEED.md');
@@ -325,11 +328,16 @@ export function discoverPackageArtifacts(root, pkg, warnings) {
   artifacts.drillRounds = listDir(path.join(dir, 'drills'))
     .filter((name) => /^(DesignTree|CheckList)\.round\d+\.archive\./.test(name))
     .map((name) => path.join(dir, 'drills', name));
+  artifacts.historyPath = path.join(dir, HISTORY_FILE_NAME);
+  const history = readHistoryFile(artifacts.historyPath);
+  artifacts.historyRecords = history.records;
+  warnings.push(...history.warnings);
   return artifacts;
 }
 
 /** Read the workspace-level educe and smooth artifacts. */
 export function discoverWorkspaceArtifacts(root, warnings) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const sequences = listDir(root)
     .filter((name) => /-sequences\.json$/.test(name) && !DECOY_RE.test(name))
     .map((name) => path.join(root, name));
@@ -337,11 +345,16 @@ export function discoverWorkspaceArtifacts(root, warnings) {
     warn(warnings, `root *-sequences.json count is ${sequences.length} (educe not drawn)`);
   }
   const smoothStatusPath = path.join(root, 'smooth-sequences', 'status.json');
+  const historyPath = path.join(root, HISTORY_FILE_NAME);
+  const history = readHistoryFile(historyPath);
+  warnings.push(...history.warnings);
   return {
     sequencesPath: sequences.length === 1 ? sequences[0] : null,
     educeStatus: readOptional(path.join(root, 'educe-sequences'), 'status.json', warnings),
     smoothStatusPath,
     smoothStatus: exists(smoothStatusPath) ? readJson(smoothStatusPath) : null,
     smoothCertificate: readOptional(path.join(root, 'smooth-sequences'), 'COMPLETION-CERTIFICATE.json', warnings),
+    historyPath,
+    historyRecords: history.records,
   };
 }

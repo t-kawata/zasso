@@ -23,6 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative, toHomeRelative } = require('../lib/path-utils');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
 const {
   resolveStageStatusPath,
   reportResolvedPath,
@@ -39,6 +40,15 @@ const {
 // ============================================================
 
 /** Array of all Step IDs in definition order (index defines progression order) */
+/**
+ * Write one line through the console at call time.
+ *
+ * The console is the script-cli contract every caller and unit test observes;
+ * routing through Reflect keeps a replaced console.log visible here instead of
+ * holding a stale reference from module load.
+ */
+const logLine = (...parts) => Reflect.apply(console.log, console, parts);
+
 const STEP_ORDER = [
   '0-1',
   '0-2',
@@ -52,6 +62,9 @@ const STEP_ORDER = [
   '5-3',
   '6',
 ];
+
+/** This script is the only one /split-to-tickets runs at both ends of its run. */
+const RUN_HISTORY = { command: 'split-to-tickets', stage: 'split' };
 
 /** Array of allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
@@ -263,10 +276,11 @@ function validateStepId(stepId) {
  * @param {StatusData} status — Status data to update
  * @param {string} stepId — Step ID to start
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function executeStartStep(status, stepId) {
   status.steps[stepId] = STATUS_RUNNING;
   status.currentStep = stepId;
-  console.log(`[${stepId}]  started. Status: ${STATUS_RUNNING}.`);
+  logLine(`[${stepId}]  started. Status: ${STATUS_RUNNING}.`);
 }
 
 /**
@@ -278,14 +292,15 @@ function executeStartStep(status, stepId) {
  * @param {StatusData} status — Status data to update
  * @param {string} stepId — Step ID to finish
  */
-// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-366) --for-spec --no-implementation-order`.
 function executeBeginRun(status, runId) {
   const next = beginRun(status, runId ?? `${Date.now()}-${process.pid}`);
   Object.assign(status, next);
-  console.log(JSON.stringify({ runs: status.runs, runId: status.runId }));
+  if (require.main === module) recordRunHistory('start', RUN_HISTORY);
+  logLine(JSON.stringify({ runs: status.runs, runId: status.runId }));
 }
 
-// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-366) --for-spec --no-implementation-order`.
 function executeEndStep(status, stepId, { audit = false } = {}) {
   status.steps[stepId] = STATUS_DONE;
   const idx = STEP_ORDER.indexOf(stepId);
@@ -303,12 +318,13 @@ function executeEndStep(status, stepId, { audit = false } = {}) {
     Object.assign(status, result.status);
   }
   if (idx === STEP_ORDER.length - 1) {
+    if (require.main === module) recordRunHistory('finish', { ...RUN_HISTORY, status: 'COMPLETE' });
     status.currentStep = stepId;
-    console.log(`[${stepId}]  completed. All steps completed.`);
+    logLine(`[${stepId}]  completed. All steps completed.`);
   } else {
     const nextId = STEP_ORDER[idx + 1];
     status.currentStep = nextId;
-    console.log(`[${stepId}]  completed. Status: ${STATUS_DONE}. Next: [${nextId}].`);
+    logLine(`[${stepId}]  completed. Status: ${STATUS_DONE}. Next: [${nextId}].`);
   }
 }
 
@@ -320,9 +336,10 @@ function executeEndStep(status, stepId, { audit = false } = {}) {
  * @param {StatusData} status — Status data to update
  * @param {string} stepId — Step ID that encountered an error
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function executeFailStep(status, stepId) {
   status.steps[stepId] = STATUS_ERROR;
-  console.log(`[${stepId}]  terminated abnormally. Status: ${STATUS_ERROR}. currentStep is ${status.currentStep}. Check the error, fix the issue, then re-run with reset-to-step ${stepId}.`);
+  logLine(`[${stepId}]  terminated abnormally. Status: ${STATUS_ERROR}. currentStep is ${status.currentStep}. Check the error, fix the issue, then re-run with reset-to-step ${stepId}.`);
 }
 
 /**
@@ -334,13 +351,14 @@ function executeFailStep(status, stepId) {
  * @param {StatusData} status — Status data to update
  * @param {string} stepId — Step ID to reset to
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function executeResetToStep(status, stepId) {
   const idx = STEP_ORDER.indexOf(stepId);
   for (let i = idx + 1; i < STEP_ORDER.length; i++) {
     status.steps[STEP_ORDER[i]] = STATUS_PENDING;
   }
   status.currentStep = stepId;
-  console.log(`[${stepId}] . Reset subsequent steps to pending. [${stepId}]. Re-run the command from the beginning.`);
+  logLine(`[${stepId}] . Reset subsequent steps to pending. [${stepId}]. Re-run the command from the beginning.`);
 }
 
 /**
@@ -348,8 +366,9 @@ function executeResetToStep(status, stepId) {
  *
  * @param {StatusData} status — Status data to output
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function executeStatus(status) {
-  console.log(JSON.stringify(status, null, 2));
+  logLine(JSON.stringify(status, null, 2));
 }
 
 /**
@@ -365,7 +384,7 @@ function executeStatus(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
-// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-366) --for-spec --no-implementation-order`.
 function executeCleanup(status) {
   const removed = [];
 
@@ -390,20 +409,20 @@ function executeCleanup(status) {
     '_remove_edges.json',
     '_add_edges.json',
   ];
-  for (const f of tempFiles) {
-    const fp = path.join(cwd, f);
+  for (const fileName of tempFiles) {
+    const filePath = path.join(cwd, fileName);
     try {
-      if (fs.existsSync(fp)) {
-        fs.unlinkSync(fp);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
         removed.push(f);
       }
     } catch (_) { /* Same as above */ }
   }
 
   if (removed.length > 0) {
-    console.log(`cleanup: ${removed.join(', ')} deleted.`);
+    logLine(`cleanup: ${removed.join(', ')} deleted.`);
   } else {
-    console.log('cleanup: No temporary files to delete.');
+    logLine('cleanup: No temporary files to delete.');
   }
 }
 
@@ -415,7 +434,7 @@ function executeCleanup(status) {
  *
  * @param {StatusData} status — Status data (used for graphFile)
  */
-// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-366) --for-spec --no-implementation-order`.
 function executeBackup(status) {
   const graphFile = fromHomeRelative(status.graphFile);
   const bakPath = graphFile + '.bak';
@@ -425,7 +444,7 @@ function executeBackup(status) {
     }
     fs.copyFileSync(graphFile, bakPath);
     // A path leaving the process names no machine, so the display form is home-relative.
-    console.log(`backup: ${toHomeRelative(graphFile)} → ${toHomeRelative(bakPath)}`);
+    logLine(`backup: ${toHomeRelative(graphFile)} → ${toHomeRelative(bakPath)}`);
   } catch (err) {
     exitWithError(
       `Backup creation failed: ${err.message}`,
@@ -443,6 +462,7 @@ function executeBackup(status) {
  *
  * @param {StatusData} status — Status data to update
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function executePrunePhases(status) {
   let phaseIdsToRemove = [];
   try {
@@ -459,7 +479,7 @@ function executePrunePhases(status) {
   }
 
   if (!Array.isArray(phaseIdsToRemove) || phaseIdsToRemove.length === 0) {
-    console.log('prune-phases: No phase IDs specified for removal.');
+    logLine('prune-phases: No phase IDs specified for removal.');
     return;
   }
 
@@ -486,7 +506,7 @@ function executePrunePhases(status) {
     }
   }
 
-  console.log(`prune-phases: ${removedCount}  step status entries removed.`);
+  logLine(`prune-phases: ${removedCount}  step status entries removed.`);
 }
 
 /**
@@ -497,6 +517,7 @@ function executePrunePhases(status) {
  *
  * @param {StatusData} status — Status data to update
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function executeRenumberPhases(status) {
   let mapping = {};
   try {
@@ -514,7 +535,7 @@ function executeRenumberPhases(status) {
 
   const mappingKeys = Object.keys(mapping);
   if (mappingKeys.length === 0) {
-    console.log('renumber-phases: No mapping specified.');
+    logLine('renumber-phases: No mapping specified.');
     return;
   }
 
@@ -545,7 +566,7 @@ function executeRenumberPhases(status) {
     }
   }
 
-  console.log(`renumber-phases: ${updatedCount}  keys converted.`);
+  logLine(`renumber-phases: ${updatedCount}  keys converted.`);
 }
 
 // ============================================================
@@ -588,8 +609,9 @@ function exitWithError(message, reason, action) {
 /**
  * Displays usage instructions
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function printUsage() {
-  console.log(`
+  logLine(`
 update-split-step-status.js — SPLIT-Status.json management
 
 Usage:

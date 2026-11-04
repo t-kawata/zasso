@@ -28,6 +28,10 @@ const path = require("path");
 const { updateStub, mergeTrueDuplicates } = require("./update-stub.js");
 const { extractTicketKey } = require("./validate-no-external-excuses.js");
 const { scanStubs, runPrinter } = require("./print-manifest-for-find-omissions.js");
+const { recordRunHistory } = require("../lib/run-history-recorder.cjs");
+
+/** The apply/dry-run pair is the only bracketed observation point of /consolidate-stubs. */
+const RUN_HISTORY = { command: "consolidate-stubs", stage: "consolidate" };
 
 /** Parse a "file:line" reference. @returns {{file: string, line: number}|null} */
 // [::TICKET::] PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-132 --for-spec --no-implementation-order`.
@@ -495,7 +499,7 @@ function printProblem(n, entry) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-132, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-132|PX-341) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-341, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-132|PX-341|PX-366) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const positional = args.filter((a) => !a.startsWith("--"));
@@ -513,12 +517,19 @@ function main() {
     process.exit(0);
   }
 
+  if (require.main === module) {
+    recordRunHistory("start", RUN_HISTORY);
+    process.once("exit", (code) => {
+      if (code !== 0) recordRunHistory("finish", { ...RUN_HISTORY, status: "BLOCKED_PREREQUISITE" });
+      else if (!dryRun) recordRunHistory("finish", { ...RUN_HISTORY, status: "COMPLETE" });
+    });
+  }
+
   if (positional.length > 1) {
     process.stderr.write(
       "[batch-update-stub] Too many arguments. The [dir] argument is not accepted — " +
       "the target source tree is always the current directory (the Tickets.json root).\n"
-    );
-    process.stderr.write("[batch-update-stub] Usage: node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js\" <units.json> [--dry-run]\n");
+    );    process.stderr.write("[batch-update-stub] Usage: node \"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/batch-update-stub.js\" <units.json> [--dry-run]\n");
     process.exit(2);
   }
   const decisionPath = positional[0] || null;

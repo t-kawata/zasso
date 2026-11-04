@@ -29,6 +29,10 @@ const { fromHomeRelative } = require('../lib/path-utils');
 const { readGraphFile } = require('./validate-graph-arg.js');
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
+
+/** Preflight opens the crystalize run; loop-drive-readme.js closes it. */
+const RUN_HISTORY = { command: 'crystalize-readme', stage: 'crystalize' };
 
 /** CLI argument prefix specifying the graph file path */
 const GRAPH_PATH_ARG_PREFIX = '--graph=';
@@ -186,8 +190,14 @@ function formatPreflightMarkdown(paths, mode, flags) {
 /**
  * main — CLI entry point (Preflight).
  */
-// [::TICKET::] PX-152, PX-153, PX-155 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-155) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-155, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-155|PX-366) --for-spec --no-implementation-order`.
 function main() {
+  if (require.main === module) {
+    recordRunHistory('start', RUN_HISTORY);
+    process.once('exit', (code) => {
+      if (code !== 0) recordRunHistory('finish', { ...RUN_HISTORY, status: 'BLOCKED_PREREQUISITE' });
+    });
+  }
   try {
     const { graphPath, field } = parseArguments();
     const graph = readGraphFile(graphPath);

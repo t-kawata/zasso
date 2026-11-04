@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * require-consolidated-manifest.js — Pre-flight prerequisite gate for /find-omissions.
  *
@@ -21,6 +20,10 @@
 const fs = require('fs');
 const path = require('path');
 const { scanDirectory } = require('./review/find-all-stubs.js');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
+
+/** The second /find-omissions gate closes a run its first gate opened. */
+const RUN_HISTORY = { command: 'find-omissions', stage: 'find' };
 
 // Output directory (relative to cwd) and the manifest file prefix.
 const MANIFESTS_DIR = 'manifests';
@@ -88,6 +91,7 @@ function decideGate(dir, countStubsImpl) {
 }
 
 /** CLI entry point — maps the decision to exit code and stdout/stderr messages. */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-148 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-148 --for-spec --no-implementation-order`.
 function main() {
   const decision = decideGate(process.cwd());
@@ -106,7 +110,12 @@ function main() {
   process.exit(2);
 }
 
-if (require.main === module) main();
+if (require.main === module) {
+  process.once('exit', (code) => {
+    if (code !== 0) recordRunHistory('finish', { ...RUN_HISTORY, status: 'BLOCKED_PREREQUISITE' });
+  });
+  main();
+}
 
 module.exports = {
   findConsolidatedManifest,

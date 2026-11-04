@@ -25,6 +25,10 @@ const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
+
+/** Preflight opens the drill run; verify-step.js closes it. */
+const RUN_HISTORY = { command: 'drill-rfc-down', stage: 'drill' };
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -467,8 +471,14 @@ function formatAbortMessage(missing) {
 /**
  * main — CLI entry point (Step 0 Preflight).
  */
-// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-366) --for-spec --no-implementation-order`.
 function main() {
+  if (require.main === module) {
+    recordRunHistory('start', RUN_HISTORY);
+    process.once('exit', (code) => {
+      if (code !== 0) recordRunHistory('finish', { ...RUN_HISTORY, status: 'BLOCKED_PREREQUISITE' });
+    });
+  }
   try {
     const { ticketsPath, packageDir, materialArgs } = parseArguments();
     if (!fs.existsSync(ticketsPath)) {

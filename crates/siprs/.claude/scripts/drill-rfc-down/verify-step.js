@@ -22,6 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'url';
 import { verifyFormulaChain } from '../sequences-slice/verify-chain.mjs';
 import { parseSeedIdentity, resolveWorkspaceRoot } from '../spec-formula/index.mjs';
+import recorder from '../lib/run-history-recorder.cjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const VERIFY_CONSISTENCIES = path.join(SCRIPT_DIR, 'verify-consistencies.js');
@@ -77,6 +78,7 @@ function formatFindingsReport(result) {
   return lines.join('\n');
 }
 
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-365) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
@@ -122,6 +124,13 @@ const isMainModule =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMainModule) {
+  process.once('exit', (code) => {
+    recorder.recordRunHistory('finish', {
+      command: 'drill-rfc-down',
+      stage: 'drill',
+      status: code === 0 ? 'COMPLETE' : 'REPAIR_NO_PROGRESS',
+    });
+  });
   main();
 }
 

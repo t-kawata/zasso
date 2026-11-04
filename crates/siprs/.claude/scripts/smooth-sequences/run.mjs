@@ -71,6 +71,7 @@ import { writeWorklist } from './lib/worklist.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 import { snapshotDesignFiles } from '../regeneration/lib/staging.mjs';
 import { calibrationVerdict, readCalibration } from './calibrate.mjs';
+import { withRunHistory } from '../conver/run-history.js';
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const AUDIT_FLAG = '--audit';
@@ -454,6 +455,7 @@ function readSpecLines(root, artifact) {
 // [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-302 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-302 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   const stdout = io.stdout ?? ((line) => process.stdout.write(`${line}\n`));
@@ -864,5 +866,6 @@ export function runCommand(argv, io = {}) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  process.exitCode = runCommand(process.argv.slice(2)).exitCode;
+  withRunHistory({ command: 'smooth-sequences', stage: 'smooth' }, () => runCommand(process.argv.slice(2)).exitCode)
+    .then((exitCode) => { process.exitCode = exitCode; });
 }

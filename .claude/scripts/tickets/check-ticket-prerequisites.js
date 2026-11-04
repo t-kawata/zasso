@@ -20,6 +20,7 @@ const path = require('path');
 
 const { findAllocateManifest } = require('../lib/package-artifacts');
 const { parseTicketKey } = require('../lib/validate-tickets');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
 const { evaluatePrerequisites, ticketKeyOf } = require('../sequences-slice/lib/implementation-order.mjs');
 const { verifyPackage } = require('../sequences-slice/verify-implementation-order.mjs');
 
@@ -130,15 +131,15 @@ function collectPackageStatuses({ prerequisites, workspaceRoot }) {
  *
  * @returns {{ code: number, verdict: object, findings: Array<object> }}
  */
-// [::TICKET::] PX-323, PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-366) --for-spec --no-implementation-order`.
 function run(argv = process.argv.slice(2)) {
   const ticketKey = argumentFor(argv, 'ticket-key');
   if (ticketKey === null) {
-    return { code: EXIT_FAILURE, verdict: { ok: false, findings: [] }, findings: [{ code: 'MISSING_TICKET_KEY', subject: null, message: '--ticket-key=<key> is required' }] };
+    return { code: EXIT_FAILURE, ticketStatus: null, verdict: { ok: false, findings: [] }, findings: [{ code: 'MISSING_TICKET_KEY', subject: null, message: '--ticket-key=<key> is required' }] };
   }
   const ticketsPath = argumentFor(argv, 'tickets') ?? 'Tickets.json';
   if (!fs.existsSync(ticketsPath)) {
-    return { code: EXIT_FAILURE, verdict: { ok: false, findings: [] }, findings: [{ code: 'MISSING_TICKETS', subject: ticketsPath, message: 'Tickets.json is not readable' }] };
+    return { code: EXIT_FAILURE, ticketStatus: null, verdict: { ok: false, findings: [] }, findings: [{ code: 'MISSING_TICKETS', subject: ticketsPath, message: 'Tickets.json is not readable' }] };
   }
   const document = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const ticket = findTicket(document, ticketKey);
@@ -146,7 +147,7 @@ function run(argv = process.argv.slice(2)) {
     // Case B/C: the ticket is created from the conversation in Step 2, so it has no
     // prerequisites to check. The gate is a skip, not a failure; Step 1 still reports
     // Not Found to the command.
-    return { code: EXIT_OK, verdict: { ok: true, skipped: 'ticket-not-found', findings: [] }, findings: [] };
+    return { code: EXIT_OK, ticketStatus: null, verdict: { ok: true, skipped: 'ticket-not-found', findings: [] }, findings: [] };
   }
 
   const prerequisites = Array.isArray(ticket.prerequisites) ? ticket.prerequisites : [];
@@ -154,7 +155,7 @@ function run(argv = process.argv.slice(2)) {
   if (!hasOwnDistribution && prerequisites.length === 0) {
     // Case B or a pre-split ticket: there is no distribution to re-derive. The gate is a
     // skip, not a pass; the command's Step 1 still reports the ticket's actual state.
-    return { code: EXIT_OK, verdict: { ok: true, skipped: 'no-prerequisites', findings: [] }, findings: [] };
+    return { code: EXIT_OK, ticketStatus: ticket.status ?? 'todo', verdict: { ok: true, skipped: 'no-prerequisites', findings: [] }, findings: [] };
   }
 
   // The field is a cache. Re-derive it from the graph, artifact, view, registry and tree
@@ -164,10 +165,10 @@ function run(argv = process.argv.slice(2)) {
     orderGate = verifyPackage({ packageDir: path.dirname(path.resolve(ticketsPath)), write: false });
   } catch (error) {
     const finding = { code: 'PREREQUISITE_ORDER_UNREADABLE', subject: ticketsPath, message: error.message };
-    return { code: EXIT_FAILURE, verdict: { ok: false, findings: [finding] }, findings: [finding] };
+    return { code: EXIT_FAILURE, ticketStatus: ticket.status ?? 'todo', verdict: { ok: false, findings: [finding] }, findings: [finding] };
   }
   if (orderGate.code !== EXIT_OK) {
-    return { code: EXIT_FAILURE, verdict: { ok: false, findings: orderGate.findings ?? [] }, findings: orderGate.findings ?? [] };
+    return { code: EXIT_FAILURE, ticketStatus: ticket.status ?? 'todo', verdict: { ok: false, findings: orderGate.findings ?? [] }, findings: orderGate.findings ?? [] };
   }
 
   const workspaceRoot = resolveWorkspaceRoot(argumentFor(argv, 'workspace'), ticketsPath);
@@ -178,19 +179,36 @@ function run(argv = process.argv.slice(2)) {
   });
   return {
     code: result.ok ? EXIT_OK : EXIT_FAILURE,
+    ticketStatus: ticket.status ?? 'todo',
     verdict: result,
     findings: result.findings ?? [],
   };
 }
 
+/**
+ * A ticket's current status names the command that is about to run. The
+ * prerequisite gate is shared by all four pipeline commands, so this inference
+ * is what lets a blocked run be closed without a command-file instruction.
+ */
+const RUN_BY_STATUS = {
+  made: { command: 'plan-ticket', stage: 'plan' },
+  planned: { command: 'start-ticket', stage: 'start' },
+  done: { command: 'review-ticket', stage: 'review' },
+  todo: { command: 'make-ticket', stage: 'make' },
+};
+
 /** The CLI entry point. */
-// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-366) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const result = run(argv);
   for (const finding of result.findings) {
     console.error(`${finding.code}: ${finding.subject ?? ''} ${finding.message}`);
   }
   process.stdout.write(`${JSON.stringify(result.verdict)}\n`);
+  if (require.main === module && result.code !== EXIT_OK) {
+    const runIdentity = RUN_BY_STATUS[result.ticketStatus] ?? RUN_BY_STATUS.todo;
+    recordRunHistory('finish', { ...runIdentity, status: 'BLOCKED_PREREQUISITE' });
+  }
   return result.code;
 }
 

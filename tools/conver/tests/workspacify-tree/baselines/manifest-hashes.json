@@ -151,11 +151,13 @@
         "#### 1-1. Session Initialization",
         "#### 1-2. Capture Baseline",
         "#### 1-3. Full Understanding of Inputs",
+        "#### 1-3b. Mode",
         "#### 1-4. Generate DesignTree Nodes",
         "#### 1-5. Grill (Strictly Enforce Rules)",
         "#### 1-6. Completion Judgment",
         "#### 1-7. CheckList Generation & Approval",
         "#### 1-8. Append to RFC",
+        "#### 1-8b. Formula ledger and sidecar",
         "#### 1-9. CheckList Verification",
         "#### 1-10. Re-grill Decision",
         "#### 1-11. Evolution Verification (Script Verification + AI Expert Judgment)",
@@ -169,7 +171,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "075b327cf8bab783d95a0342a4bb23d1533f979b9686e42336a23a542e0b9cef"
+      "documentDigest": "9ba7002e20dd5ce694c96292ba41e97e0054a2c903890693a30178c5e916f809"
     },
     "find-omissions": {
       "headings": [
@@ -268,6 +270,7 @@
         "### STEP 5: RFC Writing",
         "## RFC Hard Constraints (MUST be followed without exception)",
         "### STEP 5b: Seed divergence ledger",
+        "### STEP 5c: Formula ledger",
         "### STEP 6: CheckList Verification and Revision",
         "### STEP 7: Re-grill Decision",
         "### STEP 7a: I/O Boundary Reference Information",
@@ -278,7 +281,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "f7f0169e540d2d1a057812ce0707c5542487f9b635852971608cb200e1b88529"
+      "documentDigest": "485b2713f00253cbab8ae569c84e0d64f827b0863ff4c09e6923b8cf6364947c"
     },
     "make-ticket": {
       "headings": [
@@ -342,6 +345,7 @@
       "headings": [
         "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /resolve-ticket",
+        "## Run history",
         "## Language Protocol",
         "## In",
         "## Scripts (`.claude/scripts/tickets/`)",
@@ -356,11 +360,12 @@
         "### Step 8",
         "### Step 9 (mandatory)",
         "### Step 10",
-        "## Done"
+        "## Done",
+        "## Run history finish"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "b0a5d1c949d1b8fb2b0897b7d1c12ee96a18d53cfd5ce98a569fb6c7d90349c8",
-      "documentDigest": "7aeafbf0fd6a43190665617ad1f468df7c4ec3b1b16067aab1f6c9ae19ac70cb"
+      "documentDigest": "99a69e35206db45ad9dbfe25bb4288c7ee1e5ef95941abdeb2421c94a0d92884"
     },
     "review-ticket": {
       "headings": [
@@ -384,13 +389,14 @@
         "### Step 9",
         "### Step 10",
         "### Step 10b",
+        "### Step 10c",
         "### Step 11",
         "### Step 12 (commit only, no push)",
         "## Done"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "b0a5d1c949d1b8fb2b0897b7d1c12ee96a18d53cfd5ce98a569fb6c7d90349c8",
-      "documentDigest": "48034eea36c2c3a8b13f48e1680c12687dc37b00f8d575621820653c0895a208"
+      "documentDigest": "679ac04a75e847440597810758878b7f4a62f481a115e053adae2d3340503e3d"
     },
     "split-to-tickets": {
       "headings": [

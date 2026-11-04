@@ -77,6 +77,7 @@ import { atomicPublish } from './lib/atomic-publish.mjs';
 import { formatSuccess, formatFailure } from './lib/report.mjs';
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
+import { withRunHistory } from '../conver/run-history.js';
 
 const MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const COMMAND_NAME = '/workspacify-tree';
@@ -107,8 +108,9 @@ function guide(text) {
   process.stderr.write(`[guide] ${text}\n`);
 }
 
-// [::TICKET::] P22-11, P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P24-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P24-9|PX-366) --for-spec --no-implementation-order`.
 function main() {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const args = process.argv.slice(2);
   const subcommand = args[0];
   if (subcommand === undefined) {
@@ -1227,5 +1229,5 @@ function printUsage() {
 
 // Allow in-process unit tests to import and drive handlers without running main.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  withRunHistory({ command: 'workspacify-tree', stage: 'educe' }, () => main());
 }

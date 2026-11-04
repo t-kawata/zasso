@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * clean-consolidation-artifacts.js — Remove transient consolidation artifacts.
  *
@@ -20,6 +19,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
+
+/** The final /find-omissions step closes the run its first gate opened. */
+const RUN_HISTORY = { command: 'find-omissions', stage: 'find' };
 
 // Output directory and the two artifact prefixes written by the consolidate flow.
 const MANIFESTS_DIR = 'manifests';
@@ -78,6 +81,7 @@ function cleanConsolidationArtifacts(dir) {
 }
 
 /** CLI entry point. */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-138 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-138 --for-spec --no-implementation-order`.
 function main() {
   const res = cleanConsolidationArtifacts(process.cwd());
@@ -88,7 +92,15 @@ function main() {
   process.exit(0);
 }
 
-if (require.main === module) main();
+if (require.main === module) {
+  process.once('exit', (code) => {
+    recordRunHistory('finish', {
+      ...RUN_HISTORY,
+      status: code === 0 ? 'COMPLETE' : 'BLOCKED_PREREQUISITE',
+    });
+  });
+  main();
+}
 
 module.exports = {
   listArtifactsToRemove,

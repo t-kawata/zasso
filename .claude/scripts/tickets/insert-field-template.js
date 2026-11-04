@@ -25,6 +25,9 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
+const { recordRunHistory } = require("../lib/run-history-recorder.cjs");
+
+const MAKE_RUN = { command: "make-ticket", stage: "make" };
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -262,8 +265,15 @@ function writeFields(ticketsPath, ticketKey, updates) {
   });
 }
 
-// [::TICKET::] PX-76 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-76 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-76, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-76|PX-366) --for-spec --no-implementation-order`.
 function main() {
+  if (require.main === module) {
+    recordRunHistory("start", MAKE_RUN);
+    process.once("exit", (code) => {
+      if (code !== 0) recordRunHistory("finish", { ...MAKE_RUN, status: "BLOCKED_PREREQUISITE" });
+    });
+  }
+
   const ticketsPath = process.argv[2];
   const ticketKey = process.argv[3];
 

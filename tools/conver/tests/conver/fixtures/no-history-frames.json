@@ -1,0 +1,1212 @@
+[
+  {
+    "index": 0,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "educe",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0
+  },
+  {
+    "index": 1,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "educe",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0
+  },
+  {
+    "index": 2,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "educe",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0
+  },
+  {
+    "index": 3,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "educe",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0
+  },
+  {
+    "index": 4,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "educe",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0
+  },
+  {
+    "index": 5,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "educe",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0
+  },
+  {
+    "index": 6,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "split",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.016304347826086956
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.016304347826086956,
+    "active": [
+      6
+    ],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.016304347826086956
+  },
+  {
+    "index": 7,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "split",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.016304347826086956
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.016304347826086956,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.016304347826086956
+  },
+  {
+    "index": 8,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "make",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.08152173913043478
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.08152173913043478,
+    "active": [
+      7
+    ],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.08152173913043478
+  },
+  {
+    "index": 9,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "make",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.08152173913043478
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.08152173913043478,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.08152173913043478
+  },
+  {
+    "index": 10,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "plan",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.14673913043478262
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.14673913043478262,
+    "active": [
+      8
+    ],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.14673913043478262
+  },
+  {
+    "index": 11,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "plan",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.14673913043478262
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.14673913043478262,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.14673913043478262
+  },
+  {
+    "index": 12,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "start",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.29891304347826086
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.29891304347826086,
+    "active": [
+      9
+    ],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.29891304347826086
+  },
+  {
+    "index": 13,
+    "t": 1793491200000,
+    "prec": "ms",
+    "stage": "start",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.29891304347826086
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.29891304347826086,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.29891304347826086
+  },
+  {
+    "index": 14,
+    "t": 1793577600000,
+    "prec": "ms",
+    "stage": "review",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.3858695652173913
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.3858695652173913,
+    "active": [
+      10
+    ],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.3858695652173913
+  },
+  {
+    "index": 15,
+    "t": 1793577600000,
+    "prec": "ms",
+    "stage": "review",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.3858695652173913
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.3858695652173913,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.3858695652173913
+  },
+  {
+    "index": 16,
+    "t": 1793577600000,
+    "prec": "ms",
+    "stage": "review",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.3858695652173913
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.3858695652173913,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.3858695652173913
+  },
+  {
+    "index": 17,
+    "t": 1793577600000,
+    "prec": "ms",
+    "stage": "review",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.3858695652173913
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.3858695652173913,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.3858695652173913
+  },
+  {
+    "index": 18,
+    "t": 1793577600000,
+    "prec": "ms",
+    "stage": "review",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.3858695652173913
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.3858695652173913,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.3858695652173913
+  },
+  {
+    "index": 19,
+    "t": 1793577600000,
+    "prec": "ms",
+    "stage": "review",
+    "packages": [
+      {
+        "id": "pkg-1",
+        "name": "pkg-1",
+        "path": "pkg-1",
+        "total": 1,
+        "reviewed": 1,
+        "fill": 1,
+        "density": 0.3858695652173913
+      }
+    ],
+    "pi": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.25,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "globalStage": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.25,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "overallProgress": 0.3858695652173913,
+    "active": [],
+    "rootPulse": false,
+    "growth": [],
+    "density": 0.3858695652173913
+  }
+]

@@ -89,6 +89,7 @@ import { findUnpublished, readPublishedSet, renderPublishedSet, renderUnpublishe
 import { computeSeam, readFixedPartitionPaths, readPriorPartitionPaths, renderSeam, renderSeamAdvice } from './lib/seam.mjs';
 import { readStepReport, renderReportAdvice, renderStepReport } from './lib/step-report.mjs';
 import { renderReadingsView } from './lib/readings-view.mjs';
+import { withRunHistory } from '../conver/run-history.js';
 
 const SUBCOMMANDS = [
   'detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze', 'gate',
@@ -1146,8 +1147,9 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2, P26-3, P26-5 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2|P26-3|P26-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2, P26-3, P26-5, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2|P26-3|P26-5|PX-366) --for-spec --no-implementation-order`.
 async function main() {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
     process.stderr.write(`${USAGE}\n`);
@@ -1214,7 +1216,7 @@ function reportUnhandledFailure(error) {
   process.exitCode = 1;
 }
 
-main().then(
+withRunHistory({ command: 'workspacify-reverse', stage: 'educe' }, () => main()).then(
   (exitCode) => { process.exitCode = exitCode; },
   reportUnhandledFailure,
 );

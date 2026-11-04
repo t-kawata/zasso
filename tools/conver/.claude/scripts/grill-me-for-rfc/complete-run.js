@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import recorder from '../lib/run-history-recorder.cjs';
 
 import {
   recordDistributionGeneration,
@@ -118,6 +119,7 @@ function currentState(rfcDir) {
  *
  * @param {string} rfcDir
  * @returns {{ ok: boolean, code?: string, detail?: string }}
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
  */
 function declareDone(rfcDir) {
   try {
@@ -180,5 +182,11 @@ export function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exit(main());
+  const exitCode = main();
+  recorder.recordRunHistory('finish', {
+    command: 'grill-me-for-rfc',
+    stage: 'grill',
+    status: exitCode === EXIT_OK ? 'COMPLETE' : 'BLOCKED_PREREQUISITE',
+  });
+  process.exit(exitCode);
 }

@@ -33,6 +33,7 @@ import { inquestBeside } from './readings.mjs';
 import { runDirectoryFor, statusPath } from './run-state.mjs';
 import { suppliedDigestOf, suppliedDocumentsOf } from './supplied.mjs';
 import { readRailExits } from './harness.mjs';
+import { withRunHistory } from '../../conver/run-history.js';
 
 /** The exit codes the command contract declares. */
 export const EXIT = Object.freeze({ OK: 0, REFUSED: 1, MISUSED: 2 });
@@ -63,6 +64,7 @@ const VANISHED_CHECK_ID = 'every-held-name-survives-the-generation';
 // [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
 export async function runCommand(argv, options = {}) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const stdout = options.stdout ?? ((line) => process.stdout.write(`${line}\n`));
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
   const runInput = options.runInput ?? null;
@@ -349,5 +351,8 @@ function readRunInputFromStdin() {
 
 // Command-line entry: `node rail/run.mjs <spec-file>`.
 if (process.argv[1] !== undefined && process.argv[1].endsWith('run.mjs')) {
-  process.exitCode = (await runCommand(process.argv.slice(2), { runInput: readRunInputFromStdin() })).exitCode;
+  process.exitCode = await withRunHistory(
+    { command: 'educe-sequences', stage: 'educe' },
+    async () => (await runCommand(process.argv.slice(2), { runInput: readRunInputFromStdin() })).exitCode,
+  );
 }

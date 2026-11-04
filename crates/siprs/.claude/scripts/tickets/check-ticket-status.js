@@ -22,6 +22,7 @@
 const fs = require("fs");
 const path = require("path");
 const { parseTicketKey } = require("../lib/validate-tickets");
+const { recordRunHistory } = require("../lib/run-history-recorder.cjs");
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -35,6 +36,17 @@ const PHASE_EXPECTED_STATUS = {
 
 /** Valid phase values */
 const VALID_PHASES = new Set(Object.keys(PHASE_EXPECTED_STATUS));
+
+/**
+ * Phase → command identity for the run history. The gate is the first script
+ * every plan/start/review run executes, so it is the only place that observes
+ * both the pass and the blocked path without a command-file instruction.
+ */
+const PHASE_RUN = {
+  plan: { command: "plan-ticket", stage: "plan" },
+  start: { command: "start-ticket", stage: "start" },
+  review: { command: "review-ticket", stage: "review" },
+};
 
 /**
  * Parse CLI arguments.
@@ -121,6 +133,7 @@ function findTicketInJson(ticketsPath, phaseId, ticketId) {
 /**
  * Main entry point.
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 function main() {
   const parsed = parseArgs();
   if (!parsed) {
@@ -148,6 +161,17 @@ function main() {
   }
 
   const expectedStatus = PHASE_EXPECTED_STATUS[phase];
+
+  // The gate's exit is the run boundary: passing opens the run, and any failure
+  // after this point closes it as blocked. This is the only observation point
+  // shared by plan-ticket, start-ticket and review-ticket.
+  const phaseRun = PHASE_RUN[phase];
+  if (phaseRun && require.main === module) {
+    process.once("exit", (code) => {
+      if (code === 0) recordRunHistory("start", phaseRun);
+      else recordRunHistory("finish", { ...phaseRun, status: "BLOCKED_PREREQUISITE" });
+    });
+  }
 
   // Parse ticket key
   const keyParts = parseTicketKey(ticketKey);

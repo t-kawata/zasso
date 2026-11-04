@@ -69,6 +69,7 @@ import {
 } from './lib/reverse-mode.mjs';
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
+import { withRunHistory } from '../conver/run-history.js';
 
 const DECISIONS_SCHEMA_PATH = fileURLToPath(new URL('./schemas/workspacify-allocate-decisions.schema.json', import.meta.url));
 
@@ -834,8 +835,9 @@ function printUsage() {
   ].join('\n') + '\n';
 }
 
-// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-215|PX-366) --for-spec --no-implementation-order`.
 function main() {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const args = process.argv.slice(2);
   const subcommand = args[0];
   const handler = SUBCOMMANDS[subcommand];
@@ -863,5 +865,5 @@ function main() {
 
 // Allow in-process unit tests to import and drive handlers without running main.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  withRunHistory({ command: 'workspacify-allocate', stage: 'educe' }, () => main());
 }

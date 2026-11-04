@@ -610,6 +610,21 @@ function drawGrowthPulses(ctx, layout, frame) {
   }
 }
 
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+function drawRunMarkers(ctx, layout, frame) {
+  for (const run of frame.runs || []) {
+    const cell = layout.cells.find((entry) => entry.id === run.packageId);
+    if (!cell) continue;
+    strokeRing(ctx, {
+      centre: { x: cell.centerX, y: cell.centerY },
+      radius: cell.radius + 4 * layout.scale,
+      colour: groupColor(run.stage),
+      lineWidth: (run.status === 'COMPLETE' ? 2 : 1.5) * layout.scale,
+      alpha: 0.9,
+    });
+  }
+}
+
 // [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
 function drawLadder(ctx, layout, frame) {
   const scale = layout.scale;
@@ -658,6 +673,7 @@ export function drawFrame(ctx, layout, frame, model, options = {}) {
   for (const cell of layout.cells) drawCell(ctx, layout, cell, frame, model);
   drawLadder(ctx, layout, frame);
   drawGrowthPulses(ctx, layout, frame);
+  drawRunMarkers(ctx, layout, frame);
 }
 
 /** The browser engine bundle. It exposes only functions that do not use Node built-ins. */

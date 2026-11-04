@@ -153,6 +153,20 @@ function ticketList(artifacts) {
   return artifacts.tickets ? ticketsOf(artifacts.tickets) : [];
 }
 
+/** The earliest COMPLETE drill finish, or null when history has none. */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+export function historyDrillTime(records, packageId) {
+  const finishes = (records ?? [])
+    .filter((record) => record.event === 'finish'
+      && record.stage === 'drill'
+      && record.packageId === packageId
+      && record.status === 'COMPLETE')
+    .map((record) => parseTimestamp(record.at))
+    .filter(Boolean)
+    .sort((left, right) => left.t - right.t);
+  return finishes[0] ?? null;
+}
+
 /** Derive the 16 stage fractions for one package from the artifacts that exist. */
 export function stageProgressOf(artifacts, workspaceArtifacts) {
   const stages = Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0]));
@@ -354,8 +368,18 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts) {
     addEvent(events, { t: at ? at.t : initialT, prec: at ? at.prec : 'ms', stage: 'crystalize', packageId: pkg.id, inc: stageProgressOf(artifacts, workspaceArtifacts).crystalize, evidence: 'CRYSTALIZE-Status.json' });
   }
   if (artifacts.drillStatus) {
-    const at = parseTimestamp(artifacts.drillStatus.updatedAt) || parseStampFromMtime(artifacts.drillStatusPath || '');
-    addEvent(events, { t: at ? at.t : initialT, prec: at ? at.prec : 'ms', stage: 'drill', packageId: pkg.id, inc: stageProgressOf(artifacts, workspaceArtifacts).drill, evidence: 'drills/Status.json' });
+    const historyTime = historyDrillTime(artifacts.historyRecords, pkg.id);
+    const at = historyTime
+      || parseTimestamp(artifacts.drillStatus.updatedAt)
+      || parseStampFromMtime(artifacts.drillStatusPath || '');
+    addEvent(events, {
+      t: at ? at.t : initialT,
+      prec: at ? at.prec : 'ms',
+      stage: 'drill',
+      packageId: pkg.id,
+      inc: stageProgressOf(artifacts, workspaceArtifacts).drill,
+      evidence: historyTime ? artifacts.historyPath : 'drills/Status.json',
+    });
   }
   return events;
 }
@@ -375,9 +399,10 @@ function parseStampFromMtime(file) {
 
 /** Build a workspace model from package states and events. */
 export function buildModel(input) {
-  const { workspaceRoot, tree, allocate, packages, events, growthEvents, warnings, initialT } = input;
+  const { workspaceRoot, tree, allocate, packages, events, growthEvents, runs = [], warnings, initialT } = input;
   const sortedEvents = [...events].sort((left, right) => left.t - right.t || STAGE_ORDER.indexOf(left.stage) - STAGE_ORDER.indexOf(right.stage));
   const sortedGrowth = [...(growthEvents || [])].sort((left, right) => left.t - right.t);
+  const sortedRuns = [...runs].sort((left, right) => left.t - right.t);
   const firstEvent = sortedEvents[0] || sortedGrowth[0];
   const manifestTime = (tree && tree.run && parseTimestamp(tree.run.generated_at))
     || (allocate && allocate.run && parseTimestamp(allocate.run.generated_at));
@@ -397,13 +422,17 @@ export function buildModel(input) {
     packages,
     events: sortedEvents,
     growthEvents: sortedGrowth,
+    runs: sortedRuns,
     totals,
     warnings: warnings || [],
   };
 }
 
 /** Diff ticket snapshots, omission files, consolidation manifests and drill rounds. */
-export function reconstructTicketGrowth({ snapshots = [], omissions = [], manifests = [], drills = [], tickets = [] }) {
+export function reconstructTicketGrowth(input = {}) {
+  const {
+    snapshots = [], omissions = [], manifests = [], drills = [], tickets = [], priorityDrills = [],
+  } = input;
   const events = [];
   const known = new Set();
   const contractById = new Map();
@@ -419,6 +448,9 @@ export function reconstructTicketGrowth({ snapshots = [], omissions = [], manife
     events.push({ t, prec: prec || 'ms', stage, addedTicketKeys: added, addedContracts,
       addedReviewed: 0, evidence, confidence });
   };
+  // History runs are authoritative for the keys they record, so they are applied
+  // before the snapshot/omission sources that might otherwise claim the same key.
+  for (const drill of priorityDrills) add(drill.t, drill.prec, 'drill', drill.ticketKeys || [], drill.path, 'drill');
   if (snapshots.length > 0) {
     const first = snapshots[0];
     for (const ticket of first.tickets || []) known.add(ticket.key || ticketKeyOf(ticket));
@@ -559,7 +591,11 @@ export function buildFrames(model, options = {}) {
   }
   for (const event of model.growthEvents || []) {
     if (!Number.isFinite(event.t) || STAGE_INDEX[event.stage] === undefined) continue;
-    timeline.push({ kind: 'growth', t: event.t, prec: event.prec || 'ms', stage: event.stage, packageId: event.packageId, addedMass: computeGrowthMass(event), seq: timeline.length, evidence: event.evidence });
+    timeline.push({ kind: 'growth', t: event.t, prec: event.prec || 'ms', stage: event.stage, packageId: event.packageId, addedMass: computeGrowthMass(event), addedTicketKeys: event.addedTicketKeys || [], seq: timeline.length, evidence: event.evidence });
+  }
+  for (const run of model.runs || []) {
+    if (!Number.isFinite(run.t) || STAGE_INDEX[run.stage] === undefined) continue;
+    timeline.push({ kind: 'run', t: run.t, prec: run.prec || 'ms', stage: run.stage, packageId: run.packageId, status: run.status, runId: run.runId, seq: timeline.length, evidence: run.evidence });
   }
   repairUpstreamOrder(timeline, packageModels.map((pkg) => pkg.id));
   timeline.sort((left, right) =>
@@ -578,6 +614,7 @@ export function buildFrames(model, options = {}) {
   let lastPrec = 'ms';
   let cursor = 0;
   const frames = [];
+  const seenGrowthKeys = new Set();
   for (let index = 0; index < frameCount; index += 1) {
     const rawProgress = span <= 0 ? (index === frameCount - 1 ? 1 : 0) : (index - holdStart) / span;
     const progress = Math.max(0, Math.min(1, rawProgress));
@@ -588,6 +625,7 @@ export function buildFrames(model, options = {}) {
       cursor += 1;
     }
     const growthThisFrame = [];
+    const runsThisFrame = [];
     const active = [];
     let rootPulse = false;
     for (const event of applied) {
@@ -609,7 +647,18 @@ export function buildFrames(model, options = {}) {
           active.push(event.packageId === null || event.packageId === undefined ? -100 - stageIndex : pkg.index * STAGE_ORDER.length + stageIndex);
         }
         if (event.packageId === null || event.packageId === undefined) rootPulse = true;
+      } else if (event.kind === 'run') {
+        runsThisFrame.push({
+          packageId: event.packageId,
+          stage: event.stage,
+          status: event.status,
+          runId: event.runId,
+        });
       } else {
+        const ticketKeys = event.addedTicketKeys ?? [];
+        const unseen = ticketKeys.filter((key) => !seenGrowthKeys.has(key));
+        if (ticketKeys.length > 0 && unseen.length === 0) continue;
+        for (const key of unseen) seenGrowthKeys.add(key);
         const pkg = byId.get(event.packageId);
         if (pkg) pkg.total = Math.max(0, pkg.total + event.addedMass);
         growthThisFrame.push({ packageId: event.packageId, stage: event.stage, addedMass: event.addedMass, evidence: event.evidence });
@@ -642,7 +691,7 @@ export function buildFrames(model, options = {}) {
     const usageTitle = cumulativeUsage && model.titleName
       ? usageTitleSegments(model.titleName, cumulativeUsage)
       : null;
-    frames.push({
+    const frame = {
       index,
       t: lastT,
       prec: lastPrec,
@@ -659,7 +708,11 @@ export function buildFrames(model, options = {}) {
       density: packageFrames.length > 0
         ? packageFrames.reduce((sum, pkg) => sum + pkg.density, 0) / packageFrames.length
         : 0,
-    });
+    };
+    // A frame with no run keeps the pre-change shape, so a no-history workspace
+    // stays byte-identical rather than gaining an empty array.
+    if (runsThisFrame.length > 0) frame.runs = runsThisFrame;
+    frames.push(frame);
   }
   return frames;
 }

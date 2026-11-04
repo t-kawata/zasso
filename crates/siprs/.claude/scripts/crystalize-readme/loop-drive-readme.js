@@ -50,6 +50,7 @@ const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 const { readGraphFile } = require('./validate-graph-arg.js');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
 const {
   MARKER_TEMPLATE_README,
   MARKER_README_RESIDUE,
@@ -644,7 +645,7 @@ function executeExamplesTransition(parsed) {
 /**
  * main — CLI entry point.
  */
-// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-366) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -698,6 +699,9 @@ function main() {
       const verdict = checkExamplesReady(text);
       process.stdout.write(JSON.stringify(verdict) + '\n');
       process.stderr.write(examplesSummary(verdict) + '\n');
+      if (require.main === module && verdict.ready) {
+        recordRunHistory('finish', { command: 'crystalize-readme', stage: 'crystalize', status: 'COMPLETE' });
+      }
       process.exit(verdict.ready ? 0 : 1);
     }
     const scan = scanMarkers(text);

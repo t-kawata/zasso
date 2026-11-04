@@ -15,6 +15,10 @@ import path from "path";
 import { validateAll } from "./check-all-schema.js";
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
+import recorder from '../lib/run-history-recorder.cjs';
+
+/** This script opens the grill generation; complete-run.js closes it. */
+const RUN_HISTORY = { command: 'grill-me-for-rfc', stage: 'grill' };
 
 const VALID_STATES = [
   "GRILLING",
@@ -103,6 +107,7 @@ function recordCompletion(previousState) {
  * same run continuing. A record written before the field existed starts from the sessions
  * it counted, a documented lower bound rather than a reconstruction.
  */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function openRunGeneration() {
   const recorded = Number.isInteger(status[GRILL_GENERATION_FIELD]) && status[GRILL_GENERATION_FIELD] >= FIRST_GENERATION
@@ -132,6 +137,7 @@ switch (operation) {
   case "begin-run": {
     openRunGeneration();
     saveAndValidate();
+    recorder.recordRunHistory("start", RUN_HISTORY);
     process.stdout.write(JSON.stringify({ ok: true, grillGeneration: status[GRILL_GENERATION_FIELD] }) + "\n");
     break;
   }

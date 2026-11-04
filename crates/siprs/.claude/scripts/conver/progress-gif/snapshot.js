@@ -8,6 +8,7 @@ export const SNAPSHOT_SCHEMA = 'conver-progress-snapshot-v1';
 
 /** Project a model onto the compact snapshot shape written after every run. */
 export function snapshotFromModel(model, extra = {}) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   return {
     schema: SNAPSHOT_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -21,6 +22,7 @@ export function snapshotFromModel(model, extra = {}) {
       stages: pkg.stages,
     })),
     totals: model.totals,
+    runs: model.runs,
     ...extra,
   };
 }

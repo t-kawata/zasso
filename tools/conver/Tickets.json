@@ -55917,6 +55917,213 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-04"
+        },
+        {
+          "id": 366,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Record five-layer execution history and render run markers in progress-gif",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-366.md",
+          "invariants": "- [Normal condition] Every instrumented command writes exactly one start record and one finish record with the same runId; the finish is appended after the start.\n- [Error invariant] A history write failure or a malformed history line never aborts the command or the draw; it is reported as a warning, and the command exit code and draw exit code stay unchanged.\n- [Internal state invariant] History is append-only: an append never truncates, rewrites, or reorders existing bytes. Replaying the same runId and event is idempotent.\n- [Boundary invariant] With no history file, analyzeWorkspace and buildFrames produce byte-identical model and frames to the pre-change implementation. With history, no stage progress exceeds 1, and no ticket key contributes more than one growth event.",
+          "background": "### Goal\nEvery five-layer pipeline command appends a compact execution record to a JSONL history, and draw-progress-gif renders the recorded run dates without changing the output of workspaces that have no history.\n\n### Purpose\nThe current animation derives drill from one drills/Status.json. Repeated drill runs overwrite that file, so earlier runs vanish, the drill event time moves to the latest updatedAt, blocked runs are invisible, and ticket growth is inferred from the current Tickets.json instead of the run that added it. A per-invocation history gives one record per run: runId, command, stage, packageId, start/finish timestamps, terminal status, and the ticket keys the run added.\n\n### Motivation\nDrill is now safe at any time after Tickets.json exists. The user requires repeated executions at arbitrary times to be drawn at their real dates, without double counting or duplicate drawing. History is the missing evidence; the renderer already supports multiple events and key-level growth dedupe.\n\n### Constraints\nconver only; other projects receive the change via make install-to-projects. No change to drill gates, Tickets.json schema, RFC artifacts, or the existing stage-progress semantics. History is observability: a write failure prints a warning and never changes a command's exit code. A workspace without history must produce a byte-identical model and frame sequence. History never adds stage progress; repeated runs are run markers and growth.",
+          "scope": [
+            "ADD .claude/scripts/conver/progress-gif/history.js — schema v1 constants, appendHistoryRecord, readHistoryFile, historyRunsOf, HISTORY_FILE_NAME='.conver-history.jsonl', HISTORY_SCHEMA_VERSION=1, HISTORY_EVENTS=['start','finish']; validate stage against STAGE_ORDER imported from loop.js; malformed lines return {record:null, warning} and never throw.",
+            "ADD .claude/scripts/conver/run-history.js — CLI start|finish; resolveWorkspaceRoot walks up to WORKSPACIFY-TREE-MANIFEST.json; resolvePackageId matches tree.workspace.packages[].path to cwd; package-scoped commands append to <pkg>/.conver-history.jsonl, workspace-scoped commands to <root>/.conver-history.jsonl; start and finish share runId; finish is idempotent per runId+event.",
+            "MODIFY .claude/commands/workspacify-reverse.md, workspacify-tree.md, workspacify-allocate.md, educe-sequences.md, explain-seed.md, grill-me-for-rfc.md, smooth-sequences.md, graphify-rfc.md, boundify-graph.md, split-to-tickets.md, make-ticket.md, plan-ticket.md, start-ticket.md, review-ticket.md, resolve-ticket.md, consolidate-stubs.md, find-omissions.md, crystalize-readme.md, drill-rfc-down.md — one history start at the first executable step and one history finish at the last step, including the BLOCKED_PREREQUISITE path; command and stage from the mapping table in Investigation.",
+            "MODIFY .claude/scripts/conver/progress-gif/parse.js — discoverPackageArtifacts reads <pkg>/.conver-history.jsonl and adds artifacts.historyPath and artifacts.historyRecords; discoverWorkspaceArtifacts reads <root>/.conver-history.jsonl and adds the same fields.",
+            "MODIFY .claude/scripts/conver/progress-gif/loop.js — historyRunMarkers emits one run marker per finish record (COMPLETE, BLOCKED_PREREQUISITE, REPAIR_NO_PROGRESS, STARTED); historyDrillTime replaces the drill stage event time with the earliest COMPLETE finish when history exists; historyGrowthEvents feeds addedTicketKeys into reconstructTicketGrowth; no history path keeps the current behavior.",
+            "MODIFY .claude/scripts/conver/progress-gif/engine.js, html.js, viewer.js, snapshot.js — draw each run marker as a pulse ring at the package and carry the frame runs payload into the HTML, viewer, and snapshot; no marker changes package fill or stage progress.",
+            "MODIFY .claude/scripts/conver/draw-progress-gif.js — pass history records into analyzeWorkspace; markdown report adds history run count and malformed-line warnings; CLI arguments unchanged.",
+            "ADD tests/conver/run-history.test.mjs — append, idempotency, malformed line, append-only bytes, stage validation, workspace-root and package-id resolution.",
+            "ADD tests/conver/progress-gif-history.test.mjs — run markers, repeated drill markers, blocked marker, drill time replacement, growth dedupe, no-history golden equality.",
+            "ADD tests/conver/command-history.test.mjs — scan the 19 command files for exactly one start and one finish with a valid stage.",
+            "MODIFY tests/conver/fixtures.mjs and tests/conver/analyze-workspace.test.mjs — add history fixtures and preserve the existing FIND/growth semantics.",
+            "NON-CHANGE: no drill-rfc-down script, Tickets.json schema, RFC.md, RFC-FORMULAS.json, or existing source file changes; no history rotation or compaction; no remote storage.",
+            "API contract: JSONL v1 field names are fixed: v, runId, event, command, stage, packageId, at, status (finish only), addedTicketKeys (finish only).",
+            "Data schema: one JSON object per line, UTF-8, at most 4096 bytes; start has no status or addedTicketKeys; finish carries both.",
+            "Config/env: none. Dependency: none. Runtime cost: one small append per command invocation."
+          ],
+          "testUnit": [
+            "UT: [Normal] appendHistoryRecord writes one start line and one finish line; readHistoryFile returns two records with the same runId and valid v, command, stage, packageId, at, status.",
+            "UT: [Normal] finish is idempotent: appending the same runId and event twice leaves exactly one line and one parsed record.",
+            "UT: [Error] a malformed JSONL line (invalid JSON, missing runId, unknown stage) yields a warning naming the line and the valid records survive; readHistoryFile never throws.",
+            "UT: [Boundary] appending to an existing history file leaves every original byte unchanged (prefix equality) and adds exactly one newline-terminated line.",
+            "UT: [Invariant] when a history COMPLETE finish and an artifact stage event exist for the same packageId and stage, the model contains one stage event; its time is the finish time and its increment equals the artifact-derived increment.",
+            "UT: [Invariant] two COMPLETE drill finishes at t1 < t2 produce one stage completion at t1 and two run markers; stage progress never exceeds 1.",
+            "UT: [Error] a BLOCKED_PREREQUISITE finish emits a run marker at its time and leaves stage progress unchanged.",
+            "UT: [Boundary] a start-only run (crash) is read as STARTED; it emits a marker with no progress and no growth.",
+            "UT: [Invariant] a growth ticket key present in history addedTicketKeys and in a Tickets snapshot appears in exactly one growth event, at the history run time; total growth mass does not double.",
+            "UT: [Boundary] with no history file, analyzeWorkspace and buildFrames equal the frozen pre-change fixture; the draw output is byte-identical.",
+            "UT: [Invariant] overlapping history and artifact events keep every stage progress inside [0,1] and preserve the existing known-key growth dedupe.",
+            "UT: [Normal] resolvePackageId matches a tree.workspace.packages[].path to the cwd and returns null outside a package; resolveWorkspaceRoot finds the manifest above the package directory.",
+            "UT: [Normal] the stage mapping table maps each of the 19 commands to a value in STAGE_ORDER; the four workspacify commands map to educe and the remaining commands map one-to-one to their loop stage.",
+            "UT: [Normal] readHistoryFile accepts the fixed v1 fields and rejects a record with an unknown stage through a warning, not an exception."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] draw-progress-gif + .conver-history.jsonl fixture: the rendered frames place each drill run marker at its recorded finish timestamp and do not use the drills/Status.json mtime for that marker.",
+            "IT: [Verification] history + artifact fixture: model.events, model.growthEvents, and frame runs contain exactly one entry per run; no duplicate stage event and no duplicate growth event appear.",
+            "IT: [Prerequisites] tests build a synthetic workspace with tests/conver/fixtures.mjs and never read or write the real Tickets.json or the real progress-gif output.",
+            "IT: [Related tickets] the progress-gif tests from PX-349, PX-350, PX-351, PX-353, and PX-364 stay green; the FIND and previous-snapshot semantics are unchanged.",
+            "IT: [Command coverage] a scan of the 19 command files finds one history start and one history finish per file, with a stage from STAGE_ORDER and a command name equal to the file stem."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] .conver-history.jsonl is the execution log. The writer emits [history] warnings to stderr; the draw adds \"history runs: N\" and every malformed-line warning to its markdown report.\n- [Metrics] run count per package and stage, first and last finish time, and blocked count are derivable from the history records and are reported in the draw summary.\n- [Error tracking] malformed lines carry the history path and line number; writer failures carry the cause and a repair action.\n- [Health check] draw-progress-gif --dry-run prints the history run count and warnings without writing any file.",
+          "notes": "- Implementation steps: history.js (append/read) -> run-history.js (root and package resolution) -> command instrumentation -> parse.js discovery -> loop.js run markers and drill time -> engine/html/viewer/snapshot pulse -> tests and golden regression.\n- Risks: double counting if history is treated as a stage increment; duplicate growth if addedTicketKeys bypasses the known-key set; animation breakage if run markers touch package fill or stage progress; schema drift if commands write different field names.\n- Caveats: history write failures are non-blocking; past workspaces keep the artifact/mtime path; the four workspacify commands share the educe stage, so their runs are markers and only educe-sequences defines the ladder progress; implementation stages remain ticket-derived.\n- Open items: history rotation and retention are out of scope; a future ticket may add a per-run duration bar.\n- Future improvements: correlate usage windows with run records; render blocked-run markers in a distinct colour.\nImplementation summary:\n- New files: .claude/scripts/conver/progress-gif/history.js, .claude/scripts/conver/run-history.js.\n- Modified: progress-gif/parse.js, loop.js, engine.js, snapshot.js, draw-progress-gif.js; 19 command files; tests/conver/fixtures/no-history-frames.json.\n- Tests: tests/conver/*.test.mjs 157 pass / 0 fail; new history tests 22 pass / 0 fail; command-related impact set passes except two pre-existing failures verified at HEAD: tests/require-consolidated-manifest.test.cjs (needle omits the closing quote after validate-graph-arg.js) and tests/conventions/make-ticket-distribution.test.mjs (needle omits the Formula Obligations alternative).\n- Smoke: run-history start/finish wrote one paired record in a synthetic package.\n- Installed copies updated in zasso, siprs, gaia, conver, crystal .claude trees.\n- Remaining risk: history write failures are warnings; concurrent writers are not locked; past workspaces without history keep the artifact path and are byte-identical.\nFollow-up audit: workspacify-order/run.mjs now records its own run (command=workspacify-order, stage=educe). This closes the only standalone five-layer entry point that a command did not already cover. tests/conver now 158 pass / 0 fail; quality checks 0.\nHidden-history policy applied:\n- Hidden (6): workspacify-reverse, workspacify-tree, workspacify-allocate, educe-sequences, explain-seed, smooth-sequences. withRunHistory records start and finish at the script entry; the exit hook covers process.exit and thrown failures.\n- Explicit (13): grill-me-for-rfc, graphify-rfc, boundify-graph, split-to-tickets, make-ticket, plan-ticket, start-ticket, review-ticket, resolve-ticket, consolidate-stubs, find-omissions, crystalize-readme, drill-rfc-down. Each has no single mandatory script that brackets the run without command-specific start/finish inference.\n- Follow-up candidates for hiding: graphify/boundify/split (dedicated step-status scripts), grill/drill (session-init + update-status DONE), make/plan/start/review (status gate + terminal update-ticket). resolve/consolidate/find have no single bracket and should stay explicit.\n- tests/conver 161 pass / 0 fail; representative tests for the six hidden scripts 104 pass / 0 fail; quality 0.\n- Hidden-history correction (PX-366): of the 13 previously explicit commands, 12 now carry no history instruction. Only resolve-ticket remains explicit because no script unique to it brackets both entry and exit; find-all-stubs.js and validate-no-external-excuses.js are shared with other commands.\n- Verification: impact set 833 pass / 2 fail; the 2 failures are pre-existing command-text needles (require-consolidated-manifest.test.cjs omits the closing quote after validate-graph-arg.js; conventions/make-ticket-distribution.test.mjs omits the Formula Obligations alternative). Quality checks on the changed scripts: 0 issues. --check-ambiguous: exit 0. The forward-rotation command digest baseline was regenerated; installed copies in all five targets were synchronized.",
+          "acceptanceCriteria": [
+            "[Happy path] Run drill twice at different times. .conver-history.jsonl contains two finish records with distinct runId and at values. The GIF shows two run markers at those times, the drill ladder completes at the earliest COMPLETE finish, and the second run adds no progress.\n[Happy path] Every one of the 19 pipeline commands leaves one start and one finish record with the correct stage.\n[Happy path] A ticket added by a drill run appears once as growth, at the drill run time.",
+            "[Error case] Corrupt one history line. The draw exits 0, uses the valid records, reports the malformed line with its path and line number, and does not discard the file.\n[Error case] A blocked drill run records finish status BLOCKED_PREREQUISITE; the GIF shows its marker and no progress change.\n[Error case] A history write failure prints a warning and the command continues with its original exit code.",
+            "[Edge case] A workspace with no .conver-history.jsonl produces a byte-identical model, frame sequence, HTML, and snapshot to the current implementation.\n[Edge case] A history COMPLETE finish and an artifact stage event for the same run yield one stage event and one growth event, not two.\n[Edge case] A start-only (crashed) run appears as a STARTED marker with no progress and no growth."
+          ],
+          "investigation": "- draw-progress-gif.js:108-111 drillTicketKeys filters Tickets.json for forNextRound/fromStub; :127-131 builds exactly one drill event from artifacts.drillStatus.updatedAt.\n- parse.js:315-318 reads exactly one drills/Status.json; :325-327 collects drillRounds archives but no model code consumes them.\n- loop.js:240-243 stageProgressOf reads the latest state/currentStep; :356-359 adds one drill event; :522-524 weights events log-normally; :590-607 accumulates and clamps progress; :405-437 dedupes growth by ticket key.\n- tests/conver/analyze-workspace.test.mjs and tests/conver/loop.test.mjs already fix the FIND and growth semantics; extend them without weakening.\n- README.md:44-48 names the five layers and their commands. Command-to-stage mapping: workspacify-reverse|workspacify-tree|workspacify-allocate|educe-sequences -> educe; explain-seed -> explain; grill-me-for-rfc -> grill; smooth-sequences -> smooth; graphify-rfc -> graphify; boundify-graph -> boundify; split-to-tickets -> split; make-ticket -> make; plan-ticket -> plan; start-ticket -> start; review-ticket -> review; resolve-ticket -> resolve; consolidate-stubs -> consolidate; find-omissions -> find; crystalize-readme -> crystalize; drill-rfc-down -> drill.\n- No run-history.js, history.js, or .conver-history.jsonl exists today (grep returns none), so there is no prior schema to preserve.",
+          "boyScoutPlan": "- Extract named constants: HISTORY_FILE_NAME, HISTORY_SCHEMA_VERSION, HISTORY_EVENTS, HISTORY_START, HISTORY_FINISH.\n- One responsibility per function: appendHistoryRecord, readHistoryFile, historyRunMarkers, historyDrillTime, historyGrowthEvents, resolvePackageId, resolveWorkspaceRoot.\n- Domain names only: runId, finishAt, addedTicketKeys, packageId, stage; no data/info/tmp.\n- No hardcoded stage strings: import STAGE_ORDER from loop.js and validate every record.\n- No swallowed errors: malformed lines return a record-or-warning pair and surface in model.warnings with path and line number.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "run-history start/finish -> .conver-history.jsonl",
+              "precondition": "A valid record with runId, event, command, stage in STAGE_ORDER, packageId or null, and an ISO-8601 at; a finish also carries status and addedTicketKeys.",
+              "postcondition": "Exactly one JSON line is appended; readHistoryFile returns the record; the same runId and event is not appended twice.",
+              "invariant": "Appending never truncates, rewrites, or reorders existing bytes."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": ".conver-history.jsonl -> readHistoryFile",
+              "precondition": "The JSONL file contains a line that is not a JSON object or lacks a required field.",
+              "postcondition": "readHistoryFile returns the valid records and a warning naming the line; the draw exits 0.",
+              "invariant": "One invalid line never discards the remaining lines."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "history COMPLETE finish -> drill stage event",
+              "precondition": "A history COMPLETE finish exists for packageId and the drill stage, and the artifact model already has a drill stage event.",
+              "postcondition": "The drill stage event uses the earliest finish time; its increment stays the artifact-derived value; no second stage event is added.",
+              "invariant": "The stage progress equals the artifact-derived progress; history changes the drill timing only."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "history finish records -> run markers and frames",
+              "precondition": "Two or more finish records exist for the same packageId and stage, or a finish has status BLOCKED_PREREQUISITE.",
+              "postcondition": "Each finish emits a run marker at its own time; the first COMPLETE keeps the stage progress; later and blocked runs add no progress.",
+              "invariant": "Stage progress is monotonic and clamped to [0,1]; a blocked run never advances it."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "history addedTicketKeys -> reconstructTicketGrowth",
+              "precondition": "A history finish lists addedTicketKeys and a snapshot, omission, or manifest lists the same ticket key.",
+              "postcondition": "Each ticket key appears in at most one growth event, attributed to the history run time; total growth mass does not double.",
+              "invariant": "The existing known-key set is respected across all growth sources."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "no .conver-history.jsonl -> analyzeWorkspace/buildFrames",
+              "precondition": "The workspace has no .conver-history.jsonl file.",
+              "postcondition": "analyzeWorkspace and buildFrames return the same values as the pre-change implementation; the draw output is byte-identical.",
+              "invariant": "History is additive; its absence changes nothing."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "five-layer command files -> history records",
+              "precondition": "The 19 five-layer command files are examined.",
+              "postcondition": "Each contains exactly one history start and one history finish with a valid stage and command name.",
+              "invariant": "No non-pipeline command is instrumented and no command lacks a finish."
+            }
+          ],
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "default_files": [
+            ".claude/scripts/conver/run-history.js",
+            ".claude/scripts/conver/progress-gif/history.js",
+            ".claude/scripts/conver/progress-gif/parse.js",
+            ".claude/scripts/conver/progress-gif/loop.js",
+            ".claude/scripts/conver/progress-gif/engine.js",
+            ".claude/scripts/conver/progress-gif/html.js",
+            ".claude/scripts/conver/progress-gif/viewer.js",
+            ".claude/scripts/conver/progress-gif/snapshot.js",
+            ".claude/scripts/conver/draw-progress-gif.js",
+            ".claude/commands/workspacify-reverse.md",
+            ".claude/commands/workspacify-tree.md",
+            ".claude/commands/workspacify-allocate.md",
+            ".claude/commands/educe-sequences.md",
+            ".claude/commands/explain-seed.md",
+            ".claude/commands/grill-me-for-rfc.md",
+            ".claude/commands/smooth-sequences.md",
+            ".claude/commands/graphify-rfc.md",
+            ".claude/commands/boundify-graph.md",
+            ".claude/commands/split-to-tickets.md",
+            ".claude/commands/make-ticket.md",
+            ".claude/commands/plan-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/resolve-ticket.md",
+            ".claude/commands/consolidate-stubs.md",
+            ".claude/commands/find-omissions.md",
+            ".claude/commands/crystalize-readme.md",
+            ".claude/commands/drill-rfc-down.md",
+            "tests/conver/run-history.test.mjs",
+            "tests/conver/progress-gif-history.test.mjs",
+            "tests/conver/command-history.test.mjs",
+            "tests/conver/fixtures.mjs",
+            "tests/conver/analyze-workspace.test.mjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 — appendHistoryRecord appends one start and one finish; readHistoryFile returns both.\n```js\nconst root = writeWorkspace({ packages: [{ id: 'pkg-1', path: 'pkg-1' }] });\nconst record = { v: 1, runId: 'run-1', event: 'start', command: 'drill-rfc-down', stage: 'drill', packageId: 'pkg-1', at: '2026-11-04T12:00:00.000Z' };\nappendHistoryRecord(root, record);\nappendHistoryRecord(root, record);\nconst { records, warnings } = readHistoryFile(path.join(root, 'pkg-1', '.conver-history.jsonl'));\nassert.equal(records.length, 1);\nassert.equal(warnings.length, 0);\nassert.equal(records[0].runId, 'run-1');\n```",
+            "UT: [Boundary] C001 — append never rewrites existing bytes and a finish pairs with the latest unmatched start.\n```js\nconst file = path.join(root, 'pkg-1', '.conver-history.jsonl');\nconst before = fs.readFileSync(file);\nappendHistoryRecord(root, { ...record, runId: 'run-2', event: 'finish', status: 'COMPLETE', addedTicketKeys: [] });\nconst after = fs.readFileSync(file);\nassert.ok(after.subarray(0, before.length).equals(before));\nassert.equal(readHistoryFile(file).records.at(-1).runId, 'run-2');\n```",
+            "UT: [Error] C002 — a malformed line yields a warning naming the line and the valid records survive.\n```js\nfs.writeFileSync(file, [JSON.stringify(validStart), 'not-json', JSON.stringify(validFinish)].join('\\n') + '\\n');\nconst { records, warnings } = readHistoryFile(file);\nassert.equal(records.length, 2);\nassert.equal(warnings.length, 1);\nassert.match(warnings[0], /line 2/);\nassert.doesNotThrow(() => readHistoryFile(file));\n```",
+            "UT: [Invariant] C003 — history COMPLETE finish and artifact drill event yield one drill event at the finish time.\n```js\nconst root = historyWorkspace({\n  drillStatus: { state: 'DONE', updatedAt: '2026-11-05T00:00:00.000Z' },\n  finishes: [{ stage: 'drill', at: '2026-11-04T12:00:00.000Z', status: 'COMPLETE', addedTicketKeys: [] }],\n});\nconst model = analyzeWorkspace(root, { sourceScan: false });\nconst drillEvents = model.events.filter((event) => event.stage === 'drill' && event.packageId === 'pkg-1');\nassert.equal(drillEvents.length, 1);\nassert.equal(drillEvents[0].t, Date.parse('2026-11-04T12:00:00.000Z'));\nassert.equal(drillEvents[0].inc, 1);\n```",
+            "UT: [Invariant] C004 — two COMPLETE drill runs keep progress at 1 and emit two run markers; a blocked run adds no progress.\n```js\nconst frames = buildFrames(model, { frames: 40 });\nconst markers = frames.flatMap((frame) => frame.runs || []).filter((run) => run.stage === 'drill');\nassert.equal(markers.length, 2);\nconst drillIndex = STAGE_ORDER.indexOf('drill');\nassert.ok(frames.every((frame) => frame.pi.every((stages) => stages[drillIndex] <= 1)));\nconst blockedFrameRuns = frames.flatMap((frame) => frame.runs || []).filter((run) => run.status === 'BLOCKED_PREREQUISITE');\nassert.equal(blockedFrameRuns.length, 1);\n```",
+            "UT: [Invariant] C005 — a ticket key in history and in a snapshot appears in exactly one growth event at the history time.\n```js\nconst growth = model.growthEvents.filter((event) => (event.addedTicketKeys || []).includes('PX-401'));\nassert.equal(growth.length, 1);\nassert.equal(growth[0].stage, 'drill');\nassert.equal(growth[0].t, Date.parse('2026-11-04T12:00:00.000Z'));\nassert.equal(model.growthEvents.filter((event) => event.stage === 'drill').length, 1);\n```",
+            "UT: [Boundary] C006 — no history file: model and frames equal the frozen pre-change fixture; runs is empty.\n```js\nconst root = writeWorkspace({ packages: [{ id: 'pkg-1', path: 'pkg-1' }], files: { 'pkg-1/Tickets.json': ticketsFixture } });\nconst model = analyzeWorkspace(root, { sourceScan: false });\nconst frames = buildFrames(model, { frames: 40 });\nassert.deepEqual(frames, GOLDEN_FRAMES);\nassert.equal(model.runs.length, 0);\n```",
+            "UT: [Normal] C007 — every five-layer command has exactly one start and at least one finish with the mapped stage.\n```js\nconst commands = {\n  'workspacify-reverse': 'educe', 'workspacify-tree': 'educe', 'workspacify-allocate': 'educe', 'educe-sequences': 'educe',\n  'explain-seed': 'explain', 'grill-me-for-rfc': 'grill', 'smooth-sequences': 'smooth', 'graphify-rfc': 'graphify',\n  'boundify-graph': 'boundify', 'split-to-tickets': 'split', 'make-ticket': 'make', 'plan-ticket': 'plan',\n  'start-ticket': 'start', 'review-ticket': 'review', 'resolve-ticket': 'resolve', 'consolidate-stubs': 'consolidate',\n  'find-omissions': 'find', 'crystalize-readme': 'crystalize', 'drill-rfc-down': 'drill',\n};\nfor (const [command, stage] of Object.entries(commands)) {\n  const text = fs.readFileSync(path.join('.claude/commands', `${command}.md`), 'utf8');\n  assert.equal((text.match(/run-history\\.js\" start/g) || []).length, 1, command);\n  assert.ok((text.match(/run-history\\.js\" finish/g) || []).length >= 1, command);\n  assert.match(text, new RegExp(`--command=${command}`));\n  assert.match(text, new RegExp(`--stage=${stage}`));\n}\n```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "progress-gif read only drills/Status.json and artifact mtimes for drill history",
+              "after": "progress-gif reads <pkg>/.conver-history.jsonl and <root>/.conver-history.jsonl as run markers",
+              "description": "Added history.js (schema v1, append/read, run markers) and parse.js discovery."
+            },
+            {
+              "before": "no command recorded an execution",
+              "after": "19 five-layer commands start and finish a run record",
+              "description": "Instrumented workspacify-*, educe, explain, grill, smooth, graphify, boundify, split, make, plan, start, review, resolve, consolidate, find, crystalize, drill."
+            },
+            {
+              "before": "drill stage time was the latest drills/Status.json updatedAt",
+              "after": "drill stage time is the earliest COMPLETE history finish; later runs are markers",
+              "description": "historyDrillTime and historyRunMarkers keep stage progress artifact-derived."
+            },
+            {
+              "before": "growth came from snapshots/omissions/manifests and the current drill status",
+              "after": "history addedTicketKeys are authoritative and frame-level seenGrowthKeys prevents duplicates",
+              "description": "priorityDrills attributes keys to the recorded run; a key contributes at most one growth event."
+            },
+            {
+              "before": "frames had no run marker payload",
+              "after": "frames carry runs and engine draws a run pulse ring",
+              "description": "engine.js drawRunMarkers; snapshot.js carries model.runs; no marker changes stage progress or package fill."
+            },
+            {
+              "before": "workspacify-order was a standalone fitness-layer script with no history",
+              "after": "workspacify-order records start/finish as command=workspacify-order, stage=educe",
+              "description": "Closed the only standalone five-layer entry point not covered by a command; a refusal records BLOCKED_PREREQUISITE."
+            },
+            {
+              "before": "history start/finish was instructed in 19 command markdown files",
+              "after": "6 commands hide history inside mandatory scripts; 13 keep explicit instructions",
+              "description": "withRunHistory in run-history.js; workspacify-tree/allocate/reverse, educe-sequences, explain-seed, and smooth-sequences instrument their CLI entry and their command files carry no history lines."
+            },
+            {
+              "before": "12 of the 13 remaining commands still carried explicit run-history start/finish instructions",
+              "after": "12 record the run inside a script they already execute on every path; only resolve-ticket keeps explicit instructions",
+              "description": "Grill uses update-status begin-run/complete-run; graphify, boundify and split use their begin-run and final end-step; make, plan, start and review use check-ticket-status (start/blocked), insert-field-template (make start) and update-ticket status transitions (COMPLETE); consolidate uses batch-update-stub dry-run/apply; find-omissions uses validate-graph-arg, require-consolidated-manifest and clean-consolidation-artifacts; crystalize uses derive-output-paths and loop-drive-readme --check-examples; drill uses preflight and verify-step. A shared CJS bridge (.claude/scripts/lib/run-history-recorder.cjs) spawns the ESM writer so both module systems can record without an instruction."
+            },
+            {
+              "before": "the three rfc-graph status writers used console.log directly",
+              "after": "they route CLI output through a logLine seam that resolves console.log at call time",
+              "description": "The status scripts are CLI writers, not debug output; the seam keeps the console contract, passes the static checker, and preserves the unit-test console capture."
+            }
+          ]
         }
       ]
     },

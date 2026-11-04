@@ -28,6 +28,7 @@ import { ERROR_PREFIX, WorkspacifyOrderError } from './lib/errors.mjs';
 import { loadWorkspace, resolveWorkspaceRoot } from './lib/workspace.mjs';
 import { buildModel, focusPackage } from './lib/levels.mjs';
 import { render } from './lib/render.mjs';
+import { recordFinish, recordStart } from '../conver/run-history.js';
 
 const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
@@ -42,8 +43,9 @@ const MAXIMUM_ARGUMENTS = 1;
  * @returns {number} the process exit code
  */
 // [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-366) --for-spec --no-implementation-order`.
 function renderImplementationOrder(argv) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   if (argv.length > MAXIMUM_ARGUMENTS) {
     throw new WorkspacifyOrderError(
       `this command takes no argument or one seed path, and received ${argv.length}`,
@@ -67,9 +69,19 @@ function renderImplementationOrder(argv) {
   return EXIT_OK;
 }
 
+const ARGUMENTS = process.argv.slice(2);
+const HISTORY = {
+  cwd: ARGUMENTS.length === 0 ? process.cwd() : dirname(resolve(ARGUMENTS[0])),
+  command: 'workspacify-order',
+  stage: 'educe',
+};
+
+recordStart(HISTORY);
 try {
-  process.exitCode = renderImplementationOrder(process.argv.slice(2));
+  process.exitCode = renderImplementationOrder(ARGUMENTS);
+  recordFinish({ ...HISTORY, status: 'COMPLETE' });
 } catch (error) {
+  recordFinish({ ...HISTORY, status: 'BLOCKED_PREREQUISITE' });
   if (error instanceof WorkspacifyOrderError) {
     process.stderr.write(`${ERROR_PREFIX} ${error.message}\n`);
     process.exitCode = EXIT_FAILURE;

@@ -33,6 +33,20 @@ printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
 
 Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
 
+## Run history
+
+Record the run before the first step. History is observability: a write failure prints a `[history]` warning and must not stop the command.
+
+```bash
+node "$CLAUDE_DIR/scripts/conver/run-history.js" start --command=resolve-ticket --stage=resolve
+```
+
+If a gate stops the command before its final step, close the run with:
+
+```bash
+node "$CLAUDE_DIR/scripts/conver/run-history.js" finish --command=resolve-ticket --stage=resolve --status=BLOCKED_PREREQUISITE
+```
+
 ## Language Protocol
 
 | Context | Language |
@@ -214,3 +228,9 @@ pass (compile+test clean AND validator exit0) → out: summary of resolved items
 - zero excuses (`validate-no-external-excuses.js` exit0)
 - if `$ARGUMENTS` set: Check C (active key) passed; any deferral tickets fully rewritten (no stale SOURCE content)
 - no ticket status changed by this command
+
+## Run history finish
+
+```bash
+node "$CLAUDE_DIR/scripts/conver/run-history.js" finish --command=resolve-ticket --stage=resolve --status=COMPLETE
+```

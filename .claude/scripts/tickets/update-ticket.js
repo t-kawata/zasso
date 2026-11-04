@@ -3,6 +3,7 @@ const fs = require("fs"),
 const { validateTickets, parseTicketKey } = require("../lib/validate-tickets");
 const { normalizePath } = require("../lib/malfeasance-utils");
 const { toHomeRelativeDeep } = require("../lib/path-utils.js");
+const { recordRunHistory } = require("../lib/run-history-recorder.cjs");
 // [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
 // The reverse-only field vocabulary is declared once, in the reverse tree, so this
 // writer cannot drift from the artefacts whose schema it guards.
@@ -16,6 +17,18 @@ const {
 // [::TICKET::] PX-91: Fields that must never use --append (idempotent overwrite only).
 // Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-91 --for-spec --no-implementation-order`
 const IDEMPOTENT_FIELDS = new Set(['targetStubs', 'targetCrimes']);
+
+/**
+ * The status a command writes as its last act → the command whose run it closes.
+ * Every pipeline command ends by publishing this status, so the writer is the
+ * one terminal script all four share.
+ */
+const COMPLETION_RUN = {
+  made: { command: 'make-ticket', stage: 'make' },
+  planned: { command: 'plan-ticket', stage: 'plan' },
+  done: { command: 'start-ticket', stage: 'start' },
+  reviewed: { command: 'review-ticket', stage: 'review' },
+};
 
 /**
  * The reverse-only ticket fields an update would put on a ticket that has not
@@ -33,7 +46,7 @@ function firstReverseFieldOnForwardTicket(ticket, updates) {
   }
   return reverseModeOf({ ...ticket, ...updates }) === MODE.REVERSE ? null : leaked;
 }
-// [::TICKET::] P22-10 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-10|PX-366) --for-spec --no-implementation-order`.
 function main() {
   const pendingWarnings = [];
   const args = process.argv.slice(2);
@@ -167,6 +180,10 @@ function main() {
     console.error(warning);
   }
   fs.writeFileSync(rp, JSON.stringify(data, null, 2) + "\n", "utf8");
+  const completedRun = COMPLETION_RUN[updates.status];
+  if (require.main === module && completedRun) {
+    recordRunHistory('finish', { ...completedRun, status: 'COMPLETE' });
+  }
   console.log(
     JSON.stringify({ success: true, ticketKey: key, updated: found }),
   );
