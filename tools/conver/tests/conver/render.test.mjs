@@ -1,4 +1,5 @@
 // PX-350 @verifies C002 @verifies C003 @verifies C007
+// PX-354 @verifies C009 @verifies C010
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -43,15 +44,15 @@ function createRecordingContext() {
     fill() { calls.push(['fill']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     stroke() { calls.push(['stroke']); },
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-    fillText(text, x, y) { calls.push(['fillText', text, x, y, ctx.font]); },
+// [::TICKET::] PX-350, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-354) --for-spec --no-implementation-order`.
+    fillText(text, x, y) { calls.push(['fillText', text, x, y, ctx.font, ctx.textAlign]); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     measureText(text) { return { width: String(text).length * 6 }; },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     setLineDash(values) { calls.push(['dash', ...values]); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
-// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-354) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     createRadialGradient(...args) {
@@ -170,4 +171,38 @@ test('a zero-package board still draws its header and ladder', () => {
   const frame = buildFrames(model, { frames: 20, fps: 10 }).at(-1);
   assert.doesNotThrow(() => drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: empty' }));
   assert.ok(calls.some((call) => call[0] === 'fillText' && call[1] === 'PROGRESS: empty'));
+});
+
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+test('a usage title draws the name left and the I/C/O/D block right-aligned', () => {
+  const { ctx, calls } = createRecordingContext();
+  const { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });
+  const parts = { left: 'PROGRESS: demo', right: 'I/C/O/D = 1M / 2M / 0M / $1' };
+  drawFrame(
+    ctx,
+    layout,
+    { ...frame, title: `${parts.left} | ${parts.right}`, titleParts: parts },
+    model,
+    { title: 'PROGRESS: demo' }
+  );
+
+  const left = calls.find((call) => call[0] === 'fillText' && call[1] === parts.left);
+  const right = calls.find((call) => call[0] === 'fillText' && call[1] === parts.right);
+  assert.equal(left[5], 'left');
+  assert.equal(left[2], 12);
+  assert.equal(right[5], 'right');
+  assert.equal(right[2], layout.width - 12);
+  assert.equal(left[3], right[3]);
+});
+
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+test('a legacy title stays single and emits no right-aligned block', () => {
+  const { ctx, calls } = createRecordingContext();
+  const { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });
+  drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });
+
+  assert.equal(calls.filter((call) => call[0] === 'fillText' && call[1].includes('I/C/O/D')).length, 0);
+  const legacy = calls.find((call) => call[0] === 'fillText' && call[1] === 'PROGRESS: demo');
+  assert.equal(legacy[5], 'left');
+  assert.equal(legacy[2], 12);
 });

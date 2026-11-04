@@ -1,4 +1,5 @@
-// PX-352 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+// PX-352 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C008 @verifies C010
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -16,10 +17,11 @@ import {
   displayDateKey,
   usageAtDate,
   formatUsageTitle,
+  usageTitleSegments,
   ZERO_USAGE,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { formatDate } from '../../.claude/scripts/conver/progress-gif/layout.js';
-import { selectTitle, fitTitleSize } from '../../.claude/scripts/conver/progress-gif/engine.js';
+import { selectTitle, selectTitleParts, fitTitleSize, fitTitleLayout } from '../../.claude/scripts/conver/progress-gif/engine.js';
 
 const utcDateKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -176,22 +178,22 @@ test('daily cost applies peak and offpeak rates per record', async () => {
   assert.ok(Math.abs(series[0].dailyCostUsd - 2.259) < 1e-9);
 });
 
-test('formatUsageTitle rounds up and uses the approved separators', () => {
+test('usageTitleSegments rounds up and returns the left name and the four-value right block', () => {
   const cumulative = {
     cacheMissInputTokens: 100000,
     cacheHitInputTokens: 1000001,
     outputTokens: 0,
     costUsd: 0.2,
   };
-  assert.equal(
-    formatUsageTitle('demo', cumulative),
-    'PROGRESS: demo | I/C/O = 1M/2M/0M | IF-DeepSeek-Flash: $1'
-  );
-  assert.equal(
-    formatUsageTitle('demo', ZERO_USAGE),
-    'PROGRESS: demo | I/C/O = 0M/0M/0M | IF-DeepSeek-Flash: $0'
-  );
-  assert.doesNotMatch(formatUsageTitle('demo', cumulative), /NaN|-1/);
+  assert.deepEqual(usageTitleSegments('demo', cumulative), {
+    left: 'PROGRESS: demo',
+    right: 'I/C/O/D = 1M / 2M / 0M / $1',
+    text: 'PROGRESS: demo | I/C/O/D = 1M / 2M / 0M / $1',
+  });
+  assert.equal(usageTitleSegments('demo', ZERO_USAGE).right, 'I/C/O/D = 0M / 0M / 0M / $0');
+  assert.equal(usageTitleSegments('demo', cumulative).right.split(' / ').length, 4);
+  assert.doesNotMatch(usageTitleSegments('demo', cumulative).right, /NaN|-1/);
+  assert.equal(formatUsageTitle('demo', cumulative), usageTitleSegments('demo', cumulative).text);
 });
 
 test('aggregateUsage returns an empty series and a warning when logs are unavailable', async () => {
@@ -209,6 +211,7 @@ test('aggregateUsage returns an empty series and a warning when logs are unavail
   });
   const frames = buildFrames(model, { frames: 20 });
   assert.equal(frames[0].title, undefined);
+  assert.equal(frames[0].titleParts, undefined);
   assert.equal(
     selectTitle(frames[0], { title: 'PROGRESS: demo' }, { title: 'PROGRESS: demo' }),
     'PROGRESS: demo'
@@ -262,6 +265,10 @@ test('buildFrames changes the cumulative title only at date boundaries', () => {
 
   assert.equal(frames[0].title, formatUsageTitle('demo', series[0].cumulative));
   assert.equal(frames.at(-1).title, formatUsageTitle('demo', series.at(-1).cumulative));
+  assert.deepEqual(frames[0].titleParts, {
+    left: 'PROGRESS: demo',
+    right: usageTitleSegments('demo', series[0].cumulative).right,
+  });
   const changes = frames.filter((frame, index) => (
     index > 0 && frame.title !== frames[index - 1].title
   ));
@@ -276,6 +283,22 @@ test('selectTitle prefers frame titles and fitTitleSize shrinks only over-width 
   assert.equal(selectTitle({}, {}, { title: 'header' }), 'header');
   assert.equal(fitTitleSize(ctx, 'short', 400, 14), 14);
   assert.ok(fitTitleSize(ctx, 'x'.repeat(200), 100, 14) < 14);
+});
+
+test('selectTitleParts returns segments and fitTitleLayout truncates only the name', () => {
+  const ctx = { font: '', measureText: (text) => ({ width: text.length * 7 }) };
+  const parts = { left: 'PROGRESS: demo', right: 'I/C/O/D = 1M / 2M / 0M / $1' };
+
+  assert.deepEqual(selectTitleParts({ titleParts: parts }), parts);
+  assert.equal(selectTitleParts({ title: 'legacy' }), null);
+  assert.equal(fitTitleLayout(ctx, parts, { availableWidth: 772, baseSize: 14, minSize: 10, gap: 12 }).size, 14);
+
+  const narrow = fitTitleLayout(ctx, { left: 'x'.repeat(200), right: parts.right }, {
+    availableWidth: 400, baseSize: 14, minSize: 10, gap: 12,
+  });
+  assert.ok(narrow.left.endsWith('…'));
+  assert.equal(narrow.right, parts.right);
+  assert.ok(ctx.measureText(narrow.left).width + 12 + ctx.measureText(narrow.right).width <= 400);
 });
 
 test('displayDateKey uses the same date components as formatDate', () => {

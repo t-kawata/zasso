@@ -175,9 +175,9 @@ function expandConfigDir(configDir) {
  * nor requestId, which keeps their identity stable across repeated scans of an
  * unchanged file. It is therefore counted on every read line, malformed or not.
  */
-// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-353, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-353|PX-354) --for-spec --no-implementation-order`.
 async function parseUsageFile(file) {
-  const records = [];
+  const records = new Map();
   let invalidJson = 0;
   let invalidTimestamp = 0;
   let lineNumber = 0;
@@ -202,7 +202,7 @@ async function parseUsageFile(file) {
         invalidTimestamp += 1;
         continue;
       }
-      records.push({
+      mergeUsageRecord(records, {
         key: record.message.id || record.requestId || `${file}:${lineNumber}`,
         ms,
         model: record.message.model ?? MODEL_FALLBACK,
@@ -215,7 +215,7 @@ async function parseUsageFile(file) {
     lines.close();
     input.destroy();
   }
-  return { records, invalidJson, invalidTimestamp };
+  return { records: [...records.values()], invalidJson, invalidTimestamp };
 }
 
 /**

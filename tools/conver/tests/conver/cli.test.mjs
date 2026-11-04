@@ -1,3 +1,4 @@
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
@@ -11,7 +12,7 @@ import path from 'node:path';
 
 import { parseArgs } from '../../.claude/scripts/conver/draw-progress-gif.js';
 import { aggregateUsage } from '../../.claude/scripts/conver/progress-gif/usage.js';
-import { CACHE_FILE_NAME } from '../../.claude/scripts/conver/progress-gif/usage-cache.js';
+import { CACHE_FILE_NAME, CACHE_SCHEMA } from '../../.claude/scripts/conver/progress-gif/usage-cache.js';
 import { materializeBundle, writeWorkspace } from './fixtures.mjs';
 
 const CLI = path.resolve(new URL('../../.claude/scripts/conver/draw-progress-gif.js', import.meta.url).pathname);
@@ -244,6 +245,6 @@ test('a corrupt usage cache is bypassed and the next draw still succeeds', () =>
   assert.doesNotMatch(second.stdout, /usage unavailable/);
 
   const repaired = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-  assert.equal(repaired.schema, 'conver-usage-cache-v1');
+  assert.equal(repaired.schema, CACHE_SCHEMA);
   assert.equal(Object.keys(repaired.files).length, 1);
 });

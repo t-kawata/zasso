@@ -70,11 +70,39 @@ export function usageAtDate(series, dateKey) {
   return found ? { ...found.cumulative } : { ...ZERO_USAGE };
 }
 
-/** Render the approved title-bar format. Rounding happens here, not while accumulating. */
-// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+const USAGE_TITLE_PREFIX = 'PROGRESS: ';
+const USAGE_TITLE_LABEL = 'I/C/O/D = ';
+
+/** Round a token count up to whole millions; display rounding only. */
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+function formatMillions(value) {
+  return Math.ceil((Number(value) || 0) / MILLION);
+}
+
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+function formatDollars(value) {
+  return Math.ceil(Number(value) || 0);
+}
+
+/**
+ * Split the usage title into a left name and a right-aligned metric block.
+ *
+ * The renderer places `right` against the title bar's right edge, so the block
+ * must stay a separate string; `text` is only the plain-text fallback.
+ */
+// [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
+export function usageTitleSegments(name, cumulative) {
+  const left = `${USAGE_TITLE_PREFIX}${name || 'PROGRESS'}`;
+  const right = `${USAGE_TITLE_LABEL}${formatMillions(cumulative.cacheMissInputTokens)}M / `
+    + `${formatMillions(cumulative.cacheHitInputTokens)}M / `
+    + `${formatMillions(cumulative.outputTokens)}M / `
+    + `$${formatDollars(cumulative.costUsd)}`;
+  return { left, right, text: `${left} | ${right}` };
+}
+
+// [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
 export function formatUsageTitle(name, cumulative) {
-  const inMillions = (value) => Math.ceil((Number(value) || 0) / MILLION);
-  return `PROGRESS: ${name || 'PROGRESS'} | I/C/O = ${inMillions(cumulative.cacheMissInputTokens)}M/${inMillions(cumulative.cacheHitInputTokens)}M/${inMillions(cumulative.outputTokens)}M | IF-DeepSeek-Flash: $${Math.ceil(Number(cumulative.costUsd) || 0)}`;
+  return usageTitleSegments(name, cumulative).text;
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -608,6 +636,9 @@ export function buildFrames(model, options = {}) {
     const cumulativeUsage = (model.usage || []).length > 0
       ? usageAtDate(model.usage, displayDateKey(lastT, lastPrec))
       : null;
+    const usageTitle = cumulativeUsage && model.titleName
+      ? usageTitleSegments(model.titleName, cumulativeUsage)
+      : null;
     frames.push({
       index,
       t: lastT,
@@ -620,9 +651,8 @@ export function buildFrames(model, options = {}) {
       active,
       rootPulse,
       growth: growthThisFrame,
-      title: cumulativeUsage && model.titleName
-        ? formatUsageTitle(model.titleName, cumulativeUsage)
-        : undefined,
+      title: usageTitle ? usageTitle.text : undefined,
+      titleParts: usageTitle ? { left: usageTitle.left, right: usageTitle.right } : undefined,
       density: packageFrames.length > 0
         ? packageFrames.reduce((sum, pkg) => sum + pkg.density, 0) / packageFrames.length
         : 0,

@@ -1,4 +1,5 @@
-// PX-353 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+// PX-353 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006 @verifies C007
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -115,23 +116,33 @@ test('fingerprints compare path, size, mtime and inode', async () => {
   assert.equal(await fingerprintFile(path.join(directory, 'missing.jsonl')), null);
 });
 
-test('cache validation rejects foreign schema, config dir, project key and malformed records', () => {
+test('cache validation rejects foreign schema, config dir, project key and malformed tuples', () => {
   const fixture = createFixture();
   const identity = { configDir: fixture.configDir, projectKey: fixture.projectKey };
-  const record = { key: 'msg-1', ms: 1, model: 'deepseek-flash', miss: 1, hit: 2, out: 3 };
-  const entry = { path: '/logs/a.jsonl', size: 10, mtimeMs: 20, ino: 30, records: [record] };
-  const payload = { schema: CACHE_SCHEMA, ...identity, files: { '/logs/a.jsonl': entry } };
+  const tuple = ['msg-1', 1, 0, 1, 2, 3];
+  const entry = { path: '/logs/a.jsonl', size: 10, mtimeMs: 20, ino: 30, records: [tuple] };
+  const payload = { schema: CACHE_SCHEMA, models: ['deepseek-flash'], ...identity, files: { '/logs/a.jsonl': entry } };
+  const withRecords = (records) => ({
+    ...payload,
+    files: { '/logs/a.jsonl': { ...entry, records } },
+  });
 
   const valid = validateUsageCache(payload, identity);
-  assert.equal(valid.files.get('/logs/a.jsonl').records[0].key, 'msg-1');
+  assert.deepEqual(valid.files.get('/logs/a.jsonl').records[0], {
+    key: 'msg-1', ms: 1, model: 'deepseek-flash', miss: 1, hit: 2, out: 3,
+  });
+  assert.equal(validateUsageCache({ ...payload, schema: 'conver-usage-cache-v1' }, identity), null);
   assert.equal(validateUsageCache({ ...payload, schema: 'other-v1' }, identity), null);
   assert.equal(validateUsageCache({ ...payload, configDir: '/elsewhere' }, identity), null);
   assert.equal(validateUsageCache({ ...payload, projectKey: 'other' }, identity), null);
   assert.equal(validateUsageCache({ ...payload, files: [] }, identity), null);
-  assert.equal(
-    validateUsageCache({ ...payload, files: { '/logs/a.jsonl': { ...entry, records: [{ ...record, miss: -1 }] } } }, identity),
-    null
-  );
+  assert.equal(validateUsageCache({ ...payload, models: 'deepseek-flash' }, identity), null);
+  assert.equal(validateUsageCache({ ...payload, models: [42] }, identity), null);
+  assert.equal(validateUsageCache(withRecords([['msg-1', 1, 0, 1, 2]]), identity), null);
+  assert.equal(validateUsageCache(withRecords([['msg-1', 1, 9, 1, 2, 3]]), identity), null);
+  assert.equal(validateUsageCache(withRecords([['msg-1', 1, -1, 1, 2, 3]]), identity), null);
+  assert.equal(validateUsageCache(withRecords([['msg-1', 1, 0, -1, 2, 3]]), identity), null);
+  assert.equal(validateUsageCache(withRecords([[true, 1, 0, 1, 2, 3]]), identity), null);
   assert.equal(
     validateUsageCache({ ...payload, files: { '/logs/a.jsonl': { ...entry, path: '/logs/other.jsonl' } } }, identity),
     null
@@ -205,6 +216,48 @@ test('the first run creates the cache and the second run reuses every file', asy
   assert.equal(second.cacheStats.filesParsed, 0);
   assert.deepEqual(reparsed, []);
   assert.deepEqual(dailySeries(second.groups), dailySeries(first.groups));
+});
+
+test('the stored payload aggregates to one tuple per unique key', async () => {
+  const fixture = createFixture();
+  writeLog(fixture, 'session.jsonl', [
+    assistantRecord({ id: 'a', block: 'text', cwd: fixture.root }),
+    assistantRecord({ id: 'a', block: 'tool_use', cwd: fixture.root }),
+    assistantRecord({ id: 'b', cwd: fixture.root }),
+  ]);
+  await aggregate(fixture, { cachePath: fixture.cachePath });
+
+  const raw = JSON.parse(fs.readFileSync(fixture.cachePath, 'utf8'));
+  const entry = Object.values(raw.files)[0];
+  assert.equal(raw.schema, CACHE_SCHEMA);
+  assert.deepEqual(raw.models, ['deepseek-flash']);
+  assert.equal(entry.records.length, 2);
+  assert.deepEqual(entry.records.map((tuple) => tuple.length), [6, 6]);
+  assert.equal('date' in entry, false);
+  assert.equal('peak' in entry, false);
+  assert.equal('cost' in raw, false);
+});
+
+test('anonymous keys are stored as line numbers and decoded back', async () => {
+  const fixture = createFixture();
+  const file = writeLog(fixture, 'anonymous.jsonl', [
+    assistantRecord({ id: undefined, cwd: fixture.root, output: 5 }),
+    assistantRecord({ id: undefined, cwd: fixture.root, output: 7 }),
+  ]);
+  await aggregate(fixture, { cachePath: fixture.cachePath });
+
+  const raw = JSON.parse(fs.readFileSync(fixture.cachePath, 'utf8'));
+  assert.deepEqual(Object.values(raw.files)[0].records.map((tuple) => tuple[0]), [1, 2]);
+
+  const cached = await readUsageCache({
+    cachePath: fixture.cachePath,
+    configDir: fixture.configDir,
+    projectKey: fixture.projectKey,
+  });
+  assert.deepEqual(
+    cached.files.get(file).records.map((record) => record.key),
+    [`${file}:1`, `${file}:2`]
+  );
 });
 
 test('an appended record reparses the file and replaces the cached entry', async () => {
@@ -308,9 +361,10 @@ test('corrupt, foreign and mismatched caches bypass to the cache-free series', a
   const cold = await aggregate(fixture);
   const payloads = [
     '{not json',
+    JSON.stringify({ schema: 'conver-usage-cache-v1', files: {} }),
     JSON.stringify({ schema: 'other-v1', files: {} }),
-    JSON.stringify({ schema: CACHE_SCHEMA, configDir: '/elsewhere', projectKey: fixture.projectKey, files: {} }),
-    JSON.stringify({ schema: CACHE_SCHEMA, configDir: fixture.configDir, projectKey: 'other', files: {} }),
+    JSON.stringify({ schema: CACHE_SCHEMA, models: [], configDir: '/elsewhere', projectKey: fixture.projectKey, files: {} }),
+    JSON.stringify({ schema: CACHE_SCHEMA, models: [], configDir: fixture.configDir, projectKey: 'other', files: {} }),
   ];
 
   for (const payload of payloads) {
@@ -384,7 +438,7 @@ test('the cache file is not a model snapshot and snapshotFromModel gains no usag
   fs.mkdirSync(fixture.snapshotDir, { recursive: true });
   fs.writeFileSync(
     fixture.cachePath,
-    JSON.stringify({ schema: CACHE_SCHEMA, configDir: fixture.configDir, projectKey: fixture.projectKey, files: {} })
+    JSON.stringify({ schema: CACHE_SCHEMA, models: [], configDir: fixture.configDir, projectKey: fixture.projectKey, files: {} })
   );
   assert.deepEqual(listSnapshots(fixture.snapshotDir), []);
 

@@ -54069,6 +54069,214 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-04"
+        },
+        {
+          "id": 354,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Aggregated usage cache v2 and right-aligned I/C/O/D title block",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-354.md",
+          "default_files": [
+            "tools/conver/.claude/scripts/conver/progress-gif/usage-cache.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/usage.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/loop.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/engine.js",
+            ".claude/scripts/conver/progress-gif/usage-cache.js",
+            ".claude/scripts/conver/progress-gif/usage.js",
+            ".claude/scripts/conver/progress-gif/loop.js",
+            ".claude/scripts/conver/progress-gif/engine.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/usage-cache.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/usage.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/loop.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/engine.js",
+            "tools/conver/tests/conver/usage-cache.test.mjs",
+            "tools/conver/tests/conver/usage.test.mjs",
+            "tools/conver/tests/conver/render.test.mjs"
+          ],
+          "invariants": "- [Normal establishment] A warm v2 run returns the same dailySeries and totals as a cache-free run, and a reused file returns the same records as a fresh parse.\n- [Error invariant] Every cache read, validation or write failure is a bypass: full scan, same series, exit zero.\n- [Internal state invariant] The cache stores only per-file unique message tuples plus identity fields; date filtering, peak classification, prices and dateKey are applied after the global merge.\n- [Boundary invariant] A missing, changed, rotated or deleted file invalidates its entry; the right title block is never truncated, and the legacy title is unchanged when no usage series exists.",
+          "background": "### Goal\nShrink the progress-GIF usage cache from a per-line copy of the logs to a per-file unique-message cache with a compact encoding, and render the title bar as a left-aligned name plus a right-aligned \"I/C/O/D = <I>M / <C>M / <O>M / $<cost>\" block.\n\n### Purpose\nThe v1 cache stores 120,272 records to carry 29,265 unique messages (15,120,054 bytes; 4.11x redundancy) because every content-block line is stored. The title bar also appends the metrics inline instead of giving them a stable right-aligned position.\n\n### Motivation\nUser request (2026-11-04): the cache is too granular, and the cumulative tokens and cost should be right-aligned inside the title bar, not appended to the name.\n\n### Constraints\n- A warm v2 run must produce exactly the same dailySeries and totals as a cache-free run.\n- Only associative pre-aggregation is allowed: merge repeated message.id snapshots within a file by maximum field value. Date buckets, peak classification, prices and cost are never cached.\n- Global message.id deduplication across files stays mandatory.\n- v1 caches are invalidated by the v2 schema name and fall back to a full scan; no migration code.\n- Any cache read, validation or write failure is a cache miss and never fails GIF generation.\n- The title block is right-aligned at the progress bar's right edge on the same baseline as the name; the numeric block is never truncated; the name truncates first.\n- The legacy title (no usage series) renders exactly as today.\n- No new dependency; the three script copies stay byte-identical.",
+          "scope": [
+            "progress-gif/usage-cache.js: bump CACHE_SCHEMA to conver-usage-cache-v2 and add a models table (sorted array of model names).",
+            "progress-gif/usage-cache.js: encode each record as the tuple [keyOrLine, ms, modelIndex, miss, hit, out]; an anonymous key is stored as the numeric line number and rebuilt as <file>:<line> on read.",
+            "progress-gif/usage-cache.js: validate v2 (models array of strings, tuple arity six, key string or positive integer, model index in range, integer token counts); reject v1 and every malformed payload.",
+            "progress-gif/usage-cache.js: encode deterministically (sorted models) and decode tuples back to { key, ms, model, miss, hit, out }.",
+            "progress-gif/usage.js: parseUsageFile merges repeated keys within one file by maximum field value before returning records, so the cache stores unique messages per file.",
+            "progress-gif/usage.js: keep the global merge, cacheStats, fingerprint invalidation and bypass semantics unchanged.",
+            "progress-gif/loop.js: add usageTitleSegments(name, cumulative) returning { left, right, text }; left is PROGRESS: <name>, right is I/C/O/D = <I>M / <C>M / <O>M / $<cost> with Math.ceil rounding.",
+            "progress-gif/loop.js: formatUsageTitle delegates to usageTitleSegments(...).text, and buildFrames attaches titleParts { left, right } next to title.",
+            "progress-gif/engine.js: add selectTitleParts(frame, options, header) and fitTitleLayout(ctx, parts, availableWidth, baseSize, minSize, gap); add TITLE_SEGMENT_GAP and TITLE_ELLIPSIS constants.",
+            "progress-gif/engine.js: drawHeader draws the left segment with align left at titleX and the right segment with align right at width minus titleX on the same titleY when titleParts exist; otherwise the legacy single-title path is byte-equivalent.",
+            "tests/conver/usage-cache.test.mjs: cover v2 encoding, validation, size aggregation and the existing C001-C006 behavior.",
+            "tests/conver/usage.test.mjs: cover title segment strings, fitTitleLayout shrinking and truncation, buildFrames titleParts and the legacy no-usage title.",
+            "tests/conver/render.test.mjs: record textAlign per fillText call and assert the left and right segment positions.",
+            "Copies: apply the same content to .claude/scripts/conver and crates/siprs/.claude/scripts/conver for usage-cache.js, usage.js, loop.js and engine.js.",
+            "Non-change: draw-progress-gif.js, claude-usage.js, the model snapshot schema, the HTML <title>, the Markdown report, exit codes and CLI flags are untouched.",
+            "Impact: the cache shrinks from 15,120,054 to about 2,151,492 bytes for the measured tree; warm scans stay near 160 ms; the title numbers keep changing only when the displayed date changes."
+          ],
+          "testUnit": [
+            "UT: [Normal] cache identity and invalidation: a cached file entry with equal path, size, mtime and inode reuses its tuples without parsing the file (filesReused 1, filesParsed 0).",
+            "UT: [Boundary] cache identity and invalidation: a changed size or mtime, a rotated inode and a deleted file reparses or drops the entry, and a missing file contributes nothing.",
+            "UT: [Invariant] per-file pre-merge and global dedupe: one file repeats a message id across content-block lines and another file contains the same id; the cache stores one tuple per file key and the global merge keeps the maximum field values once, so the merged series equals a cold scan for the same files.",
+            "UT: [Invariant] deterministic equivalence: the same files aggregated with a warm cache and with no cache return identical dailySeries and totals; changing prices, holidays or dateKey after a hit still recomputes from raw records.",
+            "UT: [Error] cache failure isolation: a v1 schema, corrupt JSON, a foreign config dir or project key, and an unwritable path each perform a full scan, return the cold series, exit zero and leave no temporary file.",
+            "UT: [Boundary] cache failure isolation: a malformed models table, a tuple arity other than six, an out-of-range model index and a negative token value are rejected as a cache miss.",
+            "UT: [Invariant] read-only CLI and snapshot preservation: claude-usage runs without a cache path, writes nothing under the target, listSnapshots ignores usage-cache.json, and snapshotFromModel contains no usage or cache field.",
+            "UT: [Boundary] atomic concurrent writes: two writers build cache payloads from distinct temporary files, both rename, and after both finish the cache parses as complete JSON with no .tmp file.",
+            "UT: [Invariant] size aggregation: a log file with many assistant lines but fewer unique keys stores one tuple per unique key and no date, peak or cost field; the measured zasso payload is 2151492 bytes versus 15120054 for v1.",
+            "UT: [Normal] title segment composition: cumulative tokens and cost are available for a frame; usageTitleSegments returns left PROGRESS name and right I/C/O/D with four values and ceiling rounding.",
+            "UT: [Boundary] title segment composition: zero usage, a value just under a million and a value just over a million round up; the right block has exactly four values and no negative number.",
+            "UT: [Invariant] right-alignment layout: a frame carries titleParts and a measureText context; fitTitleLayout keeps leftWidth plus gap plus rightWidth within available width, shrinks to the minimum size, then truncates the name with an ellipsis first while the right block is never truncated.",
+            "UT: [Invariant] right-alignment layout: drawHeader emits the left segment with align left at titleX and the right segment with align right at width minus titleX on the same baseline.",
+            "UT: [Boundary] legacy title preservation: a frame has no titleParts because the usage series is empty; selectTitleParts returns null and the single legacy title is drawn left-aligned at the base size, and no right-aligned call is emitted when titleParts is absent."
+          ],
+          "testIntegration": [
+            "IT: draw writes progress-gif/snapshots/usage-cache.json in v2 format; a second run reuses every unchanged file and the embedded usage series is identical.",
+            "IT: a v1 cache written by PX-353 is rejected as a schema mismatch; the run still exits zero and rewrites a v2 cache.",
+            "IT: the browser bundle builds frames with titleParts; a headless Chrome capture confirms the right block ends at the bar's right edge and the left name keeps its position.",
+            "IT: the three copies of usage-cache.js, usage.js, loop.js and engine.js are byte-identical.",
+            "IT: the existing 22 usage, CLI and source-scan tests and the new cache and title tests all pass."
+          ],
+          "testExceptions": [
+            "Exact pixel widths are not testable portably in node because Canvas glyph metrics differ by browser; the layout predicate is tested with a deterministic measureText stub, and a headless Chrome screenshot is the supplementary visual check. This is a platform-rendering limitation, not a design defect.",
+            "True simultaneous multi-process writes are not testable deterministically because process scheduling is external; the test simulates two writers with distinct temporary files and verifies the rename invariant. This is an external-scheduling limitation, not a design defect."
+          ],
+          "instrumentation": "- [Logging] No new runtime logs; draw-progress-gif prints no cache statistics.\n- [Metrics] aggregateUsage keeps cacheStats filesReused, filesParsed, filesDropped and bypassed; the v2 cache adds a models table for diagnostics.\n- [Error tracking] Every cache read, validation or write failure becomes an explicit bypass status and never changes the exit code.\n- [Health check] The v2 file parses as complete JSON after every write; a v1 or corrupt cache is replaced by the next successful run.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-phrase functions, no generic variables, no magic numbers, no debug output)\nTests: 119/119 passed in the conver impact set\nCrime scan: 0 open\nAnnotation verify: 16 files, 0 missing, 0 ambiguous\nCache: v2 payload 2157862 bytes vs 15120054 for v1 (7.0x); warm 66 ms vs cold 5087 ms with an identical series\nTitle: headless Chrome confirms the left name and the right-aligned I/C/O/D block on one baseline",
+          "notes": "- [Implementation steps] Red tests for v2 tuple encoding, per-file pre-merge, v1 rejection, size aggregation, title segments, fitting/truncation and right-aligned drawing; then Green; then Refactor.\n- [Risks] Cache size and memory still grow with unique messages; the active session file is reparsed in full on every run; a name longer than the remaining width is truncated, so the full name is not visible on the canvas.\n- [Caveats] Never cache date buckets, peak classification, prices or cost; never truncate the numeric block; keep the legacy no-usage title byte-equivalent.\n- [Open items] Tail-offset incremental parsing, cache pruning by age and time, and a shared cache across workspaces remain out of scope.\n- [Future improvements] Add a bounded-size eviction policy and an optional compact binary encoding if the cache grows further.\n- [Scope coupling] Both deliverables, the v2 aggregated cache and the right-aligned I/C/O/D title block, are implemented and completed together in this single ticket; neither is split into a follow-up.\nImplementation summary:\n- New: usage-cache v2 schema conver-usage-cache-v2 with a sorted models table and six-element tuples.\n- Changed: usage.js parseUsageFile pre-merges by key; loop.js usageTitleSegments and titleParts; engine.js selectTitleParts, fitTitleLayout and right-aligned drawing.\n- Measured cache: v1 15120054 bytes / 120272 records -> v2 2157862 bytes / 29353 tuples (7.0x smaller).\n- Measured speed: cold 5087 ms, warm 66 ms (99 files reused, 0 parsed), daily series identical.\n- Title rendering verified in headless Chrome: left PROGRESS: workspace-min, right I/C/O/D = 124M / 457M / 79M / $68 aligned to the bar's right edge on the same baseline.\n- Tests: 119/119 in the conver impact set; 10/10 contracts covered; quality checks 0 issues.\n- Copies: usage-cache.js, usage.js, loop.js and engine.js are byte-identical across the three trees.\nReview report:\n- Status gate: done -> reviewed after all gates passed.\n- Static quality check: passed, 0 issues (a 6-parameter fitTitleLayout was refactored to an options object during implementation).\n- Translatability: encodeRecord, decodeTuple and buildModelTable are named responsibilities; format literals are constants; no swallowed cache errors.\n- Dependencies: no new npm dependency; usage-cache.js, usage.js, loop.js and engine.js are byte-identical across the three trees.\n- Crime/stub status: 0 open crimes; the only stub scan hit is the pre-existing progress-gif/stubs.js:10 docstring that quotes the marker grammar (false positive).\n- Incomplete-implementation scan: no TODO/FIXME/panic/commented-out/mock patterns in the changed lines.\n- Annotation: 16 files verified, 0 missing, 0 ambiguous.\n- No-excuse gate: passes in the ticket package (tools/conver). Running it from the repository root still reports the 10 pre-existing P4-3 markers under crates/siprs-server that are outside this ticket's scope.\n- Real measurements: cache 2157862 bytes (v1 15120054), 29353 tuples, cold 5087 ms -> warm 66 ms, series identical; title rendered in headless Chrome as 'PROGRESS: workspace-min' plus a right-aligned 'I/C/O/D = 124M / 457M / 79M / $68'.\n- Issues found and fixed during review: none.",
+          "acceptanceCriteria": [
+            "Happy path: a second draw run reuses every unchanged file, the v2 cache is at most a quarter of the v1 size, the usage series is identical, and the title shows the name on the left and the four-value I/C/O/D block right-aligned.",
+            "Error case: a v1, corrupt, foreign or unwritable cache falls back to a full scan, produces the same series and keeps exit zero.",
+            "Edge case: a very long name truncates with an ellipsis while the numeric block stays intact; zero usage keeps the legacy title; duplicate ids across files still count once."
+          ],
+          "investigation": "## Source investigation (2026-11-04)\n\n### Cache size evidence\n- The v1 cache measured from the zasso tools/conver logs: 15,120,054 bytes, 120,272 stored records, 29,265 unique message keys, redundancy 4.11x (usage-cache.js stores one record per parsed line).\n- A v2 payload built from the same data with per-file key merge, a models table and six-element tuples measures 2,151,492 bytes, a 7.03x reduction, with 29,265 stored tuples.\n- Max-by-field merge is associative, so merging within a file first and across files second is exactly the current global merge; no correctness is lost.\n- Date, peak and cost aggregation cannot be cached: dateKey, holidays and prices are runtime inputs and cross-file duplicate ids would be double counted.\n\n### Current title path\n- loop.js:75 formatUsageTitle builds a single string with \" | I/C/O = ... | IF-DeepSeek-Flash: $...\".\n- loop.js:623-625 attaches that string as frame.title only when a usage series and titleName exist.\n- engine.js:367-372 selectTitle returns frame.title or the legacy options/header title; engine.js:384-400 draws it left-aligned at header.titleX and fits the width.\n- engine.js drawText already supports align right (the percent label uses it at header.percentX).\n- layout.js:255-269 defines header.titleX = 12*scale, titleY = 18*scale, barX = 12 and barWidth = baseWidth - 24, so the right edge is width - 12*scale.\n- render.test.mjs uses a recording context whose fillText captures text, x, y and font; it can also capture textAlign.\n\n### Test surface\n- usage-cache.test.mjs (15 tests), usage.test.mjs (12 tests), cli.test.mjs (11 tests), render.test.mjs and source-scan.test.mjs form the impact set (114 tests currently green).",
+          "boyScoutPlan": "- usage-cache.js: name the encode and decode responsibilities encodeRecord/decodeRecord and the models table builder buildModelTable; one responsibility per function.\n- usage-cache.js: keep CACHE_SCHEMA, CACHE_FILE_NAME and TEMPORARY_SUFFIX as constants; add no magic literals for tuple positions.\n- usage.js: parseUsageFile returns already-merged records through one named helper, so parsing and merging stay separate responsibilities.\n- loop.js: usageTitleSegments owns the format; formatUsageTitle is a thin compatibility wrapper.\n- engine.js: fitTitleLayout owns measurement, shrinking and truncation; drawHeader only places the two segments; TITLE_SEGMENT_GAP and TITLE_ELLIPSIS are named constants.\n- Never swallow cache errors: every failure becomes an explicit bypass status.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "cache identity and invalidation",
+              "precondition": "A cached file entry has path, size, mtime and inode equal to the current file.",
+              "postcondition": "The cached tuples are reused and the file is not parsed.",
+              "invariant": "A changed, deleted or rotated file reparses or drops its entry."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "per-file pre-merge and global dedupe",
+              "precondition": "One file repeats a message id across content-block lines, and another file contains the same id.",
+              "postcondition": "The cache stores one tuple per file key, and the global merge keeps the maximum field values once.",
+              "invariant": "The merged series equals a cold scan for the same files."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "deterministic equivalence",
+              "precondition": "The same log files are aggregated with a warm cache and with no cache.",
+              "postcondition": "Both runs return identical dailySeries and totals.",
+              "invariant": "Changing prices, holidays or dateKey after a hit still recomputes from raw records."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "cache failure isolation",
+              "precondition": "The cache is a v1 schema, corrupt JSON, a foreign config dir or project key, or an unwritable path.",
+              "postcondition": "The run performs a full scan, returns the cold series and exits zero, and a write failure leaves no temporary file.",
+              "invariant": "A malformed models table, a tuple arity other than six, an out-of-range model index or a negative token value is rejected as a cache miss."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "read-only CLI and snapshot preservation",
+              "precondition": "claude-usage runs without a cache path, and a model snapshot is written after a draw run.",
+              "postcondition": "The CLI writes nothing under the target, and the snapshot contains no usage or cache field.",
+              "invariant": "The cache file name is ignored by listSnapshots, and the snapshot schema is unchanged."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "atomic concurrent writes",
+              "precondition": "Two writers build cache payloads from distinct temporary files.",
+              "postcondition": "Both may rename, and after both finish the cache parses as complete JSON.",
+              "invariant": "A reader never observes a partial JSON cache file."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "size aggregation",
+              "precondition": "A log file has many assistant lines but fewer unique keys.",
+              "postcondition": "The cache stores one tuple per unique key and no date, peak or cost field.",
+              "invariant": "The measured zasso payload is 2151492 bytes versus 15120054 for v1."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "title segment composition",
+              "precondition": "Cumulative tokens and cost are available for a frame.",
+              "postcondition": "usageTitleSegments returns left PROGRESS name and right I/C/O/D with four values and ceiling rounding.",
+              "invariant": "The right block has exactly four values and no negative number."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "right-alignment layout",
+              "precondition": "A frame carries titleParts and a measureText context.",
+              "postcondition": "drawHeader emits the left segment with align left at titleX and the right segment with align right at width minus titleX on the same baseline.",
+              "invariant": "leftWidth plus gap plus rightWidth stays within available width; the right block is never truncated; the name truncates with an ellipsis first."
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "legacy title preservation",
+              "precondition": "A frame has no titleParts because the usage series is empty.",
+              "postcondition": "selectTitleParts returns null and the single legacy title is drawn left-aligned at the base size.",
+              "invariant": "No right-aligned call is emitted when titleParts is absent."
+            }
+          ],
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 cache identity and invalidation reuses a matching entry and reparses a changed or deleted one\n  ```js\n  const first = await aggregate(fixture, { cachePath });\n  assert.equal(first.cacheStats.filesParsed, 1);\n  const second = await aggregate(fixture, { cachePath });\n  assert.equal(second.cacheStats.filesReused, 1);\n  assert.equal(second.cacheStats.filesParsed, 0);\n  fs.appendFileSync(logFile, `${assistantRecord({ id: 'msg-2', cwd: root, output: 7 })}\\n`);\n  const changed = await aggregate(fixture, { cachePath });\n  assert.equal(changed.cacheStats.filesParsed, 1);\n  assert.equal(changed.cacheStats.filesReused, 0);\n  fs.unlinkSync(logFile);\n  const deleted = await aggregate(fixture, { cachePath });\n  assert.equal(deleted.cacheStats.filesDropped, 1);\n  ```",
+            "UT: [Invariant] C002 per-file pre-merge and global dedupe store one tuple per file key and merge the maximum once\n  ```js\n  writeLog(fixture, 'a.jsonl', [\n    assistantRecord({ id: 'dup', block: 'text', cwd: root, output: 100 }),\n    assistantRecord({ id: 'dup', block: 'tool_use', cwd: root, output: 250 }),\n  ]);\n  writeLog(fixture, 'b.jsonl', [assistantRecord({ id: 'dup', cwd: root, output: 400 })]);\n  const cold = await aggregate(fixture);\n  assert.equal(cold.groups[0].offpeak.records, 1);\n  assert.equal(cold.groups[0].offpeak.output_tokens, 400);\n  const warm = await aggregate(fixture, { cachePath });\n  assert.deepEqual(dailySeries(warm.groups), dailySeries(cold.groups));\n  const raw = JSON.parse(fs.readFileSync(cachePath, 'utf8'));\n  assert.equal(Object.values(raw.files)[0].records.length, 1);\n  ```",
+            "UT: [Invariant] C003 deterministic equivalence keeps dailySeries identical and reapplies prices, holidays and dateKey\n  ```js\n  const cold = await aggregate(fixture);\n  await aggregate(fixture, { cachePath });\n  const warm = await aggregate(fixture, { cachePath });\n  assert.ok(warm.cacheStats.filesReused > 0);\n  assert.deepEqual(dailySeries(warm.groups, DEFAULT_PRICES), dailySeries(cold.groups, DEFAULT_PRICES));\n  const holiday = await aggregate(fixture, { cachePath, holidays: new Set([utcDateKey(recordMs)]) });\n  const shifted = await aggregate(fixture, { cachePath, dateKey: () => '2026-01-01' });\n  assert.deepEqual(dailySeries(shifted.groups).map((entry) => entry.date), ['2026-01-01']);\n  assert.equal(dailySeries(holiday.groups, DEFAULT_PRICES)[0].dailyCostUsd, dailySeries(cold.groups, DEFAULT_PRICES)[0].dailyCostUsd);\n  ```",
+            "UT: [Error] C004 cache failure isolation rejects v1, corrupt, foreign and malformed payloads and keeps the cold series\n  ```js\n  const payloads = [\n    '{not json',\n    JSON.stringify({ schema: 'conver-usage-cache-v1', files: {} }),\n    JSON.stringify({ schema: CACHE_SCHEMA, configDir: '/elsewhere', projectKey, models: [], files: {} }),\n  ];\n  for (const payload of payloads) {\n    fs.mkdirSync(fixture.snapshotDir, { recursive: true });\n    fs.writeFileSync(cachePath, payload);\n    const result = await aggregate(fixture, { cachePath });\n    assert.equal(result.cacheStats.bypassed, true);\n    assert.deepEqual(dailySeries(result.groups), dailySeries(cold.groups));\n  }\n  const malformed = { schema: CACHE_SCHEMA, configDir, projectKey, models: ['m'], files: { [file]: { path: file, size: 1, mtimeMs: 2, ino: 3, records: [['k', 1, 9, 0, 0, 0]] } } };\n  assert.equal(validateUsageCache(malformed, { configDir, projectKey }), null);\n  const blocker = path.join(root, 'blocked-parent');\n  fs.writeFileSync(blocker, 'not a directory');\n  const failed = await aggregate(fixture, { cachePath: path.join(blocker, CACHE_FILE_NAME) });\n  assert.equal(failed.cacheStats.bypassed, true);\n  assert.equal(fs.existsSync(path.join(blocker, CACHE_FILE_NAME)), false);\n  ```",
+            "UT: [Invariant] C005 read-only CLI and snapshot preservation keep the target untouched and the snapshot free of usage fields\n  ```js\n  const snapshotDir = path.join(root, 'progress-gif', 'snapshots');\n  fs.mkdirSync(snapshotDir, { recursive: true });\n  fs.writeFileSync(path.join(snapshotDir, CACHE_FILE_NAME), JSON.stringify({ schema: CACHE_SCHEMA, models: [], configDir, projectKey, files: {} }));\n  assert.deepEqual(listSnapshots(snapshotDir), []);\n  const snapshot = snapshotFromModel({ workspaceRoot: root, packages: [], totals: {} });\n  assert.equal('usage' in snapshot, false);\n  assert.equal('cache' in snapshot, false);\n  const cli = spawnSync(process.execPath, [CLAUDE_USAGE, '-d', root], { encoding: 'utf8', env: { ...process.env, CLAUDE_CONFIG_DIR: configDir } });\n  assert.equal(cli.status, 0);\n  assert.deepEqual(Object.keys(JSON.parse(cli.stdout)), ['period', 'prices_usd_per_1m', 'projects', 'holidays', 'rows', 'total']);\n  assert.equal(fs.existsSync(cachePath), false);\n  ```",
+            "UT: [Boundary] C006 atomic concurrent writes rename two payloads and leave complete JSON\n  ```js\n  const files = new Map([[logFile, { path: logFile, size: 12, mtimeMs: 34, ino: 56, records: [{ key: 'k', ms: 1, model: 'm', miss: 1, hit: 2, out: 3 }] }]]);\n  const [first, second] = await Promise.all([\n    writeUsageCache({ cachePath, configDir, projectKey, files }),\n    writeUsageCache({ cachePath, configDir, projectKey, files }),\n  ]);\n  assert.deepEqual([first, second], [true, true]);\n  const payload = JSON.parse(fs.readFileSync(cachePath, 'utf8'));\n  assert.equal(payload.schema, CACHE_SCHEMA);\n  assert.deepEqual(fs.readdirSync(path.dirname(cachePath)).filter((name) => name.includes('.tmp')), []);\n  ```",
+            "UT: [Invariant] C007 size aggregation stores one tuple per unique key and no date, peak or cost field\n  ```js\n  writeLog(fixture, 'session.jsonl', [\n    assistantRecord({ id: 'a', block: 'text', cwd: root }),\n    assistantRecord({ id: 'a', block: 'tool_use', cwd: root }),\n    assistantRecord({ id: 'b', cwd: root }),\n  ]);\n  await aggregate(fixture, { cachePath });\n  const raw = JSON.parse(fs.readFileSync(cachePath, 'utf8'));\n  const entry = Object.values(raw.files)[0];\n  assert.equal(entry.records.length, 2);\n  assert.deepEqual(entry.records.map((tuple) => tuple.length), [6, 6]);\n  assert.ok(raw.models.every((name) => typeof name === 'string'));\n  assert.equal('date' in entry, false);\n  assert.equal('peak' in entry, false);\n  assert.equal('cost' in raw, false);\n  ```",
+            "UT: [Normal] C008 title segment composition returns the left name and the four-value right block\n  ```js\n  const cumulative = { cacheMissInputTokens: 100000, cacheHitInputTokens: 1000001, outputTokens: 0, costUsd: 0.2 };\n  assert.deepEqual(usageTitleSegments('demo', cumulative), {\n    left: 'PROGRESS: demo',\n    right: 'I/C/O/D = 1M / 2M / 0M / $1',\n    text: 'PROGRESS: demo | I/C/O/D = 1M / 2M / 0M / $1',\n  });\n  assert.equal(usageTitleSegments('demo', ZERO_USAGE).right, 'I/C/O/D = 0M / 0M / 0M / $0');\n  assert.equal(usageTitleSegments('demo', cumulative).right.split(' / ').length, 4);\n  ```",
+            "UT: [Invariant] C009 right-alignment layout keeps the segments inside the available width and the right block intact\n  ```js\n  const measureContext = { font: '', measureText: (text) => ({ width: String(text).length * 7 }) };\n  const parts = { left: 'PROGRESS: demo', right: 'I/C/O/D = 1M / 2M / 0M / $1' };\n  assert.equal(fitTitleLayout(measureContext, parts, 772, 14, 10, 12).size, 14);\n  const narrow = fitTitleLayout(measureContext, { left: 'x'.repeat(200), right: parts.right }, 400, 14, 10, 12);\n  assert.ok(narrow.left.endsWith('…'));\n  assert.equal(narrow.right, parts.right);\n  assert.ok(measureContext.measureText(narrow.left).width + 12 + measureContext.measureText(narrow.right).width <= 400);\n  const rightCall = calls.find((call) => call[0] === 'fillText' && call[1].startsWith('I/C/O/D ='));\n  assert.equal(rightCall[5], 'right');\n  assert.equal(rightCall[2], layout.width - 12);\n  ```",
+            "UT: [Boundary] C010 legacy title preservation draws the single title left-aligned when titleParts is absent\n  ```js\n  assert.equal(selectTitleParts({ title: 'PROGRESS: demo' }), null);\n  const legacyCalls = calls.filter((call) => call[0] === 'fillText' && call[1] === 'PROGRESS: demo');\n  assert.equal(legacyCalls.length, 1);\n  assert.equal(legacyCalls[0][5], 'left');\n  assert.equal(legacyCalls[0][2], 12);\n  assert.equal(calls.some((call) => call[0] === 'fillText' && call[1].startsWith('I/C/O/D =')), false);\n  ```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "The v1 cache stored one object per parsed assistant line",
+              "after": "The v2 cache stores the tuple [keyOrLine, ms, modelIndex, miss, hit, out] per file with a sorted models table",
+              "description": "Aggregate and compact the cache payload"
+            },
+            {
+              "before": "Cache validation accepted object records",
+              "after": "Validation enforces v2, a string models table, six-element tuples, an in-range model index and non-negative token counts",
+              "description": "Reject v1 and malformed payloads as a cache miss"
+            },
+            {
+              "before": "Anonymous keys repeated the absolute file path per record",
+              "after": "The tuple stores the line number and rebuilds <file>:<line> on read",
+              "description": "Shrink anonymous record keys without changing identity"
+            },
+            {
+              "before": "parseUsageFile returned one record per assistant line",
+              "after": "It merges repeated keys by maximum field value before returning, so each file stores unique messages",
+              "description": "Pre-merge within one file using the existing associative merge"
+            },
+            {
+              "before": "formatUsageTitle returned one pipe-separated string",
+              "after": "usageTitleSegments returns left/right/text and buildFrames attaches titleParts",
+              "description": "Separate the name from the right-aligned metric block"
+            },
+            {
+              "before": "drawHeader drew one left-aligned title",
+              "after": "It draws the left name at titleX and the right I/C/O/D block at width minus titleX with align right, fitting and truncating only the name",
+              "description": "Right-align the cumulative metrics inside the title bar"
+            },
+            {
+              "before": "No tests covered tuple encoding, size aggregation or alignment",
+              "after": "Cache tests cover v2 encoding/validation/size; usage tests cover segments and fitting; render tests assert alignment and legacy behavior",
+              "description": "Cover C001-C010 with Red-first tests"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
         }
       ]
     },

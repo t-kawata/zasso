@@ -14,6 +14,8 @@ const HEADER_BAR_TRACK_COLOUR = '#1b2430';
 const HEADER_PERCENT_COLOUR = '#b8c2d6';
 const HEADER_TITLE_SIZE = 14;
 const MIN_TITLE_SIZE = 10;
+export const TITLE_SEGMENT_GAP = 12;
+export const TITLE_ELLIPSIS = '…';
 const HEADER_DATE_SIZE = 20;
 const HEADER_STAGE_SIZE = 18;
 const HEADER_PERCENT_SIZE = 11;
@@ -380,23 +382,90 @@ export function fitTitleSize(ctx, text, availableWidth, baseSize, minSize = MIN_
   return size;
 }
 
-// [::TICKET::] PX-351, PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-352) --for-spec --no-implementation-order`.
+/** Return the split title only when the frame carries one; legacy frames have none. */
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+export function selectTitleParts(frame) {
+  return frame && frame.titleParts ? frame.titleParts : null;
+}
+
+/**
+ * Fit the left name and the right metric block into one title band.
+ *
+ * The metric block is never truncated: it is the payload of the title. The size
+ * shrinks first, and only when the minimum size still overflows does the name
+ * give up characters and end with an ellipsis.
+ */
+// [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
+export function fitTitleLayout(ctx, parts, options) {
+  const {
+    availableWidth,
+    baseSize,
+    minSize = MIN_TITLE_SIZE,
+    gap = TITLE_SEGMENT_GAP,
+  } = options;
+  if (!ctx || typeof ctx.measureText !== 'function') {
+    return { size: baseSize, left: parts.left, right: parts.right };
+  }
+  const measurePair = (size, left, right) => {
+    ctx.font = `600 ${size}px ${FONT_FAMILY}`;
+    return ctx.measureText(left).width + gap + ctx.measureText(right).width;
+  };
+  let size = baseSize;
+  while (size > minSize && measurePair(size, parts.left, parts.right) > availableWidth) {
+    size -= 1;
+  }
+  if (measurePair(size, parts.left, parts.right) <= availableWidth) {
+    return { size, left: parts.left, right: parts.right };
+  }
+  let candidate = parts.left;
+  while (candidate.length > 1) {
+    candidate = candidate.slice(0, -1);
+    const truncated = `${candidate}${TITLE_ELLIPSIS}`;
+    if (measurePair(size, truncated, parts.right) <= availableWidth) {
+      return { size, left: truncated, right: parts.right };
+    }
+  }
+  return { size, left: TITLE_ELLIPSIS, right: parts.right };
+}
+
+// [::TICKET::] PX-351, PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-352|PX-354) --for-spec --no-implementation-order`.
 function drawHeader(ctx, layout, frame, options) {
   const scale = layout.scale;
   const header = layout.header;
-  // Usage titles get a fitted size; the legacy title keeps its original rendering.
-  const title = selectTitle(frame, options, header);
   const baseTitleSize = HEADER_TITLE_SIZE * scale;
-  const titleSize = frame && frame.title
-    ? fitTitleSize(ctx, title, layout.width - header.titleX * 2, baseTitleSize)
-    : baseTitleSize;
-  drawText(ctx, {
-    text: title,
-    x: header.titleX,
-    y: header.titleY,
-    font: `600 ${titleSize}px ${FONT_FAMILY}`,
-    colour: '#eef2ff',
-  });
+  const availableWidth = layout.width - header.titleX * 2;
+  const parts = selectTitleParts(frame);
+  if (parts) {
+    const fitted = fitTitleLayout(ctx, parts, {
+      availableWidth,
+      baseSize: baseTitleSize,
+      minSize: MIN_TITLE_SIZE * scale,
+      gap: TITLE_SEGMENT_GAP * scale,
+    });
+    const font = `600 ${fitted.size}px ${FONT_FAMILY}`;
+    drawText(ctx, { text: fitted.left, x: header.titleX, y: header.titleY, font, colour: '#eef2ff' });
+    drawText(ctx, {
+      text: fitted.right,
+      x: layout.width - header.titleX,
+      y: header.titleY,
+      font,
+      colour: '#eef2ff',
+      align: 'right',
+    });
+  } else {
+    // Legacy titles keep the original single-string rendering.
+    const title = selectTitle(frame, options, header);
+    const titleSize = frame && frame.title
+      ? fitTitleSize(ctx, title, availableWidth, baseTitleSize)
+      : baseTitleSize;
+    drawText(ctx, {
+      text: title,
+      x: header.titleX,
+      y: header.titleY,
+      font: `600 ${titleSize}px ${FONT_FAMILY}`,
+      colour: '#eef2ff',
+    });
+  }
   drawProgressBar(ctx, layout, frame);
   drawText(ctx, {
     text: formatDate(frame.t, frame.prec),
