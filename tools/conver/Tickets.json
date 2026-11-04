@@ -53717,6 +53717,178 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-03"
+        },
+        {
+          "id": 352,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Progress GIF title bar: cumulative per-date token usage and DeepSeek-equivalent cost",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-352.md",
+          "background": "### Goal\nShow cumulative token usage and DeepSeek-equivalent cost in the draw-progress-gif title bar as PROGRESS: <name> | I/C/O = <in>M/<cache>M/<out>M | IF-DeepSeek-Flash: $<cost>, increasing exactly when the displayed date advances.\n\n### Purpose\nMake spend visible next to implementation progress so a reviewer can see when work and cost grew together.\n\n### Motivation\nclaude-usage.js already aggregates the Claude Code JSONL logs under ~/.claude/projects. Reusing that mechanism avoids a second scanner and keeps the token and price definitions in one place.\n\n### Constraints\n- draw-progress-gif.js changes only the title bar content. Workspace analysis, frame building, layout, canvas, HTML and GIF generation, the Markdown report format, the snapshot format, exit codes and CLI flags stay unchanged.\n- A usage failure never fails generation, never changes the exit code, and only appends one warning to the existing warnings section.\n- No new runtime dependency and no server; the HTML stays self-contained.\n- Tokens display as Math.ceil(tokens / 1e6) megabytes with an M suffix; cost displays as Math.ceil(USD).\n- Raw values accumulate; rounding happens only at display time.\n- A JST date with no usage data contributes zero and must not disturb the cumulative.\n- The three script copies stay byte-identical.\n- claude-usage.js becomes importable without running its CLI, and duplicate per-content-block records are counted once per message.id.",
+          "scope": [
+            "progress-gif/usage.js (new): add pure aggregateUsage that reads Claude Code JSONL logs, buckets assistant usage by JST date, dedupes by message.id keeping the maximum snapshot, and returns series, totals, warnings and scannedAt.",
+            "claude-usage.js: replace the inline scanner with the shared module; keep every CLI flag, JSON field and exit behavior; guard main with import.meta.url equality so importing the file does not run the CLI; totals now reflect deduplication.",
+            "draw-progress-gif.js: after workspace analysis, call aggregateUsage for the resolved target, convert any failure into one warning with an empty series, and attach the series to the in-memory model before buildFrames. parseArgs, run, output naming, report, snapshot, browser opening and error handling otherwise stay unchanged; no new CLI flag.",
+            "progress-gif/loop.js: add a pure per-frame title computation. For each frame derive the JST date key from frame.t and frame.prec, take the last cumulative series entry with date <= that key, and attach frame.title. buildFrames remains deterministic and works in Node and the browser.",
+            "progress-gif/engine.js: drawHeader prefers frame.title over options.title; when the text exceeds layout.width minus twice titleX, reduce the title font size until it fits; when no frame title exists the current options.title rendering is byte-equivalent.",
+            "progress-gif/layout.js: export one shared JST date-key helper used by usage bucketing and frame lookup. formatDate keeps its current output and timezone semantics so visible dates do not change.",
+            "Non-change: progress-gif/snapshot.js and the snapshot JSON stay untouched. The usage series lives only in the in-memory model serialized into the HTML, so the viewer can rebuild frame titles without rescanning logs.",
+            "Non-change: the Markdown report keeps its existing lines. A usage failure appends one warning to the existing warnings section; success adds no report line.",
+            "Constants: define the title template, the 1e6 divisor and the default price table once in the shared usage module; claude-usage and draw-progress-gif import the same values.",
+            "Non-change: canvas dimensions, grid, ladder, colours, frame count, speed and seek controls, download path, HTML template structure, GIF encoder, artifact discovery, model totals, exit codes and CLI flags are untouched.",
+            "Non-change: with an empty series the title is exactly PROGRESS: <name> and all existing artifacts are unchanged. The only HTML byte difference is the embedded usage series, which renders nothing by itself.",
+            "API: aggregateUsage, usageAtDate and formatUsageTitle are new exports; no existing export is removed or renamed.",
+            "Dependency and config: no new npm dependency and no config file; draw-progress-gif uses the default DeepSeek price table from claude-usage.",
+            "Copies: apply the same content to .claude/scripts/conver, tools/conver/.claude/scripts/conver and crates/siprs/.claude/scripts/conver.",
+            "Impact: claude-usage CLI totals change only by removing duplicate counts; draw-progress-gif output changes only in the title text, with one warning line in the existing warnings section when usage cannot be read."
+          ],
+          "testUnit": [
+            "UT: [Normal] aggregateUsage groups assistant records by JST date and sums input_tokens plus cache_creation_input_tokens as I, cache_read_input_tokens as C and output_tokens as O.",
+            "UT: [Normal] aggregateUsage counts records with the same message.id once, keeping the maximum value of each usage field across streaming snapshots.",
+            "UT: [Boundary] a date with no records produces no bucket and contributes zero to every later cumulative value.",
+            "UT: [Boundary] usageAtDate before the first bucket returns zeros; after the last bucket returns the final cumulative.",
+            "UT: [Invariant] cumulative I, C, O and cost are non-decreasing across sorted dates.",
+            "UT: [Normal] daily cost applies the existing offpeak and peak rate table per record and sums per date.",
+            "UT: [Boundary] formatUsageTitle rounds with Math.ceil: 100000 tokens is 1M, 1000001 tokens is 2M, USD 0.2 is 1 dollar, and the separators match the approved string exactly.",
+            "UT: [Error] a missing or unreadable projects directory returns an empty series plus a warning and never throws.",
+            "UT: [Error] malformed JSON lines are skipped and counted without aborting the scan.",
+            "UT: [Boundary] an empty series yields the legacy title PROGRESS: <name>.",
+            "UT: [Normal] buildFrames attaches the cumulative title to every frame and keeps it constant while the displayed date is unchanged.",
+            "UT: [Boundary] a frame whose date jumps forward includes every intermediate usage date exactly once.",
+            "UT: [Normal] rebuilding frames with a different frame count over the same embedded series is deterministic.",
+            "UT: [Invariant] with an empty series the existing title, frames and layout are identical to the pre-change output, and snapshotFromModel emits no usage field.",
+            "UT: [CLI] claude-usage.js keeps every flag and JSON field and its totals equal aggregateUsage over the same fixture logs.",
+            "UT: [Title] the title builder emits the exact format for zero, large and fractional values and never emits NaN or a negative number."
+          ],
+          "testIntegration": [
+            "IT: draw-progress-gif with a synthetic workspace and a fixture CLAUDE_CONFIG_DIR writes HTML, embeds the usage series and per-frame titles, and exits 0.",
+            "IT: draw-progress-gif with no readable logs still writes HTML, uses the legacy title, leaves the snapshot format unchanged and exits 0.",
+            "IT: engine.drawFrame with a stub 2D context captures the title drawn for frames before, inside and after usage dates and confirms the switch occurs only at date boundaries.",
+            "IT: claude-usage.js CLI output and aggregateUsage return the same totals for one shared fixture log set.",
+            "IT: the three copies of draw-progress-gif.js, claude-usage.js and progress-gif modules are byte-identical after delivery.",
+            "IT: the existing tests/conver/cli.test.mjs and tests/conver/source-scan.test.mjs pass unchanged."
+          ],
+          "testExceptions": [
+            "The browser animation and Download GIF gesture are not testable in the node harness because they require a real browser, and the repository has no browser harness while this ticket adds no dependency. This is an external-tooling limitation and is not a design defect: the new title logic is deterministic and is covered by the stub-context integration test, and the browser path itself is unchanged.",
+            "Live Claude Code logs are not testable directly because wall-clock log growth is non-deterministic. Tests inject fixed fixture logs with fixed timestamps and verify the same aggregation deterministically. This is a non-deterministic-input limitation and is not a design defect."
+          ],
+          "default_files": [
+            "tools/conver/.claude/scripts/conver/progress-gif/usage.js",
+            "tools/conver/.claude/scripts/conver/claude-usage.js",
+            "tools/conver/.claude/scripts/conver/draw-progress-gif.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/loop.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/engine.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/layout.js",
+            "tools/conver/tests/conver/usage.test.mjs",
+            "tools/conver/tests/conver/cli.test.mjs",
+            ".claude/scripts/conver/claude-usage.js",
+            ".claude/scripts/conver/draw-progress-gif.js",
+            ".claude/scripts/conver/progress-gif/usage.js",
+            ".claude/scripts/conver/progress-gif/loop.js",
+            ".claude/scripts/conver/progress-gif/engine.js",
+            ".claude/scripts/conver/progress-gif/layout.js",
+            "crates/siprs/.claude/scripts/conver/claude-usage.js",
+            "crates/siprs/.claude/scripts/conver/draw-progress-gif.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/usage.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/loop.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/engine.js",
+            "crates/siprs/.claude/scripts/conver/progress-gif/layout.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: with fixture logs the title reads PROGRESS: <name> | I/C/O = <a>M/<b>M/<c>M | IF-DeepSeek-Flash: $<d>, changes only when the displayed date changes, and HTML is written with exit 0.",
+            "Error case: missing, unreadable or malformed logs produce the legacy title plus one warning in the existing warnings section, and HTML is still written with exit 0.",
+            "Edge case: missing dates, date jumps, empty series, zero tokens, a very long workspace name, frame-count changes and lookups before the first or after the last bucket all render without NaN, negative values or overflow.",
+            "Preservation: with an empty series the title is exactly PROGRESS: <name>, the snapshot and report formats are unchanged, and all existing tests pass."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "usage aggregation",
+              "precondition": "A log set contains multiple assistant records with the same message.id and identical or streaming usage snapshots.",
+              "postcondition": "Each message.id contributes exactly one record, using the maximum value of each usage field.",
+              "invariant": "The sum over unique message ids equals the deduplicated usage total."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "frame date lookup",
+              "precondition": "A sorted sparse series of JST date buckets and a frame with a display date.",
+              "postcondition": "The frame cumulative equals the sum of all buckets whose date is less than or equal to the frame display date.",
+              "invariant": "The cumulative is zero before the first bucket, non-decreasing across dates, and unchanged within one date."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "title formatting",
+              "precondition": "Totals for I, C, O and USD cost.",
+              "postcondition": "The title is PROGRESS: name | I/C/O = ceil(I/1e6)M/ceil(C/1e6)M/ceil(O/1e6)M | IF-DeepSeek-Flash: $ceil(cost).",
+              "invariant": "Separators, suffixes and the uppercase DeepSeek-Flash label are fixed; values are finite non-negative integers."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "failure isolation",
+              "precondition": "The projects directory is missing, unreadable or contains no usable logs.",
+              "postcondition": "The usage series is empty, one warning is appended to the existing warnings section, the legacy title is used and generation exits 0.",
+              "invariant": "No usage failure changes the snapshot format, report format, frame, canvas, HTML or GIF behavior."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "behavior preservation",
+              "precondition": "The usage series is empty because no readable logs exist.",
+              "postcondition": "The title is exactly PROGRESS: <name> and no new report line, snapshot field or CLI flag exists.",
+              "invariant": "Canvas size, frame count, layout, colours, GIF bytes, snapshot JSON and exit codes match the pre-change output."
+            }
+          ],
+          "notes": "- [Implementation steps] Write Red tests for the shared aggregator, deduplication, sparse cumulative lookup, formatting and failure isolation; implement Green; then refactor. Reuse the existing JSONL walker rather than a second scanner.\n- [Risks] The title can exceed the 14 px header width when the workspace name is long; the latest JST day is a partial total; ceiling can hide small daily increments; the three copies can drift.\n- [Caveats] Keep the usage series inside the serialized model so the browser viewer recomputes frame titles without rescanning logs. Do not add report lines, snapshot fields, CLI flags or any other visible change.\n- [Open items] Synthetic date-boundary frames and a daily aggregate cache are out of scope for this ticket.\n- [Future improvements] Add a cache keyed by file path, size and mtime if log volume makes the five-second scan a problem.\nImplementation summary:\n- Changed files: tools/conver/.claude/scripts/conver/{claude-usage.js,draw-progress-gif.js,progress-gif/usage.js,progress-gif/loop.js,progress-gif/engine.js}; tests/conver/{usage.test.mjs,cli.test.mjs}; synced to .claude/scripts/conver and crates/siprs/.claude/scripts/conver.\n- New module progress-gif/usage.js owns JSONL walking, message.id deduplication, peak/offpeak cost, sparse daily series and DEFAULT_PRICES. claude-usage.js keeps every flag and JSON field.\n- draw-progress-gif.js collects usage after workspace analysis and attaches the series to the in-memory model only. Snapshot and report formats are unchanged; a failure adds one warning to the existing warnings section.\n- loop.js carries the browser-safe usage helpers (displayDateKey, usageAtDate, formatUsageTitle, ZERO_USAGE) so the inlined HTML bundle works without importing the Node-only usage module. layout.js is unchanged.\n- engine.js adds selectTitle and fitTitleSize; the legacy options.title path is byte-equivalent.\n- Test results: 22/22 pass (tests/conver/usage.test.mjs, cli.test.mjs, source-scan.test.mjs); check-conventions passes; run-quality-checks reports 0 issues.\n- Browser verification: embedded series dates 2026-10-05 and 2026-10-09; titles 0M/0M/0M -> 1M/1M/1M -> 1M/2M/1M; last frame screenshot shows the approved title; empty usage config shows exactly PROGRESS: px352-sample; Download GIF produced GIF89a, 3,140,897 bytes, trailer 0x3b.\n- Measured CLI after the fix: 29,143 unique records, 10,059,543,424 cache-hit tokens, USD 85.09 for the 21-day zasso history (previously 120,006 records and USD 364.99).\n- Internal signature note: run() and main() are async; no in-repo caller imports run().\n- Runtime cost: the usage scan takes about 5.1 seconds for the 1.1 GB tools/conver log directory.\nReview report:\n- Static quality check: 0 issues (run-quality-checks + generate-report).\n- Translatability: no blocking issues. New action helpers use verb phrases; value/factory helpers retain noun names consistent with the existing module. Constants extracted for million, JST offset, cost rounding and title minimum size. No debug output or generic single-character variables in ticket code.\n- Dependencies: the three script copies are byte-identical; node:test impact set passes 22/22; check-conventions passes.\n- Behaviour preservation: usage and legacy dry-run reports are byte-identical; snapshot keys are unchanged; no new CLI flags or report lines. Legacy title is exactly PROGRESS: <name>.\n- Review fixes applied: claude-usage CLI output uses process.stdout.write instead of console.log; assistantRecord test helper takes one options object; COST_ROUNDING_SCALE extracted; unrelated PX-352 annotations removed from the pre-existing untracked delete-claude-jsonls.js.\n- Annotation verify: all PX-352 source files are annotated; the only missing annotations are in the unrelated pre-existing untracked delete-claude-jsonls.js, which is intentionally excluded from this ticket and its commit.\n- Browser verification: per-frame titles switch 0M/0M/0M -> 1M/1M/1M -> 1M/2M/1M at the two usage dates; legacy screenshot shows only PROGRESS: px352-sample; in-page GIF capture returns GIF89a, 3,140,897 bytes, trailer 0x3b.\n- CLI regression: help, missing-config and no-matching-log error messages are unchanged; real zasso logs now report 29,143 unique records and USD 85.09 instead of the duplicated 120,006 / USD 364.99.",
+          "invariants": "- [Normal establishment] With an empty series (no readable usage logs), the title is exactly PROGRESS: <name> and every existing artifact matches the pre-change output.\n- [Error invariant] Any failure to read or aggregate Claude Code logs becomes one warning in the existing warnings section and never changes the exit code or prevents HTML writing.\n- [Internal state invariant] Raw I/C/O token counts and USD cost accumulate over sorted JST date buckets; Math.ceil is applied only while formatting the title, so cumulative values are non-decreasing.\n- [Boundary invariant] Usage bucketing and frame lookup share one JST date-key function; a missing date contributes zero, a lookup before the first bucket returns zeros, and a lookup after the last bucket returns the final cumulative.",
+          "instrumentation": "- [Logging] No new runtime logs. Success adds no Markdown report line; the title bar is the only visible change.\n- [Metrics] The title bar is the metric: cumulative tokens and cost at the displayed date.\n- [Error tracking] A usage scan failure appends one warning to model.warnings, which the existing report already prints; stderr remains reserved for unexpected generation failures.\n- [Health check] A visible warning accompanies an empty series, and exit codes are unchanged.\nStatic quality check: passed\nTranslatability: no blocking issues\nTests: all 22 tests passed",
+          "investigation": "## Source investigation (2026-11-04)\n\n### claude-usage.js\n- Path: tools/conver/.claude/scripts/conver/claude-usage.js (12358 bytes), identical byte-for-byte in .claude/scripts/conver and crates/siprs/.claude/scripts/conver (md5 ca32d798129b1e5852a39815025949b5).\n- The file ends with an unconditional main() call, so importing it from draw-progress-gif would parse the draw script arguments and execute the CLI. It must be split into a pure module plus a guarded CLI entry.\n- Current aggregation walks every matching project directory under ${CLAUDE_CONFIG_DIR:-~/.claude}/projects and counts every assistant JSONL line that carries message.usage. It buckets by JST date and applies the offpeak and peak table (0.15/0.003/0.6 and 0.3/0.006/1.2 USD per 1M tokens).\n- Measured defect over 20 days of tools/conver logs: 119618 assistant-usage lines vs 28963 unique message.id values (4.13x). Claude Code writes one JSONL line per content block with the same message.id and usage. Raw totals were 175104660 / 42196401152 / 111163279 vs deduplicated 38360373 / 10019322880 / 24717943, and USD 363.91 vs 84.58. Deduplication must keep the maximum snapshot per field because 176 groups contain streaming snapshots with growing output_tokens.\n- A full scan of the 1.1 GB tools/conver log directory takes 5.03 s warm. This is the only material performance cost added to draw-progress-gif.\n\n### draw-progress-gif.js\n- Title flow: run() builds title = PROGRESS: ${path.basename(root)} (line 287), passes it through renderHtml options (line 291), html.js serializes it into OPTIONS and the inline script, and engine.drawHeader draws options.title at layout.header.titleX/titleY (engine.js lines 365-375). layout.header uses x = 12 * scale, y = 18 * scale and font 14 px (layout.js lines 255-259; engine.js line 15).\n- There is no width constraint on the title; a long workspace name plus the usage segment can exceed layout.width. drawHeader receives ctx and can measure and shrink before drawing, leaving layout unchanged.\n- Frames are built by buildFrames and rebuilt inside the browser when the user changes Frames or Columns (viewer.js rebuildFrames). Therefore the usage series must travel inside the serialized model; rescanning in the browser is impossible and would break determinism.\n- snapshotFromModel projects only packages and totals, so keeping the usage series on the in-memory model leaves the snapshot JSON unchanged.\n- formatDate prints local time for ms-precision frames and UTC for day-precision frames; claude-usage buckets JST. Both must share one date-key function so the title changes on the same boundary the date text shows.\n\n### Sparse-date feasibility (measured)\n- Real zasso usage: 21 dates from 2026-10-05 through 2026-11-04; 10 of the 31 calendar days have no usage. A sparse prefix-sum lookup produced zero additions for those days and a monotonic cumulative across all 62 date transitions of the 200-frame sample.\n- Example transition: 10/06 USD 6 -> 10/07 no data USD 6 -> 10/08 USD 9 -> 10/14 USD 23 -> 11/04 USD 85. No NaN, negative or out-of-order value appeared.\n\n### Preservation surface\n- Existing tests: tests/conver/cli.test.mjs (7 passing) and tests/conver/source-scan.test.mjs (2 passing). The CLI test asserts canvas 796x384, overall progress and read-only behavior; the source-scan test asserts the renderer uses Canvas text and additive compositing. Both must remain green.\n- The three copies of draw-progress-gif.js and every progress-gif module are byte-identical today, so a change to one must be applied to all three.",
+          "boyScoutPlan": "- New module progress-gif/usage.js with verb-phrase functions: walkJsonlFiles, aggregateUsage, usageAtDate, formatUsageTitle. Use domain names only (cacheMissInputTokens, cacheHitInputTokens, outputTokens, cumulativeCostUsd, usageSeries, scannedAt). One responsibility per function: filesystem walking, aggregation, lookup, formatting.\n- Extract the duplicated JSONL walker and JST date helper from claude-usage.js instead of copying them; claude-usage.js becomes a thin argument parser and JSON printer.\n- Replace silent catches with a warnings array that reaches the existing report warnings section; do not swallow a usage failure.\n- Extract the title template and the 1e6 divisor into named constants; no hardcoded separators or magic numbers in the renderer.\n- Touch only the files in scope; leave the existing frame, layout, HTML, report and snapshot code unchanged.",
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 dedupe] Repeated content-block records collapse to one message usage\n```js\ntest('dedupes content-block records by message.id', async () => {\n  const fixture = writeUsageFixture({ directory: '/tmp/work', records: [\n    assistantRecord({ id: 'msg-1', block: 'thinking', at: '2026-10-05T01:00:00.000Z', input: 10, cacheRead: 100, output: 0 }),\n    assistantRecord({ id: 'msg-1', block: 'tool_use', at: '2026-10-05T01:00:01.000Z', input: 10, cacheRead: 100, output: 443 }),\n  ] });\n  const result = await aggregateUsage({ directory: '/tmp/work', configDir: fixture.configDir, dateKey: utcDateKey });\n  const day = result.groups[0];\n  assert.equal(result.groups.length, 1);\n  assert.equal(day.offpeak.cache_miss_input_tokens, 10);\n  assert.equal(day.offpeak.cache_hit_input_tokens, 100);\n  assert.equal(day.offpeak.output_tokens, 443);\n  const series = dailySeries(result.groups, DEFAULT_PRICES);\n  assert.equal(series.at(-1).cumulative.outputTokens, 443);\n  assert.equal(series.at(-1).cumulative.cacheHitInputTokens, 100);\n});\n```",
+            "UT: [C002 sparse lookup] Missing dates add zero and cumulative never decreases\n```js\ntest('sorts a sparse series and never decreases', () => {\n  const series = dailySeries([\n    usageGroup('2026-10-05', { miss: 10, hit: 100, out: 5 }),\n    usageGroup('2026-10-08', { miss: 20, hit: 200, out: 10 }),\n  ], DEFAULT_PRICES);\n  assert.deepEqual(usageAtDate(series, '2026-10-04'), ZERO_USAGE);\n  assert.equal(usageAtDate(series, '2026-10-06').cacheHitInputTokens, 100);\n  assert.equal(usageAtDate(series, '2026-10-07').costUsd, usageAtDate(series, '2026-10-05').costUsd);\n  assert.equal(usageAtDate(series, '2026-10-08').cacheHitInputTokens, 300);\n  assert.equal(usageAtDate(series, '2026-12-31').cacheHitInputTokens, 300);\n  assert.ok(series.every((entry, index) => index === 0 || entry.cumulative.costUsd >= series[index - 1].cumulative.costUsd));\n});\n```",
+            "UT: [C003 title format] Ceil at display and fixed separators\n```js\ntest('formats the approved title with ceiling', () => {\n  const cumulative = { cacheMissInputTokens: 100000, cacheHitInputTokens: 1000001, outputTokens: 0, costUsd: 0.2 };\n  assert.equal(formatUsageTitle('demo', cumulative), 'PROGRESS: demo | I/C/O = 1M/2M/0M | IF-DeepSeek-Flash: $1');\n  assert.equal(formatUsageTitle('demo', ZERO_USAGE), 'PROGRESS: demo | I/C/O = 0M/0M/0M | IF-DeepSeek-Flash: $0');\n  assert.doesNotMatch(formatUsageTitle('demo', cumulative), /NaN|-1/);\n});\n```",
+            "UT: [C004 failure isolation] Missing logs produce a warning and the legacy title\n```js\ntest('falls back to the legacy title when logs are unavailable', async () => {\n  const result = await aggregateUsage({ directory: '/nonexistent/work', configDir: '/nonexistent/claude' });\n  assert.deepEqual(result.groups, []);\n  assert.equal(result.warnings.length, 1);\n  const model = minimalModel({ usage: dailySeries(result.groups, DEFAULT_PRICES), titleName: 'demo' });\n  const frames = buildFrames(model, { frames: 20 });\n  assert.equal(frames[0].title, undefined);\n  assert.equal(selectTitle(frames[0], { title: 'PROGRESS: demo' }, { title: 'PROGRESS: demo' }), 'PROGRESS: demo');\n});\n```",
+            "UT: [C005 preservation] Empty series keeps the legacy report and title\n```js\ntest('keeps the legacy report when the series is empty', () => {\n  const root = materializeBundle('workspace-min.json').root;\n  const result = spawnSync(process.execPath, [CLI, '-t', root, '--no-open', '--dry-run'], {\n    encoding: 'utf8',\n    env: { ...process.env, CLAUDE_CONFIG_DIR: emptyConfigDir() },\n  });\n  assert.equal(result.status, 0, result.stderr);\n  assert.match(result.stdout, /canvas: 796x384/);\n  assert.match(result.stdout, /overall progress: \\d+%/);\n  assert.doesNotMatch(result.stdout, /IF-DeepSeek-Flash/);\n});\n```",
+            "UT: [Title width] Shrink only when a frame title exists\n```js\ntest('fits frame titles and leaves the legacy title untouched', () => {\n  const ctx = { font: '', measureText: (text) => ({ width: text.length * 7 }) };\n  assert.equal(fitTitleSize(ctx, 'short', 400, 14), 14);\n  assert.ok(fitTitleSize(ctx, 'x'.repeat(200), 100, 14) < 14);\n  assert.equal(selectTitle({}, { title: 'PROGRESS: demo' }, { title: 'fallback' }), 'PROGRESS: demo');\n});\n```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "claude-usage.js contained the JSONL scanner, bucket math and an unconditional main() call",
+              "after": "progress-gif/usage.js exports aggregateUsage, dailySeries, summarize and DEFAULT_PRICES; claude-usage.js is a thin guarded CLI over the shared module",
+              "description": "Removed the 4.13x duplicate-content-block inflation by counting each message.id once and keeping the maximum streaming snapshot per field."
+            },
+            {
+              "before": "draw-progress-gif.js built the model and rendered the static PROGRESS: <name> title",
+              "after": "run()/main() are async, collect the target usage series once, attach model.usage and model.titleName, and keep every other output unchanged",
+              "description": "Usage scan failures become one existing-section warning and never fail generation."
+            },
+            {
+              "before": "buildFrames emitted frames without title data",
+              "after": "each frame carries the cumulative title for its rendered date, or undefined when the series is empty",
+              "description": "Sparse date lookup adds zero for missing dates and switches only at date boundaries."
+            },
+            {
+              "before": "drawHeader always drew options.title at 14px",
+              "after": "drawHeader prefers frame.title, fits an over-width usage title down to 10px, and leaves the legacy title path byte-equivalent",
+              "description": "No change to the legacy title when usage is unavailable."
+            },
+            {
+              "before": "tests covered the existing CLI and renderer only",
+              "after": "tests/conver/usage.test.mjs adds 11 unit/integration cases and cli.test.mjs adds 2 usage integration cases",
+              "description": "Contract coverage C001-C005, three-copy equality, and legacy preservation are asserted."
+            },
+            {
+              "before": "the three script copies were synchronized but lacked the new module",
+              "after": "claude-usage.js, draw-progress-gif.js, progress-gif/usage.js, loop.js and engine.js are byte-identical in all three copies",
+              "description": "Copy equality is asserted by a test."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
         }
       ]
     },

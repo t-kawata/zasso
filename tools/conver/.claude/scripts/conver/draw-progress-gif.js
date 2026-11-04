@@ -16,7 +16,8 @@ import {
   ticketsOf,
   ticketKeyOf,
 } from './progress-gif/parse.js';
-import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames } from './progress-gif/loop.js';
+import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, displayDateKey } from './progress-gif/loop.js';
+import { aggregateUsage, dailySeries } from './progress-gif/usage.js';
 import { computeLayout, formatPercent } from './progress-gif/layout.js';
 import { renderHtml } from './progress-gif/html.js';
 import { countUnresolvedStubs } from './progress-gif/stubs.js';
@@ -268,8 +269,26 @@ function sources() {
   };
 }
 
-export function run(root, options) {
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+async function collectUsageSeries(root, model) {
+  try {
+    const result = await aggregateUsage({
+      directory: root,
+      dateKey: (ms) => displayDateKey(ms, 'ms'),
+    });
+    model.warnings.push(...result.warnings);
+    return dailySeries(result.groups);
+  } catch (error) {
+    model.warnings.push(`usage unavailable: ${error.message}`);
+    return [];
+  }
+}
+
+export async function run(root, options) {
   const model = analyzeWorkspace(root, options);
+  const titleName = path.basename(root);
+  model.titleName = titleName;
+  model.usage = await collectUsageSeries(root, model);
   const estimatedLayout = computeLayout(model, { measureText: (text) => String(text).length * 7, scale: options.scale });
   const fitted = fitFramesToCeiling(estimatedLayout, options.frames, options.maxBytes);
   if (fitted.frames !== options.frames) {
@@ -284,7 +303,7 @@ export function run(root, options) {
   const outputDir = path.join(root, 'progress-gif');
   fs.mkdirSync(outputDir, { recursive: true });
   const { base, stamp } = uniqueBase(outputDir, new Date());
-  const title = `PROGRESS: ${path.basename(root)}`;
+  const title = `PROGRESS: ${titleName}`;
   const usedText = collectUsedText(model, { title });
   const font = loadFontBundle(path.join(MODULE_DIR, 'progress-gif', 'fonts'), usedText);
   model.warnings.push(...font.warnings);
@@ -319,7 +338,7 @@ function openBrowser(file) {
   }
 }
 
-export function main() {
+export async function main() {
   try {
     const options = parseArgs();
     const root = path.resolve(expandHome(options.target));
@@ -330,7 +349,7 @@ export function main() {
       throw new WorkspaceError(`target is not a directory: ${root}`, 2, 'Pass an existing workspace directory with -t.');
     }
     if (!stat.isDirectory()) throw new WorkspaceError(`target is not a directory: ${root}`, 2, 'Pass an existing workspace directory with -t.');
-    run(root, options);
+    await run(root, options);
   } catch (error) {
     if (error instanceof WorkspaceError) {
       process.stderr.write(`[ERROR] ${error.message}\nCause: ${error.message}\nAction: ${error.action || 'Fix the input and re-run.'}\n`);

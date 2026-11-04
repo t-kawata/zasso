@@ -13,6 +13,7 @@ const UNLIT_DOT_COLOUR = '#222a36';
 const HEADER_BAR_TRACK_COLOUR = '#1b2430';
 const HEADER_PERCENT_COLOUR = '#b8c2d6';
 const HEADER_TITLE_SIZE = 14;
+const MIN_TITLE_SIZE = 10;
 const HEADER_DATE_SIZE = 20;
 const HEADER_STAGE_SIZE = 18;
 const HEADER_PERCENT_SIZE = 11;
@@ -362,15 +363,38 @@ function drawProgressBar(ctx, layout, frame) {
   });
 }
 
-// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+export function selectTitle(frame, options, header) {
+  return (frame && frame.title) || options.title || header.title;
+}
+
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+export function fitTitleSize(ctx, text, availableWidth, baseSize, minSize = MIN_TITLE_SIZE) {
+  if (!ctx || typeof ctx.measureText !== 'function') return baseSize;
+  let size = baseSize;
+  ctx.font = `600 ${size}px ${FONT_FAMILY}`;
+  while (size > minSize && ctx.measureText(text).width > availableWidth) {
+    size -= 1;
+    ctx.font = `600 ${size}px ${FONT_FAMILY}`;
+  }
+  return size;
+}
+
+// [::TICKET::] PX-351, PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-352) --for-spec --no-implementation-order`.
 function drawHeader(ctx, layout, frame, options) {
   const scale = layout.scale;
   const header = layout.header;
+  // Usage titles get a fitted size; the legacy title keeps its original rendering.
+  const title = selectTitle(frame, options, header);
+  const baseTitleSize = HEADER_TITLE_SIZE * scale;
+  const titleSize = frame && frame.title
+    ? fitTitleSize(ctx, title, layout.width - header.titleX * 2, baseTitleSize)
+    : baseTitleSize;
   drawText(ctx, {
-    text: options.title || header.title,
+    text: title,
     x: header.titleX,
     y: header.titleY,
-    font: `600 ${HEADER_TITLE_SIZE * scale}px ${FONT_FAMILY}`,
+    font: `600 ${titleSize}px ${FONT_FAMILY}`,
     colour: '#eef2ff',
   });
   drawProgressBar(ctx, layout, frame);

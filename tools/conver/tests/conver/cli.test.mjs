@@ -6,16 +6,23 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { parseArgs } from '../../.claude/scripts/conver/draw-progress-gif.js';
 import { materializeBundle, writeWorkspace } from './fixtures.mjs';
 
 const CLI = path.resolve(new URL('../../.claude/scripts/conver/draw-progress-gif.js', import.meta.url).pathname);
+const EMPTY_CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-empty-config-'));
+fs.mkdirSync(path.join(EMPTY_CONFIG_DIR, 'projects'), { recursive: true });
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-349, PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-352) --for-spec --no-implementation-order`.
 function run(args) {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return spawnSync(process.execPath, [CLI, ...args], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, CLAUDE_CONFIG_DIR: EMPTY_CONFIG_DIR },
+  });
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -105,4 +112,54 @@ test('missing manifests exit 2 with a cause and an action', () => {
   assert.match(result.stderr, /\[ERROR\]/);
   assert.match(result.stderr, /Cause:/);
   assert.match(result.stderr, /Action:/);
+});
+
+test('a populated usage log embeds the cumulative series in the HTML', () => {
+  const { root } = materializeBundle('workspace-min.json');
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-usage-config-'));
+  const projectDir = path.join(configDir, 'projects', root.replace(/[^a-zA-Z0-9]/g, '-'));
+  fs.mkdirSync(projectDir, { recursive: true });
+  const record = {
+    type: 'assistant',
+    timestamp: '2026-01-01T12:00:00.000Z',
+    cwd: root,
+    message: {
+      id: 'msg-1',
+      model: 'deepseek-flash',
+      usage: {
+        input_tokens: 1000000,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 1000000,
+        output_tokens: 1000000,
+      },
+      content: [{ type: 'text' }],
+    },
+  };
+  fs.writeFileSync(path.join(projectDir, 'session.jsonl'), `${JSON.stringify(record)}\n`);
+
+  const result = spawnSync(process.execPath, [CLI, '-t', root, '--no-open'], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, CLAUDE_CONFIG_DIR: configDir },
+  });
+  assert.equal(result.status, 0, result.stderr);
+
+  const htmlName = fs.readdirSync(path.join(root, 'progress-gif'))
+    .find((name) => name.endsWith('.html'));
+  const html = fs.readFileSync(path.join(root, 'progress-gif', htmlName), 'utf8');
+  assert.match(html, /"titleName":"workspace-min"/);
+  assert.match(html, /"usage":\[\{/);
+  assert.match(html, /"cacheHitInputTokens":1000000/);
+});
+
+test('an empty usage config keeps the legacy title and adds no warning', () => {
+  const { root } = materializeBundle('workspace-min.json');
+  const result = run(['-t', root, '--no-open']);
+  assert.equal(result.status, 0, result.stderr);
+
+  const htmlName = fs.readdirSync(path.join(root, 'progress-gif'))
+    .find((name) => name.endsWith('.html'));
+  const html = fs.readFileSync(path.join(root, 'progress-gif', htmlName), 'utf8');
+  assert.match(html, /"usage":\[\]/);
+  assert.doesNotMatch(result.stdout, /usage unavailable/);
 });

@@ -33,6 +33,49 @@ const GRAPH_STEPS = ['0', '1', '2', '3', '4', '5'];
 const BOUNDIFY_STEPS = ['0', '1', '2', '3'];
 const SPLIT_STEPS = ['0-1', '0-2', '1', '2', '3', '4-1', '4-2', '5-1', '5-2', '5-3', '6'];
 const CRYSTALIZE_STEPS = 4;
+export const MILLION = 1e6;
+
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+export const ZERO_USAGE = Object.freeze({
+  cacheMissInputTokens: 0,
+  cacheHitInputTokens: 0,
+  outputTokens: 0,
+  costUsd: 0,
+});
+
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+function padDatePart(value) {
+  return String(value).padStart(2, '0');
+}
+
+/** Date key that matches the date components formatDate renders for the same precision. */
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+export function displayDateKey(timestamp, precision) {
+  const date = new Date(timestamp || 0);
+  const useUtc = precision === 'day';
+  const year = useUtc ? date.getUTCFullYear() : date.getFullYear();
+  const month = (useUtc ? date.getUTCMonth() : date.getMonth()) + 1;
+  const day = useUtc ? date.getUTCDate() : date.getDate();
+  return `${year}-${padDatePart(month)}-${padDatePart(day)}`;
+}
+
+/** Return the cumulative usage for the last date bucket at or before dateKey. */
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+export function usageAtDate(series, dateKey) {
+  let found = null;
+  for (const entry of series || []) {
+    if (entry.date <= dateKey) found = entry;
+    else break;
+  }
+  return found ? { ...found.cumulative } : { ...ZERO_USAGE };
+}
+
+/** Render the approved title-bar format. Rounding happens here, not while accumulating. */
+// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+export function formatUsageTitle(name, cumulative) {
+  const inMillions = (value) => Math.ceil((Number(value) || 0) / MILLION);
+  return `PROGRESS: ${name || 'PROGRESS'} | I/C/O = ${inMillions(cumulative.cacheMissInputTokens)}M/${inMillions(cumulative.cacheHitInputTokens)}M/${inMillions(cumulative.outputTokens)}M | IF-DeepSeek-Flash: $${Math.ceil(Number(cumulative.costUsd) || 0)}`;
+}
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function clamp01(value) {
@@ -562,6 +605,9 @@ export function buildFrames(model, options = {}) {
       const weighted = packageModels.reduce((sum, pkg) => sum + pkg.progress[stageIndex] * Math.max(1, pkg.total), 0);
       return weighted / weight;
     });
+    const cumulativeUsage = (model.usage || []).length > 0
+      ? usageAtDate(model.usage, displayDateKey(lastT, lastPrec))
+      : null;
     frames.push({
       index,
       t: lastT,
@@ -574,6 +620,9 @@ export function buildFrames(model, options = {}) {
       active,
       rootPulse,
       growth: growthThisFrame,
+      title: cumulativeUsage && model.titleName
+        ? formatUsageTitle(model.titleName, cumulativeUsage)
+        : undefined,
       density: packageFrames.length > 0
         ? packageFrames.reduce((sum, pkg) => sum + pkg.density, 0) / packageFrames.length
         : 0,
