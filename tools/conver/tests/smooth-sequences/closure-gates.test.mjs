@@ -1,3 +1,4 @@
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // The gates /smooth-sequences must not pass over.
 //
 // A pass from the acceptance gate used to mean only that its own checks found nothing.
@@ -10,15 +11,17 @@ import assert from 'node:assert/strict';
 import { CLOSURE_GATES, runClosureGates } from '../../.claude/scripts/smooth-sequences/lib/closure-gates.mjs';
 import { buildCertificate } from '../../.claude/scripts/shared-obligations/certificate.mjs';
 
-test('the closure gates are the four the transaction runs', () => {
+test('the closure gates are the five the transaction runs', () => {
   const scripts = CLOSURE_GATES.map((gate) => gate.script);
   assert.deepEqual(scripts, [
     'check-obligation-coverage.js',
     'check-contribution-completeness.js',
     'check-distribution-completeness.js',
     'defect-report.js',
+    'check-formula-completeness.js',
   ]);
   assert.deepEqual(CLOSURE_GATES[3].args('/workspace'), ['/workspace', '--gate']);
+  assert.deepEqual(CLOSURE_GATES[4].args('/workspace'), ['/workspace']);
 });
 
 test('a failing gate is reported by script and by the refusal it wrote', () => {
@@ -29,7 +32,7 @@ test('a failing gate is reported by script and by the refusal it wrote', () => {
   const result = runClosureGates({ root: '/workspace', run });
 
   assert.equal(result.ok, false);
-  assert.equal(result.gates.length, 4);
+  assert.equal(result.gates.length, 5);
   assert.equal(result.gates[0].script, 'check-obligation-coverage.js');
   assert.equal(result.gates[0].reason, 'unstated denominator: 1');
 });

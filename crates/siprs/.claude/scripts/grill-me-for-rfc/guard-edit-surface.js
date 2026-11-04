@@ -14,9 +14,11 @@
  * Exit 0 — the path is one this command generates.
  * Exit 1 — the path is a frozen input, matches no rule, or was not given.
  */
-import { basename } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 
 import { OBLIGATION_RECORD_BASENAME } from '../sequences-slice/lib/obligation.mjs';
+import { SEED_FILENAME, parseSeedIdentity, resolveWorkspaceRoot } from '../spec-formula/identity.mjs';
 
 /** The basenames this command generates, and may therefore correct anywhere. */
 const GENERATED_BASENAMES = ['RFC.md', 'DesignTree.json', 'CheckList.md', 'Status.json'];
@@ -49,8 +51,13 @@ const FROZEN_BASENAMES = [
   'SEQUENCES.json',
 ];
 
-/** The specification is versioned, so it is matched by pattern rather than by name. */
-const SPECIFICATION_BASENAME_PATTERN = /^GaiaSekkeiShiyousho_v.*\.md$/;
+/**
+ * The legacy specification name, kept only for a workspace that has no readable seed.
+ *
+ * The authority is the seed's `source_spec.path`; this pattern is the fallback that
+ * keeps an older workspace default-deny rather than newly permissive.
+ */
+const LEGACY_SPECIFICATION_BASENAME_PATTERN = /^GaiaSekkeiShiyousho_v.*\.md$/;
 
 /** Where a defect belonging to a frozen input is resolved instead. */
 const OWNING_RFC_ALTERNATIVE = "resolve it in the owning RFC's output";
@@ -59,21 +66,59 @@ const UNKNOWN_RULE_DETAIL = 'unknown path; extend the allow-list deliberately';
 
 const USAGE = 'usage: guard-edit-surface.js <path> [--why] [--json]';
 
+/** The nearest seed above a path, or null. */
+// [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+function findSeedPath(startDirectory) {
+  let directory = resolve(startDirectory);
+  for (;;) {
+    const candidate = join(directory, SEED_FILENAME);
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(directory);
+    if (parent === directory) return null;
+    directory = parent;
+  }
+}
+
+/** The specification the seed names, or null when no seed can be read. */
+// [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+function resolveSeededSpecification(target, explicitSeed) {
+  const seedPath = explicitSeed ?? findSeedPath(dirname(resolve(target)));
+  if (seedPath === null || !existsSync(seedPath)) return null;
+
+  try {
+    const identity = parseSeedIdentity(readFileSync(seedPath, 'utf8'));
+    const workspaceRoot = resolveWorkspaceRoot(seedPath);
+    return {
+      seedPath,
+      path: identity.sourceSpec.path,
+      resolved: workspaceRoot === null ? null : resolve(workspaceRoot, identity.sourceSpec.path),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Classify one basename against the boundary.
+ * Classify one path against the boundary.
  *
- * @param {string} name
+ * @param {string} target
+ * @param {{path: string, resolved: string|null}|null} specification
  * @returns {{ allowed: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-239, PX-260, PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-239|PX-260|PX-261) --for-spec --no-implementation-order`.
-function classifyBasename(name) {
+// [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+function classifyPath(target, specification) {
+  const name = basename(target);
   if (GENERATED_BASENAMES.includes(name)) {
     return { allowed: true, rule: 'generated', detail: 'a file this command generates' };
   }
   if (JUDGMENT_RECORD_BASENAMES.includes(name)) {
     return { allowed: true, rule: 'record', detail: 'the package obligation record this run writes its judgments into' };
   }
-  if (FROZEN_BASENAMES.includes(name) || SPECIFICATION_BASENAME_PATTERN.test(name)) {
+
+  const resolvedTarget = resolve(target);
+  const sealedBySeed = specification !== null
+    && (name === basename(specification.path) || resolvedTarget === specification.resolved);
+  if (FROZEN_BASENAMES.includes(name) || sealedBySeed || LEGACY_SPECIFICATION_BASENAME_PATTERN.test(name)) {
     return { allowed: false, rule: 'frozen', detail: `a stage-1 input; ${OWNING_RFC_ALTERNATIVE}` };
   }
   return { allowed: false, rule: 'unknown', detail: UNKNOWN_RULE_DETAIL };
@@ -81,14 +126,15 @@ function classifyBasename(name) {
 
 /**
  * @param {string[]} argv
- * @returns {{ target: string, why: boolean, json: boolean }}
+ * @returns {{ target: string, why: boolean, json: boolean, seed: string|null }}
  */
-// [::TICKET::] PX-239 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-239 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239, PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-239|PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   return {
     target: argv.find((arg) => !arg.startsWith('--')) ?? '',
     why: argv.includes('--why'),
     json: argv.includes('--json'),
+    seed: argv.find((arg) => arg.startsWith('--seed='))?.slice('--seed='.length) ?? null,
   };
 }
 
@@ -97,7 +143,7 @@ function parseArgs(argv) {
  * @returns {number} the exit status
  */
 export function run(argv) {
-  const { target, why, json } = parseArgs(argv);
+  const { target, why, json, seed } = parseArgs(argv);
 
   if (target.length === 0) {
     process.stderr.write(`${USAGE}\n`);
@@ -105,11 +151,12 @@ export function run(argv) {
   }
 
   const name = basename(target);
-  const verdict = classifyBasename(name);
+  const specification = resolveSeededSpecification(target, seed);
+  const verdict = classifyPath(target, specification);
 
   if (json) {
     process.stdout.write(
-      `${JSON.stringify({ path: target, basename: name, allowed: verdict.allowed, rule: verdict.rule })}\n`,
+      `${JSON.stringify({ path: target, basename: name, allowed: verdict.allowed, rule: verdict.rule, seed: specification?.seedPath ?? null })}\n`,
     );
   }
 

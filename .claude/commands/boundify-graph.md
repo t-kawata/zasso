@@ -262,6 +262,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" start-step 3
 node "$CLAUDE_DIR/scripts/rfc-graph/generate-all-dir-templates.js" --dry-run
 node "$CLAUDE_DIR/scripts/rfc-graph/generate-all-dir-templates.js"
 node "$CLAUDE_DIR/scripts/rfc-graph/verify-unit-file-coverage.js"
+node "$CLAUDE_DIR/scripts/rfc-graph/verify-formula-file-coverage.js"
 node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" end-step 3
 ```
 
@@ -269,6 +270,8 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-boundify-step-status.js" end-step 3
 
 - header: source graph, mapped nodes, language, timestamp; language-appropriate comment.
 - header units line: every mapped node's `unitIds` are written as `units: <comma-separated ids>`; a file with no mapped units omits the line.
+- header formulas line: every mapped node's `formulaIds` are written as `formulas: <comma-separated fx ids>`; a file with no mapped formulas omits the line.
+- formula placement: `distribution.formulas[<fx-id>]` records `{nodeIds, filePaths, symbols}`. Every formula resolves to one node and a leaf file whose header names it; a notation-only formula may name an RFC record instead of a runtime file, but it still needs a node and a symbol. `verify-formula-file-coverage.js` reports `FORMULA_WITHOUT_NODE`, `FORMULA_WITHOUT_INDEX`, `FORMULA_WITHOUT_FILE`, `FORMULA_WITHOUT_SYMBOL`, `FORMULA_HEADER_MISSING` and `HEADER_FORMULA_NOT_ON_NODE`.
 - unit placement: every unit-bearing node resolves to a leaf file. An architecture node with units gets a designated entry file (`mod.rs`, `doc.go`, `index.ts`); a prose node with a unit is `UNIT_REQUIRES_FILE`. `verify-unit-file-coverage.js` reports `UNIT_WITHOUT_FILE`, `UNIT_WITHOUT_HEADER` and `HEADER_UNIT_NOT_ON_NODE`.
 - empty/unimplemented: language/kind declaration stub: struct declaration or function signature + implementation TODO comment.
 - prose-node connection: header embeds design-intent reference; explicit `→`/`←`, connected file path.

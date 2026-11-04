@@ -1,3 +1,4 @@
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 /**
  * The smallest two-package distribution that proves the graph-stage scope.
  *
@@ -329,9 +330,20 @@ export function writeSmoothVerdict(root, options = {}) {
     remainingOpen: 0,
     effortDebt: 0,
     assuranceSchemaVersion: 1,
+    formulaCompleteness: {
+      status: 'pass', specDigest: '55'.repeat(32), specFormulas: 1,
+      transcribed: 1, missing: 0, invented: 0, unowned: 0, packages: 1, findings: 0,
+    },
   };
   const statusPath = join(smoothDirectory, 'status.json');
   writeFileSync(statusPath, JSON.stringify(status, null, 2));
+  const worklistPath = join(smoothDirectory, 'SPEC-COMPLETENESS-WORKLIST.json');
+  writeFileSync(worklistPath, JSON.stringify({
+    schemaVersion: 1,
+    specDigest: status.formulaCompleteness.specDigest,
+    summary: status.formulaCompleteness,
+    worklist: [],
+  }, null, 2));
   let certificatePath = null;
   if (certificate !== null) {
     certificatePath = join(smoothDirectory, 'COMPLETION-CERTIFICATE.json');
@@ -341,7 +353,7 @@ export function writeSmoothVerdict(root, options = {}) {
       inputs: { artifact: resolvedArtifactDigest },
     }, null, 2));
   }
-  return { status, statusPath, certificatePath, artifactDigest: resolvedArtifactDigest, inputDigest: status.inputDigest };
+  return { status, statusPath, certificatePath, worklistPath, artifactDigest: resolvedArtifactDigest, inputDigest: status.inputDigest };
 }
 
 /** Write the workspace-level receipt through the real gate. */

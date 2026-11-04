@@ -47,7 +47,7 @@ The workflow flow is `make → plan → start → review`, currently executing `
 
 ## Argument Interpretation
 
-- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-53`) → Ticket key. Required.
+- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-{id}`) → Ticket key. Required.
 - No argument → Interrupt with error
 - Numeric only → Interrupt with error
 - Anything else → Interrupt with error
@@ -186,6 +186,8 @@ node "$CLAUDE_DIR/scripts/tickets/preflight-stub-cleanup.js"
 
 Begin implementation based on the plan from the immediately preceding `/plan-ticket` execution.
 Comply with the **Implementation Order** below and the following supreme laws:
+
+**Formula obligations.** Every `## Formula Obligations` row is an implementation obligation. Realize it at `implementation.path#symbol` with the named `design.class` and `design.how`; carry the `origin` quotation into the code comment that explains the constraint; add every named test. A changed digest, a missing symbol, or a test obligation that does not exist is a defect; do not mark the ticket done.
 
 #### **Reference — Implementation Order (TDD Red-Green-Refactor)**
 
@@ -329,7 +331,7 @@ node "$CLAUDE_DIR/scripts/tickets/validate-ticket-targets.js" \
 
 *When to use*: The AI MAY defer a targetCrime **only when the Deferral policy's clear-danger condition is met** — continuing poses a clear, demonstrated danger (e.g. unrecoverable state corruption or a pipeline-wide deadlock with no safe recovery). If a targetCrime genuinely cannot be resolved safely in this session without a separate AI-executable ticket, defer it by creating that ticket. This is the **exception**, not the default — resolve on the spot whenever possible.
 
-*What the flow does*: `create-crime-deferral-ticket.js` routes through the **shared creation core** (`generic-ticket-creation.js`, PX-2). `createCrimeDeferralTicket` calls `createTickets` with a **`crimeDeferral` seed**, which:
+*What the flow does*: `create-crime-deferral-ticket.js` routes through the **shared creation core** (`generic-ticket-creation.js`). `createCrimeDeferralTicket` calls `createTickets` with a **`crimeDeferral` seed**, which:
 1. deep-clones the ticket being started (`$ARGUMENTS`) via `createTicketFromSource`,
 2. appends a **non-PX ticket in the max phase** (status `todo`),
 3. sets the matching `targetCrime`'s `deferredTo` to the new key — satisfying `validate-ticket-targets.js` Check 9 (ORPHAN_TICKET_REF requires a valid deferredTo),

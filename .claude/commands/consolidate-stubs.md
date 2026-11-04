@@ -80,7 +80,7 @@ judge: key = active-future-todo ticket covering the work; else original complete
 | Forbidden | Why | Instead |
 |---|---|---|
 | `MUST RESOLVE` | unspecified target — cannot be cloned/tracked, marker becomes orphan | re-point to original completed ticket (or active future todo) |
-| `PX-*` (e.g. `PX-5`) | PX-phase ordering is ambiguous — rejected by tooling | use a normal `P{phase}-{id}` key |
+| `PX-*` (e.g. `PX-{id}`) | PX-phase ordering is ambiguous — rejected by tooling | use a normal `P{phase}-{id}` key |
 | a key not in `Tickets.json` | non-existent ticket cannot be cloned by find-omissions | choose an existing ticket |
 | a terminal-excuse plan (e.g. "awaiting approval") | plan must be AI-executable or no-excuse gate fails | rewrite as an imperative deliverable |
 

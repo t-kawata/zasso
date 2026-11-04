@@ -1,3 +1,4 @@
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // PX-316 smooth verdict contracts: the workspace receipt, its freshness and the gate.
 // @verifies C001
 // @verifies C002
@@ -102,7 +103,7 @@ test('C002 an RFC-only edit after the receipt is not stale', () => {
   try {
     assert.deepEqual(verifySmoothVerdict({ packageDir: fixture.packageDir, writeReceipt: true }).findings, []);
     const receipt = JSON.parse(readFileSync(join(fixture.workspaceRoot, 'SMOOTH-VERDICT.json'), 'utf8'));
-    assert.equal(receipt.schemaVersion, 3);
+    assert.equal(receipt.schemaVersion, 4);
     assert.ok(receipt.viewDigests['pkg-0001']);
     const rfcPath = join(fixture.packageDir, 'RFC.md');
     const original = readFileSync(rfcPath, 'utf8');
@@ -143,9 +144,9 @@ test('C004 the accepted verdict is frozen in a workspace-level receipt', () => {
     assert.equal(existsSync(receiptPath), true);
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     assert.deepEqual(Object.keys(receipt).sort(), [
-      'artifactDigest', 'certificateStatus', 'checkedAt', 'generation', 'inputDigest',
-      'legacy', 'mapDigests', 'reportDigest', 'schemaVersion', 'statusDigest', 'verdictPass',
-      'viewDigests', 'workspaceRoot',
+      'artifactDigest', 'certificateStatus', 'checkedAt', 'formulaCompleteness', 'generation',
+      'inputDigest', 'legacy', 'mapDigests', 'reportDigest', 'schemaVersion', 'statusDigest',
+      'verdictPass', 'viewDigests', 'worklistDigest', 'workspaceRoot',
     ]);
     assert.equal(receipt.statusDigest, sha256File(fixture.statusPath));
     const firstBytes = readFileSync(receiptPath, 'utf8');
@@ -194,6 +195,35 @@ test('C006 outside a workspace the gate is skipped and reports the skip', () => 
     assert.equal(result.receipt, null);
   } finally {
     rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('C007 a smooth status without a passing formula summary is refused', () => {
+  const fixture = createWorkspace();
+  try {
+    const status = JSON.parse(readFileSync(fixture.statusPath, 'utf8'));
+    delete status.formulaCompleteness;
+    writeFileSync(fixture.statusPath, JSON.stringify(status));
+    const refused = verifySmoothVerdict({ packageDir: fixture.packageDir });
+    assert.ok(refused.findings.some((finding) => finding.code === 'SMOOTH_FORMULA_INCOMPLETE'));
+  } finally {
+    rmSync(fixture.workspaceRoot, { recursive: true, force: true });
+  }
+});
+
+test('C007 a worklist changed after the receipt is stale', () => {
+  const fixture = createWorkspace();
+  try {
+    assert.deepEqual(verifySmoothVerdict({ packageDir: fixture.packageDir, writeReceipt: true }).findings, []);
+    writeFileSync(join(fixture.workspaceRoot, 'smooth-sequences', 'SPEC-COMPLETENESS-WORKLIST.json'), JSON.stringify({
+      schemaVersion: 1,
+      summary: { status: 'pass' },
+      worklist: [{ package: 'pkg-b', formulaId: 'fx-0123456789ab' }],
+    }));
+    assert.ok(verifySmoothReceipt(fixture.packageDir)
+      .some((finding) => finding.code === 'STALE_SMOOTH_VERDICT'));
+  } finally {
+    rmSync(fixture.workspaceRoot, { recursive: true, force: true });
   }
 });
 

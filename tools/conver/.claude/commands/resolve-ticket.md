@@ -45,7 +45,7 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 
 ## In
 
-- arg (optional): `P{phaseID}-{ticketID}` (e.g. `P0-1`, `PX-53`) → present: enables Step 9a (enumerate) + Step 9b (validate) against this ticket. absent: skip 9a/9b, default mode (Steps 1–10 minus enumerate/validate) — backward compatible.
+- arg (optional): `P{phaseID}-{ticketID}` (e.g. `P0-1`, `PX-{id}`) → present: enables Step 9a (enumerate) + Step 9b (validate) against this ticket. absent: skip 9a/9b, default mode (Steps 1–10 minus enumerate/validate) — backward compatible.
 - numeric-only / other (non-empty, non-matching) → stop (error).
 
 ## Scripts (`.claude/scripts/tickets/`)
@@ -178,7 +178,7 @@ Deferral policy: forbidden by default — resolve every blocker on the spot. per
 
 Escape hatch (no-excuse conditional deferral; use only when the Deferral policy's clear-danger condition is met AND `$ARGUMENTS` is set):
 1. convert the blocker into an AI-executable work item (Check B) — new ticket's scope must contain the internal implementation work (e.g. "Vendor and build PJSIP in build.rs", "Add cpal as an optional dependency"). terminal-excuse language ("blocked on external dependency", "awaiting another team") is FORBIDDEN as justification — every blocker is internal AI work.
-2. create the deferral ticket via `create-deferral-ticket.js` (routes through shared creation core `generic-ticket-creation.js`/PX-2: `createDeferralTicket` → `createTickets` with a `deferral` seed; deep-clones the resolved ticket (`$ARGUMENTS`) via `createTicketFromSource`; appends a non-PX ticket in the max phase, status `todo`; sets the targetStub's `deferredTo` to the new key). `insert-stub.js` rejects `PX-*` and non-todo resolve targets — a PX or past-phase ticket can never receive the deferred STUB. seed shape: `{ type: "deferral", sourceKey: <resolved ticket>, seed: { title, scope, background }, stubId: <targetStub id> }`.
+2. create the deferral ticket via `create-deferral-ticket.js` (routes through shared creation core `generic-ticket-creation.js`: `createDeferralTicket` → `createTickets` with a `deferral` seed; deep-clones the resolved ticket (`$ARGUMENTS`) via `createTicketFromSource`; appends a non-PX ticket in the max phase, status `todo`; sets the targetStub's `deferredTo` to the new key). `insert-stub.js` rejects `PX-*` and non-todo resolve targets — a PX or past-phase ticket can never receive the deferred STUB. seed shape: `{ type: "deferral", sourceKey: <resolved ticket>, seed: { title, scope, background }, stubId: <targetStub id> }`.
 ```bash
 echo '{"title":"Vendor and build PJSIP in build.rs","scope":["build.rs","wrapper.h"],"background":"Blocked on FFI linkage; needs a dedicated implementation ticket"}' \
   | node "$CLAUDE_DIR/scripts/tickets/create-deferral-ticket.js" \

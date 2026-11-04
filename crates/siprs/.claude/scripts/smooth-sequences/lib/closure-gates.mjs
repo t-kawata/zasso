@@ -1,3 +1,4 @@
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // The design-authoring gates the acceptance gate must not pass over.
 //
 // /smooth-sequences is the last command in the pipeline, and a pass from it used to mean
@@ -20,6 +21,7 @@ export const CLOSURE_GATES = Object.freeze([
   { script: 'check-contribution-completeness.js', args: (root) => [root] },
   { script: 'check-distribution-completeness.js', args: (root) => [root] },
   { script: 'defect-report.js', args: (root) => [root, '--gate'] },
+  { script: 'check-formula-completeness.js', args: (root) => [root] },
 ]);
 
 /** The first non-empty line a gate wrote, so the report names the refusal it made. */

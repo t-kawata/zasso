@@ -510,9 +510,14 @@ node "$DRILL_DIR/graphify-step.js" --graph="$GRAPH_PATH" --source="$RFC_PATH" --
 ```
 
 - `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging graph.
+- formula delta: the RFC's `RFC-FORMULAS.json` is the source. Attach the delta to the staging graph before approve:
+  ```bash
+  node "$DRILL_DIR/../rfc-graph/attach-formula-ids.js" --graph="$GRAPH_PATH.staging.json" --sidecar="$RFC_DIR/RFC-FORMULAS.json" --rfc="$RFC_PATH" --write
+  ```
+  The command touches `formulaIds` and `formulaDigest` only; unrelated nodes and edges stay byte-identical.
 - verifier (`verify.js`): uncovered headings, isolated nodes, headingRefs resolvability, uniqueness.
 - Destructive change: deletion forbidden by default; explicit AI approval only; never hand-edit the JSON — design it through the loop.
-- only graph writes: staging `crud.js`; driver promote.
+- only graph writes: staging `crud.js`; driver promote; `attach-formula-ids.js` for formulaIds.
 
 ### Step 3: boundify
 
@@ -544,6 +549,11 @@ node "$DRILL_DIR/boundify-step.js" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR
 ```
 
 - `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging Dirs-Tree.
+- formula delta: `distribution.formulas` and the generated `formulas:` header line follow the graph's `formulaIds`. After the staging graph carries them, merge the index and mapped entries:
+  ```bash
+  node "$DRILL_DIR/../rfc-graph/attach-formula-ids.js" --graph="$GRAPH_PATH" --sidecar="$RFC_DIR/RFC-FORMULAS.json" --rfc="$RFC_PATH" --dirs-tree="$DIRS_TREE_PATH.staging.json" --write
+  ```
+  Then re-run `verify-formula-file-coverage.js` on the staging pair. A missing index entry, file or symbol is a high finding and returns to Step 2.
 - validator (`validate-dirs-tree-schema`): GRAPH/Dirs-Tree consistency, `mappedNodeIds` resolution, dependency cycles.
 - PASS effects: delta-only `newFiles` via `generate-dir-templates-delta.js`, Initial Design Artifact header; existing mapped-file headers/cross-references via `refresh-file-headers.js` when graph delta given; never implementation body.
 - delta generator inapplicable → AI may hand-create file.
@@ -578,6 +588,11 @@ node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 ```
 
 - `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging Tickets.
+- formula delta: after the ticket edits, project the RFC formulas onto the staging Tickets before approve:
+  ```bash
+  node "$DRILL_DIR/../tickets/merge-formulas-to-tickets.js" --tickets="$TICKETS_PATH.staging.json" --dirs-tree="$DIRS_TREE_PATH" --sidecar="$RFC_DIR/RFC-FORMULAS.json" --spec="$SPEC_PATH" --tree-manifest="$WORKSPACE_ROOT/WORKSPACIFY-TREE-MANIFEST.json" --write
+  ```
+  The merge writes `formulaObligations` only; statuses, scope and contracts stay as the staging edits left them. A missing ticket, duplicate implementer or `RFC.md` origin is a high finding and blocks approve.
 - validator (`validate-tickets`): title/round/metadata/phases/ticket-status/phaseId consistency.
 - never silently overwrite status.
 - Destructive change: ticket deletion forbidden by default; explicit AI approval only; never hand-edit the JSON.
@@ -599,6 +614,7 @@ node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-
 | Dirs-Tree ↔ src: planned files / src extras | high / low |
 | GRAPH ↔ Tickets `nodeIds`: every non-Prose node ticketed | high |
 | dangling Dirs-Tree/Tickets references → extant GRAPH target | high |
+| formula obligation set/digest differs between RFC sidecar, GRAPH and Tickets | high |
 | edge contracts ↔ connecting Tickets contracts; orphan-free | high |
 
 - high finding → exit 1; back to Step 2; repair Steps 2 → 3 → 4; re-run G5 until exit 0.

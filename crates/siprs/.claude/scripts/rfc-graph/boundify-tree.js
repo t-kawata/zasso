@@ -193,7 +193,7 @@ function resolveNodeToDirMap(graph, hierarchy) {
  * `unitIds` is omitted when empty so a Dirs-Tree written before the units line keeps
  * its byte shape; only a node that carries a unit gains the field.
  */
-// [::TICKET::] PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-319 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-319, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-319|PX-361) --for-spec --no-implementation-order`.
 function mappedEntry(node) {
   const entry = {
     nodeId: node.id,
@@ -201,6 +201,9 @@ function mappedEntry(node) {
   };
   if (Array.isArray(node.unitIds) && node.unitIds.length > 0) {
     entry.unitIds = [...node.unitIds];
+  }
+  if (Array.isArray(node.formulaIds) && node.formulaIds.length > 0) {
+    entry.formulaIds = [...node.formulaIds];
   }
   return entry;
 }

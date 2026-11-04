@@ -60,7 +60,7 @@ Done: spec re-exported from current `Tickets.json`; ticket status `planned`; ful
 ## Argument Interpretation
 
 In:
-- `$ARGUMENTS`: required `P{phaseID}-{ticketID}`; e.g. `P0-1`, `PX-53`
+- `$ARGUMENTS`: required `P{phaseID}-{ticketID}`; e.g. `P0-1`, `PX-{id}`
 - pass unchanged to `show-ticket-context.js --ticket-key`
 - missing, numeric-only, or other format → error; stop
 

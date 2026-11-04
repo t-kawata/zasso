@@ -15,6 +15,11 @@
       "pattern": "^[0-9a-f]{64}$",
       "description": "The digest of the RFC distribution-map this graph was built from. Optional: a graph that predates the map remains valid."
     },
+    "formulaDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "The digest of the formula sidecar content this graph carries. Optional: a graph that predates the formula ledger remains valid."
+    },
     "contractChain": {
       "type": "string",
       "enum": ["transition", "obligation"],

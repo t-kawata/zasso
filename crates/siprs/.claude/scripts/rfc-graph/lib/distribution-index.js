@@ -4,6 +4,8 @@
 // layer exists to catch.
 'use strict';
 
+const { buildFormulaIndex } = require('./formula-ids.js');
+
 /**
  * Walk every tree and record the path of each mapped node.
  *
@@ -75,8 +77,8 @@ function collectNodeFilePaths(trees) {
  * @param {string} digest
  * @returns {{ digest: string, units: object }}
  */
-// [::TICKET::] PX-307, PX-319 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-319) --for-spec --no-implementation-order`.
-function buildDistributionIndex(graph, nodeToPaths, digest, nodeToFilePaths = null) {
+// [::TICKET::] PX-307, PX-319, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-319|PX-361) --for-spec --no-implementation-order`.
+function buildDistributionIndex(graph, nodeToPaths, digest, nodeToFilePaths = null, formulaSidecar = null) {
   const units = {};
   const includeFilePaths = nodeToFilePaths !== null;
   for (const node of graph?.nodes ?? []) {
@@ -107,7 +109,11 @@ function buildDistributionIndex(graph, nodeToPaths, digest, nodeToFilePaths = nu
       ...(includeFilePaths ? { filePaths: [...units[unitId].filePaths].sort() } : {}),
     };
   }
-  return { digest, units: sorted };
+  return {
+    digest,
+    units: sorted,
+    ...(formulaSidecar === null ? {} : { formulas: buildFormulaIndex(graph, formulaSidecar, nodeToFilePaths ?? new Map()) }),
+  };
 }
 
 /**

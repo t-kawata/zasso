@@ -313,12 +313,15 @@ async function appendNodeUnitIds(tickets, graph) {
  * @param {string[]} argv — process.argv (typically pass process.argv directly)
  * @returns {{ ticketsJsonPath: string|null, dirsTreePath: string|null, phaseArg: string|null, error: string|null }}
  */
-// [::TICKET::] PX-334, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-342) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-334, PX-342, PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-342|PX-362) --for-spec --no-implementation-order`.
 function parseCliArguments(argv, options = {}) {
   const cwd = options.cwd || process.cwd();
   const args = argv.slice(2);
   const ticketsFlag = args.find((arg) => typeof arg === "string" && arg.startsWith("--tickets="));
   const workBudgetFlag = args.find((arg) => typeof arg === "string" && arg.startsWith("--work-budget="));
+  const formulaSidecarFlag = args.find((arg) => typeof arg === "string" && arg.startsWith("--formula-sidecar="));
+  const formulaSpecFlag = args.find((arg) => typeof arg === "string" && arg.startsWith("--formula-spec="));
+  const formulaTreeManifestFlag = args.find((arg) => typeof arg === "string" && arg.startsWith("--formula-tree-manifest="));
   const enforceWorkBudget = args.includes("--enforce-work-budget");
   // Legacy forms must keep their positional indices, including a missing or null
   // argument that names the missing parameter. Flag forms use the string-only list.
@@ -398,6 +401,9 @@ function parseCliArguments(argv, options = {}) {
     phaseArg,
     graphPath,
     enforceWorkBudget,
+    formulaSidecarPath: formulaSidecarFlag ? path.resolve(cwd, formulaSidecarFlag.slice("--formula-sidecar=".length)) : null,
+    formulaSpecPath: formulaSpecFlag ? path.resolve(cwd, formulaSpecFlag.slice("--formula-spec=".length)) : null,
+    formulaTreeManifestPath: formulaTreeManifestFlag ? path.resolve(cwd, formulaTreeManifestFlag.slice("--formula-tree-manifest=".length)) : null,
     workBudgetPath,
     error: null,
   };
@@ -736,7 +742,7 @@ async function attachPrerequisites({ ticketsDocument, graphData, view, packageDi
   }
 }
 
-// [::TICKET::] PX-323, PX-328, PX-342, PX-347, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328|PX-342|PX-347|PX-356) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-328, PX-342, PX-347, PX-356, PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-328|PX-342|PX-347|PX-356|PX-362) --for-spec --no-implementation-order`.
 async function main() {
   const parsed = parseCliArguments(process.argv);
   if (parsed.error) {
@@ -751,6 +757,9 @@ async function main() {
     graphPath,
     enforceWorkBudget,
     workBudgetPath,
+    formulaSidecarPath,
+    formulaSpecPath,
+    formulaTreeManifestPath,
   } = parsed;
 
   // 1. Read ticket array from stdin
@@ -979,6 +988,24 @@ async function main() {
   }
 
   // 7. Validation passed — write to file
+  if (formulaSidecarPath !== null && formulaSpecPath !== null) {
+    const { mergeFormulasToTickets } = require("./merge-formulas-to-tickets");
+    const formulaResult = mergeFormulasToTickets({
+      ticketsDocument,
+      ticketsPath: resolvedPath,
+      dirsTreePath,
+      sidecarPath: formulaSidecarPath,
+      specPath: formulaSpecPath,
+      treeManifestPath: formulaTreeManifestPath,
+      write: false,
+    });
+    if (!formulaResult.ok) {
+      for (const finding of formulaResult.findings) {
+        console.error(finding.code + ": [" + finding.subject + "] " + finding.message);
+      }
+      process.exit(EXIT_FAILURE);
+    }
+  }
   writeJsonAtomically(resolvedPath, ticketsDocument);
 
   // 8. Output results

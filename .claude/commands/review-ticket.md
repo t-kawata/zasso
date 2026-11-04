@@ -48,7 +48,7 @@ make → plan → start → **review** (this command)
 
 ## In
 
-- arg: `P{phaseID}-{ticketID}` (e.g. `P0-1`, `PX-53`) → ticket key → `show-ticket-context.js --ticket-key`
+- arg: `P{phaseID}-{ticketID}` (e.g. `P0-1`, `PX-{id}`) → ticket key → `show-ticket-context.js --ticket-key`
 - missing / numeric-only / other → stop (error)
 
 ## Criteria — Boy Scout Rule (advisory, detect via grep, all noun-phrase fail patterns)
@@ -261,6 +261,12 @@ Heal-loop contracts+targets:
 either exits 1 → fix reported violations (resolve remaining stubs, update statuses); re-run
 both pass → Step 11
 rule: loop until both G7 and G7b pass before proceeding
+
+### Step 10c
+G7c formula obligations: re-run the merge dry-run against the current graph and Dirs-Tree:
+`node "$CLAUDE_DIR/scripts/tickets/merge-formulas-to-tickets.js" --tickets=Tickets.json --dirs-tree="<Dirs-Tree>" --sidecar="<RFC-FORMULAS.json>" --spec="<artifact.spec.path>"`
+exit 1 → a missing ticket, duplicate implementer, changed digest, `RFC.md` origin, missing symbol or missing test is reported by formula id; fix and re-run. No `--write` at review: the check proves the existing record, it does not repair it.
+both G7 and G7b pass and G7c exits 0 → Step 11
 
 ### Step 11
 publish:

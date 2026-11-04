@@ -740,8 +740,43 @@ function renderImplementationPrerequisites(ticket, tickets) {
 
 /** The distribution units of a ticket as a spec section, or null when the ticket has none. */
 // [::TICKET::] PX-321, PX-322, PX-324 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324) --for-spec --no-implementation-order`.
-function renderDistributionObligations(ticket, options = {}) {
-  const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
+/**
+ * The formula obligations this ticket implements.
+ *
+ * A reader must see the original specification quotation, the implementation anchor and
+ * the test that proves the realization. The section is absent on a ticket written before
+ * the formula ledger existed, which is not an error.
+ */
+// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+function renderFormulaObligations(ticket) {
+  const obligations = Array.isArray(ticket.formulaObligations) ? ticket.formulaObligations : [];
+  if (obligations.length === 0) return null;
+
+  const lines = ['## Formula Obligations', ''];
+  for (const obligation of obligations) {
+    lines.push(`### ${obligation.id ?? '?'} — ${obligation.design?.class ?? 'class undeclared'}`);
+    lines.push('');
+    lines.push(`- Body: \`${obligation.body ?? ''}\``);
+    lines.push(`- Original specification: \`${obligation.origin?.path ?? '?'}:L${obligation.origin?.line ?? '?'}\`${obligation.origin?.segment ? ` (segment ${obligation.origin.segment})` : ''}`);
+    if (obligation.origin?.quote) lines.push(`- Quote: ${obligation.origin.quote}`);
+    lines.push(`- Implementation: \`${obligation.implementation?.path ?? '?'}#${obligation.implementation?.symbol ?? '?'}\` (${obligation.implementation?.kind ?? '?'})`);
+    lines.push(`- Design: ${obligation.design?.how ?? '?'}`);
+    if (obligation.design?.types?.length > 0) lines.push(`- Types: ${obligation.design.types.join(', ')}`);
+    if (obligation.design?.errors?.length > 0) lines.push(`- Errors: ${obligation.design.errors.join(', ')}`);
+    if (obligation.design?.edgeCases?.length > 0) lines.push(`- Edge cases: ${obligation.design.edgeCases.join(', ')}`);
+    if (obligation.theory?.symbols?.length > 0) {
+      lines.push(`- Theory symbols: ${obligation.theory.symbols.map((entry) => `${entry.symbol ?? '?'} = ${entry.definition ?? '?'}`).join('; ')}`);
+    }
+    if (obligation.theory?.norms?.length > 0) lines.push(`- Normative lines: ${obligation.theory.norms.join('; ')}`);
+    lines.push(`- Tests: ${(obligation.tests ?? []).join('; ')}`);
+    lines.push(`- Digest: \`${obligation.digest ?? '?'}\``);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+function renderDistributionObligations(ticket, options = {}) {  const units = Array.isArray(ticket?.distribution?.units) ? ticket.distribution.units : [];
   if (units.length === 0) return null;
   const lines = ['## Distribution Obligations', ''];
   for (const unit of units) {
@@ -823,7 +858,7 @@ function renderDistributionObligations(ticket, options = {}) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-321, PX-322, PX-324, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322, PX-324, PX-341, PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341|PX-362) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, options = {}) {
   const lines = [];
 
@@ -1108,6 +1143,13 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
+  // Formula obligations (the specification mathematics this ticket realizes)
+  const formulaObligations = renderFormulaObligations(ticket);
+  if (formulaObligations !== null) {
+    lines.push(formulaObligations);
+    lines.push('');
+  }
+
   // Implementation prerequisites (the per-ticket order split derived and the entry gate checks)
   const implementationPrerequisites = renderImplementationPrerequisites(ticket, tickets);
   if (implementationPrerequisites !== null) {
@@ -1333,6 +1375,7 @@ module.exports = {
   parseTicketKey,
   findTicket,
   renderDistributionObligations,
+  renderFormulaObligations,
   renderImplementationPrerequisites,
   renderWorkShare,
   stepOwnerLabel,

@@ -114,7 +114,7 @@ function checkRequiredFields(dirsTree, errors) {
  * @param {object} dirsTree — Dirs-Tree.json object to validate
  * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
-// [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-361) --for-spec --no-implementation-order`.
 function checkDistributionField(dirsTree, errors) {
   const distribution = dirsTree.distribution;
   if (distribution === undefined) return;
@@ -127,6 +127,23 @@ function checkDistributionField(dirsTree, errors) {
   }
   if (distribution.units === null || typeof distribution.units !== 'object' || Array.isArray(distribution.units)) {
     errors.push('distribution.units must be an object');
+  }
+  if (distribution.formulas !== undefined) {
+    if (distribution.formulas === null || typeof distribution.formulas !== 'object' || Array.isArray(distribution.formulas)) {
+      errors.push('distribution.formulas must be an object');
+      return;
+    }
+    for (const [formulaId, entry] of Object.entries(distribution.formulas)) {
+      if (!/^fx-[0-9a-f]{12}$/.test(formulaId)) {
+        errors.push(`distribution.formulas key "${formulaId}" must match fx-<digest12>`);
+        continue;
+      }
+      for (const field of ['nodeIds', 'filePaths', 'symbols']) {
+        if (!Array.isArray(entry?.[field])) {
+          errors.push(`distribution.formulas.${formulaId}.${field} must be an array`);
+        }
+      }
+    }
   }
 }
 

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-281 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-281 --for-spec --no-implementation-order`.
@@ -125,6 +126,7 @@ export function writeGeneration(input) {
     findingKeysDigest = null,
     schemaHistory = [],
     calibrationDigest = null,
+    formulaCompleteness = null,
     now = new Date().toISOString(),
   } = input;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -189,6 +191,7 @@ export function writeGeneration(input) {
     remainingOpen: Number.isInteger(report.remainingOpen) ? report.remainingOpen : null,
     effortDebt: report.effortDebt ?? null,
     assuranceSchemaVersion: report.certificate?.assuranceSchemaVersion ?? null,
+    formulaCompleteness,
   }, null, STATUS_INDENT)}\n`);
   return { mode: MODE_NEW_GENERATION, generation, ...paths };
 }

@@ -497,7 +497,7 @@ function withPreservedRunAccounting(status, statusPath) {
  *
  * @param {string[]} [testArgs] — Test argument array
  */
-// [::TICKET::] PX-307, PX-308, PX-319, PX-334, PX-339, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-319|PX-334|PX-339|PX-341) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-307, PX-308, PX-319, PX-334, PX-339, PX-341, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-307|PX-308|PX-319|PX-334|PX-339|PX-341|PX-361) --for-spec --no-implementation-order`.
 function main(testArgs, options = {}) {
   // ---- Step 1-2: Argument parsing and graph loading ----
   const { graphPath, graphDir, basename, flags } = parseArguments(testArgs, options);
@@ -587,7 +587,17 @@ function main(testArgs, options = {}) {
   // It is written only when graphify recorded a map digest, so a package that predates
   // the map keeps its old Dirs-Tree shape.
   if (typeof graph.distributionDigest === "string") {
-    dirsTree.distribution = buildDistributionIndex(graph, collectNodePaths(trees), graph.distributionDigest, collectNodeFilePaths(trees));
+    const formulaSidecarPath = path.join(path.dirname(graphPath), "RFC-FORMULAS.json");
+    const formulaSidecar = fs.existsSync(formulaSidecarPath)
+      ? JSON.parse(fs.readFileSync(formulaSidecarPath, "utf8"))
+      : null;
+    dirsTree.distribution = buildDistributionIndex(
+      graph,
+      collectNodePaths(trees),
+      graph.distributionDigest,
+      collectNodeFilePaths(trees),
+      formulaSidecar,
+    );
     const coverage = verifyDistributionCoverage(dirsTree, graph);
     if (!coverage.ok) {
       const details = [

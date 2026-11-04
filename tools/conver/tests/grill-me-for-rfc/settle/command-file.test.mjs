@@ -1,3 +1,4 @@
+// [::TICKET::] PX-359 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-359 --for-spec --no-implementation-order`.
 // PX-234 @verifies C004
 // PX-234 @verifies C005
 // [::TICKET::] PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-234 --for-spec --no-implementation-order`.
@@ -164,15 +165,17 @@ test('C007 invariant: the RFC Hard Constraints gained the two ledgers and the tw
   assert.match(section, /every cross-package edge states its \*\*counterpart\*\*/);
 });
 
-test('C007 invariant: STEP 5b and STEP 7b exist, and 7b follows 7a', () => {
+test('C007 invariant: STEP 5b, STEP 5c and STEP 7b exist, and 7b follows 7a', () => {
   const text = commandText();
   const step5b = text.indexOf('### STEP 5b');
+  const step5c = text.indexOf('### STEP 5c');
   const step6 = text.indexOf('### STEP 6');
   const step7a = text.indexOf('### STEP 7a');
   const step7b = text.indexOf('### STEP 7b');
   const step8 = text.indexOf('### STEP 8');
 
   assert.ok(step5b > 0 && step5b < step6, 'STEP 5b sits between STEP 5 and STEP 6');
+  assert.ok(step5c > step5b && step5c < step6, 'STEP 5c sits after 5b and before 6');
   assert.ok(step7b > step7a && step7b < step8, 'STEP 7b sits after STEP 7a and before STEP 8');
 });
 
@@ -198,18 +201,19 @@ test('C007 invariant: STEP 1 states that a denominator gap withholds without sto
 });
 
 // [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
-test('C007 invariant: the STEP 8 gate carries nine conditions and the defect gate', () => {
+test('C007 invariant: the STEP 8 gate carries ten conditions and the defect gate', () => {
   const text = commandText();
   const start = text.indexOf('### STEP 8:');
   const section = text.slice(start, text.indexOf('### STEP 8a', start));
 
-  assert.match(section, /gate \(all 9 required\)/);
+  assert.match(section, /gate \(all 10 required\)/);
   assert.match(section, /defect-report\.js --gate` exits 0/);
   assert.match(section, /seed divergence ledger and the defect ledger are present and well formed/);
   // PX-261: the guarantee has two halves and both are required where the package declares DONE.
   assert.match(section, /check-obligation-coverage\.js "\$WORKSPACE_ROOT"` exits 0/);
   assert.match(section, /check-ledger-discharge\.js "\$WORKSPACE_ROOT"` exits 0/);
   assert.match(section, /every unit every view holds is accounted for by its own package's distribution ledger/);
+  assert.match(section, /check-formula-coverage\.js "\$RFC_DIR"` exits 0/);
 });
 
 test('C007 invariant: STEP 8a carries the cross-directory re-entry item', () => {

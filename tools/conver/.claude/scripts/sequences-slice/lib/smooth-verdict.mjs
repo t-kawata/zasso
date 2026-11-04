@@ -1,3 +1,4 @@
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 /**
  * The smooth verdict gate the graph stage sits behind.
  *
@@ -18,7 +19,10 @@ const require = createRequire(import.meta.url);
 const { findAllocateManifest, findSingleSiblingPath } = require('../../lib/package-artifacts.js');
 
 /** The receipt schema this module writes and reads. */
-export const SMOOTH_VERDICT_SCHEMA_VERSION = 3;
+export const SMOOTH_VERDICT_SCHEMA_VERSION = 4;
+
+/** The workspace S8 worklist the smooth status and the receipt bind. */
+export const SPEC_COMPLETENESS_WORKLIST_PATH = 'smooth-sequences/SPEC-COMPLETENESS-WORKLIST.json';
 
 /** The tree manifest that names every package path. */
 const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
@@ -35,6 +39,7 @@ export const SMOOTH_VERDICT_CODES = Object.freeze({
   SMOOTH_ARTIFACT_MISMATCH: 'SMOOTH_ARTIFACT_MISMATCH',
   MISSING_SMOOTH_RECEIPT: 'MISSING_SMOOTH_RECEIPT',
   MISSING_SMOOTH_ARTIFACT: 'MISSING_SMOOTH_ARTIFACT',
+  SMOOTH_FORMULA_INCOMPLETE: 'SMOOTH_FORMULA_INCOMPLETE',
 });
 
 /** One named finding. */
@@ -193,6 +198,22 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
       receipt: null,
     };
   }
+  if (status.formulaCompleteness?.status !== 'pass') {
+    return {
+      ok: false,
+      findings: [finding(SMOOTH_VERDICT_CODES.SMOOTH_FORMULA_INCOMPLETE, statusPath, 'smooth did not certify the workspace formula union')],
+      receipt: null,
+    };
+  }
+  const worklistPath = join(workspaceRoot, SPEC_COMPLETENESS_WORKLIST_PATH);
+  if (!existsSync(worklistPath)) {
+    return {
+      ok: false,
+      findings: [finding(SMOOTH_VERDICT_CODES.SMOOTH_FORMULA_INCOMPLETE, worklistPath, 'the formula completeness worklist is missing')],
+      receipt: null,
+    };
+  }
+  const worklistDigest = sha256File(worklistPath);
 
   const artifactPath = rootArtifactPath(workspaceRoot);
   if (artifactPath === null) {
@@ -214,6 +235,8 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
       && existing.artifactDigest === artifactDigest
       && JSON.stringify(existing.viewDigests) === JSON.stringify(viewDigests)
       && JSON.stringify(existing.mapDigests) === JSON.stringify(mapDigests)
+      && existing.worklistDigest === worklistDigest
+      && existing.formulaCompleteness?.status === 'pass'
       && existing.verdictPass === true) {
     return { ok: true, findings: [], receipt: existing };
   }
@@ -253,6 +276,8 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
     artifactDigest,
     viewDigests,
     mapDigests,
+    worklistDigest,
+    formulaCompleteness: status.formulaCompleteness,
     certificateStatus: certificate?.status ?? null,
     verdictPass: true,
     legacy: certificate === null,
@@ -288,6 +313,16 @@ export function verifySmoothReceipt(packageDir) {
   }
   if (receipt.verdictPass !== true) {
     findings.push(finding(SMOOTH_VERDICT_CODES.SMOOTH_VERDICT_NOT_PASS, receiptPath, 'the receipt does not record a pass verdict'));
+  }
+  if (receipt.formulaCompleteness?.status !== 'pass') {
+    findings.push(finding(SMOOTH_VERDICT_CODES.SMOOTH_FORMULA_INCOMPLETE, receiptPath, 'the receipt does not record a pass formula summary; rerun graphify Step 0'));
+  }
+
+  const worklistPath = join(workspaceRoot, SPEC_COMPLETENESS_WORKLIST_PATH);
+  if (!existsSync(worklistPath)) {
+    findings.push(finding(SMOOTH_VERDICT_CODES.SMOOTH_FORMULA_INCOMPLETE, worklistPath, 'the formula completeness worklist is missing'));
+  } else if (receipt.worklistDigest !== sha256File(worklistPath)) {
+    findings.push(finding(SMOOTH_VERDICT_CODES.STALE_SMOOTH_VERDICT, worklistPath, 'the formula completeness worklist changed after the receipt'));
   }
 
   const statusPath = join(workspaceRoot, 'smooth-sequences', 'status.json');

@@ -52,7 +52,7 @@ Done: validated `Tickets.json` ticket, `specs/<ticketKey>.md`, status `made`.
 ## Argument Interpretation
 
 In:
-- `$ARGUMENTS`: required `P{phaseID}-{ticketID}`; e.g. `P0-1`, `PX-53`
+- `$ARGUMENTS`: required `P{phaseID}-{ticketID}`; e.g. `P0-1`, `PX-{id}`
 - pass unchanged to `show-ticket-context.js --ticket-key`
 - missing, numeric-only, or other format → error; stop
 - Run from the package directory that holds the target ticket's `Tickets.json`. Steps 0 and 1 resolve that file relative to the current directory, so a same-keyed ticket in another directory is not the target.
@@ -136,7 +136,7 @@ Missing ticket → Not Found.
 
 ### Step 1.5: Distribution brief (conditional)
 
-Run only when Step 1 output contains `## Distribution Obligations` or `## Implementation Prerequisites`. If it does not, skip to Step 2; Case B and a pre-split ticket keep their old workflow.
+Run only when Step 1 output contains `## Distribution Obligations`, `## Formula Obligations` or `## Implementation Prerequisites`. If it does not, skip to Step 2; Case B and a pre-split ticket keep their old workflow.
 
 Treat the section as authoritative machine output. Read it in this order:
 
@@ -145,6 +145,7 @@ Treat the section as authoritative machine output. Read it in this order:
 3. **Reference work** — units whose `obligation.mode` is `reference`; consume the provider, never reimplement it. Name the `implementer ticket` key or `provider packages` in `testIntegration` (or `testUnit` for a unit-level consumption assertion). A note alone does not satisfy the gate.
 4. **Boundary contracts** — each `ctr-*` unit's `direction` and `counterpart`, and every boundary a local step crosses (a `crosses` axis). Each boundary names its precondition, postcondition and invariant. These are the shared invariant the two sides must agree on. The registry contract id is `contract-<boundary_id>`; the Gate S/R annotation uses that exact id. A crossed boundary is delivered even when another ticket owns the `ctr` node, because the implementing step owes the same clauses.
 5. **Implementation prerequisites** — `## Implementation Prerequisites` lists every ticket or package that must reach `done` or `reviewed` before this ticket may be implemented. Read the named provider ticket's spec and implementation as integration context; never reimplement it. The list is derived by the split; never edit it by hand.
+6. **Formula obligations** — `## Formula Obligations` names the formulas this ticket implements: body, original specification location and quote, `implementation.path#symbol`, design class and how, theory and tests. Every row must appear in the Red test plan by formula id or implementation symbol. The origin is the original specification, never `RFC.md`; a consumer ticket may reference a formula but carries no implementation design for it.
 
 If the package view is unreadable, the brief prints `other steps: not available`; do not invent an owner or a contract. Investigate the source named in Step 1 before filling the field.
 

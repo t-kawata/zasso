@@ -352,6 +352,17 @@ echo '<tickets-array-json>' | node "$CLAUDE_DIR/scripts/tickets/add-tickets-for-
 ```
 
 When the package carries `SEQUENCES.json`, the same script also populates each ticket's `distribution` record: the units of the nodes it owns, the operation obligation or consumer reference, the ordered sequence steps whose operations the ticket implements, and `specRefs`. It then writes the Tickets aggregate. The split does not author these records; it only decides which nodes each ticket owns.
+
+Formula obligations follow the same post-creation rule and are never copied by the author:
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/merge-formulas-to-tickets.js" \
+  --tickets=Tickets.json --dirs-tree="$DIRS_TREE_PATH" \
+  --sidecar="$RFC_DIR/RFC-FORMULAS.json" --spec="$SPEC_PATH" \
+  --tree-manifest="$WORKSPACE_ROOT/WORKSPACIFY-TREE-MANIFEST.json" --write
+```
+
+Every formula reaches one implementing ticket through its node or file. The obligation carries `origin.path` as `artifact.spec.path` (never `RFC.md`), the specification line and quote, the implementation `path#symbol`, the design class and how, the theory and the tests. A missing ticket, a duplicate implementer, a `RFC.md` origin or a missing symbol/test is refused before `Tickets.json` is written. `add-tickets-for-phase.js` accepts `--formula-sidecar`, `--formula-spec` and `--formula-tree-manifest` to run the same merge in memory before its own write.
 After all 5-2 phase loops, `merge-contracts-to-tickets.js` reads `RFC-STEP-CONTRACTS.json` and adds each sequence step's operation-boundary contract to the ticket's `contracts` with `stepId`, `sequenceId`, `sourceStep` and the contract prose. It also projects every registry boundary into the ticket that carries its `ctr` unit and into every ticket whose local step crosses that boundary (`crosses`), so the implementing step owes the same clauses even when another ticket owns the boundary node. `show-ticket-context --for-spec` renders them under `## Operation-Boundary Contracts`, `## Contracts`, and `### Work Share`, and `show-ticket-distribution` renders them beside the step. A sidecar row that reaches no ticket or a ticket contract whose digest differs is `CONTRACT_CHAIN_OPEN` or `STEP_CONTRACT_MISMATCH`. Two contracts with one id in the same ticket are `DUPLICATE_CONTRACT_ID`. The sidecar carries an `edges` map from each edge to the row indexes it binds; the edge note is the bounded `step-sidecar;digest:<hex>` pointer, not a per-row list, so an operation with any number of steps stays under the 240-character note limit.
 
 A phase owns its own nodes. The 5-2 gate checks the units and steps reachable from `phase.nodeIds`, so a unit implemented in P1 is not a P0 omission. The package-global guarantee is the final `verify-chain`: every graph unit reaches a ticket, every owned sequence step reaches exactly one ticket, and an operation has exactly one implementing ticket across all phases. The aggregate keys a ticket by `PX-{id}` in the PX phase and `P{phaseId}-{id}` otherwise, never by the numeric id alone.

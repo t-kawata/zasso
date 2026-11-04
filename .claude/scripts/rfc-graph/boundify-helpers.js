@@ -590,7 +590,7 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, anchor = {}) {
  * @param {string} lang - Language ('rust' | 'go' | 'typescript')
  * @returns {string} Header comment string (including newlines)
  */
-// [::TICKET::] P22-15, PX-319, PX-336, PX-337, PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-15|PX-319|PX-336|PX-337|PX-341) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-15, PX-319, PX-336, PX-337, PX-341, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-15|PX-319|PX-336|PX-337|PX-341|PX-361) --for-spec --no-implementation-order`.
 function generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang, anchor = {}) {
   const path = require('path');
   const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
@@ -668,6 +668,12 @@ function generateHeaderComment(headerPaths, mappedNodeIds, crossReferences, lang
     const firstNodeId = typeof mappedNodeIds[0] === 'string' ? mappedNodeIds[0] : mappedNodeIds[0]?.nodeId;
     lines.push(commentPrefix + ' units: ' + unitIds.join(', '));
     lines.push(commentPrefix + '   → To show the node and its contract edges: ' + queryCommand(firstNodeId, 1));
+  }
+
+  const formulaIds = [...new Set((mappedNodeIds ?? []).flatMap((entry) =>
+    (typeof entry === 'object' && Array.isArray(entry.formulaIds) ? entry.formulaIds : [])))];
+  if (formulaIds.length > 0) {
+    lines.push(commentPrefix + ' formulas: ' + formulaIds.join(', '));
   }
 
   // Cross-references (prose node information)

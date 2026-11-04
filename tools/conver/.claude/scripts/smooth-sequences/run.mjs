@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
@@ -27,6 +28,10 @@ import { join, resolve } from 'node:path';
 
 import { CHECK_FAMILY_COUNT, evaluateCheckRegistry } from './lib/check-registry.mjs';
 import { runClosureGates } from './lib/closure-gates.mjs';
+import {
+  runSpecCompleteness,
+  writeSpecCompletenessWorklist,
+} from './lib/checks-spec-completeness.mjs';
 import { buildCertificate, writeCertificate } from '../shared-obligations/certificate.mjs';
 import { decideAll } from '../shared-obligations/decide.mjs';
 import { readEvidenceManifest, sha256File, validateManifestReceipts, validateWriteReceipts } from '../shared-obligations/evidence.mjs';
@@ -504,6 +509,13 @@ export function runCommand(argv, io = {}) {
     const closure = closureMode
       ? (io.runClosureGates ?? runClosureGates)({ root })
       : { ok: true, gates: [] };
+    const specCompleteness = closureMode
+      ? (io.runSpecCompleteness ?? runSpecCompleteness)({
+        root,
+        artifact: loaded.artifact,
+        treeManifest: loaded.treeManifest,
+      })
+      : { ok: true, specDigest: null, summary: { status: 'pass', specFormulas: 0, transcribed: 0, missing: 0, invented: 0, unowned: 0, packages: 0 }, findings: [], worklist: [] };
     const closureBlocked = closure.gates
       .filter((gate) => gate.exitCode !== 0)
       .map((gate) => ({
@@ -535,6 +547,7 @@ export function runCommand(argv, io = {}) {
         producer: producerForBlockedSurface(entry.surface),
         repairClass: 'regeneration',
       })),
+      ...specCompleteness.findings,
       ...closureBlocked,
       ...calibrationBlocked,
     ];
@@ -789,6 +802,12 @@ export function runCommand(argv, io = {}) {
       wouldExit: parsed.audit ? wouldExit : null,
     });
     if (certificate !== null) report.certificate = certificate;
+    report.formulaCompleteness = {
+      status: specCompleteness.summary.status,
+      specDigest: specCompleteness.specDigest,
+      ...specCompleteness.summary,
+      findings: specCompleteness.findings.length,
+    };
     report.calibration = {
       digest: calibration?.digest ?? null,
       digestValid: calibration?.digestValid ?? false,
@@ -808,6 +827,7 @@ export function runCommand(argv, io = {}) {
       findingKeysDigest: computeFindingKeysDigest(findings),
       schemaHistory: provenance.schemaHistory,
       calibrationDigest: calibration?.digest ?? null,
+      formulaCompleteness: report.formulaCompleteness,
     });
     if (closureMode) {
       writeCertificate(root, certificate);
@@ -816,6 +836,7 @@ export function runCommand(argv, io = {}) {
         worklistDigest: worklist[0]?.worklistDigest ?? null,
         legacy: !strictEvidence,
       });
+      writeSpecCompletenessWorklist(root, specCompleteness);
     }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const consoleLines = renderConsoleReport(report, generation);

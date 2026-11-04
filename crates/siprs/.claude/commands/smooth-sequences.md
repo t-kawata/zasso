@@ -67,7 +67,7 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 - Console: one `route:` header/authored surface; one line/finding; `generation: N (new generation|verification; no new generation)`; final `next:`.
 - Exits: `0` pass; `1` blocking findings; `2` misuse/refusal (broken chain, open transaction); `3` AI handoff (ground to settle / educe phase to run); `4` unproven (a required surface is absent or synthesized, a reading is unresolved, the artifact was downgraded from v3 to v2, or a design-authoring gate failed); not a request to a human; only `0` is completion.
 
-Closure mode is a v3 artifact or an evidence manifest, with both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` present. In closure mode the four grill mechanical gates are run here — `check-obligation-coverage.js`, `check-contribution-completeness.js`, `check-distribution-completeness.js` and `defect-report.js --gate` — so a pass from this command means the closure they measure holds too. A failing gate keeps the certificate incomplete with an open entry `CLOSURE:<script>` carrying the gate's first refusal line, and the run exits `4`. `--legacy` does not run them. A command that is not in closure mode is not claiming that closure; say so in the report rather than reading its exit as the pipeline's.
+Closure mode is a v3 artifact or an evidence manifest, with both `WORKSPACIFY-TREE-MANIFEST.json` and `WORKSPACIFY-ALLOCATE-MANIFEST.json` present. In closure mode the five grill mechanical gates are run here — `check-obligation-coverage.js`, `check-contribution-completeness.js`, `check-distribution-completeness.js`, `defect-report.js --gate` and `check-formula-completeness.js` — so a pass from this command means the closure they measure holds too. The fifth gate measures the S8 family: the specification formula set is the denominator, every formula has an owner, every owner carries a ledger row, every row carries theory, realization class, implementation site and tests, and no ledger invents a formula. It writes `smooth-sequences/SPEC-COMPLETENESS-WORKLIST.json`, one row per package, formula, specification location, missing field, producer and rerun. A failing gate keeps the certificate incomplete with an open entry `CLOSURE:<script>` carrying the gate's first refusal line, and the run exits `4`. `--legacy` does not run them. A command that is not in closure mode is not claiming that closure; say so in the report rather than reading its exit as the pipeline's.
 
 Closure mode runs the strict evidence path automatically: it resolves the worklist, requires an effort trace, checks the generation and the write receipts, and reports `evidence: strict`. A structural-only run is not closure evidence and cannot report `pass` or `complete`. `--legacy` is the only weak path; it keeps the old report shape, writes `evidence: legacy`, and cannot claim closure. `--require-effort` and `--strict-freshness` remain accepted for compatibility and are implied in closure mode; to reproduce the closure policy explicitly, run `node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs" <root> --require-effort`.
 
@@ -122,6 +122,18 @@ Every finding has a repair class:
 | `regeneration` | specification-derived artifact findings; allocate decisions | No live-spec edit. Copy to candidate; change candidate or decisions; run transaction |
 | `judgment-required` | unresolved RFC/obligation ground | Step 5: owning AI command in staging; then `continue` |
 | `blocked` | a required surface is absent, migration-synthesized, or has unknown provenance | Step 2: restore the surface with its producer (`migrate-v3 --annotations` for the v3 evidence surfaces; specification regeneration for vocabulary); rerun |
+
+S8 formula findings route by surface:
+
+| finding | producer | class |
+|---|---|---|
+| `S8.formula-missing`, `S8.formula-digest-mismatch`, `S8.theory-incomplete`, `S8.implementation-design-missing`, `S8.cross-package-row-missing`, `S8.formula-invented` | `/grill-me-for-rfc <package>` for the owning package | `judgment-required` |
+| `S8.spec-unreadable`, `S8.spec-hash-mismatch` | specification regeneration transaction | `regeneration` |
+| `S8.formula-unowned`, `S8.segment-coverage` | allocate-decisions regeneration | `regeneration` |
+| `S8.ledger-stale` | package `RFC.md` through `/grill-me-for-rfc <package>` | `in-place` |
+| `S8.waiver-refused` | remove the waiver naming a formula omission | `judgment-required` |
+
+A waiver never removes an S8 formula from the denominator. `SMOOTH-VERDICT.json` carries `formulaCompleteness` and `worklistDigest`; graphify and split refuse a receipt whose summary is not `pass` or whose worklist moved.
 
 Blocked surfaces have no authored file of their own. Every blocked line names its producer. The v3 evidence surfaces (`operations[].allowed_status_transitions`, `operations[].registry_contribution`, `operations[].boundary_effects`, `steps[].contract`, `steps[].contract.authored`, `steps[].contract.crosses`) are restored by an annotations document:
 

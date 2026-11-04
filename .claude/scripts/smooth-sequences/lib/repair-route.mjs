@@ -1,3 +1,4 @@
+// [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
@@ -34,6 +35,26 @@ export const DETECTOR_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/
 export const SEQUENCES_SLICE_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs"';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const MIGRATE_V3_ANNOTATIONS_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/migrate-v3.mjs" <root> --annotations=<file>';
+
+/** The package grill that re-authors a formula ledger. */
+const GRILL_PACKAGE_COMMAND = '/grill-me-for-rfc';
+
+/** The S8 findings whose repair is a regeneration of the specification. */
+const S8_REGENERATION_CHECK_IDS = Object.freeze(['S8.spec-unreadable', 'S8.spec-hash-mismatch']);
+
+/** The S8 findings whose repair is allocate-decision regeneration. */
+const S8_ALLOCATE_CHECK_IDS = Object.freeze(['S8.formula-unowned']);
+
+/** The S8 findings whose repair is a package re-grill. */
+const S8_GRILL_CHECK_IDS = Object.freeze([
+  'S8.formula-missing',
+  'S8.formula-digest-mismatch',
+  'S8.theory-incomplete',
+  'S8.implementation-design-missing',
+  'S8.cross-package-row-missing',
+  'S8.formula-invented',
+  'S8.segment-coverage',
+]);
 
 /** The producer that restores one blocked evidence surface. */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -131,6 +152,20 @@ const ALLOCATE_CHECK_IDS = Object.freeze([
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const PACKAGE_RFC_CHECK_IDS = Object.freeze(['S7.rfc-boundary-missing']);
 
+const S8_SPEC_CHECK_IDS = Object.freeze(['S8.spec-unreadable', 'S8.spec-hash-mismatch']);
+const S8_ALLOCATE_ROUTE_CHECK_IDS = Object.freeze(['S8.formula-unowned']);
+const S8_PACKAGE_RFC_CHECK_IDS = Object.freeze([
+  'S8.formula-missing',
+  'S8.formula-invented',
+  'S8.formula-digest-mismatch',
+  'S8.theory-incomplete',
+  'S8.implementation-design-missing',
+  'S8.cross-package-row-missing',
+  'S8.segment-coverage',
+  'S8.ledger-stale',
+  'S8.waiver-refused',
+]);
+
 // [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 const PACKAGE_VIEW_CHECK_IDS = Object.freeze([
@@ -149,6 +184,9 @@ export const REPAIR_ROUTE_BY_CHECK_ID = Object.freeze(Object.fromEntries([
   ...SPEC_CHECK_IDS.map((checkId) => [checkId, SURFACE.SPEC]),
   ...ALLOCATE_CHECK_IDS.map((checkId) => [checkId, SURFACE.ALLOCATE_DECISIONS]),
   ...PACKAGE_RFC_CHECK_IDS.map((checkId) => [checkId, SURFACE.PACKAGE_RFC]),
+  ...S8_SPEC_CHECK_IDS.map((checkId) => [checkId, SURFACE.SPEC]),
+  ...S8_ALLOCATE_ROUTE_CHECK_IDS.map((checkId) => [checkId, SURFACE.ALLOCATE_DECISIONS]),
+  ...S8_PACKAGE_RFC_CHECK_IDS.map((checkId) => [checkId, SURFACE.PACKAGE_RFC]),
   ...PACKAGE_VIEW_CHECK_IDS.map((checkId) => [checkId, SURFACE.PACKAGE_VIEW]),
 ]));
 
@@ -195,6 +233,38 @@ function buildSpecTarget(context) {
 export function repairRouteFor(checkId, context = {}) {
 // [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+  if (S8_REGENERATION_CHECK_IDS.includes(checkId)) return buildSpecTarget(context);
+  if (S8_ALLOCATE_CHECK_IDS.includes(checkId)) {
+    return {
+      where: appendLocator(ALLOCATE_DECISIONS_PATH, context.locator),
+      producer: REGENERATION_ALLOCATE_COMMAND,
+      repairClass: 'regeneration',
+    };
+  }
+  if (checkId === 'S8.ledger-stale') {
+    const pkg = requirePackage({ ...context, checkId });
+    return {
+      where: appendLocator(`${pkg.path}/RFC.md`, context.locator),
+      producer: `${GRILL_PACKAGE_COMMAND} ${pkg.path}`,
+      repairClass: 'in-place',
+    };
+  }
+  if (checkId === 'S8.waiver-refused') {
+    return {
+      where: 'SMOOTH-SEQUENCES-WAIVERS.json',
+      producer: 'remove the waiver naming a formula omission',
+      repairClass: 'judgment-required',
+    };
+  }
+  if (S8_GRILL_CHECK_IDS.includes(checkId)) {
+    const pkg = requirePackage({ ...context, checkId });
+    return {
+      where: appendLocator(`${pkg.path}/RFC.md`, context.locator),
+      producer: `${GRILL_PACKAGE_COMMAND} ${pkg.path}`,
+      repairClass: 'judgment-required',
+    };
+  }
+
   const surface = context.surface ?? REPAIR_ROUTE_BY_CHECK_ID[checkId];
   if (surface === undefined) {
     throw new SmoothSequencesError(`no repair route for finding ${checkId}`, {

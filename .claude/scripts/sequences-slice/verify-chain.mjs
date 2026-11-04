@@ -42,6 +42,9 @@ import {
   projectionMatches,
 } from './lib/boundary-contract.mjs';
 import { verifySmoothReceipt } from './lib/smooth-verdict.mjs';
+import formulaIdsModule from '../rfc-graph/lib/formula-ids.js';
+
+const { computeFormulaDigest, readFormulaIds } = formulaIdsModule;
 
 export const CHAIN_CODES = Object.freeze({
   STALE_DISTRIBUTION_MAP: 'STALE_DISTRIBUTION_MAP',
@@ -64,6 +67,12 @@ export const CHAIN_CODES = Object.freeze({
   ACTIVE_OPERATION_RESIDUAL: 'ACTIVE_OPERATION_RESIDUAL',
   INVENTED_SEQUENCE: 'INVENTED_SEQUENCE',
   INVENTED_SEQUENCE_STEP: 'INVENTED_SEQUENCE_STEP',
+  FORMULA_SET_MISMATCH: 'FORMULA_SET_MISMATCH',
+  FORMULA_DIGEST_MISMATCH: 'FORMULA_DIGEST_MISMATCH',
+  FORMULA_INDEX_MISMATCH: 'FORMULA_INDEX_MISMATCH',
+  FORMULA_DUPLICATE_TICKET: 'FORMULA_DUPLICATE_TICKET',
+  FORMULA_ORIGIN_INVALID: 'FORMULA_ORIGIN_INVALID',
+  FORMULA_IMPLEMENTATION_MISSING: 'FORMULA_IMPLEMENTATION_MISSING',
 });
 
 /** One named chain finding. */
@@ -193,6 +202,105 @@ function requireImplementerForRole({ unitId, map, view, implementersByUnit, find
   ));
 }
 
+/** Compare the formula sets of two layers. */
+// [::TICKET::] PX-361, PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361|PX-362) --for-spec --no-implementation-order`.
+function compareFormulaSets(actual, expected, layer, findings) {
+  const missing = [...expected].filter((formulaId) => !actual.has(formulaId));
+  const invented = [...actual].filter((formulaId) => !expected.has(formulaId));
+  if (missing.length > 0 || invented.length > 0) {
+    findings.push(finding(CHAIN_CODES.FORMULA_SET_MISMATCH, layer, `${layer} formula set differs; missing=${missing.join(',') || 'none'}; invented=${invented.join(',') || 'none'}`));
+  }
+}
+
+/** Compare the formula set and digest at the graph and Dirs-Tree layers. */
+// [::TICKET::] PX-361, PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361|PX-362) --for-spec --no-implementation-order`.
+function verifyFormulaChain(input) {
+  const { graph, dirsTree, tickets, checkDirs, checkTickets, graphPath, findings } = input;
+  if (typeof graphPath !== 'string' || graphPath.length === 0) return;
+  const sidecarPath = join(dirname(graphPath), 'RFC-FORMULAS.json');
+  const graphIds = new Set((graph?.nodes ?? []).flatMap((node) => readFormulaIds(node)));
+  if (!existsSync(sidecarPath)) {
+    if (graphIds.size > 0) {
+      findings.push(finding(CHAIN_CODES.FORMULA_SET_MISMATCH, 'graph', 'the graph carries formula ids and the sidecar is missing'));
+    }
+    return;
+  }
+
+  let sidecar;
+  try {
+    sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8'));
+  } catch {
+    findings.push(finding(CHAIN_CODES.FORMULA_SET_MISMATCH, 'sidecar', 'RFC-FORMULAS.json is not valid JSON'));
+    return;
+  }
+  const sidecarIds = new Set((sidecar?.formulas ?? []).map((formula) => formula.id));
+  compareFormulaSets(graphIds, sidecarIds, 'formula/graph', findings);
+  if (graph.formulaDigest !== computeFormulaDigest(sidecar)) {
+    findings.push(finding(CHAIN_CODES.FORMULA_DIGEST_MISMATCH, 'graph', 'graph.formulaDigest does not equal the sidecar content digest'));
+  }
+  if (!checkDirs) return;
+
+  const dirsIds = new Set(Object.keys(dirsTree?.distribution?.formulas ?? {}));
+  compareFormulaSets(dirsIds, graphIds, 'formula/dirs', findings);
+  for (const formula of sidecar?.formulas ?? []) {
+    const entry = dirsTree?.distribution?.formulas?.[formula.id];
+    if (entry === undefined) continue;
+    const expected = (graph?.nodes ?? [])
+      .filter((node) => readFormulaIds(node).includes(formula.id))
+      .map((node) => node.id)
+      .sort();
+    if (JSON.stringify([...(entry.nodeIds ?? [])].sort()) !== JSON.stringify(expected)) {
+      findings.push(finding(CHAIN_CODES.FORMULA_INDEX_MISMATCH, formula.id, `dirs index nodeIds do not match the graph carriers`));
+    }
+    if ((entry.symbols ?? []).length === 0) {
+      findings.push(finding(CHAIN_CODES.FORMULA_INDEX_MISMATCH, formula.id, 'dirs index names no realization symbol'));
+    }
+  }
+
+  if (!checkTickets) return;
+  verifyTicketFormulaObligations({ tickets, sidecar, graphIds, findings });
+}
+
+/** Compare the ticket obligations with the graph formula set and the sidecar digests. */
+// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+function verifyTicketFormulaObligations({ tickets, sidecar, graphIds, findings }) {
+  const obligations = (tickets?.phases ?? [])
+    .flatMap((phase) => phase?.tickets ?? [])
+    .flatMap((ticket) => (ticket?.formulaObligations ?? []).map((obligation) => ({ ticket, obligation })));
+  if (obligations.length === 0 && graphIds.size === 0) return;
+
+  const counts = new Map();
+  for (const { obligation } of obligations) {
+    counts.set(obligation.id, (counts.get(obligation.id) ?? 0) + 1);
+  }
+  for (const [formulaId, count] of counts) {
+    if (count > 1) {
+      findings.push(finding(CHAIN_CODES.FORMULA_DUPLICATE_TICKET, formulaId, `${count} tickets implement ${formulaId}`));
+    }
+  }
+
+  const ticketIds = new Set(obligations.map(({ obligation }) => obligation.id));
+  compareFormulaSets(ticketIds, graphIds, 'formula/tickets', findings);
+
+  const sidecarById = new Map((sidecar?.formulas ?? []).map((formula) => [formula.id, formula]));
+  for (const { ticket, obligation } of obligations) {
+    const formula = sidecarById.get(obligation.id);
+    if (formula === undefined) continue;
+    if (obligation.digest !== formula.digest) {
+      findings.push(finding(CHAIN_CODES.FORMULA_DIGEST_MISMATCH, obligation.id, `ticket ${ticket.id} carries a different digest`));
+    }
+    if (typeof obligation.origin?.path !== 'string' || obligation.origin.path.endsWith('RFC.md')) {
+      findings.push(finding(CHAIN_CODES.FORMULA_ORIGIN_INVALID, obligation.id, `ticket ${ticket.id} names ${obligation.origin?.path ?? 'no origin'} instead of the specification`));
+    }
+    if (typeof obligation.implementation?.symbol !== 'string' || obligation.implementation.symbol.length === 0) {
+      findings.push(finding(CHAIN_CODES.FORMULA_IMPLEMENTATION_MISSING, obligation.id, `ticket ${ticket.id} names no implementation symbol`));
+    }
+    if (!Array.isArray(obligation.tests) || obligation.tests.length === 0) {
+      findings.push(finding(CHAIN_CODES.FORMULA_IMPLEMENTATION_MISSING, obligation.id, `ticket ${ticket.id} names no verification test`));
+    }
+  }
+}
+
 /**
  * Verify the chain.
  *
@@ -217,6 +325,7 @@ export function verifyChain(input = {}) {
     stage = 'split',
     preflight = false,
     sidecarPath = null,
+    graphPath = null,
   } = input;
   const findings = [];
   const checkDirs = stage !== 'graphify' && !preflight && dirsTree !== undefined && dirsTree !== null;
@@ -261,6 +370,7 @@ export function verifyChain(input = {}) {
     const dirsUnits = new Set(Object.keys(dirsTree?.distribution?.units ?? {}));
     compareUnitSets(dirsUnits, graphUnits, 'dirs', findings);
   }
+  verifyFormulaChain({ graph, dirsTree, tickets, checkDirs, checkTickets, graphPath, findings });
 
   const validResiduals = validOperationResiduals(artifact, map);
   const artifactScoped = (treeManifest?.inventory?.objects ?? []).length > 0;
@@ -688,7 +798,7 @@ export function main(argv = process.argv.slice(2)) {
   // workspace-level, so a package graphify's Step 0 heading dedup does not invalidate the
   // next package's gate; a smooth rerun changes the status digest and does.
   const smoothFindings = inWorkspace ? verifySmoothReceipt(packagePath) : [];
-  const result = verifyChain({ view, map, graph, dirsTree, tickets, registry, artifact, treeManifest, stage, preflight, sidecarPath });
+  const result = verifyChain({ view, map, graph, dirsTree, tickets, registry, artifact, treeManifest, stage, preflight, sidecarPath, graphPath });
   const findings = [...smoothFindings, ...result.findings];
   for (const entry of findings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
   process.stdout.write(`${JSON.stringify({ ok: findings.length === 0, findings })}\n`);

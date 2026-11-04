@@ -304,6 +304,7 @@ G2 edge-assign:
 node "$CLAUDE_DIR/scripts/rfc-graph/update-step-status.js" --graphify-status="$statusPath" start-step 2
 node "$CLAUDE_DIR/scripts/rfc-graph/crud.js" --graph="$graphPath" create-edges --file=_temp_edges.json
 node "$CLAUDE_DIR/scripts/rfc-graph/attach-unit-ids.js" --graph="$graphPath" --rfc="$sourcePath" --ledger="$sourcePath" --view="$viewPath" --registry="$registryPath"
+node "$CLAUDE_DIR/scripts/rfc-graph/attach-formula-ids.js" --graph="$graphPath" --sidecar="$(dirname "$sourcePath")/RFC-FORMULAS.json" --rfc="$sourcePath" --write
 node "$CLAUDE_DIR/scripts/rfc-graph/project-step-contracts.js" --graph="$graphPath" --view="$viewPath"
 node "$CLAUDE_DIR/scripts/rfc-graph/annotate-contracts.js" "$graphPath"
 node "$CLAUDE_DIR/scripts/rfc-graph/project-boundary-contracts.js" --graph="$graphPath" --registry="$registryPath" --view="$viewPath" --mode=attach
@@ -321,6 +322,8 @@ The proof runs only for a `transition` graph. Declare the policy explicitly in t
 Annotate each edge via `crud.js update-edge --file=<patch.json>` with `{from,to,type,contracts}` **before** the boundary projection, so the projected `C9xx` contract is never overwritten.
 
 `attach-unit-ids.js` reads the `distribution-map` block from `$sourcePath` and, when `--view` is supplied, refuses to proceed unless `sourceViewDigest` equals the current `SEQUENCES.json` digest. A map unit with no node fails `MISSING_UNIT_AT_LAYER`; a node unit outside the map fails `INVENTED_UNIT`; an obligation-only sequence step fails `SEQUENCE_STEPS_UNDISTRIBUTED`. `/graphify-rfc` reads the RFC plus digest-bound sidecars; it does not read a sidecar whose digest it has not checked.
+
+`attach-formula-ids.js` resolves each `RFC-FORMULAS.json` formula through `implementation.rfcSection` to exactly one node, attaches `formulaIds`, and writes `formulaDigest` bound to the sidecar content. A stale sidecar, a missing node, an ambiguous section or an id absent from the sidecar is refused before the graph is written. A graph whose formula set differs from the sidecar fails `FORMULA_SET_MISMATCH` or `FORMULA_DIGEST_MISMATCH` at `verify-chain`.
 The artifact is the denominator. An active operation absent from the view and not a valid suppliedRule residual is `MISSING_OPERATION`; a sequence absent from the view is `MISSING_SEQUENCE`; a step whose operationId, order, line, quote, subject, predicate, object, contract or prose differs is `STEP_IDENTITY_MISMATCH`; a multi-owner operation with no implementer is `OWNER_ROLE_UNDECLARED` at smooth. `verify-chain --stage=graphify` reports these before node splitting is accepted.
 `project-step-contracts.js` writes `RFC-STEP-CONTRACTS.json` beside the graph and a bounded `step-sidecar;digest:<hex>` note on an edge incident to the operation node. The sidecar carries an `edges` map from each edge to the row indexes it binds, so one operation may carry any number of steps without exceeding the 240-character note. Verification accepts both the pointer and a legacy per-row `step:<stepId>;row:<n>` note. `verify-graph-contracts.js` reads the sidecar automatically; a missing row, a changed digest or a note naming no row is `CONTRACT_CHAIN_OPEN` or `STEP_CONTRACT_MISMATCH`. A view that carries step-bearing sequences and has no sidecar is `CONTRACT_CHAIN_OPEN`. The sidecar is the full contract; the note is only the pointer.
 
