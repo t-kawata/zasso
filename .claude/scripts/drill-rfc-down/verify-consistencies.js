@@ -166,7 +166,7 @@ function checkGraphTicketCoverage(graphNodes, tickets) {
 }
 
 /** A finding: a Dirs-Tree or Tickets reference to a node that is not in the GRAPH (high). */
-// [::TICKET::] PX-169, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-368|PX-369) --for-spec --no-implementation-order`.
 function checkDanglingReferences(graphNodes, dirsTree, tickets) {
   const findings = [];
   const graphIds = new Set((graphNodes || []).map((n) => n.id));
@@ -264,7 +264,7 @@ function collectUnitIds(nodes) {
 }
 
 /** The package view beside the RFC, or null when it carries none. */
-// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
 function readViewBeside(rfcPath) {
   if (typeof rfcPath !== 'string' || rfcPath.length === 0) return null;
   try {
@@ -275,7 +275,7 @@ function readViewBeside(rfcPath) {
 }
 
 /** The header text of one mapped file, or null when the file does not exist or carries none. */
-// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
 function readHeaderText(filePath) {
   try {
     const text = fs.readFileSync(filePath, 'utf8');
@@ -291,7 +291,7 @@ function readHeaderText(filePath) {
  * A planned file that does not exist yet is skipped: before implementation the header is
  * not there to check, and a missing file is the plan's business rather than this gate's.
  */
-// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
 function collectHeaderTexts(dirsTree, packageDir) {
   const texts = [];
   const walk = (node, segments) => {
@@ -314,7 +314,7 @@ function collectHeaderTexts(dirsTree, packageDir) {
  * over something. When the view exists, every layer must carry the same unit set, and an
  * omission and an invention are reported apart because they need different repairs.
  */
-// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
 function checkViewUnitChain({ rfcText, view, artifacts, rfcPath, dirsTree }) {
   const viewUnitIds = collectViewUnitIds([view]);
   const ledger = readDistributionLedger(rfcText, new Set(viewUnitIds));
@@ -361,7 +361,7 @@ function checkViewUnitChain({ rfcText, view, artifacts, rfcPath, dirsTree }) {
   return findings;
 }
 
-// [::TICKET::] PX-257, PX-258, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-258|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-257, PX-258, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-258|PX-368|PX-369) --for-spec --no-implementation-order`.
 function verifyConsistencies(rfcLines, { srcDir, artifacts, rfcPath = null }) {
   const { graph, dirsTree, tickets } = artifacts;
   const view = readViewBeside(rfcPath);
@@ -382,7 +382,7 @@ function verifyConsistencies(rfcLines, { srcDir, artifacts, rfcPath = null }) {
   return { ok: high === 0, findings, summary: { high, low, total: findings.length } };
 }
 
-// [::TICKET::] PX-169, PX-257, PX-258, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-257|PX-258|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169, PX-257, PX-258, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-257|PX-258|PX-368|PX-369) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let rfcPath = '';

@@ -376,7 +376,7 @@ function formatResolutionErrorMessage(pathSource, sourcePath) {
  * @param {Object} vars — rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir
  * @returns {string} [VARIABLES] block
  */
-// [::TICKET::] PX-365, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-368|PX-369) --for-spec --no-implementation-order`.
 function formatVariablesBlock(vars) {
   const {
     rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir, workspaceRoot,
@@ -409,7 +409,7 @@ function formatVariablesBlock(vars) {
  * @param {Object} params — materialSummary, pipeline paths, pathSource, present, variablesBlock (optional)
  * @returns {string} Markdown report
  */
-// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
 function formatPreflightMarkdown(options = {}) {
   const { materialSummary, pipeline, pathSource, present, variablesBlock, materialResolution = null } = options;
   const { rfcPath, graphPath, dirsTreePath, readmePath } = pipeline;
@@ -498,7 +498,7 @@ function formatAbortMessage(missing) {
 /**
  * main — CLI entry point (Step 0 Preflight).
  */
-// [::TICKET::] PX-365, PX-366, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-366|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365, PX-366, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-366|PX-368|PX-369) --for-spec --no-implementation-order`.
 function main() {
   if (require.main === module) {
     recordRunHistory('start', RUN_HISTORY);

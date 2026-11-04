@@ -40,7 +40,7 @@ const README_PRESENT_FLAG = '--readme-present=';
 const SEQUENCES_PRESENT_FLAG = '--sequences-present=';
 
 /** Parse the optional material record; a malformed list is refused rather than dropped. */
-// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
 function parseSessionOptions(argv) {
   const options = { materialPaths: null, readmePresent: null, sequencesPresent: null };
   for (const argument of argv) {
@@ -91,7 +91,7 @@ function classifySessionFiles(sessionDir) {
  * Write the three session templates under $SESSION_DIR.
  * Mirrors init.js's template shapes so the session is grill-compatible.
  */
-// [::TICKET::] PX-157, PX-158, PX-159, PX-233, PX-234, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-233|PX-234|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-233, PX-234, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-233|PX-234|PX-368|PX-369) --for-spec --no-implementation-order`.
 function writeSessionTemplates(sessionDir, rfcPath, rfcDir, options = {}) {
   fs.mkdirSync(sessionDir, { recursive: true });
   const now = new Date().toISOString();
@@ -126,7 +126,7 @@ function writeSessionTemplates(sessionDir, rfcPath, rfcDir, options = {}) {
   fs.writeFileSync(path.join(sessionDir, CHECKLIST_FILE), `# RFC 要件チェックリスト\n\n${AI_SUPPLEMENT_COMMENT}\n`, 'utf8');
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159, PX-231, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-231|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-231, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-231|PX-368|PX-369) --for-spec --no-implementation-order`.
 function main() {
   const rfcPath = process.argv[2];
   if (!rfcPath) {

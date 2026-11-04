@@ -46,7 +46,7 @@ export function unitsVisibleToShip(graph) {
 }
 
 /** The unit ids a header names, and the node it names them for. */
-// [::TICKET::] PX-258, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-258|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-258|PX-368|PX-369) --for-spec --no-implementation-order`.
 function readHeader(headerText) {
   const text = String(headerText);
   if (!text.includes('Initial Design Artifact')) return null;

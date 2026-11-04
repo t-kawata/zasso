@@ -65,7 +65,7 @@ function countOpen(ns) {
 
 // ─── Derive step ───
 
-// [::TICKET::] PX-157, PX-158, PX-159, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-368) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-368|PX-369) --for-spec --no-implementation-order`.
 function deriveStep(state, nodes, openCount, loopCount) {
   switch (state) {
     case "GRILLING":
@@ -166,6 +166,7 @@ const { step, label, action, warning } = deriveStep(
 // ─── Display ───
 
 /** One line of the status block. */
+// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
 function writeLine(line) {
   process.stdout.write(`${line}\n`);
 }
