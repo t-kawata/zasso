@@ -153,6 +153,7 @@ Gate: generation = integer; mode ∈ {`new generation`, `verification`}; `next:`
 
 Run directory `<dir of spec-file>/educe-sequences/` holds `status.json`, declaration, readings, worklists, scaffolded checks, supplied material, and `<dir of spec-file>/educe-sequences/archive/` — what each earlier generation read.
 - invocation deletes nothing.
+- When the grill refuses DONE with an unstated operations or sequences denominator, this command is the repair route: it pins the borrowed census in `pins.sourceEnumerations`, and the grill reads it from the artifact. The grill itself never writes `SEQUENCES.md` or `SEQUENCES.json`.
 - new generation: returns loop budget; re-opens every `[read]` phase; moves the declaration and the readings of every `[read]` phase into `<dir of spec-file>/educe-sequences/archive/`, named for the generation that wrote them. It is a rename: nothing is deleted, the previous answers stay readable there, and the gate refuses until the reader writes them again — a reading left in place is a reading that passes without a reader. edited spec inherited by citation; assets no longer citing it named by the rule that decided them.
 - each generation records what its artifact measured: sequences, steps, operations, pin rows, spec lines reached. report prints each number beside previous generation, signed ⇒ returns diminishing across repetitions are visible; reader decides when another is worth asking for.
 - change computed where printed; stored nowhere. reach withholds its change when document length moved (two revisions ≠ one space).

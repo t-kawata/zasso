@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { toHomeRelative } from '../lib/path-utils.js';
+import repairFinding from '../lib/repair-finding.js';
 import {
   DEMAND_AXES,
   DEMAND_RELATIONS,
@@ -34,6 +35,8 @@ import {
 import { SOURCE_ARTIFACT_SUFFIX, VIEW_JSON_NAME } from '../sequences-slice/lib/material.mjs';
 import { packageDirectoriesOf } from '../sequences-slice/lib/package-directories.mjs';
 import { OBLIGATION_SOURCES } from '../sequences-slice/lib/obligation.mjs';
+
+const { createFinding, renderFindings } = repairFinding;
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -57,10 +60,17 @@ function readJsonOrNull(filePath) {
 
 /** The workspace's sequences artifact, or null when the root carries none. */
 // [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
+export function resolveWorkspaceArtifact(root) {
+  const names = fs.existsSync(root)
+    ? fs.readdirSync(root).filter((name) => name.endsWith(SOURCE_ARTIFACT_SUFFIX)).sort()
+    : [];
+  if (names.length === 0) return { artifact: null, code: 'ARTIFACT_MISSING', names };
+  if (names.length > 1) return { artifact: null, code: 'ARTIFACT_AMBIGUOUS', names };
+  return { artifact: readJsonOrNull(path.join(root, names[0])), code: null, names };
+}
+
 function findArtifact(root) {
-  const entries = fs.existsSync(root) ? fs.readdirSync(root) : [];
-  const name = entries.find((entry) => entry.endsWith(SOURCE_ARTIFACT_SUFFIX) && entry.endsWith('.json'));
-  return name === undefined ? null : readJsonOrNull(path.join(root, name));
+  return resolveWorkspaceArtifact(root).artifact;
 }
 
 /**
@@ -220,7 +230,7 @@ function renderUnboundDeclarationLines(views) {
 export const GUARANTEE_LINES = Object.freeze([
   'guarantees: every demand is placed by a named package, by a route that resolves, and every placement is traceable to an RFC section anchor and a ledger row',
   'does not guarantee: that a judgment is the right one, or that the specification names every procedure the project needs',
-  'measured elsewhere: the design node, the implementation header and the ticket are measured by drill-rfc-down Step 5, because they do not exist when this gate runs',
+  'measured elsewhere: the design node and the ticket are measured by drill-rfc-down Step 5; the implementation header is not measured by this gate',
 ]);
 
 // [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
@@ -281,7 +291,7 @@ function renderDenominatorGapLines(coverage) {
   if (coverage.denominatorGaps.length === 0) return [];
   return [
     `unstated denominator: ${coverage.denominatorGaps.length}`,
-    ...coverage.denominatorGaps.map((gap) => `  ${gap.axis}: ${gap.why}. repair: ${gap.repair}`),
+    ...coverage.denominatorGaps.map((gap) => `  ${gap.axis}: ${gap.why}. repair: ${gap.repair} route: ${REPAIR_ROUTE_BY_AXIS[gap.axis]}`),
   ];
 }
 
@@ -291,6 +301,110 @@ function renderVerdictLine(coverage, exemptionCount) {
   const assigned = DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].assigned.length, 0);
   const unassigned = DEMAND_AXES.reduce((total, axis) => total + coverage.axes[axis].unassigned.length, 0);
   return `verdict: ${coverage.verdict} — ${assigned} demand(s) assigned, ${exemptionCount} exempted, ${unassigned} assigned to nobody`;
+}
+
+/** The command that supplies each unstated denominator. */
+const REPAIR_ROUTE_BY_AXIS = Object.freeze({
+  operations: '/educe-sequences (node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path>)',
+  sequences: '/educe-sequences (node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path>)',
+  boundaries: '/workspacify-allocate (node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs")',
+  surfaces: 'the allocation manifest (edit WORKSPACIFY-ALLOCATE-MANIFEST.json)',
+});
+
+const AXIS_REPAIR = Object.freeze({
+  operations: 'run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path> to supply the operations census',
+  sequences: 'run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path> to supply the sequences census',
+  boundaries: 'run node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs" so the contract registry names every boundary',
+  surfaces: 'edit WORKSPACIFY-ALLOCATE-MANIFEST.json to declare the interfaces',
+});
+
+function buildCoverageFindings({ coverage, views, artifactPath, root }) {
+  const verify = `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-obligation-coverage.js" ${root}`;
+  const artifact = artifactPath ?? path.join(root, ALLOCATE_MANIFEST_FILENAME);
+  const findings = [];
+  const add = (input) => findings.push(createFinding({ severity: 'blocking', layer: 'grill', artifact, verify, ...input }));
+
+  for (const gap of coverage.denominatorGaps) {
+    add({
+      code: 'UNSTATED_DENOMINATOR',
+      field: `denominator.${gap.axis}`,
+      cause: `${gap.axis}: ${gap.why}`,
+      action: `${AXIS_REPAIR[gap.axis]}, then run ${verify}`,
+      route: 'upstream',
+    });
+  }
+  for (const axis of DEMAND_AXES) {
+    for (const demand of coverage.axes[axis].unassigned) {
+      add({
+        code: 'UNASSIGNED_DEMAND',
+        field: axis,
+        cause: `${axis} demand ${demand.id} is assigned to nobody`,
+        action: `assign ${demand.id} to a package or record an exemption with a ground, then run ${verify}`,
+        route: 'in-drill',
+      });
+    }
+  }
+  for (const row of coverage.refusedExemptions) {
+    add({
+      code: 'REFUSED_EXEMPTION',
+      field: 'exemptions',
+      cause: describeRefusedExemption(row),
+      action: `place the demand in a package instead of exempting it, then run ${verify}`,
+      route: 'in-drill',
+    });
+  }
+  for (const row of coverage.unresolvedGrounds) {
+    add({
+      code: 'UNRESOLVED_GROUND',
+      field: 'ground',
+      cause: `${row.axis} ${row.subject} cites ${row.ground}`,
+      action: `cite a section or ledger row the workspace holds, then run ${verify}`,
+      route: 'in-drill',
+    });
+  }
+  for (const view of views) {
+    for (const assignment of view.unboundAssignments ?? []) {
+      add({
+        code: 'UNBOUND_ASSIGNMENT',
+        field: 'unboundAssignments',
+        cause: `${view.packageId} names ${assignment}, which the artifact does not hold`,
+        action: `name a unit the artifact holds, then run ${verify}`,
+        route: 'upstream',
+      });
+    }
+    for (const unit of view.obligationUnits ?? []) {
+      if (unit?.relation !== 'serves') continue;
+      const { crossChecked, foreignValues, column } = unit.coverage ?? {};
+      if (crossChecked === false || (Array.isArray(foreignValues) && foreignValues.length > 0)) {
+        add({
+          code: 'DECLARATION_BOUND_TO_NOTHING',
+          field: 'obligationUnits',
+          cause: `${view.packageId} ${unit.unitId} declares a column the artifact does not cover`,
+          action: `regenerate the view with node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs", then run ${verify}`,
+          route: 'upstream',
+        });
+      }
+    }
+  }
+  for (const subject of findUngroundedAssignments(views)) {
+    add({
+      code: 'UNGROUNDED_JUDGMENT',
+      field: 'ground',
+      cause: `${subject} carries no ground`,
+      action: `record the ground for ${subject}, then run ${verify}`,
+      route: 'in-drill',
+    });
+  }
+  for (const subject of findUngroundedAdjudications(views)) {
+    add({
+      code: 'UNGROUNDED_JUDGMENT',
+      field: 'adjudicatedColumns',
+      cause: `${subject} carries no ground`,
+      action: `record the ground for ${subject}, then run ${verify}`,
+      route: 'in-drill',
+    });
+  }
+  return findings;
 }
 
 /** Measure one workspace and print its verdict. */
@@ -303,7 +417,12 @@ function main(argv = process.argv.slice(2)) {
   }
   const root = path.resolve(rootArgument);
 
-  const artifact = findArtifact(root);
+  const resolution = resolveWorkspaceArtifact(root);
+  if (resolution.code === 'ARTIFACT_AMBIGUOUS') {
+    process.stderr.write(`refused: ${toHomeRelative(root)} holds ${resolution.names.length} *-sequences.json: ${resolution.names.join(', ')}\n`);
+    return EXIT_FAILED;
+  }
+  const artifact = resolution.artifact;
   const allocateManifest = readJsonOrNull(path.join(root, ALLOCATE_MANIFEST_FILENAME));
   if (artifact === null || allocateManifest === null) {
     process.stderr.write(`refused: ${toHomeRelative(root)} does not hold both an artifact and an ${ALLOCATE_MANIFEST_FILENAME}\n`);
@@ -342,6 +461,13 @@ function main(argv = process.argv.slice(2)) {
   if (unbound.length > 0) {
     lines.push(`declared but unbound: ${unbound.join(', ')}`);
   }
+  const findings = buildCoverageFindings({
+    coverage,
+    views,
+    artifactPath: resolution.names.length === 1 ? path.join(root, resolution.names[0]) : null,
+    root,
+  });
+  if (findings.length > 0) lines.push('', renderFindings(findings, { cap: 20 }));
   process.stdout.write(`${lines.join('\n')}\n`);
 
   // A refusal here is not a judgment about the design; it is a defect in the record itself — a

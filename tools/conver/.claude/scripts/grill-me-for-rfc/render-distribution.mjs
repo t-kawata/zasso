@@ -478,7 +478,7 @@ const DISTRIBUTION_MAP_FENCE = /^```json\s+distribution-map\s*$/m;
  * @param {string} rfcPath
  * @returns {boolean}
  */
-function carriesDistributionMap(rfcPath) {
+export function carriesDistributionMap(rfcPath) {
   try {
     return DISTRIBUTION_MAP_FENCE.test(fs.readFileSync(rfcPath, 'utf8'));
   } catch {
@@ -511,7 +511,7 @@ function carriesDistributionMap(rfcPath) {
  * @returns {boolean} whether a generation was recorded
  */
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
-export function recordDistributionGeneration(rfcPath, map) {
+export function recordDistributionGeneration(rfcPath, map, options = {}) {
   const statusPath = path.join(path.dirname(rfcPath), STATUS_FILE_NAME);
   if (!fs.existsSync(statusPath)) return false;
   let status;
@@ -527,7 +527,7 @@ export function recordDistributionGeneration(rfcPath, map) {
   } else if (map !== null && map !== undefined) {
     const recorded = Number.isInteger(status.distributionGeneration) && status.distributionGeneration >= 0
       ? status.distributionGeneration
-      : carriesDistributionMap(rfcPath)
+      : (options.carriedMapBefore ?? carriesDistributionMap(rfcPath))
         ? FIRST_GENERATION
         : FIRST_GENERATION - 1;
     status.distributionGeneration = recorded + FIRST_GENERATION;

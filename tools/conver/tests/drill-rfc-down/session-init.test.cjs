@@ -101,3 +101,42 @@ describe('session-init.js', () => {
     }
   });
 });
+
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// PX-368 @verifies C002
+describe('PX-368 session material record', () => {
+  it('records materialPaths and the presence flags on a new session', () => {
+    const { rfcPath, sessionDir } = makeRfc(path.join(tmpRoot, 'materials-new'));
+    const materialPaths = path.join(tmpRoot, 'materials-new', 'README.md');
+    fs.writeFileSync(materialPaths, '# README\n');
+    const res = spawnSync(process.execPath, [
+      SCRIPT, rfcPath,
+      `--material-paths=${JSON.stringify([materialPaths])}`,
+      '--readme-present=true',
+      '--sequences-present=false',
+    ], { encoding: 'utf8' });
+    assert.equal(res.status, 0, res.stderr);
+    const status = JSON.parse(fs.readFileSync(path.join(sessionDir, 'Status.json'), 'utf8'));
+    assert.deepEqual(status.materialPaths, [materialPaths]);
+    assert.equal(status.readmePresent, true);
+    assert.equal(status.sequencesPresent, false);
+  });
+
+  it('a continued session never overwrites the recorded material list', () => {
+    const { dir, rfcPath, sessionDir } = makeRfc(path.join(tmpRoot, 'materials-resume'));
+    fs.mkdirSync(sessionDir, { recursive: true });
+    const iso = '2026-08-20T00:00:00.000Z';
+    fs.writeFileSync(path.join(sessionDir, 'Status.json'), JSON.stringify({
+      state: 'REVIEWING', researchPath: rfcPath, rfcPath, rfcDir: dir,
+      reviewLoopCount: 2, createdAt: iso, updatedAt: iso,
+      materialPaths: ['/recorded/a.md'],
+    }));
+    fs.writeFileSync(path.join(sessionDir, 'DesignTree.json'), JSON.stringify({ version: 1, updatedAt: iso, nodes: [] }));
+    fs.writeFileSync(path.join(sessionDir, 'CheckList.md'), '# RFC 要件チェックリスト\n\n<!-- GENERATED -->\n');
+
+    const res = spawnSync(process.execPath, [SCRIPT, rfcPath, '--material-paths=["/new/b.md"]'], { encoding: 'utf8' });
+    assert.equal(res.status, 0, res.stderr);
+    const status = JSON.parse(fs.readFileSync(path.join(sessionDir, 'Status.json'), 'utf8'));
+    assert.deepEqual(status.materialPaths, ['/recorded/a.md']);
+  });
+});

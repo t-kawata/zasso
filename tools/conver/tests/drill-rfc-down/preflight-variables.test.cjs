@@ -109,9 +109,11 @@ describe('preflight CLI [VARIABLES] output', () => {
     assert.equal(sessionDir, path.join(rfcDir, 'drills'));
   });
 
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
   it('does NOT emit the [VARIABLES] block when preflight fails', () => {
     const tree = makeProjectTree(path.join(tmpRoot, 'cli-fail'));
-    fs.rmSync(tree.readme, { force: true }); // make README missing
+    // README is optional now; the RFC is a hard prerequisite, so its absence is a refusal.
+    fs.rmSync(tree.rfc, { force: true });
     const res = spawnSync(process.execPath, [SCRIPT, `--tickets=${tree.ticketsPath}`], {
       cwd: tree.dir,
       encoding: 'utf8',

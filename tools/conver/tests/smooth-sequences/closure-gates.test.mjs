@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import { CLOSURE_GATES, runClosureGates } from '../../.claude/scripts/smooth-sequences/lib/closure-gates.mjs';
 import { buildCertificate } from '../../.claude/scripts/shared-obligations/certificate.mjs';
 
-test('the closure gates are the five the transaction runs', () => {
+test('the closure gates are the six the transaction runs', () => {
+// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
   const scripts = CLOSURE_GATES.map((gate) => gate.script);
   assert.deepEqual(scripts, [
     'check-obligation-coverage.js',
@@ -19,9 +20,11 @@ test('the closure gates are the five the transaction runs', () => {
     'check-distribution-completeness.js',
     'defect-report.js',
     'check-formula-completeness.js',
+    'verify-api-consistency.mjs',
   ]);
   assert.deepEqual(CLOSURE_GATES[3].args('/workspace'), ['/workspace', '--gate']);
   assert.deepEqual(CLOSURE_GATES[4].args('/workspace'), ['/workspace']);
+  assert.deepEqual(CLOSURE_GATES[5].args('/workspace'), ['--workspace=/workspace']);
 });
 
 test('a failing gate is reported by script and by the refusal it wrote', () => {
@@ -32,7 +35,7 @@ test('a failing gate is reported by script and by the refusal it wrote', () => {
   const result = runClosureGates({ root: '/workspace', run });
 
   assert.equal(result.ok, false);
-  assert.equal(result.gates.length, 5);
+  assert.equal(result.gates.length, 6);
   assert.equal(result.gates[0].script, 'check-obligation-coverage.js');
   assert.equal(result.gates[0].reason, 'unstated denominator: 1');
 });

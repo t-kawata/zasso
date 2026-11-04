@@ -18,6 +18,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | --- | --- |
 | `conver` | `module` |
 | `crystalize-readme` | `commonjs` |
+| `api-consistency` | `module` |
 | `drill-rfc-down` | `module` |
 | `educe-sequences` | `module` |
 | `explain-seed` | `module` |
@@ -30,6 +31,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `sequences-slice` | `module` |
 | `shared-obligations` | `module` |
 | `smooth-sequences` | `module` |
+| `spec-formula` | `module` |
 | `tickets` | `commonjs` |
 | `utils` | `commonjs` |
 | `workspacify-allocate` | `module` |

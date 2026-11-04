@@ -69,7 +69,7 @@ export function run(argv) {
   const rfcDir = resolve(options.rfcDir);
   const workspaceRoot = options.workspace === null ? resolveWorkspaceRoot(rfcDir) : resolve(options.workspace);
   if (workspaceRoot === null) {
-    process.stderr.write(`refused: no workspace manifests above ${rfcDir}\n`);
+    process.stderr.write(`refused: no workspace manifests above ${toHomeRelative(rfcDir)}\n`);
     return 1;
   }
 

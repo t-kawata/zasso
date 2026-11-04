@@ -795,7 +795,7 @@ The renderer is the only writer of the ledger, the map block and the managed anc
 
 **Owner-cell role grammar.** The Distribution ledger is the authored authority for an operation's role. An Owner cell may annotate the row's own package as `pkg-xxxx (implementer)` or `pkg-xxxx (consumer)`; a co-owner's name stays unannotated because that package's own row carries its declaration. The renderer reads the annotation before it writes the map, so a role is authored in the table and never in the generated `json distribution-map` block or `SEQUENCES.json`. An unannotated legacy row keeps the `roleCandidate` fallback; anything else in parentheses is prose.
 
-gate (all 10 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every owned active operation declares `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures AND `check-formula-coverage.js "$RFC_DIR"` exits 0 with zero blocking findings and every advisory listed, so every owned formula reached the ledger with its theory, realization and tests. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" "$SEQUENCES_ARTIFACT"` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
+gate (all 10 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so either every owned active operation is proved to declare `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger, or the artifact version withholds the check by name — a withheld check is never reported as proved AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures AND `check-formula-coverage.js "$RFC_DIR"` exits 0 with zero blocking findings and every advisory listed, so every owned formula reached the ledger with its theory, realization and tests. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" "$SEQUENCES_ARTIFACT"` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
 
 The two gates answer the two halves of one guarantee. The coverage gate is measured over the workspace and can be satisfied before this package has an RFC; the discharge gate answers the accounting half, so no package can declare DONE while another package's ledger still omits a unit it was handed.
 
@@ -803,9 +803,11 @@ Re-running over a workspace projected by an older rail must succeed, require no 
 ```bash
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/complete-run.js" "$RFC_DIR"
 ```
-The completion command renders the distribution ledger, records the generation and then
-declares DONE. A render refusal exits non-zero, writes nothing and leaves the state unchanged,
-so the gate above is re-entered rather than bypassed.
+The completion command renders the distribution ledger, evaluates every required gate above,
+records the generation and then declares DONE. A render refusal or any non-zero gate exits
+non-zero, writes nothing to `Status.json` and leaves the state unchanged, so the gate above is
+re-entered rather than bypassed. An unstated operations or sequences denominator is repaired
+with `/educe-sequences`; the grill never writes `SEQUENCES.md` or `SEQUENCES.json` itself.
 
 ---
 
@@ -830,9 +832,13 @@ command handles it — the human is never asked to run anything again.
    added node and the still-open nodes only (W6), it never renumbers a question (W7), and it
    never overwrites an answer already written (W8). `loop-count > 3` is reported as STEP 7 says.
 4. A defect whose target is another package re-enters **that** package, not this one:
-   `guard-edit-surface.js` the target, correct its `RFC.md`, settle a node there, then
-   re-run that package's STEP 6 → STEP 8 before returning here. A cross-directory fix that
-   leaves the target's gates unrun is not a fix.
+   `guard-edit-surface.js` the target with `--package="$RFC_DIR"` and
+   `--allow-cross-package=<evidence.json>`, correct its `RFC.md`, settle a node there, then
+   re-run that package's STEP 6 → STEP 8 before returning here. The evidence names each
+   edited package and its per-package gate exit codes; a missing file or any non-zero gate
+   refuses the write, and a generated file outside `$RFC_DIR` without evidence is
+   `CROSS_PACKAGE_EVIDENCE_MISSING`. A cross-directory fix that leaves the target's gates
+   unrun is not a fix.
 
 Re-entry is this command's own loop. STEP 5's RFC prose is written once the grill closes
 again, so the document never carries a decision the re-entry round has not settled.

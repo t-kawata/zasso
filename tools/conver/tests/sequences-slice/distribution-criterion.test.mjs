@@ -199,3 +199,16 @@ test('C004 the reworded clause is still covered by a declared claim, so the clos
   assert.deepEqual(uncoveredClaims(rewritten), []);
   assert.deepEqual(uncoveredClaims('guarantees: every package the allocation names carries a view'), []);
 });
+
+// ---------------------------------------------------------------------------
+// PX-367 — the closure clause names the claim it could not cover
+// ---------------------------------------------------------------------------
+
+test('PX-367 C005 a short closure names the uncovered claim, so the repair is readable', () => {
+  const gateSource = `${fs.readFileSync(GATE_SOURCE, 'utf8')}\n// guarantees: every placement is also traceable to a ninth thing nobody measures\n`;
+  const findings = criterionFindings(holdingContext({ gateSource }));
+  const k7 = findings.find((finding) => finding.id === 'K7');
+
+  assert.equal(k7.holds, false);
+  assert.match(k7.detail, /every placement is also traceable to a ninth thing nobody measures/);
+});

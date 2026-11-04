@@ -158,3 +158,35 @@ test('C001 error: a ledger with no appendix or no metadata is refused', () => {
 
   assert.equal(findings.some((finding) => finding.code === 'SPEC_DIGEST_MISSING'), true);
 });
+
+// ---------------------------------------------------------------------------
+// PX-367 — a sidecar's identity is recomputed from its own body
+// ---------------------------------------------------------------------------
+
+test('PX-367 C003 error: an altered body whose digest field still matches the ledger is refused', () => {
+  const ledger = readFormulaLedger(renderLedger());
+  const sidecar = sidecarFor();
+  sidecar.formulas[0].body = ' M=2^999 ';
+
+  const findings = validateFormulaSidecar(sidecar, ledger);
+
+  assert.equal(findings.some((finding) => finding.code === 'SIDECAR_DIGEST_MISMATCH'), true);
+  assert.equal(findings.some((finding) => finding.code === 'SIDECAR_BODY_MISMATCH'), true);
+});
+
+test('PX-367 C003 invariant: a sidecar row with no body cannot prove its identity', () => {
+  const ledger = readFormulaLedger(renderLedger());
+  const sidecar = sidecarFor();
+  delete sidecar.formulas[0].body;
+
+  const findings = validateFormulaSidecar(sidecar, ledger);
+
+  assert.equal(findings.some((finding) => finding.code === 'SIDECAR_BODY_MISSING'), true);
+});
+
+test('PX-367 C003 normal: a body that reproduces its digest and the ledger body is accepted', () => {
+  const ledger = readFormulaLedger(renderLedger());
+  const findings = validateFormulaSidecar(sidecarFor(), ledger);
+
+  assert.deepEqual(findings, []);
+});

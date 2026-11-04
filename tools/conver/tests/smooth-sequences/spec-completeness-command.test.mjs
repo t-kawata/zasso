@@ -50,6 +50,7 @@ test('C001 postcondition: a repaired workspace reruns as a verification with an 
 });
 
 test('C001 invariant: the fifth closure gate is the workspace formula gate', () => {
+// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
   const scripts = CLOSURE_GATES.map((gate) => gate.script);
 
   assert.deepEqual(scripts, [
@@ -58,6 +59,7 @@ test('C001 invariant: the fifth closure gate is the workspace formula gate', () 
     'check-distribution-completeness.js',
     'defect-report.js',
     'check-formula-completeness.js',
+    'verify-api-consistency.mjs',
   ]);
 });
 

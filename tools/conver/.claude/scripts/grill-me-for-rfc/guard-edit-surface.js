@@ -15,7 +15,7 @@
  * Exit 1 — the path is a frozen input, matches no rule, or was not given.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import { OBLIGATION_RECORD_BASENAME } from '../sequences-slice/lib/obligation.mjs';
 import { SEED_FILENAME, parseSeedIdentity, resolveWorkspaceRoot } from '../spec-formula/identity.mjs';
@@ -64,7 +64,15 @@ const OWNING_RFC_ALTERNATIVE = "resolve it in the owning RFC's output";
 
 const UNKNOWN_RULE_DETAIL = 'unknown path; extend the allow-list deliberately';
 
-const USAGE = 'usage: guard-edit-surface.js <path> [--why] [--json]';
+const USAGE = 'usage: guard-edit-surface.js <path> [--why] [--json] [--package=<dir>] [--allow-cross-package=<evidence.json>]';
+
+/** The refusal codes a cross-package write can produce. */
+const CROSS_PACKAGE_CODES = Object.freeze({
+  EVIDENCE_MISSING: 'CROSS_PACKAGE_EVIDENCE_MISSING',
+  EVIDENCE_INVALID: 'CROSS_PACKAGE_EVIDENCE_INVALID',
+  PACKAGE_MISSING: 'CROSS_PACKAGE_PACKAGE_MISSING',
+  GATE_FAILED: 'CROSS_PACKAGE_GATE_FAILED',
+});
 
 /** The nearest seed above a path, or null. */
 // [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
@@ -98,21 +106,110 @@ function resolveSeededSpecification(target, explicitSeed) {
   }
 }
 
+/** Whether a resolved path is the directory or below it. */
+// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+function isInside(targetPath, parentPath) {
+  const resolvedTarget = resolve(targetPath);
+  const resolvedParent = resolve(parentPath);
+  return resolvedTarget === resolvedParent || resolvedTarget.startsWith(`${resolvedParent}${sep}`);
+}
+
+/**
+ * The evidence that authorizes one cross-package generated write.
+ *
+ * A gate that edits a neighbour must show that the neighbour's own gates ran. The file is
+ * validated rather than trusted: a missing, malformed or short evidence file refuses by
+ * name, and one failed gate refuses the write it names.
+ *
+ * @param {string|null} evidencePath
+ * @param {string} target
+ * @returns {{ ok: boolean, rule: string, detail: string }}
+ */
+// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+function readCrossPackageEvidence(evidencePath, target) {
+  if (evidencePath === null) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.EVIDENCE_MISSING,
+      detail: 'a generated file outside the invocation package needs --allow-cross-package with per-package gate evidence',
+    };
+  }
+
+  let evidence;
+  try {
+    evidence = JSON.parse(readFileSync(evidencePath, 'utf8'));
+  } catch {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.EVIDENCE_INVALID,
+      detail: `the evidence file ${evidencePath} is missing or not JSON`,
+    };
+  }
+
+  if (typeof evidence?.generatedAt !== 'string' || !Array.isArray(evidence?.editedPackages) || evidence.editedPackages.length === 0) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.EVIDENCE_INVALID,
+      detail: 'the evidence file must carry generatedAt and a non-empty editedPackages list',
+    };
+  }
+
+  const owner = evidence.editedPackages.find((entry) => typeof entry?.package === 'string'
+    && entry.package.length > 0
+    && isInside(target, entry.package));
+  if (owner === undefined) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.PACKAGE_MISSING,
+      detail: `no edited package in the evidence contains ${target}`,
+    };
+  }
+
+  if (!Array.isArray(owner.gates) || owner.gates.length === 0) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.EVIDENCE_INVALID,
+      detail: `the evidence for ${owner.package} names no gate`,
+    };
+  }
+
+  const failed = owner.gates.find((gate) => !Number.isInteger(gate?.exitCode) || gate.exitCode !== 0);
+  if (failed !== undefined) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.GATE_FAILED,
+      detail: `${failed?.name ?? 'a gate'} exited ${failed?.exitCode} for ${owner.package}`,
+    };
+  }
+
+  return {
+    ok: true,
+    rule: 'cross-package',
+    detail: `${owner.package} gates all exited zero`,
+  };
+}
+
 /**
  * Classify one path against the boundary.
  *
  * @param {string} target
  * @param {{path: string, resolved: string|null}|null} specification
+ * @param {{packageDir: string, evidencePath: string|null}} write
  * @returns {{ allowed: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
-function classifyPath(target, specification) {
+// [::TICKET::] PX-359, PX-360, PX-361, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361|PX-369) --for-spec --no-implementation-order`.
+function classifyPath(target, specification, write = { packageDir: process.cwd(), evidencePath: null }) {
   const name = basename(target);
-  if (GENERATED_BASENAMES.includes(name)) {
-    return { allowed: true, rule: 'generated', detail: 'a file this command generates' };
-  }
-  if (JUDGMENT_RECORD_BASENAMES.includes(name)) {
-    return { allowed: true, rule: 'record', detail: 'the package obligation record this run writes its judgments into' };
+  const generated = GENERATED_BASENAMES.includes(name);
+  const record = JUDGMENT_RECORD_BASENAMES.includes(name);
+  if (generated || record) {
+    if (isInside(target, write.packageDir)) {
+      return generated
+        ? { allowed: true, rule: 'generated', detail: 'a file this command generates in its own package' }
+        : { allowed: true, rule: 'record', detail: 'the package obligation record this run writes its judgments into' };
+    }
+    const evidence = readCrossPackageEvidence(write.evidencePath, target);
+    return { allowed: evidence.ok, rule: evidence.rule, detail: evidence.detail };
   }
 
   const resolvedTarget = resolve(target);
@@ -128,13 +225,15 @@ function classifyPath(target, specification) {
  * @param {string[]} argv
  * @returns {{ target: string, why: boolean, json: boolean, seed: string|null }}
  */
-// [::TICKET::] PX-239, PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-239|PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-239, PX-359, PX-360, PX-361, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-239|PX-359|PX-360|PX-361|PX-369) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   return {
     target: argv.find((arg) => !arg.startsWith('--')) ?? '',
     why: argv.includes('--why'),
     json: argv.includes('--json'),
     seed: argv.find((arg) => arg.startsWith('--seed='))?.slice('--seed='.length) ?? null,
+    package: argv.find((arg) => arg.startsWith('--package='))?.slice('--package='.length) ?? null,
+    allowCrossPackage: argv.find((arg) => arg.startsWith('--allow-cross-package='))?.slice('--allow-cross-package='.length) ?? null,
   };
 }
 
@@ -143,7 +242,7 @@ function parseArgs(argv) {
  * @returns {number} the exit status
  */
 export function run(argv) {
-  const { target, why, json, seed } = parseArgs(argv);
+  const { target, why, json, seed, package: packageArgument, allowCrossPackage } = parseArgs(argv);
 
   if (target.length === 0) {
     process.stderr.write(`${USAGE}\n`);
@@ -152,11 +251,21 @@ export function run(argv) {
 
   const name = basename(target);
   const specification = resolveSeededSpecification(target, seed);
-  const verdict = classifyPath(target, specification);
+  const verdict = classifyPath(target, specification, {
+    packageDir: packageArgument === null ? process.cwd() : resolve(packageArgument),
+    evidencePath: allowCrossPackage,
+  });
 
   if (json) {
     process.stdout.write(
-      `${JSON.stringify({ path: target, basename: name, allowed: verdict.allowed, rule: verdict.rule, seed: specification?.seedPath ?? null })}\n`,
+      `${JSON.stringify({
+        path: target,
+        basename: name,
+        allowed: verdict.allowed,
+        rule: verdict.rule,
+        seed: specification?.seedPath ?? null,
+        evidence: allowCrossPackage,
+      })}\n`,
     );
   }
 
@@ -166,7 +275,7 @@ export function run(argv) {
   }
 
   if (!verdict.allowed) {
-    process.stderr.write(`refused: ${name} — ${verdict.detail}\n`);
+    process.stderr.write(`refused: ${name} — ${verdict.rule}: ${verdict.detail}\n`);
     return 1;
   }
 

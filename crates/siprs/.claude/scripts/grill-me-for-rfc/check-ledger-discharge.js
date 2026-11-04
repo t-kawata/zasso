@@ -28,11 +28,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { toHomeRelative } from '../lib/path-utils.js';
+import repairFinding from '../lib/repair-finding.js';
 import { readDistributionLedger } from '../sequences-slice/lib/distribution-ledger.mjs';
 import { resolveGround, sectionIdentifiersOf } from '../sequences-slice/lib/obligation-ground.mjs';
 import { VIEW_JSON_NAME, collectUnitIds } from '../sequences-slice/lib/material.mjs';
 import { measureDischarge } from '../sequences-slice/lib/obligation-coverage.mjs';
 import { packageDirectoriesOf } from '../sequences-slice/lib/package-directories.mjs';
+
+const { createFinding, renderFindings } = repairFinding;
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -153,6 +156,49 @@ function renderDischargeLines(discharge, malformed, locations) {
   ];
 }
 
+function indexPackage(directory) {
+  const view = readJsonOrNull(path.join(directory, VIEW_JSON_NAME));
+  if (view === null) return null;
+  return {
+    packageId: String(view.packageId),
+    rfcPath: path.join(directory, RFC_FILENAME),
+    unitIds: collectUnitIds(view),
+  };
+}
+
+function buildDischargeFindings({ measured, malformed, locations, root, packagesById }) {
+  const verify = `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-ledger-discharge.js" ${root}`;
+  const findings = [];
+  const add = (code, artifact, cause, action) => findings.push(createFinding({
+    severity: 'blocking', code, layer: 'grill', artifact, cause, action, verify, route: 'in-drill',
+  }));
+
+  const artifactOf = (packageId) => packagesById.get(packageId)?.rfcPath ?? path.join(root, RFC_FILENAME);
+  const unitsOf = (packageId) => packagesById.get(packageId)?.unitIds ?? [];
+
+  for (const packageId of measured.withoutLedger) {
+    add('NO_DISTRIBUTION_LEDGER', artifactOf(packageId),
+      `${packageId} holds ${unitsOf(packageId).join(', ')} and carries no Distribution ledger`,
+      `add the Distribution ledger appendix to ${artifactOf(packageId)} accounting for ${unitsOf(packageId).join(', ')}, then run ${verify}`);
+  }
+  for (const entry of malformed) {
+    add('LEDGER_MALFORMED', artifactOf(entry.packageId),
+      `${entry.packageId} carries a ledger the parser refuses: ${entry.reason}`,
+      `rewrite the Distribution ledger in ${artifactOf(entry.packageId)} to the five-column shape, then run ${verify}`);
+  }
+  for (const entry of locations) {
+    add('LEDGER_LOCATION_UNRESOLVED', artifactOf(entry.packageId),
+      `${entry.packageId} cites ${entry.location}, which the RFC does not carry`,
+      `cite a section or line the RFC carries in ${artifactOf(entry.packageId)}, then run ${verify}`);
+  }
+  for (const entry of measured.unaccounted) {
+    add('UNIT_UNACCOUNTED', artifactOf(entry.packageId),
+      `${entry.packageId} holds ${entry.unitIds.join(', ')} and its ledger accounts for none of them`,
+      `add a row for ${entry.unitIds.join(', ')} to ${artifactOf(entry.packageId)} Distribution ledger, then run ${verify}`);
+  }
+  return findings;
+}
+
 /** Measure one workspace's discharge and print it. */
 // [::TICKET::] PX-261, PX-263, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263|PX-355) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
@@ -168,12 +214,22 @@ function main(argv = process.argv.slice(2)) {
   }
 
   const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME));
-  const { ledgers, malformed, locations, views } = readLedgers(findPackageDirectories(root, treeManifest));
+  const directories = findPackageDirectories(root, treeManifest);
+  const { ledgers, malformed, locations, views } = readLedgers(directories);
   const measured = measureDischarge({ views, ledgersByPackage: ledgers });
+  const packagesById = new Map(directories.map(indexPackage).filter((entry) => entry !== null).map((entry) => [entry.packageId, entry]));
   // A package whose ledger was found and refused is not a package with no ledger, and reporting
   // it as both would name two repairs for one defect. It is read once and answered once.
   const refused = new Set(malformed.map((entry) => entry.packageId));
   const lines = renderDischargeLines({ ...measured, withoutLedger: measured.withoutLedger.filter((packageId) => !refused.has(packageId)) }, malformed, locations);
+  const findings = buildDischargeFindings({
+    measured: { ...measured, withoutLedger: measured.withoutLedger.filter((packageId) => !refused.has(packageId)) },
+    malformed,
+    locations,
+    root,
+    packagesById,
+  });
+  if (findings.length > 0) lines.push('', renderFindings(findings, { cap: 20 }));
   lines.push(LIMIT_LINE);
 
   if (lines.length === 1) {

@@ -137,3 +137,21 @@ describe('update-status.js', () => {
     }
   });
 });
+
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// PX-368 @verifies C006
+describe('PX-368 completion vocabulary', () => {
+  it('accepts DESIGN_DONE and COMPLETE as states', () => {
+    for (const state of ['DESIGN_DONE', 'COMPLETE']) {
+      writeStatus({ state: 'GRILLING', currentStep: '1-12' });
+      const res = run(['set-state', state]);
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(JSON.parse(res.stdout).state, state);
+    }
+  });
+
+  it('step 1-12 declares DESIGN_DONE, not completion', async () => {
+    const mod = await import(pathToFileURL(UPDATE_STATUS).href);
+    assert.match(mod.STEP_DEFINITIONS['1-12'].nextAction, /DESIGN_DONE/);
+  });
+});

@@ -62,9 +62,10 @@ describe('Step 1 command definition', () => {
     assert.doesNotMatch(step1, /\.claude\/scripts\/grill-me-for-rfc/);
   });
 
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
   it('uses only [VARIABLES] block variables in Step 1 (C002 invariant)', () => {
     const step1 = step1Section();
-    const allowedVars = ['RFC_PATH', 'RFC_DIR', 'GRAPH_PATH', 'DIRS_TREE_PATH', 'README_PATH', 'TICKETS_PATH', 'SESSION_DIR', 'DRILL_DIR', 'WORKSPACE_ROOT'];
+    const allowedVars = ['RFC_PATH', 'RFC_DIR', 'GRAPH_PATH', 'DIRS_TREE_PATH', 'README_PATH', 'TICKETS_PATH', 'SESSION_DIR', 'DRILL_DIR', 'WORKSPACE_ROOT', 'README_PRESENT', 'SEQUENCES_PRESENT', 'SEQUENCES_VIEW', 'MATERIAL_PATHS', 'MATERIAL_ADDED'];
     const usedVars = [...step1.matchAll(/\$([A-Z_]+)/g)].map((m) => m[1]);
     assert.ok(usedVars.length > 0, 'Step 1 uses at least one variable');
     for (const usedVar of usedVars) {

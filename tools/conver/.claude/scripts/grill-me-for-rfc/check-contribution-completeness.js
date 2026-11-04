@@ -16,7 +16,12 @@
 import { checkContributionCompleteness, contributionWithheld } from '../smooth-sequences/lib/checks-layer-a.mjs';
 import { indexArtifact } from '../smooth-sequences/lib/index.mjs';
 import { SmoothSequencesError } from '../smooth-sequences/lib/errors.mjs';
+import { join } from 'node:path';
+
 import { assertWorkspaceRoot, loadWorkspace } from '../smooth-sequences/lib/workspace.mjs';
+import repairFinding from '../lib/repair-finding.js';
+
+const { createFinding, renderFindings } = repairFinding;
 
 const EXIT_PASS = 0;
 const EXIT_FINDINGS = 1;
@@ -37,8 +42,19 @@ function main(argv) {
     }
     process.stderr.write(`contribution: ${findings.length} finding(s)\n`);
     for (const finding of findings) {
-      process.stderr.write(`${finding.checkId}: ${finding.subject} — ${finding.reason}; repair: ${finding.repair}\n`);
+      process.stderr.write(`${finding.checkId}: ${finding.subject} — ${finding.why}; repair: ${finding.fix}\n`);
     }
+    const records = findings.map((finding) => createFinding({
+      severity: 'blocking',
+      code: finding.checkId,
+      layer: 'grill',
+      artifact: join(root, String(finding.where ?? '').split('#')[0]),
+      cause: `${finding.subject} — ${finding.why}`,
+      action: `${finding.fix}; run ${finding.producer ?? 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"'}; then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-contribution-completeness.js" ${root}`,
+      verify: `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-contribution-completeness.js" ${root}`,
+      route: 'in-drill',
+    }));
+    process.stdout.write(`${renderFindings(records, { cap: records.length })}\n`);
     return EXIT_FINDINGS;
   } catch (error) {
     if (error instanceof SmoothSequencesError) {

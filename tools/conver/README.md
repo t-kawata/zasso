@@ -15,6 +15,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 - **実装ループ（収束）**: AIが全チケットを自動実装し、RFC 設計とのギャップを計測・解消して収束させる
 - **出荷ループ（商品化判定）**: 「ユーザーにとっての使い方がユーザーにとって素敵か」という視点から実装を解析・検証し、不足（RESIDUE）を洗い出す。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことが点検突破した状態を「出荷」とする。
 - **進化ループ（再投資）**: 正典 RFC・グラフ・ディレクトリ構造・チケットを「差分」として矛盾なく進化させ、新たなチケットを生み出す。ビジネスの再投資と進化・適応を安全に進めるための装置である。
+- **API 整合ゲート**: `verify-api-consistency.mjs --workspace <root>` が全パッケージ RFC の Rust コードフェンスを宣言と使用として読み、パッケージ跨ぎの未定義シンボル・重複宣言・引数 arity・ジェネリック arity・種別不一致・未宣言依存を検出する。読めない構文は `UNPARSED_SURFACE` として advisory 報告し、黙って飛ばさない。smooth の closure では blocking、drill では P2 residue。跨ぎ編集は `guard-edit-surface.js --allow-cross-package=<evidence.json>` が必須で、編集対象パッケージの全ゲート exit 0 を証明する。
 
 **すべての設計判断は正典 RFC に集約され、実装はそこへ機械的に収束します。** そして正典自体を変化させる時も、グラフ・ディレクトリ構造・チケット・実装・テストが**矛盾なく連動して進化**するため、「安全な連続性を失わないビジネス上の再投資可能性」が技術的・物理的に保証されます。
 
@@ -45,7 +46,7 @@ flowchart TD
 | **上流ループ** | 人間＋AI（`/smooth-sequences` は AI 自動実行） | `/explain-seed` → `/grill-me-for-rfc` → `/smooth-sequences` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | 種の事実と説明 → RFC 設計書の作成 → **全パッケージ横断の受理証明**（列挙・契約・配布の閉包） → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装（冒頭の前提ゲートで依存順を強制） → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
 | **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
-| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証する。ビジネスの再投資と進化・適応を安全に進める |
+| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | `Tickets.json` が存在すれば**引数なしでいつでも実行可能**。README の RESIDUE と SEQUENCES ビューは自動探索され、存在/不在で分岐し、引数は追加資料として後ろに足される。正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify でパッケージ内の貫通（view → 台帳 → GRAPH → 実装ヘッダ → Tickets）を機械検証する。`COMPLETE` は `DRILL-REPORT.json` だけが宣言する |
 
 **進化の入口は、上流ループを通過したかどうかで決まります** — 通過前は `/grill-me-for-rfc` の再実行、通過後は上表の `/drill-rfc-down` です。ループ単位の境界と但し書きは、後述の「/drill-rfc-down — 進化の扉」にある「進化の入口は、上流ループを通過したかどうかで決まる」を参照してください。
 
@@ -299,6 +300,7 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - **プロセス**: `init.js "$RFC_DIR" $ARGUMENTS` が DesignTree / Status.json / CheckList.md を初期化 → STEP 0 の先行走査と `settle-run.js "$RFC_DIR" prior` → はしごで確定できる点を確定 → 確定できない点だけを束ねて（1ラウンド最大3軸・最大5ラウンド）7行の塊で聞く → 答えが含意する点を `settle` で確定 → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
 - **質問ゲート**: 「決定・根拠・覆す条件」の3行が書けて**落ちる**まで、問いは起草できません。根拠は**この走で実際に読んだ記録**に限られ、読んでいない記録を根拠にした確定は拒否されます。この規則ブロックは `/explain-seed`・`/drill-rfc-down` と**バイト同一**（3ファイルで共有する1つのブロック）で、3コマンドが別々の問い方へ drift しないことをテストが保証します
 - **制約**: 完全網羅・スコープ委譲禁止・スタブ禁止。TBD / TODO / 委譲の混入禁止。各設計判断にコードスニペット必須。IETF スタイル（Abstract / Motivation / Design / Implementation / Appendix）
+- **DONE の意味**: `complete-run.js` は STEP 8 の必須ゲートを自分で評価し、どれか1つでも非ゼロなら DONE を書かず `Status.json` を変更しません。分母（`pins.sourceEnumerations`）が未表明なら `/educe-sequences` で供給してから再実行します
 - **逆対応（リバースモード）**: 入力は `/workspacify-allocate` が逆モードで発行した `RFC-SEED.md`（§1 にリバース索引を機械注入で持つ）。逆対応の質問生成器が §1 の索引と residual から質問候補を生成し、**未解決 claim ごとに「意図か偶然か」の問い**を挿入します。順回転の seed は名前で拒否されます（順回転の seed はこの grill の入力ではありません）
 
 #### `/smooth-sequences`

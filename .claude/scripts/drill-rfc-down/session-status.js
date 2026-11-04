@@ -25,7 +25,7 @@ const statusPath = path.join(sessionDir, "Status.json");
 const treePath = path.join(sessionDir, "DesignTree.json");
 
 if (!fs.existsSync(statusPath)) {
-  console.log("⚠️  Status.json not found. Run init.js first.");
+  writeLine("⚠️  Status.json not found. Run init.js first.");
   process.exit(0);
 }
 
@@ -43,11 +43,11 @@ if (fs.existsSync(treePath)) {
     totalNodes = countAll(nodes);
     openCount = countOpen(nodes);
   } catch {
-    // Treat parse failure as empty
+    nodes = [];
+    totalNodes = 0;
+    openCount = 0;
   }
 }
-
-// ─── Helper functions ───
 
 // [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function countAll(ns) {
@@ -65,7 +65,7 @@ function countOpen(ns) {
 
 // ─── Derive step ───
 
-// [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-368) --for-spec --no-implementation-order`.
 function deriveStep(state, nodes, openCount, loopCount) {
   switch (state) {
     case "GRILLING":
@@ -128,8 +128,22 @@ function deriveStep(state, nodes, openCount, loopCount) {
         action: "Verify all conditions, transition to DONE to declare completion",
       };
     case "DONE":
+      // A legacy record means the design was complete, which is not the same as the
+      // per-package penetration report saying COMPLETE.
       return {
-        step: "✅ STEP 8",
+        step: "STEP 5",
+        label: "DESIGN_DONE (legacy)",
+        action: "Run verify-step.js; COMPLETE is declared only by DRILL-REPORT.json",
+      };
+    case "DESIGN_DONE":
+      return {
+        step: "STEP 5",
+        label: "DESIGN_DONE — Step 5 verify pending",
+        action: "Run verify-step.js; COMPLETE is declared only by DRILL-REPORT.json",
+      };
+    case "COMPLETE":
+      return {
+        step: "✅ STEP 5",
         label: "Complete",
         action: "—",
       };
@@ -151,15 +165,20 @@ const { step, label, action, warning } = deriveStep(
 
 // ─── Display ───
 
-console.log("📋 Session Status");
-console.log(`  State: ${state}`);
-console.log(`  Step: ${step} — ${label}`);
-console.log(`  Next Action: ${action}`);
-if (warning) {
-  console.log(`  ⚠️  ${warning}`);
+/** One line of the status block. */
+function writeLine(line) {
+  process.stdout.write(`${line}\n`);
 }
-console.log("");
-console.log(`  Nodes: ${totalNodes} total / ${openCount} open`);
-console.log(`  Loop Count: ${reviewLoopCount ?? 0}`);
-console.log(`  Research Path: ${researchPath ?? "(not set)"}`);
-console.log(`  RFC Path: ${rfcPath ?? "(not set)"}`);
+
+writeLine("📋 Session Status");
+writeLine(`  State: ${state}`);
+writeLine(`  Step: ${step} — ${label}`);
+writeLine(`  Next Action: ${action}`);
+if (warning) {
+  writeLine(`  ⚠️  ${warning}`);
+}
+writeLine("");
+writeLine(`  Nodes: ${totalNodes} total / ${openCount} open`);
+writeLine(`  Loop Count: ${reviewLoopCount ?? 0}`);
+writeLine(`  Research Path: ${researchPath ?? "(not set)"}`);
+writeLine(`  RFC Path: ${rfcPath ?? "(not set)"}`);

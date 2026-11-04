@@ -11,6 +11,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import { GRILL_GUARD_EDIT_SURFACE, runCommand } from '../question-gate/helpers/fixture-workspace.mjs';
 
@@ -27,11 +30,21 @@ const FROZEN_BASENAMES = [
 /** The basenames this command generates, and may therefore correct anywhere. */
 const GENERATED_BASENAMES = ['RFC.md', 'DesignTree.json', 'CheckList.md', 'Status.json'];
 
-test('C001 postcondition: a generated basename is allowed, wherever it sits', () => {
+// PX-369 @verifies C007
+test('C007 normal: a generated basename inside the invocation package needs no evidence', () => {
   for (const basename of GENERATED_BASENAMES) {
-    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, [`/tmp/pkg/${basename}`]);
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, [`/tmp/pkg/${basename}`, '--package=/tmp/pkg']);
 
-    assert.equal(result.status, 0, `${basename} must be editable: ${result.stderr}`);
+    assert.equal(result.status, 0, `${basename} must be editable inside the package: ${result.stderr}`);
+  }
+});
+
+test('C007 error: a generated basename outside the invocation package is refused without evidence', () => {
+  for (const basename of GENERATED_BASENAMES) {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, [`/tmp/other/${basename}`, '--package=/tmp/pkg']);
+
+    assert.equal(result.status, 1, `${basename} outside the package must be refused`);
+    assert.match(result.stderr, /CROSS_PACKAGE_EVIDENCE_MISSING/);
   }
 });
 
@@ -82,7 +95,7 @@ test('C001 invariant: a refusal carries the rule that produced it', () => {
 });
 
 test('C001 invariant: the guard reads a name and never the filesystem', () => {
-  const missing = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/nonexistent/place/RFC.md']);
+  const missing = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/nonexistent/place/RFC.md', '--package=/nonexistent/place']);
 
   assert.equal(missing.status, 0, 'a path that does not exist is still a legal target name');
 });
@@ -101,20 +114,80 @@ test('C001 precondition: a missing argument is a usage error, not a silent allow
 // [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-261 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-261 --for-spec --no-implementation-order`.
 test('PX-260 postcondition: the package obligation record is writable, and its rule is named', () => {
-  const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json', '--why']);
+  const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json', '--package=/tmp/crates/pkg-a', '--why']);
 
   assert.equal(result.status, 0, `${result.stderr}`);
   assert.match(result.stdout + result.stderr, /rule: record/);
 });
 
 test('PX-260 invariant: the record is admitted by its exact name, and a look-alike beside it is still refused', () => {
-  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json']).status, 0);
-  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json.bak']).status, 1, 'a copy of the record is not the record');
-  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/obligation.json']).status, 1, 'the rule is about the name the run writes');
+  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json', '--package=/tmp/crates/pkg-a']).status, 0);
+  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/OBLIGATION.json.bak', '--package=/tmp/crates/pkg-a']).status, 1, 'a copy of the record is not the record');
+  assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/crates/pkg-a/obligation.json', '--package=/tmp/crates/pkg-a']).status, 1, 'the rule is about the name the run writes');
 });
 
 test('PX-260 invariant: admitting the record does not open any frozen input', () => {
   for (const basename of [...FROZEN_BASENAMES, 'WORKSPACIFY-ALLOCATE-MANIFEST.json', 'WORKSPACIFY-TREE-MANIFEST.json', 'SEQUENCES.md', 'SEQUENCES.json']) {
-    assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, [`/tmp/crates/pkg-a/${basename}`]).status, 1, `${basename} stays frozen`);
+    assert.equal(runCommand(GRILL_GUARD_EDIT_SURFACE, [`/tmp/crates/pkg-a/${basename}`, '--package=/tmp/crates/pkg-a']).status, 1, `${basename} stays frozen`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// PX-369 — a cross-package write needs per-package gate evidence
+// ---------------------------------------------------------------------------
+
+// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+function crossPackageEvidence({ gateExitCode = 0, packageDir = '/tmp/other' } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px369-guard-'));
+  const evidencePath = path.join(root, 'CROSS-PACKAGE-EVIDENCE.json');
+  fs.writeFileSync(evidencePath, JSON.stringify({
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    editedPackages: [{
+      package: packageDir,
+      gates: [{ name: 'verify-api-consistency', exitCode: gateExitCode }],
+    }],
+  }, null, 2));
+  return { root, evidencePath };
+}
+
+test('C007 error: evidence with a non-zero gate exit code refuses the write', () => {
+  const evidence = crossPackageEvidence({ gateExitCode: 1 });
+  try {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /CROSS_PACKAGE_GATE_FAILED/);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+test('C007 normal: evidence with every gate at zero allows the generated write', () => {
+  const evidence = crossPackageEvidence({ gateExitCode: 0 });
+  try {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+test('C007 error: evidence that names no edited package refuses the write', () => {
+  const evidence = crossPackageEvidence({ packageDir: '/tmp/elsewhere' });
+  try {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /CROSS_PACKAGE_PACKAGE_MISSING/);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+test('C007 error: a missing evidence file is refused by name', () => {
+  const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', '--allow-cross-package=/tmp/does-not-exist.json']);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /CROSS_PACKAGE_EVIDENCE_INVALID/);
 });

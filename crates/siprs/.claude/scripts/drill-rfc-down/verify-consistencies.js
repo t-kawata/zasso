@@ -24,7 +24,9 @@ import path from 'path';
 // [::TICKET::] PX-257 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-257 --for-spec --no-implementation-order`.
 import { readDistributionLedger, resolvesInsideRfc } from '../sequences-slice/lib/distribution-ledger.mjs';
 // [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
-import { checkUnitProvenance } from '../sequences-slice/lib/unit-provenance.mjs';
+import { checkUnitCoverage, checkUnitProvenance } from '../sequences-slice/lib/unit-provenance.mjs';
+import { collectLedgerResidualUnitIds, collectLedgerUnitIds, collectViewUnitIds, isUnitId } from '../rfc-graph/lib/unit-ids.mjs';
+import { VIEW_JSON_NAME } from '../sequences-slice/lib/material.mjs';
 import { fileURLToPath } from 'url';
 import { detectOrphanContracts } from './detect-orphan-contracts.js';
 
@@ -164,7 +166,7 @@ function checkGraphTicketCoverage(graphNodes, tickets) {
 }
 
 /** A finding: a Dirs-Tree or Tickets reference to a node that is not in the GRAPH (high). */
-// [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-368|PX-369) --for-spec --no-implementation-order`.
 function checkDanglingReferences(graphNodes, dirsTree, tickets) {
   const findings = [];
   const graphIds = new Set((graphNodes || []).map((n) => n.id));
@@ -176,6 +178,9 @@ function checkDanglingReferences(graphNodes, dirsTree, tickets) {
     }
   }
   for (const nodeId of collectTicketNodeIds(tickets)) {
+    // A unit id travels in nodeIds beside the graph node ids; it names a unit, not a
+    // graph node, so it is not a dangling node reference.
+    if (isUnitId(nodeId)) continue;
     if (!graphIds.has(nodeId)) {
       findings.push({ severity: 'high', message: `dangling reference: a ticket references node ${nodeId} which is not in the GRAPH` });
     }
@@ -258,20 +263,111 @@ function collectUnitIds(nodes) {
   return unitIds;
 }
 
-/** The package's design tree, or null when it carries none. */
-// [::TICKET::] PX-257, PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-258) --for-spec --no-implementation-order`.
-function readDesignTreeBeside(rfcPath) {
-  const treePath = path.join(path.dirname(rfcPath), 'DesignTree.json');
+/** The package view beside the RFC, or null when it carries none. */
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function readViewBeside(rfcPath) {
+  if (typeof rfcPath !== 'string' || rfcPath.length === 0) return null;
   try {
-    return JSON.parse(fs.readFileSync(treePath, 'utf8'));
+    return JSON.parse(fs.readFileSync(path.join(path.dirname(rfcPath), VIEW_JSON_NAME), 'utf8'));
   } catch {
     return null;
   }
 }
 
-// [::TICKET::] PX-257, PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-258) --for-spec --no-implementation-order`.
-function verifyConsistencies(rfcLines, { srcDir, artifacts, designTree = null }) {
+/** The header text of one mapped file, or null when the file does not exist or carries none. */
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function readHeaderText(filePath) {
+  try {
+    const text = fs.readFileSync(filePath, 'utf8');
+    return text.includes('Initial Design Artifact') ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The headers of the files the Dirs-Tree maps to nodes.
+ *
+ * A planned file that does not exist yet is skipped: before implementation the header is
+ * not there to check, and a missing file is the plan's business rather than this gate's.
+ */
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function collectHeaderTexts(dirsTree, packageDir) {
+  const texts = [];
+  const walk = (node, segments) => {
+    if (node === null || node === undefined) return;
+    const nextSegments = typeof node.name === 'string' && node.name.length > 0 ? [...segments, node.name] : segments;
+    if (node.type === 'file' && Array.isArray(node.mappedNodeIds) && node.mappedNodeIds.length > 0) {
+      const header = readHeaderText(path.join(packageDir, ...nextSegments));
+      if (header !== null) texts.push(header);
+    }
+    for (const child of Array.isArray(node.children) ? node.children : []) walk(child, nextSegments);
+  };
+  for (const tree of Object.values(dirsTree?.trees ?? {})) walk(tree, []);
+  return texts;
+}
+
+/**
+ * The per-package penetration chain: view -> ledger -> graph -> header -> ticket.
+ *
+ * A package with no view has no chain to check; that is the vacuous case and not a pass
+ * over something. When the view exists, every layer must carry the same unit set, and an
+ * omission and an invention are reported apart because they need different repairs.
+ */
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function checkViewUnitChain({ rfcText, view, artifacts, rfcPath, dirsTree }) {
+  const viewUnitIds = collectViewUnitIds([view]);
+  const ledger = readDistributionLedger(rfcText, new Set(viewUnitIds));
+  if (ledger === null) return [];
+  if (!ledger.ok) {
+    const invented = (ledger.rows ?? [])
+      .filter((row) => !viewUnitIds.includes(row.unit))
+      .map((row) => row.unit);
+    if (invented.length > 0) {
+      return invented.map((unitId) => ({
+        severity: 'high',
+        code: 'INVENTED_UNIT',
+        unitId,
+        layer: 'rfc',
+        message: `unit ${unitId} is in the ledger and no package view distributes it`,
+      }));
+    }
+    return [{ severity: 'high', code: 'LEDGER_MALFORMED', layer: 'rfc', message: `the distribution ledger is not well formed: ${ledger.reason}` }];
+  }
+
+  const ledgerUnitIds = collectLedgerUnitIds(ledger.rows);
+  const residualUnitIds = collectLedgerResidualUnitIds(ledger.rows);
+  const findings = [
+    ...checkUnitCoverage({
+      viewUnitIds,
+      ledgerUnitIds,
+      residualUnitIds,
+      graph: artifacts.graph,
+      tickets: artifacts.tickets,
+    }),
+    ...checkUnitProvenance(
+      artifacts.graph ?? null,
+      new Set(ledgerUnitIds),
+      collectHeaderTexts(dirsTree, path.dirname(rfcPath)),
+      artifacts.tickets ?? null,
+    ),
+  ];
+
+  for (const row of ledger.rows) {
+    if (!resolvesInsideRfc(row.location)) {
+      findings.push({ severity: 'low', message: `distribution ledger row ${row.index} cites "${row.location}", which does not resolve inside this RFC` });
+    }
+  }
+  return findings;
+}
+
+// [::TICKET::] PX-257, PX-258, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-257|PX-258|PX-368|PX-369) --for-spec --no-implementation-order`.
+function verifyConsistencies(rfcLines, { srcDir, artifacts, rfcPath = null }) {
   const { graph, dirsTree, tickets } = artifacts;
+  const view = readViewBeside(rfcPath);
+  const unitFindings = view === null
+    ? []
+    : checkViewUnitChain({ rfcText: rfcLines.join('\n'), view, artifacts, rfcPath, dirsTree });
   const findings = [
     ...checkRfcHeadingCoverage(rfcLines, graph.nodes || []),
     ...checkGraphDirsTreeMapping(graph.nodes || [], dirsTree),
@@ -279,14 +375,14 @@ function verifyConsistencies(rfcLines, { srcDir, artifacts, designTree = null })
     ...checkGraphTicketCoverage(graph.nodes || [], tickets),
     ...checkDanglingReferences(graph.nodes || [], dirsTree, tickets),
     ...checkOrphanEdgeContracts(graph, tickets),
-    ...checkUnitPreservation(rfcLines, designTree, readDistributionLedger(rfcLines.join('\n')), artifacts),
+    ...unitFindings,
   ];
   const high = findings.filter((f) => f.severity === 'high').length;
   const low = findings.filter((f) => f.severity === 'low').length;
   return { ok: high === 0, findings, summary: { high, low, total: findings.length } };
 }
 
-// [::TICKET::] PX-169, PX-257, PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-257|PX-258) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169, PX-257, PX-258, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-257|PX-258|PX-368|PX-369) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let rfcPath = '';
@@ -314,7 +410,7 @@ function main() {
   const result = verifyConsistencies(rfcLines, {
     srcDir,
     artifacts: { graph, dirsTree, tickets },
-    designTree: readDesignTreeBeside(rfcPath),
+    rfcPath,
   });
   const payload = JSON.stringify(result, null, 2) + '\n';
   if (outPath) fs.writeFileSync(outPath, payload, 'utf8');

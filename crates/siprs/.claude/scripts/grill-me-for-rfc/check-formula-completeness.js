@@ -9,6 +9,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { toHomeRelative } from '../lib/path-utils.js';
+
 import {
   runSpecCompleteness,
   writeSpecCompletenessWorklist,
@@ -34,7 +36,7 @@ export function run(argv) {
   const root = resolve(argv[0]);
   const treePath = join(root, 'WORKSPACIFY-TREE-MANIFEST.json');
   if (!existsSync(treePath)) {
-    process.stderr.write(`refused: no workspace tree manifest at ${treePath}\n`);
+    process.stderr.write(`refused: no workspace tree manifest at ${toHomeRelative(treePath)}\n`);
     return 1;
   }
 

@@ -303,6 +303,23 @@ export function validateFormulaSidecar(sidecar, ledger) {
         });
       }
     }
+    // The digest field is a claim about the body; recomputing it is what turns the claim
+    // into evidence. A body altered while the field kept its old value is the failure this
+    // check exists for: every later stage compares bodies, so a stale field would carry a
+    // different formula through the whole chain without a single mismatch.
+    const recomputedBodyDigest = typeof mirrored.body === 'string' && mirrored.body.trim().length > 0
+      ? digestFormula(normalizeFormula(mirrored.body))
+      : null;
+    if (recomputedBodyDigest === null) {
+      findings.push({ code: 'SIDECAR_BODY_MISSING', field: 'body', formulaId: id, message: `${id} records no body in the sidecar` });
+    } else {
+      if (recomputedBodyDigest !== mirrored.digest) {
+        findings.push({ code: 'SIDECAR_DIGEST_MISMATCH', field: 'digest', formulaId: id, message: `${id} carries a digest its own body does not reproduce` });
+      }
+      if (row.body.length > 0 && normalizeFormula(mirrored.body) !== normalizeFormula(row.body)) {
+        findings.push({ code: 'SIDECAR_BODY_MISMATCH', field: 'body', formulaId: id, message: `${id} carries a different body in the ledger and the sidecar` });
+      }
+    }
     if (!Array.isArray(mirrored.tests) || mirrored.tests.length === 0) {
       findings.push({ code: 'MISSING_TESTS', field: 'tests', formulaId: id, message: `${id} records no test in the sidecar` });
     }

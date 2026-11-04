@@ -34,6 +34,37 @@ const DESIGN_TREE_FILE = 'DesignTree.json';
 const CHECKLIST_FILE = 'CheckList.md';
 const SESSION_FILES = [STATUS_FILE, DESIGN_TREE_FILE, CHECKLIST_FILE];
 
+/** The option that records the material list a preflight resolved. */
+const MATERIAL_PATHS_FLAG = '--material-paths=';
+const README_PRESENT_FLAG = '--readme-present=';
+const SEQUENCES_PRESENT_FLAG = '--sequences-present=';
+
+/** Parse the optional material record; a malformed list is refused rather than dropped. */
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+function parseSessionOptions(argv) {
+  const options = { materialPaths: null, readmePresent: null, sequencesPresent: null };
+  for (const argument of argv) {
+    if (argument.startsWith(MATERIAL_PATHS_FLAG)) {
+      const raw = argument.slice(MATERIAL_PATHS_FLAG.length);
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new Error(`${MATERIAL_PATHS_FLAG} must be a JSON array of paths`);
+      }
+      if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== 'string' || entry.length === 0)) {
+        throw new Error(`${MATERIAL_PATHS_FLAG} must be a JSON array of non-empty paths`);
+      }
+      options.materialPaths = parsed;
+    } else if (argument.startsWith(README_PRESENT_FLAG)) {
+      options.readmePresent = argument.slice(README_PRESENT_FLAG.length) === 'true';
+    } else if (argument.startsWith(SEQUENCES_PRESENT_FLAG)) {
+      options.sequencesPresent = argument.slice(SEQUENCES_PRESENT_FLAG.length) === 'true';
+    }
+  }
+  return options;
+}
+
 /** Derive the session directory from the RFC path. */
 // [::TICKET::] PX-157, PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159) --for-spec --no-implementation-order`.
 function resolveSessionDir(rfcPath) {
@@ -60,14 +91,14 @@ function classifySessionFiles(sessionDir) {
  * Write the three session templates under $SESSION_DIR.
  * Mirrors init.js's template shapes so the session is grill-compatible.
  */
-// [::TICKET::] PX-157, PX-158, PX-159, PX-233, PX-234 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-233|PX-234) --for-spec --no-implementation-order`.
-function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
+// [::TICKET::] PX-157, PX-158, PX-159, PX-233, PX-234, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-233|PX-234|PX-368) --for-spec --no-implementation-order`.
+function writeSessionTemplates(sessionDir, rfcPath, rfcDir, options = {}) {
   fs.mkdirSync(sessionDir, { recursive: true });
   const now = new Date().toISOString();
   // The session record is committed, so its paths name no machine.
   const storedRfcPath = toHomeRelative(rfcPath);
   const storedRfcDir = toHomeRelative(rfcDir);
-  fs.writeFileSync(path.join(sessionDir, STATUS_FILE), JSON.stringify({
+  const status = {
     state: 'GRILLING',
     researchPath: storedRfcPath,
     rfcPath: storedRfcPath,
@@ -75,7 +106,13 @@ function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
     reviewLoopCount: 0,
     createdAt: now,
     updatedAt: now,
-  }, null, 2) + '\n', 'utf8');
+  };
+  // The resolved material list is recorded once, so a resume reads the record instead
+  // of re-discovering a list that may have moved under an answer already given.
+  if (options.materialPaths !== null && options.materialPaths !== undefined) status.materialPaths = options.materialPaths;
+  if (options.readmePresent !== null && options.readmePresent !== undefined) status.readmePresent = options.readmePresent;
+  if (options.sequencesPresent !== null && options.sequencesPresent !== undefined) status.sequencesPresent = options.sequencesPresent;
+  fs.writeFileSync(path.join(sessionDir, STATUS_FILE), JSON.stringify(status, null, 2) + '\n', 'utf8');
   fs.writeFileSync(path.join(sessionDir, DESIGN_TREE_FILE), JSON.stringify({
     version: 1,
     updatedAt: now,
@@ -89,11 +126,18 @@ function writeSessionTemplates(sessionDir, rfcPath, rfcDir) {
   fs.writeFileSync(path.join(sessionDir, CHECKLIST_FILE), `# RFC 要件チェックリスト\n\n${AI_SUPPLEMENT_COMMENT}\n`, 'utf8');
 }
 
-// [::TICKET::] PX-157, PX-158, PX-159, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-157, PX-158, PX-159, PX-231, PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-157|PX-158|PX-159|PX-231|PX-368) --for-spec --no-implementation-order`.
 function main() {
   const rfcPath = process.argv[2];
   if (!rfcPath) {
-    console.error('Usage: session-init.js <rfc-path>');
+    console.error('Usage: session-init.js <rfc-path> [--material-paths=<json>] [--readme-present=true|false] [--sequences-present=true|false]');
+    process.exit(EXIT_FAILURE);
+  }
+  let options;
+  try {
+    options = parseSessionOptions(process.argv.slice(3));
+  } catch (error) {
+    console.error(`[ERROR] session-init: ${error.message}`);
     process.exit(EXIT_FAILURE);
   }
   const resolvedRfcPath = path.resolve(rfcPath);
@@ -110,7 +154,7 @@ function main() {
   if (missing.length === 0) {
     session = 'continued';
   } else {
-    writeSessionTemplates(sessionDir, resolvedRfcPath, rfcDir);
+    writeSessionTemplates(sessionDir, resolvedRfcPath, rfcDir, options);
     created = missing;
     session = 'new';
   }

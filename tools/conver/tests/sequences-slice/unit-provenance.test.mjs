@@ -115,3 +115,33 @@ test('C005 a unit that belongs to no package is a declared residual and needs no
   assert.deepEqual(findingsFor(graph, new Set(['op-A']), [], ticketsOf([['op-A']])), []);
   assert.equal(unitsVisibleToShip(graph).includes('CommunityCertificate'), false, 'a residual is not a unit id and needs no node');
 });
+
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+// PX-368 @verifies C004
+test('PX-368 C004 a generated header uses NODE_ID= and a comment-prefixed units line, and is still read', () => {
+  const graph = { nodes: [nodeWithUnits('N0007', ['op-A'])] };
+  const generated = [
+    '// Initial Design Artifact — RFC-driven Implementation',
+    '// !!! NEVER DELETE OR EDIT THIS COMMENT !!!',
+    '// Mapped node(s):',
+    '//   - NODE_ID=N0007: Auth module',
+    '// units: op-A',
+  ].join('\n');
+
+  assert.deepEqual(findingsFor(graph, new Set(['op-A']), [generated], { phases: [] }), []);
+});
+
+test('PX-368 C004 a generated header naming a unit its node does not carry is reported', () => {
+  const graph = { nodes: [nodeWithUnits('N0007', ['op-A'])] };
+  const generated = [
+    '// Initial Design Artifact — RFC-driven Implementation',
+    '// Mapped node(s):',
+    '//   - NODE_ID=N0007: Auth module',
+    '// units: op-Ghost',
+  ].join('\n');
+
+  const findings = findingsFor(graph, new Set(['op-A']), [generated], { phases: [] });
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].message, /op-Ghost/);
+  assert.match(findings[0].message, /N0007/);
+});

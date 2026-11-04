@@ -452,3 +452,83 @@ test('PX-355 C006 a stray root view without a manifest declaration is not read',
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// PX-367 — the K1 repair route is executable, and the artifact is unambiguous
+// ---------------------------------------------------------------------------
+
+test('PX-367 C002 an unstated census names the /educe-sequences route on both axes', () => {
+  const root = workspaceWithOneOwnedOperation({ census: false });
+  try {
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /^  operations: .*repair: .*\/educe-sequences/m);
+    assert.match(result.stdout, /^  sequences: .*repair: .*\/educe-sequences/m);
+    assert.match(result.stdout, /UNSTATED_DENOMINATOR/);
+    assert.match(result.stdout, /Action: .*educe-sequences\/rail\/phase\.mjs/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('PX-367 C002 an empty member list states the axis; a missing role leaves it unstated', () => {
+  const statedRoot = workspaceWithOneOwnedOperation();
+  const unstatedRoot = workspaceWithOneOwnedOperation({ census: false });
+  try {
+    const artifactPath = path.join(statedRoot, 'SyntheticSpec-sequences.json');
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    artifact.pins.sourceEnumerations = [
+      { role: 'operations', name: 'census-operations', members: [] },
+      { role: 'entries', name: 'census-entries', members: [] },
+    ];
+    fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+
+    const stated = runGate(statedRoot);
+    assert.equal(stated.status, 0, stated.stdout + stated.stderr);
+    assert.match(stated.stdout, /denominator: operations census 0, sequences census 0/);
+    assert.doesNotMatch(stated.stdout, /unstated denominator/);
+
+    const unstated = runGate(unstatedRoot);
+    assert.equal(unstated.status, 1);
+    assert.match(unstated.stdout, /^unstated denominator: 2$/m);
+  } finally {
+    fs.rmSync(statedRoot, { recursive: true, force: true });
+    fs.rmSync(unstatedRoot, { recursive: true, force: true });
+  }
+});
+
+test('PX-367 C007 several root artifacts are refused by name, never reduced to one', () => {
+  const root = workspaceWithOneOwnedOperation();
+  try {
+    fs.copyFileSync(
+      path.join(root, 'SyntheticSpec-sequences.json'),
+      path.join(root, 'SecondSpec-sequences.json'),
+    );
+
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /holds 2 \*-sequences\.json/);
+    assert.match(result.stderr, /SecondSpec-sequences\.json/);
+    assert.match(result.stderr, /SyntheticSpec-sequences\.json/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('PX-367 C004 every blocking finding renders the repair record', () => {
+  const root = workspaceWithOneOwnedOperation({ census: false });
+  try {
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /\[ERROR\] UNSTATED_DENOMINATOR/);
+    for (const label of ['Cause:', 'Layer:', 'Artifact:', 'Action:', 'Verify:', 'Route:']) {
+      assert.match(result.stdout, new RegExp(label));
+    }
+    assert.match(result.stdout, /Route: upstream/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

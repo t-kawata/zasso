@@ -20,8 +20,8 @@ const BASE = {
   formulaId: 'fx-0123456789ab',
   field: 'theory',
   cause: 'the ticket theory differs from the sidecar',
-  action: 'node .claude/scripts/tickets/merge-formulas-to-tickets.js --tickets=pkg/Tickets.json --write',
-  verify: 'node .claude/scripts/sequences-slice/verify-chain.mjs --formula-only --package=pkg',
+  action: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/merge-formulas-to-tickets.js" --tickets=pkg/Tickets.json --write',
+  verify: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-chain.mjs" --formula-only --package=pkg',
   route: 'in-drill',
 };
 
@@ -36,8 +36,8 @@ test('C004 precondition: a finding carries severity, action, verify and route', 
   assert.equal(json.verify, BASE.verify);
   assert.equal(json.route, 'in-drill');
   assert.match(renderFinding(finding), /^\[ERROR\] FORMULA_THEORY_MISMATCH/m);
-  assert.match(renderFinding(finding), /Action: node \.claude\/scripts\//);
-  assert.match(renderFinding(finding), /Verify: node \.claude\/scripts\//);
+  assert.match(renderFinding(finding), /Action: node "\$\(git rev-parse --show-toplevel\)\/\.claude\/scripts\//);
+  assert.match(renderFinding(finding), /Verify: node "\$\(git rev-parse --show-toplevel\)\/\.claude\/scripts\//);
 });
 
 test('C004 invariant: a generic action is a script defect', () => {
@@ -56,8 +56,8 @@ test('C004 postcondition: advisories render without an error prefix', () => {
     ...BASE,
     severity: 'advisory',
     code: 'STALE_SECONDARY_RECORD',
-    action: 'node .claude/scripts/grill-me-for-rfc/verify-source-identity.js pkg',
-    verify: 'node .claude/scripts/grill-me-for-rfc/verify-source-identity.js pkg',
+    action: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/verify-source-identity.js" pkg',
+    verify: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/verify-source-identity.js" pkg',
     route: 'advisory',
   });
   const rendered = renderFinding(advisory);

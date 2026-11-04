@@ -46,12 +46,16 @@ export function unitsVisibleToShip(graph) {
 }
 
 /** The unit ids a header names, and the node it names them for. */
-// [::TICKET::] PX-258 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-258 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-258, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-258|PX-368|PX-369) --for-spec --no-implementation-order`.
 function readHeader(headerText) {
   const text = String(headerText);
   if (!text.includes('Initial Design Artifact')) return null;
-  const nodeMatch = /^\s*node:\s*(N[0-9]{4})\b/m.exec(text);
-  const unitsMatch = /^\s*units:\s*(.+)$/m.exec(text);
+  // The generated header is a comment block: the node is named as `NODE_ID=` inside
+  // Mapped node(s), and the units line carries the source comment prefix. Accepting
+  // only `node:` would skip every real header and make the check vacuous.
+  const commentPrefix = '(?:\\/\\/|#|\\/\\*|\\*)?\\s*';
+  const nodeMatch = new RegExp(`^${commentPrefix}(?:node:\\s*|-?\\s*NODE_ID=)(N[0-9]{4})\\b`, 'm').exec(text);
+  const unitsMatch = new RegExp(`^${commentPrefix}units:\\s*(.+)$`, 'm').exec(text);
   return {
     nodeId: nodeMatch === null ? null : nodeMatch[1],
     unitIds: unitsMatch === null ? [] : unitsMatch[1].split(',').map((entry) => entry.trim()).filter(isUnitId),

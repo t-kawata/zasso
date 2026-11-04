@@ -33,7 +33,7 @@ function finding(code, subject, message) {
     message,
     severity: 'blocking',
     action: 're-run attach-formula-ids.js --dirs-tree and refresh-file-headers.js, then re-run verify-formula-file-coverage.js',
-    verify: 'node .claude/scripts/rfc-graph/verify-formula-file-coverage.js --graph=<graph> --dirs-tree=<dirs-tree> --sidecar=<sidecar> --root=<root>',
+    verify: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/verify-formula-file-coverage.js" --graph=<graph> --dirs-tree=<dirs-tree> --sidecar=<sidecar> --root=<root>',
   };
 }
 

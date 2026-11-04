@@ -58,8 +58,8 @@ function completedTicketAdvisory(ticket, formulaId) {
     ticketKey,
     status: ticket.status,
     message: `ticket ${ticketKey} is ${ticket.status} and receives ${formulaId}; its status is unchanged`,
-    action: `review the obligation with: node .claude/scripts/tickets/show-ticket-context.js --ticket-key=${ticketKey} --for-spec`,
-    verify: 'node .claude/scripts/sequences-slice/verify-chain.mjs --formula-only',
+    action: `review the obligation with: node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=${ticketKey} --for-spec`,
+    verify: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/verify-chain.mjs" --formula-only',
   };
 }
 

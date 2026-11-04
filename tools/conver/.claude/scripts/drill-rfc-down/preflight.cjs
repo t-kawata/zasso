@@ -25,6 +25,8 @@ const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 const { toHomeRelative } = require('../lib/path-utils');
+// Node 22+ resolves this ESM module synchronously; preflight stays a one-pass reader.
+const { resolveDrillMaterial } = require('./resolve-material.js');
 const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
 
 /** Preflight opens the drill run; verify-step.js closes it. */
@@ -374,20 +376,29 @@ function formatResolutionErrorMessage(pathSource, sourcePath) {
  * @param {Object} vars — rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir
  * @returns {string} [VARIABLES] block
  */
-// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-368|PX-369) --for-spec --no-implementation-order`.
 function formatVariablesBlock(vars) {
-  const { rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir, workspaceRoot } = vars;
+  const {
+    rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir, workspaceRoot,
+    readmePresent = false, sequencesPresent = false, sequencesView = null,
+    materialPaths = [], addedArguments = [],
+  } = vars;
   return [
     VARIABLES_HEADER,
     `RFC_PATH=${rfcPath}`,
     `RFC_DIR=${rfcDir}`,
     `GRAPH_PATH=${graphPath}`,
     `DIRS_TREE_PATH=${dirsTreePath}`,
-    `README_PATH=${readmePath}`,
+    `README_PATH=${readmePath ?? ''}`,
     `TICKETS_PATH=${ticketsPath}`,
     `SESSION_DIR=${sessionDir}`,
     `DRILL_DIR=${drillDir}`,
     `WORKSPACE_ROOT=${workspaceRoot ?? ''}`,
+    `README_PRESENT=${readmePresent === true}`,
+    `SEQUENCES_PRESENT=${sequencesPresent === true}`,
+    `SEQUENCES_VIEW=${sequencesView ?? ''}`,
+    `MATERIAL_PATHS=${JSON.stringify(materialPaths)}`,
+    `MATERIAL_ADDED=${JSON.stringify(addedArguments)}`,
     VARIABLES_FOOTER,
   ].join('\n');
 }
@@ -398,7 +409,9 @@ function formatVariablesBlock(vars) {
  * @param {Object} params — materialSummary, pipeline paths, pathSource, present, variablesBlock (optional)
  * @returns {string} Markdown report
  */
-function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, present, variablesBlock }) {
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function formatPreflightMarkdown(options = {}) {
+  const { materialSummary, pipeline, pathSource, present, variablesBlock, materialResolution = null } = options;
   const { rfcPath, graphPath, dirsTreePath, readmePath } = pipeline;
   const materialSection = materialSummary.length === 0
     ? '### Input materials\n\nNone.'
@@ -407,11 +420,24 @@ function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, presen
         .map((m, i) => `| ${i + 1} | ${m.path} | ${m.type} | ${m.fileCount} |`)
         .join('\n');
 
+  const discoveredSection = materialResolution === null
+    ? []
+    : [
+      '### Discovered inputs',
+      '',
+      '| Input | Path | Present |',
+      '|-------|------|---------|',
+      `| README.md (optional) | ${materialResolution.readmePath ?? '(absent)'} | ${materialResolution.readmePresent ? '✅' : '❌ optional'} |`,
+      `| SEQUENCES.md (optional) | ${materialResolution.sequencesView ?? '(absent)'} | ${materialResolution.sequencesPresent ? '✅' : '❌'} |`,
+      '',
+      materialResolution.resumed ? '_Resumed from the session material record._' : `_Added arguments: ${materialResolution.addedArguments.length}._`,
+      '',
+    ];
+
   const pipelineRows = [
     ['RFC', 'rfc', rfcPath],
     ['GRAPH', 'graph', graphPath],
     ['Dirs-Tree', 'dirsTree', dirsTreePath],
-    ['README.md', 'readme', readmePath],
   ]
     .map(([label, key, artifactPath]) => `| ${label} | ${artifactPath} | ${present[key] ? '✅' : '❌'} |`)
     .join('\n');
@@ -423,6 +449,7 @@ function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, presen
     '',
     materialSection,
     '',
+    ...discoveredSection,
     '### Pipeline artifacts',
     '',
     '| Artifact | Path | Status |',
@@ -471,7 +498,7 @@ function formatAbortMessage(missing) {
 /**
  * main — CLI entry point (Step 0 Preflight).
  */
-// [::TICKET::] PX-365, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-366) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365, PX-366, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-366|PX-368|PX-369) --for-spec --no-implementation-order`.
 function main() {
   if (require.main === module) {
     recordRunHistory('start', RUN_HISTORY);
@@ -496,37 +523,47 @@ function main() {
       process.stderr.write(`${target.message}\n`);
       process.exit(EXIT_FAILURE);
     }
-    const materialResult = collectMaterialPaths(materialArgs, process.cwd());
-    const readmePath = path.resolve(README_FILENAME);
+    const rfcDir = path.dirname(rfcPath);
+    const sessionDir = path.join(rfcDir, SESSION_DIR_NAME);
+    const materialResolution = resolveDrillMaterial({
+      packageDir,
+      sessionDir,
+      arguments: materialArgs,
+      cwd: process.cwd(),
+    });
     const { present, missing } = verifyExistence({
       rfc: rfcPath,
       graph: graphPath,
       dirsTree: dirsTreePath,
-      readme: readmePath,
     });
     if (Object.keys(missing).length > 0) {
       process.stderr.write(`${formatAbortMessage(missing)}\n`);
       process.exit(EXIT_FAILURE);
     }
-    const rfcDir = path.dirname(rfcPath);
     const workspaceRoot = findWorkspaceRoot(packageDir);
     const variablesBlock = formatVariablesBlock({
       rfcPath,
       rfcDir,
       graphPath,
       dirsTreePath,
-      readmePath,
+      readmePath: materialResolution.readmePath,
       ticketsPath,
-      sessionDir: path.join(rfcDir, SESSION_DIR_NAME),
+      sessionDir,
       drillDir: DRILL_DIR,
       workspaceRoot,
+      readmePresent: materialResolution.readmePresent,
+      sequencesPresent: materialResolution.sequencesPresent,
+      sequencesView: materialResolution.sequencesView,
+      materialPaths: materialResolution.materialPaths,
+      addedArguments: materialResolution.addedArguments,
     });
     process.stdout.write(`${formatPreflightMarkdown({
-      ...materialResult,
-      pipeline: { rfcPath, graphPath, dirsTreePath, readmePath },
+      materialSummary: materialResolution.materialSummary ?? [],
+      pipeline: { rfcPath, graphPath, dirsTreePath, readmePath: materialResolution.readmePath },
       pathSource,
       present,
       variablesBlock,
+      materialResolution,
     })}\n`);
     process.exit(EXIT_SUCCESS);
   } catch (error) {

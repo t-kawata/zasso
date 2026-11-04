@@ -115,3 +115,127 @@ describe('verify-step.js (Step 5 blocking gate)', () => {
     assert.equal(res.status, 0, 'fully consistent pipeline passes');
   });
 });
+
+// PX-368 @verifies C005
+// @verifies C006
+// @verifies C007
+// Step 5 is where the per-package drill becomes evidence: P1 gates block and P2 residue
+// reports. COMPLETE exists only in DRILL-REPORT.json, and every blocking finding is a
+// repair record rather than a sentence.
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function makeSession(directory) {
+  const sessionDir = path.join(directory, 'drills');
+  fs.mkdirSync(sessionDir, { recursive: true });
+  const iso = '2026-01-01T00:00:00.000Z';
+  fs.writeFileSync(path.join(sessionDir, 'Status.json'), JSON.stringify({
+    state: 'DESIGN_DONE', researchPath: '/tmp/rfc.md', rfcPath: path.join(directory, 'RFC.md'), rfcDir: directory,
+    reviewLoopCount: 0, createdAt: iso, updatedAt: iso,
+  }));
+  fs.writeFileSync(path.join(sessionDir, 'DesignTree.json'), JSON.stringify({ version: 1, updatedAt: iso, nodes: [] }));
+  fs.writeFileSync(path.join(sessionDir, 'CheckList.md'), '# RFC 要件チェックリスト\n\n<!-- GENERATED -->\n');
+  return sessionDir;
+}
+
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function runVerifyStepWithSession(project, extra = []) {
+  const sessionDir = makeSession(path.dirname(project.rfcPath));
+  return {
+    sessionDir,
+    result: spawnSync(process.execPath, [
+      STEP_VERIFY,
+      `--rfc=${project.rfcPath}`, `--graph=${project.graphPath}`, `--dirs-tree=${project.dirsTreePath}`,
+      `--src=${project.srcDir}`, `--tickets=${project.ticketsPath}`, `--session-dir=${sessionDir}`,
+      ...extra,
+    ], { encoding: 'utf8' }),
+  };
+}
+
+describe('PX-368 Step 5 report and scopes', () => {
+  it('C006 normal: every P1 gate at zero writes COMPLETE with gate names and exit codes', () => {
+    const project = setupProject();
+    const { sessionDir, result } = runVerifyStepWithSession(project);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.state, 'COMPLETE');
+    assert.deepEqual(report.p1.gates.map((gate) => gate.name), ['verify-consistencies', 'check-formula-coverage', 'verifyFormulaChain']);
+    assert.ok(report.p1.gates.every((gate) => gate.exitCode === 0));
+    const status = JSON.parse(fs.readFileSync(path.join(sessionDir, 'Status.json'), 'utf8'));
+    assert.equal(status.state, 'COMPLETE');
+  });
+
+  it('C006 error: a failing P1 gate writes REPAIR_NO_PROGRESS, never COMPLETE', () => {
+    const project = setupProject();
+    fs.writeFileSync(project.rfcPath, '# Doc\n\n## Uncovered Heading\n');
+    const { sessionDir, result } = runVerifyStepWithSession(project);
+
+    assert.equal(result.status, 1);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.state, 'REPAIR_NO_PROGRESS');
+    const status = JSON.parse(fs.readFileSync(path.join(sessionDir, 'Status.json'), 'utf8'));
+    assert.equal(status.state, 'DESIGN_DONE');
+  });
+
+  it('C005 invariant: a broken neighbour is P2 residue and does not block this package', () => {
+    const project = setupProject();
+    const workspaceRoot = path.join(tmpRoot, 'workspace');
+    fs.mkdirSync(path.join(workspaceRoot, 'crates', 'broken'), { recursive: true });
+    fs.writeFileSync(path.join(workspaceRoot, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+      workspace: { packages: [{ id: 'pkg-broken', name: 'broken', path: 'crates/broken' }] },
+    }));
+    fs.writeFileSync(path.join(workspaceRoot, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({ contract_registry: [] }));
+    fs.writeFileSync(path.join(workspaceRoot, 'example-sequences.json'), JSON.stringify({
+      pins: { sourceEnumerations: [{ role: 'operations', members: [] }, { role: 'entries', members: [] }] },
+      operations: [], sequences: [], steps: [], exemptions: [],
+    }));
+    fs.writeFileSync(path.join(workspaceRoot, 'crates', 'broken', 'SEQUENCES.json'), JSON.stringify({
+      packageId: 'pkg-broken', ownedOperationUnits: [{ unitId: 'op-Ghost', operationId: 'Ghost' }],
+      ownedSequenceUnits: [], crossBoundarySequenceUnits: [], obligationUnits: [],
+    }));
+
+    const { sessionDir, result } = runVerifyStepWithSession(project, [`--workspace=${workspaceRoot}`]);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.state, 'COMPLETE');
+    assert.ok(report.p2.gates.some((gate) => gate.exitCode !== 0), JSON.stringify(report.p2.gates));
+  });
+
+  it('C007 postcondition: a blocking finding renders Action, Verify and Route', () => {
+    const project = setupProject();
+    fs.writeFileSync(project.rfcPath, '# Doc\n\n## Uncovered Heading\n');
+    const { result } = runVerifyStepWithSession(project);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /\[ERROR\]/);
+    for (const label of ['Cause:', 'Layer:', 'Artifact:', 'Action:', 'Verify:', 'Route:']) {
+      assert.match(result.stderr, new RegExp(label));
+    }
+  });
+});
+
+// PX-369 @verifies C001
+describe('PX-369 cross-package API verdict', () => {
+  it('C001 invariant: the API gate is P2 residue and never blocks this package', () => {
+    const project = setupProject();
+    const workspaceRoot = path.join(tmpRoot, 'api-workspace');
+    fs.mkdirSync(path.join(workspaceRoot, 'crates', 'pkg'), { recursive: true });
+    fs.writeFileSync(path.join(workspaceRoot, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+      workspace: { packages: [{ id: 'pkg-0001', name: 'pkg', path: 'crates/pkg' }] },
+      dependencies: { boundaries: [] },
+    }));
+    fs.writeFileSync(path.join(workspaceRoot, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({ contract_registry: [] }));
+    fs.writeFileSync(path.join(workspaceRoot, 'crates', 'pkg', 'RFC.md'), [
+      '# RFC pkg-0001', '', '```rust', 'pub fn use_it(value: Missing) {}', '```', '',
+    ].join('\n'));
+
+    const { sessionDir, result } = runVerifyStepWithSession(project, [`--workspace=${workspaceRoot}`]);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.state, 'COMPLETE');
+    const apiGate = report.p2.gates.find((gate) => gate.name === 'verify-api-consistency');
+    assert.ok(apiGate, JSON.stringify(report.p2.gates));
+    assert.equal(apiGate.exitCode, 1, 'the defect is recorded as residue');
+  });
+});

@@ -19,12 +19,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // ─── State constants (keep in sync with update-status.js) ───
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
 const VALID_STATES = [
   "GRILLING",
   "CHECKLIST_PENDING",
   "CHECKLIST_APPROVED",
   "WRITING",
   "REVIEWING",
+  "DESIGN_DONE",
+  "COMPLETE",
+  // Legacy sessions wrote DONE before COMPLETE existed; it reads as DESIGN_DONE.
   "DONE",
 ];
 

@@ -166,3 +166,115 @@ describe('verify-consistencies.js (6-consistency check)', () => {
     assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before.tickets, 'Tickets unchanged');
   });
 });
+
+// PX-368 @verifies C004
+// The per-package penetration chain: view -> ledger -> graph -> header -> ticket.
+// The view is what the package was told to implement; every later layer must carry the
+// same set. A view unit absent from the ledger and a ledger row no view distributes are
+// both blocking, because an omission and an invention need different repairs.
+const LEDGER_HEADER = '| Unit | Kind | Owner | RFC location | Ground |';
+
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function ledgerRowsOf(unitIds) {
+  return unitIds.map((unitId) => `| ${unitId} | operation | pkg-0001 | §Auth | stated |`).join('\n');
+}
+
+// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+function setupUnitChain({ viewUnits = ['op-Produce'], ledgerUnits = ['op-Produce'], graphUnits = ['op-Produce'], headerUnits = ['op-Produce'], ticketUnits = ['op-Produce'] } = {}) {
+  const directory = fs.mkdtempSync(path.join(tmpRoot, 'chain-'));
+  const rfcPath = path.join(directory, 'RFC.md');
+  const ledgerRows = ledgerRowsOf(ledgerUnits);
+  fs.writeFileSync(rfcPath, [
+    '# Doc', '', '## Auth', '',
+    '## Distribution ledger', '',
+    'This document is canonical over the material it was written from.', '',
+    LEDGER_HEADER, '|---|---|---|---|---|',
+    ledgerRows, '',
+  ].join('\n'));
+
+  const viewPath = path.join(directory, 'SEQUENCES.json');
+  writeJson(viewPath, {
+    packageId: 'pkg-0001',
+    ownedOperationUnits: viewUnits.map((unitId) => ({ unitId, operationId: unitId.slice(3) })),
+    ownedSequenceUnits: [], crossBoundarySequenceUnits: [], obligationUnits: [],
+  });
+
+  const graphPath = path.join(directory, 'RFC-GRAPH.json');
+  writeJson(graphPath, {
+    sourceFile: 'RFC.md', mainLanguage: 'rust',
+    nodes: [{ id: 'N0002', title: 'Auth module', summary: 'Auth', slug: 'auth', kind: 'api_contract', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['Auth'] }, { refId: 'REF003', heading: 2, texts: ['Distribution ledger'] }], language: 'rust', unitIds: graphUnits }],
+    edges: [],
+  });
+
+  const srcDir = path.join(directory, 'src');
+  fs.mkdirSync(path.join(srcDir, 'api'), { recursive: true });
+  fs.writeFileSync(path.join(srcDir, 'api', 'auth.rs'), [
+    '// Initial Design Artifact — RFC-driven Implementation',
+    '// Mapped node(s):',
+    '//   - NODE_ID=N0002: Auth module',
+    `// units: ${headerUnits.join(', ')}`,
+    'pub fn auth() {}',
+  ].join('\n'));
+
+  const dirsTreePath = path.join(directory, 'RFC-Dirs-Tree.json');
+  writeJson(dirsTreePath, {
+    schemaVersion: 1, sourceGraph: 'RFC-GRAPH.json', sourceFile: 'RFC.md',
+    trees: { rust: { name: 'src', type: 'directory', kind: 'root', children: [
+      { name: 'api', type: 'directory', kind: 'architecture', mappedNodeIds: [], children: [
+        { name: 'auth.rs', type: 'file', kind: 'api_contract', mappedNodeIds: [{ nodeId: 'N0002', title: 'Auth module' }] },
+      ] },
+    ] } },
+    dependencyDirections: { rust: [] },
+  });
+
+  const ticketsPath = path.join(directory, 'Tickets.json');
+  writeJson(ticketsPath, {
+    title: 'Test', round: 1, metadata: { source: 'RFC.md' },
+    phases: [{ id: 0, name: 'Phase 0', tickets: [
+      { id: 1, phaseId: 0, status: 'todo', title: 'Auth module', nodeIds: ['N0002', ...ticketUnits], scope: [], testUnit: [], testIntegration: [], testExceptions: [], changes: [] },
+    ] }],
+  });
+
+  return { rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath, viewPath };
+}
+
+describe('PX-368 per-package unit chain', () => {
+  it('a view unit absent from the ledger is blocking and names the unit and layer', () => {
+    const project = setupUnitChain({ viewUnits: ['op-Produce', 'seq-A'], ledgerUnits: ['op-Produce'], graphUnits: ['op-Produce'], headerUnits: ['op-Produce'], ticketUnits: ['op-Produce'] });
+    const outPath = path.join(tmpRoot, 'chain-missing.json');
+    runVerify(project, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+
+    const missing = out.findings.find((finding) => finding.code === 'MISSING_UNIT_AT_LAYER' && finding.unitId === 'seq-A');
+    assert.ok(missing, JSON.stringify(out.findings));
+    assert.equal(missing.layer, 'rfc');
+    assert.equal(out.ok, false);
+  });
+
+  it('a ledger row no view distributes is an invented unit', () => {
+    const project = setupUnitChain({ viewUnits: ['op-Produce'], ledgerUnits: ['op-Produce', 'op-Invented'], graphUnits: ['op-Produce'], headerUnits: ['op-Produce'], ticketUnits: ['op-Produce'] });
+    const outPath = path.join(tmpRoot, 'chain-invented.json');
+    runVerify(project, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+
+    assert.ok(out.findings.some((finding) => finding.code === 'INVENTED_UNIT' && finding.unitId === 'op-Invented'));
+  });
+
+  it('a generated header naming a unit its graph node does not carry is blocking', () => {
+    const project = setupUnitChain({ viewUnits: ['op-Produce'], ledgerUnits: ['op-Produce'], graphUnits: ['op-Produce'], headerUnits: ['op-Other'], ticketUnits: ['op-Produce'] });
+    const outPath = path.join(tmpRoot, 'chain-header.json');
+    runVerify(project, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+
+    assert.ok(out.findings.some((finding) => finding.severity === 'high' && /op-Other/.test(finding.message) && /does not carry/.test(finding.message)), JSON.stringify(out.findings));
+  });
+
+  it('a matching view -> ledger -> graph -> header -> ticket chain passes', () => {
+    const project = setupUnitChain({ viewUnits: ['op-Produce', 'seq-A'], ledgerUnits: ['op-Produce', 'seq-A'], graphUnits: ['op-Produce', 'seq-A'], headerUnits: ['op-Produce'], ticketUnits: ['op-Produce', 'seq-A'] });
+    const outPath = path.join(tmpRoot, 'chain-clean.json');
+    runVerify(project, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+
+    assert.equal(out.ok, true, JSON.stringify(out.findings));
+  });
+});

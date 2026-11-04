@@ -412,16 +412,48 @@ describe('CLI', () => {
     assert.match(res.stdout, /\| 2 \| .*docs \| directory \| 2 \|/);
   });
 
-  it('exits 1 and reports missing README.md', () => {
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
+  it('PX-368: exits 0 with no README and no arguments, and reports readmePresent false', () => {
     const tree = makeProjectTree(path.join(tmpRoot, 'cli-no-readme'), { includeReadme: false });
     const res = spawnSync(process.execPath, [SCRIPT, `--tickets=${tree.ticketsPath}`], {
       cwd: tree.dir,
       encoding: 'utf8',
     });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /README_PRESENT=false/);
+    assert.match(res.stdout, /README\.md.*optional/i);
+    assert.equal(res.stderr, '');
+  });
+
+  it('PX-368: zero arguments never errors for the absence of README', () => {
+    const tree = makeProjectTree(path.join(tmpRoot, 'cli-no-readme-zero'), { includeReadme: false });
+    const res = spawnSync(process.execPath, [SCRIPT, `--tickets=${tree.ticketsPath}`], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+    });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /MATERIAL_PATHS=\[\]/);
+  });
+
+  it('PX-368: an explicit missing argument is refused by name', () => {
+    const tree = makeProjectTree(path.join(tmpRoot, 'cli-missing-arg'));
+    const res = spawnSync(process.execPath, [SCRIPT, `--tickets=${tree.ticketsPath}`, 'not-here.md'], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+    });
     assert.equal(res.status, 1);
-    assert.match(res.stderr, /\[ERROR\]/);
-    assert.match(res.stderr, /Missing files:/);
-    assert.match(res.stderr, /README\.md/);
+    assert.match(res.stderr, /Material path not found: .*not-here\.md/);
+  });
+
+  it('PX-368: README present is discovered once and recorded as readmePresent true', () => {
+    const tree = makeProjectTree(path.join(tmpRoot, 'cli-readme-present'));
+    const res = spawnSync(process.execPath, [SCRIPT, `--tickets=${tree.ticketsPath}`], {
+      cwd: tree.dir,
+      encoding: 'utf8',
+    });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /README_PRESENT=true/);
+    assert.match(res.stdout, new RegExp(`MATERIAL_PATHS=.*README\\.md`));
   });
 
   it('exits 1 when Tickets.json is missing', () => {

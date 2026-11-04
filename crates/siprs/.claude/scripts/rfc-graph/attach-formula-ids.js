@@ -47,7 +47,7 @@ function finding(code, subject, message) {
     message,
     severity: 'blocking',
     action: 'repair the generated Formula ledger RFC location in RFC.md and RFC-FORMULAS.json, then re-run attach-formula-ids.js',
-    verify: 'node .claude/scripts/rfc-graph/attach-formula-ids.js --graph=<graph> --sidecar=<sidecar> --rfc=<rfc>',
+    verify: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/attach-formula-ids.js" --graph=<graph> --sidecar=<sidecar> --rfc=<rfc>',
   };
 }
 

@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const SCRIPT_DIRECTORY = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'grill-me-for-rfc');
+const API_DIRECTORY = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'api-consistency');
 
 /** The gates, in the order the transaction runs them. */
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
@@ -22,6 +23,13 @@ export const CLOSURE_GATES = Object.freeze([
   { script: 'check-distribution-completeness.js', args: (root) => [root] },
   { script: 'defect-report.js', args: (root) => [root, '--gate'] },
   { script: 'check-formula-completeness.js', args: (root) => [root] },
+  // The API gate lives beside the grill rather than inside it: it reads every package's
+  // RFC and belongs to no command. `scriptPath` names it without inventing a copy.
+  {
+    script: 'verify-api-consistency.mjs',
+    scriptPath: join(API_DIRECTORY, 'verify-api-consistency.mjs'),
+    args: (root) => [`--workspace=${root}`],
+  },
 ]);
 
 /** The first non-empty line a gate wrote, so the report names the refusal it made. */
@@ -31,9 +39,10 @@ function firstLine(text) {
 }
 
 /** Run one gate with the node binary in use, from the workspace it measures. */
-// [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
-function runGate({ root, script, args }) {
-  const result = spawnSync(process.execPath, [join(SCRIPT_DIRECTORY, script), ...args(root)], {
+// [::TICKET::] PX-299, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-299|PX-369) --for-spec --no-implementation-order`.
+function runGate({ root, script, scriptPath, args }) {
+  const program = scriptPath ?? join(SCRIPT_DIRECTORY, script);
+  const result = spawnSync(process.execPath, [program, ...args(root)], {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

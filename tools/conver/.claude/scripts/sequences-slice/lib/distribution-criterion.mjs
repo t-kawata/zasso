@@ -69,6 +69,13 @@ export const CRITERION_CLAUSES = Object.freeze([
     claim: 'no gate claims more than this criterion measures',
     measuredBy: 'uncoveredClaims',
     evaluate: ({ gateSource }) => uncoveredClaims(gateSource).length === 0,
+    // The uncovered sentence is the repair: it names the claim that has no measured
+    // clause, so a reader adds a clause or removes the claim instead of re-reading
+    // every gate source looking for the one that overreaches.
+    describe: ({ gateSource }) => {
+      const uncovered = uncoveredClaims(gateSource);
+      return uncovered.length === 0 ? null : `uncovered claims: ${uncovered.join('; ')}`;
+    },
   },
   {
     id: 'K8',

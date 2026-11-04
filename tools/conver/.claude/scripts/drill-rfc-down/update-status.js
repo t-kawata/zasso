@@ -10,7 +10,7 @@
  *
  * Operations:
  *   set-step <STEP-ID>      - Set the current sub-step (validated against the table)
- *   set-state <STATE>       - Set the grill-session state (GRILLING..DONE)
+ *   set-state <STATE>       - Set the session state (GRILLING, DESIGN_DONE, COMPLETE)
  *   inc-loop                - Increment reviewLoopCount (re-grill loop guard)
  *   show                    - Print current status + English nextAction (read-only)
  *
@@ -28,12 +28,16 @@ import { toHomeRelative } from '../lib/path-utils.js';
 
 const STATUS_FILE = 'Status.json';
 
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
 const VALID_STATES = [
   'GRILLING',
   'CHECKLIST_PENDING',
   'CHECKLIST_APPROVED',
   'WRITING',
   'REVIEWING',
+  'DESIGN_DONE',
+  'COMPLETE',
+  // Legacy sessions wrote DONE before COMPLETE existed; it reads as DESIGN_DONE.
   'DONE',
 ];
 
@@ -44,6 +48,7 @@ const VALID_STATES = [
  * boundify / split / verify) are gate steps driven by their step scripts
  * (graphify-step.js / boundify-step.js / split-step.js / verify-step.js).
  */
+// [::TICKET::] PX-368 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-368 --for-spec --no-implementation-order`.
 const STEP_DEFINITIONS = {
   '1-1': { title: 'session-init', nextAction: 'Run session-init.js to create or resume the drill session in $SESSION_DIR.' },
   '1-2': { title: 'baseline', nextAction: 'Run rfc-evolution.js capture <RFC_PATH> to snapshot the RFC before editing.' },
@@ -56,7 +61,7 @@ const STEP_DEFINITIONS = {
   '1-9': { title: 'checklist-verify', nextAction: 'Set-state REVIEWING and fix every CheckList item until all are checked.' },
   '1-10': { title: 're-grill', nextAction: 'If new unresolved nodes exist, set-state GRILLING and inc-loop then return to 1-5; otherwise proceed.' },
   '1-11': { title: 'evolution-verify', nextAction: 'Run rfc-evolution.js verify <RFC_PATH>; fix violations until it exits 0.' },
-  '1-12': { title: 'complete', nextAction: 'Set-state DONE, run check-all-schema.js, run rfc-evolution.js clean, and hand delta.json to Step 2.' },
+  '1-12': { title: 'complete', nextAction: 'Set-state DESIGN_DONE, run check-all-schema.js, run rfc-evolution.js clean, and hand delta.json to Step 2. COMPLETE is declared only by Step 5 DRILL-REPORT.' },
   '2-1': { title: 'graphify', nextAction: 'Run graphify-step.js --stage with delta.json, design the GRAPH evolution on the staging copy with crud.js, then --approve (or --reject).' },
   '3-1': { title: 'boundify', nextAction: 'Run boundify-step.js --stage with the graph-delta, design the Dirs-Tree evolution on the staging copy with dirs-tree-crud.js, then --approve (or --reject).' },
   '4-1': { title: 'split', nextAction: 'Run split-step.js --stage with the dirs-tree-delta, edit the staging Tickets.json with add-ticket.js / update-ticket.js, then --approve (or --reject).' },

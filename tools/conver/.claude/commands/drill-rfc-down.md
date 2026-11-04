@@ -176,20 +176,26 @@ writer it is belongs to that command's own section, not to this one.
 In:
 - args: zero or more space-separated material paths.
 - material: file, or directory whose every file is material.
-- no args → README `RESIDUE` + prior user conversation only.
+- **zero args is a complete invocation**: the resolver discovers `README.md` (the
+  `RESIDUE`) and the sequences view (`SEQUENCES.md`) once, and branches on their presence.
+  Neither is required.
+- explicit arguments are **appended** to the discovered list, deduplicated by resolved
+  path, and never replace a discovered entry.
 - run from project root containing `.claude`; resolve cwd `Tickets.json` and `.claude/scripts/` (`$DRILL_DIR`).
 
 Invocation:
 ```bash
-/drill-rfc-down <material-file-or-dir> <material-file-or-dir> ...
+/drill-rfc-down [<material-file-or-dir> ...]
 ```
 
 ## Script List
 
 | Script | Contract |
 |---|---|
-| `preflight.cjs <material...>` | resolve/validate material + RFC/GRAPH/Dirs-Tree + README; emit `[VARIABLES]` |
-| `session-init.js <rfc>` | create/continue `$SESSION_DIR`; Status/DesignTree/CheckList |
+| `preflight.cjs <material...>` | resolve/validate material + RFC/GRAPH/Dirs-Tree (README optional); emit `[VARIABLES]` |
+| `resolve-material.js` | discover README/SEQUENCES view, append arguments, record the material list |
+| `drill-report.js` | write `DRILL-REPORT.json/.md`; the only source of `COMPLETE` |
+| `session-init.js <rfc> [--material-paths=<json>]` | create/continue `$SESSION_DIR`; Status/DesignTree/CheckList + material record |
 | `session-status.js <session>` | phase + unresolved-node count |
 | `update-status.js <session> set-step\|set-state\|inc-loop\|show` | state transition + English `nextAction` |
 | `rfc-evolution.js capture\|verify\|check-capture\|clean <rfc>` | baseline (`--if-absent`); generated-ledger-aware append-only/delta/contradiction verification (`--allow-empty`); concurrent-change check; clean snapshot |
@@ -219,13 +225,16 @@ Invocation:
 ### Step 0: Preflight
 
 G0 input:
-- resolve: materials, cwd `Tickets.json`, `metadata.resolvedPaths` RFC/GRAPH/Dirs-Tree, `README.md`.
-- all must exist. `WORKSPACE_ROOT` comes from the nearest `WORKSPACIFY-TREE-MANIFEST.json`.
+- resolve: materials, cwd `Tickets.json`, `metadata.resolvedPaths` RFC/GRAPH/Dirs-Tree.
+- **README.md is optional**: present → read its `RESIDUE`; absent → `README_PRESENT=false` and
+  the run proceeds. The sequences view is optional in the same way.
+- RFC/GRAPH/Dirs-Tree must exist. `WORKSPACE_ROOT` comes from the nearest `WORKSPACIFY-TREE-MANIFEST.json`.
 - Tickets missing → `BLOCKED_PREREQUISITE` + `TICKETS_MISSING_ROUTE_SPLIT_TO_TICKETS`; Action: `/split-to-tickets`; stop.
 - target mismatch → `PACKAGE_TARGET_MISMATCH`; Action: run from the package or pass `--package`; stop.
 - other missing → producer command from the error; stop.
 - fail → report `[ERROR] Cause / Action / Verify / Route`; stop.
-- pass → list resolved paths in Markdown; Step 1.
+- pass → list resolved paths in Markdown, with `README_PRESENT`, `SEQUENCES_PRESENT`,
+  `MATERIAL_PATHS` and `MATERIAL_ADDED`; Step 1.
 
 `$ARGUMENTS` is deliberately unquoted: shell passes each space-separated arg as argv; script splits/drops empty tokens; no args → no materials, never cwd.
 
@@ -268,12 +277,13 @@ Repair: `SPEC_HASH_MISMATCH` / `SEED_IDENTITY_MISSING` → the seed or specifica
 #### 1-1. Session Initialization
 
 ```bash
-node "$DRILL_DIR/session-init.js" "$RFC_PATH"
+node "$DRILL_DIR/session-init.js" "$RFC_PATH" --material-paths="$MATERIAL_PATHS" --readme-present="$README_PRESENT" --sequences-present="$SEQUENCES_PRESENT"
 node "$DRILL_DIR/session-status.js" "$SESSION_DIR"
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-1
 ```
 
-Create session Status/DesignTree/CheckList; existing session → continue.
+Create session Status/DesignTree/CheckList and record the resolved material list; an
+existing session continues and keeps its recorded list.
 
 #### 1-2. Capture Baseline
 
@@ -494,9 +504,11 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-11
 #### 1-12. Completion Declaration
 
 Done iff: open-count 0; CheckList all `✅`; RFC has no TBD/TODO/stub; G1 PASS; `check-formula-coverage.js` exit 0 (or zero owned).
+This is **design complete**, not complete: `COMPLETE` is declared only by the Step 5
+`DRILL-REPORT.json`, after every P1 gate exits 0.
 
 ```bash
-node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-state DONE
+node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-state DESIGN_DONE
 node "$DRILL_DIR/check-all-schema.js" "$SESSION_DIR"
 node "$DRILL_DIR/rfc-evolution.js" clean "$RFC_PATH"
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-12
@@ -651,7 +663,7 @@ node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 G5 cross-artifact consistency; canonical RFC / GRAPH / Dirs-Tree / src / Tickets; zero contradiction.
 
 ```bash
-node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --tickets="$TICKETS_PATH"
+node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --tickets="$TICKETS_PATH" --session-dir="$SESSION_DIR" --workspace="$WORKSPACE_ROOT"
 ```
 
 | Check | Severity |
@@ -662,7 +674,17 @@ node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-
 | GRAPH ↔ Tickets `nodeIds`: every non-Prose node ticketed | high |
 | dangling Dirs-Tree/Tickets references → extant GRAPH target | high |
 | formula obligation set/digest differs between RFC sidecar, GRAPH and Tickets | high |
+| view unit ↔ distribution ledger ↔ GRAPH ↔ implementation header ↔ Tickets | high |
 | edge contracts ↔ connecting Tickets contracts; orphan-free | high |
+
+**Two scopes.** P1 is per package and blocking: `verify-consistencies`, the formula coverage
+gate and `verifyFormulaChain`. P2 is workspace residue (`check-obligation-coverage`,
+`check-distribution-completeness`, `verify-api-consistency`); it is recorded in
+`DRILL-REPORT.json.p2` and never blocks this package, so one package can evolve while a
+neighbour is incomplete. A package with no sequences view has no unit chain to check; that is
+vacuous, not a failure. The API gate reads the Rust fences of every package RFC and reports a
+cross-package symbol that is undefined, duplicated, wrongly called or used with the wrong
+generic arity; an unparsed construct is advisory.
 
 - high finding → exit 1; back to Step 2; repair Steps 2 → 3 → 4; re-run G5 until exit 0.
 - low/cosmetic findings only → PASS.

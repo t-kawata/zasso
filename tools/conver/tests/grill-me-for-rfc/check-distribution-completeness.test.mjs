@@ -7,7 +7,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { siblingSourceTexts } from '../../.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js';
+import { uncoveredClaims } from '../../.claude/scripts/sequences-slice/lib/distribution-criterion.mjs';
 
 const GATE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js');
 
@@ -226,6 +230,53 @@ test('PX-355 C006 K8 is not established with not carried: pkg-root when the root
     assert.equal(result.status, 1);
     assert.match(result.stdout, /^K8 .*not established/m);
     assert.match(result.stdout, /not carried: pkg-root/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PX-367 — the closure reads the whole sibling family, and a short clause is a repair
+// ---------------------------------------------------------------------------
+
+test('PX-367 C005 the closure reads every sibling gate source, not one gate', () => {
+  const siblingText = siblingSourceTexts();
+
+  assert.ok(siblingText.includes('check-ledger-discharge.js'));
+  assert.ok(siblingText.includes('does not guarantee'));
+});
+
+test('PX-367 C005 a claim added to a sibling source without a declared clause fails the closure', () => {
+  const directory = fs.mkdtempSync(path.join(tmpdir(), 'px367-k7-'));
+  try {
+    fs.writeFileSync(path.join(directory, 'check-extra.js'), 'const claim = "guarantees: every placement is also traceable to a ninth thing nobody measures";');
+    fs.writeFileSync(path.join(directory, 'check-limit.js'), 'const limit = "does not guarantee: anything";');
+
+    assert.deepEqual(
+      uncoveredClaims(siblingSourceTexts(directory)),
+      ['every placement is also traceable to a ninth thing nobody measures'],
+    );
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('PX-367 C004 a short clause renders the repair record naming the measured clause', () => {
+  const root = completeWorkspace();
+  try {
+    const artifactPath = path.join(root, 'SyntheticSpec-sequences.json');
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    artifact.pins.sourceEnumerations = [];
+    fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /\[ERROR\] K1/);
+    for (const label of ['Cause:', 'Layer:', 'Artifact:', 'Action:', 'Verify:', 'Route:']) {
+      assert.match(result.stdout, new RegExp(label));
+    }
+    assert.match(result.stdout, /Route: upstream/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

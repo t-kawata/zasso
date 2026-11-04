@@ -14,7 +14,9 @@ import { resolve } from 'node:path';
 
 import {
   computeRfcDigest,
+  digestFormula,
   extractFormulas,
+  normalizeFormula,
   parseSeedIdentity,
   readFormulaLedger,
   resolveWorkspaceRoot,
@@ -24,6 +26,10 @@ import {
 } from '../spec-formula/index.mjs';
 import { FORMULA_SIDECAR_FILENAME } from '../spec-formula/ledger.mjs';
 import { sha256Hex } from '../workspacify-tree/lib/hash.mjs';
+import repairFinding from '../lib/repair-finding.js';
+
+const { createFinding, renderFindings } = repairFinding;
+import { toHomeRelative } from '../lib/path-utils.js';
 
 const USAGE = 'usage: check-formula-coverage.js <rfc-dir> [--workspace=<root>]';
 
@@ -64,13 +70,24 @@ function resolveSpecPath(workspaceRoot, value) {
 
 /** Enrich a coverage finding with the exact repair and verification commands. */
 // [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
-function withRepair(finding, rfcDir) {
+function withRepair(finding, rfcDir, formulasById = new Map()) {
   const target = finding.formulaId ?? 'the owned formulas';
-  return {
-    ...finding,
+  const record = createFinding({
     severity: 'blocking',
-    action: `edit ${rfcDir}/RFC.md and ${rfcDir}/RFC-FORMULAS.json for ${target} from the specification extractor`,
-    verify: `node .claude/scripts/grill-me-for-rfc/check-formula-coverage.js ${rfcDir}`,
+    code: finding.code,
+    layer: 'grill',
+    artifact: resolve(rfcDir, 'RFC.md'),
+    formulaId: finding.formulaId ?? null,
+    field: finding.field ?? null,
+    cause: finding.message,
+    action: `edit ${rfcDir}/RFC.md and ${rfcDir}/RFC-FORMULAS.json for ${target} from the specification extractor, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-formula-coverage.js" ${rfcDir}`,
+    verify: `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-formula-coverage.js" ${rfcDir}`,
+    route: 'in-drill',
+  });
+  return {
+    ...record,
+    specPath: finding.specPath ?? null,
+    specLine: finding.specLine ?? formulasById.get(finding.formulaId)?.lineStart ?? null,
   };
 }
 
@@ -97,7 +114,7 @@ export function run(argv) {
   const rfcDir = resolve(options.rfcDir);
   const workspaceRoot = options.workspace === null ? resolveWorkspaceRoot(rfcDir) : resolve(options.workspace);
   if (workspaceRoot === null) {
-    process.stderr.write(`refused: no workspace manifests above ${rfcDir}\n`);
+    process.stderr.write(`refused: no workspace manifests above ${toHomeRelative(rfcDir)}\n`);
     return 1;
   }
 
@@ -201,6 +218,20 @@ export function run(argv) {
         specLine: extracted.lineStart,
       }));
     }
+    // The sidecar is compared with the specification through its body, not through its
+    // digest field: a field can keep the ledger's old value while the body names another
+    // formula, and every downstream stage compares bodies.
+    const recomputed = typeof sidecarFormula.body === 'string' && sidecarFormula.body.trim().length > 0
+      ? digestFormula(normalizeFormula(sidecarFormula.body))
+      : null;
+    if (recomputed !== extracted.digest) {
+      findings.push(finding('SIDECAR_BODY_MISMATCH', `${sidecarFormula.id} body does not reproduce the specification formula`, {
+        formulaId: sidecarFormula.id,
+        field: 'body',
+        specPath: seed.sourceSpec.path,
+        specLine: extracted.lineStart,
+      }));
+    }
   }
 
   for (const id of ledgerRows.keys()) {
@@ -214,7 +245,7 @@ export function run(argv) {
     }
   }
 
-  const repaired = findings.map((entry) => withRepair(entry, rfcDir));
+  const repaired = findings.map((entry) => withRepair(entry, rfcDir, formulasById));
   const output = {
     ok: repaired.length === 0,
     ownedFormulas: ownedFormulas.length,
@@ -226,8 +257,9 @@ export function run(argv) {
 
   if (repaired.length > 0) {
     for (const entry of repaired) {
-      process.stderr.write(`${entry.code}${entry.formulaId ? ` ${entry.formulaId}` : ''}: ${entry.message}\n`);
+      process.stderr.write(`${entry.code}${entry.formulaId ? ` ${entry.formulaId}` : ''}: ${entry.cause}\n`);
     }
+    process.stderr.write(`${renderFindings(repaired, { cap: repaired.length })}\n`);
     return 1;
   }
   return 0;

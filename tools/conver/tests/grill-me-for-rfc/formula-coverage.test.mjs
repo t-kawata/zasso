@@ -15,7 +15,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
   computeRfcDigest,
+  digestFormula,
   extractFormulas,
+  normalizeFormula,
   uniqueFormulas,
 } from '../../.claude/scripts/spec-formula/index.mjs';
 import { buildWorkspace, specSha, SPEC_TEXT, SPEC_PATH } from '../spec-formula/helpers/workspace.mjs';
@@ -215,4 +217,55 @@ test('C001 error: a second Formula ledger heading is refused', () => {
   assert.equal(result.status, 1);
   const output = JSON.parse(result.stdout);
   assert.equal(output.findings.some((finding) => finding.code === 'DUPLICATE_LEDGER_HEADING'), true);
+});
+
+// ---------------------------------------------------------------------------
+// PX-367 — the sidecar's identity is its body, not its digest field
+// ---------------------------------------------------------------------------
+
+test('PX-367 C003 postcondition: an altered sidecar body is blocking even when its digest field matches', () => {
+  const workspace = buildWorkspace();
+  buildRfc(workspace);
+  const sidecarPath = join(workspace.packageDirectory, 'RFC-FORMULAS.json');
+  const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8'));
+  const formulaId = sidecar.formulas[0].id;
+  sidecar.formulas[0].body = ' M=2^999 ';
+  writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8');
+
+  const result = runCheck(workspace);
+
+  assert.equal(result.status, 1);
+  const output = JSON.parse(result.stdout);
+  const mismatch = output.findings.find((entry) => entry.code === 'SIDECAR_BODY_MISMATCH' && entry.formulaId === formulaId);
+  assert.ok(mismatch, JSON.stringify(output.findings));
+  assert.equal(mismatch.specLine, 3);
+});
+
+test('PX-367 C003 invariant: the sidecar digest is recomputed from its own body', () => {
+  const workspace = buildWorkspace();
+  buildRfc(workspace);
+  const sidecar = JSON.parse(readFileSync(join(workspace.packageDirectory, 'RFC-FORMULAS.json'), 'utf8'));
+  for (const row of sidecar.formulas) {
+    assert.equal(digestFormula(normalizeFormula(row.body)), row.digest);
+  }
+});
+
+test('PX-367 C004 every blocking finding carries the eight repair fields and renders them', () => {
+  const workspace = buildWorkspace();
+  buildRfc(workspace, { omit: ['N=K+1'] });
+
+  const result = runCheck(workspace);
+
+  assert.equal(result.status, 1);
+  const output = JSON.parse(result.stdout);
+  const missing = output.findings.find((entry) => entry.code === 'MISSING_LEDGER_ROW');
+  assert.ok(missing, JSON.stringify(output.findings));
+  for (const field of ['severity', 'code', 'layer', 'artifact', 'cause', 'action', 'verify', 'route']) {
+    assert.equal(typeof missing[field], 'string', `finding.${field} is required`);
+    assert.ok(missing[field].length > 0, `finding.${field} is empty`);
+  }
+  assert.match(result.stderr, /\[ERROR\] MISSING_LEDGER_ROW/);
+  for (const label of ['Cause:', 'Layer:', 'Artifact:', 'Action:', 'Verify:', 'Route:']) {
+    assert.match(result.stderr, new RegExp(label));
+  }
 });

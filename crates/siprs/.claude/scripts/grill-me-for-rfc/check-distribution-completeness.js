@@ -22,9 +22,12 @@ import { collectUnitIds } from '../sequences-slice/lib/material.mjs';
 import { obligationSourceOf } from '../sequences-slice/lib/view.mjs';
 import { resolveGround, sectionIdentifiersOf } from '../sequences-slice/lib/obligation-ground.mjs';
 import { toHomeRelative } from '../lib/path-utils.js';
+import repairFinding from '../lib/repair-finding.js';
 
 import { findPackageDirectories, readLedgers } from './check-ledger-discharge.js';
 import { findArtifact, readJsonOrNull, readViews } from './check-obligation-coverage.js';
+
+const { createFinding, renderFindings } = repairFinding;
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -32,14 +35,14 @@ const EXIT_FAILED = 1;
 const USAGE = 'usage: check-distribution-completeness.js <WORKSPACE_ROOT>';
 const ALLOCATE_MANIFEST_FILENAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
-const GATE_FILENAME = 'check-obligation-coverage.js';
 
 /** The sources whose claims the closure clause reads: this gate's siblings. */
 // [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
-function siblingSourceTexts() {
-  return fs.readdirSync(import.meta.dirname)
+function siblingSourceTexts(directory = import.meta.dirname) {
+  return fs.readdirSync(directory)
     .filter((name) => name.startsWith('check-') && name.endsWith('.js'))
-    .map((name) => fs.readFileSync(path.join(import.meta.dirname, name), 'utf8'))
+    .sort()
+    .map((name) => fs.readFileSync(path.join(directory, name), 'utf8'))
     .join('\n');
 }
 
@@ -107,6 +110,47 @@ function renderCriterionLines(findings) {
   });
 }
 
+/** The root artifact a repair record names, or the allocation manifest when none is visible. */
+function workspaceArtifactPath(root) {
+  const name = fs.existsSync(root)
+    ? fs.readdirSync(root).find((entry) => entry.endsWith('-sequences.json'))
+    : undefined;
+  return path.join(root, name ?? ALLOCATE_MANIFEST_FILENAME);
+}
+
+/** The route and command that repair each clause. */
+const CLAUSE_REPAIRS = Object.freeze({
+  K1: { route: 'upstream', action: (root) => `run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path> to supply the census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K2: { route: 'in-drill', action: (root) => `assign the unassigned demand in the artifact or record a grounded exemption, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K3: { route: 'in-drill', action: (root) => `cite a section or ledger row the workspace holds, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K4: { route: 'in-drill', action: (root) => `place the exempted demand in a package instead of parking it, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K5: { route: 'in-drill', action: (root) => `add the missing row to the package RFC Distribution ledger, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K6: { route: 'in-drill', action: (root) => `cite a section the RFC carries, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K7: { route: 'in-drill', action: () => 'edit .claude/scripts/sequences-slice/lib/distribution-criterion.mjs CLAIM_CLAUSES so the claim has a measured clause, or remove the claim from the gate source' },
+  K8: { route: 'upstream', action: (root) => `run node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" to project every package the allocation names, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+});
+
+function buildCriterionFindings(findings, root, artifactPath) {
+  const verify = `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}`;
+  return findings.filter((finding) => !finding.holds).map((finding) => {
+    const repair = CLAUSE_REPAIRS[finding.id];
+    const artifact = finding.id === 'K7'
+      ? path.join(import.meta.dirname, '..', 'sequences-slice', 'lib', 'distribution-criterion.mjs')
+      : artifactPath;
+    return createFinding({
+      severity: 'blocking',
+      code: finding.id,
+      layer: 'grill',
+      artifact,
+      field: finding.measuredBy,
+      cause: `${finding.id} not established — ${finding.claim}${finding.detail === null ? '' : `; ${finding.detail}`}`,
+      action: repair.action(root),
+      verify,
+      route: repair.route,
+    });
+  });
+}
+
 /** Measure the criterion over one workspace and print it. */
 // [::TICKET::] PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-263 --for-spec --no-implementation-order`.
 export function main(argv = process.argv.slice(2)) {
@@ -141,7 +185,7 @@ export function main(argv = process.argv.slice(2)) {
     discharge: { ...discharge, withoutLedger: discharge.withoutLedger.filter((packageId) => !refused.has(packageId)), malformed },
     locations: unresolvedLocations(ledgerRows),
     packages: packageCoverage(allocateManifest, views),
-    gateSource: fs.readFileSync(path.join(import.meta.dirname, GATE_FILENAME), 'utf8'),
+    gateSource: siblingSourceTexts(),
   });
 
   const lines = [
@@ -149,6 +193,8 @@ export function main(argv = process.argv.slice(2)) {
     ...renderCriterionLines(findings),
     `does not guarantee: ${CRITERION_BOUNDARY}`,
   ];
+  const records = buildCriterionFindings(findings, root, workspaceArtifactPath(root));
+  if (records.length > 0) lines.push('', renderFindings(records, { cap: records.length }));
   process.stdout.write(`${lines.join('\n')}\n`);
   return findings.every((finding) => finding.holds) ? EXIT_OK : EXIT_FAILED;
 }
