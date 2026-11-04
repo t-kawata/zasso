@@ -15,11 +15,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { PACKAGE_ROOT_DIRECTORY, normalizePackagePath } from './packages.mjs';
+import { packageDirectoriesOf } from './package-directories.mjs';
+
 /** The fence that opens a JSON block inside a seed document. */
 const JSON_FENCE = /```json\r?\n([\s\S]*?)```/g;
 
-/** The directory beneath a workspace root that holds its packages. */
-export const PACKAGE_ROOT_DIRECTORY = 'crates';
+// The package root is a fallback, not the authority: the tree manifest names each package
+// directory, and it may name the workspace root itself with path ".". Re-exported here because
+// existing callers import it from this module.
+export { PACKAGE_ROOT_DIRECTORY };
 
 /** The seed document each package directory carries its source_segments in. */
 const SEED_FILENAME = 'RFC-SEED.md';
@@ -201,4 +206,50 @@ export function readPackageSegments(packageRoot) {
   };
   walk(packageRoot);
   return packageSegments.sort((left, right) => left.packagePath.localeCompare(right.packagePath));
+}
+
+/**
+ * Every package seed the workspace names, keyed by the package path the tree manifest carries.
+ *
+ * The workspace root is a package when the manifest spells its path ".". It carries its seed
+ * at the root itself, so a reader that walks only the package root drops it. A package with no
+ * seed file is skipped: the manifest may name a package whose seed is not required, and that
+ * package claims no segment rather than being counted as an empty claim.
+ *
+ * @param {string} root
+ * @param {object|null} treeManifest
+ * @returns {Array<{ packagePath: string, segmentIds: string[] }>}
+ */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+export function readWorkspacePackageSegments(root, treeManifest = null) {
+  const packageSegments = new Map();
+  const addSeed = (directory, packagePath) => {
+    const seedPath = path.join(directory, SEED_FILENAME);
+    if (!fs.existsSync(seedPath)) return;
+    const segmentIds = readSourceSegments(fs.readFileSync(seedPath, 'utf8'));
+    packageSegments.set(directory, { packagePath, segmentIds: segmentIds ?? [] });
+  };
+
+  for (const entry of packageDirectoriesOf(root, treeManifest, { fallbackMarkers: [SEED_FILENAME] })) {
+    addSeed(entry.directory, entry.packagePath);
+  }
+
+  // A seed under the package root that the manifest does not place at its own path is still
+  // a seed the workspace holds, and the line coordinate is a workspace-wide measurement. The
+  // root is read only from the manifest, so a stray root seed is not picked up here.
+  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
+  if (fs.existsSync(packageRoot)) {
+    const visit = (directory) => {
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const fullPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) visit(fullPath);
+        else if (entry.name === SEED_FILENAME && !packageSegments.has(directory)) {
+          addSeed(directory, normalizePackagePath(path.relative(root, directory)));
+        }
+      }
+    };
+    visit(packageRoot);
+  }
+
+  return [...packageSegments.values()].sort((left, right) => left.packagePath.localeCompare(right.packagePath));
 }

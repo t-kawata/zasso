@@ -32,13 +32,16 @@ import { readDistributionLedger } from '../sequences-slice/lib/distribution-ledg
 import { resolveGround, sectionIdentifiersOf } from '../sequences-slice/lib/obligation-ground.mjs';
 import { VIEW_JSON_NAME, collectUnitIds } from '../sequences-slice/lib/material.mjs';
 import { measureDischarge } from '../sequences-slice/lib/obligation-coverage.mjs';
-import { PACKAGE_ROOT_DIRECTORY } from '../sequences-slice/lib/segments.mjs';
+import { packageDirectoriesOf } from '../sequences-slice/lib/package-directories.mjs';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
 
 /** The document a package's distribution ledger is an appendix of. */
 const RFC_FILENAME = 'RFC.md';
+
+/** The manifest that names each package directory, including the workspace root as ".". */
+const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
 const USAGE = 'usage: check-ledger-discharge.js <WORKSPACE_ROOT>';
 
@@ -62,21 +65,19 @@ function readTextOrNull(filePath) {
   }
 }
 
-/** Every package directory beneath the workspace's package root, in path order. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
-function findPackageDirectories(root) {
-  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
-  if (!fs.existsSync(packageRoot)) return [];
-  const directories = [];
-  const walk = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const fullPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(fullPath);
-      else if (entry.name === VIEW_JSON_NAME) directories.push(directory);
-    }
-  };
-  walk(packageRoot);
-  return directories;
+/**
+ * Every package directory the workspace names that carries a view, in manifest path order.
+ *
+ * The tree manifest is the authority, including for the workspace root when its path is ".".
+ * When the manifest is absent or carries no package list, the walk falls back to the crates
+ * directory; a root view in that state is a stray file and is not read.
+ */
+// [::TICKET::] PX-261, PX-263, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263|PX-355) --for-spec --no-implementation-order`.
+function findPackageDirectories(root, treeManifest = undefined) {
+  const manifest = treeManifest === undefined ? readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME)) : treeManifest;
+  return packageDirectoriesOf(root, manifest, { fallbackMarkers: [VIEW_JSON_NAME] })
+    .map((entry) => entry.directory)
+    .filter((directory) => fs.existsSync(path.join(directory, VIEW_JSON_NAME)));
 }
 
 /**
@@ -153,7 +154,7 @@ function renderDischargeLines(discharge, malformed, locations) {
 }
 
 /** Measure one workspace's discharge and print it. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263|PX-355) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rootArgument] = argv.filter((argument) => !argument.startsWith('--'));
   if (rootArgument === undefined) {
@@ -166,7 +167,8 @@ function main(argv = process.argv.slice(2)) {
     return EXIT_FAILED;
   }
 
-  const { ledgers, malformed, locations, views } = readLedgers(findPackageDirectories(root));
+  const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME));
+  const { ledgers, malformed, locations, views } = readLedgers(findPackageDirectories(root, treeManifest));
   const measured = measureDischarge({ views, ledgersByPackage: ledgers });
   // A package whose ledger was found and refused is not a package with no ledger, and reporting
   // it as both would name two repairs for one defect. It is read once and answered once.

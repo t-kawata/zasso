@@ -108,6 +108,24 @@ function isHardEdge(edgeOrType) {
   return weightOf(edgeOrType) === Infinity;
 }
 
+/**
+ * The edges an SCC condensation may read.
+ *
+ * Condensation groups nodes that are mutually reachable, and the group is later kept
+ * adjacent. Only a hard edge with a direction states that one node must be implemented
+ * before another, so only those edges may put two nodes in one group. A `references` or
+ * `refines` cycle between two sections records that they quote each other: grouping them
+ * moves one out of its ordered position and can land it ahead of the very node it is
+ * constrained by.
+ *
+ * @param {Array<object>} edges — graph edges, any type
+ * @returns {Array<object>} the hard, directed edges
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function orderingEdges(edges) {
+  return (edges || []).filter((edge) => isHardEdge(edge) && directionOf(edge) !== null);
+}
+
 /** Backward-compatible alias used by the existing phasify helpers. */
 // [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
 function getWeight(edgeOrType) {
@@ -131,6 +149,7 @@ module.exports = {
   typeDefaultWeight,
   weightOf,
   isHardEdge,
+  orderingEdges,
   getWeight,
   isHard,
 };

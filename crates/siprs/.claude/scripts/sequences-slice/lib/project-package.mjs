@@ -19,9 +19,9 @@ import path from 'node:path';
 import { parseSequencesArtifact } from './artifact.mjs';
 import { digestOf, readDistributionRecord, writeDistributionRecord } from './distribution-record.mjs';
 import { VIEW_JSON_NAME, VIEW_MARKDOWN_NAME } from './material.mjs';
-import { readPackageObligations, resolveAssignedSequenceOwners } from './obligation.mjs';
-import { resolvePackageByPath } from './packages.mjs';
-import { PACKAGE_ROOT_DIRECTORY, readPackageSegments } from './segments.mjs';
+import { readWorkspaceObligations, resolveAssignedSequenceOwners } from './obligation.mjs';
+import { PACKAGE_ROOT_DIRECTORY, normalizePackagePath, resolvePackageByPath } from './packages.mjs';
+import { readWorkspacePackageSegments } from './segments.mjs';
 import { buildPackageView, renderPackageViewJson, renderPackageViewMarkdown } from './view.mjs';
 
 export const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
@@ -62,29 +62,47 @@ export function readJsonOrRefuse(filePath) {
   }
 }
 
+/** Read and parse one JSON file, or null when it is absent or unreadable. */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function readJsonOrNull(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The workspace's package segments, or a refusal naming what could not be read.
  *
  * The view states the workspace's line coordinate, so this list is an input to it. A workspace whose
- * seeds are absent, or whose package root cannot be walked, is refused rather than passed on as an
- * empty list: an empty list renders as a package count the workspace never measured, which is the
+ * seeds are absent, or whose package directories cannot be read, is refused rather than passed on as
+ * an empty list: an empty list renders as a package count the workspace never measured, which is the
  * shape of the defect this projection exists to avoid repeating.
  *
+ * The tree manifest is read when the caller did not already read it. A package the manifest names
+ * with path "." carries its seed at the workspace root, so the walk is over the named packages
+ * rather than over the crates directory alone.
+ *
  * @param {string} root
+ * @param {object|null|undefined} [treeManifest]
  * @returns {Array<{ packagePath: string, segmentIds: string[] }>}
  */
-// [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
-export function readWorkspaceSegmentsOrRefuse(root) {
+// [::TICKET::] PX-256, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-256|PX-355) --for-spec --no-implementation-order`.
+export function readWorkspaceSegmentsOrRefuse(root, treeManifest = undefined) {
+  const manifest = treeManifest === undefined ? readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME)) : treeManifest;
   const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
 
   let packageSegments;
   try {
-    packageSegments = readPackageSegments(packageRoot);
+    packageSegments = readWorkspacePackageSegments(root, manifest);
   } catch (error) {
-    throw new ProjectionRefused(`${packageRoot} could not be read (${error.code ?? error.message})`);
+    // The failing path is the one the operator has to open; a seed at the root and a seed
+    // under the package root are both inputs to this read.
+    throw new ProjectionRefused(`${error.path ?? packageRoot} could not be read (${error.code ?? error.message})`);
   }
   if (packageSegments.length === 0) {
-    throw new ProjectionRefused(`no package seed was readable under ${packageRoot}`);
+    throw new ProjectionRefused(`no package seed was readable in ${root} or under ${packageRoot}`);
   }
   return packageSegments;
 }
@@ -122,19 +140,23 @@ function recordDistribution(packageDir, viewJson) {
  * One package's record, found from either an absolute directory or one relative to the
  * workspace root.
  *
- * The record map is keyed by the package's path relative to the package root, so the
- * caller's form cannot be used as the key directly: a relative directory would resolve
- * against the process's current directory and name no record at all.
+ * The workspace reader keys records by the tree manifest path ("crates/pkg-a" and "." for the
+ * root), while the legacy reader keys them relative to the package root ("pkg-a" and "..").
+ * The caller's form cannot be used as a key directly: a relative directory would resolve
+ * against the process's current directory and name no record at all. Both spellings are tried
+ * so a record written into either reader's map is reachable.
  *
  * @param {Map<string, object>} obligationsByPath
  * @param {string} root
  * @param {string} packageDir
  * @returns {object|null}
  */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
 export function packageRecordFor(obligationsByPath, root, packageDir) {
-  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
-  const key = path.relative(packageRoot, path.resolve(root, packageDir));
-  return obligationsByPath.get(key) ?? null;
+  const absolute = path.resolve(root, packageDir);
+  const manifestKey = normalizePackagePath(path.relative(root, absolute));
+  const legacyKey = path.relative(path.join(root, PACKAGE_ROOT_DIRECTORY), absolute);
+  return obligationsByPath.get(manifestKey) ?? obligationsByPath.get(legacyKey) ?? null;
 }
 
 /**
@@ -168,8 +190,7 @@ export function projectPackageView(artifactPath, packageDir) {
   // parsed value is passed on rather than discarded.
   const allocateManifest = readJsonOrRefuse(path.join(root, ALLOCATE_MANIFEST_FILENAME));
 
-  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
-  const packageSegments = readWorkspaceSegmentsOrRefuse(root);
+  const packageSegments = readWorkspaceSegmentsOrRefuse(root, treeManifest);
 
   const resolved = resolvePackageByPath(treeManifest.workspace.packages, packageDir, root);
   if (resolved.packageId === null) throw new ProjectionRefused(resolved.reason);
@@ -178,7 +199,7 @@ export function projectPackageView(artifactPath, packageDir) {
   // package's own directory and the reader is the one place that knows the key. A record that
   // could not be read leaves its package declaring nothing, so the demands it would have placed
   // are reported as unassigned by the gate rather than disappearing with the refusal.
-  const obligationsByPath = readPackageObligations(packageRoot, allocateManifest);
+  const obligationsByPath = readWorkspaceObligations(root, allocateManifest, treeManifest);
   const obligation = packageRecordFor(obligationsByPath, root, packageDir)
     ?? { serves: [], assignments: [], adjudications: [], refused: [] };
   // A sequence assignment places the whole ordered procedure, and only a package that knows

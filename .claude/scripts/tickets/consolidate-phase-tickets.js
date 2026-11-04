@@ -600,13 +600,14 @@ function checkStatusFile(statusPath) {
  * Atomically write a JSON file using temp file + rename.
  *
  * @param {string} targetPath — path to the target file
- * @param {object} data — data object to write
+ * @param {object} document — JSON document to write
  */
-function atomicWriteJson(targetPath, data) {
-  const tmpPath = targetPath + '.tmp.' + process.pid;
-  const jsonContent = JSON.stringify(data, null, 2) + '\n';
-  fs.writeFileSync(tmpPath, jsonContent, 'utf8');
-  fs.renameSync(tmpPath, targetPath);
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function atomicWriteJson(targetPath, document) {
+  const stagedPath = targetPath + '.tmp.' + process.pid;
+  const jsonContent = JSON.stringify(document, null, 2) + '\n';
+  fs.writeFileSync(stagedPath, jsonContent, 'utf8');
+  fs.renameSync(stagedPath, targetPath);
 }
 
 // ============================================================
@@ -688,7 +689,7 @@ function parseCliArgs(argv, options = {}) {
  * @param {string} statusPath — absolute path to SPLIT-Status.json
  * @param {boolean} dryRun — suppress file writes in dry-run mode
  */
-// [::TICKET::] PX-315, PX-325, PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-325|PX-342) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315, PX-325, PX-342, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-325|PX-342|PX-356) --for-spec --no-implementation-order`.
 function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Read Tickets.json
   const ticketsData = readTickets(ticketsPath);
@@ -820,7 +821,10 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   // verify-chain compares a fresh per-ticket set against a stale file-level digest.
   const carriesDistribution = phases.some((phase) => (phase.tickets ?? []).some((ticket) => ticket.distribution !== undefined));
   if (carriesDistribution) {
-    const { writeTicketDistributionAggregate } = require('./add-tickets-for-phase.js');
+    const { writeTicketDistributionAggregate, refreshTicketDistributionDigests } = require('./add-tickets-for-phase.js');
+    // The remap above rewrote obligation references, and the per-ticket digest covers them.
+    // Refresh before the aggregate so the file is internally consistent in one write.
+    refreshTicketDistributionDigests(phases);
     writeTicketDistributionAggregate(ticketsData);
   }
 

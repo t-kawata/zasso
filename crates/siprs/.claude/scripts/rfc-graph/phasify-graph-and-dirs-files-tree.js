@@ -66,6 +66,7 @@ const {
   consolidatePhases,
   reassignPhaseIds,
   buildSccConstraint,
+  condenseOrderingGraph,
   applySccToOrder,
   applyDirectoryConstraints,
   phasesToTicketsFormat,
@@ -85,9 +86,6 @@ function toConsumerProviderEdge(edge) {
     ? { ...edge, from: edge.to, to: edge.from }
     : edge;
 }
-
-// PX-38 import: SCC condensation (reused from boundify-helpers.js)
-const { tarjanSCC } = require('./boundify-helpers.js');
 
 // PX-38 import: node→dir map (reused from validate-phasify.js)
 const { buildNodeToDirMap } = require('./validate-phasify.js');
@@ -296,7 +294,7 @@ function logVerbose(message, verbose) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-114, PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-114|PX-343) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, PX-343, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-114|PX-343|PX-356) --for-spec --no-implementation-order`.
 function runPhasify(opts) {
   logVerbose('Loading GRAPH.json...', opts.verbose);
   const graphData = JSON.parse(fs.readFileSync(opts.graphPath, 'utf8'));
@@ -311,7 +309,7 @@ function runPhasify(opts) {
   // Phase 1: SCC condensation (tarjanSCC)
   // ============================================================
   logVerbose('Phase 1: Running SCC condensation...', opts.verbose);
-  const sccResult = tarjanSCC(edges);
+  const sccResult = condenseOrderingGraph(edges);
   const { sccMap, sccIds } = buildSccConstraint(sccResult);
   logVerbose('SCC detected: ' + sccResult.length + ' components (multi-node SCC: ' + Object.keys(sccMap).length + ' nodes)', opts.verbose);
 

@@ -20,7 +20,7 @@ import path, { join } from 'node:path';
 
 import { DEMAND_AXES, demandFactsOf, measureCoverage } from '../../sequences-slice/lib/obligation-coverage.mjs';
 import { VIEW_JSON_NAME } from '../../sequences-slice/lib/material.mjs';
-import { PACKAGE_ROOT_DIRECTORY } from '../../sequences-slice/lib/segments.mjs';
+import { packageDirectoriesOf } from '../../sequences-slice/lib/package-directories.mjs';
 import { replaceFile, runDirectoryFor } from './run-state.mjs';
 
 /** The name the demand record carries inside the run directory. */
@@ -41,23 +41,14 @@ function readJsonOrNull(filePath) {
   }
 }
 
-/** Every package view beneath a workspace root, in path order. */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
-function readViewsBeneath(root) {
-  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
-  if (!fs.existsSync(packageRoot)) return [];
+/** Every package view the workspace names, in manifest path order. */
+// [::TICKET::] PX-260, PX-261, PX-262, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-355) --for-spec --no-implementation-order`.
+function readViewsBeneath(root, treeManifest = null) {
   const views = [];
-  const walk = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const fullPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(fullPath);
-      else if (entry.name === VIEW_JSON_NAME) {
-        const view = readJsonOrNull(fullPath);
-        if (view !== null) views.push(view);
-      }
-    }
-  };
-  walk(packageRoot);
+  for (const entry of packageDirectoriesOf(root, treeManifest, { fallbackMarkers: [VIEW_JSON_NAME] })) {
+    const view = readJsonOrNull(path.join(entry.directory, VIEW_JSON_NAME));
+    if (view !== null) views.push(view);
+  }
   return views;
 }
 
@@ -71,13 +62,14 @@ function readViewsBeneath(root) {
  * @param {string} specPath
  * @returns {{ allocateManifest: object, treeManifest: object|null, views: object[] }}
  */
-// [::TICKET::] PX-260, PX-261, PX-262 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-260, PX-261, PX-262, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-260|PX-261|PX-262|PX-355) --for-spec --no-implementation-order`.
 function readWorkspaceBeside(specPath) {
   const root = path.dirname(specPath);
+  const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME));
   return {
     allocateManifest: readJsonOrNull(path.join(root, ALLOCATE_MANIFEST_FILENAME)) ?? { contract_registry: [] },
-    treeManifest: readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME)),
-    views: readViewsBeneath(root),
+    treeManifest,
+    views: readViewsBeneath(root, treeManifest),
   };
 }
 

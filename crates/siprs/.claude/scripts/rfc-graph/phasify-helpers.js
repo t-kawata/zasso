@@ -26,7 +26,11 @@ const {
   typeDefaultWeight,
   weightOf,
   isHardEdge,
+  orderingEdges,
 } = require('./lib/edge-order.js');
+
+// Phase 1 reuses the same SCC implementation the boundify stage uses.
+const { tarjanSCC } = require('./boundify-helpers.js');
 
 /** Unified weight map kept for backward-compatible readers of this module. */
 const WEIGHT_MAP = DEFAULT_WEIGHT_BY_TYPE;
@@ -306,6 +310,22 @@ function mergePhases(sortedNodes, minSize, hardEdges) {
 // ============================================================
 // Phase 5 auxiliary: SCC condensation result expansion
 // ============================================================
+
+/**
+ * Condense only the ordering relation.
+ *
+ * The condensation and the topological sort must read the same relation. Reading every
+ * edge lets a quotation cycle group two nodes, and the group is then kept adjacent, which
+ * can move a consumer ahead of its hard prerequisite. This function is the one entry point
+ * both phasify call sites use.
+ *
+ * @param {Array<object>} edges — graph edges, any type
+ * @returns {Array<{cycle: string[]}>} SCCs of the hard directed subgraph
+ */
+// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+function condenseOrderingGraph(edges) {
+  return tarjanSCC(orderingEdges(edges));
+}
 
 /**
  * Build constraint information from SCC condensation results
@@ -768,6 +788,7 @@ module.exports = {
   typeDefaultWeight,
   weightOf,
   isHardEdge,
+  orderingEdges,
   getWeight,
   isHard,
   // Phase 2
@@ -784,6 +805,7 @@ module.exports = {
   applyDirectoryConstraints,
   // Phase 5 auxiliary
   buildSccConstraint,
+  condenseOrderingGraph,
   applySccToOrder,
   phasesToTicketsFormat,
   // PX-120: STUB key rewrite + no-excuse merge guard + self-healing loop
