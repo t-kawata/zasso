@@ -3,8 +3,31 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { listDir, parseStamp } from './parse.js';
+import { STAGE_ORDER, clamp01, computeDensity } from './loop.js';
 
 export const SNAPSHOT_SCHEMA = 'conver-progress-snapshot-v1';
+
+/**
+ * The header-bar value a snapshot records, or null when the document cannot
+ * provide one. Snapshots written before overallProgress existed are projected
+ * from their per-package stage fractions with the renderer's own weighting.
+ */
+// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
+export function computePreviousProgress(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  if (Number.isFinite(snapshot.overallProgress)) return clamp01(snapshot.overallProgress);
+  const weightedPackages = (Array.isArray(snapshot.packages) ? snapshot.packages : []).map((pkg) => ({
+    weight: Math.max(1, Number(pkg && pkg.obligations && pkg.obligations.total) || 0),
+    stages: (pkg && pkg.stages) || {},
+  }));
+  if (weightedPackages.length === 0) return null;
+  const totalWeight = weightedPackages.reduce((sum, pkg) => sum + pkg.weight, 0);
+  const globalStage = STAGE_ORDER.map((stage) => weightedPackages.reduce(
+    (sum, pkg) => sum + clamp01(pkg.stages[stage]) * pkg.weight,
+    0,
+  ) / totalWeight);
+  return clamp01(computeDensity(globalStage));
+}
 
 /** Project a model onto the compact snapshot shape written after every run. */
 export function snapshotFromModel(model, extra = {}) {

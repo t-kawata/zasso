@@ -106,7 +106,8 @@ export function formatUsageTitle(name, cumulative) {
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-function clamp01(value) {
+// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
+export function clamp01(value) {
   return Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
 }
 
@@ -398,8 +399,15 @@ function parseStampFromMtime(file) {
 }
 
 /** Build a workspace model from package states and events. */
+// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
 export function buildModel(input) {
-  const { workspaceRoot, tree, allocate, packages, events, growthEvents, runs = [], warnings, initialT } = input;
+  const {
+    workspaceRoot, tree, allocate, packages, events, growthEvents, runs = [],
+    warnings, initialT, previousProgress = null,
+  } = input;
+  const normalizedPreviousProgress = Number.isFinite(previousProgress)
+    ? clamp01(previousProgress)
+    : null;
   const sortedEvents = [...events].sort((left, right) => left.t - right.t || STAGE_ORDER.indexOf(left.stage) - STAGE_ORDER.indexOf(right.stage));
   const sortedGrowth = [...(growthEvents || [])].sort((left, right) => left.t - right.t);
   const sortedRuns = [...runs].sort((left, right) => left.t - right.t);
@@ -423,6 +431,7 @@ export function buildModel(input) {
     events: sortedEvents,
     growthEvents: sortedGrowth,
     runs: sortedRuns,
+    previousProgress: normalizedPreviousProgress,
     totals,
     warnings: warnings || [],
   };
@@ -567,6 +576,7 @@ export function computeDensity(progress) {
  * Build frames with the sample's stage-weighted clock. Raw event count is a poor clock:
  * a stage with thousands of grill questions would otherwise consume the whole animation.
  */
+// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
 export function buildFrames(model, options = {}) {
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
   const frameCount = Math.max(1, Number(options.frames) || 120);
@@ -712,6 +722,9 @@ export function buildFrames(model, options = {}) {
     // A frame with no run keeps the pre-change shape, so a no-history workspace
     // stays byte-identical rather than gaining an empty array.
     if (runsThisFrame.length > 0) frame.runs = runsThisFrame;
+    // The previous-run boundary is omitted when unknown so legacy frames keep
+    // their exact key set.
+    if (Number.isFinite(model.previousProgress)) frame.previousProgress = clamp01(model.previousProgress);
     frames.push(frame);
   }
   return frames;

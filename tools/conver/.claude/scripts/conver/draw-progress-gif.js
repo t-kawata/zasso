@@ -26,7 +26,14 @@ import { countUnresolvedStubs } from './progress-gif/stubs.js';
 import { fitFramesToCeiling } from './progress-gif/engine.js';
 import { DEFAULT_FRAMES, clampFrames } from './progress-gif/viewer.js';
 import { loadFontBundle, collectUsedText } from './progress-gif/fonts.js';
-import { snapshotFromModel, writeSnapshot } from './progress-gif/snapshot.js';
+import {
+  SNAPSHOT_SCHEMA,
+  listSnapshots,
+  computePreviousProgress,
+  readSnapshot,
+  snapshotFromModel,
+  writeSnapshot,
+} from './progress-gif/snapshot.js';
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_MAX_BYTES = 300 * 1024 * 1024;
@@ -202,12 +209,34 @@ export function analyzeWorkspace(root, options = {}) {
     runs.push(...historyRunMarkers(pkg.id, artifacts.historyRecords));
   }
   runs.push(...historyRunMarkers(null, workspaceArtifacts.historyRecords));
-  return buildModel({ workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, runs, warnings, initialT });
+  const previousProgress = readPreviousProgress(root, options, warnings);
+  return buildModel({
+    workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, runs,
+    warnings, initialT, previousProgress,
+  });
 }
 
 // [::TICKET::] PX-349, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-353) --for-spec --no-implementation-order`.
 function snapshotDirectory(root, options, outputDir = path.join(root, 'progress-gif')) {
   return options.snapshotDir || path.join(outputDir, 'snapshots');
+}
+
+/**
+ * Read the boundary of the newest completed render. The newest file is
+ * authoritative: an unreadable one yields no marker rather than an older run's
+ * boundary, which would misreport where the previous animation ended.
+ */
+// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
+function readPreviousProgress(root, options, warnings) {
+  const directory = snapshotDirectory(root, options);
+  const newest = listSnapshots(directory)[0];
+  if (!newest) return null;
+  const snapshot = readSnapshot(newest.path);
+  if (!snapshot || snapshot.schema !== SNAPSHOT_SCHEMA) {
+    warnings.push(`[snapshot] ${newest.path}: unreadable; previous boundary not drawn`);
+    return null;
+  }
+  return computePreviousProgress(snapshot);
 }
 
 // [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
@@ -328,7 +357,15 @@ export async function run(root, options) {
   });
   const htmlPath = `${base}.html`;
   writeHtmlFile(htmlPath, html);
-  const snapshotPath = writeSnapshot(snapshotDirectory(root, options, outputDir), stamp, snapshotFromModel(model));
+  const finalFrame = frames[frames.length - 1];
+  const overallProgress = finalFrame && Number.isFinite(finalFrame.overallProgress)
+    ? finalFrame.overallProgress
+    : null;
+  const snapshotPath = writeSnapshot(
+    snapshotDirectory(root, options, outputDir),
+    stamp,
+    snapshotFromModel(model, { overallProgress }),
+  );
   const output = { html: htmlPath, snapshot: snapshotPath };
   process.stdout.write(markdownReport(model, options, output, estimatedLayout, frames));
   if (options.open) openBrowser(htmlPath);

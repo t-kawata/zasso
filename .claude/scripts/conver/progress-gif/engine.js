@@ -11,6 +11,9 @@ const FONT_FAMILY = 'ConverNoto, system-ui, sans-serif';
 const LABEL_COLOUR = '#c8d2e4';
 const UNLIT_DOT_COLOUR = '#222a36';
 const HEADER_BAR_TRACK_COLOUR = '#1b2430';
+const PREVIOUS_PROGRESS_COLOUR = '#ffffff';
+const PREVIOUS_MARKER_WIDTH = 2;
+const PREVIOUS_MARKER_OVERHANG = 3;
 const HEADER_PERCENT_COLOUR = '#b8c2d6';
 const HEADER_TITLE_SIZE = 14;
 const MIN_TITLE_SIZE = 10;
@@ -346,7 +349,7 @@ function drawText(ctx, textRun) {
 }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-351, PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-370) --for-spec --no-implementation-order`.
 function drawProgressBar(ctx, layout, frame) {
   const header = layout.header;
   fillRect(ctx, {
@@ -362,6 +365,31 @@ function drawProgressBar(ctx, layout, frame) {
     width: header.barWidth * clampUnit(frame.overallProgress),
     height: header.barHeight,
     colour: groupColor(frame.stage || STAGE_ORDER[0]),
+  });
+  drawPreviousProgressMarker(ctx, layout, frame.previousProgress);
+}
+
+/**
+ * Mark where the previous render's bar ended. The marker is drawn after the fill
+ * and extends past the six-pixel track so it stays readable once the fill passes it.
+ */
+// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
+function drawPreviousProgressMarker(ctx, layout, previousProgress) {
+  if (!Number.isFinite(previousProgress) || previousProgress <= 0) return;
+  const header = layout.header;
+  const width = PREVIOUS_MARKER_WIDTH * layout.scale;
+  const overhang = PREVIOUS_MARKER_OVERHANG * layout.scale;
+  const centreX = header.barX + header.barWidth * clampUnit(previousProgress);
+  const markerX = Math.min(
+    header.barX + header.barWidth - width,
+    Math.max(header.barX, centreX - width / 2),
+  );
+  fillRect(ctx, {
+    x: markerX,
+    y: header.barY - overhang,
+    width,
+    height: header.barHeight + 2 * overhang,
+    colour: PREVIOUS_PROGRESS_COLOUR,
   });
 }
 
