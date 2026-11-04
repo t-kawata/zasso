@@ -36,8 +36,8 @@ const path = require('path');
 
 const {
   DEFAULT_STRENGTH_BY_TYPE,
-  directionOf,
   isHardEdge,
+  providerConsumerEdge,
 } = require('./lib/edge-order.js');
 
 /** Edge types whose default strength is hard. */
@@ -170,17 +170,15 @@ function checkSinglePhasePerNode(phases) {
  * Check 3: Hard constraint compliance
  * Confirms that no w=infinity edge has phase(u) >= phase(v).
  */
-// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-343, PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343|PX-358) --for-spec --no-implementation-order`.
 function checkHardConstraints(graphEdges, phases, nodeToPhaseMap) {
   const violations = [];
   for (const edge of graphEdges) {
     if (!isHardEdge(edge)) continue;
-    const direction = directionOf(edge);
-    if (direction === null) continue;
-    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
-    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
-    const phaseProvider = nodeToPhaseMap[provider];
-    const phaseConsumer = nodeToPhaseMap[consumer];
+    const pair = providerConsumerEdge(edge);
+    if (pair === null) continue;
+    const phaseProvider = nodeToPhaseMap[pair.from];
+    const phaseConsumer = nodeToPhaseMap[pair.to];
     if (phaseProvider === undefined || phaseConsumer === undefined) {
       violations.push({
         from: edge.from,

@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
+  DETECTOR,
   INIT,
   PROJECT_ROOT,
   SETTLE_RUN,
@@ -22,6 +23,7 @@ import {
   digestDirectory,
   digestFile,
   makeGrillSession,
+  patchStatus,
   readStatus,
   runPreChangeStepZero,
   runStepZero,
@@ -116,36 +118,34 @@ test('C002 with no sequences material STEP 0 produces byte-identical artifacts',
 });
 
 // [::TICKET::] PX-256 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-256 --for-spec --no-implementation-order`.
-test('C002 with a sequences artifact STEP 0 writes the view and records both names beside it', () => {
+test('C002 a session inside a workspace records the discovered artifact and its views', () => {
   const root = buildSyntheticTriple();
   try {
     const packageDir = path.join(root, SESSION_PACKAGE);
     makeGrillSession(packageDir);
-    const specPath = path.join(packageDir, 'Specification.md');
     const sourcePath = path.join(root, ARTIFACT_FILENAME);
-    const before = readStatus(packageDir);
 
-    const result = runStepZero(packageDir, { arguments: [specPath, sourcePath] });
-    assert.equal(result.init.status, 0, result.init.stderr);
-    // The view is written by the initialization step, and it records the two names itself —
-    // the strict readers walk the recorded list, so a view written and not recorded is a view
-    // the run never reads.
-    assert.equal(result.report.refreshed.length, 1);
-    assert.equal(result.report.recordedMaterials.length, 2);
-    assert.equal(result.listFiles.status, 0, result.listFiles.stderr);
-
+    // Discovery is unconditional: the first run in a workspace already holds the root
+    // artifact and the two views, without the command line naming either.
     const status = readStatus(packageDir);
-    // The run records three things: the source artifact the command line named, and the
-    // two view files it then generated from it. The specification was already recorded.
-    assert.deepEqual(status.materialPaths, [
-      ...before.materialPaths,
-      sourcePath,
-      path.join(packageDir, VIEW_MARKDOWN_NAME),
-      path.join(packageDir, VIEW_JSON_NAME),
-    ]);
-    assert.equal(status.researchPath, status.materialPaths[0]);
+    assert.equal(status.materialPaths.includes(sourcePath), true);
+    assert.equal(status.materialPaths.includes(path.join(packageDir, VIEW_MARKDOWN_NAME)), true);
+    assert.equal(status.materialPaths.includes(path.join(packageDir, VIEW_JSON_NAME)), true);
     assert.equal(fs.existsSync(path.join(packageDir, VIEW_MARKDOWN_NAME)), true);
     assert.equal(fs.existsSync(path.join(packageDir, VIEW_JSON_NAME)), true);
+
+    // A second run that names the artifact adds nothing: it is already recorded, and the
+    // view is already current.
+    const before = digestFile(path.join(packageDir, 'Status.json'), { ignore: ['updatedAt'] });
+    const result = runStepZero(packageDir, { arguments: [sourcePath] });
+    assert.equal(result.init.status, 0, result.init.stderr);
+    assert.deepEqual(result.report.addedMaterials, []);
+    assert.equal(
+      digestFile(path.join(packageDir, 'Status.json'), { ignore: ['updatedAt'] }),
+      before,
+      'a run whose material is already recorded changes only the timestamp',
+    );
+    assert.equal(result.listFiles.status, 0, result.listFiles.stderr);
   } finally {
     removeSyntheticTriple(root);
   }
@@ -281,10 +281,16 @@ test('C001 the refresh writes the two view files and leaves the session document
   try {
     const packageDir = path.join(root, SESSION_PACKAGE);
     const sourcePath = path.join(root, ARTIFACT_FILENAME);
-    // A session that never saw the artifact, holding a view from a run that wrote one without
-    // recording it: the state in which the refresh has both things to do, and the only state in
-    // which "what the material list gains" is not vacuous.
+    // A session that never saw the artifact. Discovery records it at fixture time now,
+    // so the entries it added are removed to reproduce the state the refresh repairs.
     makeGrillSession(packageDir);
+    patchStatus(packageDir, {
+      materialPaths: readStatus(packageDir).materialPaths.filter(
+        (materialPath) => !materialPath.endsWith('-sequences.json')
+          && !materialPath.endsWith(VIEW_MARKDOWN_NAME)
+          && !materialPath.endsWith(VIEW_JSON_NAME),
+      ),
+    });
     writePreCarriageView(packageDir);
 
     const timestamps = ['createdAt', 'updatedAt', 'materialsAddedAt'];
@@ -315,12 +321,9 @@ test('C001 the refresh writes the two view files and leaves the session document
 });
 
 // [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
-test('C002 a resume naming no artifact changes nothing but the session timestamp', () => {
-  const root = buildSyntheticTriple();
-  try {
-    const packageDir = path.join(root, SESSION_PACKAGE);
-    const sourcePath = path.join(root, ARTIFACT_FILENAME);
-    makeGrillSession(packageDir);
+test('C002 a resume in a directory with no artifact changes nothing but the session timestamp', () => {
+  withScratch('px357-no-artifact-', (root) => {
+    const packageDir = makeGrillSession(path.join(root, 'pkg'));
     writePreCarriageView(packageDir);
     const specPath = path.join(packageDir, 'Specification.md');
     const timestamps = ['createdAt', 'updatedAt', 'materialsAddedAt'];
@@ -332,11 +335,10 @@ test('C002 a resume naming no artifact changes nothing but the session timestamp
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(changedPaths(before, after), []);
     assert.deepEqual(result.report.refreshed, []);
+    assert.equal(result.report.workspaceRoot, null);
+    assert.equal(result.report.sequenceArtifact, null);
     assert.equal(fs.readFileSync(path.join(packageDir, VIEW_JSON_NAME), 'utf8').includes('obligationSource'), false);
-    assert.equal(sourcePath.endsWith('-sequences.json'), true);
-  } finally {
-    removeSyntheticTriple(root);
-  }
+  });
 });
 
 // [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
@@ -363,9 +365,8 @@ test('C005 a second resume over an already current view refreshes nothing and re
 
 // [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 test('C001 an artifact that cannot be used is reported rather than silently skipping the refresh', () => {
-  const root = buildSyntheticTriple();
-  try {
-    const packageDir = path.join(root, SESSION_PACKAGE);
+  withScratch('px357-broken-artifact-', (root) => {
+    const packageDir = path.join(root, 'pkg');
     const brokenPath = path.join(root, 'Broken-sequences.json');
     fs.writeFileSync(brokenPath, '{ not json');
     makeGrillSession(packageDir, { material: [brokenPath] });
@@ -376,9 +377,7 @@ test('C001 an artifact that cannot be used is reported rather than silently skip
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(result.report.refreshed, []);
     assert.match(result.report.reason, /Broken-sequences\.json/);
-  } finally {
-    removeSyntheticTriple(root);
-  }
+  });
 });
 
 // [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
@@ -405,4 +404,133 @@ test('C001 a session being initialized with an artifact projects the view in tha
   } finally {
     removeSyntheticTriple(root);
   }
+});
+
+// ---------------------------------------------------------------------------
+// PX-357 @verifies C004
+// PX-357 @verifies C005
+//
+// Discovery is unconditional: the package directory supplies the research material
+// and the workspace root supplies the one sequences artifact, whether or not the
+// command line names either. Arguments are additions, never replacements.
+// ---------------------------------------------------------------------------
+
+// [::TICKET::] PX-357 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-357 --for-spec --no-implementation-order`.
+test('C004 zero-argument init records the package entries and the workspace artifact', () => {
+  const root = buildSyntheticTriple();
+  try {
+    const packageDir = path.join(root, SESSION_PACKAGE);
+    fs.mkdirSync(packageDir, { recursive: true });
+    const specPath = path.join(packageDir, 'Specification.md');
+    fs.writeFileSync(specPath, '# Specification\n');
+    const sourcePath = path.join(root, ARTIFACT_FILENAME);
+
+    const result = runInit(packageDir, []);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.report.mode, 'new');
+    assert.ok(result.report.discovered.includes(specPath));
+    assert.equal(result.report.workspaceRoot, root);
+    assert.equal(result.report.sequenceArtifact, sourcePath);
+    assert.equal(result.report.addedArguments.length, 0);
+
+    const status = readStatus(packageDir);
+    assert.ok(status.materialPaths.includes(specPath));
+    assert.ok(status.materialPaths.includes(sourcePath));
+    assert.equal(fs.existsSync(path.join(packageDir, VIEW_MARKDOWN_NAME)), true);
+    assert.equal(fs.existsSync(path.join(packageDir, VIEW_JSON_NAME)), true);
+
+    const detector = spawnSync(process.execPath, [DETECTOR, packageDir], { encoding: 'utf8' });
+    assert.equal(detector.status, 0, detector.stderr);
+    assert.equal(JSON.parse(detector.stdout).present, true);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// [::TICKET::] PX-357 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-357 --for-spec --no-implementation-order`.
+test('C004 an ambiguous workspace artifact stops before any session file is written', () => {
+  const root = buildSyntheticTriple();
+  try {
+    const packageDir = path.join(root, SESSION_PACKAGE);
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(path.join(packageDir, 'Specification.md'), '# Specification\n');
+    fs.writeFileSync(path.join(root, 'Other-sequences.json'), '{}');
+
+    const result = spawnSync(process.execPath, [INIT, packageDir], { encoding: 'utf8' });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Ambiguous sequences artifacts/);
+    assert.match(result.stderr, /SyntheticSpec-sequences\.json/);
+    assert.match(result.stderr, /Other-sequences\.json/);
+    assert.equal(fs.existsSync(path.join(packageDir, 'Status.json')), false);
+    assert.equal(fs.existsSync(path.join(packageDir, 'DesignTree.json')), false);
+    assert.equal(fs.existsSync(path.join(packageDir, 'CheckList.md')), false);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// [::TICKET::] PX-357 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-357 --for-spec --no-implementation-order`.
+test('C004 arguments are appended to the discovered material and never replace it', () => {
+  const root = buildSyntheticTriple();
+  try {
+    const packageDir = path.join(root, SESSION_PACKAGE);
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(path.join(packageDir, 'Specification.md'), '# Specification\n');
+    const extraPath = path.join(root, 'Extra.md');
+    fs.writeFileSync(extraPath, '# Extra\n');
+    const sourcePath = path.join(root, ARTIFACT_FILENAME);
+
+    const result = runInit(packageDir, [extraPath]);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.report.addedArguments, [extraPath]);
+    const status = readStatus(packageDir);
+    assert.equal(status.materialPaths.includes(extraPath), true);
+    assert.equal(status.materialPaths.filter((materialPath) => materialPath === extraPath).length, 1);
+    assert.ok(
+      status.materialPaths.indexOf(extraPath) < status.materialPaths.indexOf(path.join(packageDir, VIEW_MARKDOWN_NAME)),
+      'the argument is appended after discovery and before the generated views',
+    );
+    assert.equal(status.materialPaths.filter((materialPath) => materialPath === sourcePath).length, 1);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// [::TICKET::] PX-357 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-357 --for-spec --no-implementation-order`.
+test('C004 a second zero-argument run changes no recorded material path', () => {
+  const root = buildSyntheticTriple();
+  try {
+    const packageDir = path.join(root, SESSION_PACKAGE);
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(path.join(packageDir, 'Specification.md'), '# Specification\n');
+
+    assert.equal(runInit(packageDir, []).status, 0);
+    const first = readStatus(packageDir);
+    assert.equal(runInit(packageDir, []).status, 0);
+    const second = readStatus(packageDir);
+
+    assert.deepEqual(second.materialPaths, first.materialPaths);
+    assert.equal(new Set(second.materialPaths).size, second.materialPaths.length);
+  } finally {
+    removeSyntheticTriple(root);
+  }
+});
+
+// [::TICKET::] PX-357 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-357 --for-spec --no-implementation-order`.
+test('C005 the command states unconditional discovery and passes the discovered artifact to the report', () => {
+  const command = fs.readFileSync(GRILL_COMMAND, 'utf8');
+
+  assert.equal(/No argument means no\s+material/i.test(command), false);
+  assert.match(command, /discover/i);
+  assert.match(command, /\$SEQUENCES_ARTIFACT/);
+  assert.match(command, /report-obligation-state\.js" "\$WORKSPACE_ROOT" \$\{SEQUENCES_ARTIFACT/);
+  assert.equal(/report-obligation-state\.js" "\$WORKSPACE_ROOT" \$ARGUMENTS/.test(command), false);
+
+  const order = callOrderInStep(GRILL_COMMAND, '### STEP 0: Initialization', [
+    'init.js', 'sequences-material.js', 'list-files.js',
+  ]);
+  assert.deepEqual(order.slice(0, 3), ['init.js', 'sequences-material.js', 'list-files.js']);
 });

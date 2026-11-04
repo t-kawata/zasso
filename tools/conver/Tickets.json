@@ -54707,6 +54707,275 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-04"
+        },
+        {
+          "id": 357,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "grill-me-for-rfc: discover default material unconditionally and add arguments to it",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-357.md",
+          "background": "- Goal: remove the repeated ./ * plus workspace-root *-sequences.json argument list from every /grill-me-for-rfc run by making discovery mechanical.\n- Purpose: the five-layer loop is fixed across workspaces; the grill always runs in a package directory and /educe-sequences has already written <spec>-sequences.json at the workspace root.\n- Motivation: a forgotten artifact silently disables the obligation carriage and the distribution gates, and a forgotten directory silently omits material. Repetition is a correctness risk, not only an ergonomics preference.\n- Constraints: discovery is unconditional for every invocation; explicit arguments are additions, never replacements and never suppression; no flag disables discovery; an ambiguous set of root artifacts stops the run; the resolution rule lives in a testable module, not in command prose; generated outputs are not re-ingested as material; no new dependency; the command markdown stays terse with no history.",
+          "scope": [
+            "Change path: add .claude/scripts/grill-me-for-rfc/lib/default-material.mjs; modify .claude/scripts/grill-me-for-rfc/init.js, .claude/commands/grill-me-for-rfc.md, tests/grill-me-for-rfc/sequences-material/step-zero.test.mjs; add tests/grill-me-for-rfc/sequences-material/default-material.test.mjs.",
+            "Change action: add a pure resolver resolveDefaultMaterial({ rfcDir, io }) that returns materialPaths, workspaceRoot, sequenceArtifact, ambiguousSequenceArtifacts and excluded.",
+            "Change detail: enumerate non-hidden entries of rfcDir, exclude the command outputs, sort by codepoint; locate the workspace root as the nearest ancestor holding both WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json; take the single root *-sequences.json; append it once.",
+            "Change before/after: before, init.js uses only process.argv.slice(3) and a bare invocation reads no material even when the artifact exists; after, init.js always records discovered union arguments and the artifact reaches the obligation carriage with no argument list.",
+            "Change API: init.js CLI is unchanged; new exported resolver; init.js JSON output gains discovered, addedArguments, workspaceRoot, sequenceArtifact and ambiguousSequenceArtifacts, all additive fields.",
+            "Change schema: Status.json is unchanged; materialPaths stays the home-relative record and no schema version changes.",
+            "Change config: no environment variable and no config file change.",
+            "Change dependency: no new npm dependency; reuse findAllocateManifest and findSingleSiblingPath from lib/package-artifacts.js through createRequire, as sequences-slice/lib/smooth-verdict.mjs already does.",
+            "Non-change item: list-files.js, sequences-material.js, findSequenceMaterial and the explicit-argument meaning are not rewritten; free grill with arbitrary material paths still works.",
+            "Non-change why: those readers already consume the recorded list, so duplicating discovery in them would create a second rule that can disagree with the first.",
+            "Impact component: /grill-me-for-rfc STEP 0, every workspacify package directory, report-obligation-state.js and the distribution gates that receive WORKSPACE_ROOT.",
+            "Impact nature: material set, recorded session state, obligation carriage, and the failure mode for an ambiguous workspace artifact.",
+            "Impact response: run the new context-free unit tests and the step-zero impact set with node --test; confirm a zero-argument run on a synthetic workspace records the artifact and sequences-material.js reports present true."
+          ],
+          "testUnit": [
+            "UT: [Normal][C001] resolveDefaultMaterial returns every non-hidden entry of rfcDir in deterministic sorted order: alpha.md, beta.md and directory gamma yield [alpha.md, beta.md, gamma].",
+            "UT: [Error][C001] hidden entries and command outputs are excluded: .git, .env, RFC.md, Status.json, DesignTree.json, CheckList.md, SEQUENCES.md, SEQUENCES.json and RFC.2026.bak.md are absent from the result.",
+            "UT: [Boundary][C001] an absent or unreadable rfcDir returns a named error, never a silent empty list.",
+            "UT: [Normal][C002] a workspace root holding exactly one *-sequences.json appends that absolute path last and once.",
+            "UT: [Boundary][C002] a directory with no workspace manifests yields workspaceRoot null and sequenceArtifact null; a workspace root with zero *-sequences.json yields sequenceArtifact null and still proceeds.",
+            "UT: [Error][C002] two root *-sequences.json yield sequenceArtifact null and both basenames in ambiguousSequenceArtifacts; no candidate is chosen.",
+            "UT: [Normal][C003] discovered paths come first in discovery order, arguments follow in argv order, and a path present in both appears once at its first position.",
+            "UT: [Boundary][C003] an argument naming the discovered artifact contributes no second entry, and an argument naming a new path is appended last.",
+            "UT: [Invariant][C003] for every argv, the discovered set is a subset of the result: an argument never removes or replaces a discovered path.",
+            "UT: [Normal][C004] init.js in new mode records discovered union arguments in Status.json.materialPaths as home-relative paths, and every recorded path exists.",
+            "UT: [Normal][C004] a resume merges discovered union arguments into the recorded list once; a second identical resume leaves materialPaths identical except updatedAt.",
+            "UT: [Error][C004] an ambiguous root artifact exits 1 before Status.json, DesignTree.json or CheckList.md is written.",
+            "UT: [Boundary][C004] an explicit argument that does not exist still exits 1 and names the path, matching the current contract."
+          ],
+          "testIntegration": [
+            "IT: [Discovery without arguments][C004] init.js with zero material arguments on a synthetic triple package records Specification.md and the root SyntheticSpec-sequences.json, and sequences-material.js reports present true.",
+            "IT: [Union][C003][C004] init.js with an explicit extra material path records the discovered paths first and the explicit path once, matching the old explicit invocation modulo duplicates.",
+            "IT: [Ambiguity][C002][C004] a workspace with two root *-sequences.json exits non-zero naming both and writes no session file.",
+            "IT: [Resume idempotence][C004] two zero-argument init.js runs over the same directory record identical materialPaths.",
+            "IT: [Command contract][C005] grill-me-for-rfc.md keeps the STEP 0 order init.js then sequences-material.js then list-files.js, states unconditional discovery and additive arguments, and passes the discovered artifact to report-obligation-state.js."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/grill-me-for-rfc/lib/default-material.mjs",
+            ".claude/scripts/grill-me-for-rfc/init.js",
+            ".claude/commands/grill-me-for-rfc.md",
+            "tests/grill-me-for-rfc/sequences-material/default-material.test.mjs",
+            "tests/grill-me-for-rfc/sequences-material/step-zero.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: /grill-me-for-rfc with no arguments in a package directory records the package entries and the workspace-root *-sequences.json, and sequences-material.js reports present true.",
+            "Error case: two root *-sequences.json stop STEP 0 with both names and no session file is written.",
+            "Edge case: explicit arguments plus discovery produce the union with no duplicate paths, and resume is idempotent."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "package directory entries -> discovered material",
+              "precondition": "Input: an rfcDir whose entries include ordinary files, a directory, hidden entries and the command outputs RFC.md, Status.json, DesignTree.json, CheckList.md, SEQUENCES.md, SEQUENCES.json and *.bak.md. Invalid input: an rfcDir that does not exist or cannot be read.",
+              "postcondition": "Output: an ordered list of absolute paths for every non-hidden entry except the command outputs, sorted by codepoint, and the excluded names reported apart.",
+              "invariant": "assert(result is identical across two runs over the same directory) and assert(no hidden entry and no excluded name appears in materialPaths) and assert(an unreadable rfcDir is a named error, never an empty list)."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "workspace manifests -> sequences artifact",
+              "precondition": "Input: an rfcDir inside a workspace whose nearest ancestor holds both WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json, and whose root holds zero, one or several *-sequences.json. Invalid input: several candidates.",
+              "postcondition": "Output: workspaceRoot is the manifest directory or null; sequenceArtifact is the single root *-sequences.json rendered absolute and appended last, or null when absent; ambiguousSequenceArtifacts lists every candidate basename when there are several.",
+              "invariant": "assert(sequenceArtifact appears exactly once in materialPaths) and assert(no candidate is selected when the count is not exactly one) and assert(a missing workspace or a missing artifact does not stop the run)."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "arguments -> material union",
+              "precondition": "Input: a discovered material list and zero or more explicit file or directory arguments, all of which exist. Invalid input: an argument that does not exist.",
+              "postcondition": "Output: every discovered path followed by every argument, deduplicated by resolved absolute path and keeping the first occurrence; addedArguments names only the arguments actually appended.",
+              "invariant": "assert(discovered is a subset of the result for every argv) and assert(an explicit duplicate contributes one entry) and assert(argument order is preserved among the appended items)."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "discovery -> init.js session record",
+              "precondition": "Input: a package directory, zero or more material arguments, and an optional existing Status.json. Invalid input: an ambiguous root artifact, and an explicit argument that does not exist.",
+              "postcondition": "Output in new mode: Status.json.materialPaths is the home-relative discovered union arguments and researchPath is its first entry. Output in resume mode: the recorded list gains only the new discovered or explicit paths. Output in every mode: discovered, addedArguments, workspaceRoot and sequenceArtifact are printed on stdout.",
+              "invariant": "assert(every recorded material path exists on disk after init) and assert(an ambiguity exits 1 before any of Status.json, DesignTree.json and CheckList.md is written) and assert(a second identical resume changes no material path)."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "command definition -> operator invocation",
+              "precondition": "Input: the command file .claude/commands/grill-me-for-rfc.md and a bare invocation with no arguments.",
+              "postcondition": "Output: the file states that material is discovered unconditionally from the package directory and the workspace root artifact, that arguments are additions, and that WORKSPACE_ROOT comes from the init.js output; the STEP 0 call order remains init.js, sequences-material.js, list-files.js.",
+              "invariant": "assert(the file contains no statement that zero arguments means no material) and assert(the STEP 0 call-order test passes) and assert(the report-obligation-state invocation names the discovered artifact rather than raw ARGUMENTS)."
+            }
+          ],
+          "notes": "- Steps: resolveDefaultMaterial unit tests (Red) then the module (Green); init.js integration tests (Red) then the wiring (Green); command markdown and command-contract test (Red) then the markdown update (Green); refactor.\n- Risks: unconditional discovery changes what every bare run reads, so the resolver must report the discovered set and init must record it, never discover silently; an unreadable package directory must be named, not treated as empty.\n- Caveats: generated outputs are the only intentional deviation from literal ./*; if the operator wants them read as material, passing them explicitly still works because arguments are additions.\n- Open items: none.\n- Future improvement: a shared helper for workspace-root artifact discovery could replace the three existing copies in verify-chain.mjs, verify-implementation-order.mjs and smooth-verdict.mjs, out of scope here.\nImplementation summary:\n- Changed files: .claude/scripts/grill-me-for-rfc/lib/default-material.mjs (new), .claude/scripts/grill-me-for-rfc/init.js, .claude/commands/grill-me-for-rfc.md, tests/grill-me-for-rfc/sequences-material/default-material.test.mjs (new), tests/grill-me-for-rfc/sequences-material/step-zero.test.mjs, tests/grill-me-for-rfc/args/command-file.test.mjs, tests/workspacify-tree/baselines/manifest-hashes.json.\n- Key changes: resolveDefaultMaterial enumerates non-hidden package entries excluding generated outputs and backups, sorts them, locates the nearest workspace root holding both manifests, and appends the single root artifact; mergeDiscoveredWithArguments appends arguments without replacing discovery; init.js records the union and prints discovered, addedArguments, workspaceRoot, sequenceArtifact, ambiguousSequenceArtifacts and excluded.\n- Test results: 391 tests passed in the grill impact set (35 test files plus sequences-slice material and question-gate prior-scan); quality checks 0 issues.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: consistency verified\n- Issues found and fixes applied: none",
+          "invariants": "- 【Normal establishment】Every discovered path and every argument is present in Status.json.materialPaths after init.js, in discovery-then-argument order, deduplicated by resolved absolute path, and every recorded entry exists on disk.\n- 【Invariant on error】An ambiguous set of root *-sequences.json exits 1 before Status.json, DesignTree.json or CheckList.md is written; an explicit argument that does not exist exits 1 naming the path; an unreadable package directory is a named error, never an empty material set.\n- 【Internal invariant】Discovery is deterministic: two runs over the same package directory produce the same ordered list; hidden entries and generated outputs never enter materialPaths; arguments never remove a discovered path.\n- 【Boundary invariant】Outside a workspacify workspace workspaceRoot and sequenceArtifact are null and the run proceeds with the package entries; a workspace with no root artifact proceeds without one.",
+          "instrumentation": "- Logging: init.js prints the resolved discovery answer on stdout (discovered, addedArguments, workspaceRoot, sequenceArtifact, ambiguousSequenceArtifacts); no new log level and no stderr on success.\n- Metrics: none; the resolver is a pure read and the command has no metrics surface.\n- Error tracking: named stderr messages for AMBIGUOUS_SEQUENCES_ARTIFACT and MATERIAL_UNREADABLE, including the directory and the candidate names, so a failed STEP 0 is diagnosable without a rerun.\n- Health check: check-all-schema.js continues to validate Status.json after every write; the recorded material list is the health surface and the existing readers check every entry for existence.\nStatic quality check: passed\nTranslatability: no issues\nTests: 391 passed in the grill impact set",
+          "investigation": "- .claude/scripts/grill-me-for-rfc/init.js:98 takes material only from process.argv.slice(3); :100-104 exits 1 when any path is missing; :164-199 merges resume material by appending and deduplicating; :216-238 writes the home-relative materialPaths record.\n- .claude/scripts/grill-me-for-rfc/list-files.js:43-57 reads Status.json only and prints an empty array when the session holds no material, so discovery must happen before init writes.\n- .claude/scripts/sequences-slice/lib/material.mjs:208-229 findSequenceMaterial searches only the recorded materialPaths and the deterministic view path, so a fresh run with no artifact argument reports present false even when the workspace root artifact exists.\n- .claude/scripts/sequences-slice/lib/smooth-verdict.mjs:141-149 already defines findWorkspaceRoot(packageDir) and rootArtifactPath(root) using the single-sibling rule; verify-chain.mjs:608-612 and verify-implementation-order.mjs:413 apply the same rule, so the grill must reuse it rather than invent one.\n- .claude/scripts/lib/package-artifacts.js:353-368 defines the workspace root as the nearest ancestor holding both WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json; :319-325 findSingleSiblingPath returns null for zero or several candidates.\n- .claude/commands/educe-sequences.md:54 fixes the artifact name as the spec name with only its final extension removed plus -sequences.json, so the workspace root holds at most one by convention.\n- .claude/commands/grill-me-for-rfc.md:220-247 states zero arguments means no material and never the current directory; :278 passes ARGUMENTS to init.js; :318 passes ARGUMENTS to report-obligation-state.js; :355, :373, :501 and :702 use WORKSPACE_ROOT which the file never binds.\n- tests/grill-me-for-rfc/sequences-material/fixtures/session-tree.mjs:90-107 builds sessions by running the real init.js, and :201-208 runs STEP 0; the existing C002 tests pass explicit arguments, so unconditional discovery must keep their recorded lists unchanged.",
+          "boyScoutPlan": "Function names: resolveDefaultMaterial, enumerateMaterialEntries, excludeCommandOutputs, locateWorkspaceRoot, selectSequenceArtifact and mergeDiscoveredWithArguments are verb phrases; values use domain nouns.\nConstants: EXCLUDED_ENTRY_NAMES and BACKUP_SUFFIX replace inline literals; the two workspace manifest names come from package-artifacts.js rather than a second spelling.\nOne responsibility per function: entry enumeration, exclusion, root location, artifact selection and union are separate; init.js only merges and records.\nNo swallowed errors: an unreadable package directory returns a named result and init prints it; no catch converts an unreadable directory into an empty list.\nComments: rewrite the false init.js header sentence about caller-supplied material and remove the no-argument sentence from the command; the command carries no history.\nProactive: reuse findSingleSiblingPath and findAllocateManifest rather than copying the three existing artifact-discovery implementations.",
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001/precondition] build the discovery io fixture and resolve over a mixed directory\n```js\nconst io = {\n  readDirectory: () => ['beta.md', '.git', 'alpha.md', 'RFC.md', 'SEQUENCES.json', 'gamma', 'RFC.2026.bak.md'],\n  workspaceRootOf: () => null,\n  join: path.posix.join,\n  resolvePath: (value) => value,\n};\nconst result = resolveDefaultMaterial({ rfcDir: '/pkg', io });\n```",
+            "UT: [C001/postcondition] ordinary entries survive in codepoint order and the rest are reported apart\n```js\nassert.deepEqual(result.materialPaths, ['/pkg/alpha.md', '/pkg/beta.md', '/pkg/gamma']);\nassert.deepEqual(result.excluded.sort(), ['.git', 'RFC.2026.bak.md', 'RFC.md', 'SEQUENCES.json']);\n```",
+            "UT: [C001/invariant] discovery is deterministic and an unreadable directory is a named error\n```js\nconst again = resolveDefaultMaterial({ rfcDir: '/pkg', io });\nassert.deepEqual(again.materialPaths, result.materialPaths);\nassert.throws(\n  () => resolveDefaultMaterial({\n    rfcDir: '/pkg',\n    io: { ...io, readDirectory: () => { const error = new Error('EACCES'); error.code = 'EACCES'; throw error; } },\n  }),\n  (error) => error.code === 'MATERIAL_UNREADABLE',\n);\n```",
+            "UT: [C002/precondition+postcondition] a single workspace root artifact is appended last exactly once\n```js\nconst workspaceIo = {\n  readDirectory: (directory) => (directory === '/ws' ? ['SYSTEM-DESIGN-sequences.json'] : []),\n  workspaceRootOf: () => '/ws',\n  join: path.posix.join,\n  resolvePath: (value) => value,\n};\nconst single = resolveDefaultMaterial({ rfcDir: '/ws/crates/pkg', io: workspaceIo });\nassert.equal(single.workspaceRoot, '/ws');\nassert.equal(single.sequenceArtifact, '/ws/SYSTEM-DESIGN-sequences.json');\nassert.equal(single.materialPaths.filter((entry) => entry.endsWith('-sequences.json')).length, 1);\n```",
+            "UT: [C002/invariant] several candidates are named and none is selected; no workspace and no artifact do not stop\n```js\nconst ambiguousIo = { ...workspaceIo, readDirectory: () => ['A-sequences.json', 'B-sequences.json'] };\nconst ambiguous = resolveDefaultMaterial({ rfcDir: '/ws/crates/pkg', io: ambiguousIo });\nassert.equal(ambiguous.sequenceArtifact, null);\nassert.deepEqual(ambiguous.ambiguousSequenceArtifacts, ['A-sequences.json', 'B-sequences.json']);\n\nconst outside = resolveDefaultMaterial({ rfcDir: '/plain', io: { ...workspaceIo, workspaceRootOf: () => null } });\nassert.equal(outside.workspaceRoot, null);\nassert.equal(outside.sequenceArtifact, null);\n```",
+            "UT: [C003/union] discovered first, arguments appended, duplicates keep the first position\n```js\nconst merged = mergeDiscoveredWithArguments({\n  discovered: ['/pkg/Specification.md', '/ws/Spec-sequences.json'],\n  argumentPaths: ['/ws/Spec-sequences.json', '/extra/Design.md'],\n  resolvePath: (value) => value,\n});\nassert.deepEqual(merged.materialPaths, ['/pkg/Specification.md', '/ws/Spec-sequences.json', '/extra/Design.md']);\nassert.deepEqual(merged.addedArguments, ['/extra/Design.md']);\nassert.ok(merged.materialPaths.includes('/pkg/Specification.md'));\n```",
+            "UT: [C004/new-mode] zero-argument init records the discovered material as home-relative and every entry exists\n```js\nconst packageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px357-'));\nfs.writeFileSync(path.join(packageDir, 'Specification.md'), '# spec\n');\nconst first = spawnSync(process.execPath, [INIT, packageDir], { encoding: 'utf8' });\nconst firstReport = JSON.parse(first.stdout);\nconst status = JSON.parse(fs.readFileSync(path.join(packageDir, 'Status.json'), 'utf8'));\nassert.equal(first.status, 0);\nassert.deepEqual(status.materialPaths, [toHomeRelative(path.join(packageDir, 'Specification.md'))]);\nassert.ok(firstReport.discovered.includes(path.join(packageDir, 'Specification.md')));\nfor (const recorded of status.materialPaths) assert.equal(fs.existsSync(fromHomeRelative(recorded)), true);\n```",
+            "UT: [C004/resume] a second identical run changes no material path\n```js\nconst second = spawnSync(process.execPath, [INIT, packageDir], { encoding: 'utf8' });\nconst after = JSON.parse(fs.readFileSync(path.join(packageDir, 'Status.json'), 'utf8'));\nassert.equal(second.status, 0);\nassert.deepEqual(after.materialPaths, status.materialPaths);\n```",
+            "UT: [C004/error] an ambiguous workspace artifact exits 1 before any session file is written\n```js\nconst fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'px357-error-'));\nconst workspace = path.join(fresh, 'ws');\nconst packageDir = path.join(workspace, 'crates', 'pkg');\nfs.mkdirSync(path.join(packageDir, 'x'), { recursive: true });\nfs.writeFileSync(path.join(workspace, 'WORKSPACIFY-TREE-MANIFEST.json'), '{}');\nfs.writeFileSync(path.join(workspace, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), '{}');\nfs.writeFileSync(path.join(workspace, 'A-sequences.json'), '{}');\nfs.writeFileSync(path.join(workspace, 'B-sequences.json'), '{}');\nconst refused = spawnSync(process.execPath, [INIT, packageDir], { encoding: 'utf8' });\nassert.notEqual(refused.status, 0);\nassert.match(refused.stderr, /Ambiguous sequences artifacts/);\nassert.equal(fs.existsSync(path.join(packageDir, 'Status.json')), false);\n```",
+            "UT: [C004/boundary] an explicit missing argument still exits 1 naming the path\n```js\nconst refused = spawnSync(\n  process.execPath,\n  [INIT, packageDir, path.join(packageDir, 'missing.md')],\n  { encoding: 'utf8' },\n);\nassert.equal(refused.status, 1);\nassert.match(refused.stderr, /Material not found/);\n```",
+            "UT: [C005/precondition+postcondition] the command states discovery and additive arguments and keeps the STEP 0 order\n```js\nconst command = fs.readFileSync(GRILL_COMMAND, 'utf8');\nassert.equal(/no argument means no material/i.test(command), false);\nassert.match(command, /discovered/i);\nassert.match(command, /\\$SEQUENCES_ARTIFACT/);\nconst order = callOrderInStep(GRILL_COMMAND, '### STEP 0: Initialization', [\n  'init.js', 'sequences-material.js', 'list-files.js',\n]);\nassert.deepEqual(order.slice(0, 3), ['init.js', 'sequences-material.js', 'list-files.js']);\n```",
+            "UT: [C005/invariant] the report invocation names the discovered artifact rather than raw arguments\n```js\nassert.match(command, /report-obligation-state\\.js\" \"\\$WORKSPACE_ROOT\" \\$\\{SEQUENCES_ARTIFACT/);\nassert.equal(/report-obligation-state\\.js\" \"\\$WORKSPACE_ROOT\" \\$ARGUMENTS/.test(command), false);\n```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "init.js read material only from process.argv.slice(3); a bare invocation recorded an empty list even inside a workspace holding a sequences artifact.",
+              "after": "init.js always resolves the package entries and the single workspace-root *-sequences.json, then appends every argument; the merged list is what Status.json records.",
+              "description": "Added lib/default-material.mjs and wired it into init.js; ambiguity stops before any session file is written."
+            },
+            {
+              "before": "The command required ./ * plus the workspace artifact on every invocation and stated that no argument means no material.",
+              "after": "The command states unconditional discovery and additive arguments, and binds WORKSPACE_ROOT and SEQUENCES_ARTIFACT from the init.js output.",
+              "description": "Updated the Usage, variable table, STEP 0 prose and the report-obligation-state invocation."
+            },
+            {
+              "before": "Existing tests encoded argument-only recording and a no-artifact resume inside a workspace.",
+              "after": "Tests specify discovery-first recording, additive arguments, ambiguity refusal, resume idempotence and the command contract.",
+              "description": "Re-specified the affected step-zero fixtures and added the discovery unit suite."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
+        },
+        {
+          "id": 358,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "SCC condensation must normalize graph edges to provider-first order",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-358.md",
+          "background": "### Goal\nMake condenseOrderingGraph read the implementation order an edge declares, not the raw from/to orientation, so two edges that state the same order are one relation.\n\n### Purpose\nphasify must not report a hard constraint violation on a consistent graph, and the implementation order it derives must place every consumer after its provider.\n\n### Motivation\nA split in a workspacify package failed Step 4-1 with \"hard constraint violations: 1\". The graph was consistent: N0016 depends_on N0027 and N0027 constrains N0016 both order N0027 before N0016. The SCC condensation read the raw orientations, grouped the pair, and the group moved one node ahead of a node that constrains it. Any project can write the same pair, so the defect is in the rule, not in that graph.\n\n### Constraints\nNo project-specific values or paths. A genuine cycle must still fail closed. The rule stays in lib/edge-order.js as the single edge-order authority. No new dependency. CommonJS and ESM consumers both keep working. orderingEdges keeps its raw published meaning.",
+          "scope": [
+            "Change path: add providerConsumerEdge to .claude/scripts/rfc-graph/lib/edge-order.js; modify .claude/scripts/rfc-graph/phasify-helpers.js, .claude/scripts/rfc-graph/validate-phasify.js, .claude/scripts/rfc-graph/phasify-omissions.js and .claude/scripts/sequences-slice/lib/implementation-order.mjs; extend tests/rfc-graph/phasify-ordering-scc.test.mjs and tests/rfc-graph/edge-order.test.cjs.",
+            "Change action: export providerConsumerEdge(edge), normalize the edges passed to tarjanSCC in condenseOrderingGraph, and replace every private inline provider-is-to swap in the five order readers with the helper.",
+            "Change detail: providerConsumerEdge reads directionOf; provider-is-to maps from=edge.to and to=edge.from; provider-is-from maps from=edge.from and to=edge.to; it copies the edge and preserves type, attributes and every other field; a directionless edge returns null.",
+            "Change before/after: before, condenseOrderingGraph passes raw orderingEdges to tarjanSCC, so A depends_on B plus B constrains A looks like A<->B and is condensed; after, both normalize to B->A and no component is produced while a genuine A<->B stays a component.",
+            "Change API: lib/edge-order.js gains providerConsumerEdge; phasify-helpers keeps every existing export; condenseOrderingGraph keeps its signature and its Array<{cycle: string[]}> result.",
+            "Change schema: no JSON schema and no artifact schema change; the SCC result shape is unchanged.",
+            "Change config: no environment variable, config file or command-line flag change.",
+            "Change dependency: no new npm dependency; only node:module createRequire where an ESM file consumes the CommonJS helper.",
+            "Non-change item: orderingEdges keeps returning the raw hard directed edges; DIRECTION_BY_TYPE, weightOf, isHardEdge and tarjanSCC are not redefined.",
+            "Non-change why: orderingEdges is the published raw view and an existing test asserts it; changing it would hide the orientation and force every consumer to invert the normalization.",
+            "Impact component: rfc-graph phasify-helpers, validate-phasify, phasify-omissions, sequences-slice/lib/implementation-order.mjs and the /split-to-tickets Step 4-1 and Step 5-2 order gates.",
+            "Impact nature: SCC grouping, topological order, soft violation counting and ticket prerequisite derivation.",
+            "Impact response: run the rfc-graph ordering suite, the phasify integration and validate-phasify suites, the sequences-slice implementation-order suite and a concrete reproduction of the depends_on/constrains pair with node --test; the pair yields no SCC and a genuine cycle still yields one."
+          ],
+          "testUnit": [
+            "UT: [Normal][C001] providerConsumerEdge normalizes A depends_on B to from B and to A; type, attributes and every other field are preserved on the returned object.",
+            "UT: [Normal][C001] providerConsumerEdge normalizes B constrains A to from B and to A, because constrains is provider-is-from.",
+            "UT: [Boundary][C001] a directionless edge such as E references F returns null and does not throw.",
+            "UT: [Invariant][C001] providerConsumerEdge does not mutate the input edge and returns a distinct object; calling it again on the same edge yields the same provider and consumer.",
+            "UT: [Normal][C002] condenseOrderingGraph returns [] for the agreeing pair A depends_on B plus B constrains A, because both normalize to B before A.",
+            "UT: [Normal][C002] condenseOrderingGraph returns one component containing A and B for the genuine mutual pair A depends_on B plus B depends_on A.",
+            "UT: [Boundary][C002] condenseOrderingGraph returns [] for a references cycle E references F plus F references E, because neither edge is ordering.",
+            "UT: [Normal][C002] condenseOrderingGraph returns [] for the chain G depends_on H, H constrains G, H depends_on I and I constrains H.",
+            "UT: [Invariant][C002] condenseOrderingGraph yields the same components when the raw orientation of each edge in the agreeing pair is swapped, because the declared order is the same.",
+            "UT: [Invariant][C003] kahnTopologicalSort on the agreeing pair returns success true with B before A, using providerConsumerEdge and not a private inline swap.",
+            "UT: [Invariant][C003] computeSoftViolations on a precedes pair in provider-first order reports totalCost 0; the reversed order reports the soft cost and names the raw edge.",
+            "UT: [Invariant][C003] validate-phasify checkHardConstraints on phases with the provider first reports no violation for the agreeing pair; phases reversed report one violation.",
+            "UT: [Invariant][C003] phasify-omissions check 3 on phases with the provider first reports no violation for the agreeing pair; phases reversed report one.",
+            "UT: [Invariant][C003] implementation-order ticketPrerequisites on a two-ticket graph with the agreeing pair adds the provider ticket as a prerequisite of the consumer and not the reverse.",
+            "UT: [Normal][C003] a source scan finds no private inline provider-is-to swap outside lib/edge-order.js; every order reader imports providerConsumerEdge.",
+            "UT: [Boundary][C001] providerConsumerEdge preserves an edge whose attributes strength is soft, so strength modulation survives normalization."
+          ],
+          "testIntegration": [
+            "IT: [C002][edge-order + phasify-helpers] require both modules in one process and assert condenseOrderingGraph on the mixed depends_on/constrains pair is [] while the genuine depends_on cycle is one component.",
+            "IT: [C003][phasify integration] run tests/rfc-graph/phasify-integration.test.cjs unchanged; phasify output for the existing fixtures is identical.",
+            "IT: [C003][validate-phasify] run tests/rfc-graph/validate-phasify.test.cjs unchanged; its hard-constraint verdict is identical.",
+            "IT: [C003][implementation order] run the tests/sequences-slice implementation-order suites unchanged; derived prerequisites and findings are identical.",
+            "IT: [C002][ordering SCC] run tests/rfc-graph/phasify-ordering-scc.test.mjs with the new regression cases; the mixed pair yields no component and the genuine cycle still yields one."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/rfc-graph/lib/edge-order.js",
+            ".claude/scripts/rfc-graph/phasify-helpers.js",
+            ".claude/scripts/rfc-graph/validate-phasify.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/scripts/sequences-slice/lib/implementation-order.mjs",
+            "tests/rfc-graph/phasify-ordering-scc.test.mjs",
+            "tests/rfc-graph/edge-order.test.cjs",
+            "tests/rfc-graph/ordering-projection.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: condenseOrderingGraph returns [] for A depends_on B plus B constrains A, and kahnTopologicalSort returns B before A.",
+            "Error case: A depends_on B plus B depends_on A still yields one SCC and kahnTopologicalSort fails closed.",
+            "Edge case: references cycles yield no component and directionless edges normalize to null."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "graph edge -> provider-first pair",
+              "precondition": "Input: a graph edge object with from, to and type. Valid types are the directed types in DIRECTION_BY_TYPE: depends_on, implements, precedes, triggers and constrains. Invalid input: a type with no direction such as references or refines.",
+              "postcondition": "Output: a new edge object whose from is the provider and whose to is the consumer, preserving type, attributes and every other field; for provider-is-to the provider is edge.to and the consumer is edge.from; for provider-is-from the provider is edge.from and the consumer is edge.to; a directionless edge returns null.",
+              "invariant": "assert(the input edge is not mutated and the returned object is not the input) and assert(directionOf(edge) === provider-is-to implies result.from === edge.to) and assert(directionOf(edge) === null implies result === null)."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "hard directed edges -> SCC components",
+              "precondition": "Input: zero or more graph edges including hard directed edges and non-ordering edges, and including the pair A depends_on B plus B constrains A that states one order in opposite raw orientations. Invalid input: none; non-ordering edges are filtered.",
+              "postcondition": "Output: the SCC list of the provider-first ordering graph; the agreeing pair yields no component, a genuine mutual depends_on pair yields one component containing both nodes, and non-ordering edge cycles yield no component.",
+              "invariant": "assert(condenseOrderingGraph is invariant under the raw orientation chosen for the same order) and assert(a genuine cycle still returns one component) and assert(every component node is joined by a hard directed edge)."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "provider-first pair -> order positions and prerequisite edges",
+              "precondition": "Input: the same hard directed edges supplied to kahnTopologicalSort, computeSoftViolations, validate-phasify checkHardConstraints, phasify-omissions check 3 and implementation-order ticketPrerequisites. Invalid input: an edge whose type has no direction.",
+              "postcondition": "Output: every consumer places the provider before the consumer; kahnTopologicalSort returns B before A for the agreeing pair; computeSoftViolations reports no violation when the order is provider-first and one violation when reversed; checkHardConstraints and check 3 report no violation for a phase order that places the provider first.",
+              "invariant": "assert(every consumer obtains provider and consumer from providerConsumerEdge rather than a private inline swap) and assert(the existing behavior of each consumer is unchanged for all fixtures)."
+            }
+          ],
+          "notes": "- Steps: Red tests for providerConsumerEdge and the agreeing pair in condenseOrderingGraph; Green helper and condensation; Red assertions for the five consumers; Green replacement of the inline swaps; Refactor.\n- Risks: replacing the inline swap in a consumer could change the violation payload; keep the raw edge in the violation record while positions come from the normalized pair. Never normalize twice: providerConsumerEdge is a projection, not a toggle.\n- Caveats: providerConsumerEdge is not idempotent; applying it to an already normalized edge inverts it. Every caller applies it once to an edge as read from the graph.\n- Open items: none.\n- Future improvements: a provenance check could reject any new inline provider-is-to swap outside lib/edge-order.js.\nImplementation summary:\n- Changed files: .claude/scripts/rfc-graph/lib/edge-order.js, .claude/scripts/rfc-graph/phasify-helpers.js, .claude/scripts/rfc-graph/validate-phasify.js, .claude/scripts/rfc-graph/phasify-omissions.js, .claude/scripts/sequences-slice/lib/implementation-order.mjs, tests/rfc-graph/edge-order.test.cjs, tests/rfc-graph/phasify-ordering-scc.test.mjs, tests/rfc-graph/ordering-projection.test.mjs.\n- Key changes: providerConsumerEdge is the one provider-first projection; condenseOrderingGraph normalizes before tarjanSCC; the five order readers use the projection and keep the raw edge in violation records.\n- Test results: 30 tests passed in the new suites; 206 tests passed in the impact set (rfc-graph ordering, phasify integration and CLI, validate-phasify, sequences-slice implementation order, package-scope findings).\n- Quality checks: 0 issues. Incomplete-implementation scan: 0 findings.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: consistency verified\n- Issues found and fixes applied: none",
+          "invariants": "- 【Normal establishment】For every hard directed edge, the provider is positioned before the consumer in every order the readers produce: SCC components, topological order, phase assignment and ticket prerequisites.\n- 【Invariant on error】A genuine mutual depends_on cycle still yields one SCC and kahnTopologicalSort still fails closed; no consumer silently drops it.\n- 【Internal state invariant】condenseOrderingGraph returns the SCC of the provider-first graph; orderingEdges keeps returning raw edges; input edges are never mutated.\n- 【Boundary invariant】A directionless edge normalizes to null and never contributes to condensation or to any position check.",
+          "instrumentation": "- Logging: no new log line; phasify and validate-phasify diagnostics continue to name the offending edge as written.\n- Metrics: none; these are pure order functions.\n- Error tracking: no new error type; a genuine cycle keeps the existing failure path in kahnTopologicalSort and validate-phasify.\n- Health check: the rfc-graph ordering, phasify integration, validate-phasify and sequences-slice implementation-order suites are the health surface; the regression test pins the agreeing pair.\nStatic quality check: passed\nTranslatability: no issues\nTests: 206 passed in the ordering impact set",
+          "investigation": "- .claude/scripts/rfc-graph/lib/edge-order.js:13-14 defines PROVIDER_IS_TO and PROVIDER_IS_FROM; :47 directionOf maps depends_on and implements to provider-is-to and precedes, triggers and constrains to provider-is-from; :125 orderingEdges filters hard directed edges but keeps their raw from/to.\n- .claude/scripts/rfc-graph/phasify-helpers.js:26-31 imports the shared rule; :87 kahnTopologicalSort and :188 computeSoftViolations each perform the swap inline at :107-108 and :204-205; :326 condenseOrderingGraph calls tarjanSCC(orderingEdges(edges)) without normalizing, so the SCC reads raw orientations.\n- .claude/scripts/rfc-graph/boundify-helpers.js:260 tarjanSCC builds adjacency from edge.from to edge.to, which is the raw orientation it is given; it is the same SCC implementation phasify reuses.\n- .claude/scripts/rfc-graph/validate-phasify.js:178-181 performs the same inline swap in checkHardConstraints; .claude/scripts/rfc-graph/phasify-omissions.js:668-671 performs it in check 3; .claude/scripts/sequences-slice/lib/implementation-order.mjs:693-696 performs it when deriving ticket prerequisites.\n- .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js:312 and .claude/scripts/rfc-graph/phasify-omissions.js:1435 both obtain their SCC through condenseOrderingGraph, so one normalization there covers both call sites.\n- Reproduction on the current tree: with edges [{from:A,to:B,type:depends_on},{from:B,to:A,type:constrains}], directionOf reports provider-is-to and provider-is-from, condenseOrderingGraph returns [{cycle:[B,A]}], while kahnTopologicalSort returns success true with order [B,A]. The two readers disagree about the same edges.\n- Normalization check: with providerConsumerEdge applied, the same pair becomes [B->A, B->A] and tarjanSCC returns []; the genuine pair A depends_on B plus B depends_on A becomes [B->A, A->B] and tarjanSCC returns [{cycle:[A,B]}].\n- tests/rfc-graph/phasify-ordering-scc.test.mjs:27 asserts orderingEdges keeps raw edges, :37 contrasts all-edge SCC with ordering SCC and :53 asserts a hard cycle still condenses; no case pins the agreeing pair, which is the missing regression.\n- The observed failure in a workspacify package was hard constraint violations: 1 on a graph whose two edges agreed on the order; the group produced by the raw SCC moved one node ahead of its constraining node.",
+          "boyScoutPlan": "Function names: providerConsumerEdge is a noun phrase naming the value it returns; normalizeOrderingEdges or condenseOrderingGraph keep verb phrases; no generic names.\nConstants: reuse PROVIDER_IS_TO and PROVIDER_IS_FROM from edge-order.js; no second spelling of the direction strings.\nOne responsibility per function: providerConsumerEdge only projects one edge; condenseOrderingGraph only filters and condenses; each consumer still does its own check.\nNo swallowed errors: a directionless edge returns null explicitly and every caller skips it; no catch converts a normalization failure into a silent pass.\nComments: state that from/to are the author orientation and that providerConsumerEdge is a projection applied once; remove the misleading \"this is the one place\" claim unless every consumer is converted.\nProactive: replace the six inline swaps with the helper, so a future direction rule has one implementation and the existing readers cannot drift.",
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001/precondition+postcondition] provider-first projection for depends_on and constrains\n```js\nconst { providerConsumerEdge } = require('../../.claude/scripts/rfc-graph/lib/edge-order.js');\nconst dependsOn = { from: 'A', to: 'B', type: 'depends_on', attributes: { strength: 'soft' } };\nconst constraint = { from: 'B', to: 'A', type: 'constrains' };\nassert.deepEqual(providerConsumerEdge(dependsOn), { from: 'B', to: 'A', type: 'depends_on', attributes: { strength: 'soft' } });\nassert.deepEqual(providerConsumerEdge(constraint), { from: 'B', to: 'A', type: 'constrains' });\n```",
+            "UT: [C001/invariant] the input edge is not mutated, the result is a distinct object, and a directionless edge is null\n```js\nconst before = JSON.stringify(dependsOn);\nconst projected = providerConsumerEdge(dependsOn);\nassert.notEqual(projected, dependsOn);\nassert.deepEqual(projected, { from: 'B', to: 'A', type: 'depends_on', attributes: { strength: 'soft' } });\nassert.equal(JSON.stringify(dependsOn), before);\nassert.equal(providerConsumerEdge({ from: 'E', to: 'F', type: 'references' }), null);\nassert.deepEqual(providerConsumerEdge(dependsOn), projected);\n```",
+            "UT: [C002/precondition+postcondition] the agreeing pair yields no SCC while a genuine cycle still yields one\n```js\nconst { condenseOrderingGraph } = require('../../.claude/scripts/rfc-graph/phasify-helpers.js');\nconst agreeing = [\n  { from: 'A', to: 'B', type: 'depends_on' },\n  { from: 'B', to: 'A', type: 'constrains' },\n];\nassert.deepEqual(condenseOrderingGraph(agreeing), []);\nconst genuine = [\n  { from: 'A', to: 'B', type: 'depends_on' },\n  { from: 'B', to: 'A', type: 'depends_on' },\n];\nassert.deepEqual(\n  condenseOrderingGraph(genuine).map((entry) => entry.cycle.slice().sort().join(',')),\n  ['A,B'],\n);\n```",
+            "UT: [C002/invariant] the declared order decides, not the encoding; a chain restated as constraints stays a chain\n```js\nconst encodings = [\n  [{ from: 'A', to: 'B', type: 'depends_on' }],\n  [{ from: 'B', to: 'A', type: 'constrains' }],\n  [{ from: 'A', to: 'B', type: 'depends_on' }, { from: 'B', to: 'A', type: 'constrains' }],\n];\nfor (const edges of encodings) assert.deepEqual(condenseOrderingGraph(edges), []);\nassert.deepEqual(condenseOrderingGraph([\n  { from: 'G', to: 'H', type: 'depends_on' },\n  { from: 'H', to: 'G', type: 'constrains' },\n  { from: 'H', to: 'I', type: 'depends_on' },\n  { from: 'I', to: 'H', type: 'constrains' },\n]), []);\nassert.deepEqual(condenseOrderingGraph([\n  { from: 'E', to: 'F', type: 'references' },\n  { from: 'F', to: 'E', type: 'references' },\n]), []);\n```",
+            "UT: [C003/precondition+postcondition] kahn places the provider first and soft violations use the same projection\n```js\nconst { kahnTopologicalSort, computeSoftViolations, getWeight } = require('../../.claude/scripts/rfc-graph/phasify-helpers.js');\nconst mixed = [\n  { from: 'A', to: 'B', type: 'depends_on' },\n  { from: 'B', to: 'A', type: 'constrains' },\n];\nconst sort = kahnTopologicalSort(['A', 'B'], mixed, getWeight);\nassert.equal(sort.success, true);\nassert.ok(sort.order.indexOf('B') < sort.order.indexOf('A'));\nconst soft = [{ from: 'P', to: 'C', type: 'precedes' }];\nassert.equal(computeSoftViolations(['P', 'C'], soft, getWeight).totalCost, 0);\nconst reversedSoft = computeSoftViolations(['C', 'P'], soft, getWeight);\nassert.equal(reversedSoft.totalCost, 2);\nassert.deepEqual(reversedSoft.violations.map((entry) => entry.from + '->' + entry.to), ['P->C']);\n```",
+            "UT: [C003/postcondition] validate-phasify and phasify-omissions report the same phase verdict\n```js\nconst { checkHardConstraints } = require('../../.claude/scripts/rfc-graph/validate-phasify.js');\nconst { validatePhasedOmissions } = require('../../.claude/scripts/rfc-graph/phasify-omissions.js');\nconst phases = [{ id: 0 }, { id: 1 }];\nassert.equal(checkHardConstraints(mixed, phases, { A: 1, B: 0 }).passed, true);\nassert.equal(checkHardConstraints(mixed, phases, { A: 0, B: 1 }).passed, false);\nconst nodes = [{ id: 'A' }, { id: 'B' }];\nconst omissionIds = new Set(['A', 'B']);\nconst forward = validatePhasedOmissions({ phases: [{ id: 0, nodeIds: ['B'] }, { id: 1, nodeIds: ['A'] }] }, nodes, mixed, omissionIds);\nconst backward = validatePhasedOmissions({ phases: [{ id: 0, nodeIds: ['A'] }, { id: 1, nodeIds: ['B'] }] }, nodes, mixed, omissionIds);\nassert.equal(forward.checks.hardConstraints.violations.length, 0);\nassert.equal(backward.checks.hardConstraints.violations.length, 2);\n```",
+            "UT: [C003/postcondition] ticketPrerequisites adds the provider ticket as the consumer's prerequisite and never the reverse\n```js\nimport { ticketPrerequisites } from '../../.claude/scripts/sequences-slice/lib/implementation-order.mjs';\nconst tickets = [\n  { id: 1, phaseId: 0, nodeIds: ['B'], distribution: { units: [{ unitId: 'unit-b' }] } },\n  { id: 2, phaseId: 0, nodeIds: ['A'], distribution: { units: [{ unitId: 'unit-a' }] } },\n];\nconst { prerequisites } = ticketPrerequisites({ tickets, graph: { edges: mixed } });\nassert.deepEqual(new Set(prerequisites.get('P0-2').map((entry) => entry.ticket)), new Set(['P0-1']));\nassert.equal(prerequisites.has('P0-1'), false);\n```",
+            "UT: [C003/invariant] no private inline swap remains outside edge-order.js\n```js\nimport fs from 'node:fs';\nimport path from 'node:path';\nimport { REPO_ROOT } from '../question-gate/helpers/fixture-workspace.mjs';\nconst readers = [\n  '.claude/scripts/rfc-graph/phasify-helpers.js',\n  '.claude/scripts/rfc-graph/validate-phasify.js',\n  '.claude/scripts/rfc-graph/phasify-omissions.js',\n  '.claude/scripts/sequences-slice/lib/implementation-order.mjs',\n];\nfor (const file of readers) {\n  const source = fs.readFileSync(path.join(REPO_ROOT, file), 'utf8');\n  assert.equal(/direction === 'provider-is-(to|from)' \\? edge\\.(to|from) : edge\\.(from|to)/.test(source), false, file);\n  assert.match(source, /providerConsumerEdge/, file);\n}\nconst rule = fs.readFileSync(path.join(REPO_ROOT, '.claude/scripts/rfc-graph/lib/edge-order.js'), 'utf8');\nassert.match(rule, /direction === PROVIDER_IS_TO \\? edge\\.to : edge\\.from/);\n```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "lib/edge-order.js had no single provider-first projection; each order reader spelled the swap itself.",
+              "after": "lib/edge-order.js exports providerConsumerEdge(edge), which returns a provider-first copy and null for a directionless edge without mutating the input.",
+              "description": "Added the projection that every order reader now shares."
+            },
+            {
+              "before": "condenseOrderingGraph passed raw orderingEdges to tarjanSCC, so A depends_on B plus B constrains A looked like A<->B and was condensed into one SCC.",
+              "after": "condenseOrderingGraph normalizes to provider-first order before tarjanSCC; the agreeing pair yields no component and a genuine cycle still yields one.",
+              "description": "Fixed the SCC condensation direction defect that produced hard constraint violations on a consistent graph."
+            },
+            {
+              "before": "kahnTopologicalSort, computeSoftViolations, validate-phasify checkHardConstraints, phasify-omissions check 3 and implementation-order ticketPrerequisites each performed a private inline direction swap.",
+              "after": "All five readers obtain provider and consumer from providerConsumerEdge; violation records keep the raw edge as written.",
+              "description": "Unified the direction rule so a future change cannot make the readers disagree."
+            },
+            {
+              "before": "No regression pinned the agreeing pair, and no test rejected a private inline swap outside edge-order.js.",
+              "after": "edge-order.test.cjs pins the projection; phasify-ordering-scc.test.mjs pins the SCC verdicts; ordering-projection.test.mjs pins each consumer and scans for private swaps.",
+              "description": "Added C001-C003 coverage in the Red phase."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
         }
       ]
     },

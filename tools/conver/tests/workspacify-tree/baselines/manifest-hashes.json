@@ -251,7 +251,7 @@
         "## Gates",
         "## Re-entry (Done is not the end of the conversation)",
         "## Usage",
-        "## Mechanical Variable Binding from Arguments",
+        "## Mechanical Variable Binding",
         "### Schema Validation Gate",
         "### Session Status",
         "## Execution Steps",
@@ -278,7 +278,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "779783d33c3d060abaeb242c704bd6e98d02e1d819dfa2a6b48c6ee85a6fd24d"
+      "documentDigest": "f7f0169e540d2d1a057812ce0707c5542487f9b635852971608cb200e1b88529"
     },
     "make-ticket": {
       "headings": [

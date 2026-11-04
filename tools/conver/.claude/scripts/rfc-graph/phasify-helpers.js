@@ -27,6 +27,7 @@ const {
   weightOf,
   isHardEdge,
   orderingEdges,
+  providerConsumerEdge,
 } = require('./lib/edge-order.js');
 
 // Phase 1 reuses the same SCC implementation the boundify stage uses.
@@ -83,7 +84,7 @@ function isHard(edgeOrType) {
  * @returns {{ success: boolean, order: string[], cycle?: string[], error?: string }}
  *   success: true means order is valid. false means cycle contains cyclic nodes.
  */
-// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-343, PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343|PX-358) --for-spec --no-implementation-order`.
 function kahnTopologicalSort(nodeIds, edges, weightFn) {
   const wFn = weightFn || getWeight;
   const nodeSet = new Set(nodeIds);
@@ -96,18 +97,14 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
     adjacency[nid] = [];
   }
 
-  // Build graph using only edges with weight Infinity
+  // Build graph using only edges with weight Infinity, in provider-first order.
   for (const edge of edges) {
     if (!nodeSet.has(edge.from) || !nodeSet.has(edge.to)) continue;
     if (wFn(edge) !== Infinity) continue;
-    const direction = directionOf(edge);
-    if (direction === null) continue;
-    // provider-is-to: the target provides to the source (target first).
-    // provider-is-from: the source provides to the target (source first).
-    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
-    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
-    adjacency[provider].push(consumer);
-    inDegree[consumer] = (inDegree[consumer] || 0) + 1;
+    const pair = providerConsumerEdge(edge);
+    if (pair === null) continue;
+    adjacency[pair.from].push(pair.to);
+    inDegree[pair.to] = (inDegree[pair.to] || 0) + 1;
   }
 
   // Add nodes with in-degree 0 to the queue
@@ -144,16 +141,14 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
       for (const edge of edges) {
         const hard = wFn(edge) === Infinity;
         if (!hard) continue;
-        const direction = directionOf(edge);
-        if (direction === null) continue;
-        const provider = direction === 'provider-is-to' ? edge.to : edge.from;
-        const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
-        if (inCycle.has(consumer) && !inCycle.has(provider)) {
-          inCycle.add(provider);
+        const pair = providerConsumerEdge(edge);
+        if (pair === null) continue;
+        if (inCycle.has(pair.to) && !inCycle.has(pair.from)) {
+          inCycle.add(pair.from);
           changed = true;
         }
-        if (!inCycle.has(consumer) && inCycle.has(provider)) {
-          inCycle.add(consumer);
+        if (!inCycle.has(pair.to) && inCycle.has(pair.from)) {
+          inCycle.add(pair.to);
           changed = true;
         }
       }
@@ -184,7 +179,7 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
  * @param {Function} weightFn — Edge type → weight function
  * @returns {{ totalCost: number, violations: Array<{from:string, to:string, type:string, cost:number}> }}
  */
-// [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-343, PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-343|PX-358) --for-spec --no-implementation-order`.
 function computeSoftViolations(order, edges, weightFn) {
   const wFn = weightFn || getWeight;
   const position = {};
@@ -198,13 +193,11 @@ function computeSoftViolations(order, edges, weightFn) {
   for (const edge of edges) {
     const weight = wFn(edge);
     if (weight <= 0 || weight === Infinity) continue; // Only soft edges
-    const direction = directionOf(edge);
-    if (direction === null) continue;
+    const pair = providerConsumerEdge(edge);
+    if (pair === null) continue;
 
-    const provider = direction === 'provider-is-to' ? edge.to : edge.from;
-    const consumer = direction === 'provider-is-to' ? edge.from : edge.to;
-    const providerPosition = position[provider];
-    const consumerPosition = position[consumer];
+    const providerPosition = position[pair.from];
+    const consumerPosition = position[pair.to];
     if (providerPosition === undefined || consumerPosition === undefined) continue;
 
     // The provider must be positioned before the consumer it feeds.
@@ -316,15 +309,17 @@ function mergePhases(sortedNodes, minSize, hardEdges) {
  *
  * The condensation and the topological sort must read the same relation. Reading every
  * edge lets a quotation cycle group two nodes, and the group is then kept adjacent, which
- * can move a consumer ahead of its hard prerequisite. This function is the one entry point
- * both phasify call sites use.
+ * can move a consumer ahead of its hard prerequisite. The edges are normalized to
+ * provider-first order first, so two edges that agree on the order are one relation rather
+ * than mutual reachability. This function is the one entry point both phasify call sites
+ * use.
  *
  * @param {Array<object>} edges — graph edges, any type
- * @returns {Array<{cycle: string[]}>} SCCs of the hard directed subgraph
+ * @returns {Array<{cycle: string[]}>} SCCs of the provider-first hard directed subgraph
  */
-// [::TICKET::] PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-356 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-356, PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-356|PX-358) --for-spec --no-implementation-order`.
 function condenseOrderingGraph(edges) {
-  return tarjanSCC(orderingEdges(edges));
+  return tarjanSCC(orderingEdges(edges).map(providerConsumerEdge));
 }
 
 /**

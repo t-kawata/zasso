@@ -1,3 +1,4 @@
+// [::TICKET::] PX-358 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-358 --for-spec --no-implementation-order`.
 // PX-343 @verifies C001
 // The split pipeline decides phase order and ticket prerequisites from graph edges.
 // This test pins the single shared rule every consumer must read instead of keeping a
@@ -13,6 +14,7 @@ const {
   weightOf,
   isHardEdge,
   typeDefaultWeight,
+  providerConsumerEdge,
 } = require('../../.claude/scripts/rfc-graph/lib/edge-order.js');
 
 // [::TICKET::] PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-343 --for-spec --no-implementation-order`.
@@ -89,5 +91,39 @@ describe('weightOf', () => {
     assert.equal(typeDefaultWeight('precedes'), 2);
     assert.equal(typeDefaultWeight('triggers'), 1);
     assert.equal(typeDefaultWeight('references'), 0);
+  });
+});
+
+// PX-358 @verifies C001
+// The edge's from/to are the orientation the author wrote. The implementation order
+// has one representation, provider first, and every order reader must share it.
+describe('providerConsumerEdge', () => {
+  it('projects depends_on to provider-first and keeps every other field', () => {
+    const edge = { from: 'A', to: 'B', type: 'depends_on', attributes: { strength: 'soft' } };
+    assert.deepEqual(providerConsumerEdge(edge), {
+      from: 'B',
+      to: 'A',
+      type: 'depends_on',
+      attributes: { strength: 'soft' },
+    });
+  });
+
+  it('projects constrains to provider-first', () => {
+    assert.deepEqual(
+      providerConsumerEdge({ from: 'B', to: 'A', type: 'constrains' }),
+      { from: 'B', to: 'A', type: 'constrains' },
+    );
+  });
+
+  it('returns null for a directionless edge', () => {
+    assert.equal(providerConsumerEdge({ from: 'E', to: 'F', type: 'references' }), null);
+  });
+
+  it('does not mutate the input and returns a distinct object', () => {
+    const edge = { from: 'A', to: 'B', type: 'depends_on' };
+    const projected = providerConsumerEdge(edge);
+    assert.notStrictEqual(projected, edge);
+    assert.deepEqual(edge, { from: 'A', to: 'B', type: 'depends_on' });
+    assert.deepEqual(providerConsumerEdge(edge), projected);
   });
 });

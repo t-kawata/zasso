@@ -62,11 +62,14 @@ test('C001 postcondition: the variable table binds the package directory and the
   assert.match(table, /\$RFC_PATH[^\n]*\$RFC_DIR\/RFC\.md/, 'the RFC path is the fixed name under it');
 });
 
-test('C001 postcondition: use states the zero-or-more material form', () => {
+// [::TICKET::] PX-357 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-357 --for-spec --no-implementation-order`.
+test('C001 postcondition: use states the unconditional material form', () => {
   const usage = section(read('grill-me-for-rfc'), '## Usage', '\n---');
 
   assert.match(usage, /<material-file-or-dir>/);
-  assert.match(usage, /zero or more|no material|none/i, 'the reader is told the argument list may be empty');
+  assert.match(usage, /discovered mechanically on every invocation/, 'the reader is told discovery runs without arguments');
+  assert.match(usage, /arguments are \*\*additions\*\*/, 'an argument adds to discovery rather than replacing it');
+  assert.match(usage, /zero arguments is a complete invocation/);
 });
 
 test('C001 postcondition: STEP 0 initialises with the package directory and the material list', () => {
