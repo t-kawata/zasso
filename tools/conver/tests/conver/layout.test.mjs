@@ -209,8 +209,32 @@ test('stripCommonPrefix removes only a separator-aligned prefix with non-empty r
   assert.deepEqual(stripCommonPrefix(['gaia-api', 'gaia-web']), { prefix: 'gaia-', names: ['api', 'web'] });
   assert.deepEqual(stripCommonPrefix(['pkg.one', 'pkg.two']), { prefix: 'pkg.', names: ['one', 'two'] });
   assert.deepEqual(stripCommonPrefix(['a', 'ab']), { prefix: '', names: ['a', 'ab'] });
-  assert.deepEqual(stripCommonPrefix(['gaia', 'gaia-api']), { prefix: '', names: ['gaia', 'gaia-api'] });
+  assert.deepEqual(stripCommonPrefix(['gaia', 'gaia-api']), { prefix: 'gaia-', names: ['gaia', 'api'] });
   assert.deepEqual(stripCommonPrefix([]), { prefix: '', names: [] });
+});
+
+test('stripCommonPrefix keeps a bare root name while stripping its siblings', () => {
+  assert.deepEqual(
+    stripCommonPrefix(['crystal', 'crystal-core', 'crystal-rest']),
+    { prefix: 'crystal-', names: ['crystal', 'core', 'rest'] },
+  );
+  assert.deepEqual(
+    stripCommonPrefix(['pkg', 'pkg.one', 'pkg.two']),
+    { prefix: 'pkg.', names: ['pkg', 'one', 'two'] },
+  );
+  assert.deepEqual(stripCommonPrefix(['gaia', 'gaia']), { prefix: '', names: ['gaia', 'gaia'] });
+  assert.deepEqual(
+    stripCommonPrefix(['pkg', 'pkg.one', 'pkg-two']),
+    { prefix: '', names: ['pkg', 'pkg.one', 'pkg-two'] },
+  );
+  assert.deepEqual(
+    stripCommonPrefix(['gaia', 'gaia-', 'gaia-api']),
+    { prefix: '', names: ['gaia', 'gaia-', 'gaia-api'] },
+  );
+  assert.deepEqual(
+    stripCommonPrefix(['gaia', 'gaia-api', 'other']),
+    { prefix: '', names: ['gaia', 'gaia-api', 'other'] },
+  );
 });
 
 test('package labels use the stripped display name while the full name and path stay intact', () => {
@@ -226,6 +250,19 @@ test('package labels use the stripped display name while the full name and path 
   assert.deepEqual(layout.cells.map((cell) => cell.path), ['crates/gaia-api', 'crates/gaia-web']);
   assert.deepEqual(layout.cells[0].labelLines, ['api']);
   assert.ok(layout.cells.every((cell) => cell.displayName.length > 0));
+});
+
+test('a workspace root named like the prefix does not cancel sibling stripping', () => {
+  const model = makeModel({
+    packages: [
+      packageModel({ id: 'root', name: 'crystal', path: '.' }),
+      packageModel({ id: 'core', name: 'crystal-core', path: 'crates/crystal-core' }),
+      packageModel({ id: 'rest', name: 'crystal-rest', path: 'crates/transports/crystal-rest' }),
+    ],
+  });
+  const layout = computeLayout(model, { measureText: measure });
+  assert.deepEqual(layout.cells.map((cell) => cell.displayName), ['crystal', 'core', 'rest']);
+  assert.deepEqual(layout.cells.map((cell) => cell.path), ['.', 'crates/crystal-core', 'crates/transports/crystal-rest']);
 });
 
 test('the header exposes a full-width bar below the title with breathing room', () => {
