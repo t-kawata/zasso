@@ -54976,6 +54976,477 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-04"
+        },
+        {
+          "id": 359,
+          "phaseId": -1,
+          "status": "made",
+          "title": "Spec-formula foundation: source identity, formula extraction, RFC ledger, and grill gate",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-359.md",
+          "invariants": "- [Normal condition] The specification hash recorded in seed section 1 equals the hash recomputed from source_spec.path; every owned formula has a ledger row whose normalized digest equals the specification digest.\n- [Error invariant] No RFC byte is written when the specification is unreadable or its hash differs from any recorded hash.\n- [Internal state invariant] One shared extractor and normalizer is used by the grill gate and by every downstream consumer; no second parser is introduced.\n- [Boundary invariant] Both delimiter families produce the same digest for the same formula body; delimiters and whitespace never change the digest, while a changed symbol or coefficient always changes it.",
+          "background": "### Goal\nMake the original specification identity and its formulas penetrate every package RFC, and make the per-package grill prove that penetration before the RFC is written.\n\n### Purpose\nThe grill reads RFC-SEED.md, INFO-RFC-SEED.md and EXPLAIN-RFC-SEED.md but never resolves source_spec.path and never re-hashes the specification. No gate proves that a formula, its symbols, its normative context or its implementation design reached the RFC. A package can therefore pass while silently dropping specification material.\n\n### Motivation\nThe current gaia and crystal specifications carry roughly 374 and 1156 unique formulas. Silent omission is not detectable by review at that scale. Both delimiter families must be supported: display \\[ ... \\] with inline \\( ... \\), and display $$ ... $$ with inline $ ... $.\n\n### Constraints\nTDD Red-Green-Refactor only. No specification edits. No stubs or TBD. Formula matching is token-normalized: delimiters, whitespace and grouping braces are ignored; symbols and coefficients are compared. The RFC must carry the formula body, theory (symbols and normative lines), implementation design (where/how/class/tests) and a ledger row. Non-computational formulas are not exempt: they must name the type, constant, validation or serialization that realizes them. Command markdown files touched by this ticket must carry no ticket ids, no change-history prose and no noise.",
+          "scope": [
+            "Add .claude/scripts/spec-formula/: extract display and inline math in four delimiter forms; handle code spans, fenced blocks, escaped \\$, multi-line bodies and standard LaTeX environments; normalize token sequences; compute sha256 digests; emit stable fx-<digest12> ids; parse and validate the formula ledger and RFC-FORMULAS.json.",
+            "Add .claude/scripts/grill-me-for-rfc/verify-source-identity.js: resolve seed section 1 source_spec.path/sha256, read the specification, recompute its hash, compare the stage-two seed hash, the INFO-RFC-SEED.md recorded hash and the *-sequences.json spec.sha256; record the specification path in the material list; exit non-zero before any write on mismatch.",
+            "Add .claude/scripts/grill-me-for-rfc/check-formula-coverage.js: prove every formula owned by this package is present in RFC.md and in the formula ledger; require theory, implementation design and test obligations; reject invented formulas; require a row per owning package for cross-package formulas; classify each formula as computational, structural, constraint or notation.",
+            "Extend .claude/commands/grill-me-for-rfc.md: STEP 0 identity gate; STEP 5 hard constraints for formula body, theory, implementation design and tests; a new Formula ledger appendix plus RFC-FORMULAS.json sidecar carrying rfcDigest and specDigest; STEP 8 blocking gate.",
+            "Replace the hardcoded GaiaSekkeiShiyousho_v*.md guard in .claude/scripts/grill-me-for-rfc/guard-edit-surface.js with the source_spec.path from seed section 1; keep default-deny for unknown paths.",
+            "Add tests under tests/spec-formula/ and tests/grill-me-for-rfc/.",
+            "For every command markdown file touched, use telegraph style and remove ticket ids, change-history prose and noise.",
+            "Out of scope: workspace-wide completeness (PX-360), graph and Dirs-Tree projection (PX-361), ticket projection (PX-362), deployment and migration (PX-363).",
+            "Affected areas: material discovery, prior scan, source identity, RFC writing, guard-edit-surface, tests, and the downstream consumers that will read RFC-FORMULAS.json."
+          ],
+          "testUnit": [
+            "UT: [Normal] extractFormulas returns display \\[ r=(id_r,origin,payload,context,parent), \\quad q^v=(id_q,v,input,objective,constraints,context,derivation) \\] and inline \\( M=2^b \\) with normalized bodies.",
+            "UT: [Normal] $$ ... $$ and $ ... $ parse to the same normalized digests as \\[ ... \\] and \\( ... \\).",
+            "UT: [Normal] A specification that uses the bracket family and an RFC that uses the dollar family match by digest.",
+            "UT: [Normal] Token normalization makes \\mathcal E equal \\mathcal{E} and x^2 equal x^{2}; a change from \\mathcal E to \\mathcal D changes the digest.",
+            "UT: [Error] A missing formula body in RFC.md fails with the formula id and its specification line.",
+            "UT: [Error] A ledger row without theory, implementation design or tests fails by field name.",
+            "UT: [Error] A formula in the RFC that is absent from the specification is reported as invented.",
+            "UT: [Boundary] Multi-line display math, escaped \\$, code spans, fenced code blocks and \\begin{aligned} are classified correctly.",
+            "UT: [Invariant] The fx id is stable for an unchanged body; the digest changes when a symbol or coefficient changes.",
+            "UT: [Invariant] A specification hash mismatch stops before any RFC write.",
+            "UT: [Invariant] Contract C001: seed section 1 records source_spec path and sha256; every owned formula has an RFC ledger row with normalized digest and implementation design; the RFC formula ledger and RFC-FORMULAS.json carry the same specification digest."
+          ],
+          "testIntegration": [
+            "IT: A fixture workspace with seed section 1, INFO-RFC-SEED.md and *-sequences.json passes the identity gate and records the specification path.",
+            "IT: End to end: specification formula -> RFC formula ledger -> check-formula-coverage.js exit 0.",
+            "IT: guard-edit-surface refuses the source_spec.path resolved from seed section 1, not only a hardcoded specification name.",
+            "IT: A package that owns two formulas and transcribes one exits 1 naming the missing formula and specification line."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Counters: specification formulas, owned formulas, transcribed formulas, missing formulas, invented formulas, theory failures, implementation-design failures. Every failure logs the formula id, specification path, line range and missing field.",
+          "notes": "- Implementation order: shared extractor and ledger schema first; identity gate second; per-package coverage gate third; command prose last.\n- Risks: LaTeX tokenization is easy to over-normalize. Keep the digest stable for equivalent grouping and strict for symbol, coefficient and operator changes. Test both delimiter families before implementation.\n- Caveats: Existing specifications use the bracket family only; dollar-family behavior is proven by fixtures and must not be inferred from gaia or crystal.\n- Open items: The exact ledger JSON shape is frozen by this ticket; PX-360, PX-361 and PX-362 consume it unchanged.\n- Future improvements: Promote the shared extractor to a published module if a third consumer appears outside this pipeline.",
+          "acceptanceCriteria": [
+            "Happy path: a fixture specification using both delimiter families produces an RFC ledger and check-formula-coverage.js exits 0.",
+            "Error case: a missing formula body or a missing implementation design exits 1 with the formula id and specification line.",
+            "Edge case: a non-computational formula names its type, constant, validation or serialization realization and passes.",
+            "Invariant: no specification file is written; a hash mismatch stops the run before RFC bytes are written.",
+            "Hygiene: every command markdown file touched by this ticket contains no ticket id and no change-history prose."
+          ],
+          "investigation": "Observed: grill-me-for-rfc.md discovers only package-directory entries plus the workspace-root *-sequences.json and reads RFC-SEED.md, INFO-RFC-SEED.md and EXPLAIN-RFC-SEED.md; it never resolves source_spec.path.\nObserved: prior-decisions.mjs PRIOR_ARTIFACTS contains the three seed artifacts and the canonical RFC only.\nObserved: guard-edit-surface.js matches the specification by the hardcoded /^GaiaSekkeiShiyousho_v.*\\.md$/ pattern.\nObserved: explain-seed/lib/verify.mjs already recomputes the specification hash against seed source_spec.sha256; this ticket moves the same proof into the grill stage.\nObserved: educe-sequences artifact records spec.path, spec.sha256 and spec.lines, so the grill can compare all three recorded identities.",
+          "boyScoutPlan": "- Extract one named function per decision: extractMath, normalizeFormula, digestFormula, readFormulaLedger, resolveSpecIdentity.\n- Replace hardcoded specification basename with the seed-recorded path and a named constant for the fallback.\n- No swallowed errors: every unreadable specification or malformed ledger row is reported by path, line or formula id.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "specification formula -> RFC formula ledger",
+              "precondition": "seed section 1 records source_spec path and sha256",
+              "postcondition": "every owned spec formula has an RFC ledger row with normalized digest and implementation design",
+              "invariant": "the RFC formula ledger and RFC-FORMULAS.json carry the same specification digest"
+            }
+          ],
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "default_files": [
+            ".claude/scripts/spec-formula/",
+            ".claude/scripts/grill-me-for-rfc/verify-source-identity.js",
+            ".claude/scripts/grill-me-for-rfc/check-formula-coverage.js",
+            ".claude/scripts/grill-me-for-rfc/guard-edit-surface.js",
+            ".claude/commands/grill-me-for-rfc.md",
+            "tests/spec-formula/",
+            "tests/grill-me-for-rfc/"
+          ],
+          "relatedTicketIds": "PX-360, PX-361 and PX-362 depend on PX-359: they consume the shared extractor, the formula ledger and RFC-FORMULAS.json unchanged.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty"
+        },
+        {
+          "id": 360,
+          "phaseId": -1,
+          "status": "made",
+          "title": "smooth-sequences workspace formula-completeness gate and repair worklist",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-360.md",
+          "invariants": "- [Normal condition] The union of all package formula ledgers equals the specification formula set; every formula has at least one owner and every owner has a row.\n- [Error invariant] An unreadable specification, a hash mismatch or a missing ledger never reads as a satisfied workspace; the run is unproven.\n- [Internal state invariant] The S8 check family uses the shared spec-formula extractor and the same ledger parser as the per-package gate.\n- [Boundary invariant] A formula with no waiver is never removed from the denominator; a waiver naming an omission is refused.",
+          "background": "### Goal\nMake smooth-sequences prove, over the whole workspace, that every package RFC carries its share of the specification formulas and that the union equals the specification formula set.\n\n### Purpose\nThe per-package grill gate proves local completeness only. A package can pass while another package omits its share, or while two packages invent formulas. smooth-sequences is the last workspace-wide gate before graphification and the only place where a package RFC can still be sent back to the grill.\n\n### Motivation\nThe user requires smooth-sequences to receive an additional gate and repair machinery, not to be the only gate. This ticket adds that reinforcement after the per-package gate exists.\n\n### Constraints\nClosure mode only: a v3 artifact or evidence manifest plus both workspace manifests. Formula omission must not be waivable. Repair must name the owning command. No specification edits. Command markdown files touched by this ticket must carry no ticket ids, no change-history prose and no noise.",
+          "scope": [
+            "Add .claude/scripts/smooth-sequences/lib/checks-spec-completeness.mjs with the S8 family: spec-unreadable, spec-hash-mismatch, formula-unowned, formula-missing, formula-invented, formula-digest-mismatch, theory-incomplete, implementation-design-missing, cross-package-row-missing, segment-coverage, ledger-stale and waiver-refused.",
+            "Add the fifth closure gate to .claude/scripts/smooth-sequences/lib/closure-gates.mjs: check-formula-completeness.js over the workspace root, keeping the existing four gates unchanged.",
+            "Add .claude/scripts/grill-me-for-rfc/check-formula-completeness.js as the workspace-mode counterpart of the per-package gate; it reads the specification via artifact.spec.path, reads every package RFC formula ledger, and prints counts plus a machine-readable worklist.",
+            "Write smooth-sequences/SPEC-COMPLETENESS-WORKLIST.json with one row per {package, formulaId, specLocation, missing field, producer, rerun}.",
+            "Add repair routes: missing transcription, theory or implementation design is judgment-required and routes to /grill-me-for-rfc for the owning package; a specification defect routes to the regeneration transaction; an ownership or allocate defect routes to allocate decisions regeneration; a stale ledger is in-place.",
+            "Refuse S8 waivers: a waiver naming a missing formula is INVALID_WAIVER. Only specification regeneration may change the denominator.",
+            "Extend .claude/commands/smooth-sequences.md closure mode, report, verdict and repair class table; require the S8 summary in SMOOTH-VERDICT.json for graphify and split preflight.",
+            "Add tests under tests/smooth-sequences/ and tests/grill-me-for-rfc/ for the workspace gate, worklist and repair routing.",
+            "Out of scope: per-package authoring (PX-359), graph and Dirs-Tree projection (PX-361), ticket projection (PX-362), rollout (PX-363)."
+          ],
+          "testUnit": [
+            "UT: [Normal] The union of two package ledgers equals the specification formula set and the S8 summary reports zero missing and zero invented.",
+            "UT: [Error] A formula missing from its owning package fails with package, formula id and specification line.",
+            "UT: [Error] A formula present in an RFC but absent from the specification fails as invented.",
+            "UT: [Normal] A cross-package formula requires a row in each owning package and fails when one side is missing.",
+            "UT: [Error] A specification hash mismatch fails before any formula comparison.",
+            "UT: [Error] A waiver naming a missing formula is refused as INVALID_WAIVER.",
+            "UT: [Normal] A non-computational formula with a named realization passes; an empty realization fails.",
+            "UT: [Normal] The repair route for a missing package row names /grill-me-for-rfc for that package; a specification defect names the regeneration transaction.",
+            "UT: [Invariant] Contract C001: every package RFC carries a formula ledger; the workspace formula union equals the specification formula set; no formula omission is waived and no formula is invented."
+          ],
+          "testIntegration": [
+            "IT: A workspace fixture with two packages, one missing a formula, reports one finding with package, formula id and specification line and writes SPEC-COMPLETENESS-WORKLIST.json.",
+            "IT: After the fixture RFC is repaired, the same workspace rerun is a verification with zero findings.",
+            "IT: graphify and split preflight require the S8 summary to be pass and refuse a workspace with a missing formula.",
+            "IT: A workspace with an unreadable specification exits unproven, not pass."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Counters: specification formulas, owned formulas, covered formulas, missing formulas, invented formulas, waivers refused, packages routed. Every finding logs the package id, formula id, specification path and line.",
+          "notes": "- Implementation order: S8 check family with fixtures; closure gate wiring; worklist and repair routes; command prose and downstream preflight.\n- Risks: The denominator must come from the specification, not from the union of ledgers; otherwise a formula missing from every package disappears.\n- Caveats: Legacy workspaces without the v3 surfaces are unproven, not pass. Do not add a silent legacy path.\n- Open items: The S8 summary shape is frozen by this ticket; PX-361 and PX-362 read it as a preflight.\n- Future improvements: Promote S8 findings into the existing finding renderer if a second workspace-wide rail appears.",
+          "acceptanceCriteria": [
+            "Happy path: a fully covered workspace exits 0 with an S8 summary of zero missing and zero invented.",
+            "Error case: a missing formula in one package exits non-zero, names the package and formula, and writes a repairable worklist row.",
+            "Edge case: a non-computational formula passes only when its realization is named.",
+            "Invariant: no waiver can remove a formula omission from the denominator.",
+            "Hygiene: smooth-sequences.md contains no ticket id and no change-history prose."
+          ],
+          "investigation": "Observed: smooth-sequences.md runs after all grills and before all graphify runs, and closure mode already runs four grill gates workspace-wide.\nObserved: closure-gates.mjs CLOSURE_GATES holds the four gates; a fifth entry is the existing extension point.\nObserved: run.mjs already resolves artifact.spec.path and re-hashes the specification, so the denominator is available at this stage.\nObserved: repair-route.mjs and index.mjs require every finding to carry where, why, fix and producer; S8 findings must fit that shape.\nObserved: split-to-tickets.md requires SMOOTH-VERDICT.json, so the S8 summary can block downstream canonization.",
+          "boyScoutPlan": "- Extract one named function per rule: readSpecFormulaSet, readPackageLedger, compareFormulaSets, resolveFormulaOwner, routeFormulaFinding.\n- Replace prose-only repair advice with a typed worklist row that names package, formula and producer.\n- No swallowed errors: unreadable RFC or ledger is a named refused surface, never an empty set.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "package formula ledgers -> workspace formula completeness",
+              "precondition": "every package RFC carries a formula ledger",
+              "postcondition": "the workspace formula union equals the specification formula set",
+              "invariant": "no formula omission is waived and no formula is invented"
+            }
+          ],
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "default_files": [
+            ".claude/scripts/smooth-sequences/lib/checks-spec-completeness.mjs",
+            ".claude/scripts/smooth-sequences/lib/closure-gates.mjs",
+            ".claude/scripts/grill-me-for-rfc/check-formula-completeness.js",
+            ".claude/commands/smooth-sequences.md",
+            "tests/smooth-sequences/"
+          ],
+          "relatedTicketIds": "Depends on PX-359 for the ledger and extractor; blocks the graph and ticket rollout in PX-361 and PX-362.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty"
+        },
+        {
+          "id": 361,
+          "phaseId": -1,
+          "status": "made",
+          "title": "Graph and Dirs-Tree formula chain with symbol anchors and drill delta support",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-361.md",
+          "invariants": "- [Normal condition] Every formula id in RFC-FORMULAS.json reaches exactly one graph node and at least one leaf file whose header names it.\n- [Error invariant] A stale sidecar, a missing graph node or a missing file/symbol is a named refusal; no partial graph or Dirs-Tree is written.\n- [Internal state invariant] The formula set is identical at the RFC, graph and Dirs-Tree layers; the digest is unchanged across layers.\n- [Boundary invariant] A formula with no implementation file is allowed only when its ledger class is notation and its realization names an RFC record; it still reaches a node and a ticket.",
+          "background": "### Goal\nCarry every formula id and digest from RFC-FORMULAS.json into the RFC graph and the Dirs-Tree, including file and symbol anchors, without regenerating a canonical workspace from scratch.\n\n### Purpose\nA formula that exists only in the RFC ledger is lost at graphify. The graph must name the node that implements the formula, and the Dirs-Tree must name the leaf file and the symbol that realize it.\n\n### Motivation\nThe user requires formula and implementation-location penetration to survive graphify and boundify. The existing unit chain proves the pattern; formulas need the same chain.\n\n### Constraints\nBackward compatibility: existing graphs without formulaIds remain valid. Graph and Dirs-Tree schemas are additive. Drill delta must carry formulas without full regeneration. No specification edits. Command markdown files touched by this ticket must carry no ticket ids, no change-history prose and no noise.",
+          "scope": [
+            "Add optional formulaIds (array of fx-<digest12>) to .claude/scripts/rfc-graph/schema/node.schema.json and formulaDigest to graph.schema.json; existing graphs remain valid.",
+            "Add .claude/scripts/rfc-graph/attach-formula-ids.js: read RFC-FORMULAS.json, resolve each implementation.rfc_section to a graph node, attach formulaIds, and refuse missing, invented or stale sidecar entries.",
+            "Extend .claude/scripts/rfc-graph/boundify-helpers.js and generate-dir-template.js: write a formulas: header line naming every formula a file realizes; extend the Dirs-Tree with distribution.formulas[formulaId] = {nodeIds, filePaths, symbols}.",
+            "Add .claude/scripts/rfc-graph/verify-formula-file-coverage.js: every formula resolves to a leaf file and a declared symbol; every header formula is on its node; no orphan formula.",
+            "Extend .claude/scripts/rfc-graph/validate-dirs-tree-schema.js to accept the optional formula index and .claude/scripts/sequences-slice/verify-chain.mjs to compare formula sets and digests at graphify and boundify.",
+            "Extend .claude/commands/graphify-rfc.md, .claude/commands/boundify-graph.md and .claude/commands/drill-rfc-down.md: attach formula ids in graphify; project them in boundify; carry them through drill Steps 2 and 3.",
+            "Add tests under tests/rfc-graph/ and tests/sequences-slice/.",
+            "Out of scope: ticket projection (PX-362), workspace completeness (PX-360)."
+          ],
+          "testUnit": [
+            "UT: [Normal] attach-formula-ids attaches fx ids to the node named by implementation.rfc_section.",
+            "UT: [Error] A sidecar formula with no matching graph node fails as missing.",
+            "UT: [Error] A graph formula absent from the sidecar fails as invented.",
+            "UT: [Error] A sidecar whose rfcDigest or specDigest does not match the current RFC or specification fails before write.",
+            "UT: [Normal] Dirs-Tree distribution.formulas resolves each formula to a leaf file and a symbol.",
+            "UT: [Error] A formula whose file or symbol is missing fails verify-formula-file-coverage.",
+            "UT: [Error] A generated header that omits a formula on its node fails.",
+            "UT: [Invariant] verify-chain reports a formula set mismatch at graph and Dirs-Tree with the missing or invented id.",
+            "UT: [Normal] Drill delta adds formulaIds to an existing graph and dirs tree without rewriting unrelated nodes.",
+            "UT: [Invariant] Contract C001: RFC-FORMULAS.json digest matches the RFC and the specification; every formula id reaches a graph node and a leaf file whose header names it; the formula set is identical at the RFC, graph and Dirs-Tree layers."
+          ],
+          "testIntegration": [
+            "IT: Fixture RFC -> RFC-FORMULAS.json -> graph -> Dirs-Tree -> verify-chain --stage=boundify exits 0.",
+            "IT: A stale sidecar in a canonical workspace is refused before graph mutation.",
+            "IT: A cross-package formula maps to two nodes and two files, and verify-chain accepts both.",
+            "IT: Drill Step 2 and Step 3 carry a formula delta into an existing graph and Dirs-Tree and Step 5 verification passes."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Counters: sidecar formulas, attached formulas, missing nodes, invented nodes, files, symbols, header omissions, lazy notation formulas. Every failure logs formula id, node id, file path and symbol.",
+          "notes": "- Implementation order: schema additions; attach-formula-ids with fixtures; Dirs-Tree projection and header; verify-chain; drill delta; command prose.\n- Risks: The graph is built before boundify, so the sidecar implementation anchor must name an RFC section, not a file. File and symbol are resolved at boundify.\n- Caveats: A notation-only formula still needs a node and a ticket; do not let it bypass the chain.\n- Open items: The formula index shape is frozen by this ticket and consumed by PX-362.\n- Future improvements: Reuse the same index for a future formula coverage report.",
+          "acceptanceCriteria": [
+            "Happy path: a fixture formula reaches a graph node, a leaf file and a header, and verify-chain exits 0.",
+            "Error case: a missing node, file or symbol exits non-zero with the formula id and anchor.",
+            "Edge case: a notation-only formula reaches a node and a record ticket without a runtime file.",
+            "Invariant: a stale sidecar digest never mutates the graph or Dirs-Tree.",
+            "Hygiene: graphify-rfc.md, boundify-graph.md and drill-rfc-down.md contain no ticket id and no change-history prose."
+          ],
+          "investigation": "Observed: node.schema.json is additionalProperties:false and currently carries unitIds only; formulaIds must be an additive optional property.\nObserved: boundify-helpers.js writes the units: header line; the formulas: line follows the same mechanism.\nObserved: verify-unit-file-coverage.js proves unit -> leaf file -> header; verify-formula-file-coverage.js is its formula counterpart.\nObserved: verify-chain.mjs compares unit sets at view/map/graph/dirs/tickets; formula sets are a parallel comparison.\nObserved: drill-rfc-down.md Steps 2 and 3 already stage and promote graph and Dirs-Tree deltas; formula ids must be carried through those steps.",
+          "boyScoutPlan": "- Extract one named function per rule: readFormulaSidecar, attachFormulaIds, projectFormulaIndex, verifyFormulaCoverage.\n- Reuse the unit header parser rather than adding a second lexical reader.\n- No swallowed errors: a formula with no node or file is named by id.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "RFC formula ledger -> graph node -> Dirs-Tree file and symbol",
+              "precondition": "RFC-FORMULAS.json digest matches the RFC and the specification",
+              "postcondition": "every formula id reaches a graph node and a leaf file whose header names it",
+              "invariant": "the formula set is identical at the RFC, graph and Dirs-Tree layers"
+            }
+          ],
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "default_files": [
+            ".claude/scripts/rfc-graph/attach-formula-ids.js",
+            ".claude/scripts/rfc-graph/schema/node.schema.json",
+            ".claude/scripts/rfc-graph/schema/graph.schema.json",
+            ".claude/scripts/rfc-graph/boundify-helpers.js",
+            ".claude/scripts/rfc-graph/generate-dir-template.js",
+            ".claude/scripts/rfc-graph/verify-formula-file-coverage.js",
+            ".claude/scripts/rfc-graph/validate-dirs-tree-schema.js",
+            ".claude/scripts/sequences-slice/verify-chain.mjs",
+            ".claude/commands/graphify-rfc.md",
+            ".claude/commands/boundify-graph.md",
+            ".claude/commands/drill-rfc-down.md",
+            "tests/rfc-graph/",
+            "tests/sequences-slice/"
+          ],
+          "relatedTicketIds": "Depends on PX-359 for RFC-FORMULAS.json; PX-362 depends on PX-361 for the Dirs-Tree formula index.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty"
+        },
+        {
+          "id": 362,
+          "phaseId": -1,
+          "status": "made",
+          "title": "Ticket formula obligations: split projection, ticket context, and implementation gates",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-362.md",
+          "invariants": "- [Normal condition] Every formula reaches exactly one implementing ticket; that ticket carries the original specification reference, implementation anchor, design and tests.\n- [Error invariant] A missing or duplicated formula ticket is a named refusal; no Tickets.json write occurs.\n- [Internal state invariant] The ticket formula digest equals the RFC formula digest; the origin path equals artifact.spec.path, not RFC.md.\n- [Boundary invariant] A reference or consumer ticket may name a formula it does not implement, but only the implementer carries the implementation design and tests.",
+          "background": "### Goal\nCarry every formula obligation, implementation anchor and original specification reference into Tickets.json, the ticket spec and the make/start/review gates.\n\n### Purpose\nA formula that stops at the Dirs-Tree is invisible to implementation. Each ticket must own the formula it implements, the file and symbol that realize it, the design of how the computation or realization is performed, and the test that proves it.\n\n### Motivation\nThe user requires formula and implementation-location penetration to survive split-to-tickets. The existing distribution.units and contracts are the precedent; formulaObligations must be script-populated and never AI-copied.\n\n### Constraints\nOne implementing ticket per formula. Origin spec references must name the original specification, not RFC.md. Ticket schema is additive (additionalProperties true). No stubs or placeholders. Command markdown files touched by this ticket must carry no ticket ids, no change-history prose and no noise.",
+          "scope": [
+            "Add formulaObligations to .claude/scripts/tickets/tickets-schema.json: id, digest, body, origin {path,line,segment,quote}, implementation {path,symbol,kind}, design {class,how,types,errors,edgeCases}, theory {symbols,norms}, tests.",
+            "Add .claude/scripts/tickets/merge-formulas-to-tickets.js: read RFC-FORMULAS.json, graph node formulaIds and Dirs-Tree distribution.formulas; write each ticket formulaObligations; require exactly one implementing ticket per formula; refuse a formula that reaches no ticket or is duplicated.",
+            "Extend .claude/scripts/tickets/add-tickets-for-phase.js to attach formula obligations after the distribution record, and .claude/scripts/sequences-slice/verify-chain.mjs --stage=split to compare formula sets and digests.",
+            "Extend .claude/scripts/tickets/show-ticket-context.js --for-spec with a Formula Obligations section rendering body, original specification location, implementation anchor, design and tests.",
+            "Extend .claude/commands/split-to-tickets.md, .claude/commands/make-ticket.md, .claude/commands/start-ticket.md and .claude/commands/review-ticket.md: gate and render the obligations; remove ticket ids and change-history prose from these command files.",
+            "Extend .claude/commands/drill-rfc-down.md Steps 4 and 5 to carry formula obligations into existing Tickets.json.",
+            "Add tests under tests/tickets/ and tests/sequences-slice/.",
+            "Out of scope: graph and Dirs-Tree projection (PX-361), workspace completeness (PX-360)."
+          ],
+          "testUnit": [
+            "UT: [Normal] merge-formulas-to-tickets writes one formulaObligations row to the implementing ticket.",
+            "UT: [Error] A formula that reaches no ticket fails with the formula id and owner package.",
+            "UT: [Error] Two tickets implementing one formula fail as duplicate.",
+            "UT: [Normal] The ticket carries body, digest, original specification path, line, segment and quote.",
+            "UT: [Error] An origin path of RFC.md instead of the original specification fails.",
+            "UT: [Error] A missing implementation path, symbol or test obligation fails.",
+            "UT: [Normal] show-ticket-context --for-spec renders the Formula Obligations section.",
+            "UT: [Error] review-ticket rejects a changed formula digest or a missing implementation symbol.",
+            "UT: [Invariant] Contract C001: Dirs-Tree distribution.formulas covers every formula; every formula obligation reaches exactly one implementing ticket with the original specification reference; the ticket formula digest equals the RFC formula digest."
+          ],
+          "testIntegration": [
+            "IT: Fixture Dirs-Tree -> split -> Tickets.json -> ticket spec -> verify-chain --stage=split exits 0.",
+            "IT: A second ticket carrying the same formula is refused before write.",
+            "IT: A formula whose specification line belongs to another package is refused as an ownership mismatch.",
+            "IT: Drill Step 4 adds formula obligations to an existing ticket without overwriting its status."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Counters: formula obligations, implementing tickets, reference tickets, missing tickets, duplicate tickets, origin mismatches. Every failure logs formula id, ticket key, package and specification line.",
+          "notes": "- Implementation order: schema; merge script with fixtures; verify-chain split; show-ticket-context rendering; make/start/review gates; drill delta; command hygiene.\n- Risks: Existing specRefs defaults path to RFC.md with a specification line; formula obligations must use a separate origin object and must not reuse that field.\n- Caveats: A notation-only formula may map to a record ticket; it still carries the obligation and the test that the record exists.\n- Open items: The formulaObligations shape is frozen by this ticket and read by make/start/review.\n- Future improvements: Fold formula obligations into the distribution digest if the two chains converge.",
+          "acceptanceCriteria": [
+            "Happy path: every formula reaches one ticket; the ticket spec renders Formula Obligations and verify-chain exits 0.",
+            "Error case: a missing or duplicated formula ticket exits non-zero with the formula id.",
+            "Edge case: a notation-only formula reaches a record ticket and carries a realization test.",
+            "Invariant: the ticket origin path is the original specification, never RFC.md.",
+            "Hygiene: split-to-tickets.md, make-ticket.md, start-ticket.md and review-ticket.md contain no ticket id and no change-history prose."
+          ],
+          "investigation": "Observed: tickets-schema.json distribution.units carries specRefs with path, line and quote; add-tickets-for-phase.js defaults specRefs.path to RFC.md while line comes from the sequences artifact, so specRefs is not proof of the original specification location.\nObserved: show-ticket-context.js already renders Distribution Obligations and Work Share; Formula Obligations is a sibling renderer.\nObserved: verify-chain.mjs compares unit sets at view/map/graph/dirs/tickets; formula obligations need the same set comparison and duplicate check.\nObserved: split-to-tickets.md Step 5-2 populates distribution after ticket creation; formula obligations follow the same post-creation population.\nObserved: drill-rfc-down.md Step 4 evolves Tickets.json through staging and preserve-status validation.",
+          "boyScoutPlan": "- Extract one named function per rule: readFormulaSidecar, resolveImplementingTicket, attachFormulaObligations, renderFormulaObligations.\n- Replace the RFC.md default origin with an explicit origin object; keep specRefs for backward compatibility.\n- No swallowed errors: a missing ticket or origin is named by formula id and package.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Dirs-Tree formula index -> ticket formula obligation",
+              "precondition": "Dirs-Tree distribution.formulas covers every formula",
+              "postcondition": "every formula obligation reaches exactly one implementing ticket with the original specification reference",
+              "invariant": "the ticket formula digest equals the RFC formula digest"
+            }
+          ],
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "default_files": [
+            ".claude/scripts/tickets/tickets-schema.json",
+            ".claude/scripts/tickets/merge-formulas-to-tickets.js",
+            ".claude/scripts/tickets/add-tickets-for-phase.js",
+            ".claude/scripts/tickets/show-ticket-context.js",
+            ".claude/scripts/sequences-slice/verify-chain.mjs",
+            ".claude/commands/split-to-tickets.md",
+            ".claude/commands/make-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/drill-rfc-down.md",
+            "tests/tickets/",
+            "tests/sequences-slice/"
+          ],
+          "relatedTicketIds": "Depends on PX-361 for the Dirs-Tree formula index; PX-363 depends on PX-362 for the ticket-level rollout.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty"
+        },
+        {
+          "id": 363,
+          "phaseId": -1,
+          "status": "made",
+          "title": "Deploy conver and migrate gaia/crystal formula ledgers; purge command-file noise",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-363.md",
+          "invariants": "- [Normal condition] Every installed target carries the new commands and scripts; every package reports an S8 verdict after its delta pass.\n- [Error invariant] An installation digest mismatch or a failed S8 verdict is reported by target and package; no package is declared complete without a pass.\n- [Internal state invariant] No command markdown file contains a PX-[0-9] occurrence or a change-history block.\n- [Boundary invariant] Canonized gaia packages are evolved by drill-rfc-down, never by a direct /grill-me-for-rfc rewrite.",
+          "background": "### Goal\nDeploy the modified conver to every target project, migrate gaia and crystal to the formula standard, and report exactly what must be re-run.\n\n### Purpose\nCode changes are not effective until installed. Existing canonical workspaces cannot be re-grilled directly; gaia must use drill-rfc-down and crystal must use grill re-entry for its four existing RFCs and first grill for the remaining nineteen.\n\n### Motivation\nThe user requires the conver fix to reach each project and a report on whether all directories need /grill-me-for-rfc from scratch. The measured state is: gaia 29/29 packages canonized, crystal 4/23 packages grilled with no graph or tickets.\n\n### Constraints\nNo specification edits. No full re-grill of canonized gaia. No silent migration: every delta must pass the new gates. Command markdown files must contain no ticket ids, no change-history prose and no noise.",
+          "scope": [
+            "Run make install-to-projects from tools/conver; verify the installed command and script digests in zasso, siprs, gaia, conver and crystal.",
+            "Gaia: run drill-rfc-down per package with the formula delta; 29 packages have RFC, graph and Dirs-Tree; 9 have Tickets.json and 20 do not; update the 9 and create tickets for the 20; run smooth S8 and report residuals.",
+            "Crystal: the four packages with RFC.md (pkg-crystal-adapter-clock, pkg-crystal-adapter-current-authority, pkg-crystal-adapter-draw, pkg-crystal-protocol-types) re-enter /grill-me-for-rfc; the other nineteen receive a first grill; then run smooth S8, graphify, boundify and split.",
+            "Command hygiene sweep: remove every PX-[0-9] occurrence and every change-history/provenance block from .claude/commands/*.md. Known occurrences: educe-sequences.md (PX-289, PX-292, PX-295), resolve-ticket.md (PX-2), start-ticket.md (PX-2), and PX-53 examples in make-ticket.md, plan-ticket.md, review-ticket.md, start-ticket.md, resolve-ticket.md and consolidate-stubs.md. Replace examples with metavariables such as P{phaseID}-{ticketID}, PX-{id} and PX-*. Keep domain uses such as previous generation and schema history.",
+            "Report: installed targets and digests; gaia and crystal per-package state before and after; formula counts (gaia 374 unique, crystal 1156 unique, approximate); S8 verdict; list of packages that still need a delta pass; statement that a full re-grill from scratch is not required.",
+            "Out of scope: code changes (PX-359 through PX-362); specification changes."
+          ],
+          "testUnit": [
+            "UT: [Normal] The install target copies the new command and script files and their digests match the source.",
+            "UT: [Error] A missing installed file or digest mismatch is reported by target.",
+            "UT: [Normal] The command markdown scan returns zero PX-[0-9] occurrences and zero change-history blocks.",
+            "UT: [Normal] The gaia and crystal specification hashes still match the manifests after the delta passes.",
+            "UT: [Invariant] Contract C001: conver install completes and the new gates are present in each target; gaia and crystal each report zero missing formulas after their delta passes; no command markdown file contains a ticket id or change-history prose."
+          ],
+          "testIntegration": [
+            "IT: gaia package drill adds the formula ledger and evolves graph, Dirs-Tree and Tickets; S8 passes for that package.",
+            "IT: crystal four existing RFCs re-enter and the nineteen remaining packages are grilled; S8 passes for the workspace.",
+            "IT: A command markdown sweep over .claude/commands/*.md finds no PX-[0-9] and no change-history block."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Report per target: installed files, digest match, S8 verdict. Per package: RFC state, graph state, Dirs-Tree state, ticket state, formula count, missing count.",
+          "notes": "- Implementation order: install; gaia drill rollout; crystal grill rollout; S8; command hygiene; final report.\n- Risks: The install target exists in tools/conver/Makefile but not in the canonical ~/shyme/conver Makefile. Confirm the source tree before running.\n- Caveats: The gaia rollout is 29 packages and roughly 374 unique formulas; the crystal rollout is 23 packages and roughly 1156 unique formulas. The formula ledger authoring dominates the effort.\n- Open items: Any package that cannot pass S8 must be reported with the missing formula ids and its producer, never marked complete.\n- Future improvements: Add a rollout progress report that reads S8 worklists across packages.",
+          "acceptanceCriteria": [
+            "Happy path: install succeeds, gaia and crystal delta passes complete, and both workspaces report zero missing formulas.",
+            "Error case: an install digest mismatch or an S8 failure is reported by target and package.",
+            "Edge case: a canonized gaia package is evolved by drill-rfc-down and never rewritten by /grill-me-for-rfc.",
+            "Invariant: no command markdown file contains a ticket id or change-history prose.",
+            "Report: the final report states whether a full /grill-me-for-rfc restart is required; the answer is no, a per-package delta pass is required."
+          ],
+          "investigation": "Observed: tools/conver/Makefile install-to-projects copies to zasso, siprs, gaia, conver and crystal.\nObserved: gaia has 29 packages with RFC, Status, graph and Dirs-Tree; 9 have Tickets.json; the root SMOOTH-VERDICT.json exists.\nObserved: crystal has 23 packages, 4 with RFC.md and Status.json, 0 graphs, 0 Dirs-Tree and 0 Tickets.json.\nObserved: both specification hashes match the manifest, artifact and seed records.\nObserved: simple extraction counts 416 occurrences and 374 unique formulas in gaia, and 1224 occurrences and 1156 unique formulas in crystal; both use the bracket and paren delimiter families only.\nObserved: command markdown files contain PX ids in educe-sequences.md, resolve-ticket.md, start-ticket.md and the argument examples of make-ticket.md, plan-ticket.md, review-ticket.md, start-ticket.md, resolve-ticket.md and consolidate-stubs.md.",
+          "boyScoutPlan": "- Extract one named function per step: verifyInstall, runGaiaDelta, runCrystalDelta, sweepCommandHygiene, renderRolloutReport.\n- Replace ticket-id examples with metavariables in command markdown; keep the domain semantics.\n- No swallowed errors: every target, package and missing formula is named in the report.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "conver install -> workspace delta -> S8 verdict",
+              "precondition": "conver install completes and the new gates are present in each target",
+              "postcondition": "gaia and crystal each report zero missing formulas after their delta passes",
+              "invariant": "no command markdown file contains a ticket id or change-history prose"
+            }
+          ],
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "default_files": [
+            "Makefile",
+            ".claude/commands/educe-sequences.md",
+            ".claude/commands/resolve-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/make-ticket.md",
+            ".claude/commands/plan-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/consolidate-stubs.md"
+          ],
+          "relatedTicketIds": "Depends on PX-359, PX-360, PX-361 and PX-362 for the code and gates it deploys.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty"
+        },
+        {
+          "id": 364,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "The progress GIF never draws FIND without an OMISSIONS artifact",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-364.md",
+          "background": "### Goal\nRemove the snapshot-delta attribution that fabricates a FIND stage, so the progress GIF draws FIND only when an OMISSIONS artifact records that /find-omissions ran.\n\n### Purpose\nThe renderer is a progress report. A fabricated FIND changes the reported workflow order and highlights packages that were never subject to omission discovery, so the report no longer describes what happened.\n\n### Motivation\nIn gaia the second render (2026-11-04 15:46) showed FIND first and drew yellow convergence rings around gaia-forum and gaia-time although /find-omissions has never run and no OMISSIONS-*.json exists. The cause is analyzeWorkspace(): when a previous snapshot exists, any increase in obligations.total is converted into a growth event with stage 'find' at initialT. The two packages grew only because Tickets.json was regenerated at 13:09 and 13:40 between the two runs (234->248, 198->232).\n\n### Constraints\nFix conver only; distribute with make install-to-projects. Keep snapshot writing (cli.test.mjs expects one snapshot per run). Keep the legitimate FIND paths (OMISSIONS artifacts, Tickets-<stamp>.json snapshots, consolidated manifests). No new dependencies. Do not edit existing snapshots or the design document, which already says find is driven by OMISSIONS and that undeterminable facts are not drawn.",
+          "scope": [
+            "Modify .claude/scripts/conver/draw-progress-gif.js: delete the previous-snapshot block in analyzeWorkspace() (draw-progress-gif.js:178-200) and the now-unused previousSnapshot() helper (draw-progress-gif.js:209-213); trim the snapshot.js import on line 28 to snapshotFromModel and writeSnapshot because listSnapshots, readSnapshot and diffSnapshots lose their only caller.",
+            "Add a regression test under tests/conver/ that seeds a previous snapshot with a lower obligations.total and no OMISSIONS/manifest/Tickets-<stamp> artifact, then asserts analyzeWorkspace produces zero growth events with evidence previous-snapshot and buildFrames never reports stage find.",
+            "Retain a cover test that an OMISSIONS-<stamp>.json artifact still yields a find event whose t equals the artifact filename timestamp and whose evidence is the artifact path.",
+            "Run make install-to-projects from tools/conver and verify each installed draw-progress-gif.js in ~/shyme/zasso/.claude, ~/shyme/zasso/crates/siprs/.claude, ~/shyme/gaia/.claude, ~/shyme/conver/.claude and ~/shyme/crystal/.claude is byte-identical to the source and contains no previous-snapshot or snapshot-diff string.",
+            "Out of scope: relabeling the legacy ticket-snapshot and consolidated-manifest growth events (they are evidence-backed and covered by loop.test.mjs:46-56); deleting existing progress-gif/snapshots files; changing the rendered layout or colours."
+          ],
+          "testUnit": [
+            "UT: [Normal] A workspace with a previous snapshot whose package obligations.total is lower, and no OMISSIONS-*.json, manifest or Tickets-<stamp>.json artifact, yields zero growth events with evidence previous-snapshot and zero find stage events; every frame.stage differs from find and the package total baseline equals the current obligations.total.",
+            "UT: [Normal] A workspace that has both a previous snapshot delta and an OMISSIONS-20261103000000.json artifact yields exactly one find growth event; its t equals the artifact filename timestamp and its evidence is the artifact path.",
+            "UT: [Error] A malformed previous snapshot (invalid JSON) is not read; analyzeWorkspace returns a model without throwing and without find events.",
+            "UT: [Boundary] Equal and decreased previous obligations.total produce no find event and no growth mass.",
+            "UT: [Invariant] Contract C001: every find growth event carries an existing artifact path as evidence and a timestamp from that artifact, never initialT; the package total baseline equals the current obligations.total minus only evidence-backed growth mass.",
+            "UT: [Invariant] Contract C002: snapshot writing in a non-dry run still produces progress-gif/snapshots/<stamp>.json written from the current model, and --dry-run writes no file."
+          ],
+          "testIntegration": [
+            "IT: Two consecutive runs over the same fixture, where only Tickets.json contract counts grow between them, render the second HTML model with no find stage and no yellow convergence ring for those packages (integration of analyzeWorkspace, buildFrames and renderHtml).",
+            "IT: The distribution path behind make install-to-projects: install.js -y -t <tmp-target>/.claude --no-install-deps completes successfully, mirrors the conver .claude tree, and the installed target draw-progress-gif.js hash equals the source hash and contains no previous-snapshot or snapshot-diff string (integration of tools/conver and install.js).",
+            "IT: An OMISSIONS artifact fixture keeps FIND visible end to end through analyzeWorkspace, buildFrames and renderHtml.",
+            "IT: The existing cli test (tests/conver/cli.test.mjs:108) remains green: a non-dry run writes exactly one snapshot and --dry-run writes none."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/conver/draw-progress-gif.js",
+            "tests/conver/"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] A second render over a workspace whose obligations.total increased without any OMISSIONS artifact contains no FIND stage and no convergence-coloured growth ring; the stage sequence proceeds from educe/explain without a fabricated find.",
+            "[Error case] A corrupt or unreadable previous snapshot neither crashes the run nor produces a FIND stage.",
+            "[Edge case] A workspace with an OMISSIONS-<stamp>.json artifact still renders FIND at that artifact timestamp, proving the fix removed only the fabricated source.",
+            "[Distribution] After make install-to-projects, all five installed draw-progress-gif.js copies hash-match the tools/conver source and none contains previous-snapshot or snapshot-diff."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "workspace previous snapshot -> package growth attribution -> rendered stage",
+              "precondition": "a previous snapshot exists and a package obligations.total increased with no OMISSIONS artifact, manifest or ticket snapshot naming the increase",
+              "postcondition": "analyzeWorkspace emits no find growth event from previous-snapshot and buildFrames reports no find stage for that package",
+              "invariant": "every find growth event carries an existing artifact path as evidence and that artifact timestamp, never initialT"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "OMISSIONS-<stamp>.json -> find stage event",
+              "precondition": "an OMISSIONS-<stamp>.json artifact exists for the package",
+              "postcondition": "find progress and a find growth event are produced at the artifact filename timestamp",
+              "invariant": "find progress is greater than zero only when an OMISSIONS artifact exists"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "non-dry run -> progress-gif/snapshots/<stamp>.json write",
+              "precondition": "a run completes without --dry-run",
+              "postcondition": "progress-gif/snapshots/<stamp>.json is written from the current model",
+              "invariant": "snapshot writing remains independent of snapshot reading, and --dry-run writes no file"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "tools/conver source .claude -> make install-to-projects -> target .claude",
+              "precondition": "make install-to-projects completes successfully",
+              "postcondition": "each installed target draw-progress-gif.js is byte-identical to the source and contains no previous-snapshot or snapshot-diff string",
+              "invariant": "no installed target retains the removed attribution code"
+            }
+          ],
+          "notes": "- Implementation steps: (1) Red regression test in tests/conver/; (2) delete draw-progress-gif.js:178-200 and the previousSnapshot helper; (3) Green with targeted loop/cli/render tests; (4) run make install-to-projects; (5) compare SHA-256 of the five installed copies to the source and grep for the removed strings.\n- Risks: removing the block also removes the only animation of a bare obligations.total increase between runs; this is intended because the design document says undeterminable facts are not drawn.\n- Caveats: existing progress-gif/snapshots/*.json become inert but remain valid; no deletion or migration is required. The snapshot directory is still used by the usage cache and by writeSnapshot.\n- Open items: the ticket-snapshot and consolidated-manifest growth events still use the find stage; they are evidence-backed and tested, and any relabel is a separate ticket.\n- Future improvements: if a bare delta must be animated, record the cause as an artifact (Tickets-<stamp>.json) instead of inferring a stage.\nImplementation summary:\n- Changed files: .claude/scripts/conver/draw-progress-gif.js, tests/conver/analyze-workspace.test.mjs\n- Key changes: deleted the previous-snapshot block and previousSnapshot(); trimmed the snapshot.js import; FIND now derives only from artifacts (OMISSIONS, ticket snapshots, manifests)\n- Test results: 64/64 pass (analyze-workspace, loop, cli, render, usage-cache); quality checks 0 issues\n- Red evidence: 3 tests failed before implementation (bare delta drawn as FIND x2, installed copy still contained the removed strings)\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no blocking issues; renamed the new test helpers to verb phrases (createWorkspaceWithOneTicketContract, computeDigest)\n- Dependencies: no new dependencies; the five installed copies hash-match the source\n- Issues found and fixes applied: none blocking; the review-phase rename was re-tested\n- Verification: 64/64 targeted tests pass; red coverage 4/4 contracts; zero stubs/crimes; PX-364 annotations verified",
+          "invariants": "- [Normal condition] For every package, find progress and find growth events are derived only from OMISSIONS artifacts; a rendered frame reports stage find only after an OMISSIONS artifact timestamp.\n- [Error invariant] A missing, corrupt or partial previous snapshot is never read for stage attribution, so no error path can create a find event and the run still completes.\n- [Internal state invariant] A package total baseline equals the current obligations.total minus only evidence-backed growth mass; no mass is synthesized from a snapshot delta.\n- [Boundary invariant] A snapshot delta that coincides with an OMISSIONS artifact produces exactly one evidence-backed find event, never a second fabricated one.\n- [Distribution invariant] Every installed copy of draw-progress-gif.js is byte-identical to the tools/conver source and contains no previous-snapshot or snapshot-diff string.",
+          "instrumentation": "- No new runtime instrumentation. The Markdown report growth-event count and the evidence field of model.growthEvents remain the observability surface: after the fix every find growth event names an existing OMISSIONS artifact. The regression test asserts the absence of previous-snapshot evidence, so a reintroduced fabricated FIND fails in CI rather than only in a rendered GIF.\nStatic quality check: passed\nTranslatability: no issues\nTests: 64/64 passed",
+          "investigation": "- gaia progress-gif/snapshots/20261104124005.json records gaia-forum (pkg-0003) obligations.total 234 and gaia-time (pkg-0013) 198; 20261104154626.json records 248 and 232. No OMISSIONS-*.json, CONSOLIDATED-MANIFEST-*.json or Tickets-<stamp>.json exists anywhere under ~/shyme/gaia.\n- 20261104124005.html contains zero find growth events; 20261104154626.html contains two growth events with evidence \"previous-snapshot\", confidence \"snapshot-diff\", stage \"find\", t = 1792974954171 (2026-10-26T00:35:54.171Z, initialT) for pkg-0003 (+14 contracts) and pkg-0013 (+34 contracts).\n- draw-progress-gif.js:178-200 is the only code that creates a growth event without an artifact: it diffs the newest progress-gif/snapshots file against the current model and hardcodes stage find at initialT. previousSnapshot() at 209-213 has no other caller.\n- loop.js:560-566 admits growth events into the timeline; loop.js:599 forces lastStage to the growth event stage; engine.js:599-611 draws a ring per growth event; layout.js:9 maps find to the convergence group and layout.js:19 gives it #FDE047, which is the yellow ring seen in gaia.\n- The design document docs/progress-gif/samples/IMPLEMENTATION-INSTRUCTIONS-draw-progress-gif.md states that find is derived from OMISSIONS filename timestamps (section 2) and that undeterminable facts are not drawn and no fictional time is manufactured (sections 1-5 and 2).\n- tests/conver/loop.test.mjs:35 covers a different path (reconstructTicketGrowth diffing Tickets-<stamp>.json files) and tests/conver/cli.test.mjs:108 requires the snapshot file to be written; no test covers the analyzeWorkspace previous-snapshot fallback.\n- Makefile:159-165 mirrors tools/conver/.claude with install.js into zasso, siprs, gaia, conver and crystal; install.js uses rsync --archive --delete, so removing the block from the source removes it from every target on the next make install-to-projects.",
+          "boyScoutPlan": "- Trim draw-progress-gif.js imports to the snapshot helpers actually used (snapshotFromModel, writeSnapshot), so the module dependency list states what the module does.\n- Delete previousSnapshot() rather than leave a helper whose only purpose was the removed guess.\n- Keep domain names (growthEvents, packageId, initialT); introduce no generic or one-letter names.\n- Do not swallow errors: readSnapshot keeps its null fallback for other callers, while analyzeWorkspace stops reading snapshots for attribution.\n- Name the new fixture by the behaviour it proves (a bare snapshot delta is not a find) so the test narrates the rule.",
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 — a bare previous-snapshot delta is not a find\n```js\nconst root = workspaceWithOneTicketContract();\nseedPreviousSnapshot(root, [{ id: 'pkg-1', total: 0 }]);\nconst model = analyzeWorkspace(root, { sourceScan: false });\nassert.equal(model.growthEvents.filter((event) => event.evidence === 'previous-snapshot').length, 0);\nconst frames = buildFrames(model, { frames: 60 });\nassert.equal(frames.filter((frame) => frame.stage === 'find').length, 0);\n```",
+            "UT: [Invariant] C001 — every find growth event names an existing artifact, never previous-snapshot\n```js\nfor (const event of model.growthEvents.filter((entry) => entry.stage === 'find')) {\n  assert.notEqual(event.evidence, 'previous-snapshot');\n  assert.ok(fs.existsSync(event.evidence), 'missing evidence ' + event.evidence);\n}\n```",
+            "UT: [Normal] C002 — an OMISSIONS artifact keeps exactly one find event at its stamp\n```js\nconst root = writeWorkspace({\n  packages: [{ id: 'pkg-1', name: 'pkg-1', path: 'pkg-1' }],\n  files: { 'pkg-1/OMISSIONS-20261103000000.json': { omissions: [{ ticketKey: 'P2-1' }] } },\n});\nconst model = analyzeWorkspace(root, { sourceScan: false });\nconst findEvents = model.growthEvents.filter((event) => event.stage === 'find');\nassert.equal(findEvents.length, 1);\nassert.equal(findEvents[0].evidence, path.join(root, 'pkg-1', 'OMISSIONS-20261103000000.json'));\nassert.equal(findEvents[0].t, new Date(2026, 10, 3, 0, 0, 0).getTime());\n```",
+            "UT: [Boundary] C001 — a delta coinciding with an OMISSIONS artifact yields one find event, not two\n```js\nseedPreviousSnapshot(root, [{ id: 'pkg-1', total: 0 }]);\nconst model = analyzeWorkspace(root, { sourceScan: false });\nassert.equal(model.growthEvents.filter((event) => event.stage === 'find').length, 1);\n```",
+            "UT: [Error] C001 — a malformed previous snapshot is ignored without throwing\n```js\nfs.mkdirSync(path.join(root, 'progress-gif', 'snapshots'), { recursive: true });\nfs.writeFileSync(path.join(root, 'progress-gif', 'snapshots', '20261101000000.json'), '{not json');\nconst model = analyzeWorkspace(root, { sourceScan: false });\nassert.equal(model.growthEvents.filter((event) => event.stage === 'find').length, 0);\nassert.ok(Array.isArray(model.packages));\n```",
+            "UT: [Invariant] C003 — snapshot writing survives the removal and --dry-run writes nothing\n```js\nconst done = spawnSync(process.execPath, [CLI, '-t', root, '--no-open', '--no-source-scan'], {\n  env: { ...process.env, CLAUDE_CONFIG_DIR: emptyConfig }, encoding: 'utf8',\n});\nassert.equal(done.status, 0, done.stderr);\nassert.equal(fs.readdirSync(path.join(root, 'progress-gif', 'snapshots')).filter((name) => /^\\d{14}\\.json$/.test(name)).length, 1);\nconst dry = spawnSync(process.execPath, [CLI, '-t', dryRoot, '--no-open', '--no-source-scan', '--dry-run'], {\n  env: { ...process.env, CLAUDE_CONFIG_DIR: emptyConfig }, encoding: 'utf8',\n});\nassert.equal(dry.status, 0, dry.stderr);\nassert.equal(fs.existsSync(path.join(dryRoot, 'progress-gif', 'snapshots')), false);\n```",
+            "UT: [Invariant] C004 — every installed copy equals the source and drops the removed strings\n```js\nconst target = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-install-'));\nconst installed = spawnSync(process.execPath, ['install.js', '-y', '-t', path.join(target, '.claude'), '--no-install-deps'], {\n  cwd: process.cwd(), encoding: 'utf8',\n});\nassert.equal(installed.status, 0, installed.stderr);\nconst digest = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');\nassert.equal(digest(path.join(target, '.claude/scripts/conver/draw-progress-gif.js')), digest('.claude/scripts/conver/draw-progress-gif.js'));\nconst sourceText = fs.readFileSync(path.join(target, '.claude/scripts/conver/draw-progress-gif.js'), 'utf8');\nassert.equal(sourceText.includes('previous-snapshot'), false);\nassert.equal(sourceText.includes('snapshot-diff'), false);\n```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "analyzeWorkspace synthesized a stage:find growth event from the previous snapshot delta at initialT",
+              "after": "analyzeWorkspace builds growth events only from artifacts; the previous-snapshot reader and previousSnapshot() are deleted",
+              "description": "PX-364: remove evidence-free FIND attribution"
+            },
+            {
+              "before": "snapshot.js import included listSnapshots, readSnapshot, diffSnapshots",
+              "after": "import is snapshotFromModel and writeSnapshot only",
+              "description": "trim dead imports"
+            },
+            {
+              "before": "no regression coverage for the analyzeWorkspace snapshot delta",
+              "after": "tests/conver/analyze-workspace.test.mjs covers C001-C004",
+              "description": "add regression and protection tests"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
         }
       ]
     },

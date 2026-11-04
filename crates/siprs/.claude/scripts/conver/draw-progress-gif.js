@@ -25,7 +25,7 @@ import { countUnresolvedStubs } from './progress-gif/stubs.js';
 import { fitFramesToCeiling } from './progress-gif/engine.js';
 import { DEFAULT_FRAMES, clampFrames } from './progress-gif/viewer.js';
 import { loadFontBundle, collectUsedText } from './progress-gif/fonts.js';
-import { snapshotFromModel, writeSnapshot, listSnapshots, readSnapshot, diffSnapshots } from './progress-gif/snapshot.js';
+import { snapshotFromModel, writeSnapshot } from './progress-gif/snapshot.js';
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_MAX_BYTES = 300 * 1024 * 1024;
@@ -152,6 +152,7 @@ function initialTimeOf(root, tree, alloc, treePath) {
   return treeMtime === null ? 0 : treeMtime;
 }
 
+// [::TICKET::] PX-364 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-364 --for-spec --no-implementation-order`.
 export function analyzeWorkspace(root, options = {}) {
   const { tree, alloc, warnings, treePath } = readManifests(root);
   const discovered = discoverPackages(root, tree, alloc);
@@ -175,41 +176,12 @@ export function analyzeWorkspace(root, options = {}) {
     events.push(...state.events);
     growthEvents.push(...growthEventsOf(pkg, artifacts));
   }
-  const previous = previousSnapshot(root, options);
-  if (previous) {
-    const modelWithoutPrevious = { workspaceRoot: root, packages };
-    const delta = diffSnapshots(previous, snapshotFromModel(modelWithoutPrevious));
-    for (const change of delta.changed) {
-      const alreadyExplained = growthEvents.some((event) => event.packageId === change.id);
-      if (change.after > change.before && !alreadyExplained) {
-        const addedContracts = change.after - change.before;
-        growthEvents.push({
-          packageId: change.id,
-          t: initialT,
-          prec: 'ms',
-          stage: 'find',
-          addedTicketKeys: [],
-          addedContracts,
-          addedMass: addedContracts,
-          addedReviewed: 0,
-          evidence: 'previous-snapshot',
-          confidence: 'snapshot-diff',
-        });
-      }
-    }
-  }
   return buildModel({ workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, warnings, initialT });
 }
 
 // [::TICKET::] PX-349, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-353) --for-spec --no-implementation-order`.
 function snapshotDirectory(root, options, outputDir = path.join(root, 'progress-gif')) {
   return options.snapshotDir || path.join(outputDir, 'snapshots');
-}
-
-// [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
-function previousSnapshot(root, options) {
-  const latest = listSnapshots(snapshotDirectory(root, options))[0];
-  return latest ? readSnapshot(latest.path) : null;
 }
 
 // [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
