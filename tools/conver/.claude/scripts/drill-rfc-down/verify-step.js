@@ -17,11 +17,36 @@
  */
 
 import path from 'path';
+import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'url';
+import { verifyFormulaChain } from '../sequences-slice/verify-chain.mjs';
+import { parseSeedIdentity, resolveWorkspaceRoot } from '../spec-formula/index.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const VERIFY_CONSISTENCIES = path.join(SCRIPT_DIR, 'verify-consistencies.js');
+
+/** The value of --name=value from argv. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function argumentFor(args, name) {
+  const inline = args.find((argument) => argument.startsWith(`--${name}=`));
+  return inline === undefined ? null : inline.slice(`--${name}=`.length);
+}
+
+/** Resolve the specification the seed names, when the seed is readable. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function resolveSpecification(rfcPath, workspaceRoot, explicit) {
+  if (explicit !== null) return explicit;
+  if (rfcPath === null || workspaceRoot === null) return null;
+  const seedPath = path.join(path.dirname(rfcPath), 'RFC-SEED.md');
+  if (!existsSync(seedPath)) return null;
+  try {
+    const seed = parseSeedIdentity(readFileSync(seedPath, 'utf8'));
+    return path.resolve(workspaceRoot, seed.sourceSpec.path);
+  } catch {
+    return null;
+  }
+}
 
 /** Run verify-consistencies.js and return the parsed result. */
 // [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
@@ -52,12 +77,39 @@ function formatFindingsReport(result) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-365) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const result = runVerifyConsistencies(args);
   const report = formatFindingsReport(result);
-  if (result.ok) {
+
+  const rfcPath = argumentFor(args, 'rfc');
+  const graphPath = argumentFor(args, 'graph');
+  const dirsPath = argumentFor(args, 'dirs-tree');
+  const ticketsPath = argumentFor(args, 'tickets');
+  const formulaFindings = [];
+  if (graphPath !== null && dirsPath !== null && existsSync(graphPath) && existsSync(dirsPath)) {
+    const workspaceRoot = resolveWorkspaceRoot(rfcPath === null ? path.dirname(graphPath) : path.dirname(rfcPath));
+    const specPath = resolveSpecification(rfcPath, workspaceRoot, argumentFor(args, 'spec'));
+    const specText = specPath !== null && existsSync(specPath) ? readFileSync(specPath, 'utf8') : null;
+    verifyFormulaChain({
+      graph: JSON.parse(readFileSync(graphPath, 'utf8')),
+      dirsTree: JSON.parse(readFileSync(dirsPath, 'utf8')),
+      tickets: ticketsPath !== null && existsSync(ticketsPath) ? JSON.parse(readFileSync(ticketsPath, 'utf8')) : null,
+      checkDirs: true,
+      checkTickets: ticketsPath !== null && existsSync(ticketsPath),
+      graphPath,
+      specText,
+      specPath,
+      findings: formulaFindings,
+    });
+  }
+
+  if (formulaFindings.length > 0) {
+    report += '\n\n### Formula findings (blocking)\n';
+    for (const finding of formulaFindings) report += `- ${finding.code}: ${finding.subject ?? ''} ${finding.message}\n`;
+  }
+  if (result.ok && formulaFindings.length === 0) {
     process.stdout.write(report + '\nPASS: all high-severity consistency findings resolved.\n');
     process.exit(0);
   }

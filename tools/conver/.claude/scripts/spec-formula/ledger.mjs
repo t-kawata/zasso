@@ -19,6 +19,7 @@ export const FORMULA_CLASSES = Object.freeze(['computational', 'structural', 'co
 export const FORMULA_SIDECAR_FILENAME = 'RFC-FORMULAS.json';
 
 const LEDGER_HEADING = /^(#{1,6})\s+Formula ledger\s*$/m;
+const ALL_LEDGER_HEADINGS = /^#{1,6}\s+Formula ledger\s*$/gm;
 const METADATA_LINE = /^-\s+([A-Za-z]+):\s+`([0-9a-f]{64})`\s*$/gm;
 const LOCATION = /^(.*?):L(\d+)(?:-L(\d+))?$/;
 
@@ -86,6 +87,24 @@ function parseSymbols(cell) {
   return cell.split(',').map((entry) => entry.trim()).filter((entry) => entry.length > 0);
 }
 
+/** A stable, order-insensitive representation for ledger/sidecar field parity. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function normalizeSymbols(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => `${String(entry?.symbol ?? '').trim()}=${String(entry?.definition ?? '').trim()}`)
+    .filter((entry) => entry !== '=')
+    .sort();
+}
+
+/** @param {unknown} entries */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function normalizeStrings(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => String(entry).trim())
+    .filter((entry) => entry.length > 0)
+    .sort();
+}
+
 /** One table row as the structured record every consumer reads. */
 // [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
 function parseRow(cells, columns) {
@@ -120,6 +139,7 @@ function parseRow(cells, columns) {
 export function readFormulaLedger(rfcText) {
   const heading = LEDGER_HEADING.exec(rfcText);
   if (heading === null) return null;
+  const duplicateHeadings = [...rfcText.matchAll(ALL_LEDGER_HEADINGS)].length - 1;
 
   const section = sectionText(rfcText, heading.index, heading[1].length);
   const metadata = { specDigest: null, rfcDigest: null };
@@ -132,7 +152,7 @@ export function readFormulaLedger(rfcText) {
 
   const lines = section.split('\n');
   const headerIndex = lines.findIndex((line) => line.trim().startsWith('|') && /Formula/.test(line) && /Spec location/.test(line));
-  if (headerIndex === -1) return { ...metadata, rows: [] };
+  if (headerIndex === -1) return { ...metadata, duplicateHeadings, rows: [] };
 
   const header = splitRow(lines[headerIndex]).map((name) => name.toLowerCase());
   const columns = new Map(header.map((name, index) => [name, index]));
@@ -144,7 +164,7 @@ export function readFormulaLedger(rfcText) {
     rows.push(parseRow(cells, columns));
   }
 
-  return { ...metadata, rows };
+  return { ...metadata, duplicateHeadings, rows };
 }
 
 /**
@@ -164,6 +184,9 @@ export function validateFormulaLedger(ledger) {
   }
   if (ledger.rfcDigest === null) {
     findings.push({ code: 'RFC_DIGEST_MISSING', field: 'rfcDigest', message: 'the ledger records no rfcDigest' });
+  }
+  if ((ledger.duplicateHeadings ?? 0) > 0) {
+    findings.push({ code: 'DUPLICATE_LEDGER_HEADING', field: 'formulaLedger', message: `the RFC carries ${(ledger.duplicateHeadings ?? 0) + 1} Formula ledger headings` });
   }
 
   const seen = new Set();
@@ -251,6 +274,23 @@ export function validateFormulaSidecar(sidecar, ledger) {
     }
     if (mirrored.digest !== row.digest) {
       findings.push({ code: 'SIDECAR_DIGEST_MISMATCH', field: 'digest', formulaId: id, message: `${id} carries two digests` });
+    }
+    const fieldPairs = [
+      ['theory', { symbols: normalizeSymbols(row.theory.symbols), normative: normalizeStrings(row.theory.normative) }, { symbols: normalizeSymbols(mirrored.theory?.symbols), normative: normalizeStrings(mirrored.theory?.normative) }],
+      ['implementation.class', row.implementation.class, mirrored.implementation?.class ?? ''],
+      ['implementation.symbols', normalizeStrings(row.implementation.symbols), normalizeStrings(mirrored.implementation?.symbols)],
+      ['implementation.design', row.implementation.design, mirrored.implementation?.design ?? ''],
+      ['tests', normalizeStrings(row.tests), normalizeStrings(mirrored.tests)],
+    ];
+    for (const [field, ledgerValue, sidecarValue] of fieldPairs) {
+      if (JSON.stringify(ledgerValue) !== JSON.stringify(sidecarValue)) {
+        findings.push({
+          code: 'LEDGER_SIDECAR_MISMATCH',
+          field,
+          formulaId: id,
+          message: `${id} carries a different ${field} in the ledger and the sidecar`,
+        });
+      }
     }
     if (!Array.isArray(mirrored.tests) || mirrored.tests.length === 0) {
       findings.push({ code: 'MISSING_TESTS', field: 'tests', formulaId: id, message: `${id} records no test in the sidecar` });

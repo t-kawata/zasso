@@ -27,6 +27,7 @@ export const SPEC_RELATIVE_TO_ROOT = 'specs/GaiaSekkeiShiyousho.md';
 export const PACKAGE_DIRECTORY = 'crates/alpha';
 export const TREE_SEGMENT_ID = 'seg-1';
 
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 export function specBytes() {
   return Buffer.from(SPEC_TEXT, 'utf8');
 }
@@ -35,7 +36,7 @@ export function specSha() {
   return sha256Hex(specBytes());
 }
 
-export function buildWorkspace({ infoSha = specSha(), seedSha = specSha(), sequencesSha = specSha(), statusMaterialPaths = [] } = {}) {
+export function buildWorkspace({ infoSha = specSha(), seedSha = specSha(), sequencesSha = specSha(), statusMaterialPaths = [], sourceSegments = [TREE_SEGMENT_ID] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'spec-formula-'));
   const packageDirectory = join(root, PACKAGE_DIRECTORY);
   mkdirSync(packageDirectory, { recursive: true });
@@ -62,7 +63,7 @@ export function buildWorkspace({ infoSha = specSha(), seedSha = specSha(), seque
     JSON.stringify({
       package: { id: 'pkg-0001', name: 'alpha', path: PACKAGE_DIRECTORY },
       source_spec: { path: SPEC_RELATIVE_TO_ROOT, sha256: seedSha },
-      source_segments: [TREE_SEGMENT_ID],
+      source_segments: sourceSegments,
       stage1_manifest: { path: 'WORKSPACIFY-TREE-MANIFEST.json', hash: 'f'.repeat(64) },
     }, null, 2),
     '```',

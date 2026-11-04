@@ -382,8 +382,8 @@
                 "type": "object",
                 "required": ["symbols", "norms"],
                 "properties": {
-                  "symbols": { "type": "array", "items": { "type": "object" } },
-                  "norms": { "type": "array", "items": { "type": "string" } }
+                  "symbols": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+                  "norms": { "type": "array", "minItems": 1, "items": { "type": "string" } }
                 },
                 "additionalProperties": false
               },

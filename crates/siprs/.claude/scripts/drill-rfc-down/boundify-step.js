@@ -35,6 +35,7 @@ import path from 'path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'url';
 import { buildAdvisoryReport } from './advisory-report.js';
+import { assertStagingBaseline, digestFile, prepareStaging } from './lib/staging-baseline.js';
 import { generateDirsTreeDelta } from './generate-dir-templates-delta.js';
 import { refreshFileHeaders } from './refresh-file-headers.js';
 
@@ -121,8 +122,8 @@ function directionKey(direction) {
  * deterministic: it records exactly what the AI designed via dirs-tree-crud.js,
  * never the analyzer output.
  */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
-function deriveDirsTreeDelta(beforeTree, stagedTree, srcDir) {
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
+function deriveDirsTreeDelta(beforeTree, stagedTree, srcDir, sourceDigest = null) {
   const beforeFiles = new Map(collectTreeFilesFromTrees(beforeTree.trees || {}).map((f) => [f.path, f.node]));
   const stagedFiles = collectTreeFilesFromTrees(stagedTree.trees || {});
   const beforeDirections = new Set(collectDirections(beforeTree).map(directionKey));
@@ -155,6 +156,7 @@ function deriveDirsTreeDelta(beforeTree, stagedTree, srcDir) {
 
   return {
     sourceFile: beforeTree.sourceFile || stagedTree.sourceFile || '',
+    sourceDigest,
     newFiles,
     modifiedFiles,
     srcDrift: detectSrcDrift(treePaths.map((p) => ({ path: p })), srcFiles),
@@ -225,9 +227,13 @@ function failWithEnglishError(error, cause, action) {
 }
 
 /** Copy the real Dirs-Tree to the staging path so the AI can design via dirs-tree-crud. */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
-function createStagingCopy(dirsTreePath) {
-  fs.copyFileSync(dirsTreePath, stagingPathOf(dirsTreePath));
+// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
+function createStagingCopy(dirsTreePath, graphPath) {
+  return prepareStaging(dirsTreePath, stagingPathOf(dirsTreePath), {}, {
+    isValid: (stagingPath) => graphPath
+      ? runNode(VALIDATE, [`--dirs-tree=${stagingPath}`, `--graph=${graphPath}`]).status === 0
+      : true,
+  });
 }
 
 /** Run the analyzer to write the candidates file and return the parsed candidates. */
@@ -279,7 +285,7 @@ function removeCandidates(dirsTreePath) {
   fs.rmSync(candidatesPathOf(dirsTreePath), { force: true });
 }
 
-// [::TICKET::] PX-161, PX-162, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-170, PX-171, PX-172 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-170, PX-171, PX-172, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-161|PX-162|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-170|PX-171|PX-172|PX-365) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dirsTreePath = '';
@@ -317,7 +323,9 @@ function main() {
   }
 
   if (mode === 'stage') {
-    createStagingCopy(dirsTreePath);
+    const staged = createStagingCopy(dirsTreePath, graphPath);
+    if (staged.resumed) process.stdout.write('Resuming the existing staging Dirs-Tree whose baseline matches the real Dirs-Tree.\n');
+    if (staged.discarded) process.stdout.write('Discarded a stale staging Dirs-Tree and re-staged from the real Dirs-Tree.\n');
     const candidates = produceCandidates(dirsTreePath, srcDir, graphDeltaPath, graphPath);
     process.stdout.write(formatDirsTreeDeltaReport(candidates) + '\n');
     process.exit(0);
@@ -336,10 +344,14 @@ function main() {
         'run --stage first, design the evolution on the staging Dirs-Tree with dirs-tree-crud.js, then re-run --approve.'
       );
     }
+    const baseline = assertStagingBaseline(stagingPathOf(dirsTreePath), dirsTreePath);
+    if (!baseline.ok) {
+      failWithEnglishError(`${baseline.code}: ${baseline.message}`, 'the real Dirs-Tree changed after staging, so promoting the staging copy would revert it.', baseline.action);
+    }
     verifyStagingDirsTree(dirsTreePath, graphPath);
     const beforeTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));
     const stagedTree = JSON.parse(fs.readFileSync(stagingPathOf(dirsTreePath), 'utf8'));
-    const delta = deriveDirsTreeDelta(beforeTree, stagedTree, srcDir);
+    const delta = deriveDirsTreeDelta(beforeTree, stagedTree, srcDir, digestFile(dirsTreePath));
     fs.writeFileSync(deltaPathOf(dirsTreePath), JSON.stringify(delta, null, 2) + '\n', 'utf8');
     const generation = generateDirsTreeDelta({
       dirsTreePath,

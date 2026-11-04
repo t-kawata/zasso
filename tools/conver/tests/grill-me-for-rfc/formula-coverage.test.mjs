@@ -23,6 +23,7 @@ import { buildWorkspace, specSha, SPEC_TEXT, SPEC_PATH } from '../spec-formula/h
 const CHECK = fileURLToPath(new URL('../../.claude/scripts/grill-me-for-rfc/check-formula-coverage.js', import.meta.url));
 
 // [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 function buildRfc(workspace, { omit = [], clearDesignFor = [], invented = false, specDigest = specSha() } = {}) {
   const formulas = uniqueFormulas(extractFormulas(SPEC_TEXT));
   const body = '# RFC\n\n## Design\n\nThe symbol model uses a named constant.\n';
@@ -144,16 +145,23 @@ test('C001 error: a sidecar digest that disagrees with the ledger is refused', (
   assert.equal(output.findings.some((finding) => finding.code === 'SPEC_DIGEST_MISMATCH'), true);
 });
 
-test('C001 error: a package that owns no segment owns no formula and passes with an explicit zero', () => {
-  const workspace = buildWorkspace();
-  const seed = readFileSync(join(workspace.packageDirectory, 'RFC-SEED.md'), 'utf8')
-    .replace('"seg-1"', '"seg-unknown"');
-  writeFileSync(join(workspace.packageDirectory, 'RFC-SEED.md'), seed, 'utf8');
+test('C001 error: an unresolved source_segments id is refused before ownership is computed', () => {
+  const workspace = buildWorkspace({ sourceSegments: ['seg-unknown'] });
   buildRfc(workspace);
+  const result = runCheck(workspace);
+
+  assert.equal(result.status, 1);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.findings.some((finding) => finding.code === 'SEGMENT_UNRESOLVED'), true);
+});
+
+test('C001 normal: a package with zero owned formulas passes without a ledger or sidecar', () => {
+  const workspace = buildWorkspace({ sourceSegments: [] });
   const result = runCheck(workspace);
 
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout);
+  assert.equal(output.ok, true);
   assert.equal(output.ownedFormulas, 0);
 });
 
@@ -166,4 +174,45 @@ test('C001 invariant: the sidecar is required beside a populated ledger', () => 
   assert.equal(result.status, 1);
   const output = JSON.parse(result.stdout);
   assert.equal(output.findings.some((finding) => finding.code === 'MISSING_SIDECAR_FORMULAS'), true);
+});
+
+test('C001 error: a sidecar specPath that resolves to another file is refused', () => {
+  const workspace = buildWorkspace();
+  buildRfc(workspace);
+  const sidecarPath = join(workspace.packageDirectory, 'RFC-FORMULAS.json');
+  const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8'));
+  sidecar.specPath = 'specs/Other.md';
+  writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8');
+  const result = runCheck(workspace);
+
+  assert.equal(result.status, 1);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.findings.some((finding) => finding.code === 'SPEC_PATH_MISMATCH'), true);
+});
+
+test('C001 error: a sidecar specLocation that differs from the extracted line is refused', () => {
+  const workspace = buildWorkspace();
+  buildRfc(workspace);
+  const sidecarPath = join(workspace.packageDirectory, 'RFC-FORMULAS.json');
+  const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf8'));
+  sidecar.formulas[0].specLocation.lineStart = 1;
+  sidecar.formulas[0].specLocation.lineEnd = 1;
+  writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8');
+  const result = runCheck(workspace);
+
+  assert.equal(result.status, 1);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.findings.some((finding) => finding.code === 'SPEC_LOCATION_MISMATCH'), true);
+});
+
+test('C001 error: a second Formula ledger heading is refused', () => {
+  const workspace = buildWorkspace();
+  buildRfc(workspace);
+  const rfcPath = join(workspace.packageDirectory, 'RFC.md');
+  writeFileSync(rfcPath, `${readFileSync(rfcPath, 'utf8')}\n## Formula ledger\n\n`, 'utf8');
+  const result = runCheck(workspace);
+
+  assert.equal(result.status, 1);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.findings.some((finding) => finding.code === 'DUPLICATE_LEDGER_HEADING'), true);
 });

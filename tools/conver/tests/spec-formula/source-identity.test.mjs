@@ -18,6 +18,7 @@ import { buildWorkspace, specSha, specBytes, SPEC_PATH } from './helpers/workspa
 const VERIFY = fileURLToPath(new URL('../../.claude/scripts/grill-me-for-rfc/verify-source-identity.js', import.meta.url));
 
 // [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 function runVerify(workspace, extraArgs = []) {
   return spawnSync(process.execPath, [VERIFY, workspace.packageDirectory, `--workspace=${workspace.root}`, ...extraArgs], {
     encoding: 'utf8',
@@ -41,15 +42,17 @@ test('C001 precondition: agreeing seed, INFO and sequences records pass and reco
   assert.equal(statusOf(workspace).materialPaths.some((path) => path.endsWith(SPEC_PATH)), true);
 });
 
-test('C001 error invariant: an INFO hash mismatch stops the run before the material list moves', () => {
+test('C001 error invariant: an INFO hash mismatch is an advisory and --no-record leaves Status.json byte-identical', () => {
   const workspace = buildWorkspace({ infoSha: '0'.repeat(64) });
   const before = statusOf(workspace);
-  const result = runVerify(workspace);
+  const result = runVerify(workspace, ['--no-record']);
 
-  assert.equal(result.status, 1);
+  assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout);
-  assert.equal(output.findings.some((finding) => finding.code === 'INFO_HASH_MISMATCH'), true);
+  assert.equal(output.ok, true);
+  assert.equal(output.advisories.some((finding) => finding.code === 'STALE_SECONDARY_RECORD' && finding.detail === 'INFO_HASH_MISMATCH'), true);
   assert.deepEqual(statusOf(workspace), before);
+  assert.equal(output.materialRecorded, false);
 });
 
 test('C001 error invariant: bytes that no recorded hash reproduces stop the run', () => {
@@ -73,11 +76,12 @@ test('C001 error invariant: a seed that records no identity is refused by name',
   assert.match(result.stderr, /RFC-SEED\.md|SEED_IDENTITY_MISSING/);
 });
 
-test('C001 boundary: the sequences artifact hash is compared when one is present', () => {
+test('C001 boundary: a sequences hash mismatch is an advisory when the seed proves the specification', () => {
   const workspace = buildWorkspace({ sequencesSha: '1'.repeat(64) });
-  const result = runVerify(workspace);
+  const result = runVerify(workspace, ['--no-record']);
 
-  assert.equal(result.status, 1);
+  assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout);
-  assert.equal(output.findings.some((finding) => finding.code === 'SEQUENCES_HASH_MISMATCH'), true);
+  assert.equal(output.ok, true);
+  assert.equal(output.advisories.some((finding) => finding.code === 'STALE_SECONDARY_RECORD' && finding.detail === 'SEQUENCES_HASH_MISMATCH'), true);
 });

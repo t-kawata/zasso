@@ -11,6 +11,7 @@
  * RED at make time: Step 1 is a placeholder referencing the other commands.
  */
 
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -63,7 +64,7 @@ describe('Step 1 command definition', () => {
 
   it('uses only [VARIABLES] block variables in Step 1 (C002 invariant)', () => {
     const step1 = step1Section();
-    const allowedVars = ['RFC_PATH', 'RFC_DIR', 'GRAPH_PATH', 'DIRS_TREE_PATH', 'README_PATH', 'TICKETS_PATH', 'SESSION_DIR', 'DRILL_DIR'];
+    const allowedVars = ['RFC_PATH', 'RFC_DIR', 'GRAPH_PATH', 'DIRS_TREE_PATH', 'README_PATH', 'TICKETS_PATH', 'SESSION_DIR', 'DRILL_DIR', 'WORKSPACE_ROOT'];
     const usedVars = [...step1.matchAll(/\$([A-Z_]+)/g)].map((m) => m[1]);
     assert.ok(usedVars.length > 0, 'Step 1 uses at least one variable');
     for (const usedVar of usedVars) {

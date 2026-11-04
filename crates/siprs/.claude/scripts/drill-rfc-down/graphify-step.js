@@ -32,6 +32,7 @@ import path from 'path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'url';
 import { buildAdvisoryReport } from './advisory-report.js';
+import { assertStagingBaseline, digestFile, prepareStaging } from './lib/staging-baseline.js';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ANALYZER = path.join(SCRIPT_DIR, 'graphify-delta-analyzer.js');
@@ -72,8 +73,8 @@ function edgeKey(edge) {
  * against the staged GRAPH (the AI-crafted design). The result is deterministic:
  * it records exactly what the AI designed via crud.js, never the analyzer output.
  */
-// [::TICKET::] PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
-function deriveGraphDelta(beforeGraph, stagedGraph) {
+// [::TICKET::] PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
+function deriveGraphDelta(beforeGraph, stagedGraph, sourceDigest = null) {
   const beforeNodes = new Map((beforeGraph.nodes || []).map((n) => [n.id, n]));
   const stagedNodes = stagedGraph.nodes || [];
   const beforeEdges = new Set((beforeGraph.edges || []).map(edgeKey));
@@ -92,6 +93,7 @@ function deriveGraphDelta(beforeGraph, stagedGraph) {
 
   return {
     sourceFile: beforeGraph.sourceFile || stagedGraph.sourceFile || '',
+    sourceDigest,
     newNodes,
     modifiedNodes,
     newEdges,
@@ -132,9 +134,13 @@ function formatGraphDeltaReport(graphDelta) {
 }
 
 /** Copy the real GRAPH to the staging path so the AI can design via crud.js. */
-// [::TICKET::] PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
-function createStagingCopy(graphPath) {
-  fs.copyFileSync(graphPath, stagingPathOf(graphPath));
+// [::TICKET::] PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
+function createStagingCopy(graphPath, sourcePath) {
+  return prepareStaging(graphPath, stagingPathOf(graphPath), {}, {
+    isValid: (stagingPath) => sourcePath
+      ? runNode(VERIFY, [`--graph=${stagingPath}`, `--source=${sourcePath}`]).status === 0
+      : true,
+  });
 }
 
 /** Run the analyzer to write the candidates file and return the parsed candidates. */
@@ -194,7 +200,7 @@ function removeCandidates(graphPath) {
   fs.rmSync(candidatesPathOf(graphPath), { force: true });
 }
 
-// [::TICKET::] PX-160, PX-161, PX-162, PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162|PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162, PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-160|PX-161|PX-162|PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let graphPath = '';
@@ -230,7 +236,9 @@ function main() {
   }
 
   if (mode === 'stage') {
-    createStagingCopy(graphPath);
+    const staged = createStagingCopy(graphPath, sourcePath);
+    if (staged.resumed) process.stdout.write('Resuming the existing staging GRAPH whose baseline matches the real GRAPH.\n');
+    if (staged.discarded) process.stdout.write('Discarded a stale staging GRAPH and re-staged from the real GRAPH.\n');
     const candidates = produceCandidates(graphPath, deltaPath);
     process.stdout.write(formatGraphDeltaReport(candidates) + '\n');
     process.exit(0);
@@ -249,10 +257,14 @@ function main() {
         'run --stage first, design the evolution on the staging graph with crud.js, then re-run --approve.'
       );
     }
+    const baseline = assertStagingBaseline(stagingPathOf(graphPath), graphPath);
+    if (!baseline.ok) {
+      failWithEnglishError(`${baseline.code}: ${baseline.message}`, 'the real GRAPH changed after staging, so promoting the staging copy would revert it.', baseline.action);
+    }
     verifyStagingGraph(graphPath, sourcePath);
     const beforeGraph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
     const stagedGraph = JSON.parse(fs.readFileSync(stagingPathOf(graphPath), 'utf8'));
-    const delta = deriveGraphDelta(beforeGraph, stagedGraph);
+    const delta = deriveGraphDelta(beforeGraph, stagedGraph, digestFile(graphPath));
     fs.writeFileSync(deltaPathOf(graphPath), JSON.stringify(delta, null, 2) + '\n', 'utf8');
     promoteStagingToReal(graphPath);
     removeCandidates(graphPath);

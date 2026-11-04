@@ -192,7 +192,9 @@ Invocation:
 | `session-init.js <rfc>` | create/continue `$SESSION_DIR`; Status/DesignTree/CheckList |
 | `session-status.js <session>` | phase + unresolved-node count |
 | `update-status.js <session> set-step\|set-state\|inc-loop\|show` | state transition + English `nextAction` |
-| `rfc-evolution.js capture\|verify\|clean <rfc>` | baseline; append-only/delta/contradiction verification; clean snapshot |
+| `rfc-evolution.js capture\|verify\|check-capture\|clean <rfc>` | baseline (`--if-absent`); generated-ledger-aware append-only/delta/contradiction verification (`--allow-empty`); concurrent-change check; clean snapshot |
+| `verify-source-identity.js <rfc-dir>` | drill entry for the shared source identity gate |
+| `check-formula-coverage.js <rfc-dir>` | drill entry for the shared formula coverage gate |
 | `update-tree.js <session> add\|add-child\|resolve\|batch-resolve\|refine\|show\|delete\|open-count` | DesignTree CRUD |
 | `validate-question-format.js <text>` | grill-question schema validation |
 | `tree-query.js <session> tree\|search\|path\|stats` | DesignTree inspect/search |
@@ -218,8 +220,11 @@ Invocation:
 
 G0 input:
 - resolve: materials, cwd `Tickets.json`, `metadata.resolvedPaths` RFC/GRAPH/Dirs-Tree, `README.md`.
-- all must exist.
-- fail → stop; report error.
+- all must exist. `WORKSPACE_ROOT` comes from the nearest `WORKSPACIFY-TREE-MANIFEST.json`.
+- Tickets missing → `BLOCKED_PREREQUISITE` + `TICKETS_MISSING_ROUTE_SPLIT_TO_TICKETS`; Action: `/split-to-tickets`; stop.
+- target mismatch → `PACKAGE_TARGET_MISMATCH`; Action: run from the package or pass `--package`; stop.
+- other missing → producer command from the error; stop.
+- fail → report `[ERROR] Cause / Action / Verify / Route`; stop.
 - pass → list resolved paths in Markdown; Step 1.
 
 `$ARGUMENTS` is deliberately unquoted: shell passes each space-separated arg as argv; script splits/drops empty tokens; no args → no materials, never cwd.
@@ -233,7 +238,7 @@ node "$CLAUDE_DIR/scripts/drill-rfc-down/preflight.cjs" $ARGUMENTS || exit 1
 Role: understand all material, README RESIDUE, prior conversation; decide evolution by grill; append settled complete evolution to RFC.
 
 Artifacts:
-- bind `$RFC_PATH`, `$RFC_DIR`, `$SESSION_DIR`, `$DRILL_DIR` from G0 `[VARIABLES]`.
+- bind `$RFC_PATH`, `$RFC_DIR`, `$SESSION_DIR`, `$DRILL_DIR`, `$WORKSPACE_ROOT` from G0 `[VARIABLES]`.
 - session-only: Status / DesignTree / CheckList / baseline / delta under `$SESSION_DIR`.
 - no touch: existing `$RFC_DIR/Status.json` and equivalent existing session artifacts.
 
@@ -250,6 +255,16 @@ one JSON object: `present`, `source`, `view`, `viewExists`, `materialPaths`, `st
 
 The view is deliberately **not** added to the preflight material arguments: preflight refuses a missing file argument and an empty directory argument, so a view that had been deleted would abort the drill — precisely the failure this input must not introduce. Read it by this instruction instead, which cannot fail.
 
+**Source identity gate.**
+
+Prove the seed names the specification on disk before any Step 1 write. Seed hash mismatch, unreadable specification and missing seed identity block; INFO / `*-sequences.json` divergence is `STALE_SECONDARY_RECORD` advisory and proceeds. `--no-record` leaves the package `Status.json` byte-identical.
+
+```bash
+node "$DRILL_DIR/verify-source-identity.js" "$RFC_DIR" --workspace="$WORKSPACE_ROOT" --no-record || exit 1
+```
+
+Repair: `SPEC_HASH_MISMATCH` / `SEED_IDENTITY_MISSING` → the seed or specification producer; never edit the specification. `STALE_SECONDARY_RECORD` → list the record and continue; follow-up `/explain-seed` or `/educe-sequences`.
+
 #### 1-1. Session Initialization
 
 ```bash
@@ -263,7 +278,7 @@ Create session Status/DesignTree/CheckList; existing session → continue.
 #### 1-2. Capture Baseline
 
 ```bash
-node "$DRILL_DIR/rfc-evolution.js" capture "$RFC_PATH"
+node "$DRILL_DIR/rfc-evolution.js" capture "$RFC_PATH" --if-absent
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-2
 ```
 
@@ -286,6 +301,15 @@ stage-one manifest names, passed as further arguments — records the scan in th
 documents decide. What they decide is settled by the ladder in 1-5 and is never asked.
 A package where they decide everything opens no question at all, and the session
 completes with nothing put to the human.
+
+#### 1-3b. Mode
+
+- FRESH: new settled evolution → 1-4…1-12, append RFC prose.
+- MIGRATION: owned formulas, no ledger → skip 1-4…1-10 and RFC prose; author the generated ledger at 1-8.
+- REPAIR: no new evolution, repairable formula finding → skip 1-4…1-10; repair the generated ledger `rfcDigest` / sidecar.
+- VERIFY_ONLY: no new evolution, every drill gate passes; zero-owned with no ledger also selects this → skip 1-4…1-10 and 1-8; read-only Steps 2-5; report `NO_CHANGES`.
+
+Repairable finding → execute its `Action`, re-run its `Verify`, repeat until exit 0. No progress → `REPAIR_NO_PROGRESS`.
 
 #### 1-4. Generate DesignTree Nodes
 
@@ -397,10 +421,27 @@ Proceed after 1-7 approval; no additional approval gate. Append settled evolutio
 - every design decision: code example.
 - include I/O-boundary reference information for downstream partitioning.
 - no TBD / TODO / stub / deferral, any form.
+- insert the evolution before the generated `## Formula ledger`; the ledger stays the last generated appendix so `rfcDigest` covers the new prose.
+- before appending: `RFC_CHANGED_SINCE_CAPTURE` → re-capture and re-apply; never overwrite.
+- resume: read `session-status.js`; if 1-8 already appended, skip check-capture and the append; continue at the recorded step.
 
 ```bash
+node "$DRILL_DIR/rfc-evolution.js" check-capture "$RFC_PATH"
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-state WRITING
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-8
+```
+
+#### 1-8b. Formula ledger and sidecar
+
+Generated appendix only. Source: spec lines the seed's `source_segments` claim, resolved through `WORKSPACIFY-TREE-MANIFEST.json`; four delimiters are one identity. Write `$RFC_DIR/RFC.md` `## Formula ledger` and `$RFC_DIR/RFC-FORMULAS.json` with `specDigest`, `rfcDigest`, theory, class, implementation anchor, design how and tests for every owned formula. No owned formula → no ledger or sidecar.
+
+- one-time when absent; otherwise verify rows and update `rfcDigest` only.
+- ledger row and sidecar carry the same theory, class, symbols, design and tests; `specPath` and `specLocation` are the extracted values.
+- ledger is the only RFC region regenerated; prose stays append-only.
+- `SEGMENT_UNRESOLVED`, `SPEC_PATH_MISMATCH`, `SPEC_LOCATION_MISMATCH`, `DUPLICATE_LEDGER_HEADING`, missing field → act on the finding; re-run.
+
+```bash
+node "$DRILL_DIR/check-formula-coverage.js" "$RFC_DIR" --workspace="$WORKSPACE_ROOT"
 ```
 
 #### 1-9. CheckList Verification
@@ -428,11 +469,13 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-10
 G1 RFC evolution:
 
 ```bash
-node "$DRILL_DIR/rfc-evolution.js" verify "$RFC_PATH"
+node "$DRILL_DIR/rfc-evolution.js" verify "$RFC_PATH" --allow-empty
 ```
 
 Machine: append-only, delta extraction, well-formedness, contradiction candidates; write `$SESSION_DIR/delta.json`.
+- append-only compares RFC prose; the generated Formula ledger is excluded; a non-ledger line change still fails.
 - exit 1 → back to 1-8.
+- formula coverage is blocking: `check-formula-coverage.js` exit 1 → repair the finding and re-run.
 
 AI engineering expert judgment; inspect result, `delta.json`, resolved DesignTree, scope:
 - Danger: breaks existing design/implementation/contracts?
@@ -450,7 +493,7 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-11
 
 #### 1-12. Completion Declaration
 
-Done iff: open-count 0; CheckList all `✅`; RFC has no TBD/TODO/stub; G1 PASS.
+Done iff: open-count 0; CheckList all `✅`; RFC has no TBD/TODO/stub; G1 PASS; `check-formula-coverage.js` exit 0 (or zero owned).
 
 ```bash
 node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-state DONE
@@ -510,11 +553,12 @@ node "$DRILL_DIR/graphify-step.js" --graph="$GRAPH_PATH" --source="$RFC_PATH" --
 ```
 
 - `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging graph.
-- formula delta: the RFC's `RFC-FORMULAS.json` is the source. Attach the delta to the staging graph before approve:
+- formula delta: the RFC's `RFC-FORMULAS.json` is the source. No sidecar → skip this block. Attach the delta to the staging graph before approve:
   ```bash
   node "$DRILL_DIR/../rfc-graph/attach-formula-ids.js" --graph="$GRAPH_PATH.staging.json" --sidecar="$RFC_DIR/RFC-FORMULAS.json" --rfc="$RFC_PATH" --write
   ```
   The command touches `formulaIds` and `formulaDigest` only; unrelated nodes and edges stay byte-identical.
+  `MISSING_NODE` / `AMBIGUOUS_NODE` / `STALE_SIDECAR` → repair the generated ledger RFC location; re-run; never hand-edit the graph or sidecar.
 - verifier (`verify.js`): uncovered headings, isolated nodes, headingRefs resolvability, uniqueness.
 - Destructive change: deletion forbidden by default; explicit AI approval only; never hand-edit the JSON — design it through the loop.
 - only graph writes: staging `crud.js`; driver promote; `attach-formula-ids.js` for formulaIds.
@@ -553,7 +597,7 @@ node "$DRILL_DIR/boundify-step.js" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR
   ```bash
   node "$DRILL_DIR/../rfc-graph/attach-formula-ids.js" --graph="$GRAPH_PATH" --sidecar="$RFC_DIR/RFC-FORMULAS.json" --rfc="$RFC_PATH" --dirs-tree="$DIRS_TREE_PATH.staging.json" --write
   ```
-  Then re-run `verify-formula-file-coverage.js` on the staging pair. A missing index entry, file or symbol is a high finding and returns to Step 2.
+  Then re-run `verify-formula-file-coverage.js` on the staging pair. A missing index entry, file or symbol is a high finding and returns to Step 2. Zero owned and no sidecar → skip this block; zero owned with a sidecar → run it, because the sidecar proves the artifacts.
 - validator (`validate-dirs-tree-schema`): GRAPH/Dirs-Tree consistency, `mappedNodeIds` resolution, dependency cycles.
 - PASS effects: delta-only `newFiles` via `generate-dir-templates-delta.js`, Initial Design Artifact header; existing mapped-file headers/cross-references via `refresh-file-headers.js` when graph delta given; never implementation body.
 - delta generator inapplicable → AI may hand-create file.
@@ -588,11 +632,14 @@ node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 ```
 
 - `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging Tickets.
-- formula delta: after the ticket edits, project the RFC formulas onto the staging Tickets before approve:
+- formula delta: after the ticket edits, project the RFC formulas onto the staging Tickets before approve. No sidecar → skip this block:
   ```bash
   node "$DRILL_DIR/../tickets/merge-formulas-to-tickets.js" --tickets="$TICKETS_PATH.staging.json" --dirs-tree="$DIRS_TREE_PATH" --sidecar="$RFC_DIR/RFC-FORMULAS.json" --spec="$SPEC_PATH" --tree-manifest="$WORKSPACE_ROOT/WORKSPACIFY-TREE-MANIFEST.json" --write
   ```
   The merge writes `formulaObligations` only; statuses, scope and contracts stay as the staging edits left them. A missing ticket, duplicate implementer or `RFC.md` origin is a high finding and blocks approve.
+  - `FORMULA_NO_TICKET` → add one staging ticket or edit one existing staging ticket; re-run.
+  - `FORMULA_DUPLICATE_TICKET` → narrow nodeIds / default_files on staging; re-run.
+  - `FORMULA_OBLIGATION_ON_COMPLETED_TICKET` → advisory; status unchanged; report `/review-ticket` or `/plan-ticket`.
 - validator (`validate-tickets`): title/round/metadata/phases/ticket-status/phaseId consistency.
 - never silently overwrite status.
 - Destructive change: ticket deletion forbidden by default; explicit AI approval only; never hand-edit the JSON.
@@ -620,6 +667,10 @@ node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-
 - high finding → exit 1; back to Step 2; repair Steps 2 → 3 → 4; re-run G5 until exit 0.
 - low/cosmetic findings only → PASS.
 - verifier: deterministic, read-only, no artifact rewrite.
+- formula check uses the exported `verifyFormulaChain` with the specification bytes; the CLI smooth receipt and unit-set layer are not run.
+- every finding carries `Action` and `Verify`; repair and re-run until zero. No progress → `REPAIR_NO_PROGRESS`.
+- terminal: `COMPLETE` (all drill gates 0, advisories listed), `BLOCKED_PREREQUISITE` (input producer named), `REPAIR_NO_PROGRESS` (action did not clear). Workspace S8 is a rollout report, not a drill gate.
+- report `$SESSION_DIR/DRILL-REPORT.json` (all findings) and `.md` (capped, `...and N more`); only the report state declares COMPLETE.
 
 ## Reverse rotation only — staleness as an input to this drill
 

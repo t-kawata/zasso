@@ -284,16 +284,16 @@ out:
 ### STEP 0: Initialization
 
 **Source identity gate — before any write.** The specification is the authority this
-run transcribes. Prove the seed, `INFO-RFC-SEED.md` and the workspace `*-sequences.json`
-all name the bytes on disk, or write nothing.
+run transcribes. The seed `source_spec.sha256` must equal the bytes on disk; `INFO-RFC-SEED.md`
+and the workspace `*-sequences.json` are secondary records.
 
 ```bash
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/verify-source-identity.js" "$RFC_DIR"
 ```
 
-exit 1 → stop. The findings name the disagreeing record: `SPEC_HASH_MISMATCH`,
-`INFO_HASH_MISMATCH`, `SEQUENCES_HASH_MISMATCH`, `SPECIFICATION_UNREADABLE`,
-`SEED_IDENTITY_MISSING`. Fix the input; never edit the specification.
+exit 1 → stop on a blocking finding: `SPEC_HASH_MISMATCH`, `SPECIFICATION_UNREADABLE`,
+`SEED_IDENTITY_MISSING`. Fix the input; never edit the specification. `STALE_SECONDARY_RECORD`
+is advisory: list the record and hash, continue, and name `/explain-seed` or `/educe-sequences`.
 
 ```bash
 node "$CLAUDE_DIR/scripts/grill-me-for-rfc/init.js" "$RFC_DIR" $ARGUMENTS
@@ -665,20 +665,26 @@ Write `$RFC_DIR/RFC-FORMULAS.json`:
 
 Rules:
 - every owned formula: one row in both places, same `id`, `digest`, `specDigest`, `rfcDigest`
+- the ledger row and sidecar carry the same theory, class, implementation symbols, design and tests; the gate normalizes and compares them
+- `specPath` is the seed `source_spec.path`; `Spec location` and sidecar `specLocation` are the extracted formula's exact line range
 - theory: symbol definitions and the normative lines that bind them
 - implementation: class + concrete site + how the computation or realization happens
 - non-computational formulas are not exempt: name the type, constant, validation or serialization that realizes them
 - tests: at least one verification per row
 - a formula absent from the specification is invented → refused
 - a row missing any field fails by field name
+- every seed `source_segments` id must resolve; `SEGMENT_UNRESOLVED` is blocking
+- `specPath` resolves to the seed specification; `specLocation` equals the extracted line range
+- zero owned formulas → no ledger or sidecar required; an existing one is validated
+- a second `Formula ledger` heading → `DUPLICATE_LEDGER_HEADING`
 
 gate:
 
 ```bash
-node "$CLAUDE_DIR/scripts/grill-me-for-rfc/check-formula-coverage.js" "$RFC_DIR"
+node "$CLAUDE_DIR/scripts/grill-me-for-rfc/check-formula-coverage.js" "$RFC_DIR" --workspace="$WORKSPACE_ROOT"
 ```
 
-exit 1 → repair every finding (`MISSING_LEDGER_ROW`, `DIGEST_MISMATCH`, `MISSING_THEORY`, `MISSING_IMPLEMENTATION_DESIGN`, `MISSING_TESTS`, `INVENTED_FORMULA`, `SPEC_DIGEST_MISMATCH`, `RFC_DIGEST_MISMATCH`) and re-run.
+exit 1 → repair every finding (`MISSING_LEDGER_ROW`, `DIGEST_MISMATCH`, `MISSING_THEORY`, `MISSING_IMPLEMENTATION_DESIGN`, `MISSING_TESTS`, `INVENTED_FORMULA`, `SPEC_DIGEST_MISMATCH`, `RFC_DIGEST_MISMATCH`, `SEGMENT_UNRESOLVED`, `SPEC_PATH_MISMATCH`, `SPEC_LOCATION_MISMATCH`, `DUPLICATE_LEDGER_HEADING`, `LEDGER_SIDECAR_MISMATCH`) with its `Action`, re-run its `Verify`, and continue until exit 0. No progress → `REPAIR_NO_PROGRESS`.
 
 ---
 
@@ -789,7 +795,7 @@ The renderer is the only writer of the ledger, the map block and the managed anc
 
 **Owner-cell role grammar.** The Distribution ledger is the authored authority for an operation's role. An Owner cell may annotate the row's own package as `pkg-xxxx (implementer)` or `pkg-xxxx (consumer)`; a co-owner's name stays unannotated because that package's own row carries its declaration. The renderer reads the annotation before it writes the map, so a role is authored in the table and never in the generated `json distribution-map` block or `SEQUENCES.json`. An unannotated legacy row keeps the `roleCandidate` fallback; anything else in parentheses is prose.
 
-gate (all 10 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every owned active operation declares `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures AND `check-formula-coverage.js "$RFC_DIR"` exits 0, so every owned formula reached the ledger with its theory, realization and tests. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" "$SEQUENCES_ARTIFACT"` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
+gate (all 10 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every owned active operation declares `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures AND `check-formula-coverage.js "$RFC_DIR"` exits 0 with zero blocking findings and every advisory listed, so every owned formula reached the ledger with its theory, realization and tests. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" "$SEQUENCES_ARTIFACT"` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
 
 The two gates answer the two halves of one guarantee. The coverage gate is measured over the workspace and can be satisfied before this package has an RFC; the discharge gate answers the accounting half, so no package can declare DONE while another package's ledger still omits a unit it was handed.
 

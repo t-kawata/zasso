@@ -8,10 +8,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   extractFormulas,
@@ -25,7 +27,7 @@ const { computeFormulaDigest } = require('../../.claude/scripts/rfc-graph/lib/fo
 
 const SPEC_TEXT = '# Specification\n\n\\[ M=2^b \\]\n\n\\[ N=K+1 \\]\n';
 
-// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
 function buildFixture() {
   const root = mkdtempSync(join(tmpdir(), 'formula-chain-tickets-'));
   const formulas = uniqueFormulas(extractFormulas(SPEC_TEXT));
@@ -68,6 +70,9 @@ function buildFixture() {
       }])),
     },
   };
+  const dirsPath = join(root, 'Dirs-Tree.json');
+  writeFileSync(dirsPath, JSON.stringify(dirsTree));
+  const ticketsPath = join(root, 'Tickets.json');
 
   const obligation = (formula) => ({
     id: formula.id,
@@ -83,11 +88,12 @@ function buildFixture() {
     phases: [{ id: -1, tickets: [{ id: 1, phaseId: -1, title: 'one', status: 'todo', contracts: [], formulaObligations: sidecar.formulas.map(obligation) }] }],
   };
 
-  return { root, graphPath, graph, dirsTree, tickets, sidecar, formulas };
+  writeFileSync(ticketsPath, JSON.stringify(tickets));
+  return { root, graphPath, dirsPath, ticketsPath, graph, dirsTree, tickets, sidecar, formulas };
 }
 
-// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
-function verify(fixture) {
+// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
+function verify(fixture, extra = {}) {
   return verifyChain({
     view: { packageId: 'pkg-1' },
     map: { digest: 'a'.repeat(64), packages: [], units: [] },
@@ -96,6 +102,7 @@ function verify(fixture) {
     tickets: fixture.tickets,
     graphPath: fixture.graphPath,
     stage: 'split',
+    ...extra,
   });
 }
 
@@ -136,4 +143,66 @@ test('C001 error: an origin that names RFC.md is refused', () => {
   const findings = verify(fixture).findings;
 
   assert.equal(findings.some((finding) => finding.code === 'FORMULA_ORIGIN_INVALID'), true, JSON.stringify(findings));
+});
+
+test('C001 error: a ticket theory that differs from the sidecar is refused', () => {
+  const fixture = buildFixture();
+  fixture.tickets.phases[0].tickets[0].formulaObligations[0].theory = { symbols: [], norms: [] };
+  const findings = verify(fixture).findings;
+
+  assert.equal(findings.some((finding) => finding.code === 'FORMULA_THEORY_MISMATCH'), true, JSON.stringify(findings));
+});
+
+test('C001 error: a ticket design that differs from the sidecar is refused', () => {
+  const fixture = buildFixture();
+  fixture.tickets.phases[0].tickets[0].formulaObligations[0].design.how = 'a different realization';
+  const findings = verify(fixture).findings;
+
+  assert.equal(findings.some((finding) => finding.code === 'FORMULA_DESIGN_MISMATCH'), true, JSON.stringify(findings));
+});
+
+test('C001 error: an origin line that differs from the sidecar is refused', () => {
+  const fixture = buildFixture();
+  fixture.tickets.phases[0].tickets[0].formulaObligations[0].origin.line = 99;
+  const findings = verify(fixture).findings;
+
+  assert.equal(findings.some((finding) => finding.code === 'FORMULA_ORIGIN_LINE_MISMATCH'), true, JSON.stringify(findings));
+});
+
+test('C001 error: an origin quote that differs from the specification line is refused', () => {
+  const fixture = buildFixture();
+  fixture.tickets.phases[0].tickets[0].formulaObligations[0].origin.quote = 'not the specification line';
+  const findings = verify(fixture, { specText: SPEC_TEXT, specPath: 'spec.md' }).findings;
+
+  assert.equal(findings.some((finding) => finding.code === 'FORMULA_ORIGIN_QUOTE_MISMATCH'), true, JSON.stringify(findings));
+});
+
+test('C001 normal: the sorted primary symbol matches the Dirs-Tree anchor when several symbols exist', () => {
+  const fixture = buildFixture();
+  const formula = fixture.formulas[0];
+  fixture.sidecar.formulas[0].implementation.symbols = ['z.rs#Z', 'a.rs#A'];
+  fixture.sidecar.formulas[0].implementation.location = 'a.rs#A';
+  fixture.dirsTree.distribution.formulas[formula.id].symbols = ['a.rs#A', 'z.rs#Z'];
+  fixture.tickets.phases[0].tickets[0].formulaObligations[0].implementation.symbol = 'a.rs#A';
+  writeFileSync(join(fixture.root, 'RFC-FORMULAS.json'), JSON.stringify(fixture.sidecar));
+  const findings = verify(fixture).findings;
+
+  assert.equal(findings.some((finding) => finding.code === 'FORMULA_ANCHOR_MISMATCH'), false, JSON.stringify(findings));
+});
+
+test('C001 postcondition: the --formula-only CLI passes a consistent ticket chain', () => {
+  const fixture = buildFixture();
+  const verifyChainPath = fileURLToPath(new URL('../../.claude/scripts/sequences-slice/verify-chain.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [
+    verifyChainPath,
+    '--formula-only',
+    `--graph=${fixture.graphPath}`,
+    `--dirs-tree=${fixture.dirsPath}`,
+    `--tickets=${fixture.ticketsPath}`,
+    '--require-tickets',
+  ], { encoding: 'utf8' });
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout.trim().split('\n').pop());
+  assert.equal(output.ok, true, JSON.stringify(output.findings));
 });

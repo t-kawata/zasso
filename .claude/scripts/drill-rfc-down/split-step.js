@@ -34,6 +34,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'url';
 import { buildAdvisoryReport } from './advisory-report.js';
+import { assertStagingBaseline, digestFile, prepareStaging } from './lib/staging-baseline.js';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -94,8 +95,8 @@ function surfaceExistingStatuses(tickets) {
  * is deterministic: it records exactly what the AI designed via add-ticket /
  * update-ticket, never the analyzer output.
  */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
-function deriveTicketsDelta(beforeTickets, stagedTickets) {
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
+function deriveTicketsDelta(beforeTickets, stagedTickets, sourceDigest = null) {
   const beforeMap = new Map(collectTickets(beforeTickets).map(({ ticket }) => [ticketKeyOf(ticket), ticket]));
   const newTickets = [];
   const editedTickets = [];
@@ -110,16 +111,23 @@ function deriveTicketsDelta(beforeTickets, stagedTickets) {
         phaseId: ticket.phaseId,
       });
     } else if (JSON.stringify(before) !== JSON.stringify(ticket)) {
+      const changes = {};
+      for (const key of new Set([...Object.keys(before), ...Object.keys(ticket)])) {
+        if (JSON.stringify(before[key]) !== JSON.stringify(ticket[key])) {
+          changes[key] = { before: before[key] ?? null, after: ticket[key] ?? null };
+        }
+      }
       editedTickets.push({
         id: ticket.id,
         nodeId: (ticket.nodeIds || [])[0] || null,
         path: null,
-        changes: { title: ticket.title, status: ticket.status },
+        changes,
       });
     }
   }
   return {
     sourceFile: beforeTickets.metadata?.source || '',
+    sourceDigest,
     newTickets,
     editedTickets,
     existingStatuses: surfaceExistingStatuses(beforeTickets),
@@ -167,9 +175,28 @@ function failWithEnglishError(error, cause, action) {
 }
 
 /** Copy the real Tickets.json to the staging path so the AI can design. */
-// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
 function createStagingCopy(ticketsPath) {
-  fs.copyFileSync(ticketsPath, stagingPathOf(ticketsPath));
+  if (!fs.existsSync(ticketsPath)) {
+    failWithEnglishError(
+      'TICKETS_MISSING_ROUTE_SPLIT_TO_TICKETS',
+      `Tickets.json not found at ${ticketsPath}; drill never fabricates tickets.`,
+      'run /split-to-tickets in the package directory, then re-run /drill-rfc-down.',
+    );
+  }
+  const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  return prepareStaging(ticketsPath, stagingPathOf(ticketsPath), {
+    round: tickets.round ?? null,
+    statuses: surfaceExistingStatuses(tickets),
+  }, {
+    isValid: (stagingPath) => {
+      try {
+        return validateTickets(JSON.parse(fs.readFileSync(stagingPath, 'utf8'))).valid;
+      } catch {
+        return false;
+      }
+    },
+  });
 }
 
 /** Run the analyzer to write the candidates file and return the parsed candidates. */
@@ -221,7 +248,7 @@ function removeCandidates(ticketsPath) {
   fs.rmSync(candidatesPathOf(ticketsPath), { force: true });
 }
 
-// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169|PX-365) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketsPath = '';
@@ -248,7 +275,9 @@ function main() {
   }
 
   if (mode === 'stage') {
-    createStagingCopy(ticketsPath);
+    const staged = createStagingCopy(ticketsPath);
+    if (staged.resumed) process.stdout.write('Resuming the existing staging Tickets.json whose baseline matches the real Tickets.json.\n');
+    if (staged.discarded) process.stdout.write('Discarded a stale staging Tickets.json and re-staged from the real Tickets.json.\n');
     const candidates = produceCandidates(ticketsPath, dtdPath);
     process.stdout.write(formatTicketsDeltaReport(candidates) + '\n');
     process.exit(0);
@@ -267,10 +296,14 @@ function main() {
         'run --stage first, design the evolution on the staging Tickets.json with add-ticket.js / update-ticket.js, then re-run --approve.'
       );
     }
+    const baseline = assertStagingBaseline(stagingPathOf(ticketsPath), ticketsPath);
+    if (!baseline.ok) {
+      failWithEnglishError(`${baseline.code}: ${baseline.message}`, 'the real Tickets.json changed after staging, so promoting the staging copy would revert it.', baseline.action);
+    }
     verifyStagingTickets(ticketsPath);
     const beforeTickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
     const stagedTickets = JSON.parse(fs.readFileSync(stagingPathOf(ticketsPath), 'utf8'));
-    const delta = deriveTicketsDelta(beforeTickets, stagedTickets);
+    const delta = deriveTicketsDelta(beforeTickets, stagedTickets, digestFile(ticketsPath));
     fs.writeFileSync(deltaPathOf(ticketsPath), JSON.stringify(delta, null, 2) + '\n', 'utf8');
     promoteStagingToReal(ticketsPath);
     removeCandidates(ticketsPath);

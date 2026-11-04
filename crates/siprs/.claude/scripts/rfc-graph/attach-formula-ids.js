@@ -39,9 +39,16 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-// [::TICKET::] PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-361, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361|PX-365) --for-spec --no-implementation-order`.
 function finding(code, subject, message) {
-  return { code, subject, message };
+  return {
+    code,
+    subject,
+    message,
+    severity: 'blocking',
+    action: 'repair the generated Formula ledger RFC location in RFC.md and RFC-FORMULAS.json, then re-run attach-formula-ids.js',
+    verify: 'node .claude/scripts/rfc-graph/attach-formula-ids.js --graph=<graph> --sidecar=<sidecar> --rfc=<rfc>',
+  };
 }
 
 // [::TICKET::] PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361) --for-spec --no-implementation-order`.

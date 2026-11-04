@@ -48,10 +48,14 @@ function resolveSessionDir(rfcPath) {
 }
 
 /** Snapshot the RFC content into baseline.json under the session directory. */
-// [::TICKET::] PX-158, PX-159 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159) --for-spec --no-implementation-order`.
-function captureSnapshot(rfcPath) {
+// [::TICKET::] PX-158, PX-159, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159|PX-365) --for-spec --no-implementation-order`.
+function captureSnapshot(rfcPath, { ifAbsent = false } = {}) {
   const { sessionDir } = resolveSessionDir(rfcPath);
   fs.mkdirSync(sessionDir, { recursive: true });
+  const baselinePath = path.join(sessionDir, BASELINE_FILE);
+  if (ifAbsent && fs.existsSync(baselinePath)) {
+    return { unchanged: true, snapshot: JSON.parse(fs.readFileSync(baselinePath, 'utf8')) };
+  }
   const content = fs.readFileSync(rfcPath, 'utf8');
   const snapshot = {
     hash: crypto.createHash('sha256').update(content).digest('hex'),
@@ -59,8 +63,28 @@ function captureSnapshot(rfcPath) {
     lines: content.split('\n'),
     capturedAt: new Date().toISOString(),
   };
-  fs.writeFileSync(path.join(sessionDir, BASELINE_FILE), JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(baselinePath, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
   return snapshot;
+}
+
+/** The Formula ledger is a generated appendix; it is not RFC prose for append-only. */
+const FORMULA_LEDGER_HEADING = /^(#{1,6})\s+Formula ledger\s*$/;
+
+/** Remove the one generated Formula ledger section from a line array. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function stripFormulaLedger(lines) {
+  const start = lines.findIndex((line) => FORMULA_LEDGER_HEADING.test(line));
+  if (start === -1) return lines;
+  const level = FORMULA_LEDGER_HEADING.exec(lines[start])[1].length;
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const heading = /^(#{1,6})\s+/.exec(lines[index]);
+    if (heading !== null && heading[1].length <= level) {
+      end = index;
+      break;
+    }
+  }
+  return [...lines.slice(0, start), ...lines.slice(end)];
 }
 
 /**
@@ -290,11 +314,13 @@ function formatDeltaReport({ appendOnly, delta, violations, contradiction, resol
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-158, PX-159, PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159|PX-231) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-158, PX-159, PX-231, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-158|PX-159|PX-231|PX-365) --for-spec --no-implementation-order`.
 function main() {
-  const [,, mode, rfcPath] = process.argv;
+  const args = process.argv.slice(2);
+  const mode = args[0];
+  const rfcPath = args.slice(1).find((argument) => !argument.startsWith('--'));
   if (!mode || !rfcPath) {
-    console.error('Usage: rfc-evolution.js <capture|verify|clean> <rfc-path>');
+    console.error('Usage: rfc-evolution.js <capture|verify|check-capture|clean> <rfc-path> [--if-absent] [--allow-empty]');
     process.exit(1);
   }
   const resolvedRfcPath = path.resolve(rfcPath);
@@ -306,8 +332,23 @@ function main() {
   const baselinePath = path.join(sessionDir, BASELINE_FILE);
 
   if (mode === 'capture') {
-    captureSnapshot(resolvedRfcPath);
-    process.stdout.write(JSON.stringify({ ok: true, mode: 'capture', baselinePath }) + '\n');
+    const captured = captureSnapshot(resolvedRfcPath, { ifAbsent: process.argv.includes('--if-absent') });
+    process.stdout.write(JSON.stringify({ ok: true, mode: 'capture', baselinePath, unchanged: captured.unchanged === true }) + '\n');
+    process.exit(0);
+  }
+
+  if (mode === 'check-capture') {
+    if (!fs.existsSync(baselinePath)) {
+      console.error('[ERROR] rfc-evolution: baseline.json not found. Run capture first.');
+      process.exit(1);
+    }
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+    const currentHash = crypto.createHash('sha256').update(fs.readFileSync(resolvedRfcPath)).digest('hex');
+    if (currentHash !== baseline.hash) {
+      console.error('[ERROR] RFC_CHANGED_SINCE_CAPTURE\nCause: the RFC changed after the Step 1-2 capture\nAction: re-run capture and re-apply the intended delta before writing\nTerminal: REPAIR_NO_PROGRESS');
+      process.exit(1);
+    }
+    process.stdout.write(JSON.stringify({ ok: true, mode: 'check-capture', hash: currentHash }) + '\n');
     process.exit(0);
   }
 
@@ -324,11 +365,15 @@ function main() {
     }
     const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
     const currentContent = fs.readFileSync(resolvedRfcPath, 'utf8');
-    const currentLines = currentContent.split('\n');
+    const currentLines = stripFormulaLedger(currentContent.split('\n'));
+    const baselineLines = stripFormulaLedger(baseline.lines);
 
-    const appendOnly = verifyAppendOnly(baseline.lines, currentLines);
-    const delta = extractDelta(baseline.lines, currentLines);
-    const wellFormedViolations = appendOnly.ok ? validateWellFormed(delta, currentContent) : [];
+    const appendOnly = verifyAppendOnly(baselineLines, currentLines);
+    const delta = extractDelta(baselineLines, currentLines);
+    const allowEmpty = process.argv.includes('--allow-empty');
+    const wellFormedViolations = appendOnly.ok
+      ? validateWellFormed(delta, currentContent).filter((violation) => !(allowEmpty && violation.startsWith('No evolution delta detected')))
+      : [];
 
     const { tickets, graph, dirsTree } = loadContradictionSources(process.cwd());
     const contradictionChecked = tickets !== null;
@@ -379,6 +424,7 @@ if (isMainModule) {
 export {
   resolveSessionDir,
   captureSnapshot,
+  stripFormulaLedger,
   alignLines,
   verifyAppendOnly,
   extractDelta,

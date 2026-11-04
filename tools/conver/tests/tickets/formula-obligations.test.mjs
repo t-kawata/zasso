@@ -32,6 +32,7 @@ const SPEC_TEXT = [
 ].join('\n');
 
 // [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 function buildFixture({ tickets = null, sidecarSpecPath = 'spec.md', symbolsFor = () => ['src/symbol.rs#WIDTH'] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'formula-tickets-'));
   const specPath = join(root, 'spec.md');
@@ -167,6 +168,19 @@ test('C001 error: an empty implementation symbol is refused', () => {
   const result = merge(fixture);
 
   assert.equal(result.findings.some((finding) => finding.code === 'IMPLEMENTATION_SYMBOL_MISSING'), true, JSON.stringify(result.findings));
+});
+
+test('C004 postcondition: an obligation on a reviewed ticket is an advisory and the status is unchanged', () => {
+  const fixture = buildFixture();
+  const document = JSON.parse(readFileSync(fixture.ticketsPath, 'utf8'));
+  document.phases[0].tickets[0].status = 'reviewed';
+  writeFileSync(fixture.ticketsPath, JSON.stringify(document, null, 2), 'utf8');
+  const result = merge(fixture);
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+  assert.equal(result.advisories.some((entry) => entry.code === 'FORMULA_OBLIGATION_ON_COMPLETED_TICKET'), true);
+  const after = JSON.parse(readFileSync(fixture.ticketsPath, 'utf8'));
+  assert.equal(after.phases[0].tickets[0].status, 'reviewed');
 });
 
 test('C001 postcondition: show-ticket-context renders the formula obligation', () => {

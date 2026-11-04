@@ -9,6 +9,7 @@
  * invention and a transcription look identical in the RFC alone.
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 
 import {
@@ -38,16 +39,39 @@ function parseArgs(argv) {
 }
 
 /** The line ranges this package's seed claims, resolved through the tree manifest. */
-// [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-359, PX-360, PX-361, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361|PX-365) --for-spec --no-implementation-order`.
 function ownedLineRanges(seed, treeManifest) {
   const segmentIds = seed.sourceSegments ?? [];
   const segments = treeManifest?.structure?.segments ?? [];
   const byId = new Map(segments.map((segment) => [segment.id, segment]));
 
-  return segmentIds
-    .map((id) => byId.get(id))
-    .filter((segment) => segment !== undefined)
-    .map((segment) => ({ lineStart: segment.line_start, lineEnd: segment.line_end }));
+  const ranges = [];
+  const unresolved = [];
+  for (const id of segmentIds) {
+    const segment = byId.get(id);
+    if (segment === undefined) unresolved.push(id);
+    else ranges.push({ lineStart: segment.line_start, lineEnd: segment.line_end });
+  }
+  return { ranges, unresolved };
+}
+
+/** Resolve a sidecar or seed path against the workspace root, including ~/ paths. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function resolveSpecPath(workspaceRoot, value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  return resolve(value.startsWith('~/') ? homedir() : workspaceRoot, value.startsWith('~/') ? value.slice(2) : value);
+}
+
+/** Enrich a coverage finding with the exact repair and verification commands. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function withRepair(finding, rfcDir) {
+  const target = finding.formulaId ?? 'the owned formulas';
+  return {
+    ...finding,
+    severity: 'blocking',
+    action: `edit ${rfcDir}/RFC.md and ${rfcDir}/RFC-FORMULAS.json for ${target} from the specification extractor`,
+    verify: `node .claude/scripts/grill-me-for-rfc/check-formula-coverage.js ${rfcDir}`,
+  };
 }
 
 /** Whether a formula line overlaps a range this package owns. */
@@ -77,12 +101,25 @@ export function run(argv) {
     return 1;
   }
 
-  const seed = parseSeedIdentity(readFileSync(resolve(rfcDir, 'RFC-SEED.md'), 'utf8'));
-  const specPath = resolve(workspaceRoot, seed.sourceSpec.path);
-  const specBytes = readFileSync(specPath);
+  let seed;
+  let specBytes;
+  let treeManifest;
+  try {
+    seed = parseSeedIdentity(readFileSync(resolve(rfcDir, 'RFC-SEED.md'), 'utf8'));
+    specBytes = readFileSync(resolve(workspaceRoot, seed.sourceSpec.path));
+    treeManifest = JSON.parse(readFileSync(resolve(workspaceRoot, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
+  } catch (error) {
+    const entry = withRepair({
+      ...finding('SPECIFICATION_UNREADABLE', error.message),
+      field: 'specification',
+    }, rfcDir);
+    process.stdout.write(`${JSON.stringify({ ok: false, ownedFormulas: 0, ledgerRows: 0, transcribed: 0, findings: [entry] }, null, 2)}\n`);
+    process.stderr.write(`${entry.code}: ${entry.message}\n`);
+    return 1;
+  }
+
   const specText = specBytes.toString('utf8');
   const specDigest = sha256Hex(specBytes);
-  const treeManifest = JSON.parse(readFileSync(resolve(workspaceRoot, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
 
   const rfcPath = resolve(rfcDir, 'RFC.md');
   const rfcText = existsSync(rfcPath) ? readFileSync(rfcPath, 'utf8') : '';
@@ -94,17 +131,36 @@ export function run(argv) {
   const ledger = readFormulaLedger(rfcText);
   const findings = [...validateFormulaLedger(ledger), ...validateFormulaSidecar(sidecar, ledger)];
 
-  const ranges = ownedLineRanges(seed, treeManifest);
+  const { ranges, unresolved } = ownedLineRanges(seed, treeManifest);
+  for (const segmentId of unresolved) {
+    findings.push(finding('SEGMENT_UNRESOLVED', `the seed claims source segment ${segmentId} and the tree manifest does not define it`, { segmentId, field: 'source_segments' }));
+  }
+
   const allFormulas = uniqueFormulas(extractFormulas(specText));
   const ownedFormulas = allFormulas.filter((formula) => isOwned(formula, ranges));
   const allFormulaIds = new Set(allFormulas.map((formula) => formula.id));
+  const formulasById = new Map(allFormulas.map((formula) => [formula.id, formula]));
   const ledgerRows = new Map((ledger?.rows ?? []).map((row) => [row.id, row]));
+
+  if (ownedFormulas.length === 0 && unresolved.length === 0 && ledger === null && sidecar === null) {
+    const output = { ok: true, ownedFormulas: 0, ledgerRows: 0, transcribed: 0, findings: [] };
+    process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+    return 0;
+  }
 
   if (ledger !== null && ledger.specDigest !== specDigest) {
     findings.push(finding('SPEC_DIGEST_MISMATCH', `the ledger records ${ledger.specDigest} and the specification is ${specDigest}`, { field: 'specDigest' }));
   }
   if (ledger !== null && ledger.rfcDigest !== computeRfcDigest(rfcText)) {
     findings.push(finding('RFC_DIGEST_MISMATCH', 'the ledger rfcDigest does not reproduce the RFC body', { field: 'rfcDigest' }));
+  }
+
+  if (sidecar !== null) {
+    const seedSpecPath = resolveSpecPath(workspaceRoot, seed.sourceSpec.path);
+    const sidecarSpecPath = resolveSpecPath(workspaceRoot, sidecar.specPath);
+    if (sidecarSpecPath === null || sidecarSpecPath !== seedSpecPath) {
+      findings.push(finding('SPEC_PATH_MISMATCH', `the sidecar specPath ${sidecar.specPath ?? '(missing)'} does not resolve to the seed specification ${seed.sourceSpec.path}`, { field: 'specPath' }));
+    }
   }
 
   for (const formula of ownedFormulas) {
@@ -124,6 +180,27 @@ export function run(argv) {
         specLine: formula.lineStart,
       }));
     }
+    const location = row.specLocation;
+    if (location === null || location.lineStart !== formula.lineStart || location.lineEnd !== formula.lineEnd) {
+      findings.push(finding('SPEC_LOCATION_MISMATCH', `${formula.id} records a different specification line range in the ledger`, {
+        formulaId: formula.id,
+        field: 'specLocation',
+        specLine: formula.lineStart,
+      }));
+    }
+  }
+
+  for (const sidecarFormula of sidecar?.formulas ?? []) {
+    const extracted = formulasById.get(sidecarFormula.id);
+    if (extracted === undefined) continue;
+    const location = sidecarFormula.specLocation;
+    if (location === undefined || location.lineStart !== extracted.lineStart || location.lineEnd !== extracted.lineEnd) {
+      findings.push(finding('SPEC_LOCATION_MISMATCH', `${sidecarFormula.id} records a different specification line range in the sidecar`, {
+        formulaId: sidecarFormula.id,
+        field: 'specLocation',
+        specLine: extracted.lineStart,
+      }));
+    }
   }
 
   for (const id of ledgerRows.keys()) {
@@ -137,17 +214,18 @@ export function run(argv) {
     }
   }
 
+  const repaired = findings.map((entry) => withRepair(entry, rfcDir));
   const output = {
-    ok: findings.length === 0,
+    ok: repaired.length === 0,
     ownedFormulas: ownedFormulas.length,
     ledgerRows: ledger?.rows.length ?? 0,
     transcribed: ownedFormulas.filter((formula) => ledgerRows.has(formula.id)).length,
-    findings,
+    findings: repaired,
   };
   process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
 
-  if (findings.length > 0) {
-    for (const entry of findings) {
+  if (repaired.length > 0) {
+    for (const entry of repaired) {
       process.stderr.write(`${entry.code}${entry.formulaId ? ` ${entry.formulaId}` : ''}: ${entry.message}\n`);
     }
     return 1;

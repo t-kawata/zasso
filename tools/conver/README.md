@@ -189,6 +189,8 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 **ループ内の位置付け**: 実装ループの `/find-omissions` が計測したギャップのうち「実装側で埋められない設計起因のもの」、および出荷ループの `/crystalize-readme` が残した RESIDUE を解消します。さらに、市場変化や新たな要件（ユーザーとの自由会話・資料）を正典へ取り込む**進化ループ**の入口でもあります。
 
+**drill の役割は、進化の差分反映に加えて、root spec の数式・理論を Tickets まで貫通させることへ拡張されています。** `Tickets.json` が存在するタイミング以降は、FRESH / MIGRATION / REPAIR / VERIFY_ONLY のいずれでも実行でき、数式の所有・ledger・sidecar・GRAPH・Dirs-Tree・ヘッダ・Tickets の一致を証明します。欠落は `Action` / `Verify` を伴う finding として出て、修復して再実行し `COMPLETE` に到達します。終端は `COMPLETE` / `BLOCKED_PREREQUISITE` / `REPAIR_NO_PROGRESS`。workspace 全体の数式完全性は S8 の rollout レポートで確認します。
+
 ### 進化の入口は、上流ループを通過したかどうかで決まる
 
 正典 RFC を新しい情報で進化させる入口は、**上流ループ（`/explain-seed` → `/grill-me-for-rfc` → `/smooth-sequences` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets`）を終えたかどうか**で切り替わります。コマンド名の一覧ではなく、**ループ単位**で覚えてください。

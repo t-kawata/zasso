@@ -35,9 +35,32 @@ function allTickets(tickets) {
   return (tickets?.phases ?? []).flatMap((phase) => phase?.tickets ?? []);
 }
 
-// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
 function finding(code, subject, message) {
-  return { code, subject, message };
+  return { code, subject, message, severity: 'blocking' };
+}
+
+/** A ticket whose workflow is already complete still accepts an obligation, without a status change. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function isCompletedStatus(status) {
+  return status === 'reviewed' || status === 'done' || /^R\d+$/.test(status ?? '');
+}
+
+/** An advisory for an obligation that lands on a completed ticket. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function completedTicketAdvisory(ticket, formulaId) {
+  const ticketKey = `${ticket.phaseId}-${ticket.id}`;
+  return {
+    code: 'FORMULA_OBLIGATION_ON_COMPLETED_TICKET',
+    severity: 'advisory',
+    subject: formulaId,
+    ticketId: ticket.id,
+    ticketKey,
+    status: ticket.status,
+    message: `ticket ${ticketKey} is ${ticket.status} and receives ${formulaId}; its status is unchanged`,
+    action: `review the obligation with: node .claude/scripts/tickets/show-ticket-context.js --ticket-key=${ticketKey} --for-spec`,
+    verify: 'node .claude/scripts/sequences-slice/verify-chain.mjs --formula-only',
+  };
 }
 
 // [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
@@ -130,7 +153,7 @@ function buildObligation({ formula, entry, specText, specRelative, treeManifest 
  *   treeManifestPath?: string|null, write?: boolean}} input
  * @returns {{ok: boolean, findings: Array<object>, obligations: Array<object>}}
  */
-// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
 function mergeFormulasToTickets(input) {
   const { ticketsPath, dirsTreePath, sidecarPath, specPath, treeManifestPath = null, write = false, ticketsDocument = null } = input;
   const tickets = ticketsDocument ?? readJson(ticketsPath);
@@ -140,11 +163,12 @@ function mergeFormulasToTickets(input) {
   const specText = specBytes.toString('utf8');
   const treeManifest = treeManifestPath === null ? null : readJson(treeManifestPath);
   const findings = [];
+  const advisories = [];
 
   if (sidecar.specDigest !== sha256(specBytes)) {
     findings.push(finding('STALE_SIDECAR', 'specDigest', 'the sidecar does not bind the original specification'));
   }
-  if (findings.length > 0) return { ok: false, findings, obligations: [] };
+  if (findings.length > 0) return { ok: false, findings, advisories, obligations: [] };
 
   const sidecarIds = new Set((sidecar.formulas ?? []).map((formula) => formula.id));
   for (const ticket of allTickets(tickets)) {
@@ -183,9 +207,12 @@ function mergeFormulasToTickets(input) {
       continue;
     }
     obligations.push({ ticket: candidates[0], obligation: built.obligation });
+    if (isCompletedStatus(candidates[0].status)) {
+      advisories.push(completedTicketAdvisory(candidates[0], formula.id));
+    }
   }
 
-  if (findings.length > 0) return { ok: false, findings, obligations: obligations.map((entry) => entry.obligation) };
+  if (findings.length > 0) return { ok: false, findings, advisories, obligations: obligations.map((entry) => entry.obligation) };
 
   const byTicket = new Map();
   for (const entry of obligations) {
@@ -199,10 +226,10 @@ function mergeFormulasToTickets(input) {
   }
   if (write) fs.writeFileSync(ticketsPath, `${JSON.stringify(tickets, null, 2)}\n`);
 
-  return { ok: true, findings: [], obligations: obligations.map((entry) => entry.obligation) };
+  return { ok: true, findings: [], advisories, obligations: obligations.map((entry) => entry.obligation) };
 }
 
-// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const ticketsPath = argumentFor(argv, 'tickets');
   const dirsTreePath = argumentFor(argv, 'dirs-tree');
@@ -221,7 +248,8 @@ function main(argv = process.argv.slice(2)) {
     write: argv.includes('--write'),
   });
   for (const entry of result.findings) console.error(`${entry.code}: ${entry.subject} ${entry.message}`);
-  process.stdout.write(`${JSON.stringify({ ok: result.ok, obligations: result.obligations.length, findings: result.findings })}\n`);
+  for (const entry of result.advisories) console.error(`advisory: ${entry.code}: ${entry.subject} ${entry.message}`);
+  process.stdout.write(`${JSON.stringify({ ok: result.ok, obligations: result.obligations.length, findings: result.findings, advisories: result.advisories })}\n`);
   return result.ok ? 0 : 1;
 }
 

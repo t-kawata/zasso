@@ -30,8 +30,10 @@ const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
 const TICKETS_ARG_PREFIX = '--tickets=';
+const PACKAGE_ARG_PREFIX = '--package=';
 const TICKETS_FILENAME = 'Tickets.json';
 const README_FILENAME = 'README.md';
+const WORKSPACE_MANIFEST = 'WORKSPACIFY-TREE-MANIFEST.json';
 const SESSION_DIR_NAME = 'drills';
 const DRILL_DIR = '$(git rev-parse --show-toplevel)/.claude/scripts/drill-rfc-down';
 const VARIABLES_HEADER = '[VARIABLES]';
@@ -77,13 +79,17 @@ const UPSTREAM_LOOP = '/explain-seed → /grill-me-for-rfc → /graphify-rfc →
  * @returns {{ ticketsPath: string, materialArgs: string[] }}
  * @throws {Error} If an unknown flag (starting with `-`) is present
  */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   let ticketsPath = '';
+  let packageDir = '';
   const materialArgs = [];
   for (const arg of argv) {
     if (arg.startsWith(TICKETS_ARG_PREFIX)) {
       ticketsPath = arg.slice(TICKETS_ARG_PREFIX.length);
+    } else if (arg.startsWith(PACKAGE_ARG_PREFIX)) {
+      packageDir = arg.slice(PACKAGE_ARG_PREFIX.length);
     } else if (arg.startsWith('-')) {
       throw new Error(`Unknown argument: ${arg}`);
     } else {
@@ -95,7 +101,11 @@ function parseArguments(args) {
   const resolvedTicketsPath = ticketsPath
     ? path.resolve(ticketsPath)
     : path.resolve(TICKETS_FILENAME);
-  return { ticketsPath: resolvedTicketsPath, materialArgs };
+  return {
+    ticketsPath: resolvedTicketsPath,
+    packageDir: packageDir ? path.resolve(packageDir) : process.cwd(),
+    materialArgs,
+  };
 }
 
 /**
@@ -267,6 +277,51 @@ function resolvePipelinePaths(tickets, ticketsDir) {
   return { rfcPath: '', graphPath: '', dirsTreePath: '', pathSource: 'unknown', sourcePath: resolvedSource };
 }
 
+/** Walk upward to the directory holding the workspace tree manifest. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function findWorkspaceRoot(startDir) {
+  for (let base = path.resolve(startDir); ; base = path.dirname(base)) {
+    if (fs.existsSync(path.join(base, WORKSPACE_MANIFEST))) return base;
+    if (base === path.dirname(base)) return null;
+  }
+}
+
+/** A drill may only act on the package it was invoked from, unless --package names it. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function canonicalPath(value) {
+  try {
+    return fs.realpathSync(value);
+  } catch {
+    return path.resolve(value);
+  }
+}
+
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function assertPackageTarget(packageDir, pipeline) {
+  const root = canonicalPath(packageDir);
+  for (const [label, artifactPath] of [['RFC', pipeline.rfcPath], ['GRAPH', pipeline.graphPath], ['Dirs-Tree', pipeline.dirsTreePath]]) {
+    const resolved = canonicalPath(artifactPath);
+    if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+      return {
+        ok: false,
+        message: `[ERROR] PACKAGE_TARGET_MISMATCH\nCause: ${label} ${resolved} is outside the invocation package ${root}\nAction: run /drill-rfc-down from the package directory or pass --package=${root}\nTerminal: BLOCKED_PREREQUISITE`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
+/** The named refusal for a package that has not reached /split-to-tickets yet. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function formatMissingTicketsMessage(packageDir) {
+  return [
+    '[ERROR] TICKETS_MISSING_ROUTE_SPLIT_TO_TICKETS',
+    `Cause: Tickets.json not found in ${packageDir}`,
+    'Action: run /split-to-tickets in the package directory, then re-run /drill-rfc-down',
+    'Terminal: BLOCKED_PREREQUISITE',
+  ].join('\n');
+}
+
 /**
  * Split labeled paths into present and missing buckets.
  *
@@ -315,8 +370,9 @@ function formatResolutionErrorMessage(pathSource, sourcePath) {
  * @param {Object} vars — rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir
  * @returns {string} [VARIABLES] block
  */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 function formatVariablesBlock(vars) {
-  const { rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir } = vars;
+  const { rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir, workspaceRoot } = vars;
   return [
     VARIABLES_HEADER,
     `RFC_PATH=${rfcPath}`,
@@ -327,6 +383,7 @@ function formatVariablesBlock(vars) {
     `TICKETS_PATH=${ticketsPath}`,
     `SESSION_DIR=${sessionDir}`,
     `DRILL_DIR=${drillDir}`,
+    `WORKSPACE_ROOT=${workspaceRoot ?? ''}`,
     VARIABLES_FOOTER,
   ].join('\n');
 }
@@ -410,14 +467,24 @@ function formatAbortMessage(missing) {
 /**
  * main — CLI entry point (Step 0 Preflight).
  */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 function main() {
   try {
-    const { ticketsPath, materialArgs } = parseArguments();
+    const { ticketsPath, packageDir, materialArgs } = parseArguments();
+    if (!fs.existsSync(ticketsPath)) {
+      process.stderr.write(`${formatMissingTicketsMessage(packageDir)}\n`);
+      process.exit(EXIT_FAILURE);
+    }
     const tickets = readTickets(ticketsPath);
     const ticketsDir = path.dirname(ticketsPath);
     const { rfcPath, graphPath, dirsTreePath, pathSource, sourcePath } = resolvePipelinePaths(tickets, ticketsDir);
     if (!rfcPath || !graphPath || !dirsTreePath) {
       throw new Error(formatResolutionErrorMessage(pathSource, sourcePath || ''));
+    }
+    const target = assertPackageTarget(packageDir, { rfcPath, graphPath, dirsTreePath });
+    if (!target.ok) {
+      process.stderr.write(`${target.message}\n`);
+      process.exit(EXIT_FAILURE);
     }
     const materialResult = collectMaterialPaths(materialArgs, process.cwd());
     const readmePath = path.resolve(README_FILENAME);
@@ -432,6 +499,7 @@ function main() {
       process.exit(EXIT_FAILURE);
     }
     const rfcDir = path.dirname(rfcPath);
+    const workspaceRoot = findWorkspaceRoot(packageDir);
     const variablesBlock = formatVariablesBlock({
       rfcPath,
       rfcDir,
@@ -441,6 +509,7 @@ function main() {
       ticketsPath,
       sessionDir: path.join(rfcDir, SESSION_DIR_NAME),
       drillDir: DRILL_DIR,
+      workspaceRoot,
     });
     process.stdout.write(`${formatPreflightMarkdown({
       ...materialResult,
@@ -467,6 +536,9 @@ module.exports = {
   readTickets,
   resolveMetadataSource,
   resolvePipelinePaths,
+  findWorkspaceRoot,
+  assertPackageTarget,
+  formatMissingTicketsMessage,
   verifyExistence,
   formatResolutionErrorMessage,
   formatPreflightMarkdown,
@@ -474,8 +546,10 @@ module.exports = {
   formatVariablesBlock,
   main,
   TICKETS_ARG_PREFIX,
+  PACKAGE_ARG_PREFIX,
   TICKETS_FILENAME,
   README_FILENAME,
+  WORKSPACE_MANIFEST,
   SESSION_DIR_NAME,
   DRILL_DIR,
   VARIABLES_HEADER,

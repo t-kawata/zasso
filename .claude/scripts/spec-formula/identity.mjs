@@ -33,6 +33,7 @@ export class SpecIdentityError extends Error {
 }
 
 /** @param {string} seedText @returns {{packageId: string|null, sourceSpec: {path: string, sha256: string}, sourceSegments: string[]|null, stage1Manifest: object|null}} */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
 export function parseSeedIdentity(seedText) {
   JSON_FENCE.lastIndex = 0;
   let match;
@@ -123,22 +124,37 @@ function finding(code, message, extra = {}) {
  * }}
  */
 export function verifySourceIdentity({ rfcDir, workspaceRoot, sequencesArtifactPath = null }) {
-  const findings = [];
+  const blocking = [];
+  const advisories = [];
   const recorded = { seed: null, info: null, sequences: null };
+
+  const blockingFinding = (code, message, extra = {}) => ({
+    ...finding(code, message, extra),
+    severity: 'blocking',
+  });
+  const secondaryFinding = (record, detail, message, extra = {}) => ({
+    ...finding('STALE_SECONDARY_RECORD', message, { record, detail, severity: 'advisory', ...extra }),
+    severity: 'advisory',
+  });
+
+  const result = (specPath, specSha256, lines) => ({
+    ok: blocking.length === 0,
+    specPath,
+    specSha256,
+    lines,
+    recorded,
+    blocking,
+    advisories,
+    findings: [...blocking, ...advisories],
+  });
 
   let identity;
   try {
     identity = parseSeedIdentity(readFileSync(join(rfcDir, SEED_FILENAME), 'utf8'));
   } catch (error) {
     const code = error instanceof SpecIdentityError ? error.code : 'SEED_UNREADABLE';
-    return {
-      ok: false,
-      specPath: null,
-      specSha256: null,
-      lines: null,
-      recorded,
-      findings: [finding(code, error.message)],
-    };
+    blocking.push(blockingFinding(code, error.message));
+    return result(null, null, null);
   }
 
   recorded.seed = identity.sourceSpec.sha256;
@@ -147,21 +163,15 @@ export function verifySourceIdentity({ rfcDir, workspaceRoot, sequencesArtifactP
   try {
     specBytes = readFileSync(specPath);
   } catch {
-    return {
-      ok: false,
-      specPath,
-      specSha256: null,
-      lines: null,
-      recorded,
-      findings: [finding('SPECIFICATION_UNREADABLE', `the specification cannot be read: ${identity.sourceSpec.path}`)],
-    };
+    blocking.push(blockingFinding('SPECIFICATION_UNREADABLE', `the specification cannot be read: ${identity.sourceSpec.path}`));
+    return result(specPath, null, null);
   }
 
   const specSha256 = sha256Hex(specBytes);
   const lines = specBytes.toString('utf8').split('\n').length;
 
   if (specSha256 !== identity.sourceSpec.sha256) {
-    findings.push(finding(
+    blocking.push(blockingFinding(
       'SPEC_HASH_MISMATCH',
       `the seed records ${identity.sourceSpec.sha256} and the specification is ${specSha256}`,
       { record: 'seed' },
@@ -170,18 +180,28 @@ export function verifySourceIdentity({ rfcDir, workspaceRoot, sequencesArtifactP
 
   const infoPath = join(rfcDir, INFO_FILENAME);
   if (!existsSync(infoPath)) {
-    findings.push(finding('INFO_MISSING', `${INFO_FILENAME} is not present beside the seed`));
+    advisories.push(secondaryFinding(INFO_FILENAME, 'INFO_MISSING', `${INFO_FILENAME} is not present beside the seed`));
   } else {
     const info = parseInfoSpecification(readFileSync(infoPath, 'utf8'));
     if (info === null) {
-      findings.push(finding('INFO_SPECIFICATION_MISSING', `${INFO_FILENAME} records no specification hash line`));
+      advisories.push(secondaryFinding(INFO_FILENAME, 'INFO_SPECIFICATION_MISSING', `${INFO_FILENAME} records no specification hash line`));
     } else {
       recorded.info = info.sha256;
       if (info.sha256 !== specSha256) {
-        findings.push(finding('INFO_HASH_MISMATCH', `${INFO_FILENAME} records ${info.sha256} and the specification is ${specSha256}`));
+        advisories.push(secondaryFinding(
+          INFO_FILENAME,
+          'INFO_HASH_MISMATCH',
+          `${INFO_FILENAME} records ${info.sha256} and the specification is ${specSha256}`,
+          { actual: info.sha256, expected: specSha256 },
+        ));
       }
       if (basename(info.path) !== basename(identity.sourceSpec.path)) {
-        findings.push(finding('INFO_PATH_MISMATCH', `${INFO_FILENAME} records ${info.path} and the seed records ${identity.sourceSpec.path}`));
+        advisories.push(secondaryFinding(
+          INFO_FILENAME,
+          'INFO_PATH_MISMATCH',
+          `${INFO_FILENAME} records ${info.path} and the seed records ${identity.sourceSpec.path}`,
+          { actual: info.path, expected: identity.sourceSpec.path },
+        ));
       }
     }
   }
@@ -193,19 +213,34 @@ export function verifySourceIdentity({ rfcDir, workspaceRoot, sequencesArtifactP
       const sequences = parseSequencesSpec(artifact);
       recorded.sequences = sequences.sha256;
       if (sequences.sha256 !== specSha256) {
-        findings.push(finding('SEQUENCES_HASH_MISMATCH', `the sequences artifact records ${sequences.sha256} and the specification is ${specSha256}`));
+        advisories.push(secondaryFinding(
+          artifactPath,
+          'SEQUENCES_HASH_MISMATCH',
+          `the sequences artifact records ${sequences.sha256} and the specification is ${specSha256}`,
+          { actual: sequences.sha256, expected: specSha256 },
+        ));
       }
       if (basename(sequences.path) !== basename(identity.sourceSpec.path)) {
-        findings.push(finding('SEQUENCES_PATH_MISMATCH', `the sequences artifact records ${sequences.path} and the seed records ${identity.sourceSpec.path}`));
+        advisories.push(secondaryFinding(
+          artifactPath,
+          'SEQUENCES_PATH_MISMATCH',
+          `the sequences artifact records ${sequences.path} and the seed records ${identity.sourceSpec.path}`,
+          { actual: sequences.path, expected: identity.sourceSpec.path },
+        ));
       }
       if (sequences.lines !== null && sequences.lines !== lines) {
-        findings.push(finding('SEQUENCES_LINES_MISMATCH', `the sequences artifact records ${sequences.lines} lines and the specification has ${lines}`));
+        advisories.push(secondaryFinding(
+          artifactPath,
+          'SEQUENCES_LINES_MISMATCH',
+          `the sequences artifact records ${sequences.lines} lines and the specification has ${lines}`,
+          { actual: sequences.lines, expected: lines },
+        ));
       }
     } catch (error) {
       const code = error instanceof SpecIdentityError ? error.code : 'SEQUENCES_UNREADABLE';
-      findings.push(finding(code, error.message));
+      advisories.push(secondaryFinding(artifactPath, code, error.message));
     }
   }
 
-  return { ok: findings.length === 0, specPath, specSha256, lines, recorded, findings };
+  return result(specPath, specSha256, lines);
 }

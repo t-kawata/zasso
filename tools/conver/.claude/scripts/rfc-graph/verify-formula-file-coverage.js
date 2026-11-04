@@ -25,9 +25,16 @@ function argumentFor(argv, name) {
   return index === -1 ? null : argv[index + 1] ?? null;
 }
 
-// [::TICKET::] PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-361, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361|PX-365) --for-spec --no-implementation-order`.
 function finding(code, subject, message) {
-  return { code, subject, message };
+  return {
+    code,
+    subject,
+    message,
+    severity: 'blocking',
+    action: 're-run attach-formula-ids.js --dirs-tree and refresh-file-headers.js, then re-run verify-formula-file-coverage.js',
+    verify: 'node .claude/scripts/rfc-graph/verify-formula-file-coverage.js --graph=<graph> --dirs-tree=<dirs-tree> --sidecar=<sidecar> --root=<root>',
+  };
 }
 
 // [::TICKET::] PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361) --for-spec --no-implementation-order`.

@@ -73,6 +73,16 @@ export const CHAIN_CODES = Object.freeze({
   FORMULA_DUPLICATE_TICKET: 'FORMULA_DUPLICATE_TICKET',
   FORMULA_ORIGIN_INVALID: 'FORMULA_ORIGIN_INVALID',
   FORMULA_IMPLEMENTATION_MISSING: 'FORMULA_IMPLEMENTATION_MISSING',
+  FORMULA_BODY_MISMATCH: 'FORMULA_BODY_MISMATCH',
+  FORMULA_THEORY_MISMATCH: 'FORMULA_THEORY_MISMATCH',
+  FORMULA_CLASS_MISMATCH: 'FORMULA_CLASS_MISMATCH',
+  FORMULA_ANCHOR_MISMATCH: 'FORMULA_ANCHOR_MISMATCH',
+  FORMULA_DESIGN_MISMATCH: 'FORMULA_DESIGN_MISMATCH',
+  FORMULA_TESTS_MISMATCH: 'FORMULA_TESTS_MISMATCH',
+  FORMULA_SYMBOL_MISMATCH: 'FORMULA_SYMBOL_MISMATCH',
+  FORMULA_ORIGIN_PATH_MISMATCH: 'FORMULA_ORIGIN_PATH_MISMATCH',
+  FORMULA_ORIGIN_LINE_MISMATCH: 'FORMULA_ORIGIN_LINE_MISMATCH',
+  FORMULA_ORIGIN_QUOTE_MISMATCH: 'FORMULA_ORIGIN_QUOTE_MISMATCH',
 });
 
 /** One named chain finding. */
@@ -212,10 +222,34 @@ function compareFormulaSets(actual, expected, layer, findings) {
   }
 }
 
+/** Order-insensitive symbol representation for ticket/sidecar parity. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function normalizeFormulaSymbols(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => `${String(entry?.symbol ?? '').trim()}=${String(entry?.definition ?? '').trim()}`)
+    .filter((entry) => entry !== '=')
+    .sort();
+}
+
+/** Order-insensitive string list for ticket/sidecar parity. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function normalizeFormulaStrings(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => String(entry).trim())
+    .filter((entry) => entry.length > 0)
+    .sort();
+}
+
+/** The file part of a path#symbol anchor. */
+// [::TICKET::] PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-365 --for-spec --no-implementation-order`.
+function anchorPath(value) {
+  return typeof value === 'string' ? value.split('#')[0] : '';
+}
+
 /** Compare the formula set and digest at the graph and Dirs-Tree layers. */
 // [::TICKET::] PX-361, PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361|PX-362) --for-spec --no-implementation-order`.
-function verifyFormulaChain(input) {
-  const { graph, dirsTree, tickets, checkDirs, checkTickets, graphPath, findings } = input;
+export function verifyFormulaChain(input) {
+  const { graph, dirsTree, tickets, checkDirs, checkTickets, graphPath, specText = null, specPath = null, findings } = input;
   if (typeof graphPath !== 'string' || graphPath.length === 0) return;
   const sidecarPath = join(dirname(graphPath), 'RFC-FORMULAS.json');
   const graphIds = new Set((graph?.nodes ?? []).flatMap((node) => readFormulaIds(node)));
@@ -258,12 +292,13 @@ function verifyFormulaChain(input) {
   }
 
   if (!checkTickets) return;
-  verifyTicketFormulaObligations({ tickets, sidecar, graphIds, findings });
+  verifyTicketFormulaObligations({ tickets, sidecar, graphIds, dirsTree, specText, specPath, findings });
 }
 
 /** Compare the ticket obligations with the graph formula set and the sidecar digests. */
-// [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
-function verifyTicketFormulaObligations({ tickets, sidecar, graphIds, findings }) {
+// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
+function verifyTicketFormulaObligations(input) {
+  const { tickets, sidecar, graphIds, dirsTree, specText, specPath, findings } = input;
   const obligations = (tickets?.phases ?? [])
     .flatMap((phase) => phase?.tickets ?? [])
     .flatMap((ticket) => (ticket?.formulaObligations ?? []).map((obligation) => ({ ticket, obligation })));
@@ -283,17 +318,54 @@ function verifyTicketFormulaObligations({ tickets, sidecar, graphIds, findings }
   compareFormulaSets(ticketIds, graphIds, 'formula/tickets', findings);
 
   const sidecarById = new Map((sidecar?.formulas ?? []).map((formula) => [formula.id, formula]));
+  const specLines = typeof specText === 'string' ? specText.split('\n') : null;
+  const sidecarSpecPath = typeof sidecar?.specPath === 'string' ? sidecar.specPath : null;
   for (const { ticket, obligation } of obligations) {
     const formula = sidecarById.get(obligation.id);
     if (formula === undefined) continue;
     if (obligation.digest !== formula.digest) {
       findings.push(finding(CHAIN_CODES.FORMULA_DIGEST_MISMATCH, obligation.id, `ticket ${ticket.id} carries a different digest`));
     }
-    if (typeof obligation.origin?.path !== 'string' || obligation.origin.path.endsWith('RFC.md')) {
-      findings.push(finding(CHAIN_CODES.FORMULA_ORIGIN_INVALID, obligation.id, `ticket ${ticket.id} names ${obligation.origin?.path ?? 'no origin'} instead of the specification`));
+    if (typeof obligation.body !== 'string' || obligation.body !== formula.body) {
+      findings.push(finding(CHAIN_CODES.FORMULA_BODY_MISMATCH, obligation.id, `ticket ${ticket.id} carries a different formula body`));
     }
+    if ((obligation.design?.class ?? '') !== (formula.implementation?.class ?? '')) {
+      findings.push(finding(CHAIN_CODES.FORMULA_CLASS_MISMATCH, obligation.id, `ticket ${ticket.id} carries a different realization class`));
+    }
+    if ((obligation.design?.how ?? '') !== (formula.implementation?.design ?? '')) {
+      findings.push(finding(CHAIN_CODES.FORMULA_DESIGN_MISMATCH, obligation.id, `ticket ${ticket.id} carries a different implementation design`));
+    }
+    if (normalizeFormulaSymbols(obligation.theory?.symbols).join('|') !== normalizeFormulaSymbols(formula.theory?.symbols).join('|')
+      || normalizeFormulaStrings(obligation.theory?.norms).join('|') !== normalizeFormulaStrings(formula.theory?.normative).join('|')) {
+      findings.push(finding(CHAIN_CODES.FORMULA_THEORY_MISMATCH, obligation.id, `ticket ${ticket.id} carries a different theory`));
+    }
+    if (normalizeFormulaStrings(obligation.tests).join('|') !== normalizeFormulaStrings(formula.tests).join('|')) {
+      findings.push(finding(CHAIN_CODES.FORMULA_TESTS_MISMATCH, obligation.id, `ticket ${ticket.id} carries different verification tests`));
+    }
+    const expectedSymbol = [...(formula.implementation?.symbols ?? [])].sort()[0] ?? anchorPath(formula.implementation?.location);
     if (typeof obligation.implementation?.symbol !== 'string' || obligation.implementation.symbol.length === 0) {
       findings.push(finding(CHAIN_CODES.FORMULA_IMPLEMENTATION_MISSING, obligation.id, `ticket ${ticket.id} names no implementation symbol`));
+    } else if (expectedSymbol.length > 0 && obligation.implementation.symbol !== expectedSymbol) {
+      findings.push(finding(CHAIN_CODES.FORMULA_ANCHOR_MISMATCH, obligation.id, `ticket ${ticket.id} names ${obligation.implementation.symbol} and the sidecar names ${expectedSymbol}`));
+    }
+    const dirsEntry = dirsTree?.distribution?.formulas?.[obligation.id];
+    if (dirsEntry !== undefined && typeof obligation.implementation?.symbol === 'string'
+      && !(dirsEntry.symbols ?? []).includes(obligation.implementation.symbol)) {
+      findings.push(finding(CHAIN_CODES.FORMULA_SYMBOL_MISMATCH, obligation.id, `the Dirs-Tree symbols do not contain ${obligation.implementation.symbol}`));
+    }
+    if (typeof obligation.origin?.path !== 'string' || obligation.origin.path.endsWith('RFC.md')) {
+      findings.push(finding(CHAIN_CODES.FORMULA_ORIGIN_INVALID, obligation.id, `ticket ${ticket.id} names ${obligation.origin?.path ?? 'no origin'} instead of the specification`));
+    } else if (sidecarSpecPath !== null && obligation.origin.path !== sidecarSpecPath && obligation.origin.path !== specPath) {
+      findings.push(finding(CHAIN_CODES.FORMULA_ORIGIN_PATH_MISMATCH, obligation.id, `ticket ${ticket.id} names ${obligation.origin.path} and the sidecar names ${sidecarSpecPath}`));
+    }
+    if (formula.specLocation !== undefined && obligation.origin?.line !== formula.specLocation.lineStart) {
+      findings.push(finding(CHAIN_CODES.FORMULA_ORIGIN_LINE_MISMATCH, obligation.id, `ticket ${ticket.id} names line ${obligation.origin?.line} and the sidecar names ${formula.specLocation.lineStart}`));
+    }
+    if (specLines !== null && Number.isInteger(obligation.origin?.line)) {
+      const expectedQuote = (specLines[obligation.origin.line - 1] ?? '').trim();
+      if (typeof obligation.origin?.quote !== 'string' || obligation.origin.quote.trim() !== expectedQuote) {
+        findings.push(finding(CHAIN_CODES.FORMULA_ORIGIN_QUOTE_MISMATCH, obligation.id, `ticket ${ticket.id} does not quote the specification line`));
+      }
     }
     if (!Array.isArray(obligation.tests) || obligation.tests.length === 0) {
       findings.push(finding(CHAIN_CODES.FORMULA_IMPLEMENTATION_MISSING, obligation.id, `ticket ${ticket.id} names no verification test`));
@@ -326,6 +398,8 @@ export function verifyChain(input = {}) {
     preflight = false,
     sidecarPath = null,
     graphPath = null,
+    specText = null,
+    specPath = null,
   } = input;
   const findings = [];
   const checkDirs = stage !== 'graphify' && !preflight && dirsTree !== undefined && dirsTree !== null;
@@ -370,7 +444,7 @@ export function verifyChain(input = {}) {
     const dirsUnits = new Set(Object.keys(dirsTree?.distribution?.units ?? {}));
     compareUnitSets(dirsUnits, graphUnits, 'dirs', findings);
   }
-  verifyFormulaChain({ graph, dirsTree, tickets, checkDirs, checkTickets, graphPath, findings });
+  verifyFormulaChain({ graph, dirsTree, tickets, checkDirs, checkTickets, graphPath, specText, specPath, findings });
 
   const validResiduals = validOperationResiduals(artifact, map);
   const artifactScoped = (treeManifest?.inventory?.objects ?? []).length > 0;
@@ -774,6 +848,32 @@ export function main(argv = process.argv.slice(2)) {
   const map = rfcText === null ? null : readDistributionMap(rfcText);
   const dirsTree = readJson(dirsPath);
   const tickets = readJson(ticketsPath);
+
+  if (argv.includes('--formula-only')) {
+    const specPath = argumentFor(argv, 'spec');
+    const specText = specPath !== null && existsSync(specPath) ? readFileSync(specPath, 'utf8') : null;
+    if (graph === null || graphPath === null || dirsTree === null || (requireTickets && tickets === null)) {
+      console.error('[ERROR] MISSING_LAYER: graph, Dirs-Tree and the required Tickets.json are required for --formula-only');
+      return 1;
+    }
+    const findings = [];
+    verifyFormulaChain({
+      graph,
+      dirsTree,
+      tickets,
+      checkDirs: true,
+      checkTickets: tickets !== null,
+      graphPath,
+      specText,
+      specPath,
+      findings,
+    });
+    const formulaFindings = findings.filter((entry) => entry.code.startsWith('FORMULA_'));
+    for (const entry of formulaFindings) console.error(`${entry.code}: ${entry.subject ?? ''} ${entry.message}`);
+    process.stdout.write(`${JSON.stringify({ ok: formulaFindings.length === 0, findings: formulaFindings })}\n`);
+    return formulaFindings.length === 0 ? 0 : 1;
+  }
+
   const registry = registryPath === null ? [] : (readJson(registryPath)?.contract_registry ?? []);
   const treeManifest = registryPath === null
     ? null

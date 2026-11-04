@@ -17,15 +17,16 @@ import {
 } from '../spec-formula/identity.mjs';
 import { toHomeRelative } from '../lib/path-utils.js';
 
-const USAGE = 'usage: verify-source-identity.js <rfc-dir> [--workspace=<root>] [--sequences=<artifact>]';
+const USAGE = 'usage: verify-source-identity.js <rfc-dir> [--workspace=<root>] [--sequences=<artifact>] [--no-record]';
 
 /** @param {string[]} argv */
-// [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-359, PX-360, PX-361, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361|PX-365) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
-  const options = { rfcDir: '', workspace: null, sequences: null };
+  const options = { rfcDir: '', workspace: null, sequences: null, noRecord: false };
   for (const argument of argv) {
     if (argument.startsWith('--workspace=')) options.workspace = argument.slice('--workspace='.length);
     else if (argument.startsWith('--sequences=')) options.sequences = argument.slice('--sequences='.length);
+    else if (argument === '--no-record') options.noRecord = true;
     else if (!argument.startsWith('--') && options.rfcDir.length === 0) options.rfcDir = argument;
   }
   return options;
@@ -80,13 +81,18 @@ export function run(argv) {
 
   if (!verified.ok) {
     process.stdout.write(`${JSON.stringify({ ...verified, materialRecorded: false }, null, 2)}\n`);
-    for (const finding of verified.findings) {
+    for (const finding of verified.blocking) {
       process.stderr.write(`refused: ${finding.code}: ${finding.message}\n`);
     }
     return 1;
   }
 
-  const recorded = recordSpecificationMaterial(rfcDir, verified.specPath);
+  const recorded = options.noRecord
+    ? { recorded: false, materialPaths: [] }
+    : recordSpecificationMaterial(rfcDir, verified.specPath);
+  for (const finding of verified.advisories) {
+    process.stderr.write(`advisory: ${finding.code} (${finding.record}): ${finding.message}\n`);
+  }
   process.stdout.write(`${JSON.stringify({
     ...verified,
     specPath: toHomeRelative(verified.specPath),
