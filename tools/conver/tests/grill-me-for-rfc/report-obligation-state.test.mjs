@@ -250,3 +250,82 @@ test('C005 two invocations over one workspace print the same section and exit 0 
   assert.equal(first.status, 0);
   assert.equal(second.status, 0);
 });
+
+// ---------------------------------------------------------------------------
+// PX-355 — the root package is named by the manifest, and its label is .
+// ---------------------------------------------------------------------------
+
+/** A ledger appendix the parser accepts, with no rows and a composition check. */
+// PX-355 @verifies C008
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function emptyLedger() {
+  return [
+    '# Package RFC',
+    '',
+    '## Distribution ledger',
+    '',
+    'This document is canonical over the material it was written from.',
+    '',
+    '| Unit | Kind | Owner | RFC location | Ground |',
+    '| --- | --- | --- | --- | --- |',
+    '',
+    '**Composition check.** nothing was distributed to this package.',
+    '',
+  ].join('\n');
+}
+
+/** A workspace whose root view holds a unit its root ledger does not name. */
+// PX-355 @verifies C008
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function workspaceWithRootCarriedUnit({ rootInManifest = true } = {}) {
+  const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px355-reporter-'));
+  fs.mkdirSync(path.join(root, 'crates', 'pkg-a'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+    workspace: {
+      packages: [
+        ...(rootInManifest ? [{ id: 'pkg-root', path: '.' }] : []),
+        { id: 'pkg-a', path: 'crates/pkg-a' },
+      ],
+    },
+    inventory: { objects: [] },
+  }));
+  fs.writeFileSync(path.join(root, 'SEQUENCES.json'), JSON.stringify({
+    packageId: 'pkg-root',
+    ownedOperationUnits: [], ownedSequenceUnits: [], crossBoundarySequenceUnits: [],
+    obligationUnits: [{ unitId: 'ctr-boundary-001', relation: 'carries' }],
+    adjudicatedColumns: [], obligationSource: 'undeclared',
+  }));
+  fs.writeFileSync(path.join(root, 'RFC.md'), emptyLedger());
+  fs.writeFileSync(path.join(root, 'crates', 'pkg-a', 'SEQUENCES.json'), JSON.stringify({
+    packageId: 'pkg-a',
+    ownedOperationUnits: [], ownedSequenceUnits: [], crossBoundarySequenceUnits: [], obligationUnits: [],
+    adjudicatedColumns: [], obligationSource: 'undeclared',
+  }));
+  fs.writeFileSync(path.join(root, 'crates', 'pkg-a', 'RFC.md'), emptyLedger());
+  return root;
+}
+
+test('PX-355 C008 describeCarriage renders the root entry with directory . and a repair naming .', () => {
+  const root = workspaceWithRootCarriedUnit();
+  try {
+    const report = describeCarriage({ root });
+    const entry = report.entries.find((candidate) => candidate.packageId === 'pkg-root');
+
+    assert.equal(entry.directory, '.');
+    assert.equal(entry.state, 'failed');
+    assert.match(entry.repair, /re-run \/grill-me-for-rfc in \./);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('PX-355 C006 a root view without a manifest declaration is not an entry', () => {
+  const root = workspaceWithRootCarriedUnit({ rootInManifest: false });
+  try {
+    const report = describeCarriage({ root });
+
+    assert.equal(report.entries.some((entry) => entry.packageId === 'pkg-root'), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

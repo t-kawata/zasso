@@ -24,6 +24,8 @@ import { main as coverageGateMain, readJsonOrNull } from './check-obligation-cov
 import { findPackageDirectories, main as dischargeGateMain } from './check-ledger-discharge.js';
 import { readPackageObligationState } from './obligation-state.js';
 import { SOURCE_ARTIFACT_SUFFIX } from '../sequences-slice/lib/material.mjs';
+import { packageDirectoriesOf as enumeratePackageDirectories } from '../sequences-slice/lib/package-directories.mjs';
+import { ROOT_PACKAGE_PATH } from '../sequences-slice/lib/packages.mjs';
 import { SEQUENCE_VERDICT_COMPLETE, SEQUENCE_VERDICT_FAILED } from '../sequences-slice/lib/package-verdict.mjs';
 import { toHomeRelative } from '../lib/path-utils.js';
 
@@ -74,25 +76,29 @@ function findingsOf(gate, subject) {
 /**
  * Every package directory the workspace names, with the id the allocation knows it by.
  *
- * The tree manifest is the authority because it is the only document that joins an id to a
- * directory; a workspace that carries none still receives an answer, keyed by the directory's own
- * name, because a report that refused would be a report nobody could read.
+ * The tree manifest is the authority because it is the only document that joins an id to
+ * a directory, and it may name the workspace root itself with path ".". A workspace that
+ * carries none still receives an answer, keyed by the directory's own name, because a
+ * report that refused would be a report nobody could read.
  */
-// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
-function packageDirectoriesOf(root) {
+// [::TICKET::] PX-270, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-270|PX-355) --for-spec --no-implementation-order`.
+function workspacePackageDirectories(root) {
   const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME));
   const packages = treeManifest?.workspace?.packages;
   if (Array.isArray(packages) && packages.length > 0) {
-    return packages.map((pkg) => ({ packageId: String(pkg.id), directory: path.join(root, String(pkg.path)) }));
+    return enumeratePackageDirectories(root, treeManifest).map(({ packageId, directory }) => ({ packageId, directory }));
   }
   return findPackageDirectories(root).map((directory) => ({ packageId: path.basename(directory), directory }));
 }
 
 /** What is wrong with one directory, and what writing it right would consist of. */
-// [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-270, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-270|PX-355) --for-spec --no-implementation-order`.
 function describeEntry(root, { packageId, directory }) {
   const { material, verdict } = readPackageObligationState(directory);
-  const relative = path.relative(root, directory);
+  // The root package's directory is the workspace root, whose relative path is the empty
+  // string. It is named "." so the heading and the repair say which directory to open.
+  const relativePath = path.relative(root, directory);
+  const relative = relativePath.length === 0 ? ROOT_PACKAGE_PATH : relativePath;
   const repair = verdict.state === SEQUENCE_VERDICT_FAILED
     ? `re-run /grill-me-for-rfc in ${relative} so the units above acquire rows in its own Distribution ledger`
     : null;
@@ -151,7 +157,7 @@ function renderFailedEntry(entry) {
  */
 // [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 export function describeCarriage({ root }) {
-  const entries = packageDirectoriesOf(root).map((entry) => describeEntry(root, entry));
+  const entries = workspacePackageDirectories(root).map((entry) => describeEntry(root, entry));
   const idsInState = (state) => entries.filter((entry) => entry.state === state).map((entry) => entry.packageId).sort();
   const failedPackageIds = idsInState(SEQUENCE_VERDICT_FAILED);
   const notYetPackageIds = entries
@@ -218,4 +224,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   process.exit(main());
 }
 
-export { captureGateOutput, describeEntry, findingsOf, packageDirectoriesOf };
+export { captureGateOutput, describeEntry, findingsOf, workspacePackageDirectories as packageDirectoriesOf };

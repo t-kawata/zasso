@@ -6,9 +6,10 @@
  * Usage: node calibrate.mjs <sequences-artifact> [--json]
  *
  * The artifact path is given; the two manifests are resolved beside it, and the package
- * seed documents are found by walking for RFC-SEED.md under crates/ beneath the same
- * root. That walk lives in lib/segments.mjs beside the join it feeds, so the slice reads
- * in three places and writes in one: this module still writes nothing.
+ * seed documents are read at the package paths the tree manifest names, including the
+ * workspace root when the manifest spells its path ".". That read lives in lib/segments.mjs
+ * beside the join it feeds, so the slice reads in three places and writes in one: this
+ * module still writes nothing.
  *
  * Output is prose by default and a machine record under --json. A calibration is read to
  * decide whether a gate may be written against it, and that decision is made by reading
@@ -26,7 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { parseSequencesArtifact } from './lib/artifact.mjs';
-import { PACKAGE_ROOT_DIRECTORY, readPackageSegments } from './lib/segments.mjs';
+import { readWorkspacePackageSegments } from './lib/segments.mjs';
 import { buildCalibrationReport, renderCalibrationJson, renderCalibrationProse } from './lib/report.mjs';
 
 const EXIT_OK = 0;
@@ -109,7 +110,7 @@ function readArtifactOrFail(artifactPath) {
   }
 }
 
-// [::TICKET::] PX-255 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-255 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-255, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-255|PX-355) --for-spec --no-implementation-order`.
 function main() {
   try {
     const { artifactPath, asJson } = parseArguments(process.argv.slice(2));
@@ -118,7 +119,7 @@ function main() {
     const artifact = readArtifactOrFail(artifactPath);
     const treeManifest = readJsonOrFail(path.join(root, TREE_MANIFEST_FILENAME));
     const allocateManifest = readJsonOrFail(path.join(root, ALLOCATE_MANIFEST_FILENAME));
-    const packageSegments = readPackageSegments(path.join(root, PACKAGE_ROOT_DIRECTORY));
+    const packageSegments = readWorkspacePackageSegments(root, treeManifest);
 
     const report = buildCalibrationReport({ artifact, treeManifest, allocateManifest, packageSegments });
 

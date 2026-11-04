@@ -54277,6 +54277,228 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-04"
+        },
+        {
+          "id": 355,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Resolve the root package (path '.') in every package enumeration",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-355.md",
+          "background": "### Goal\nEvery sequences-slice and grill reader sees the root package the tree manifest names with path \".\", and every consumer of package directories reads one shared enumeration.\n\n### Purpose\nThe root package is a supported workspacify shape: structure-parity.mjs defines ROOT_PACKAGE_PATH and the platform documents RFC-SEED.md, ./RFC-SEED.md and the root package as one file. A reader that walks only crates/ silently drops the root view, seed and OBLIGATION record, so K8, K5, the projection, the calibration and the rail demand disagree with the workspace.\n\n### Motivation\nCrystal exposed the defect: the grill run patched only the installed .claude tree, and make install-to-projects mirrors conver with rsync --delete, so the patch would be deleted. The same root omission exists in five more readers that the crystal patch did not touch.\n\n### Constraints\nThe tree manifest is the authority; no project-specific ids or paths. A root view is read only when the manifest names a package with path \".\"; a stray root view without that declaration stays unread. Existing key spellings for declared_interfaces and OBLIGATION records are resolved, not migrated. The legacy package-root readers remain for their current callers. Out of scope: supplying the K1 census, grilling the 22 sibling packages for K5, and complete-run DONE enforcement.",
+          "scope": [
+            "Modify .claude/scripts/sequences-slice/lib/packages.mjs: add ROOT_PACKAGE_PATH = \".\" and normalizePackagePath(value), and make resolvePackageByPath normalize both the input and every manifest entry path. Before: an absolute workspace root returns packageId:null with a reason beginning with an empty string. After: it resolves to the manifest entry whose path is \".\". API: two new named exports; the existing signature is unchanged.",
+            "Add .claude/scripts/sequences-slice/lib/package-directories.mjs: packageDirectoriesOf(root, treeManifest, { fallbackMarkers }) returns {packageId, packagePath, directory} sorted by packagePath. Manifest entries are resolved with path.resolve(root, normalizePackagePath(pkg.path)) and deduplicated by directory. Without workspace.packages, the fallback walks crates/ and includes only directories carrying one of the caller's artifact markers; the root is not included in the fallback.",
+            "Modify .claude/scripts/sequences-slice/lib/segments.mjs: add readWorkspacePackageSegments(root, treeManifest) that reads RFC-SEED.md at every enumerated package, including root, and keys it by the manifest package path. Keep readPackageSegments(packageRoot) unchanged for existing callers. Before: root/RFC-SEED.md is invisible and the line-range package count is one short. After: root is counted; a seed with no source_segments is an empty list, not a skipped package.",
+            "Modify .claude/scripts/sequences-slice/lib/obligation.mjs: add readWorkspaceObligations(root, allocateManifest, treeManifest) and shared per-directory seed/record readers. It reads root/OBLIGATION.json and root RFC-SEED.md serves, canonicalizes declared_interfaces keys authored as either pkg-a or crates/alpha, and keys every entry by the manifest package path (\".\" for root). Keep readPackageObligations(packageRoot, allocateManifest) unchanged.",
+            "Modify .claude/scripts/sequences-slice/lib/project-package.mjs: readWorkspaceSegmentsOrRefuse reads the tree manifest leniently and uses readWorkspacePackageSegments; packageRecordFor resolves both the manifest key (crates/pkg-a, \".\") and the legacy package-root key (pkg-a, ..); projectPackageView passes the already-read manifest to both readers. Before: the root package cannot be projected and its record is keyed \"..\". After: projectPackageView(artifactPath, root) writes the root view and reads root seed/record.",
+            "Modify .claude/scripts/sequences-slice/calibrate.mjs: use readWorkspacePackageSegments(root, treeManifest) instead of readPackageSegments(path.join(root, \"crates\")); remove the now-unused PACKAGE_ROOT_DIRECTORY import and update the doc comment from a crates walk to the manifest package paths.",
+            "Modify .claude/scripts/educe-sequences/rail/demand.mjs: readViewsBeneath(root, treeManifest) uses the shared enumeration with VIEW_JSON_NAME; readWorkspaceBeside passes the tree manifest it already reads. Before: the rail demand record omits the root view's units. After: root-owned demands are placed.",
+            "Modify .claude/scripts/grill-me-for-rfc/check-obligation-coverage.js: readViews(root, treeManifest) reads the tree manifest beside root when the argument is omitted and enumerates through packageDirectoriesOf; main passes the manifest it already reads. Before: a root view is invisible. After: it is counted, while a root view without a manifest declaration is not read.",
+            "Modify .claude/scripts/grill-me-for-rfc/check-ledger-discharge.js: add WORKSPACIFY-TREE-MANIFEST.json as a constant; findPackageDirectories(root, treeManifest) uses the shared enumeration and keeps only directories carrying a view; main reads and passes the manifest. Before: root is invisible. After: root's view and RFC.md ledger are discharged.",
+            "Modify .claude/scripts/grill-me-for-rfc/report-obligation-state.js: rename the local package-directory function to avoid colliding with the shared export, use packageDirectoriesOf with VIEW_JSON_NAME, and render the root entry's relative directory as \".\" instead of the empty string. Before: the root heading is empty. After: it names the workspace root.",
+            "Modify tests/sequences-slice/view.test.mjs, tests/grill-me-for-rfc/check-obligation-coverage.test.mjs, tests/grill-me-for-rfc/check-ledger-discharge.test.mjs, tests/grill-me-for-rfc/check-distribution-completeness.test.mjs and tests/grill-me-for-rfc/report-obligation-state.test.mjs with root-package cases; add tests/sequences-slice/packages.test.mjs, tests/sequences-slice/root-package.test.mjs and tests/educe-sequences/root-package-demand.test.mjs.",
+            "Non-change: tests/workspacify-order/unit/verdicts.test.mjs must stay green unchanged. Its stray-root-view case is the invariant that the root is not inferred from file presence; the manifest authority is what preserves it.",
+            "Non-change: the legacy readers readPackageSegments(packageRoot), readPackageObligations(packageRoot, allocateManifest) and readDeclaredInterfaces(packageRoot, allocateManifest) keep their signatures and behavior because tests and other callers use them; the workspace-aware readers are additive.",
+            "Non-change: complete-run.js, the K1 census supply and the K5 sibling grills are out of scope; they are tracked separately and must not be used to weaken the gates.",
+            "Impact: sequences-slice projection, calibration, the rail demand record, the two obligation gates, the distribution criterion and the obligation-state reporter. The manifest read is a local file read; no network, dependency, schema or migration change.",
+            "Impact response: run the impact-set node --test suites for sequences-slice, grill-me-for-rfc, educe-sequences and workspacify-order; do not run the full suite. After green, run make install-to-projects and re-run the gates over crystal."
+          ],
+          "testUnit": [
+            "UT: C001 normalizePackagePath maps an empty string, \".\", \"./\" and a trailing slash to \".\"; it converts backslashes to \"/\", preserves crates/pkg-a, and is idempotent.",
+            "UT: C001 normalizePackagePath does not throw for null, undefined or an empty string; each returns \".\".",
+            "UT: C003 resolvePackageByPath resolves an absolute workspace root and a relative \".\" or \"./\" to the manifest entry whose path is \".\", and resolves crates/pkg-a to its entry.",
+            "UT: C003 resolvePackageByPath returns packageId null and a reason naming the normalized path for a directory the manifest does not name.",
+            "UT: C002 packageDirectoriesOf enumerates every workspace.packages entry once, resolves \".\" to the workspace root, resolves crates/pkg-a to its directory, deduplicates two entries naming the same directory, and sorts by packagePath.",
+            "UT: C002 packageDirectoriesOf falls back to the crates walk with the caller's artifact marker when the manifest is absent or has no workspace.packages; the fallback does not include the workspace root.",
+            "UT: C006 readViews includes the root package view beside nested views when the manifest names \".\", reports no duplicate package ids, and does not read a stray root SEQUENCES.json when no manifest names \".\".",
+            "UT: C006 findPackageDirectories includes the root directory beside nested directories when the manifest names \".\", keeps only directories that carry a view, and does not include the root without that declaration.",
+            "UT: C005 readWorkspacePackageSegments reads root/RFC-SEED.md and nested seeds, keys them by the manifest package path including \".\", counts a seed with no source_segments as an empty list, and skips a package with no seed file.",
+            "UT: C004 readWorkspaceObligations reads root/OBLIGATION.json and root RFC-SEED.md serves, keys the root entry by \".\", and reads nested records.",
+            "UT: C004 readWorkspaceObligations canonicalizes declared_interfaces keys authored as pkg-a and as crates/alpha to the same package path without duplicating the entry.",
+            "UT: C007 packageRecordFor resolves the root record at key \".\", the manifest key crates/protocol/pkg-a and the legacy key protocol/pkg-a, and returns null for an unknown package.",
+            "UT: C008 describeEntry renders the root directory as \".\" in the entry and in the repair sentence, and leaves a nested relative path unchanged.",
+            "UT: C006 the legacy readPackageSegments(packageRoot) and readPackageObligations(packageRoot, manifest) keep their existing results, so callers and tests that pass a package root are unchanged.",
+            "UT: [Error] an unreadable manifest and a malformed manifest are treated as absent; no reader throws and the fallback result is returned.",
+            "UT: [Boundary] a manifest that names only \".\" yields one package, the workspace root; a manifest that names no packages falls back to the crates walk."
+          ],
+          "testIntegration": [
+            "IT: C006 check-obligation-coverage over a synthetic workspace whose tree manifest names pkg-root path \".\" and pkg-a path crates/pkg-a counts the root view's owned operation and reports no unassigned operation.",
+            "IT: C006 check-ledger-discharge over the same workspace with a root view holding ctr-boundary-001 and a root RFC.md ledger that omits it reports unaccounted: pkg-root — ctr-boundary-001; with the row added it exits 0.",
+            "IT: C006 a root view at the workspace root with no manifest naming \".\" is not read, so the discharge gate does not name pkg-root; this preserves tests/workspacify-order/unit/verdicts.test.mjs.",
+            "IT: C006 check-distribution-completeness over the root workspace reports K8 holds when the root view is carried and the root ledger accounts for its units; removing the root view reports K8 not established with not carried: pkg-root.",
+            "IT: C008 describeCarriage over the root workspace lists the pkg-root entry with directory \".\" and a repair naming \".\", and the entry matches the discharge gate's finding.",
+            "IT: C005 projectPackageView(artifactPath, root) writes SEQUENCES.json at the workspace root for pkg-root and includes root/RFC-SEED.md in the workspace line-range package count.",
+            "IT: C004 the rail demand record from demandSummaryBeside over a root-view workspace does not list the root-owned operation as unassigned.",
+            "IT: C002 a gaia-shaped workspace with 29 packages under crates/ and no root package produces the same package set, views and verdicts as before.",
+            "IT: [Prerequisite] no sibling package needs to be grilled for this ticket; the root fixtures are synthetic temp directories, not crystal.",
+            "IT: [Related tickets] this ticket is independent of PX-354 and the crystal grill run; it ports the root fix to conver before make install-to-projects."
+          ],
+          "default_files": [
+            ".claude/scripts/sequences-slice/lib/packages.mjs",
+            ".claude/scripts/sequences-slice/lib/package-directories.mjs",
+            ".claude/scripts/sequences-slice/lib/segments.mjs",
+            ".claude/scripts/sequences-slice/lib/obligation.mjs",
+            ".claude/scripts/sequences-slice/lib/project-package.mjs",
+            ".claude/scripts/sequences-slice/calibrate.mjs",
+            ".claude/scripts/educe-sequences/rail/demand.mjs",
+            ".claude/scripts/grill-me-for-rfc/check-obligation-coverage.js",
+            ".claude/scripts/grill-me-for-rfc/check-ledger-discharge.js",
+            ".claude/scripts/grill-me-for-rfc/report-obligation-state.js",
+            "tests/sequences-slice/packages.test.mjs",
+            "tests/sequences-slice/root-package.test.mjs",
+            "tests/sequences-slice/view.test.mjs",
+            "tests/educe-sequences/root-package-demand.test.mjs",
+            "tests/grill-me-for-rfc/check-obligation-coverage.test.mjs",
+            "tests/grill-me-for-rfc/check-ledger-discharge.test.mjs",
+            "tests/grill-me-for-rfc/check-distribution-completeness.test.mjs",
+            "tests/grill-me-for-rfc/report-obligation-state.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy: a workspace whose tree manifest names pkg-root path \".\" and pkg-a path crates/pkg-a has the root view, root RFC-SEED.md and root OBLIGATION.json read by every reader; check-distribution-completeness reports K8 holds.",
+            "Error: a directory the manifest does not name returns packageId null with a reason naming the normalized path; no reader silently matches it to the root.",
+            "Edge: a workspace with no root package produces the same package set and verdicts as before; a workspace with no tree manifest uses the crates walk and does not read a root view.",
+            "Boundary: a root SEQUENCES.json with no manifest declaration is a stray file and remains unread; tests/workspacify-order/unit/verdicts.test.mjs stays green unchanged.",
+            "Guard: the impact-set node --test suites for sequences-slice, grill-me-for-rfc, educe-sequences and workspacify-order pass.",
+            "Guard: after make install-to-projects, the installed .claude tree equals conver's .claude and the root-package behavior survives."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "normalizePackagePath",
+              "precondition": "value is a string path, possibly empty, \".\", \"./\", absolute, or using platform separators",
+              "postcondition": "returns a POSIX-relative package path with no trailing slash; empty, \".\" and \"./\" all return \".\"",
+              "invariant": "normalization is idempotent and preserves non-root path segments"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "packageDirectoriesOf",
+              "precondition": "root is an absolute workspace directory; treeManifest is absent or has workspace.packages; fallbackMarkers names the package artifact a caller reads",
+              "postcondition": "returns one packageId, packagePath and directory per manifest package, with the \".\" package resolving to root; without the manifest it returns only crates directories carrying a fallback marker",
+              "invariant": "no directory appears twice; the root is included only when the manifest names it, never from file presence"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "resolvePackageByPath",
+              "precondition": "packages is the manifest package list; packagePath is absolute or workspace-relative",
+              "postcondition": "returns the entry whose normalized path equals the normalized input; empty and \".\" both match the \".\" entry",
+              "invariant": "a non-matching path returns packageId null and a reason naming the normalized path"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "readWorkspaceObligations",
+              "precondition": "root is the workspace root; records live at package/OBLIGATION.json and package/RFC-SEED.md; allocateManifest may key declared_interfaces as pkg-a or crates/alpha",
+              "postcondition": "root OBLIGATION.json and root seed serves are included under the \".\" key; authored keys canonicalize to the manifest package path",
+              "invariant": "existing package-root-relative and workspace-relative key spellings still resolve and no record is read twice"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "readWorkspacePackageSegments",
+              "precondition": "root is the workspace root and treeManifest names zero or more packages; every package that carries RFC-SEED.md is a candidate",
+              "postcondition": "root and nested RFC-SEED.md files are read and keyed by the manifest package path; a seed with no source_segments is an empty list",
+              "invariant": "a package with no seed file is skipped, and the package count is the number of seed files read, not the number of manifest entries"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "readViews and findPackageDirectories",
+              "precondition": "the workspace root may carry SEQUENCES.json and the tree manifest may name a package with path \".\"",
+              "postcondition": "readViews includes the root view exactly once and findPackageDirectories includes the root directory exactly once",
+              "invariant": "when no manifest names \".\" a root SEQUENCES.json is not read; when no view exists the result is unchanged"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "packageRecordFor",
+              "precondition": "obligationsByPath may be keyed by the manifest path (crates/pkg-a, \".\") or the legacy package-root path (pkg-a, ..); packageDir is absolute or workspace-relative",
+              "postcondition": "the record for the directory is returned under either key, including the root",
+              "invariant": "an unknown directory returns null and no record is invented"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "describeEntry",
+              "precondition": "directory is the workspace root or a directory beneath it",
+              "postcondition": "the root renders as \".\" in the entry and the repair sentence; a nested relative path is unchanged",
+              "invariant": "no entry renders an empty string as its directory"
+            }
+          ],
+          "notes": "### Implementation steps\n1. Red: add the package-path and enumeration tests, the root view/seed/OBLIGATION tests and the gate integration tests. Confirm each fails for the absent behavior.\n2. Green: add normalizePackagePath and ROOT_PACKAGE_PATH to packages.mjs; add package-directories.mjs; add readWorkspacePackageSegments and readWorkspaceObligations; apply the enumerator to the two gates, the reporter, project-package, calibrate and the rail demand.\n3. Refactor: extract the shared per-directory seed/record readers, remove the unused PACKAGE_ROOT_DIRECTORY import in calibrate, and rename the reporter's local package-directory function so it does not shadow the shared export.\n4. Validate with the impact set, then run make install-to-projects only after green.\n\n### Risks\n- Changing the key spelling of packageSegments from package-root-relative to manifest path can change calibrate prose; the tests assert counts, but any text assertion must be updated.\n- Reading the tree manifest in readViews and findPackageDirectories changes the package order from filesystem walk order to packagePath order; tests that assert a multi-package order must sort.\n- A root view must remain unread when no manifest names \".\"; do not implement the crystal patch as an unconditional root SEQUENCES.json check.\n\n### Caveats\n- The legacy readers remain; the workspace-aware readers are additive.\n- The root is read only from the manifest, not inferred from file presence.\n- K1 census supply, K5 sibling grills and complete-run DONE enforcement are out of scope.\n\n### Open items\n- complete-run.js still declares DONE without running the nine gates; that needs a separate design ticket.\n\n### Future improvements\n- If a shared module for ROOT_PACKAGE_PATH emerges, unify it with workspacify-tree/lib/structure-parity.mjs.\nImplementation summary:\n- Changed files: .claude/scripts/sequences-slice/lib/{packages,package-directories,segments,obligation,project-package}.mjs; .claude/scripts/sequences-slice/calibrate.mjs; .claude/scripts/educe-sequences/rail/demand.mjs; .claude/scripts/grill-me-for-rfc/{check-obligation-coverage,check-ledger-discharge,report-obligation-state}.js; tests/sequences-slice/{packages,root-package,view}.test.mjs; tests/educe-sequences/root-package-demand.test.mjs; tests/grill-me-for-rfc/{check-obligation-coverage,check-ledger-discharge,check-distribution-completeness,report-obligation-state}.test.mjs.\n- Key changes: the tree manifest is the package authority; root '.' is normalized once and read by every consumer; legacy crates-walk and package-root key spellings remain compatible; a root view without a manifest declaration is not read.\n- Test results: impact set 189/189 pass; broader impacted suites have one pre-existing failure in tests/grill-me-for-rfc/sequences-material/step-zero.test.mjs, which also fails at HEAD and is not introduced by this ticket.\n- Quality checks: 0 issues. Stubs/crimes: 0.\n- Not run: make install-to-projects, which is the delivery step after review.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues (no debug output, generic variables, or noun-named functions in changed source)\n- Dependencies: consistency verified; PACKAGE_ROOT_DIRECTORY is re-exported from segments.mjs and package-directories.mjs does not import segments, so no ESM cycle\n- Annotation: 18 changed files verified, 0 missing, 0 ambiguous\n- Stubs/crimes: 0 stubs, 0 open crimes\n- Tests: impact set 189/189 passed; broader impacted suite 1882/1884 passed, 1 failed, 1 cancelled. The failure is the pre-existing C001 refresh test in tests/grill-me-for-rfc/sequences-material/step-zero.test.mjs; it also fails at HEAD and is not introduced by this ticket.\n- Review fixes applied: none required.\n- Assumption recorded: readWorkspacePackageSegments keeps a compatibility walk for seeds under crates/ that the manifest does not place at its own path; this preserves existing projection behavior while the root remains manifest-only.\n- Not run: make install-to-projects (delivery step after review).",
+          "invariants": "- [Normal condition] Every package tree.workspace.packages names is enumerated exactly once, and the package whose normalized path is \".\" resolves to the workspace root.\n- [Error invariant] A missing or unreadable tree manifest is a fallback to the crates walk, never a throw; an unknown path returns packageId null with a reason naming the normalized path.\n- [Internal state invariant] The tree manifest is the only source of package ids and paths; normalizePackagePath is idempotent, uses \"/\" separators and maps \"\", \".\" and \"./\" to \".\".\n- [Boundary invariant] A root SEQUENCES.json is read as a package view only when the manifest names a package with path \".\"; without that declaration it is a stray file and remains unread.",
+          "testExceptions": [],
+          "instrumentation": "- [Logging] No new log line. The readers are library functions; the gates print their findings to stdout and the reporter prints its advisory text.\n- [Metrics] No new metric. The observable signal is the gate exit code and the line naming the package, unit or path.\n- [Error tracking] A missing or unreadable tree manifest is a fallback, not an error. An unknown package path is returned as {packageId:null, reason} and reported by the caller; no error is swallowed.\n- [Health check] The impact-set node --test suites and the two gates plus check-distribution-completeness over a synthetic root workspace.\nStatic quality check: passed\nTranslatability: no issues\nTests: 189/189 impact-set tests passed; broader impacted suite has 1 pre-existing failure in tests/grill-me-for-rfc/sequences-material/step-zero.test.mjs (verified at HEAD, not introduced by PX-355)",
+          "investigation": "### Confirmed defects in conver (read-only probes, 2026-11-04)\n- packages.mjs:26 resolvePackageByPath([{id:'pkg-root',path:'.'}], '/workspace', '/workspace') returns {packageId:null, packagePath:null, reason:' is not a package the tree manifest names'}.\n- check-obligation-coverage.js:68 readViews over a temp root with root/SEQUENCES.json and crates/a/SEQUENCES.json returns only pkg-a.\n- check-ledger-discharge.js:67 findPackageDirectories returns only crates/a.\n- obligation.mjs:267/382 readPackageObligations(crates) over a temp root with root/OBLIGATION.json returns key a only; the root op-Root assignment is invisible.\n- segments.mjs:188 readPackageSegments(crates) over a temp root with root/RFC-SEED.md returns only a; the root s-root segment is invisible.\n- report-obligation-state.js:93 computes path.relative(root, root) === '' and renders an empty directory heading for the root package.\n\n### Root package is a supported shape\n- docs/progress-gif/GIF-ANIMATION-INFO-SUPPLEMENT.md section 2.2: \"the root package is supported\"; structure-parity.mjs defines ROOT_PACKAGE_PATH = '.'.\n- Same document section 2.1: \"RFC-SEED.md, ./RFC-SEED.md, and the root package all name the same file\" and \"Normalize seed paths before comparing\".\n- crystal WORKSPACIFY-TREE-MANIFEST.json names pkg-crystal at path \".\" beside 22 crates packages.\n\n### Why the crystal patch is not enough\n- The crystal patch adds the root view in two readers only and normalizes only the input side of resolvePackageByPath.\n- The same omission exists in segments, obligation records, project-package, calibrate and the rail demand; the root package's records remain invisible after the patch.\n- make install-to-projects (install.js:105) uses rsync --archive --delete, so the installed patch and its .claude/tests files would be deleted on the next install.\n\n### Invariants the fix must preserve\n- tests/workspacify-order/unit/verdicts.test.mjs:220 writes a stray root SEQUENCES.json and requires it to be unread. Therefore the root is included only when tree.workspace.packages names path \".\"; never from file presence alone.\n- tests/sequences-slice/package-record.test.mjs keys records by package-root-relative path; packageRecordFor must keep resolving that spelling.\n- tests/sequences-slice/obligation.test.mjs calls readPackageObligations(packageRoot, manifest) with a package root and keys pkg-a; the legacy reader must remain unchanged.\n- existing gate fixtures write WORKSPACIFY-TREE-MANIFEST.json as {inventory:{objects:[]}} with no workspace.packages; packageDirectoriesOf must fall back to the crates walk.\n\n### Test seams\n- node:test with temp directories under process.env.TMPDIR.\n- check-obligation-coverage.js exports readViews and readJsonOrNull.\n- check-ledger-discharge.js exports findPackageDirectories and readLedgers.\n- report-obligation-state.js exports describeCarriage, describeEntry and packageDirectoriesOf.\n- project-package.js exports packageRecordFor, readWorkspaceSegmentsOrRefuse and projectPackageView.",
+          "boyScoutPlan": "- Extract normalizePackagePath and packageDirectoriesOf so the five walk/normalize copies become one named concept; function names are verb phrases and the returned record is the domain noun.\n- Introduce ROOT_PACKAGE_PATH and TREE_MANIFEST_FILENAME constants instead of repeated \".\" and manifest literals.\n- Replace the reporter's local packageDirectoriesOf with the shared enumeration and rename the local helper so it does not shadow the export.\n- Extract the per-directory seed/record merge in obligation.mjs into one helper used by the legacy and workspace readers, removing duplicated precedence logic.\n- Update false or stale comments that say seeds are found \"under crates/\" or that a package record is keyed only relative to the package root; the manifest is the authority.\n- Remove the unused PACKAGE_ROOT_DIRECTORY import from calibrate after the switch.\n- Keep functions one responsibility: enumeration, reading one directory, merging and rendering stay separate.",
+          "created_at": "2026-11-04",
+          "updated_at": "2026-11-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001 normalizePackagePath — input normalization and idempotence\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { normalizePackagePath } from '../../.claude/scripts/sequences-slice/lib/packages.mjs';\n\ntest('C001 maps every root spelling and preserves non-root segments', () => {\n  const inputs = ['', '.', './', 'crates/pkg-a/', 'crates\\\\pkg-a'];\n  const normalized = inputs.map((value) => normalizePackagePath(value));\n  assert.deepEqual(normalized, ['.', '.', '.', 'crates/pkg-a', 'crates/pkg-a']);\n  assert.equal(normalizePackagePath(normalized[0]), normalized[0]);\n  assert.equal(normalizePackagePath('crates/pkg-a'), 'crates/pkg-a');\n});\n```",
+            "C002 packageDirectoriesOf — manifest enumeration and fallback boundary\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport path from 'node:path';\nimport { packageDirectoriesOf } from '../../.claude/scripts/sequences-slice/lib/package-directories.mjs';\n\ntest('C002 enumerates each package once and resolves the root', () => {\n  const root = path.resolve('/workspace');\n  const treeManifest = { workspace: { packages: [\n    { id: 'pkg-root', path: '.' },\n    { id: 'pkg-a', path: 'crates/pkg-a' },\n    { id: 'pkg-a-alias', path: 'crates/pkg-a' },\n  ] } };\n  const entries = packageDirectoriesOf(root, treeManifest, { fallbackMarkers: ['SEQUENCES.json'] });\n  assert.deepEqual(entries.map((entry) => entry.packagePath), ['.', 'crates/pkg-a']);\n  assert.equal(entries[0].directory, root);\n  assert.equal(entries[1].directory, path.join(root, 'crates/pkg-a'));\n  assert.equal(new Set(entries.map((entry) => entry.directory)).size, entries.length);\n  const fallback = packageDirectoriesOf(root, null, { fallbackMarkers: ['SEQUENCES.json'] });\n  assert.equal(fallback.some((entry) => entry.packagePath === '.'), false);\n});\n```",
+            "C003 resolvePackageByPath — root and nested resolution, unknown path reason\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { resolvePackageByPath } from '../../.claude/scripts/sequences-slice/lib/packages.mjs';\n\ntest('C003 resolves the root and returns a named reason for an unknown path', () => {\n  const packages = [{ id: 'pkg-root', path: '.' }, { id: 'pkg-a', path: 'crates/pkg-a' }];\n  assert.deepEqual(resolvePackageByPath(packages, '/workspace', '/workspace'), { packageId: 'pkg-root', packagePath: '.', reason: null });\n  assert.deepEqual(resolvePackageByPath(packages, '.', '/workspace'), { packageId: 'pkg-root', packagePath: '.', reason: null });\n  assert.deepEqual(resolvePackageByPath(packages, 'crates/pkg-a', '/workspace'), { packageId: 'pkg-a', packagePath: 'crates/pkg-a', reason: null });\n  const missing = resolvePackageByPath(packages, '/workspace/crates/absent', '/workspace');\n  assert.equal(missing.packageId, null);\n  assert.match(missing.reason, /crates\\/absent/);\n});\n```",
+            "C004 readWorkspaceObligations — root record, root seed, and declared_interfaces key spellings\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport fs from 'node:fs';\nimport os from 'node:os';\nimport path from 'node:path';\nimport { readWorkspaceObligations } from '../../.claude/scripts/sequences-slice/lib/obligation.mjs';\n\ntest('C004 reads root and nested records and canonicalizes both key spellings', () => {\n  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px355-obligation-'));\n  fs.mkdirSync(path.join(root, 'crates/pkg-a'), { recursive: true });\n  fs.writeFileSync(path.join(root, 'RFC-SEED.md'), ['# root', '```json', JSON.stringify({ serves: [{ interfaceId: 'root-surface', column: 'verb', operationSet: 'VerbMethod' }] }), '```'].join('\\n'));\n  fs.writeFileSync(path.join(root, 'OBLIGATION.json'), JSON.stringify({ version: 2, serves: [], assignments: [{ unit: 'op-Root', ground: 'root ground' }], adjudications: [] }));\n  fs.writeFileSync(path.join(root, 'crates/pkg-a/OBLIGATION.json'), JSON.stringify({ version: 2, serves: [], assignments: [{ unit: 'op-A', ground: 'a ground' }], adjudications: [] }));\n  const treeManifest = { workspace: { packages: [{ id: 'pkg-root', path: '.' }, { id: 'pkg-a', path: 'crates/pkg-a' }] } };\n  const read = readWorkspaceObligations(root, { contract_registry: [], declared_interfaces: { 'pkg-a': [{ interfaceId: 'a-surface', column: 'verb', operationSet: 'VerbMethod' }] } }, treeManifest);\n  assert.deepEqual(read.get('.').assignments.map((entry) => entry.unit), ['op-Root']);\n  assert.deepEqual(read.get('crates/pkg-a').assignments.map((entry) => entry.unit), ['op-A']);\n  assert.deepEqual(read.get('crates/pkg-a').serves.map((entry) => entry.interfaceId), ['a-surface']);\n  assert.equal(read.has('pkg-a'), false);\n  const seedRead = readWorkspaceObligations(root, { contract_registry: [] }, treeManifest);\n  assert.deepEqual(seedRead.get('.').serves.map((entry) => entry.interfaceId), ['root-surface']);\n});\n```",
+            "C005 readWorkspacePackageSegments — root seed, nested seed, and empty source_segments\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport fs from 'node:fs';\nimport os from 'node:os';\nimport path from 'node:path';\nimport { readWorkspacePackageSegments } from '../../.claude/scripts/sequences-slice/lib/segments.mjs';\n\ntest('C005 reads the root seed and keeps a seed with no segments as empty', () => {\n  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px355-segments-'));\n  fs.mkdirSync(path.join(root, 'crates/pkg-a'), { recursive: true });\n  fs.mkdirSync(path.join(root, 'crates/pkg-b'), { recursive: true });\n  fs.writeFileSync(path.join(root, 'RFC-SEED.md'), ['# root', '```json', JSON.stringify({ source_segments: ['s-root'] }), '```'].join('\\n'));\n  fs.writeFileSync(path.join(root, 'crates/pkg-a/RFC-SEED.md'), ['# a', '```json', JSON.stringify({ source_segments: [] }), '```'].join('\\n'));\n  const treeManifest = { workspace: { packages: [{ id: 'pkg-root', path: '.' }, { id: 'pkg-a', path: 'crates/pkg-a' }, { id: 'pkg-b', path: 'crates/pkg-b' }] } };\n  const segments = readWorkspacePackageSegments(root, treeManifest);\n  assert.deepEqual(segments.map((entry) => entry.packagePath), ['.', 'crates/pkg-a']);\n  assert.deepEqual(segments[0].segmentIds, ['s-root']);\n  assert.deepEqual(segments[1].segmentIds, []);\n});\n```",
+            "C006 readViews and findPackageDirectories — root view included only from the manifest\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport fs from 'node:fs';\nimport os from 'node:os';\nimport path from 'node:path';\nimport { readViews } from '../../.claude/scripts/grill-me-for-rfc/check-obligation-coverage.js';\nimport { findPackageDirectories } from '../../.claude/scripts/grill-me-for-rfc/check-ledger-discharge.js';\n\ntest('C006 reads the declared root view exactly once and leaves a stray root view unread', () => {\n  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px355-views-'));\n  fs.mkdirSync(path.join(root, 'crates/pkg-a'), { recursive: true });\n  fs.writeFileSync(path.join(root, 'SEQUENCES.json'), JSON.stringify({ packageId: 'pkg-root' }));\n  fs.writeFileSync(path.join(root, 'crates/pkg-a/SEQUENCES.json'), JSON.stringify({ packageId: 'pkg-a' }));\n  const treeManifest = { workspace: { packages: [{ id: 'pkg-root', path: '.' }, { id: 'pkg-a', path: 'crates/pkg-a' }] } };\n  assert.deepEqual(readViews(root, treeManifest).map((view) => view.packageId), ['pkg-root', 'pkg-a']);\n  assert.deepEqual(findPackageDirectories(root, treeManifest).map((directory) => path.relative(root, directory)), ['.', 'crates/pkg-a']);\n  const noRootDeclaration = { workspace: { packages: [{ id: 'pkg-a', path: 'crates/pkg-a' }] } };\n  assert.deepEqual(readViews(root, noRootDeclaration).map((view) => view.packageId), ['pkg-a']);\n  assert.equal(fs.existsSync(path.join(root, 'SEQUENCES.json')), true);\n});\n```",
+            "C007 packageRecordFor — manifest key, legacy key, and root\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport path from 'node:path';\nimport { packageRecordFor } from '../../.claude/scripts/sequences-slice/lib/project-package.mjs';\n\ntest('C007 resolves the root under . and nested records under both key spellings', () => {\n  const root = path.resolve('/workspace');\n  const records = new Map([\n    ['.', { assignments: [{ unit: 'op-Root' }] }],\n    ['crates/protocol/pkg-a', { assignments: [{ unit: 'op-A' }] }],\n    ['protocol/legacy', { assignments: [{ unit: 'op-L' }] }],\n  ]);\n  assert.equal(packageRecordFor(records, root, root).assignments[0].unit, 'op-Root');\n  assert.equal(packageRecordFor(records, root, 'crates/protocol/pkg-a').assignments[0].unit, 'op-A');\n  assert.equal(packageRecordFor(records, root, 'crates/protocol/legacy').assignments[0].unit, 'op-L');\n  assert.equal(packageRecordFor(records, root, 'crates/absent'), null);\n});\n```",
+            "C008 describeEntry — root label and nested path\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport path from 'node:path';\nimport { describeEntry } from '../../.claude/scripts/grill-me-for-rfc/report-obligation-state.js';\n\ntest('C008 renders the root as . and leaves a nested directory unchanged', () => {\n  const root = path.resolve('/workspace');\n  const rootEntry = describeEntry(root, { packageId: 'pkg-root', directory: root });\n  assert.equal(rootEntry.directory, '.');\n  assert.match(rootEntry.repair, /re-run \\/grill-me-for-rfc in \\./);\n  const nestedEntry = describeEntry(root, { packageId: 'pkg-a', directory: path.join(root, 'crates/pkg-a') });\n  assert.equal(nestedEntry.directory, path.join('crates', 'pkg-a'));\n});\n```"
+          ],
+          "startedAt": "2026-11-04",
+          "changes": [
+            {
+              "before": "resolvePackageByPath compared the caller's path to entry.path without normalizing either side; the workspace root returned null.",
+              "after": "normalizePackagePath maps '', '.', './', trailing slashes and backslashes to the manifest spelling, and resolvePackageByPath normalizes both sides.",
+              "description": "Root package resolution"
+            },
+            {
+              "before": "No shared package-directory enumeration; each reader walked crates/.",
+              "after": "packageDirectoriesOf reads tree.workspace.packages, resolves '.', deduplicates by directory and sorts by packagePath; the crates walk is the fallback and does not include the root.",
+              "description": "Shared package enumeration"
+            },
+            {
+              "before": "readPackageSegments walked crates/ only.",
+              "after": "readWorkspacePackageSegments reads root and nested RFC-SEED.md at the manifest paths, keeps an empty seed as empty, and retains the legacy crates walk for seeds the manifest does not place.",
+              "description": "Root seed and line-range package count"
+            },
+            {
+              "before": "readPackageObligations walked crates/ only and keyed records relative to the package root.",
+              "after": "readWorkspaceObligations reads root OBLIGATION.json and root seed serves, keys by the manifest path including '.', and canonicalizes declared_interfaces keys authored as pkg-a or crates/alpha.",
+              "description": "Root obligation record"
+            },
+            {
+              "before": "projectPackageView read package-root-relative segments and records; packageRecordFor keyed only the legacy path.",
+              "after": "projectPackageView passes the tree manifest to the workspace readers; packageRecordFor tries the manifest path and the legacy key, including '.' for the root.",
+              "description": "Root projection"
+            },
+            {
+              "before": "calibrate.mjs walked crates/ for seeds.",
+              "after": "calibrate.mjs uses readWorkspacePackageSegments and names the manifest package paths, including root.",
+              "description": "Calibration input"
+            },
+            {
+              "before": "The rail demand reader walked crates/ for views.",
+              "after": "readViewsBeneath uses packageDirectoriesOf with VIEW_JSON_NAME and passes the tree manifest.",
+              "description": "Rail demand workspace reading"
+            },
+            {
+              "before": "check-obligation-coverage.js readViews walked crates/ only.",
+              "after": "readViews reads the tree manifest and enumerates the named packages; a root view without a manifest declaration stays unread.",
+              "description": "Coverage gate root view"
+            },
+            {
+              "before": "check-ledger-discharge.js findPackageDirectories walked crates/ only.",
+              "after": "findPackageDirectories reads the tree manifest and returns the named directories carrying a view, including root when declared.",
+              "description": "Discharge gate root directory"
+            },
+            {
+              "before": "report-obligation-state.js rendered the root package's relative directory as the empty string.",
+              "after": "The reporter names the root '.', uses the shared enumeration, and keeps a stray root view out when the manifest does not name it.",
+              "description": "Obligation-state root label"
+            },
+            {
+              "before": "No root-package regression tests.",
+              "after": "Added packages.test.mjs, root-package.test.mjs, root-package-demand.test.mjs and root cases in the view, coverage, discharge, distribution and reporter tests.",
+              "description": "Regression coverage"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-04"
         }
       ]
     },

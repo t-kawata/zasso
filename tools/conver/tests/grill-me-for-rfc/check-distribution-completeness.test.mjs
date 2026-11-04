@@ -139,3 +139,94 @@ test('PX-263 a missing argument is refused with the usage line', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /usage: check-distribution-completeness\.js <WORKSPACE_ROOT>/);
 });
+
+// ---------------------------------------------------------------------------
+// PX-355 — K8 reaches the root package the manifest names
+// ---------------------------------------------------------------------------
+
+/** A workspace satisfying every clause, with the root as one of its packages. */
+// PX-355 @verifies C006
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function rootWorkspace({ rootView = true } = {}) {
+  const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px355-criterion-'));
+  fs.mkdirSync(path.join(root, 'crates', 'pkg-a'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'SyntheticSpec-sequences.json'), JSON.stringify({
+    spec: { lines: 40 },
+    pins: {
+      sourceEnumerations: [
+        { role: 'operations', name: 'census-operations', members: ['R-0001'] },
+        { role: 'entries', name: 'census-entries', members: [] },
+      ],
+      enumerations: [{ name: 'VerbMethod', members: ['object.get'] }],
+    },
+    operations: [{ id: 'R-0001', verb: 'object.get' }],
+    sequences: [], steps: [], exemptions: [],
+  }));
+  fs.writeFileSync(path.join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({
+    contract_registry: [{ boundary_id: 'boundary-001', provider_package: 'pkg-root', consumer_package: 'pkg-a' }],
+  }));
+  fs.writeFileSync(path.join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+    workspace: { packages: [{ id: 'pkg-root', path: '.' }, { id: 'pkg-a', path: 'crates/pkg-a' }] },
+    inventory: { objects: [] },
+  }));
+  if (rootView) {
+    fs.writeFileSync(path.join(root, 'SEQUENCES.json'), JSON.stringify({
+      packageId: 'pkg-root',
+      ownedOperationUnits: [{ unitId: 'op-R-0001', operationId: 'R-0001' }],
+      ownedSequenceUnits: [], crossBoundarySequenceUnits: [],
+      obligationUnits: [
+        { unitId: 'ctr-boundary-001', relation: 'carries', subject: 'boundary-001' },
+        { unitId: 'obl-verb', relation: 'serves', subject: 'verb', coverage: { column: 'verb', carried: 1, total: 1, foreignValues: [], crossChecked: true } },
+      ],
+      adjudicatedColumns: [], obligationSource: 'declared',
+    }));
+    fs.writeFileSync(path.join(root, 'RFC.md'), [
+      '# RFC 0001 — pkg-root', '', '## 3 Acceptance', '', '### 3.4.3 The boundary', '', '## 7 Distribution ledger', '',
+      'This document is canonical over the material it was written from.', '',
+      '| Unit | Kind | Owner | RFC location | Ground |',
+      '| --- | --- | --- | --- | --- |',
+      '| op-R-0001 | operation | pkg-root | §3.4.3 | the sequence states it |',
+      '| ctr-boundary-001 | contract | pkg-root | §3.4.3 | the registry names the provider |',
+      '| obl-verb | surface | pkg-root | §3.4.3 | the vocabulary the column uses is declared |',
+    ].join('\n'));
+  }
+  fs.writeFileSync(path.join(root, 'crates', 'pkg-a', 'SEQUENCES.json'), JSON.stringify({
+    packageId: 'pkg-a',
+    ownedOperationUnits: [], ownedSequenceUnits: [], crossBoundarySequenceUnits: [],
+    obligationUnits: [{ unitId: 'ctr-boundary-001', relation: 'carries', subject: 'boundary-001' }],
+    adjudicatedColumns: [], obligationSource: 'declared',
+  }));
+  fs.writeFileSync(path.join(root, 'crates', 'pkg-a', 'RFC.md'), [
+    '# RFC 0002 — pkg-a', '', '## 3 Acceptance', '', '### 3.4.3 The boundary', '', '## 7 Distribution ledger', '',
+    'This document is canonical over the material it was written from.', '',
+    '| Unit | Kind | Owner | RFC location | Ground |',
+    '| --- | --- | --- | --- | --- |',
+    '| ctr-boundary-001 | contract | pkg-a | §3.4.3 | the registry names the consumer |',
+  ].join('\n'));
+  return root;
+}
+
+test('PX-355 C006 K8 holds when the manifest names the root and its view carries the carriage', () => {
+  const root = rootWorkspace();
+  try {
+    const result = runGate(root);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /^K8 .*holds/m);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('PX-355 C006 K8 is not established with not carried: pkg-root when the root view is missing', () => {
+  const root = rootWorkspace({ rootView: false });
+  try {
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /^K8 .*not established/m);
+    assert.match(result.stdout, /not carried: pkg-root/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

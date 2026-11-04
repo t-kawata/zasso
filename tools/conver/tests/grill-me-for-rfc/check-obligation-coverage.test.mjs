@@ -398,3 +398,57 @@ test('C004 the gate names where the rest of the provenance chain is measured, so
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// PX-355 — the root package is a package when the manifest names it
+// ---------------------------------------------------------------------------
+
+/** A workspace whose operation is owned by the root view, named or not by the manifest. */
+// PX-355 @verifies C006
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function workspaceWithRootOwnedOperation({ rootInManifest = true } = {}) {
+  const root = workspaceWithOneOwnedOperation();
+  fs.writeFileSync(path.join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+    workspace: {
+      packages: [
+        ...(rootInManifest ? [{ id: 'pkg-root', path: '.' }] : []),
+        { id: 'pkg-a', path: 'crates/pkg-a' },
+      ],
+    },
+    inventory: { objects: [] },
+  }));
+  fs.writeFileSync(path.join(root, 'SEQUENCES.json'), JSON.stringify({
+    packageId: 'pkg-root',
+    ownedOperationUnits: [{ unitId: 'op-R-0001', operationId: 'R-0001' }],
+    ownedSequenceUnits: [], crossBoundarySequenceUnits: [], obligationUnits: [], adjudicatedColumns: [],
+    obligationSource: 'undeclared',
+  }));
+  // The nested view must own nothing, so the root view is the only possible owner.
+  writeView(path.join(root, 'crates', 'pkg-a'), { ownedOperationUnits: [] });
+  return root;
+}
+
+test('PX-355 C006 the gate counts a root view the manifest names, so its operation is placed', () => {
+  const root = workspaceWithRootOwnedOperation();
+  try {
+    const result = runGate(root);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /assigned operations: 1/);
+    assert.doesNotMatch(result.stdout, /operations: R-0001/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('PX-355 C006 a stray root view without a manifest declaration is not read', () => {
+  const root = workspaceWithRootOwnedOperation({ rootInManifest: false });
+  try {
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /operations: R-0001/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

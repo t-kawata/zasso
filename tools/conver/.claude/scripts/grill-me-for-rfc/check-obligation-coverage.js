@@ -32,7 +32,7 @@ import {
   measureCoverage,
 } from '../sequences-slice/lib/obligation-coverage.mjs';
 import { SOURCE_ARTIFACT_SUFFIX, VIEW_JSON_NAME } from '../sequences-slice/lib/material.mjs';
-import { PACKAGE_ROOT_DIRECTORY } from '../sequences-slice/lib/segments.mjs';
+import { packageDirectoriesOf } from '../sequences-slice/lib/package-directories.mjs';
 import { OBLIGATION_SOURCES } from '../sequences-slice/lib/obligation.mjs';
 
 const EXIT_OK = 0;
@@ -63,22 +63,22 @@ function findArtifact(root) {
   return name === undefined ? null : readJsonOrNull(path.join(root, name));
 }
 
-/** Every package view beneath the workspace's package root, in path order. */
-// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
-function readViews(root) {
-  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
+/**
+ * Every package view the workspace names, in manifest path order.
+ *
+ * The tree manifest is the authority for which directories are packages, including the
+ * workspace root when its path is ".". When the manifest is absent or carries no package
+ * list, the reader falls back to the crates walk; a root view without that declaration is
+ * not read, because it is a stray file rather than a package.
+ */
+// [::TICKET::] PX-259, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-355) --for-spec --no-implementation-order`.
+function readViews(root, treeManifest = undefined) {
+  const manifest = treeManifest === undefined ? readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME)) : treeManifest;
   const views = [];
-  const walk = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const fullPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(fullPath);
-      else if (entry.name === VIEW_JSON_NAME) {
-        const view = readJsonOrNull(fullPath);
-        if (view !== null) views.push(view);
-      }
-    }
-  };
-  if (fs.existsSync(packageRoot)) walk(packageRoot);
+  for (const entry of packageDirectoriesOf(root, manifest, { fallbackMarkers: [VIEW_JSON_NAME] })) {
+    const view = readJsonOrNull(path.join(entry.directory, VIEW_JSON_NAME));
+    if (view !== null) views.push(view);
+  }
   return views;
 }
 
@@ -294,7 +294,7 @@ function renderVerdictLine(coverage, exemptionCount) {
 }
 
 /** Measure one workspace and print its verdict. */
-// [::TICKET::] PX-259, PX-260, PX-261, PX-262, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-260|PX-261|PX-262|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-259, PX-260, PX-261, PX-262, PX-263, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-260|PX-261|PX-262|PX-263|PX-355) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rootArgument] = argv.filter((argument) => !argument.startsWith('--'));
   if (rootArgument === undefined) {
@@ -310,14 +310,15 @@ function main(argv = process.argv.slice(2)) {
     return EXIT_FAILED;
   }
 
-  const views = readViews(root);
+  const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME));
+  const views = readViews(root, treeManifest);
   const exemptions = (artifact.exemptions ?? []).filter((row) => typeof row?.why === 'string' && row.why.trim().length > 0);
   const coverage = measureCoverage({
     artifact,
     allocateManifest,
     views,
     exemptions,
-    treeManifest: readJsonOrNull(path.join(root, TREE_MANIFEST_FILENAME)),
+    treeManifest,
   });
 
   const unbound = findDeclarationsThatDidNotBind(views);

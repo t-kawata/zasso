@@ -22,6 +22,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { basename } from 'node:path';
 
+import { PACKAGE_ROOT_DIRECTORY, normalizePackagePath } from './packages.mjs';
+import { packageDirectoriesOf } from './package-directories.mjs';
 import { NOT_A_SEQUENCE } from './units.mjs';
 
 /** The unit-id prefix a boundary unit carries. */
@@ -413,6 +415,110 @@ export function readPackageObligations(packageRoot, allocateManifest) {
     }
     entry.assignments = record.assignments;
     entry.adjudications = record.adjudications;
+  }
+
+  for (const entry of obligations.values()) {
+    entry.source = entry.serves.length > 0 ? OBLIGATION_SOURCES[0] : OBLIGATION_SOURCES[1];
+  }
+  return obligations;
+}
+
+/** One package's obligation entry, in the shape both readers return. */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function emptyObligationEntry() {
+  return { serves: [], assignments: [], adjudications: [], refused: [], listedBy: null, source: OBLIGATION_SOURCES[1] };
+}
+
+/** The serves fence a package's seed carries, or null when the seed is absent. */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function readSeedServesAt(directory) {
+  const seedPath = path.join(directory, SEED_FILENAME);
+  if (!fs.existsSync(seedPath)) return null;
+  return readSeedDeclarations(fs.readFileSync(seedPath, 'utf8'));
+}
+
+/** One package's record, or null when the package carries none. */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function readRecordAt(directory, packagePath) {
+  const recordPath = path.join(directory, OBLIGATION_RECORD_BASENAME);
+  if (!fs.existsSync(recordPath)) return null;
+  return readRecordOrRefusal(recordPath, packagePath);
+}
+
+/** Merge one record into an entry, keeping the precedence the legacy reader had. */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function applyRecordTo(entry, record) {
+  if (record.refused !== null) entry.refused.push(record.refused);
+  if (entry.serves.length === 0 && record.serves.length > 0) {
+    entry.serves = record.serves;
+    entry.listedBy = OBLIGATION_RECORD_BASENAME;
+  }
+  entry.assignments = record.assignments;
+  entry.adjudications = record.adjudications;
+}
+
+/**
+ * The manifest path a declared_interfaces key names.
+ *
+ * The authored key may be package-root-relative ("pkg-a") or workspace-relative
+ * ("crates/pkg-a"); both name the same package, and the reader keys by the manifest path so
+ * the view builder and the record map agree. A key naming no package is kept as written, so
+ * the coverage gate can report it as a declaration that bound to nothing.
+ */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function canonicalPackagePath(authoredKey, directories, root) {
+  const normalized = normalizePackagePath(authoredKey);
+  const byManifest = directories.find((entry) => entry.packagePath === normalized);
+  if (byManifest !== undefined) return byManifest.packagePath;
+  const packageRoot = path.join(root, PACKAGE_ROOT_DIRECTORY);
+  const byLegacy = directories.find((entry) => normalizePackagePath(path.relative(packageRoot, entry.directory)) === normalized);
+  return byLegacy === undefined ? normalized : byLegacy.packagePath;
+}
+
+/**
+ * Every package's obligation record, read from the directories the workspace names.
+ *
+ * This is the workspace-aware counterpart of readPackageObligations. It keys every entry by
+ * the tree manifest path, including "." for the root package, and canonicalizes authored
+ * declared_interfaces keys to that path so the projection and the record map agree.
+ *
+ * @param {string} root
+ * @param {{ [DECLARED_INTERFACES_FIELD]?: object }} [allocateManifest]
+ * @param {object|null} [treeManifest]
+ * @returns {Map<string, { serves: object[], assignments: object[], adjudications: object[], refused: string[], listedBy: string|null, source: string }>}
+ */
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+export function readWorkspaceObligations(root, allocateManifest, treeManifest = null) {
+  const directories = packageDirectoriesOf(root, treeManifest, {
+    fallbackMarkers: [SEED_FILENAME, OBLIGATION_RECORD_BASENAME],
+  });
+  const obligations = new Map();
+  const entryFor = (packagePath) => {
+    if (!obligations.has(packagePath)) obligations.set(packagePath, emptyObligationEntry());
+    return obligations.get(packagePath);
+  };
+
+  const fromManifest = allocateManifest?.[DECLARED_INTERFACES_FIELD];
+  if (fromManifest !== null && typeof fromManifest === 'object') {
+    for (const [authoredKey, entries] of Object.entries(fromManifest)) {
+      if (!Array.isArray(entries)) continue;
+      const entry = entryFor(canonicalPackagePath(authoredKey, directories, root));
+      entry.serves = entries.map(normalizeDeclaration);
+      entry.listedBy = DECLARED_INTERFACES_FIELD;
+    }
+  } else {
+    for (const packageEntry of directories) {
+      const serves = readSeedServesAt(packageEntry.directory);
+      if (serves === null || serves.length === 0) continue;
+      const entry = entryFor(packageEntry.packagePath);
+      entry.serves = serves;
+      entry.listedBy = SEED_FILENAME;
+    }
+  }
+
+  for (const packageEntry of directories) {
+    const record = readRecordAt(packageEntry.directory, packageEntry.packagePath);
+    if (record !== null) applyRecordTo(entryFor(packageEntry.packagePath), record);
   }
 
   for (const entry of obligations.values()) {

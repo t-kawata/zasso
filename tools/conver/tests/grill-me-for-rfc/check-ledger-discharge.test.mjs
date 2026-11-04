@@ -17,7 +17,7 @@ const DISCHARGE_GATE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rf
 const LEDGER_HEADER = '| Unit | Kind | Owner | RFC location | Ground |';
 
 /** A ledger appendix as the parser requires it: canonical, headed, with resolving rows. */
-// [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-261, PX-263, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263|PX-355) --for-spec --no-implementation-order`.
 function ledgerAppendix(rows) {
   return [
     '# Package RFC',
@@ -29,6 +29,7 @@ function ledgerAppendix(rows) {
     LEDGER_HEADER,
     '| --- | --- | --- | --- | --- |',
     ...rows.map((row) => `| ${row.unit} | ${row.kind ?? 'operation'} | pkg-a | ${row.location ?? 'line 3 of this RFC'} | ${row.ground ?? 'stated'} |`),
+    ...(rows.length === 0 ? ['', '**Composition check.** nothing was distributed to this package.'] : []),
     '',
   ].join('\n');
 }
@@ -256,6 +257,75 @@ test('C002 invariant: the three discharge families stay apart and no row is repo
 
     assert.deepEqual([...new Set(families)].sort(), ['location does not resolve', 'unaccounted'], 'each defect appears under its own family');
     assert.equal(families.length, families.length, 'and no row is counted twice');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PX-355 — the root package's own ledger accounts for the units its view holds
+// ---------------------------------------------------------------------------
+
+/** A workspace whose root view holds the given units, named or not by the manifest. */
+// PX-355 @verifies C006
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+function workspaceWithRoot(units, { rfc = null, rootInManifest = true } = {}) {
+  const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'px355-discharge-'));
+  fs.mkdirSync(path.join(root, 'crates', 'pkg-a'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+    workspace: {
+      packages: [
+        ...(rootInManifest ? [{ id: 'pkg-root', path: '.' }] : []),
+        { id: 'pkg-a', path: 'crates/pkg-a' },
+      ],
+    },
+  }));
+  fs.writeFileSync(path.join(root, 'SEQUENCES.json'), JSON.stringify({
+    packageId: 'pkg-root',
+    ownedOperationUnits: [], ownedSequenceUnits: [], crossBoundarySequenceUnits: [],
+    obligationUnits: units.map((unitId) => ({ unitId, relation: 'carries' })),
+    obligationSource: 'undeclared',
+  }));
+  fs.writeFileSync(path.join(root, 'crates', 'pkg-a', 'SEQUENCES.json'), JSON.stringify({
+    packageId: 'pkg-a',
+    ownedOperationUnits: [], ownedSequenceUnits: [], crossBoundarySequenceUnits: [],
+    obligationUnits: [], obligationSource: 'undeclared',
+  }));
+  if (rfc !== null) fs.writeFileSync(path.join(root, 'RFC.md'), rfc);
+  return root;
+}
+
+test('PX-355 C006 the root view the manifest names is discharged by the root RFC ledger', () => {
+  const root = workspaceWithRoot(['ctr-boundary-001'], { rfc: ledgerAppendix([{ unit: 'ctr-boundary-001' }]) });
+  try {
+    const result = runDischarge(root);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /discharged: every unit every view holds is accounted for/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('PX-355 C006 a root unit the root ledger omits is reported as unaccounted by pkg-root', () => {
+  const root = workspaceWithRoot(['ctr-boundary-001'], { rfc: ledgerAppendix([]) });
+  try {
+    const result = runDischarge(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /unaccounted: pkg-root — ctr-boundary-001/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('PX-355 C006 a stray root view without a manifest declaration is not discharged or reported', () => {
+  const root = workspaceWithRoot(['ctr-boundary-001'], { rfc: ledgerAppendix([]), rootInManifest: false });
+  try {
+    const result = runDischarge(root);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.doesNotMatch(result.stdout, /pkg-root/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

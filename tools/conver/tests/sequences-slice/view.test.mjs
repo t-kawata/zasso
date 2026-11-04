@@ -190,6 +190,26 @@ test('C005 a package directory resolves to its package id, and an unknown direct
   assert.match(unknown.reason, /package-9999/);
 });
 
+// PX-355 @verifies C003
+// The workspace root is a package when the tree manifest spells its path ".". Both the
+// absolute directory and the relative spellings have to reach that entry, because the
+// projection accepts either form from its caller.
+test('PX-355 the workspace root resolves to the package the tree manifest names .', () => {
+// [::TICKET::] PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-355 --for-spec --no-implementation-order`.
+  const packages = [{ id: 'pkg-root', path: '.' }, ...liveShapedInput().treeManifest.workspace.packages];
+
+  const absolute = resolvePackageByPath(packages, '/workspace', '/workspace');
+  assert.equal(absolute.packageId, 'pkg-root');
+  assert.equal(absolute.packagePath, '.');
+
+  const relative = resolvePackageByPath(packages, '.', '/workspace');
+  assert.equal(relative.packageId, 'pkg-root');
+  assert.equal(relative.reason, null);
+
+  const dotted = resolvePackageByPath(packages, './', '/workspace');
+  assert.equal(dotted.packageId, 'pkg-root');
+});
+
 // PX-259 @verifies C004
 // The obligation section is additive: the three lists ownership produces must not move when the two
 // new relations are supplied, or a unit id a materialised record already cites would change meaning.
