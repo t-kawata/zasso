@@ -633,7 +633,10 @@ export function buildFrames(model, options = {}) {
       const weighted = packageModels.reduce((sum, pkg) => sum + pkg.progress[stageIndex] * Math.max(1, pkg.total), 0);
       return weighted / weight;
     });
-    const cumulativeUsage = (model.usage || []).length > 0
+    // Models built before the availability flag keep the old "records mean available" rule.
+    const hasUsageRecords = (model.usage || []).length > 0;
+    const usageAvailable = model.usageAvailable === undefined ? hasUsageRecords : model.usageAvailable === true;
+    const cumulativeUsage = usageAvailable
       ? usageAtDate(model.usage, displayDateKey(lastT, lastPrec))
       : null;
     const usageTitle = cumulativeUsage && model.titleName

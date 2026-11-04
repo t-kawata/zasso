@@ -284,16 +284,16 @@ function sources() {
 // [::TICKET::] PX-352, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-353) --for-spec --no-implementation-order`.
 async function collectUsageSeries(root, model, options) {
   try {
-    const result = await aggregateUsage({
+    const aggregation = await aggregateUsage({
       directory: root,
       cachePath: usageCachePath(root, options),
       dateKey: (ms) => displayDateKey(ms, 'ms'),
     });
-    model.warnings.push(...result.warnings);
-    return dailySeries(result.groups);
+    model.warnings.push(...aggregation.warnings);
+    return { series: dailySeries(aggregation.groups), available: !aggregation.projectsDirMissing };
   } catch (error) {
     model.warnings.push(`usage unavailable: ${error.message}`);
-    return [];
+    return { series: [], available: false };
   }
 }
 
@@ -301,7 +301,9 @@ export async function run(root, options) {
   const model = analyzeWorkspace(root, options);
   const titleName = path.basename(root);
   model.titleName = titleName;
-  model.usage = await collectUsageSeries(root, model, options);
+  const usageScan = await collectUsageSeries(root, model, options);
+  model.usage = usageScan.series;
+  model.usageAvailable = usageScan.available;
   const estimatedLayout = computeLayout(model, { measureText: (text) => String(text).length * 7, scale: options.scale });
   const fitted = fitFramesToCeiling(estimatedLayout, options.frames, options.maxBytes);
   if (fitted.frames !== options.frames) {

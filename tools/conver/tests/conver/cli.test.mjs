@@ -201,7 +201,21 @@ test('an empty usage config keeps the legacy title and adds no warning', () => {
     .find((name) => name.endsWith('.html'));
   const html = fs.readFileSync(path.join(root, 'progress-gif', htmlName), 'utf8');
   assert.match(html, /"usage":\[\]/);
+  assert.match(html, /"usageAvailable":true/);
   assert.doesNotMatch(result.stdout, /usage unavailable/);
+});
+
+test('a missing usage config marks usage unavailable instead of zero', () => {
+  const { root } = materializeBundle('workspace-min.json');
+  const missingConfigDir = path.join(os.tmpdir(), `conver-missing-config-${process.pid}-${Date.now()}`);
+  const result = runWithConfig(['-t', root, '--no-open'], missingConfigDir);
+  assert.equal(result.status, 0, result.stderr);
+
+  const htmlName = fs.readdirSync(path.join(root, 'progress-gif'))
+    .find((name) => name.endsWith('.html'));
+  const html = fs.readFileSync(path.join(root, 'progress-gif', htmlName), 'utf8');
+  assert.match(html, /"usage":\[\]/);
+  assert.match(html, /"usageAvailable":false/);
 });
 
 test('draw writes a usage cache and later runs reuse every unchanged file', async () => {

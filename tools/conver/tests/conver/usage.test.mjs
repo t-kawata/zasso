@@ -218,6 +218,24 @@ test('aggregateUsage returns an empty series and a warning when logs are unavail
   );
 });
 
+test('buildFrames shows zero usage when logs are available but empty and hides it when unavailable', () => {
+  const available = minimalModel({ usage: [], titleName: 'demo' });
+  available.usageAvailable = true;
+  const availableFrames = buildFrames(available, { frames: 20 });
+  assert.deepEqual(availableFrames[0].titleParts, {
+    left: 'PROGRESS: demo',
+    right: 'I/C/O/D = 0M / 0M / 0M / $0',
+  });
+  assert.equal(availableFrames[0].title, 'PROGRESS: demo | I/C/O/D = 0M / 0M / 0M / $0');
+  assert.equal(availableFrames.at(-1).titleParts.right, 'I/C/O/D = 0M / 0M / 0M / $0');
+
+  const unavailable = minimalModel({ usage: [], titleName: 'demo' });
+  unavailable.usageAvailable = false;
+  const unavailableFrames = buildFrames(unavailable, { frames: 20 });
+  assert.equal(unavailableFrames[0].title, undefined);
+  assert.equal(unavailableFrames[0].titleParts, undefined);
+});
+
 test('aggregateUsage skips malformed lines and counts them', async () => {
   const fixture = writeUsageFixture({
     directory: '/tmp/work',
