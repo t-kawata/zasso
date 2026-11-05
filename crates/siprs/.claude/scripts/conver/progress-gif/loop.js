@@ -39,12 +39,21 @@ const ORDERED_STAGE_INDEXES = Object.freeze([...UPSTREAM_STAGES, DRILL_STAGE_IND
 // Only command-written evidence is trusted as a clock. An artifact mtime is
 // copied by a checkout, so it must yield to these sources.
 const TRUSTED_TIME_SOURCES = new Set(['history', 'status']);
-// Grill is deliberately excluded: orderGrillAfterExplain rewrites grill to follow
-// explain, so a grill timestamp cannot bound explain without forming a cycle.
-const EXPLAIN_DOWNSTREAM_STAGES = Object.freeze(['graphify', 'boundify', 'split']);
+// Both explain and grill fall back to a file mtime when no command wrote a time,
+// so a checkout can move them past a completed drill. Their times must yield to
+// the earliest trusted downstream stage of the same package. Grill itself is not
+// a bound: orderGrillAfterExplain rewrites grill to follow explain, so using a
+// grill timestamp as a bound would form a cycle.
+const ARTIFACT_CLAMPED_STAGES = Object.freeze(['explain', 'grill']);
+const ARTIFACT_CLAMP_BOUND_STAGES = Object.freeze(['graphify', 'boundify', 'split']);
 const PRE_SMOOTH_STAGES = Object.freeze(['explain', 'grill']);
 
 const EDuce_PHASES = 18;
+// Phase 1 of the drill has twelve sub-steps (1-1..1-12). Steps 2-1..5-1 are the
+// graphify / boundify / split / verify gates that follow it.
+const DRILL_PHASE1_STEPS = 12;
+const DRILL_PHASE1_STEP = /^1-(\d+)$/;
+const DRILL_GATE_STEP = /^[2-5]-1$/;
 const GRAPH_STEPS = ['0', '1', '2', '3', '4', '5'];
 const BOUNDIFY_STEPS = ['0', '1', '2', '3'];
 const SPLIT_STEPS = ['0-1', '0-2', '1', '2', '3', '4-1', '4-2', '5-1', '5-2', '5-3', '6'];
@@ -335,6 +344,20 @@ export function historyDrillTime(records, packageId) {
   return finishes[0] ?? null;
 }
 
+/**
+ * How much of the drill the status file evidences. Only Step 5 declares the drill
+ * COMPLETE, so a COMPLETE status always credits the whole stage. Before that, the
+ * phase-one sub-steps carry the fraction and the later gates keep it complete, so
+ * a drill that advanced past phase one is never shown as zero.
+ */
+function drillProgressFraction(status) {
+  if (status.state === 'COMPLETE') return 1;
+  const step = String(status.currentStep || '');
+  const phaseOneStep = DRILL_PHASE1_STEP.exec(step);
+  if (phaseOneStep) return Math.min(1, Number(phaseOneStep[1]) / DRILL_PHASE1_STEPS);
+  return DRILL_GATE_STEP.test(step) ? 1 : 0;
+}
+
 /** Derive the 16 stage fractions for one package from evidence and artifacts. */
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 export function stageProgressOf(artifacts, workspaceArtifacts = {}, packageId = null, warnings = []) {
@@ -469,8 +492,7 @@ export function stageProgressOf(artifacts, workspaceArtifacts = {}, packageId = 
 
   const drillEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'drill', packageId);
   if (artifacts.drillStatus) {
-    const match = /^1-(\d+)$/.exec(String(artifacts.drillStatus.currentStep || ''));
-    stages.drill = artifacts.drillStatus.state === 'DONE' ? 1 : match ? Math.min(1, Number(match[1]) / 12) : 0;
+    stages.drill = drillProgressFraction(artifacts.drillStatus);
   } else if (drillEvidence.hasHistory) {
     stages.drill = 1;
   }
@@ -898,35 +920,36 @@ function stageIndexesOf(events) {
 }
 
 /**
- * Explain has no command-written clock unless explain-seed ran with --record, so
- * its only signal is the mtime of INFO-RFC-SEED.md and EXPLAIN-RFC-SEED.md. A
- * checkout rewrites that mtime, so an artifact-only explain yields to the earliest
- * downstream stage that does have command evidence. This runs before the upstream
- * repair: otherwise a late explain drags grill and every later upstream stage with
- * it and drill, which is not repaired, overtakes the whole chain.
+ * Explain and grill have no command-written clock unless their tool recorded one,
+ * so their only signal can be a seed-file or DesignTree mtime. A checkout rewrites
+ * that mtime, so an artifact-only event yields to the earliest downstream stage
+ * that does have command evidence. This runs before the upstream repair: otherwise
+ * a late event drags grill, smooth and every later upstream stage with it, and a
+ * drill that already completed is overtaken by stages it produced.
  */
 // [::TICKET::] PX-375 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-375 --for-spec --no-implementation-order`.
-function clampArtifactExplain(events, initialT, warnings) {
+function clampUntrustedStageTimes(events, initialT, warnings) {
   const boundByPackage = new Map();
   for (const event of events) {
     if (event.kind !== 'stage' || !event.packageId) continue;
-    if (!EXPLAIN_DOWNSTREAM_STAGES.includes(event.stage)) continue;
+    if (!ARTIFACT_CLAMP_BOUND_STAGES.includes(event.stage)) continue;
     if (!TRUSTED_TIME_SOURCES.has(event.timeSource)) continue;
     const current = boundByPackage.get(event.packageId);
     if (current === undefined || event.t < current) boundByPackage.set(event.packageId, event.t);
   }
   const warned = new Set();
   for (const event of events) {
-    if (event.kind !== 'stage' || event.stage !== 'explain' || !event.packageId) continue;
+    if (event.kind !== 'stage' || !ARTIFACT_CLAMPED_STAGES.includes(event.stage) || !event.packageId) continue;
     if (TRUSTED_TIME_SOURCES.has(event.timeSource)) continue;
     const bound = boundByPackage.get(event.packageId);
     if (bound === undefined || event.t <= bound) continue;
     const floor = Number.isFinite(initialT) ? initialT : 0;
     const clamped = Math.max(floor, bound);
-    if (!warned.has(event.packageId)) {
-      warned.add(event.packageId);
+    const warningKey = `${event.stage}:${event.packageId}`;
+    if (!warned.has(warningKey)) {
+      warned.add(warningKey);
       warnings.push(
-        `[order] explain ${event.packageId}: artifact time ${new Date(event.t).toISOString()} clamped to ${new Date(clamped).toISOString()}`,
+        `[order] ${event.stage} ${event.packageId}: artifact time ${new Date(event.t).toISOString()} clamped to ${new Date(clamped).toISOString()}`,
       );
     }
     event.t = clamped;
@@ -1075,7 +1098,7 @@ export function buildTimeline(model) {
     });
   }
   const warnings = [];
-  clampArtifactExplain(timeline, model.initialT, warnings);
+  clampUntrustedStageTimes(timeline, model.initialT, warnings);
   repairUpstreamOrder(timeline, (model.packages || []).map((pkg) => pkg.id));
   timeline.sort((left, right) =>
     left.t - right.t || STAGE_INDEX[left.stage] - STAGE_INDEX[right.stage] || left.seq - right.seq);
