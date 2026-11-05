@@ -6,11 +6,58 @@ import { listDir, parseStamp } from './parse.js';
 import { STAGE_ORDER, clamp01, computeDensity } from './loop.js';
 
 export const SNAPSHOT_SCHEMA = 'conver-progress-snapshot-v1';
+export const RENDER_FILE_PATTERN = /^(\d{14})\.html$/;
+
+/**
+ * Parse a render filename stamp as a local calendar instant. Date rolls over
+ * invalid components; a rolled-over value is not a real render time.
+ */
+// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+export function parseRenderStamp(value) {
+  const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(String(value ?? '').trim());
+  if (!match) return null;
+  const [year, month, day, hour, minute, second] = match.slice(1).map(Number);
+  const date = new Date(year, month - 1, day, hour, minute, second);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day
+    || date.getHours() !== hour || date.getMinutes() !== minute || date.getSeconds() !== second) {
+    return null;
+  }
+  return { t: date.getTime(), prec: 'ms' };
+}
+
+/**
+ * List previous HTML renders newest first. The filename is the clock; the file
+ * body is never read. A 14-digit name that is not a calendar instant is reported
+ * and ignored.
+ */
+// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+export function listHtmlRenders(outputDir, before = Number.POSITIVE_INFINITY, warnings = []) {
+  return listDir(outputDir)
+    .map((name) => {
+      const match = RENDER_FILE_PATTERN.exec(name);
+      if (!match) return null;
+      const stamp = parseRenderStamp(match[1]);
+      if (!stamp) {
+        const warning = `[render] ${path.join(outputDir, name)}: invalid calendar stamp`;
+        if (Array.isArray(warnings) && !warnings.includes(warning)) warnings.push(warning);
+        return null;
+      }
+      if (stamp.t >= before) return null;
+      return { name, path: path.join(outputDir, name), stamp: match[1], ...stamp };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.t - left.t);
+}
 
 /**
  * The header-bar value a snapshot records, or null when the document cannot
  * provide one. Snapshots written before overallProgress existed are projected
  * from their per-package stage fractions with the renderer's own weighting.
+ */
+/**
+ * Project a stored snapshot onto the density scale for historical comparisons.
+ * The previous-progress marker does not use this value; it evaluates progressAt
+ * against the current model at the newest past HTML stamp.
  */
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
 export function computePreviousProgress(snapshot) {

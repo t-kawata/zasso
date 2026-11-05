@@ -15,7 +15,7 @@ import {
   ticketsOf,
   ticketKeyOf,
 } from './progress-gif/parse.js';
-import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, displayDateKey } from './progress-gif/loop.js';
+import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, clamp01, displayDateKey, progressAt } from './progress-gif/loop.js';
 import { historyRunMarkers } from './progress-gif/history.js';
 import { aggregateUsage, dailySeries, expandHome } from './progress-gif/usage.js';
 import { CACHE_FILE_NAME } from './progress-gif/usage-cache.js';
@@ -26,10 +26,10 @@ import { fitFramesToCeiling } from './progress-gif/engine.js';
 import { DEFAULT_FRAMES, clampFrames } from './progress-gif/viewer.js';
 import { loadFontBundle, collectUsedText } from './progress-gif/fonts.js';
 import {
-  SNAPSHOT_SCHEMA,
+  listHtmlRenders,
   listSnapshots,
-  computePreviousProgress,
   readSnapshot,
+  SNAPSHOT_SCHEMA,
   snapshotFromModel,
   writeSnapshot,
 } from './progress-gif/snapshot.js';
@@ -229,11 +229,16 @@ export function analyzeWorkspace(root, options = {}) {
     runs.push(...historyRunMarkers(pkg.id, artifacts.historyRecords));
   }
   runs.push(...historyRunMarkers(null, workspaceArtifacts.historyRecords));
-  const previousProgress = readPreviousProgress(root, options, warnings);
-  return buildModel({
+  const model = buildModel({
     workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, runs,
-    warnings, initialT, previousProgress,
+    warnings, initialT, previousProgress: null,
   });
+  const previous = readPreviousProgress(root, options, warnings, model);
+  model.previousProgress = previous && Number.isFinite(previous.value) ? clamp01(previous.value) : null;
+  if (previous) {
+    model.previousRender = { t: previous.t, source: previous.source, path: previous.path };
+  }
+  return model;
 }
 
 // [::TICKET::] PX-349, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-353) --for-spec --no-implementation-order`.
@@ -242,21 +247,32 @@ function snapshotDirectory(root, options, outputDir = path.join(root, 'progress-
 }
 
 /**
- * Read the boundary of the newest completed render. The newest file is
- * authoritative: an unreadable one yields no marker rather than an older run's
- * boundary, which would misreport where the previous animation ended.
+ * The previous render boundary. The newest past HTML filename is the clock and
+ * the current model supplies the value; a snapshot value is never used because
+ * it was computed by the model and code of an older render.
  */
-// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
-function readPreviousProgress(root, options, warnings) {
-  const directory = snapshotDirectory(root, options);
-  const newest = listSnapshots(directory)[0];
-  if (!newest) return null;
-  const snapshot = readSnapshot(newest.path);
-  if (!snapshot || snapshot.schema !== SNAPSHOT_SCHEMA) {
-    warnings.push(`[snapshot] ${newest.path}: unreadable; previous boundary not drawn`);
-    return null;
+// [::TICKET::] PX-370, PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-370|PX-374) --for-spec --no-implementation-order`.
+function readPreviousProgress(root, options, warnings, model) {
+  const outputDir = path.join(root, 'progress-gif');
+  const cutoff = Number.isFinite(options.now) ? options.now : Date.now();
+  const newestHtml = listHtmlRenders(outputDir, cutoff, warnings)[0];
+  const newestSnapshot = newestHtml
+    ? null
+    : listSnapshots(snapshotDirectory(root, options, outputDir), cutoff)[0];
+  if (newestSnapshot) {
+    const snapshot = readSnapshot(newestSnapshot.path);
+    if (!snapshot || snapshot.schema !== SNAPSHOT_SCHEMA) {
+      warnings.push(`[snapshot] ${newestSnapshot.path}: unreadable; filename used as the previous boundary clock`);
+    }
   }
-  return computePreviousProgress(snapshot);
+  const render = newestHtml ?? newestSnapshot;
+  if (!render) return null;
+  return {
+    value: progressAt(model, render.t),
+    t: render.t,
+    source: newestHtml ? 'html' : 'snapshot',
+    path: render.path,
+  };
 }
 
 // [::TICKET::] PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-353 --for-spec --no-implementation-order`.
@@ -266,11 +282,14 @@ function usageCachePath(root, options) {
   return path.join(snapshotDirectory(root, options), CACHE_FILE_NAME);
 }
 
-// [::TICKET::] PX-349, PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350|PX-351) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-349, PX-350, PX-351, PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350|PX-351|PX-374) --for-spec --no-implementation-order`.
 function markdownReport(model, options, output, layout, frames) {
   const firstDensity = frames.length > 0 ? frames[0].density : 0;
   const finalDensity = frames.length > 0 ? frames[frames.length - 1].density : 0;
   const finalProgress = frames.length > 0 ? frames[frames.length - 1].overallProgress : 0;
+  const previous = model.previousRender;
+  const historyBacked = model.events.filter((event) => event.timeSource === 'history').length;
+  const unverified = model.warnings.filter((warning) => warning.startsWith('[evidence]')).length;
   const lines = [
     '# draw-progress-gif',
     '',
@@ -286,6 +305,9 @@ function markdownReport(model, options, output, layout, frames) {
     `- density: ${firstDensity.toFixed(3)} -> ${finalDensity.toFixed(3)}`,
     `- overall progress: ${formatPercent(finalProgress)}`,
     `- frames: ${options.frames}`,
+    `- previous render: ${previous ? `${new Date(previous.t).toISOString()} (${previous.source})` : 'none'}`,
+    `- history-backed stage events: ${historyBacked}`,
+    `- unverified artifacts: ${unverified}`,
   ];
   if (output) {
     lines.push(`- html: ${output.html}`);
