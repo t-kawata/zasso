@@ -400,7 +400,7 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], s
 }
 
 // [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-306, PX-312, PX-313, PX-314, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-306|PX-312|PX-313|PX-314|PX-318) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-348, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-348|PX-378) --for-spec --no-implementation-order`.
 function main() {
   const { ticketsPath, graphPath, registryPath, stepSidecarPath } = parseArgs();
 
@@ -446,10 +446,6 @@ function main() {
     process.exit(1);
   }
 
-  // Atomic write
-  atomicWrite(ticketsPath, JSON.stringify(toHomeRelativeDeep(ticketsData), null, 2));
-
-  // Report summary
   let totalContracts = 0;
   for (const phase of ticketsData.phases) {
     if (phase.tickets) {
@@ -458,6 +454,14 @@ function main() {
       }
     }
   }
+  if (process.argv.slice(2).includes('--check')) {
+    process.stdout.write(`${JSON.stringify({ ok: true, ticketCount: ticketsData.phases.reduce((s, p) => s + (p.tickets ? p.tickets.length : 0), 0), totalContracts })}\n`);
+    return;
+  }
+
+  // Atomic write
+  atomicWrite(ticketsPath, JSON.stringify(toHomeRelativeDeep(ticketsData), null, 2));
+
   process.stdout.write(`${JSON.stringify({ ok: true, ticketCount: ticketsData.phases.reduce((s, p) => s + (p.tickets ? p.tickets.length : 0), 0), totalContracts })}\n`);
 }
 

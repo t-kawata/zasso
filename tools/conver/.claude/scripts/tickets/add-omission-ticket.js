@@ -394,7 +394,7 @@ function readStdin() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105|PX-378) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   let tmpOmissionsPath = null;
@@ -498,6 +498,10 @@ async function main() {
 
       cloned.foundOmissions = omissions;
       cloned.originalTicketKey = ticketKey;
+      cloned.origin = { kind: 'omission', sourceTicket: ticketKey };
+      cloned.nodeIds = [];
+      cloned.distribution = undefined;
+      cloned.formulaObligations = undefined;
       cloned.phaseId = -1;
       cloned.status = 'todo';
 
@@ -529,6 +533,10 @@ async function main() {
       console.error('[add-omission-ticket] Error: ' + validationError);
       process.exit(1);
     }
+    ticket.origin = ticket.origin ?? { kind: 'omission' };
+    ticket.nodeIds = [];
+    ticket.distribution = undefined;
+    ticket.formulaObligations = undefined;
 
     let data;
     try {

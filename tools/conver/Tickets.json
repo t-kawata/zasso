@@ -57766,6 +57766,305 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-05"
+        },
+        {
+          "id": 377,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "The pipeline carries the canon through every derived artifact, and a rewrite is never stranded",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-377.md",
+          "background": "### Goal\nMake the canon-state guard classify the derivation state instead of refusing on artifact presence, and make a canonical RFC rewrite oblige and prove the full re-derivation chain.\n\n### Purpose\nA design hole discovered after the RFC has been materialised must be repairable. The current guard refuses any package holding a graph, a directory tree or tickets, and its only route is /drill-rfc-down. That route does not exist when Tickets.json is absent, as in gaia-certificates, so the package is wedged. The guard must distinguish a complete materialisation (tickets exist, lineage fresh) from a partial one (graph and tree exist, tickets absent) and from a stale one.\n\n### Motivation\nThe gaia re-run exposed the wedge at certificates: drill ended BLOCKED_PREREQUISITE because Tickets.json was absent, and grill refused because RFC-GRAPH.json and RFC-Dirs-Tree.json existed. The formula ledger is only one rail; units, sequence steps, operations, boundary contracts, distribution and formulas must all be re-proven after a rewrite.\n\n### Constraints\n- No gaia-specific path, package id or formula count.\n- The four commands keep their ownership: grill writes RFC.md and RFC-FORMULAS.json; graphify writes RFC-GRAPH.json; boundify writes RFC-Dirs-Tree.json; split writes Tickets.json.\n- Fresh-path outputs are byte-identical; the receipt is additive.\n- Existing packages without receipts keep the current behavior until their next chain run.\n- TDD: Red tests first, no test weakening, no stubs.",
+          "scope": [
+            ".claude/scripts/grill-me-for-rfc/canon-state.js — modify — replace the presence-only refusal with a four-state classifier and a --json output; keep the script read-only.",
+            "canon-state behavior — before: exit 1 on any graph, tree or tickets; after: exit 0 for standalone and partial, exit 1 only for materialized-fresh; materialized-stale emits rederive and never a drill instruction.",
+            ".claude/commands/grill-me-for-rfc.md STEP 0 — consume the classifier; on partial record rederive in Status.json and continue; on materialized-fresh route to drill; on stale route to rederive.",
+            ".claude/scripts/grill-me-for-rfc/complete-run.js and stage8-gates.js — add a rederive-receipts gate; DONE requires every stage receipt sourceDigest to equal the current RFC digest.",
+            ".claude/scripts/rfc-graph/update-step-status.js (--graphify-status) and .claude/scripts/rfc-graph/lib/status-generation.js — modify — additive sourceDigest, inputDigests, outputDigest and gate verdict fields.",
+            ".claude/scripts/rfc-graph/update-boundify-step-status.js and boundify-graph-to-dirs.js — the same additive receipt fields.",
+            ".claude/scripts/rfc-graph/update-split-step-status.js — the same additive receipt fields plus the mutation receipt hook consumed by PX-378.",
+            ".claude/scripts/spec-formula/index.mjs and .claude/scripts/rfc-graph/attach-formula-ids.js — a generic ledger authoring path: extract owned formulas, resolve the RFC section to one graph node, derive the Dirs-Tree file and symbol; no new gate semantics.",
+            ".claude/scripts/grill-me-for-rfc/check-formula-coverage.js — remains the only formula gate; its findings and exit codes are unchanged.",
+            ".claude/scripts/sequences-slice/verify-chain.mjs — add a receipt comparison helper and a delta reader; preserve every existing chain code.",
+            "tests/grill-me-for-rfc/canon-state.test.mjs, tests/grill-me-for-rfc/receipts.test.mjs, tests/split-to-tickets/receipts.test.cjs and tests/formula-ledger-authoring.test.mjs — synthetic fixtures only; no gaia path or package name.",
+            "Non-change: grill never writes graph, tree or tickets; split keeps its existing ticket generation; the four commands keep their roles.",
+            "Affected areas: command CLI exit codes and Status.json fields; data format additive; no new dependency; no performance or security surface change."
+          ],
+          "testUnit": [
+            "UT: [Contract C001] canon-state on a temp directory with no artifacts exits 0 and prints state standalone with no rederive.",
+            "UT: [Contract C001] canon-state with RFC-GRAPH.json and RFC-Dirs-Tree.json but no Tickets exits 0, prints state partial, prints rederive [graphify,boundify,split], and prints no drill instruction.",
+            "UT: [Contract C001] canon-state with Tickets.json and matching receipts exits 1, prints state materialized-fresh and nextOwner drill.",
+            "UT: [Contract C001] canon-state with Tickets.json and a mismatched receipt prints state materialized-stale, rederive and no drill instruction.",
+            "UT: [Contract C002] complete-run on a package whose rederive receipt is stale exits non-zero and leaves Status.json byte-identical.",
+            "UT: [Contract C003] each stage status writer records sourceDigest, inputDigests, outputDigest and gates; the stage output is byte-identical across two runs with the same input.",
+            "UT: [Contract C004] the extractor returns each owned formula with id, digest, body, display and exact specLocation.",
+            "UT: [Contract C004] a ledger row whose id is absent from the specification is refused as INVENTED_FORMULA.",
+            "UT: [Contract C004] an RFC section that matches zero or two graph nodes is refused as MISSING_NODE or AMBIGUOUS_NODE.",
+            "UT: [Contract C004] a row missing theory, implementation design or tests fails by field name."
+          ],
+          "testIntegration": [
+            "IT: [Contract C001+C002+C003] a synthetic partial package runs grill, records rederive, then graphify, boundify and split; verify-chain exits 0 and every stage receipt carries the current RFC digest.",
+            "IT: [Contract C003] a legacy package without receipts keeps its current canon-state exit code; the next chain adds receipts without changing the derived bytes.",
+            "IT: [Contract C004] a synthetic owned-formula package completes STEP 5c, check-formula-coverage exits 0, attach-formula-ids builds distribution.formulas, and the index names the implementing file and symbol.",
+            "IT: [Contract C002] a stale package is routed to rederive; after the chain DONE is declared only when the receipts match, and a failed gate leaves the state unchanged."
+          ],
+          "testExceptions": [
+            "This item is not testable inside conver because the 2,677 gaia formula rows live in an external workspace; they are verified end-to-end by check-formula-coverage and verify-chain after make install-to-projects. This is an external-data boundary, not a design defect.",
+            "This legacy path is not testable as a conver unit because historical gaia artifacts carry no receipts; the synthetic legacy fixture verifies the behavior and the first chain run populates the receipts. This is a migration state, not an architectural defect."
+          ],
+          "default_files": [
+            ".claude/scripts/grill-me-for-rfc/canon-state.js",
+            ".claude/commands/grill-me-for-rfc.md",
+            ".claude/scripts/grill-me-for-rfc/complete-run.js",
+            ".claude/scripts/grill-me-for-rfc/stage8-gates.js",
+            ".claude/scripts/spec-formula/index.mjs",
+            ".claude/scripts/rfc-graph/attach-formula-ids.js",
+            ".claude/scripts/sequences-slice/verify-chain.mjs",
+            ".claude/scripts/rfc-graph/update-step-status.js",
+            ".claude/scripts/rfc-graph/update-split-step-status.js",
+            ".claude/scripts/rfc-graph/lib/stage-receipt.js",
+            ".claude/scripts/lib/finding-delta.js",
+            ".claude/scripts/spec-formula/author-ledger.mjs",
+            ".claude/scripts/spec-formula/author-ledger.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a package with RFC, graph and Dirs-Tree but no Tickets runs grill to completion, records rederive, and the following graphify, boundify and split produce receipts that match the current RFC digest; verify-chain exits 0.",
+            "Error case: a package with Tickets.json and a fresh lineage returns materialized-fresh and routes to drill; no RFC is written. A stale receipt blocks DONE and leaves Status.json unchanged.",
+            "Edge case: a legacy package without receipts keeps the current behavior, and a stale package is routed to rederive rather than drill; the fresh-path derived bytes are unchanged."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "canon-state -> grill STEP 0",
+              "precondition": "The RFC directory exists and every derived artifact that is present is readable.",
+              "postcondition": "The script prints exactly one state from standalone, partial, materialized-fresh and materialized-stale, the next owner and the rederive chain when one is owed.",
+              "invariant": "The script is read-only, deterministic, names every artifact it reads, and never prints a drill instruction when Tickets.json is absent."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "grill STEP 5 -> complete-run",
+              "precondition": "The grill has written RFC.md and, when formulas are owned, RFC-FORMULAS.json.",
+              "postcondition": "Status.json records the rederive chain and the RFC digest; DONE is declared only when every stage receipt matches that digest.",
+              "invariant": "A failed gate or a failed rederive leaves Status.json unchanged and never declares DONE."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "graphify -> boundify -> split",
+              "precondition": "A stage runs with a readable RFC and its declared inputs.",
+              "postcondition": "The stage status file records sourceDigest, inputDigests, outputDigest and the gate verdicts of that run.",
+              "invariant": "The receipt is additive: a stage output is byte-identical with or without the receipt, and a missing receipt is treated as legacy rather than as a failure."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "RFC-SEED -> RFC-FORMULAS -> graph -> Dirs-Tree",
+              "precondition": "The seed names owned source segments and the tree manifest resolves them.",
+              "postcondition": "Every owned formula has one ledger row and one sidecar row with its theory, class, implementation site, design and tests; the section resolves to one graph node and the anchor to a Dirs-Tree file and symbol.",
+              "invariant": "No formula absent from the specification is accepted, and no owned formula is omitted or given an invented theory or test."
+            }
+          ],
+          "notes": "- [Implementation steps] (1) canon-state classifier and tests; (2) receipt schema and the three writers; (3) grill STEP 0 and complete-run gate; (4) generic formula authoring and attach-formula-ids; (5) integration fixtures and the legacy-path test.\n- [Risks] A legacy package without receipts must not be blocked; the delta reader must not hide a new violation; formula authoring must not invent theory or tests.\n- [Caveats] The rederive chain is graphify then boundify then split; drill is not the owner of a partial package. A stale package with Tickets is repaired by rederive, and drill runs only after the lineage is fresh.\n- [Open items] Whether a workspace-level receipt index is needed; this ticket keeps the receipt per stage status file.\n- [Future improvements] PX-378 consumes the split receipt; a later ticket may add a workspace-wide lineage report.\nImplementation summary:\n- Changed files: canon-state.js, complete-run.js, stage8-gates.js, update-status.js, check-all-schema.js, update-step-status.js, update-boundify-step-status.js, update-split-step-status.js, stage-receipt.js, finding-delta.js, author-ledger.mjs, author-ledger.js, grill-me-for-rfc.md, and the new/updated tests.\n- Key changes: four-state canon classifier; additive stage receipts; rederive-receipts completion gate; generic formula-ledger authoring path.\n- Test results: 113 tests passed across the impact set; verify-red-coverage reports 4/4 contracts covered; quality checks report 0 findings.\n\n- Quality follow-up: recordStageReceipt now takes one options object, keeping the function within the review parameter limit and re-running the receipt tests green.\nReview report:\n- Static quality check: passed (0 issues).\n- Translatability: no debug output, no generic data/info/tmp, no new single-char vars; noun-phrase helpers renamed to verb phrases.\n- Tests: 230 passed / 0 failed across the PX-377 and PX-378 impact sets.\n- Contracts: PX-377 4/4 covered; PX-378 4/4 covered; verify-final-contracts 100%; target validation empty.\n- Hygiene: 0 open crimes, 0 unclassified stubs, 0 [::AMBIGUOUS::] markers; every changed source file carries a ticket annotation.\n- Fixes applied: batch-create gate findings mapped to the CLI error shape; helper names made verb phrases; command docs compressed; misattributed PX-378 annotations removed from PX-377-only files.\n- G7c formula dry-run: not applicable (conver has no RFC-FORMULAS.json, Dirs-Tree or formulaObligations).\n- Known baseline: tests/tickets/sequence-step-coverage.test.mjs has one pre-existing failure in unmodified add-tickets-for-phase.js; not a PX-377/PX-378 regression.",
+          "invariants": "- [Normal condition] Every classifier answer is one of standalone, partial, materialized-fresh and materialized-stale, and names the next owner.\n- [Error invariant] A package with Tickets.json absent never receives a drill instruction; a failed rederive never declares DONE.\n- [Internal state invariant] Status.json records the rederive chain and sourceDigest exactly once per generation; a failed gate leaves it unchanged.\n- [Boundary invariant] A stage receipt is additive: the stage output is byte-identical with or without it, and a missing receipt is legacy, not a failure.",
+          "instrumentation": "- [Logging] canon-state prints one JSON object on stdout with state, artifacts, nextOwner and rederive; errors go to stderr with a stable code.\n- [Metrics] each stage status records generation, gate verdicts, sourceDigest and outputDigest.\n- [Error tracking] stable codes CANON_STATE_UNREADABLE, REDERIVE_REQUIRED, RECEIPT_MISSING, RECEIPT_STALE and the existing FORMULA_* codes.\n- [Health check] canon-state --json and complete-run exit codes; no network call and no write in the classifier.\nStatic quality check: passed\nTranslatability: passed\nTests: 230 passed",
+          "investigation": "canon-state.js currently reads the directory and refuses on any of Tickets.json, *-GRAPH.json and *-Dirs-Tree.json (lines 47 and 64-82). The command text at grill-me-for-rfc.md 322-328 routes every refusal to /drill-rfc-down. The drill preflight at drill-rfc-down/preflight.cjs 322-328 returns BLOCKED_PREREQUISITE with TICKETS_MISSING_ROUTE_SPLIT_TO_TICKETS when Tickets.json is absent, so the route is not executable for a partial package.\ncertificates has RFC-GRAPH.json and RFC-Dirs-Tree.json but no Tickets.json; check-formula-coverage reports 363 owned formulas and zero ledger rows. The Dirs-Tree formula index exists only when a sidecar exists (time has 329 entries; certificates has none), so the ledger must be authored before the index can be built.\nattach-formula-ids.js resolves a formula section to one graph node (nodeMatchesSection) and builds distribution.formulas from the graph, sidecar and node-to-file paths. The ledger rfcLocation.section is therefore the only authored join key; the file and symbol follow from the graph and Dirs-Tree.\ncomplete-run.js defines REQUIRED_GATES and stage8-gates.js defines REQUIRED_GATE_NAMES; the two lists must change together. The graphify status writer is update-step-status.js with --graphify-status; there is no update-graphify-step-status.js. complete-run.js writes Status.json only after every gate passes, so the rederive receipt gate belongs in REQUIRED_GATES with a named repair.\nThe existing test canon-state.test.mjs asserts refusal for graph, tree and tickets one at a time. The new contract replaces the graph/tree refusals with partial classification and keeps the tickets refusal only for materialized-fresh.\nThe generic authoring path is a new spec-formula module: extract owned formulas, match the formula section to exactly one graph node, derive the Dirs-Tree file and planned symbol, and refuse when theory, implementation or tests are not derivable. The gate remains check-formula-coverage; the authoring script never invents a row. The split test extension is .test.cjs because update-split-step-status.js and stage-receipt.js are CommonJS; the canon-state and authoring tests are .test.mjs because those modules are ESM.",
+          "boyScoutPlan": "Extract derivedArtifactsIn and a new classifyCanonState into named functions; replace the suffix array with a named constant and the numeric exit codes with named constants.\nExtract receipt construction and comparison into .claude/scripts/rfc-graph/lib/stage-receipt.js so the three writers share one function and no writer reimplements the digest.\nSplit the grill gate list into named predicate builders; each gate returns a stable name, verdict and repair command.\nReplace swallowed catches with Result-like returns; every unreadable artifact yields a named finding rather than a silent empty list.\nRename generic variables (found, result, entry) to domain names (derivedArtifacts, classification, receipt); keep functions under 50 lines and comments about why the state exists rather than what the code does.",
+          "created_at": "2026-11-05",
+          "updated_at": "2026-11-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 precondition] test('standalone and partial states', () => {\n  const dir = mkdtempSync(join(tmpdir(), 'px377-'));\n  writeFileSync(join(dir, 'RFC.md'), '# RFC\\n');\n  assert.equal(classifyCanonState(dir).state, 'standalone');\n  writeFileSync(join(dir, 'RFC-GRAPH.json'), '{}');\n  writeFileSync(join(dir, 'RFC-Dirs-Tree.json'), '{}');\n  const partial = classifyCanonState(dir);\n  assert.equal(partial.state, 'partial');\n  assert.deepEqual(partial.rederive, ['graphify', 'boundify', 'split']);\n});",
+            "UT: [C001 postcondition] test('materialized-fresh routes to drill', () => {\n  const dir = makeMaterializedPackage({ receipts: 'fresh' });\n  const result = runCli('canon-state.js', [dir, '--json']);\n  assert.equal(result.status, 1);\n  const state = JSON.parse(result.stdout);\n  assert.equal(state.state, 'materialized-fresh');\n  assert.equal(state.nextOwner, 'drill');\n});",
+            "UT: [C001 invariant] test('no drill instruction without Tickets.json', () => {\n  const dir = makePartialPackage();\n  const result = runCli('canon-state.js', [dir]);\n  assert.equal(result.status, 0);\n  assert.doesNotMatch(result.stdout + result.stderr, /drill-rfc-down|drill/);\n});",
+            "UT: [C002 precondition+postcondition] test('DONE refuses a stale rederive receipt', () => {\n  const dir = makeGrilledPackage({ rederive: ['graphify', 'boundify', 'split'], receipts: { graphify: 'stale' } });\n  const before = readFileSync(join(dir, 'Status.json'), 'utf8');\n  const result = runCli('complete-run.js', [dir]);\n  assert.notEqual(result.status, 0);\n  assert.equal(readFileSync(join(dir, 'Status.json'), 'utf8'), before);\n});",
+            "UT: [C002 invariant] test('rederive chain is graphify, boundify, split', () => {\n  const status = recordRederive({ chain: ['graphify', 'boundify', 'split'] });\n  assert.equal(status.rederive.required, true);\n  assert.deepEqual(status.rederive.chain, ['graphify', 'boundify', 'split']);\n});",
+            "UT: [C003 precondition+postcondition] test('every stage writes a receipt', () => {\n  const dir = makeStagePackage();\n  const rfcDigest = sha256Hex(readFileSync(join(dir, 'RFC.md')));\n  runGraphify(dir); runBoundify(dir); runSplit(dir);\n  for (const stage of ['graphify', 'boundify', 'split']) {\n    const status = JSON.parse(readFileSync(join(dir, stageStatusFile(stage)), 'utf8'));\n    assert.equal(status.receipt.sourceDigest, rfcDigest);\n    assert.equal(typeof status.receipt.outputDigest, 'string');\n    assert.ok(Array.isArray(status.receipt.gateVerdicts));\n  }\n});",
+            "UT: [C003 invariant] test('receipt is additive', () => {\n  const dir = makeStagePackage();\n  const without = runGraphify(dir, { receipt: false });\n  const withReceipt = runGraphify(dir, { receipt: true });\n  assert.equal(readFileSync(without.graphPath, 'utf8'), readFileSync(withReceipt.graphPath, 'utf8'));\n});",
+            "UT: [C004 precondition+postcondition] test('owned formulas reach the ledger', () => {\n  const fixture = makeFormulaFixture({ spec: '$$x = y + 1$$', heading: 'Trust' });\n  const ledger = buildFormulaLedger(fixture);\n  assert.equal(ledger.rows.length, fixture.owned.length);\n  assert.equal(ledger.rows[0].specLocation.lineStart, fixture.owned[0].lineStart);\n  assert.deepEqual(ledger.rows[0].implementation.symbols, ['src/trust.rs#trust_epoch']);\n});",
+            "UT: [C004 invariant] test('invented formula is refused', () => {\n  const fixture = makeFormulaFixture({ extraLedgerRow: { id: 'fx-000000000000' } });\n  const result = runCli('check-formula-coverage.js', [fixture.dir]);\n  assert.equal(result.status, 1);\n  assert.match(result.stderr, /INVENTED_FORMULA/);\n});",
+            "UT: [C004 invariant] test('missing theory or tests is refused', () => {\n  const fixture = makeFormulaFixture({ drop: 'theory' });\n  const result = runCli('check-formula-coverage.js', [fixture.dir]);\n  assert.equal(result.status, 1);\n  assert.match(result.stderr, /MISSING_THEORY/);\n});"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "canon-state refused whenever a graph, directory tree or tickets existed",
+              "after": "canon-state classifies standalone, partial, materialized-fresh and materialized-stale; partial and stale record the rederive chain and never advise drill without Tickets.json",
+              "description": "The guard now distinguishes a partial package (drill cannot run) from a materialized one (drill owns the evolution)."
+            },
+            {
+              "before": "stage status recorded only the output digest",
+              "after": "graphify, boundify and split record a receipt with the RFC source digest, input digests, output digest and step verdicts",
+              "description": "The receipt is additive; the stage output bytes are unchanged and a missing receipt is read as legacy."
+            },
+            {
+              "before": "complete-run had no lineage gate",
+              "after": "complete-run evaluates rederive-receipts as the eleventh required gate and refuses DONE until every stage receipt matches the current RFC digest",
+              "description": "A package with no recorded obligation still completes, so existing packages are not blocked."
+            },
+            {
+              "before": "no way to record or discharge a rederive obligation",
+              "after": "update-status record-rederive and clear-rederive write and remove the obligation; check-all-schema validates its shape",
+              "description": "The obligation is bound to the RFC digest at the moment the rewrite is recorded."
+            },
+            {
+              "before": "formula ledger authoring was prose only",
+              "after": "author-ledger.mjs and author-ledger.js draft the ledger and sidecar from the seed, specification, graph and Dirs-Tree; underivable fields are named findings and nothing is written",
+              "description": "The gate check-formula-coverage remains the oracle; the authoring path never invents a formula, theory or test."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
+        },
+        {
+          "id": 378,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Every post-split ticket mutation is proven against the full chain or rolled back",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-378.md",
+          "background": "### Goal\nMake every post-split Tickets.json mutation either pass the same full-chain verification that split uses or be rolled back byte-identically.\n\n### Purpose\nTickets.json is written after split by find-omissions, by the resolving-ticket path that consumes the consolidate-stubs manifest, and by any later command that adds or updates tickets. Those changes are legitimate, but a resolving ticket deep-clones the source ticket and preserves nodeIds, so it can claim a unit the source already owns; an omission ticket can add work without a graph node. The chain must remain provable after every such change.\n\n### Motivation\nThe user identified the mutation points and asked for a guarantee that penetration is not broken there. Without a transactional gate, every command can report success while the union of unit, step, operation, boundary-contract, distribution and formula ownership is silently corrupted.\n\n### Constraints\n- No gaia-specific path, package id or ticket key.\n- The commands keep their authoring role: find-omissions decides what to add, consolidate-stubs only produces the manifest, crystalize-readme only writes specs and README.\n- The gate adds no new verification semantics; it reuses the split-stage verify-chain and the existing closure, contract and formula gates.\n- Legacy packages with pre-existing duplicate ownership are grandfathered; only findings newly introduced by the mutation are blocking.\n- TDD: Red tests first, no test weakening, no stubs.",
+          "scope": [
+            ".claude/scripts/tickets/ticket-mutation-gate.js — add — snapshot, mutate, verify, promote and rollback; the gate owns no ticket authoring.",
+            "Mutation manifest — add — {command, reason, added, updated, retired, ownershipClaims, ownershipTransfers, beforeDigest, afterDigest}.",
+            ".claude/scripts/tickets/tickets-schema.json — modify — add optional origin {kind, sourceTicket, sourceStub, reason}; existing tickets without it are derived.",
+            "Ownership rules — enforce — derived tickets may own units, operations, contracts and formulas; resolving and omission tickets are non-owning by default; an explicit transfer must also reduce the source ticket.",
+            ".claude/scripts/tickets/create-ticket-from-source.js — modify — keep nodeIds in PRESERVE_FIELDS only when the clone is an ownership transfer; otherwise the resolving clone is non-owning.",
+            ".claude/scripts/tickets/batch-create-resolving-tickets.js — modify — run the gate after the in-memory creation and before the commit phase writes Tickets.json.",
+            ".claude/scripts/rfc-graph/phasify-omissions.js — modify — write to a staging copy, run the gate, then promote; rollback on any new finding.",
+            ".claude/scripts/tickets/add-omission-ticket.js — modify — record origin.kind omission and the source inspection in the temporary omission record.",
+            ".claude/commands/find-omissions.md — modify — Step 1 and Step 9 name the gate and its rollback route; the command never writes Tickets.json outside the gate.",
+            ".claude/commands/consolidate-stubs.md — modify — the manifest handoff names the consuming gate; the command still creates no tickets.",
+            ".claude/commands/crystalize-readme.md — modify — any Tickets.json write goes through the gate; a run that writes only specs and README is a no-op for the gate.",
+            "Reused verifiers — no change — verify-chain --stage=split --require-tickets, verify-ticket-closure, merge-contracts-to-tickets and merge-formulas-to-tickets in verify mode, verify-formula-file-coverage, check-ticket-prerequisites.",
+            "Non-change: the gate does not author tickets, does not change the four command roles, and does not add a new chain code; the fresh path is unchanged."
+          ],
+          "testUnit": [
+            "UT: [Contract C001] a successful mutation promotes the new file, records beforeDigest and afterDigest, and the promoted bytes equal the verified bytes.",
+            "UT: [Contract C001] a failed verification restores the snapshot byte for byte and returns a non-zero exit with the named finding.",
+            "UT: [Contract C002] a resolving ticket that inherits nodeIds without a transfer is refused; the same ticket with an explicit transfer is accepted and the source ticket loses the unit.",
+            "UT: [Contract C002] an omission ticket with no nodeIds is additive and accepted; a ticket naming a unit absent from the graph is refused.",
+            "UT: [Contract C002] two tickets naming the same operation implementer or the same formula are refused.",
+            "UT: [Contract C003] a finding present in both snapshots is reported as grandfathered and does not block; a finding present only after the mutation is blocking.",
+            "UT: [Contract C003] the delta is order-independent and deterministic across repeated runs.",
+            "UT: [Contract C004] the gate invokes verify-chain at the split stage, the closure check, merge-contracts verify, merge-formulas verify and formula-file coverage when files change.",
+            "UT: [Contract C004] the gate returns the same definition of through as split, and a status-only update keeps every existing verdict green.",
+            "UT: [Contract C001] a mutation that changes no ticket produces an empty manifest and a no-op promotion."
+          ],
+          "testIntegration": [
+            "IT: [Contract C001+C004] a synthetic package passes verify-chain before and after a status-only update; a mutation that duplicates an operation implementer is rolled back and the package remains green.",
+            "IT: [Contract C002+C003] a find-omissions Step 1 resolving ticket and a Step 9 omission ticket both run through the gate; the omission is accepted and the duplicate resolving ticket is refused with the transfer route named.",
+            "IT: [Contract C004] a phase merge and renumber with a complete reference remap passes; an incomplete remap is refused and rolled back.",
+            "IT: [Contract C003] a legacy package with an existing duplicate is grandfathered on the first audit run, and the same mutation introducing a new duplicate is blocked."
+          ],
+          "testExceptions": [
+            "This rollout is not testable inside conver because it is external workspace data; it is verified end-to-end by the audit-mode and enforce-mode gate runs after install. This is an external-data boundary, not a design defect.",
+            "This third-party write path is not testable inside conver because it is an external integration; the gate is verified with synthetic manifests for each known mutation shape. This is an external integration boundary, not an architectural defect."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/ticket-mutation-gate.js",
+            ".claude/scripts/tickets/create-ticket-from-source.js",
+            ".claude/scripts/tickets/batch-create-resolving-tickets.js",
+            ".claude/scripts/tickets/add-omission-ticket.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/scripts/tickets/tickets-schema.json",
+            ".claude/commands/find-omissions.md",
+            ".claude/commands/consolidate-stubs.md",
+            ".claude/commands/crystalize-readme.md",
+            ".claude/scripts/tickets/lib/validate-tickets.js",
+            ".claude/scripts/lib/finding-delta.js",
+            ".claude/scripts/rfc-graph/lib/stage-receipt.js",
+            "tests/tickets/ticket-mutation-gate.test.cjs",
+            "tests/tickets/mutation-ownership.test.cjs",
+            "tests/tickets/mutation-command-integration.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a status-only update and an omission ticket with no nodeIds both pass the gate, the split receipt records the new Tickets digest, and the package remains green under verify-chain at the split stage.",
+            "Error case: a resolving ticket that inherits nodeIds without an ownership transfer is refused, Tickets.json is restored byte-identically, and the route names either the transfer or the non-owning form.",
+            "Edge case: a legacy package with an existing duplicate is grandfathered, while the same mutation introducing a new duplicate is blocked; a phase merge with a complete remap passes."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "ticket command -> Tickets.json",
+              "precondition": "Tickets.json is readable and a snapshot of its bytes and digest is taken before the mutation.",
+              "postcondition": "A successful mutation writes the new file, records the mutation manifest and updates the split receipt; a failed verification restores the snapshot byte for byte.",
+              "invariant": "No partial write survives; the before and after digests are both recorded and the rollback is byte-identical."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "find-omissions -> ticket set",
+              "precondition": "The mutation manifest names each added, updated and retired ticket and its origin.",
+              "postcondition": "A derived ticket may own units; a resolving or omission ticket is non-owning unless the manifest records an explicit ownership transfer that also reduces the source ticket.",
+              "invariant": "No unit, operation, formula or boundary contract has two implementing tickets, and no ticket claims a unit absent from the graph."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "before snapshot -> after snapshot",
+              "precondition": "The verifier has run on the before and after snapshots.",
+              "postcondition": "Only findings that are absent before and present after are blocking; pre-existing findings are reported as grandfathered.",
+              "invariant": "The delta is deterministic and order-independent, and a mutation that introduces no new finding always passes."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "mutation gate -> split verifier",
+              "precondition": "The package carries a readable graph, Dirs-Tree and tickets.",
+              "postcondition": "The gate reuses verify-chain at the split stage, verify-ticket-closure, merge-contracts and merge-formulas in verify mode, and verify-formula-file-coverage when files change.",
+              "invariant": "The definition of through is identical before and after the mutation; the gate adds no new verification semantics and no command loses its role."
+            }
+          ],
+          "notes": "- [Implementation steps] (1) snapshot and rollback; (2) origin and ownership rules; (3) delta reader; (4) wire find-omissions Step 1 and Step 9, the consolidate-stubs manifest and crystalize-readme; (5) integration fixtures and audit mode.\n- [Risks] A legacy package with duplicate ownership must not be blocked; a delta reader that is too coarse can hide a new violation; a resolving ticket that silently drops nodeIds can under-own work.\n- [Caveats] The gate reuses the split verifier; it does not replace it. A mutation that needs a new graph unit is refused and routed to graphify and rederive.\n- [Open items] Whether the mutation manifest should live beside the split receipt or in a dedicated pipeline ledger; this ticket uses the split receipt directory.\n- [Future improvements] PX-377 supplies the split receipt; a later ticket may add a workspace-wide mutation audit.\nImplementation summary:\n- Changed files: ticket-mutation-gate.js, tickets-schema.json, create-ticket-from-source.js, create-resolving-ticket.js, batch-create-resolving-tickets.js, add-omission-ticket.js, phasify-omissions.js, merge-contracts-to-tickets.js, find-omissions.md, consolidate-stubs.md, crystalize-readme.md, and the new mutation tests.\n- Key changes: transactional mutation gate; origin provenance; non-owning resolving/omission clones; ownership transfer rule; delta findings; split receipt refresh.\n- Test results: 194 tests passed across the impact set (0 failed); the three new mutation test files are 20/20; Red coverage 4/4 contracts; quality checks 0 issues; no-excuse 0.\n- Known baseline: tests/tickets/sequence-step-coverage.test.mjs has one pre-existing failure in add-tickets-for-phase.js, which this ticket does not modify; it is the recorded baseline, not a PX-378 regression.\nReview report:\n- Static quality check: passed (0 issues).\n- Translatability: no debug output, no generic data/info/tmp, no new single-char vars; noun-phrase helpers renamed to verb phrases.\n- Tests: 230 passed / 0 failed across the PX-377 and PX-378 impact sets.\n- Contracts: PX-377 4/4 covered; PX-378 4/4 covered; verify-final-contracts 100%; target validation empty.\n- Hygiene: 0 open crimes, 0 unclassified stubs, 0 [::AMBIGUOUS::] markers; every changed source file carries a ticket annotation.\n- Fixes applied: batch-create gate findings mapped to the CLI error shape; helper names made verb phrases; command docs compressed; misattributed PX-378 annotations removed from PX-377-only files.\n- G7c formula dry-run: not applicable (conver has no RFC-FORMULAS.json, Dirs-Tree or formulaObligations).\n- Known baseline: tests/tickets/sequence-step-coverage.test.mjs has one pre-existing failure in unmodified add-tickets-for-phase.js; not a PX-377/PX-378 regression.",
+          "invariants": "- [Normal condition] Every mutation has a manifest and a before/after digest, and the promoted file is the verified file.\n- [Error invariant] A failed verification restores the byte-identical snapshot; no partial write survives.\n- [Internal state invariant] The split receipt outputDigest equals the promoted Tickets digest, and the mutation manifest is stored beside it.\n- [Boundary invariant] Only findings absent before and present after are blocking; pre-existing findings are grandfathered and reported, not silently dropped.",
+          "instrumentation": "- [Logging] the gate prints one JSON object with command, manifest, beforeDigest, afterDigest, promoted and findings.\n- [Metrics] each mutation records added, updated and retired counts and the gate verdicts.\n- [Error tracking] stable codes MUTATION_ROLLED_BACK, MUTATION_OWNERSHIP_DUPLICATE, MUTATION_INVENTED_UNIT, MUTATION_NEW_FINDING and MUTATION_MANIFEST_MISSING.\n- [Health check] the split receipt outputDigest equals the promoted Tickets digest; the gate exits non-zero on any new finding.\nStatic quality check: passed\nTranslatability: passed\nTests: 230 passed",
+          "investigation": "create-ticket-from-source.js preserves nodeIds in PRESERVE_FIELDS (line 26) and createTicketFromSource (line 194) deep-clones the source; a resolving ticket therefore claims the source node unless the clone is made non-owning or a transfer is recorded.\nbatch-create-resolving-tickets.js createResolvingTickets (line 236) creates tickets in memory, and runBatchCreate (line 357) enters a commit phase (line 369) that writes Tickets.json. The gate can run between the in-memory result and the commit without changing the command authoring.\nadd-omission-ticket.js appends to _tmp-omissions-*.json, not directly to Tickets.json; phasify-omissions.js merges the omissions into Tickets.json and is the write point that needs the gate.\nconsolidate-stubs.md states that it never creates tickets; it writes manifests/CONSOLIDATED-MANIFEST-*.json, which find-omissions Step 1 consumes through batch-create-resolving-tickets.js. crystalize-readme.md currently writes specs and README and does not call add-ticket; the gate still covers any future Tickets.json write.\nverify-chain.mjs checks the ticket unit set against the graph (line 466), builds implementersByUnit from distribution.units and reports DUPLICATE_UNIT_AT_TICKET (lines 471-483). verify-ticket-closure.js maps nodeId to the last ticket, so a duplicate nodeId can shadow a contract owner without a chain finding; the mutation gate must refuse that duplicate before promote.\ntickets-schema.json requires id, phaseId, title, status and contracts; contracts has minItems 1 and additionalProperties is true, so an optional origin field is additive. Existing tests tests/tickets/single-implementing-ticket.test.mjs and formula-obligations.test.mjs are the closest regression suite.",
+          "boyScoutPlan": "Extract snapshotTickets, restoreTickets, diffFindings, classifyOrigin and assertOwnership into named functions; replace magic strings and exit codes with named constants.\nKeep each function under 50 lines and one responsibility: the gate orchestrates; the ownership module decides; the delta module compares; the receipt module records.\nReplace swallowed catches with Result-like returns; an unreadable snapshot or manifest yields a named finding rather than a silent pass.\nRename generic variables (data, result, entry) to domain names (ticketsDocument, gateVerdict, mutationEntry); comments explain why the rollback is byte-identical and why legacy findings are grandfathered.\nReuse the existing split verifier rather than copying its checks; a duplication would drift and weaken the definition of through.",
+          "created_at": "2026-11-05",
+          "updated_at": "2026-11-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 postcondition] test('a successful mutation promotes the verified bytes and records both digests', () => {\n  const fixture = makeTicketsPackage();\n  const result = runMutationGate({\n    ticketsPath: fixture.ticketsPath,\n    manifest: { command: 'find-omissions', added: ['P2-1'] },\n    mutate: (document) => appendTicket(document, 'P2-1'),\n  });\n  assert.equal(result.ok, true);\n  assert.equal(result.manifest.afterDigest, fileDigest(fixture.ticketsPath));\n  assert.equal(result.manifest.beforeDigest, fixture.beforeDigest);\n});",
+            "UT: [C001 error] test('a failed verification restores the snapshot byte for byte', () => {\n  const fixture = makeTicketsPackage();\n  const before = readFileSync(fixture.ticketsPath);\n  const result = runMutationGate({\n    ticketsPath: fixture.ticketsPath,\n    manifest: { command: 'find-omissions', added: ['P2-1'] },\n    mutate: (document) => appendTicket(document, 'P2-1'),\n    verify: () => [{ code: 'UNIT_SET_MISMATCH', subject: 'u1' }],\n  });\n  assert.equal(result.ok, false);\n  assert.deepEqual(readFileSync(fixture.ticketsPath), before);\n});",
+            "UT: [C002 error] test('a resolving ticket that inherits nodeIds without a transfer is refused', () => {\n  const before = makeTicketsDocument({ tickets: [{ key: 'P1-1', nodeIds: ['N1'] }] });\n  const after = cloneWithResolving(before, {\n    key: 'P2-1', nodeIds: ['N1'], origin: { kind: 'resolving', sourceTicket: 'P1-1' },\n  });\n  const result = evaluateOwnership({ before, after, manifest: { added: ['P2-1'] } });\n  assert.equal(result.ok, false);\n  assert.equal(result.findings[0].code, 'MUTATION_OWNERSHIP_DUPLICATE');\n});",
+            "UT: [C002 normal] test('an explicit transfer is accepted and the source loses the unit', () => {\n  const before = makeTicketsDocument({ tickets: [{ key: 'P1-1', nodeIds: ['N1'] }] });\n  const after = cloneWithResolving(before, {\n    key: 'P2-1', nodeIds: ['N1'], origin: { kind: 'resolving', sourceTicket: 'P1-1' },\n  });\n  after.tickets[0].nodeIds = [];\n  const result = evaluateOwnership({\n    before, after,\n    manifest: { added: ['P2-1'], ownershipTransfers: [{ from: 'P1-1', to: 'P2-1', nodeIds: ['N1'] }] },\n  });\n  assert.equal(result.ok, true);\n});",
+            "UT: [C002 normal] test('an omission ticket with no nodeIds is additive', () => {\n  const before = makeTicketsDocument({ tickets: [{ key: 'P1-1', nodeIds: ['N1'] }] });\n  const after = addTicket(before, { key: 'P6-1', nodeIds: [], origin: { kind: 'omission' } });\n  const result = evaluateOwnership({ before, after, manifest: { added: ['P6-1'] } });\n  assert.equal(result.ok, true);\n});",
+            "UT: [C002 error] test('a ticket claiming a graph unit that does not exist is refused', () => {\n  const before = makeTicketsDocument({ tickets: [] });\n  const after = addTicket(before, { key: 'P6-1', nodeIds: ['N999'], origin: { kind: 'omission' } });\n  const result = evaluateOwnership({ before, after, graph: { nodes: [] }, manifest: { added: ['P6-1'] } });\n  assert.equal(result.ok, false);\n  assert.equal(result.findings[0].code, 'MUTATION_INVENTED_UNIT');\n});",
+            "UT: [C003 normal] test('an inherited finding is grandfathered and a new one blocks', () => {\n  const before = [{ code: 'UNIT_SET_MISMATCH', subject: 'u1' }];\n  const after = [...before, { code: 'FORMULA_NO_TICKET', formulaId: 'fx-1' }];\n  assert.deepEqual(diffFindings(before, after), [after[1]]);\n});",
+            "UT: [C004 postcondition] test('the gate reuses the split verifier and the merge checks', () => {\n  assert.deepEqual(listMutationGates(), [\n    'verify-chain:split', 'ticket-closure', 'merge-contracts:verify',\n    'merge-formulas:verify', 'formula-file-coverage',\n  ]);\n});",
+            "UT: [C004 normal] test('a status-only update keeps every existing verdict green', () => {\n  const fixture = makeGreenPackage();\n  const result = runMutationGate({\n    ticketsPath: fixture.ticketsPath,\n    manifest: { updated: ['P1-1'], origin: 'status' },\n    mutate: (document) => setStatus(document, 'P1-1', 'done'),\n  });\n  assert.equal(result.ok, true);\n  assert.deepEqual(result.findings, []);\n});",
+            "UT: [C001 edge] test('a mutation that changes no ticket records an empty manifest and writes nothing', () => {\n  const fixture = makeTicketsPackage();\n  const before = readFileSync(fixture.ticketsPath);\n  const result = runMutationGate({ ticketsPath: fixture.ticketsPath, manifest: { added: [] }, mutate: () => {} });\n  assert.equal(result.ok, true);\n  assert.deepEqual(result.manifest.added, []);\n  assert.deepEqual(readFileSync(fixture.ticketsPath), before);\n});"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "Tickets.json writes were not transactional",
+              "after": "every post-split mutation passes through ticket-mutation-gate.js: snapshot, verify, promote or restore byte-for-byte",
+              "description": "The gate owns no ticket authoring; it reuses the split-stage chain and the merge checks."
+            },
+            {
+              "before": "a resolving clone inherited the source nodeIds",
+              "after": "a resolving clone is non-owning unless an explicit ownership transfer is recorded; the source must lose the transferred nodes",
+              "description": "origin.kind resolving/omission is recorded on the clone; a derived ticket keeps the legacy behavior."
+            },
+            {
+              "before": "an omission clone inherited the source nodeIds, distribution and formulaObligations",
+              "after": "the omission clone records origin.kind omission and clears ownership while keeping its contracts (the schema requires at least one)",
+              "description": "Contracts are the re-implemented obligation, not ownership."
+            },
+            {
+              "before": "batch-create and phasify wrote Tickets.json directly",
+              "after": "batch-create runs the gate before the marker rewrite; phasify runs the gate before promoting the merged document and leaves the backup and snapshot on refusal",
+              "description": "The gate refreshes the tickets distribution aggregate and the split receipt after a promoted mutation."
+            },
+            {
+              "before": "merge-contracts always wrote the file",
+              "after": "merge-contracts --check verifies on the candidate document without writing; the default write path is unchanged",
+              "description": "The mutation gate can reuse the contract verifier without mutating the staging file."
+            },
+            {
+              "before": "the mutation points were undocumented",
+              "after": "find-omissions, consolidate-stubs and crystalize-readme name the gate and the rollback route",
+              "description": "The commands keep their authoring roles."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
         }
       ]
     },

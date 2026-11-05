@@ -95,6 +95,7 @@ cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-ticke
 cat "$MANIFEST" | node "$CLAUDE_DIR/scripts/tickets/batch-create-resolving-tickets.js"               # commit
 ```
 out: review (`--no-write`) prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: true }`; commit prints the same with `dryRun: false` — Tickets.json gains one `todo` ticket per non-skipped entry, on-disk marker lines re-point to the new key (C007-skipped markers, already referencing an active ticket, untouched).
+mutation gate: commit = `ticket-mutation-gate.js` transaction (snapshot→verify→promote/rollback). Refusal leaves Tickets.json + marker lines untouched; named finding = repair route.
 invariant: re-run-safe (already-active-referencing markers skipped, never duplicates). on failure: nothing written; stderr lists each failure (file:line + Action-directive) — fix and re-run.
 
 **Manifest handoff**: consolidation Step 5 wrote `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, `file` cwd-relative.
@@ -303,6 +304,7 @@ removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`
 node "$CLAUDE_DIR/scripts/rfc-graph/phasify-omissions.js" --graph="$ARGUMENTS"
 ```
 computes optimal phase/ticket boundaries from Steps 2–7's omissions, merges mechanically into Tickets.json. mechanical merge → generic phase names (P6, P7, ...); stdout lists each phase's node titles/ticket info + the exact `rename-phases.js` commands (follow in Step 10).
+mutation gate: merge = `ticket-mutation-gate.js` transaction; refusal leaves Tickets.json + backup + snapshot untouched, exits non-zero with the named finding.
 invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to the current directory (the Tickets.json root).
 gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → back to Step 1, clear all excuses, re-run.
 

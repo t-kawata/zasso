@@ -98,6 +98,7 @@ export function validateStatus(rfcDir) {
   }
 
   validateOptionalDates(status, errors);
+  validateOptionalRederive(status, errors);
 
   return errors;
 }
@@ -131,6 +132,39 @@ function validateOptionalDates(status, errors) {
     if (status[optionalDate] !== undefined && isNaN(Date.parse(status[optionalDate]))) {
       errors.push(`Status.json.${optionalDate}: must be a valid ISO 8601 date`);
     }
+  }
+}
+
+/** The sha256 shape every receipt digest carries. */
+const SOURCE_DIGEST_PATTERN = /^[0-9a-f]{64}$/;
+
+/**
+ * Validate the rederive obligation a canonical rewrite leaves.
+ *
+ * Absent is valid: a Status.json written before PX-377 has no obligation and keeps the
+ * legacy completion path. Present but malformed is not: a reader that treated a partial
+ * record as discharge would let DONE authorize itself.
+ */
+// [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-377) --for-spec --no-implementation-order`.
+function validateOptionalRederive(status, errors) {
+  const rederive = status.rederive;
+  if (rederive === undefined) return;
+  if (rederive === null || typeof rederive !== 'object' || Array.isArray(rederive)) {
+    errors.push('Status.json.rederive: must be an object when present');
+    return;
+  }
+  if (typeof rederive.required !== 'boolean') {
+    errors.push('Status.json.rederive.required: must be a boolean');
+  }
+  if (!Array.isArray(rederive.chain) || rederive.chain.length === 0
+    || rederive.chain.some((stage) => typeof stage !== 'string' || stage.length === 0)) {
+    errors.push('Status.json.rederive.chain: must be a non-empty array of stage names');
+  }
+  if (typeof rederive.sourceDigest !== 'string' || !SOURCE_DIGEST_PATTERN.test(rederive.sourceDigest)) {
+    errors.push('Status.json.rederive.sourceDigest: must be a 64-character sha256');
+  }
+  if (rederive.recordedAt !== undefined && isNaN(Date.parse(rederive.recordedAt))) {
+    errors.push('Status.json.rederive.recordedAt: must be a valid ISO 8601 date');
   }
 }
 

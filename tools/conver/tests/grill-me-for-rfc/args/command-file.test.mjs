@@ -1,3 +1,4 @@
+// [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
 // PX-235 @verifies C001
 // PX-235 @verifies C006
 // PX-238 @verifies C003
@@ -111,11 +112,14 @@ test('C006 invariant: the command file still carries what PX-234 froze', () => {
 });
 
 // [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
-test('C004 invariant: STEP 0 refuses a materialised canon and names the command that owns it', () => {
+test('C004 invariant: STEP 0 classifies the canon and names the owner of each state', () => {
   const step0 = section(read('grill-me-for-rfc'), '### STEP 0', '### STEP 1');
 
   assert.match(step0, /canon-state\.js/, 'the guard runs before any question is drafted');
-  assert.match(step0, /drill-rfc-down/, 'the refusal points at the command whose job the evolution is');
+  assert.match(step0, /record-rederive/, 'a partial or stale package records the chain it owes');
+  assert.match(step0, /partial|materialized-stale/, 'the states that may rewrite are named');
+  assert.match(step0, /rederive/, 'the chain is part of the guard, not a later reminder');
+  assert.match(step0, /drill-rfc-down/, 'the fresh refusal points at the command whose job the evolution is');
 });
 
 // [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.

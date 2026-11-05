@@ -159,6 +159,7 @@ Transitions each finalized-heading section to complete description or residue de
 refine: run identically to fresh, on the README.md re-emitted at 1-8. all sections carry `<::TEMPLATE-README::>` → all subject to inspection; prior finalized state NOT inherited. still, heavily reference the old README.md content.
 
 Entry determination (deterministic, mandatory): display ticket list, identify src-reading entry point. ticket key known (e.g. P3-2) → detailed spec at `specs/<ticket-key>.md`.
+mutation boundary: any `Tickets.json` write → `ticket-mutation-gate.js` (snapshot→verify→promote/rollback); specs/README-only run = gate no-op.
 ```bash
 node "$CLAUDE_DIR/scripts/tickets/list-phases-and-tickets.js" Tickets.json
 ```

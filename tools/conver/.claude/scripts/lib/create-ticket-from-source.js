@@ -129,6 +129,23 @@ function applySeedEdits(ticket, seed) {
 }
 
 /**
+ * Attach the provenance a post-split clone carries.
+ *
+ * A resolving clone is non-owning unless the caller records an explicit ownership
+ * transfer. The gate refuses a non-owning clone that still claims the source's nodes,
+ * so the clone is cleared here rather than left for the gate to discover.
+ */
+// [::TICKET::] PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-378 --for-spec --no-implementation-order`.
+function applyCloneProvenance(ticket, seed) {
+  const next = { ...ticket };
+  if (seed?.origin !== undefined) next.origin = seed.origin;
+  if (seed?.origin?.kind === 'resolving' && seed.ownershipTransfer !== true) {
+    next.nodeIds = [];
+  }
+  return next;
+}
+
+/**
  * Resolve the max non-PX real phase; create phase 0 when none exists.
  * Mutates the given result data only to push a newly created phase 0.
  * @param {object} result — Deep-cloned Tickets.json data
@@ -190,7 +207,7 @@ function appendTicketToPhase(phase, ticket) {
  *          |{ success: false, error: string, errors?: string[] }}
  */
 // [::TICKET::] PX-122: createTicketFromSource. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127|PX-378) --for-spec --no-implementation-order`.
 function createTicketFromSource({ ticketsData, sourceKey, seed = {} }) {
   // The new ticket must carry a NEW title from the seed, never the source's old
   // title — otherwise it becomes an indistinguishable retry of the past ticket.
@@ -209,6 +226,7 @@ function createTicketFromSource({ ticketsData, sourceKey, seed = {} }) {
 
   ticket = stripCompletedResidue(ticket);
   ticket = applySeedEdits(ticket, seed);
+  ticket = applyCloneProvenance(ticket, seed);
 
   const phase = resolveMaxRealPhase(result);
   const appended = appendTicketToPhase(phase, ticket);
@@ -235,6 +253,7 @@ module.exports = {
   findTicket,
   stripCompletedResidue,
   LEADING_SENTINEL_BLOCK_RE,
+  applyCloneProvenance,
   applySeedEdits,
   resolveMaxRealPhase,
   appendTicketToPhase,

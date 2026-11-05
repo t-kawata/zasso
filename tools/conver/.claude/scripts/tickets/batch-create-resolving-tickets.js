@@ -28,6 +28,7 @@ const fs = require("fs");
 const path = require("path");
 const { createResolvingTicket } = require("./create-resolving-ticket.js");
 const { extractTicketKey, findTicket } = require("./validate-no-external-excuses.js");
+const { runMutationGate } = require("./ticket-mutation-gate.js");
 
 // -- Constants --
 
@@ -353,8 +354,8 @@ function rewriteMarkerLines(rewriteMap) {
  * @param {boolean} [params.noWrite]
  * @returns {{success: boolean, created?: Array, skipped?: Array, rewriteMap?: Array, errors?: Array, dryRun?: boolean}}
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
-function runBatchCreate({ ticketsPath, manifest, sourceRoot, noWrite = false }) {
+// [::TICKET::] PX-1, PX-2, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-1|PX-2|PX-378) --for-spec --no-implementation-order`.
+function runBatchCreate({ ticketsPath, manifest, sourceRoot, noWrite = false, mutationGate = runMutationGate }) {
   let ticketsData;
   try {
     ticketsData = JSON.parse(fs.readFileSync(path.resolve(ticketsPath), "utf8"));
@@ -366,8 +367,33 @@ function runBatchCreate({ ticketsPath, manifest, sourceRoot, noWrite = false }) 
   if (!res.success) return res;
   if (noWrite) return res;
 
-  // Commit phase (C002: all markers were verified in createResolvingTickets, so these writes are safe):
-  fs.writeFileSync(path.resolve(ticketsPath), JSON.stringify(res.data, null, 2) + "\n", "utf8");
+  // Commit phase: the mutation gate snapshots, verifies and promotes Tickets.json.
+  // The marker rewrite happens only after the gate promoted the verified document.
+  const absoluteTicketsPath = path.resolve(ticketsPath);
+  const gate = mutationGate({
+    ticketsPath: absoluteTicketsPath,
+    manifest: {
+      command: 'find-omissions',
+      reason: 'resolving tickets',
+      added: res.created.map((entry) => entry.newKey),
+      origin: 'resolving',
+    },
+    afterDocument: res.data,
+    packageDirectory: path.dirname(absoluteTicketsPath),
+    filesChanged: true,
+  });
+  if (!gate.ok) {
+    return {
+      success: false,
+      errors: gate.findings.map((entry) => ({
+        error: `${entry.code ?? 'MUTATION_REFUSED'}: ${entry.message ?? entry.subject ?? ''}`,
+        file: entry.file ?? null,
+        line: entry.line ?? null,
+      })),
+      created: res.created,
+      skipped: res.skipped,
+    };
+  }
   const markerErrors = rewriteMarkerLines(res.rewriteMap);
   if (markerErrors.length > 0) {
     return { success: false, errors: markerErrors, created: res.created, skipped: res.skipped };
