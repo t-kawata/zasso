@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 /**
  * check-obligation-coverage.js <WORKSPACE_ROOT>
  *
@@ -305,8 +306,8 @@ function renderVerdictLine(coverage, exemptionCount) {
 
 /** The command that supplies each unstated denominator. */
 const REPAIR_ROUTE_BY_AXIS = Object.freeze({
-  operations: '/educe-sequences (declare sourceEnumerations in educe-sequences/declaration.json, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>)',
-  sequences: '/educe-sequences (declare sourceEnumerations in educe-sequences/declaration.json, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>)',
+  operations: '/educe-sequences (place the census document in educe-sequences/supplied/, declare sourceEnumerations in educe-sequences/declaration.json, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>)',
+  sequences: '/educe-sequences (place the census document in educe-sequences/supplied/, declare sourceEnumerations in educe-sequences/declaration.json, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>)',
   boundaries: '/workspacify-allocate (node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs")',
   surfaces: 'the allocation manifest (edit WORKSPACIFY-ALLOCATE-MANIFEST.json)',
 });
@@ -316,8 +317,8 @@ const REPAIR_ROUTE_BY_AXIS = Object.freeze({
 // declaration through the phases that write the artifact. Naming begin alone sent the
 // reader to a command that could not close the finding.
 const AXIS_REPAIR = Object.freeze({
-  operations: 'run /educe-sequences <spec-path>: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>',
-  sequences: 'run /educe-sequences <spec-path>: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>',
+  operations: 'run /educe-sequences <spec-path>: place the census document in educe-sequences/supplied/ (the directory is empty when no census was supplied), declare sourceEnumerations in educe-sequences/declaration.json with its file, shape, parameter and role, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>',
+  sequences: 'run /educe-sequences <spec-path>: place the census document in educe-sequences/supplied/ (the directory is empty when no census was supplied), declare sourceEnumerations in educe-sequences/declaration.json with its file, shape, parameter and role, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>',
   boundaries: 'run node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs" so the contract registry names every boundary',
   surfaces: 'edit WORKSPACIFY-ALLOCATE-MANIFEST.json to declare the interfaces',
 });

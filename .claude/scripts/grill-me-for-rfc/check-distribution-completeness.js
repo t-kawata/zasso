@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 /**
  * One verdict for the whole criterion, clause by clause.
  *
@@ -120,7 +121,7 @@ function workspaceArtifactPath(root) {
 
 /** The route and command that repair each clause. */
 const CLAUSE_REPAIRS = Object.freeze({
-  K1: { route: 'upstream', action: (root) => `run /educe-sequences <spec-path>: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K1: { route: 'upstream', action: (root) => `run /educe-sequences <spec-path>: place the census document in educe-sequences/supplied/ (the directory is empty when no census was supplied), declare sourceEnumerations in educe-sequences/declaration.json with its file, shape, parameter and role, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
   K2: { route: 'in-drill', action: (root) => `assign the unassigned demand in the artifact or record a grounded exemption, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
   K3: { route: 'in-drill', action: (root) => `cite a section or ledger row the workspace holds, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
   K4: { route: 'in-drill', action: (root) => `place the exempted demand in a package instead of parking it, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },

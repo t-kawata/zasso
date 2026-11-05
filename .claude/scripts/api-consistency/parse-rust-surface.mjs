@@ -12,8 +12,17 @@
 /** The declarations a fence may open. */
 const DECLARATION_KEYWORD = /^\s*(?:pub(?:\([^)]*\))?\s+)?(struct|trait|enum|type|const|static)\s+([A-Za-z_]\w*)\s*(<[^>{]*>)?/;
 
-/** A free function or an inherent method signature. */
-const FUNCTION_LINE = /^\s*(?:pub(?:\([^)]*\))?\s+)?fn\s+([A-Za-z_]\w*)\s*(<[^>{]*>)?\s*\(([^)]*)\)/;
+/**
+ * A free function, an inherent method, a trait method or an associated function.
+ *
+ * Rust writes the same `fn` under modifiers the earlier line-anchored pattern did not
+ * accept. A declaration the parser cannot see is a declaration the gate reports as
+ * missing, so the modifiers are part of the declaration shape rather than noise.
+ */
+const FUNCTION_START = /^\s*(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe)\s+)*(?:extern\s+"[^"]*"\s+)?fn\s+([A-Za-z_]\w*)/;
+
+/** The start of any declaration form, used only to report an unparsed shape. */
+const DECLARATION_START = /^\s*(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe)\s+)*(?:extern\s+"[^"]*"\s+)?(?:struct|trait|enum|type|const|static|fn|impl)\b/;
 
 /** An impl block, with or without a trait. */
 const IMPL_LINE = /^\s*impl(?:<[^>]*>)?\s+(?:[\w:]+\s+for\s+)?([A-Za-z_]\w*)/;
@@ -88,6 +97,13 @@ function splitTopLevel(text) {
   return parts.map((part) => part.trim()).filter((part) => part.length > 0);
 }
 
+/** Replace string literals and line comments with spaces, preserving column positions. */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function stripNonCode(line) {
+  const withoutStrings = String(line).replace(/"(?:\\.|[^"\\])*"/g, (match) => ' '.repeat(match.length));
+  return withoutStrings.replace(/\/\/.*$/, (match) => ' '.repeat(match.length));
+}
+
 /** The arity of a generic list, or 0 when there is none. */
 // [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
 function genericArity(genericText) {
@@ -109,11 +125,11 @@ function parameterCountOf(parameterText) {
 }
 
 /** The generic parameter names a `<...>` list declares. */
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-372) --for-spec --no-implementation-order`.
 function genericParameterNames(genericText) {
   if (typeof genericText !== 'string' || genericText.trim().length === 0) return [];
   return splitTopLevel(genericText.replace(/^</, '').replace(/>$/, ''))
-    .map((entry) => entry.split(':')[0].trim())
+    .map((entry) => entry.replace(/^(?:const|type)\s+/, '').split(':')[0].trim())
     .filter((entry) => /^[A-Za-z_]\w*$/.test(entry));
 }
 
@@ -135,7 +151,7 @@ function fieldNames(bodyLines) {
  * workspace should have declared. Reading it as an undefined type made every enum
  * result look like a missing cross-package symbol.
  */
-// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-371, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-371|PX-372) --for-spec --no-implementation-order`.
 function enumVariantNames(bodyLines) {
   const names = [];
   for (const line of bodyLines) {
@@ -168,18 +184,87 @@ function readBody(lines, startIndex, openLine) {
   return { body, nextIndex: lines.length - 1 };
 }
 
-/** The call's argument count, read from its opening parenthesis. */
-// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
-function callArgumentCount(line, openIndex) {
+/** The first occurrence of one character at or after a position. */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function findCharacter(lines, startIndex, startColumn, target) {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    const code = stripNonCode(lines[index]);
+    const from = index === startIndex ? startColumn : 0;
+    const column = code.indexOf(target, from);
+    if (column !== -1) return { index, column };
+  }
+  return null;
+}
+
+/**
+ * Read one balanced delimiter pair across lines.
+ *
+ * A signature or a call may put its closing delimiter on a later line. Reading only
+ * the opening line counted a three-parameter function as zero and a three-argument
+ * call as zero, which is exactly the arity defect the gate reports. The reader
+ * returns the text inside the pair and the position of the closing delimiter.
+ *
+ * @returns {{ innerText: string|null, endIndex: number, endColumn: number }}
+ */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function readBalanced(lines, startIndex, startColumn, open = '(', close = ')') {
   let depth = 0;
-  for (let cursor = openIndex; cursor < line.length; cursor += 1) {
-    if (line[cursor] === '(') depth += 1;
-    if (line[cursor] === ')') {
-      depth -= 1;
-      if (depth === 0) return splitTopLevel(line.slice(openIndex + 1, cursor)).length;
+  const parts = [];
+  for (let index = startIndex; index < lines.length; index += 1) {
+    const code = stripNonCode(lines[index]);
+    let current = '';
+    const from = index === startIndex ? startColumn : 0;
+    for (let column = from; column < code.length; column += 1) {
+      const character = code[column];
+      if (character === open) {
+        depth += 1;
+        if (depth === 1) continue;
+      }
+      if (character === close) {
+        depth -= 1;
+        if (depth === 0) {
+          return { innerText: `${parts.join('\n')}${current}`, endIndex: index, endColumn: column };
+        }
+      }
+      if (depth > 0) current += character;
+    }
+    if (depth > 0) {
+      parts.push(current);
+      parts.push('\n');
     }
   }
-  return 0;
+  return { innerText: null, endIndex: lines.length - 1, endColumn: 0 };
+}
+
+/** Whether a call at this position is part of a declaration signature. */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function isInsideSignature(signatureSpans, index, column) {
+  return signatureSpans.some((span) => {
+    if (index < span.startIndex || index > span.endIndex) return false;
+    if (index === span.endIndex && column > span.endColumn) return false;
+    return true;
+  });
+}
+
+/** Read a function signature and the position of its closing parenthesis. */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function readFunctionSignature(lines, startIndex, nameEndColumn) {
+  const open = findCharacter(lines, startIndex, nameEndColumn, '(');
+  if (open === null) return null;
+  const parameters = readBalanced(lines, open.index, open.column);
+  if (parameters.innerText === null) return null;
+
+  const genericOpen = findCharacter(lines, startIndex, nameEndColumn, '<');
+  const generic = genericOpen !== null && genericOpen.index <= open.index
+    ? readBalanced(lines, genericOpen.index, genericOpen.column, '<', '>')
+    : { innerText: '' };
+
+  return {
+    parameterText: parameters.innerText,
+    genericText: generic.innerText ?? '',
+    endIndex: parameters.endIndex,
+    endColumn: parameters.endColumn,
+  };
 }
 
 /**
@@ -190,7 +275,7 @@ function callArgumentCount(line, openIndex) {
  * @param {{ packageId: string, rfcPath: string }} origin
  * @returns {{ declarations: object[], references: object[], unparsed: object[] }}
  */
-// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-371, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371|PX-372) --for-spec --no-implementation-order`.
 function parseFence(lines, firstLine, origin) {
   const declarations = [];
   const references = [];
@@ -202,8 +287,12 @@ function parseFence(lines, firstLine, origin) {
   const declaredTypeNames = new Set();
   const variantNames = new Set();
   const genericParameters = new Set();
-  let implType = null;
-  let implDepth = 0;
+  const signatureSpans = [];
+  const unparsedDeclarationLines = new Set();
+  let implementationType = null;
+  let implementationDepth = 0;
+  let traitName = null;
+  let traitDepth = 0;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -219,28 +308,36 @@ function parseFence(lines, firstLine, origin) {
       continue;
     }
 
+    // The trait's own body is read line by line so its method signatures become
+    // declarations. The closing brace clears the context before the line is read.
+    if (traitDepth > 0) {
+      traitDepth += braceDelta(line);
+      if (traitDepth <= 0) traitName = null;
+    }
+
     if (trimmed.startsWith('impl')) {
       const match = IMPL_LINE.exec(line);
       if (match === null) {
         unparsed.push({ line: lineNumber, reason: 'impl block could not be read' });
+        unparsedDeclarationLines.add(index);
         continue;
       }
       const implGenerics = /^\s*impl\s*<([^>]*)>/.exec(line);
       if (implGenerics !== null) {
         for (const parameter of genericParameterNames(`<${implGenerics[1]}>`)) genericParameters.add(parameter);
       }
-      implType = match[1];
-      implDepth = braceDelta(line);
-      if (implDepth <= 0) {
+      implementationType = match[1];
+      implementationDepth = braceDelta(line);
+      if (implementationDepth <= 0) {
         // A one-line impl: read the methods between its braces on this same line.
         const open = line.indexOf('{');
         const close = line.lastIndexOf('}');
         if (open !== -1 && close > open) {
           const inline = line.slice(open + 1, close);
-          for (const method of inline.matchAll(/fn\s+([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/g)) {
+          for (const method of inline.matchAll(/(?:const\s+|async\s+|unsafe\s+)*fn\s+([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/g)) {
             declaredCallNames.add(`${index}:${method[1]}`);
             declarations.push({
-              symbol: `${implType}::${method[1]}`,
+              symbol: `${implementationType}::${method[1]}`,
               kind: 'fn',
               genericArity: 0,
               parameterCount: parameterCountOf(method[2]),
@@ -251,24 +348,64 @@ function parseFence(lines, firstLine, origin) {
             });
           }
         }
-        implType = null;
+        implementationType = null;
       }
       continue;
     }
 
-    if (implType !== null) {
-      implDepth += braceDelta(line);
-      if (implDepth <= 0) implType = null;
+    if (implementationType !== null) {
+      implementationDepth += braceDelta(line);
+      if (implementationDepth <= 0) implementationType = null;
+    }
+
+    const fnMatch = FUNCTION_START.exec(stripNonCode(line));
+    if (fnMatch !== null) {
+      const name = fnMatch[1];
+      const signature = readFunctionSignature(lines, index, fnMatch.index + fnMatch[0].length);
+      if (signature === null) {
+        unparsed.push({ line: lineNumber, reason: 'declaration shape could not be read' });
+        unparsedDeclarationLines.add(index);
+        continue;
+      }
+      for (const parameter of genericParameterNames(signature.genericText)) genericParameters.add(parameter);
+      const prefix = implementationType ?? traitName;
+      const symbol = prefix === null ? name : `${prefix}::${name}`;
+      declarations.push({
+        symbol,
+        kind: 'fn',
+        genericArity: genericArity(signature.genericText),
+        parameterCount: parameterCountOf(signature.parameterText),
+        fields: [],
+        packageId: origin.packageId,
+        rfcPath: origin.rfcPath,
+        line: lineNumber,
+      });
+      signatureSpans.push({
+        startIndex: index,
+        endIndex: signature.endIndex,
+        startColumn: 0,
+        endColumn: signature.endColumn,
+      });
+      declaredOnLine.set(index, name);
+      declaredCallNames.add(`${index}:${name}`);
+      continue;
     }
 
     const declaration = DECLARATION_KEYWORD.exec(line);
     if (declaration !== null) {
       const [, keyword, symbol, genericText] = declaration;
+      if ((keyword === 'const' || keyword === 'static') && symbol === 'fn') {
+        unparsed.push({ line: lineNumber, reason: 'declaration shape could not be read' });
+        unparsedDeclarationLines.add(index);
+        continue;
+      }
       const { body, nextIndex } = readBody(lines, index, line);
       const inlineOpen = line.indexOf('{');
       const inlineClose = line.lastIndexOf('}');
       const inlineBody = inlineOpen !== -1 && inlineClose > inlineOpen ? [line.slice(inlineOpen + 1, inlineClose)] : [];
-      for (let bodyIndex = index + 1; bodyIndex <= nextIndex; bodyIndex += 1) skippedLines.add(bodyIndex);
+      if (keyword !== 'trait') {
+        for (let bodyIndex = index + 1; bodyIndex <= nextIndex; bodyIndex += 1) skippedLines.add(bodyIndex);
+      }
       for (const parameter of genericParameterNames(genericText)) genericParameters.add(parameter);
       declarations.push({
         symbol,
@@ -300,31 +437,40 @@ function parseFence(lines, firstLine, origin) {
       }
       declaredOnLine.set(index, symbol);
       typeDeclarationLines.add(index);
-      index = nextIndex;
+      if (keyword === 'trait') {
+        traitName = symbol;
+        traitDepth = braceDelta(line);
+        if (traitDepth <= 0) {
+          // A one-line trait: read the methods between its braces on this same line.
+          const open = inlineOpen;
+          const close = inlineClose;
+          if (open !== -1 && close > open) {
+            const inline = line.slice(open + 1, close);
+            for (const method of inline.matchAll(/(?:const\s+|async\s+|unsafe\s+)*fn\s+([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/g)) {
+              declaredCallNames.add(`${index}:${method[1]}`);
+              declarations.push({
+                symbol: `${symbol}::${method[1]}`,
+                kind: 'fn',
+                genericArity: 0,
+                parameterCount: parameterCountOf(method[2]),
+                fields: [],
+                packageId: origin.packageId,
+                rfcPath: origin.rfcPath,
+                line: lineNumber,
+              });
+            }
+          }
+          traitName = null;
+        }
+      } else {
+        index = nextIndex;
+      }
       continue;
     }
 
-    const fnMatch = FUNCTION_LINE.exec(line);
-    if (fnMatch !== null) {
-      const [, name, genericText, parameterText] = fnMatch;
-      for (const parameter of genericParameterNames(genericText)) genericParameters.add(parameter);
-      declarations.push({
-        symbol: implType === null ? name : `${implType}::${name}`,
-        kind: 'fn',
-        genericArity: genericArity(genericText),
-        parameterCount: parameterCountOf(parameterText),
-        fields: [],
-        packageId: origin.packageId,
-        rfcPath: origin.rfcPath,
-        line: lineNumber,
-      });
-      declaredOnLine.set(index, name);
-      declaredCallNames.add(`${index}:${name}`);
-      continue;
-    }
-
-    if (/^\s*(?:pub\s+)?(?:struct|trait|enum|type|const|static|fn|impl)\b/.test(line)) {
+    if (DECLARATION_START.test(stripNonCode(line))) {
       unparsed.push({ line: lineNumber, reason: 'declaration shape could not be read' });
+      unparsedDeclarationLines.add(index);
     }
   }
 
@@ -338,7 +484,7 @@ function parseFence(lines, firstLine, origin) {
     if (ATTRIBUTE_LINE.test(trimmed)) continue;
     // A path or a message inside a string literal is prose, not a symbol. Stripping
     // the literals keeps `"RFC-SEED.md"` and `"Cargo.toml"` out of the type pass.
-    const code = line.replace(/"(?:\\.|[^"\\])*"/g, '""');
+    const code = stripNonCode(line);
     const declaredHere = declaredOnLine.get(index);
     // A bare callee is a constructor or a routine, not a type use. The type
     // pattern sees the capitalised callee in a constructor expression and would
@@ -380,7 +526,14 @@ function parseFence(lines, firstLine, origin) {
     if (typeDeclarationLines.has(index)) continue;
     for (const match of code.matchAll(PATH_CALL_USE)) {
       const symbol = match[1];
+      const matchColumn = match.index ?? 0;
       if (KEYWORD_CALLS.has(symbol) || BUILTIN_SYMBOLS.has(symbol)) continue;
+      // A declaration's own signature is not a call. This is the difference between
+      // `pub fn admit(` and a call to `admit`: the opening line of a multi-line
+      // signature used to become a zero-argument call against another package's
+      // declaration.
+      if (isInsideSignature(signatureSpans, index, matchColumn)) continue;
+      if (unparsedDeclarationLines.has(index) && !code.slice(0, matchColumn).includes('{')) continue;
       // The signature's own name is a declaration, not a call; a call in the same
       // line's body still counts.
       if (declaredCallNames.has(`${index}:${symbol}`)) continue;
@@ -389,12 +542,13 @@ function parseFence(lines, firstLine, origin) {
       // `Vec::with_capacity` is a standard-library associated routine. The standard
       // library declares it, not a workspace package.
       if (symbol.includes('::') && BUILTIN_SYMBOLS.has(symbol.split('::')[0])) continue;
-      const openIndex = (match.index ?? 0) + match[0].length - 1;
+      const openIndex = matchColumn + match[0].length - 1;
+      const callArguments = readBalanced(lines, index, openIndex);
       references.push({
         symbol,
         kind: 'call',
         genericArity: 0,
-        argumentCount: callArgumentCount(line, openIndex),
+        argumentCount: callArguments.innerText === null ? 0 : splitTopLevel(callArguments.innerText).length,
         packageId: origin.packageId,
         rfcPath: origin.rfcPath,
         line: lineNumber,

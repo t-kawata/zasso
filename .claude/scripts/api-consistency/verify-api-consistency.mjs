@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import repairFinding from '../lib/repair-finding.js';
+import { digestOfFindings, findingIdentity } from './finding-identity.mjs';
 import { parseRustSurface } from './parse-rust-surface.mjs';
 
 const { createFinding } = repairFinding;
@@ -43,6 +44,23 @@ export const FINDING_CODES = Object.freeze({
   UNPARSED_SURFACE: 'UNPARSED_SURFACE',
 });
 
+/** The refusals a workspace that cannot be read produces, named once. */
+export const WORKSPACE_CODES = Object.freeze({
+  WORKSPACE_UNREADABLE: 'WORKSPACE_UNREADABLE',
+  NO_PACKAGE_SURFACE: 'NO_PACKAGE_SURFACE',
+  BASELINE_UNREADABLE: 'BASELINE_UNREADABLE',
+});
+
+/** The code-pattern refusals carry no findings; this is the empty summary they report. */
+const EMPTY_SUMMARY = Object.freeze({
+  blocking: 0,
+  advisory: 0,
+  outOfScopeBlocking: 0,
+  newBlocking: 0,
+  resolved: 0,
+  unresolvedRequired: 0,
+});
+
 /** The value of --name=value from argv. */
 // [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
@@ -62,6 +80,9 @@ function readJsonOrNull(filePath) {
 
 /** The packages a workspace names, as `{id, directory}`. */
 export function packagesOf(root) {
+  // A path that does not exist is not a workspace with no packages; it is a
+  // workspace the gate could not read. Returning [] made a typo look clean.
+  if (!fs.existsSync(root)) return null;
   const manifest = readJsonOrNull(path.join(root, TREE_MANIFEST));
   const packages = manifest?.workspace?.packages;
   if (Array.isArray(packages) && packages.length > 0) {
@@ -102,7 +123,7 @@ function shapeOf(declaration) {
 }
 
 /** One finding, in the uniform repair-record shape. */
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-372) --for-spec --no-implementation-order`.
 function makeFinding(options = {}) {
   const { code, severity, packageId, symbol, rfcPath, root, cause, route } = options;
   const verify = `node "$(git rev-parse --show-toplevel)/.claude/scripts/api-consistency/verify-api-consistency.mjs" --workspace=${root}`;
@@ -117,7 +138,7 @@ function makeFinding(options = {}) {
     verify,
     route,
   });
-  return { ...record, package: packageId, symbol };
+  return { ...record, id: findingIdentity({ code, symbol, package: packageId, cause }), package: packageId, symbol };
 }
 
 /** Every parse and the package it came from. */
@@ -143,9 +164,21 @@ function readSurfaces(packages) {
  * @returns {{ ok: boolean, findings: object[], summary: {blocking: number, advisory: number} }}
  */
 // [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
-export function verifyApiConsistency({ workspaceRoot } = {}) {
+export function verifyApiConsistency({
+  workspaceRoot,
+  scope = null,
+  baseline = null,
+  allowEmptyWorkspace = false,
+  requiredResolved = [],
+} = {}) {
   const root = path.resolve(workspaceRoot);
   const packages = packagesOf(root);
+  if (packages === null) {
+    return { ok: false, code: WORKSPACE_CODES.WORKSPACE_UNREADABLE, findings: [], summary: { ...EMPTY_SUMMARY } };
+  }
+  if (packages.length === 0 && !allowEmptyWorkspace) {
+    return { ok: false, code: WORKSPACE_CODES.NO_PACKAGE_SURFACE, findings: [], summary: { ...EMPTY_SUMMARY } };
+  }
   const surfaces = readSurfaces(packages);
   const declaredPairs = dependencyPairs(root);
 
@@ -260,25 +293,95 @@ export function verifyApiConsistency({ workspaceRoot } = {}) {
   }
 
   findings.sort((left, right) => `${left.code}|${left.symbol}|${left.package}`.localeCompare(`${right.code}|${right.symbol}|${right.package}`));
-  const blocking = findings.filter((finding) => finding.severity === 'blocking').length;
-  return { ok: blocking === 0, findings, summary: { blocking, advisory: findings.length - blocking } };
+  const scoped = scope === null
+    ? findings
+    : findings.filter((finding) => String(finding.package).split(/,\s*/).includes(scope));
+  const scopedBlocking = scoped.filter((finding) => finding.severity === 'blocking');
+  const baselineFindings = Array.isArray(baseline?.findings) ? baseline.findings : null;
+  if (baselineFindings !== null && typeof baseline?.digest === 'string'
+    && digestOfFindings(baselineFindings) !== baseline.digest) {
+    return { ok: false, code: WORKSPACE_CODES.BASELINE_UNREADABLE, findings: [], summary: { ...EMPTY_SUMMARY } };
+  }
+  const baselineIds = new Set((baselineFindings ?? []).map((finding) => finding.id));
+  const currentIds = new Set(scopedBlocking.map((finding) => finding.id));
+  const newBlocking = baselineFindings === null
+    ? scopedBlocking
+    : scopedBlocking.filter((finding) => !baselineIds.has(finding.id));
+  const resolved = baselineFindings === null
+    ? []
+    : [...baselineIds].filter((id) => !currentIds.has(id));
+  const unresolvedRequired = requiredResolved.filter((id) => currentIds.has(id));
+  const ok = baselineFindings === null
+    ? scopedBlocking.length === 0
+    : newBlocking.length === 0 && unresolvedRequired.length === 0;
+  const allBlocking = findings.filter((finding) => finding.severity === 'blocking').length;
+
+  return {
+    ok,
+    code: null,
+    findings: scoped,
+    summary: {
+      blocking: scopedBlocking.length,
+      advisory: scoped.filter((finding) => finding.severity === 'advisory').length,
+      outOfScopeBlocking: allBlocking - scopedBlocking.length,
+      newBlocking: newBlocking.length,
+      resolved: resolved.length,
+      unresolvedRequired: unresolvedRequired.length,
+    },
+  };
 }
 
 /** The CLI entry point. */
 export function main(argv = process.argv.slice(2)) {
   const workspaceRoot = argumentFor(argv, 'workspace');
   if (workspaceRoot === null) {
-    process.stderr.write('usage: verify-api-consistency.mjs --workspace=<root> [--json]\n');
+    process.stderr.write('usage: verify-api-consistency.mjs --workspace=<root> [--scope=<pkg>] [--baseline=<path>] [--require-resolved=<id,...>] [--allow-empty-workspace] [--json]\n');
     return 1;
   }
 
-  const result = verifyApiConsistency({ workspaceRoot });
+  const scope = argumentFor(argv, 'scope');
+  const baselinePath = argumentFor(argv, 'baseline');
+  const requireResolved = argumentFor(argv, 'require-resolved');
+  const allowEmptyWorkspace = argv.includes('--allow-empty-workspace');
+
+  let baseline = null;
+  if (baselinePath !== null) {
+    baseline = readJsonOrNull(path.resolve(baselinePath));
+    if (baseline !== null && baseline.baseline !== undefined) baseline = baseline.baseline;
+    if (baseline === null) {
+      const refusal = {
+        ok: false,
+        code: WORKSPACE_CODES.BASELINE_UNREADABLE,
+        findings: [],
+        summary: { ...EMPTY_SUMMARY },
+      };
+      if (argv.includes('--json')) {
+        process.stdout.write(`${JSON.stringify(refusal, null, 2)}\n`);
+      } else {
+        process.stdout.write(`api consistency: ${WORKSPACE_CODES.BASELINE_UNREADABLE}\n`);
+      }
+      return 2;
+    }
+  }
+
+  const result = verifyApiConsistency({
+    workspaceRoot,
+    scope,
+    baseline,
+    allowEmptyWorkspace,
+    requiredResolved: requireResolved === null ? [] : requireResolved.split(',').filter((id) => id.length > 0),
+  });
   if (argv.includes('--json')) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return result.ok ? 0 : 1;
   }
 
-  process.stdout.write(`api consistency: ${result.summary.blocking} blocking, ${result.summary.advisory} advisory\n`);
+  if (result.code !== null) {
+    process.stdout.write(`api consistency: ${result.code}\n`);
+    return result.ok ? 0 : 1;
+  }
+
+  process.stdout.write(`api consistency: ${result.summary.blocking} blocking, ${result.summary.advisory} advisory (${result.summary.outOfScopeBlocking} out of scope, ${result.summary.newBlocking} new, ${result.summary.resolved} resolved)\n`);
   for (const finding of result.findings) {
     process.stdout.write(`[${finding.severity === 'blocking' ? 'ERROR' : 'ADVISORY'}] ${finding.code} ${finding.symbol} (${finding.package})\n  ${finding.cause}\n`);
   }
