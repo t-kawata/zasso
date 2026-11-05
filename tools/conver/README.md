@@ -1144,7 +1144,9 @@ are uppercase and set larger so they stay readable when the GIF is scaled down.
   manifests and drill rounds. The increase is drawn at its recovered stage and time.
 - Circle area is the package's contract-obligation count; the diameter follows the square
   root. The outer ring closes with reviewed obligations over total obligations.
-- The header prints `PROGRESS: <basename>` and one full-width bar from x=12 to width-12.
+- The header prints `PROGRESS: <basename>` (plus ` v<version>` when the git toplevel of the
+  working directory has a `VERSION.json` whose `version` is a non-empty string) and one
+  full-width bar from x=12 to width-12.
   The bar and the percentage are the stage-weighted ladder completion (`overallProgress`),
   not the reviewed-obligation ratio, so a project that has not reached review still moves.
   The track keeps 16 px of clearance above and below it.

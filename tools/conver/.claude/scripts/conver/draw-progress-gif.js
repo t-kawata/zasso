@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -37,6 +37,9 @@ import {
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_MAX_BYTES = 300 * 1024 * 1024;
 const DEFAULT_FPS = 10;
+// A local `git rev-parse` answers immediately; the timeout only bounds a hung
+// git on a broken mount so a render never stalls on the version lookup.
+const GIT_TOPLEVEL_TIMEOUT_MS = 5000;
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function stampNow(date = new Date()) {
@@ -84,6 +87,32 @@ function readJson(file) {
   } catch {
     return null;
   }
+}
+
+/** The git toplevel of a directory, or null when it is not inside a git repository. */
+function gitToplevel(directory) {
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    cwd: directory,
+    encoding: 'utf8',
+    timeout: GIT_TOPLEVEL_TIMEOUT_MS,
+  });
+  if (result.error || result.status !== 0) return null;
+  const toplevel = result.stdout.trim();
+  return toplevel === '' ? null : toplevel;
+}
+
+/**
+ * The title suffix describing the version of the repository the script runs in.
+ * Only a VERSION.json at the git toplevel whose "version" is a non-empty string
+ * yields " v<version>"; every other case yields an empty suffix so the title
+ * keeps its previous form.
+ */
+export function readVersionSuffix(directory = process.cwd()) {
+  const toplevel = gitToplevel(directory);
+  if (!toplevel) return '';
+  const document = readJson(path.join(toplevel, 'VERSION.json'));
+  if (!document || typeof document.version !== 'string' || document.version === '') return '';
+  return ` v${document.version}`;
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -317,7 +346,8 @@ async function collectUsageSeries(root, model, options) {
 
 export async function run(root, options) {
   const model = analyzeWorkspace(root, options);
-  const titleName = path.basename(root);
+  const workspaceName = path.basename(root);
+  const titleName = `${workspaceName}${readVersionSuffix()}`;
   model.titleName = titleName;
   const usageScan = await collectUsageSeries(root, model, options);
   model.usage = usageScan.series;
