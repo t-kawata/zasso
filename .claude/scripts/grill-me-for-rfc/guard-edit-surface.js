@@ -71,8 +71,19 @@ const CROSS_PACKAGE_CODES = Object.freeze({
   EVIDENCE_MISSING: 'CROSS_PACKAGE_EVIDENCE_MISSING',
   EVIDENCE_INVALID: 'CROSS_PACKAGE_EVIDENCE_INVALID',
   PACKAGE_MISSING: 'CROSS_PACKAGE_PACKAGE_MISSING',
+  PACKAGE_REQUIRED: 'CROSS_PACKAGE_PACKAGE_REQUIRED',
   GATE_FAILED: 'CROSS_PACKAGE_GATE_FAILED',
+  GATE_UNKNOWN: 'CROSS_PACKAGE_GATE_UNKNOWN',
 });
+
+/**
+ * The verdicts a cross-package edit must present.
+ *
+ * The edit changes a Rust surface another package carries. The API gate is the
+ * program that reads that surface; evidence that names no verdict from it is a
+ * record of some other run, not proof that this edit is safe.
+ */
+const REQUIRED_CROSS_PACKAGE_GATES = Object.freeze(['verify-api-consistency']);
 
 /** The nearest seed above a path, or null. */
 // [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
@@ -125,7 +136,7 @@ function isInside(targetPath, parentPath) {
  * @param {string} target
  * @returns {{ ok: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
 function readCrossPackageEvidence(evidencePath, target) {
   if (evidencePath === null) {
     return {
@@ -182,6 +193,17 @@ function readCrossPackageEvidence(evidencePath, target) {
     };
   }
 
+  const missing = REQUIRED_CROSS_PACKAGE_GATES.filter(
+    (name) => !owner.gates.some((gate) => gate?.name === name),
+  );
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.GATE_UNKNOWN,
+      detail: `the evidence for ${owner.package} names no ${missing.join(', ')} verdict`,
+    };
+  }
+
   return {
     ok: true,
     rule: 'cross-package',
@@ -194,15 +216,25 @@ function readCrossPackageEvidence(evidencePath, target) {
  *
  * @param {string} target
  * @param {{path: string, resolved: string|null}|null} specification
- * @param {{packageDir: string, evidencePath: string|null}} write
+ * @param {{packageDir: string|null, evidencePath: string|null}} write
  * @returns {{ allowed: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-359, PX-360, PX-361, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361|PX-369) --for-spec --no-implementation-order`.
-function classifyPath(target, specification, write = { packageDir: process.cwd(), evidencePath: null }) {
+// [::TICKET::] PX-359, PX-360, PX-361, PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361|PX-369|PX-371) --for-spec --no-implementation-order`.
+function classifyPath(target, specification, write = { packageDir: null, evidencePath: null }) {
   const name = basename(target);
   const generated = GENERATED_BASENAMES.includes(name);
   const record = JUDGMENT_RECORD_BASENAMES.includes(name);
   if (generated || record) {
+    // Without --package there is no boundary to compare against. Falling back to
+    // the process cwd made the same target local or foreign depending on where the
+    // caller happened to stand, which is the opposite of a default-deny boundary.
+    if (write.packageDir === null) {
+      return {
+        allowed: false,
+        rule: CROSS_PACKAGE_CODES.PACKAGE_REQUIRED,
+        detail: 'a generated file needs --package naming the invocation package',
+      };
+    }
     if (isInside(target, write.packageDir)) {
       return generated
         ? { allowed: true, rule: 'generated', detail: 'a file this command generates in its own package' }
@@ -252,7 +284,7 @@ export function run(argv) {
   const name = basename(target);
   const specification = resolveSeededSpecification(target, seed);
   const verdict = classifyPath(target, specification, {
-    packageDir: packageArgument === null ? process.cwd() : resolve(packageArgument),
+    packageDir: packageArgument === null ? null : resolve(packageArgument),
     evidencePath: allowCrossPackage,
   });
 

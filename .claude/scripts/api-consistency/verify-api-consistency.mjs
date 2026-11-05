@@ -29,6 +29,9 @@ const ALLOCATE_MANIFEST = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 const RFC_FILENAME = 'RFC.md';
 const CRATES_DIRECTORY = 'crates';
 
+/** The declaration kinds whose names are a workspace vocabulary rather than a local one. */
+const TYPE_LIKE_KINDS = new Set(['struct', 'trait', 'enum', 'type']);
+
 /** The finding codes, named once so no inline string can drift. */
 export const FINDING_CODES = Object.freeze({
   SYMBOL_UNDEFINED: 'SYMBOL_UNDEFINED',
@@ -139,6 +142,7 @@ function readSurfaces(packages) {
  * @param {{ workspaceRoot: string }} input
  * @returns {{ ok: boolean, findings: object[], summary: {blocking: number, advisory: number} }}
  */
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
 export function verifyApiConsistency({ workspaceRoot } = {}) {
   const root = path.resolve(workspaceRoot);
   const packages = packagesOf(root);
@@ -165,6 +169,10 @@ export function verifyApiConsistency({ workspaceRoot } = {}) {
   for (const [symbol, declarations] of declarationsBySymbol) {
     const packagesOfSymbol = [...new Set(declarations.map((entry) => entry.packageId))];
     if (packagesOfSymbol.length < 2) continue;
+    // Two packages may each define a free routine named `bind`; a crate's routine
+    // names are not a workspace-wide vocabulary. A type name is: a struct and a trait
+    // with one name, or two structs with different fields, cannot be one surface.
+    if (!declarations.some((entry) => TYPE_LIKE_KINDS.has(entry.kind))) continue;
     const kinds = [...new Set(declarations.map((entry) => entry.kind))];
     const owner = declarations[0];
     if (kinds.length > 1) {
@@ -193,8 +201,22 @@ export function verifyApiConsistency({ workspaceRoot } = {}) {
 
       const owners = declarations.filter((entry) => entry.packageId !== reference.packageId);
       if (owners.length === 0) {
-        const typeName = reference.symbol.includes('::') ? reference.symbol.split('::')[0] : reference.symbol;
+        const qualified = reference.symbol.includes('::');
+        const typeName = qualified ? reference.symbol.split('::')[0] : reference.symbol;
+        // A one-letter capital is a generic parameter the parser could not bind.
+        if (qualified && /^[A-Z]$/.test(typeName)) continue;
         const typeOwners = declarationsBySymbol.get(typeName) ?? [];
+        // A lowercase left half is a module path (`fs::read`, `mem::take`), not a
+        // type whose associated item the workspace must declare. Rust names types
+        // in CamelCase and modules in snake_case; that is the distinction available
+        // without inference.
+        if (qualified && !/^[A-Z]/.test(typeName) && typeOwners.length === 0) continue;
+        // A bare unresolved call is a method, an enum variant or a standard-library
+        // routine the parser cannot type. Without inference it is not evidence that
+        // a workspace symbol is missing; a type use and an associated path are,
+        // because the type part is a name the workspace can declare.
+        const bareCall = reference.kind === 'call' && !qualified;
+        if (bareCall && typeOwners.length === 0) continue;
         const missing = typeOwners.length > 0 ? reference.symbol : typeName;
         add(makeFinding({
           code: FINDING_CODES.SYMBOL_UNDEFINED, severity: 'blocking', packageId: reference.packageId, symbol: missing,
