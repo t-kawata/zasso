@@ -137,6 +137,20 @@ test('a 29-package workspace renders four rows at 796x440', () => {
   assert.match(result.stdout, /overall progress: \d+%/);
 });
 
+test('dry-run expands the Windows home shorthand in the target', () => {
+  const { root, target } = materializeBundle('workspace-min.json');
+  const result = spawnSync(
+    process.execPath,
+    [CLI, '-t', `~\\${path.relative(target, root)}`, '--no-open', '--dry-run', '--no-source-scan'],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, HOME: target, CLAUDE_CONFIG_DIR: EMPTY_CONFIG_DIR },
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('dry-run writes nothing', () => {
   const { root } = materializeBundle('workspace-min.json');
   const result = run(['-t', root, '--no-open', '--dry-run', '--no-source-scan']);

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +17,7 @@ import {
 } from './progress-gif/parse.js';
 import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, displayDateKey } from './progress-gif/loop.js';
 import { historyRunMarkers } from './progress-gif/history.js';
-import { aggregateUsage, dailySeries } from './progress-gif/usage.js';
+import { aggregateUsage, dailySeries, expandHome } from './progress-gif/usage.js';
 import { CACHE_FILE_NAME } from './progress-gif/usage-cache.js';
 import { computeLayout, formatPercent } from './progress-gif/layout.js';
 import { renderHtml } from './progress-gif/html.js';
@@ -38,14 +37,6 @@ import {
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_MAX_BYTES = 300 * 1024 * 1024;
 const DEFAULT_FPS = 10;
-
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-function expandHome(value) {
-  if (typeof value !== 'string') return value;
-  if (value === '~') return os.homedir();
-  if (value.startsWith('~/')) return path.join(os.homedir(), value.slice(2));
-  return value;
-}
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function stampNow(date = new Date()) {

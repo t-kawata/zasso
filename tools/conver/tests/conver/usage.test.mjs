@@ -26,9 +26,8 @@ import { selectTitle, selectTitleParts, fitTitleSize, fitTitleLayout } from '../
 const utcDateKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 // [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
-function writeUsageFixture({ directory, records }) {
+function writeUsageFixture({ directory, records, projectKey = directory.replace(/[^a-zA-Z0-9]/g, '-') }) {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-usage-config-'));
-  const projectKey = directory.replace(/[^a-zA-Z0-9]/g, '-');
   const projectDir = path.join(configDir, 'projects', projectKey);
   fs.mkdirSync(projectDir, { recursive: true });
   fs.writeFileSync(path.join(projectDir, 'session.jsonl'), `${records.join('\n')}\n`);
@@ -330,6 +329,29 @@ test('displayDateKey uses the same date components as formatDate', () => {
       assert.equal(displayDateKey(timestamp, precision).slice(5), displayed);
     }
   }
+});
+
+test('aggregateUsage finds logs whose project directory uses a different encoding', async () => {
+  const directory = '/tmp/work.space';
+  // A slash-only encoder (the older CLI's rule) leaves the dot in the directory name,
+  // so the name-first lookup finds nothing and discovery has to fall back to the cwd.
+  const slashEncodedKey = directory.replace(/[\\/]/g, '-');
+  const fixture = writeUsageFixture({
+    directory,
+    projectKey: slashEncodedKey,
+    records: [
+      assistantRecord({ id: 'legacy-key', at: '2026-10-05T12:00:00.000Z', cwd: directory, output: 9 }),
+    ],
+  });
+
+  const result = await aggregateUsage({
+    directory,
+    configDir: fixture.configDir,
+    dateKey: utcDateKey,
+  });
+
+  assert.equal(result.groups.length, 1);
+  assert.equal(result.groups[0].offpeak.output_tokens, 9);
 });
 
 test('the three script copies are identical', () => {

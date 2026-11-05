@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { aggregateUsage, summarize, DEFAULT_PRICES } from "./progress-gif/usage.js";
+import { aggregateUsage, expandHome, summarize, DEFAULT_PRICES } from "./progress-gif/usage.js";
 
 const HELP = `Usage: node claude-usage.js -d <project-directory> [options]
 
@@ -33,12 +32,6 @@ const HELP = `Usage: node claude-usage.js -d <project-directory> [options]
 `;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function expandHome(value) {
-  if (value === "~") return os.homedir();
-  if (value.startsWith("~/")) return path.join(os.homedir(), value.slice(2));
-  return value;
-}
 
 // [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
 function validDate(value, name) {

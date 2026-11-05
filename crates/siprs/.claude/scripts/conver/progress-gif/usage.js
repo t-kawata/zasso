@@ -161,11 +161,38 @@ function isInside(child, parent) {
     || (relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative));
 }
 
-// [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
-function expandConfigDir(configDir) {
-  if (configDir) return path.resolve(configDir);
-  if (process.env.CLAUDE_CONFIG_DIR) return path.resolve(process.env.CLAUDE_CONFIG_DIR);
+/**
+ * Expand a leading `~` segment the way a shell would.
+ *
+ * Both separators are accepted so a Windows short form such as `~\work` expands on
+ * every platform; the separator is dropped together with the tilde.
+ */
+export function expandHome(value) {
+  if (typeof value !== 'string') return value;
+  if (value === '~') return os.homedir();
+  if (value.startsWith('~/') || value.startsWith('~\\')) {
+    return path.join(os.homedir(), value.slice(2));
+  }
+  return value;
+}
+
+/**
+ * Resolve the Claude Code config directory for this machine.
+ *
+ * A non-default config root is signalled only through `CLAUDE_CONFIG_DIR`, so that
+ * environment variable must win over the home directory for every log reader.
+ */
+export function resolveConfigDir(configDir) {
+  const requested = configDir || process.env.CLAUDE_CONFIG_DIR;
+  if (requested) return path.resolve(expandHome(requested));
   return path.join(os.homedir(), '.claude');
+}
+
+/**
+ * Encode a workspace path as the directory name Claude Code writes under `projects/`.
+ */
+export function encodeProjectKey(directory) {
+  return directory.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
 /**
@@ -256,7 +283,7 @@ export async function aggregateUsage({
   onFileParsed = null,
 } = {}) {
   const root = path.resolve(directory);
-  const resolvedConfigDir = expandConfigDir(configDir);
+  const resolvedConfigDir = resolveConfigDir(configDir);
   const projectsDir = path.join(resolvedConfigDir, 'projects');
   const warnings = [];
   let entries = [];
@@ -269,14 +296,27 @@ export async function aggregateUsage({
     warnings.push(`usage logs not found: ${projectsDir}`);
   }
 
-  const projectKey = root.replace(/[^a-zA-Z0-9]/g, '-');
+  const projectKey = encodeProjectKey(root);
+  const directories = entries.filter((entry) => entry.isDirectory());
+  const nameMatched = directories.filter(
+    (entry) => entry.name === projectKey || entry.name.startsWith(projectKey + '-')
+  );
+  // Claude Code's directory naming has been stable, but a different writer or a
+  // platform-specific path spelling can produce a name this key does not match.
+  // When nothing matches by name, fall back to the cwd each directory records and
+  // keep only logs written inside this workspace. An unreadable cwd is never accepted
+  // on the fallback path because it could belong to any project.
+  const candidates = nameMatched.length > 0
+    ? nameMatched.map((entry) => ({ entry, matchedByName: true }))
+    : directories.map((entry) => ({ entry, matchedByName: false }));
   const logDirs = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name !== projectKey && !entry.name.startsWith(projectKey + '-')) continue;
+  for (const { entry, matchedByName } of candidates) {
     const dir = path.join(projectsDir, entry.name);
     const cwd = await findCwd(dir);
-    if (cwd === null || isInside(cwd, root)) logDirs.push({ dir, cwd });
+    const belongsToWorkspace = matchedByName
+      ? cwd === null || isInside(cwd, root)
+      : cwd !== null && isInside(cwd, root);
+    if (belongsToWorkspace) logDirs.push({ dir, cwd });
   }
 
   const cacheRequested = Boolean(cachePath);

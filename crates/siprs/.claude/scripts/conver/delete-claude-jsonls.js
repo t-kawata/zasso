@@ -2,12 +2,17 @@
 'use strict';
 
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline/promises';
 
+import { encodeProjectKey, expandHome, resolveConfigDir } from './progress-gif/usage.js';
+
+function printLine(line = '') {
+  process.stdout.write(`${line}\n`);
+}
+
 function usage() {
-  console.log(`
+  printLine(`
 Usage:
   delete-claude-jsonls.js [-y] -t <directory> [--dry-run]
 
@@ -16,6 +21,9 @@ Options:
   -y, --yes                対話確認をスキップ
   --dry-run                削除対象の表示のみ
   -h, --help               ヘルプ
+
+Environment:
+  CLAUDE_CONFIG_DIR        ログを探す基準ディレクトリ (既定: ~/.claude)
 
 Examples:
   delete-claude-jsonls.js -t ~/shyme/gaia
@@ -71,16 +79,6 @@ function parseArgs(args) {
   return { target, dryRun, yes };
 }
 
-function expandHome(value) {
-  if (value === '~') {
-    return os.homedir();
-  }
-  if (value.startsWith('~/')) {
-    return path.join(os.homedir(), value.slice(2));
-  }
-  return value;
-}
-
 // シンボリックリンクはたどらない。
 async function collectJsonls(directory, files) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -120,15 +118,15 @@ async function main() {
     throw new Error('ルートディレクトリは指定できません。');
   }
 
-  const projectsPath = path.join(os.homedir(), '.claude', 'projects');
-  const projectKey = targetPath.replace(/[\\/]/g, '-');
+  const projectsPath = path.join(resolveConfigDir(), 'projects');
+  const projectKey = encodeProjectKey(targetPath);
 
   let entries;
   try {
     entries = await fs.readdir(projectsPath, { withFileTypes: true });
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.log(`ログディレクトリがありません: ${projectsPath}`);
+      printLine(`ログディレクトリがありません: ${projectsPath}`);
       return;
     }
     throw error;
@@ -147,44 +145,44 @@ async function main() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   if (projects.length === 0) {
-    console.log(`対象プロジェクトがありません: ${projectKey}`);
+    printLine(`対象プロジェクトがありません: ${projectKey}`);
     return;
   }
 
   const files = [];
 
-  console.log(`対象パス: ${targetPath}`);
-  console.log(`保存先:   ${projectsPath}`);
-  console.log('\n対象プロジェクト:');
+  printLine(`対象パス: ${targetPath}`);
+  printLine(`保存先:   ${projectsPath}`);
+  printLine('\n対象プロジェクト:');
 
   for (const project of projects) {
-    console.log(`  ${project.name}`);
+    printLine(`  ${project.name}`);
     await collectJsonls(path.join(projectsPath, project.name), files);
   }
 
   if (files.length === 0) {
-    console.log('\n削除対象の .jsonl はありません。');
+    printLine('\n削除対象の .jsonl はありません。');
     return;
   }
 
-  console.log('\n削除対象ファイル:');
+  printLine('\n削除対象ファイル:');
   for (const file of files) {
-    console.log(`  ${path.relative(projectsPath, file.path)}`);
+    printLine(`  ${path.relative(projectsPath, file.path)}`);
   }
 
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
 
-  console.log(`\nプロジェクト数: ${projects.length}`);
-  console.log(`ファイル数:     ${files.length}`);
-  console.log(`合計サイズ:     ${(totalBytes / 1024 / 1024).toFixed(2)} MiB`);
+  printLine(`\nプロジェクト数: ${projects.length}`);
+  printLine(`ファイル数:     ${files.length}`);
+  printLine(`合計サイズ:     ${(totalBytes / 1024 / 1024).toFixed(2)} MiB`);
 
   if (dryRun) {
-    console.log('\n--dry-run: 削除していません。');
+    printLine('\n--dry-run: 削除していません。');
     return;
   }
 
-  console.log('\nClaude Code を終了してから実行してください。');
-  console.log('会話履歴も削除されます。この操作は取り消せません。');
+  printLine('\nClaude Code を終了してから実行してください。');
+  printLine('会話履歴も削除されます。この操作は取り消せません。');
 
   if (!yes) {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -206,11 +204,11 @@ async function main() {
     }
 
     if (answer.trim() !== 'yes') {
-      console.log('キャンセルしました。');
+      printLine('キャンセルしました。');
       return;
     }
   } else {
-    console.log('\n-y / --yes: 対話確認をスキップします。');
+    printLine('\n-y / --yes: 対話確認をスキップします。');
   }
 
   // 一覧作成後に変更・置換されたファイルがあれば削除開始前に中止。
@@ -245,7 +243,7 @@ async function main() {
     }
   }
 
-  console.log(`\n削除完了: ${deleted} ファイル / 失敗: ${failed} ファイル`);
+  printLine(`\n削除完了: ${deleted} ファイル / 失敗: ${failed} ファイル`);
 
   if (failed > 0) {
     process.exitCode = 1;
