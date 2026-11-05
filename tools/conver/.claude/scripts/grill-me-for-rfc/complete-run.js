@@ -30,6 +30,7 @@ import {
   renderDistribution,
   writeAtomically,
 } from './render-distribution.mjs';
+import { COMPLETION_RECEIPT_FILE, writeCompletionReceipt } from './completion-receipt.js';
 
 const { createFinding, renderFindings } = repairFinding;
 
@@ -153,6 +154,20 @@ export const REQUIRED_GATES = Object.freeze([
 /** The names of the gates, in order, for a caller that reports the evidence set. */
 export const REQUIRED_GATE_NAMES = Object.freeze(REQUIRED_GATES.map((gate) => gate.name));
 
+/**
+ * The workspace API verdict, evaluated only for a cross-package re-grill.
+ *
+ * A single-package completion is not answerable for every other package's Rust
+ * surface, so this gate is opt-in. A run that edited a neighbour is answerable, and
+ * `--cross-package` is how it says so.
+ */
+export const API_CONSISTENCY_GATE = Object.freeze({
+  name: 'api-consistency',
+  script: '../api-consistency/verify-api-consistency.mjs',
+  args: ({ workspaceRoot }) => [`--workspace=${workspaceRoot}`],
+  route: ROUTE.UPSTREAM,
+});
+
 /** Read a text file, or null when it cannot be read. */
 function readTextOrNull(filePath) {
   try {
@@ -209,7 +224,8 @@ function spawnGate(gate, context) {
  */
 export function runRequiredGates(context, options = {}) {
   const run = options.run ?? spawnGate;
-  return REQUIRED_GATES.map((gate) => {
+  const gates = options.gates ?? REQUIRED_GATES;
+  return gates.map((gate) => {
     const verdict = typeof gate.evaluate === 'function'
       ? gate.evaluate(context)
       : run(gate, context);
@@ -225,13 +241,14 @@ export function runRequiredGates(context, options = {}) {
 }
 
 /** The repair command a failing gate's finding carries. */
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
 function repairAction(gate, context) {
   if (typeof gate.script !== 'string') {
     return `edit ${path.join(context.rfcDir, gate.repairTarget)} and clear the condition the ${gate.name} gate reports, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
   }
   const target = gate.args(context).filter((argument) => argument !== null).join(' ');
   if (gate.name === 'obligation-coverage') {
-    return `run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path> when the finding is an unstated denominator, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/${gate.script}" ${target} and apply its Action lines, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
+    return `run /educe-sequences <spec-path> when the finding is an unstated denominator: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/${gate.script}" ${target} and apply its Action lines, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
   }
   return `run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/${gate.script}" ${target} and apply its Action lines, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
 }
@@ -306,9 +323,10 @@ function declareDone(rfcDir) {
 export function main(argv = process.argv.slice(2)) {
   const rfcDirArgument = argv[0];
   if (!rfcDirArgument) {
-    process.stderr.write('Usage: complete-run.js <rfc-dir>\n');
+    process.stderr.write('Usage: complete-run.js <rfc-dir> [--cross-package]\n');
     return EXIT_USAGE;
   }
+  const crossPackage = argv.includes('--cross-package');
 
   // Resolved before any write: a package the command cannot identify is not
   // finished, and creating state for it would be worse than refusing.
@@ -322,6 +340,10 @@ export function main(argv = process.argv.slice(2)) {
     return EXIT_USAGE;
   }
 
+  // A receipt from an earlier attempt is not evidence for this one. Clearing it
+  // before the gates run means a failed completion cannot leave DONE authorized.
+  fs.rmSync(path.join(rfcDir, COMPLETION_RECEIPT_FILE), { force: true });
+
   const rendered = renderPackage(rfcDir);
   if (!rendered.ok) {
     emit({ ...rendered, state: currentState(rfcDir) });
@@ -329,11 +351,12 @@ export function main(argv = process.argv.slice(2)) {
   }
 
   const context = { rfcDir, workspaceRoot: resolveWorkspaceRoot(rfcDir) };
-  const gates = runRequiredGates(context);
+  const selectedGates = crossPackage ? [...REQUIRED_GATES, API_CONSISTENCY_GATE] : REQUIRED_GATES;
+  const gates = runRequiredGates(context, { gates: selectedGates });
   const failed = gates.filter((gate) => gate.exitCode !== 0);
   if (failed.length > 0) {
     const first = failed[0];
-    const entry = REQUIRED_GATES.find((gate) => gate.name === first.name);
+    const entry = selectedGates.find((gate) => gate.name === first.name);
     const finding = createFinding({
       severity: 'blocking',
       code: 'GATE_FAILED',
@@ -359,6 +382,9 @@ export function main(argv = process.argv.slice(2)) {
   recordDistributionGeneration(path.join(rfcDir, RFC_FILE_NAME), rendered.map, {
     carriedMapBefore: rendered.carriedMapBefore,
   });
+
+  // The gate list passed. Write the evidence update-status.js requires for DONE.
+  writeCompletionReceipt(rfcDir, gates);
 
   const declared = declareDone(rfcDir);
   if (!declared.ok) {

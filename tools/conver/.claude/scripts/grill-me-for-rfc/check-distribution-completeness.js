@@ -120,7 +120,7 @@ function workspaceArtifactPath(root) {
 
 /** The route and command that repair each clause. */
 const CLAUSE_REPAIRS = Object.freeze({
-  K1: { route: 'upstream', action: (root) => `run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path> to supply the census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
+  K1: { route: 'upstream', action: (root) => `run /educe-sequences <spec-path>: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
   K2: { route: 'in-drill', action: (root) => `assign the unassigned demand in the artifact or record a grounded exemption, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
   K3: { route: 'in-drill', action: (root) => `cite a section or ledger row the workspace holds, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
   K4: { route: 'in-drill', action: (root) => `place the exempted demand in a package instead of parking it, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
@@ -130,6 +130,7 @@ const CLAUSE_REPAIRS = Object.freeze({
   K8: { route: 'upstream', action: (root) => `run node "$(git rev-parse --show-toplevel)/.claude/scripts/sequences-slice/run.mjs" to project every package the allocation names, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}` },
 });
 
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
 function buildCriterionFindings(findings, root, artifactPath) {
   const verify = `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-distribution-completeness.js" ${root}`;
   return findings.filter((finding) => !finding.holds).map((finding) => {

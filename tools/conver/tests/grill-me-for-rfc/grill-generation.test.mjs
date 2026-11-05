@@ -10,9 +10,12 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { REQUIRED_GATE_NAMES } from '../../.claude/scripts/grill-me-for-rfc/complete-run.js';
+
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const INIT = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/init.js');
 const UPDATE_STATUS = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/update-status.js');
+const COMPLETION_RECEIPT_FILENAME = '.conver-completion.json';
 
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 function freshSession() {
@@ -26,8 +29,17 @@ function freshSession() {
   return { root, rfcDir, statusPath: join(rfcDir, 'Status.json') };
 }
 
-// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-309, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-371) --for-spec --no-implementation-order`.
 function setState(rfcDir, state) {
+  if (state === 'DONE') {
+    const gates = REQUIRED_GATE_NAMES.map((name) => ({ name, exitCode: 0 }));
+    writeFileSync(join(rfcDir, COMPLETION_RECEIPT_FILENAME), JSON.stringify({
+      format: 1,
+      gateNames: gates.map((gate) => gate.name),
+      gates,
+      writtenAt: '2026-01-01T00:00:00.000Z',
+    }, null, 2), 'utf8');
+  }
   execFileSync(process.execPath, [UPDATE_STATUS, rfcDir, 'set-state', state], { encoding: 'utf8' });
 }
 

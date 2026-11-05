@@ -22,8 +22,29 @@ import {
   GRILL_UPDATE_STATUS,
   runCommand,
 } from '../../question-gate/helpers/fixture-workspace.mjs';
+import { REQUIRED_GATE_NAMES } from '../../../.claude/scripts/grill-me-for-rfc/complete-run.js';
 
 const NO_ACTION = 'Next Action: —';
+const COMPLETION_RECEIPT_FILENAME = '.conver-completion.json';
+
+/** Write the gate evidence complete-run.js writes before a DONE transition. */
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+function writeCompletionReceipt(rfcDir) {
+  const gates = REQUIRED_GATE_NAMES.map((name) => ({ name, exitCode: 0 }));
+  writeFileSync(join(rfcDir, COMPLETION_RECEIPT_FILENAME), JSON.stringify({
+    format: 1,
+    gateNames: gates.map((gate) => gate.name),
+    gates,
+    writtenAt: '2026-01-01T00:00:00.000Z',
+  }, null, 2), 'utf8');
+}
+
+/** Transition to DONE with the evidence the transition now requires. */
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+function complete(rfcDir) {
+  writeCompletionReceipt(rfcDir);
+  return runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']);
+}
 
 /** What init.js recorded about the run. */
 // [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
@@ -32,7 +53,7 @@ function readStatus(rfcDir) {
 }
 
 /** A completed session in a fresh temporary tree, with a scratch area beside it. */
-// [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-238, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-238|PX-371) --for-spec --no-implementation-order`.
 function makeCompletedSession() {
   const base = mkdtempSync(join(tmpdir(), 'px238-reentry-'));
   const rfcDir = join(base, 'pkg');
@@ -40,7 +61,7 @@ function makeCompletedSession() {
   const material = join(base, 'material.md');
   writeFileSync(material, '# material\n', 'utf8');
   assert.equal(runCommand(GRILL_INIT, [rfcDir, material]).status, 0);
-  assert.equal(runCommand(GRILL_UPDATE_STATUS, [rfcDir, 'set-state', 'DONE']).status, 0);
+  assert.equal(complete(rfcDir).status, 0);
   return { base, rfcDir, materialPath: (name) => join(base, name) };
 }
 
@@ -83,7 +104,7 @@ test('a second completion with no new material is silent again', () => {
   writeFileSync(added, '# added\n', 'utf8');
   assert.equal(runCommand(GRILL_INIT, [session.rfcDir, added]).status, 0);
   assert.equal(runCommand(GRILL_UPDATE_STATUS, [session.rfcDir, 'set-state', 'GRILLING']).status, 0);
-  assert.equal(runCommand(GRILL_UPDATE_STATUS, [session.rfcDir, 'set-state', 'DONE']).status, 0);
+  assert.equal(complete(session.rfcDir).status, 0);
 
   const output = runCommand(GRILL_SESSION_STATUS, [session.rfcDir]).stdout;
 

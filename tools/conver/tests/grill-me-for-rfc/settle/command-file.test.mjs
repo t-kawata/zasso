@@ -224,3 +224,20 @@ test('C007 invariant: STEP 8a carries the cross-directory re-entry item', () => 
   assert.match(section, /^4\. A defect whose target is another package re-enters \*\*that\*\* package/m);
   assert.match(section, /A cross-directory fix that\s+leaves the target's gates unrun is not a fix/);
 });
+
+// PX-371 @verifies C002
+// STEP 7b is where a neighbour's RFC is corrected. It must name the invocation package
+// explicitly and require the API-gate evidence, and it must finish the neighbour through
+// complete-run rather than writing DONE by hand.
+
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+test('C002 invariant: STEP 7b names the invocation package, the evidence and complete-run', () => {
+  const text = commandText();
+  const start = text.indexOf('### STEP 7b');
+  const section = text.slice(start, text.indexOf('### STEP 8', start));
+
+  assert.match(section, /--package="\$RFC_DIR"/);
+  assert.match(section, /--allow-cross-package/);
+  assert.match(section, /complete-run\.js.*--cross-package/);
+  assert.doesNotMatch(section, /return its `Status\.json` to DONE/);
+});

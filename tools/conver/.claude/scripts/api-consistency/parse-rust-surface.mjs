@@ -21,16 +21,41 @@ const IMPL_LINE = /^\s*impl(?:<[^>]*>)?\s+(?:[\w:]+\s+for\s+)?([A-Za-z_]\w*)/;
 /** A type used with generic arguments, or a bare capitalised identifier. */
 const TYPE_USE = /\b([A-Z]\w*)\s*(?:<([^<>]*(?:<[^<>]*>[^<>]*)*)>)?/g;
 
-/** A call or an associated-function path. */
-const CALL_USE = /\b([A-Za-z_]\w*(?:::[A-Za-z_]\w*)?)\s*\(/g;
+/**
+ * A free call or an associated-function path, but not a method call.
+ *
+ * A method call names no package: `value.clone()` could be `Clone::clone` or an
+ * inherent method on a type this parser does not infer. Treating the bare method
+ * name as a cross-package symbol made every `.len()`, `.get()` and `.clone()` a
+ * missing declaration. The receiver is the missing fact, and this parser does not
+ * have it, so the method call is left to the type checker rather than guessed here.
+ */
+const PATH_CALL_USE = /(?<!\.)\b([A-Za-z_]\w*(?:::[A-Za-z_]\w*)?)\s*\(/g;
 
-/** The names Rust and the standard library supply, which are not workspace symbols. */
+/** An attribute line, including `#[derive(...)]` and the inner `#![...]` form. */
+const ATTRIBUTE_LINE = /^\s*#!?\[/;
+
+/** The receiver forms that are not call arguments. */
+const SELF_PARAMETER = /^(?:&\s*)?(?:mut\s+)?self(?:\s*:.*)?$/;
+
+/** The names Rust, the standard library and Cargo supply, which are not workspace symbols. */
 const BUILTIN_SYMBOLS = new Set([
-  'String', 'Vec', 'Option', 'Result', 'Box', 'HashMap', 'HashSet', 'BTreeMap', 'VecDeque',
-  'Arc', 'Rc', 'RefCell', 'Cell', 'Cow', 'Path', 'PathBuf', 'Duration', 'SystemTime',
+  'String', 'Vec', 'Option', 'Result', 'Box', 'HashMap', 'HashSet', 'BTreeMap', 'BTreeSet',
+  'VecDeque', 'Arc', 'Rc', 'RefCell', 'Cell', 'Cow', 'Path', 'PathBuf', 'Duration', 'SystemTime',
   'Instant', 'Regex', 'Uuid', 'Ordering', 'Self', 'Ok', 'Err', 'Some', 'None', 'Default',
   'Clone', 'Copy', 'Debug', 'Display', 'Error', 'Send', 'Sync', 'Sized', 'Iterator',
-  'Into', 'From', 'TryFrom', 'AsRef', 'AsMut', 'Serialize', 'Deserialize',
+  'PartialEq', 'Eq', 'PartialOrd', 'Ord', 'Hash',
+  'Into', 'From', 'TryFrom', 'AsRef', 'AsMut', 'Serialize', 'Deserialize', 'ToString',
+  'FromStr', 'TryInto', 'IntoIterator', 'ExactSizeIterator', 'DoubleEndedIterator',
+  'Mutex', 'RwLock', 'MutexGuard', 'RwLockReadGuard', 'RwLockWriteGuard', 'PhantomData',
+  'NonNull', 'Pin', 'Waker', 'Context', 'Poll', 'Future', 'Stream', 'Sink', 'File',
+  'Read', 'Write', 'BufRead', 'BufReader', 'BufWriter', 'OsString', 'OsStr', 'CString',
+  'CStr', 'IpAddr', 'SocketAddr', 'TcpListener', 'TcpStream', 'UdpSocket', 'JoinHandle',
+  'Thread', 'ThreadId', 'AtomicBool', 'AtomicUsize', 'AtomicIsize', 'AtomicU8', 'AtomicU16',
+  'AtomicU32', 'AtomicU64', 'AtomicI8', 'AtomicI16', 'AtomicI32', 'AtomicI64', 'Formatter',
+  'Arguments', 'CARGO_PKG_VERSION', 'CARGO_PKG_NAME', 'CARGO_PKG_AUTHORS',
+  'CARGO_PKG_DESCRIPTION', 'CARGO_PKG_HOMEPAGE', 'CARGO_PKG_REPOSITORY', 'CARGO_PKG_LICENSE',
+  'CARGO_PKG_RUST_VERSION', 'CARGO_MANIFEST_DIR',
 ]);
 
 /** The words that look like calls but are language constructs. */
@@ -70,10 +95,17 @@ function genericArity(genericText) {
   return splitTopLevel(genericText.replace(/^</, '').replace(/>$/, '')).length;
 }
 
-/** The arity of a parameter or argument list. */
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
-function parameterArity(parameterText) {
-  return splitTopLevel(parameterText).length;
+/**
+ * The arity of a parameter list, with a receiver excluded.
+ *
+ * `&self` is the method's receiver, not an argument the caller supplies. Counting it
+ * made a one-argument method look like a two-argument function, so every associated
+ * call was off by one. The receiver is dropped here rather than at the call site
+ * because the declaration is where the fact is stated.
+ */
+// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
+function parameterCountOf(parameterText) {
+  return splitTopLevel(parameterText).filter((parameter) => !SELF_PARAMETER.test(parameter)).length;
 }
 
 /** The generic parameter names a `<...>` list declares. */
@@ -94,6 +126,23 @@ function fieldNames(bodyLines) {
     if (match !== null) names.push(match[1]);
   }
   return names;
+}
+
+/**
+ * The variant names an enum body declares.
+ *
+ * A variant is a value the workspace can name (`PortResult::Ok`), not a type the
+ * workspace should have declared. Reading it as an undefined type made every enum
+ * result look like a missing cross-package symbol.
+ */
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+function enumVariantNames(bodyLines) {
+  const names = [];
+  for (const line of bodyLines) {
+    if (/^\s*#/.test(line) || /^\s*\/\//.test(line)) continue;
+    for (const match of line.matchAll(/\b([A-Z][A-Za-z0-9_]*)\s*(?:\(|\{|,|$)/g)) names.push(match[1]);
+  }
+  return [...new Set(names)];
 }
 
 /** The brace depth change a line makes. */
@@ -120,14 +169,14 @@ function readBody(lines, startIndex, openLine) {
 }
 
 /** The call's argument count, read from its opening parenthesis. */
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
 function callArgumentCount(line, openIndex) {
   let depth = 0;
   for (let cursor = openIndex; cursor < line.length; cursor += 1) {
     if (line[cursor] === '(') depth += 1;
     if (line[cursor] === ')') {
       depth -= 1;
-      if (depth === 0) return parameterArity(line.slice(openIndex + 1, cursor));
+      if (depth === 0) return splitTopLevel(line.slice(openIndex + 1, cursor)).length;
     }
   }
   return 0;
@@ -141,13 +190,17 @@ function callArgumentCount(line, openIndex) {
  * @param {{ packageId: string, rfcPath: string }} origin
  * @returns {{ declarations: object[], references: object[], unparsed: object[] }}
  */
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
 function parseFence(lines, firstLine, origin) {
   const declarations = [];
   const references = [];
   const unparsed = [];
   const declaredOnLine = new Map();
   const skippedLines = new Set();
+  const typeDeclarationLines = new Set();
+  const declaredCallNames = new Set();
+  const declaredTypeNames = new Set();
+  const variantNames = new Set();
   const genericParameters = new Set();
   let implType = null;
   let implDepth = 0;
@@ -157,6 +210,10 @@ function parseFence(lines, firstLine, origin) {
     const lineNumber = firstLine + index;
     const trimmed = line.trim();
     if (trimmed.length === 0 || trimmed.startsWith('//')) continue;
+    // An attribute names a macro or a derive, not a workspace symbol. Reading
+    // `#[derive(Debug, Clone)]` as calls is what made `derive`, `Clone` and `Eq`
+    // look like cross-package references nobody declared.
+    if (ATTRIBUTE_LINE.test(trimmed)) continue;
     if (/macro_rules!/.test(line)) {
       unparsed.push({ line: lineNumber, reason: 'macro_rules! is outside the declared surface subset' });
       continue;
@@ -168,6 +225,10 @@ function parseFence(lines, firstLine, origin) {
         unparsed.push({ line: lineNumber, reason: 'impl block could not be read' });
         continue;
       }
+      const implGenerics = /^\s*impl\s*<([^>]*)>/.exec(line);
+      if (implGenerics !== null) {
+        for (const parameter of genericParameterNames(`<${implGenerics[1]}>`)) genericParameters.add(parameter);
+      }
       implType = match[1];
       implDepth = braceDelta(line);
       if (implDepth <= 0) {
@@ -177,11 +238,12 @@ function parseFence(lines, firstLine, origin) {
         if (open !== -1 && close > open) {
           const inline = line.slice(open + 1, close);
           for (const method of inline.matchAll(/fn\s+([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*\(([^)]*)\)/g)) {
+            declaredCallNames.add(`${index}:${method[1]}`);
             declarations.push({
               symbol: `${implType}::${method[1]}`,
               kind: 'fn',
               genericArity: 0,
-              parameterCount: parameterArity(method[2]),
+              parameterCount: parameterCountOf(method[2]),
               fields: [],
               packageId: origin.packageId,
               rfcPath: origin.rfcPath,
@@ -218,7 +280,26 @@ function parseFence(lines, firstLine, origin) {
         rfcPath: origin.rfcPath,
         line: lineNumber,
       });
+      if (keyword === 'struct' || keyword === 'trait' || keyword === 'enum' || keyword === 'type') {
+        declaredTypeNames.add(symbol);
+      }
+      if (keyword === 'enum') {
+        for (const variant of enumVariantNames([...inlineBody, ...body])) {
+          variantNames.add(variant);
+          declarations.push({
+            symbol: `${symbol}::${variant}`,
+            kind: 'variant',
+            genericArity: 0,
+            parameterCount: 0,
+            fields: [],
+            packageId: origin.packageId,
+            rfcPath: origin.rfcPath,
+            line: lineNumber,
+          });
+        }
+      }
       declaredOnLine.set(index, symbol);
+      typeDeclarationLines.add(index);
       index = nextIndex;
       continue;
     }
@@ -231,13 +312,14 @@ function parseFence(lines, firstLine, origin) {
         symbol: implType === null ? name : `${implType}::${name}`,
         kind: 'fn',
         genericArity: genericArity(genericText),
-        parameterCount: parameterArity(parameterText),
+        parameterCount: parameterCountOf(parameterText),
         fields: [],
         packageId: origin.packageId,
         rfcPath: origin.rfcPath,
         line: lineNumber,
       });
       declaredOnLine.set(index, name);
+      declaredCallNames.add(`${index}:${name}`);
       continue;
     }
 
@@ -249,12 +331,40 @@ function parseFence(lines, firstLine, origin) {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const lineNumber = firstLine + index;
-    if (line.trim().length === 0 || line.trim().startsWith('//') || skippedLines.has(index)) continue;
+    const trimmed = line.trim();
+    if (trimmed.length === 0 || trimmed.startsWith('//') || skippedLines.has(index)) continue;
+    // Attributes were skipped by the declaration pass; they must be skipped here too,
+    // or `#[derive(Debug, Clone)]` comes back as a call to `derive` and two type uses.
+    if (ATTRIBUTE_LINE.test(trimmed)) continue;
+    // A path or a message inside a string literal is prose, not a symbol. Stripping
+    // the literals keeps `"RFC-SEED.md"` and `"Cargo.toml"` out of the type pass.
+    const code = line.replace(/"(?:\\.|[^"\\])*"/g, '""');
     const declaredHere = declaredOnLine.get(index);
+    // A bare callee is a constructor or a routine, not a type use. The type
+    // pattern sees the capitalised callee in a constructor expression and would
+    // otherwise report the same name twice: once as an unresolved call and once as
+    // an unresolved type.
+    const bareCallsOnLine = new Set(
+      [...code.matchAll(PATH_CALL_USE)]
+        .map((match) => match[1])
+        .filter((symbol) => !symbol.includes('::')),
+    );
 
-    for (const match of line.matchAll(TYPE_USE)) {
+    for (const match of code.matchAll(TYPE_USE)) {
       const symbol = match[1];
       if (BUILTIN_SYMBOLS.has(symbol) || genericParameters.has(symbol) || symbol === declaredHere) continue;
+      // A one-letter capital is a generic parameter written in a fence whose
+      // declaration the parser did not read (a `where` clause, an associated type).
+      // It is not a workspace type; a package does not name a type `T`.
+      if (/^[A-Z]$/.test(symbol) && !declaredTypeNames.has(symbol)) continue;
+      if (bareCallsOnLine.has(symbol)) continue;
+      // The right half of `Type::Variant` is a variant, not a type the workspace
+      // must declare; the left half is checked on its own match.
+      const matchStart = match.index ?? 0;
+      if (code.slice(Math.max(0, matchStart - 2), matchStart) === '::') continue;
+      // A bare variant name is a value, not a type. A name the fence also declares
+      // as a type keeps its type reference.
+      if (variantNames.has(symbol) && !declaredTypeNames.has(symbol)) continue;
       references.push({
         symbol,
         kind: 'type',
@@ -266,9 +376,19 @@ function parseFence(lines, firstLine, origin) {
       });
     }
 
-    for (const match of line.matchAll(CALL_USE)) {
+    // A struct, enum or type declaration holds types, never call expressions.
+    if (typeDeclarationLines.has(index)) continue;
+    for (const match of code.matchAll(PATH_CALL_USE)) {
       const symbol = match[1];
       if (KEYWORD_CALLS.has(symbol) || BUILTIN_SYMBOLS.has(symbol)) continue;
+      // The signature's own name is a declaration, not a call; a call in the same
+      // line's body still counts.
+      if (declaredCallNames.has(`${index}:${symbol}`)) continue;
+      // `Self::method` is the implementation's own surface, not a cross-package name.
+      if (symbol.startsWith('Self::')) continue;
+      // `Vec::with_capacity` is a standard-library associated routine. The standard
+      // library declares it, not a workspace package.
+      if (symbol.includes('::') && BUILTIN_SYMBOLS.has(symbol.split('::')[0])) continue;
       const openIndex = (match.index ?? 0) + match[0].length - 1;
       references.push({
         symbol,

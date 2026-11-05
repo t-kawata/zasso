@@ -16,6 +16,8 @@ import { validateAll } from "./check-all-schema.js";
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
 import recorder from '../lib/run-history-recorder.cjs';
+import { REQUIRED_GATE_NAMES } from './complete-run.js';
+import { COMPLETION_RECEIPT_FILE, readCompletionReceipt } from './completion-receipt.js';
 
 /** This script opens the grill generation; complete-run.js closes it. */
 const RUN_HISTORY = { command: 'grill-me-for-rfc', stage: 'grill' };
@@ -109,6 +111,7 @@ function recordCompletion(previousState) {
  */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
 function openRunGeneration() {
   const recorded = Number.isInteger(status[GRILL_GENERATION_FIELD]) && status[GRILL_GENERATION_FIELD] >= FIRST_GENERATION
     ? status[GRILL_GENERATION_FIELD]
@@ -125,12 +128,35 @@ switch (operation) {
       console.error(`Invalid state: ${newState}. Valid: ${VALID_STATES.join(", ")}`);
       process.exit(1);
     }
+    // DONE is the one transition that claims evidence. The receipt is written by
+    // complete-run.js only after every required gate exits zero, so a caller that
+    // skipped the completion command has nothing to present.
+    const receiptArgument = args.find((argument) => argument.startsWith("--completion-receipt="));
+    const receiptPath = receiptArgument === undefined
+      ? path.join(path.resolve(rfcDir), COMPLETION_RECEIPT_FILE)
+      : receiptArgument.slice("--completion-receipt=".length);
+    const completionReceipt = newState === COMPLETION_STATE
+      ? readCompletionReceipt(receiptPath, REQUIRED_GATE_NAMES)
+      : null;
+    if (completionReceipt !== null && !completionReceipt.ok) {
+      console.error(JSON.stringify({
+        ok: false,
+        code: completionReceipt.code,
+        missing: completionReceipt.missing ?? [],
+        gate: completionReceipt.gate ?? null,
+        exitCode: completionReceipt.exitCode ?? null,
+      }));
+      process.exit(1);
+    }
     const previousState = status.state;
     status.state = newState;
     if (newState === COMPLETION_STATE) {
       recordCompletion(previousState);
     }
     saveAndValidate();
+    // Consume the evidence only after the record it authorized is on disk; a failed
+    // schema write leaves the receipt for the repair the caller must make.
+    if (newState === COMPLETION_STATE) fs.rmSync(receiptPath, { force: true });
     process.stdout.write(JSON.stringify({ ok: true, state: newState }) + "\n");
     break;
   }

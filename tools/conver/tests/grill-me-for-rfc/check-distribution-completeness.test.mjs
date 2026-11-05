@@ -281,3 +281,25 @@ test('PX-367 C004 a short clause renders the repair record naming the measured c
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+// PX-371 @verifies C005
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+test('C005 precondition and postcondition: the K1 action names the executable census route', () => {
+  const root = completeWorkspace();
+  try {
+    const artifactPath = path.join(root, 'SyntheticSpec-sequences.json');
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    artifact.pins.sourceEnumerations = [];
+    fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /Action: .*\/educe-sequences/);
+    assert.match(result.stdout, /declaration\.json/);
+    assert.match(result.stdout, /phase\.mjs" through/);
+    assert.doesNotMatch(result.stdout, /begin <spec-path> to supply/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -305,19 +305,24 @@ function renderVerdictLine(coverage, exemptionCount) {
 
 /** The command that supplies each unstated denominator. */
 const REPAIR_ROUTE_BY_AXIS = Object.freeze({
-  operations: '/educe-sequences (node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path>)',
-  sequences: '/educe-sequences (node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path>)',
+  operations: '/educe-sequences (declare sourceEnumerations in educe-sequences/declaration.json, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>)',
+  sequences: '/educe-sequences (declare sourceEnumerations in educe-sequences/declaration.json, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>)',
   boundaries: '/workspacify-allocate (node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs")',
   surfaces: 'the allocation manifest (edit WORKSPACIFY-ALLOCATE-MANIFEST.json)',
 });
 
+// `begin` opens a generation and archives readings; it does not read a census. The
+// census is the declaration's sourceEnumerations, and `through` is what carries the
+// declaration through the phases that write the artifact. Naming begin alone sent the
+// reader to a command that could not close the finding.
 const AXIS_REPAIR = Object.freeze({
-  operations: 'run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path> to supply the operations census',
-  sequences: 'run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" begin <spec-path> to supply the sequences census',
+  operations: 'run /educe-sequences <spec-path>: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>',
+  sequences: 'run /educe-sequences <spec-path>: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>',
   boundaries: 'run node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-allocate/run.mjs" so the contract registry names every boundary',
   surfaces: 'edit WORKSPACIFY-ALLOCATE-MANIFEST.json to declare the interfaces',
 });
 
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
 function buildCoverageFindings({ coverage, views, artifactPath, root }) {
   const verify = `node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/check-obligation-coverage.js" ${root}`;
   const artifact = artifactPath ?? path.join(root, ALLOCATE_MANIFEST_FILENAME);

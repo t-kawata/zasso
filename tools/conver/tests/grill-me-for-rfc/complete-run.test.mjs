@@ -18,6 +18,8 @@ import {
   artifactWithoutCensus,
   materializeCompletionWorkspace,
   materializeViewlessCompletionWorkspace,
+  rfcBodiesWithApiMatch,
+  rfcBodiesWithApiMismatch,
   rfcBodiesWithoutDistributionMap,
   withheldContributionArtifact,
 } from './helpers/completion-workspace.mjs';
@@ -26,9 +28,9 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const COMPLETE_RUN = join(PROJECT_ROOT, '.claude/scripts/grill-me-for-rfc/complete-run.js');
 const GRILL_COMMAND = join(PROJECT_ROOT, '.claude/commands/grill-me-for-rfc.md');
 
-// [::TICKET::] PX-309, PX-367 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-367) --for-spec --no-implementation-order`.
-function runCompletion(directory) {
-  return spawnSync(process.execPath, [COMPLETE_RUN, directory], { encoding: 'utf8' });
+// [::TICKET::] PX-309, PX-367, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-367|PX-371) --for-spec --no-implementation-order`.
+function runCompletion(directory, extraArgs = []) {
+  return spawnSync(process.execPath, [COMPLETE_RUN, directory, ...extraArgs], { encoding: 'utf8' });
 }
 
 /** The last line is the machine-readable report; the repair record is written to stderr. */
@@ -254,6 +256,9 @@ test('C001 postcondition: a failing K1 gate refuses DONE and leaves Status.json 
     assert.equal(report.state, 'GRILLING');
     assert.equal(readFileSync(workspace.statusPath, 'utf8'), statusBefore);
     assert.match(result.stderr, /Action: .*educe-sequences\/rail\/phase\.mjs/);
+    assert.match(result.stderr, /declaration\.json/);
+    assert.match(result.stderr, /phase\.mjs" through/);
+    assert.doesNotMatch(result.stderr, /begin <spec-path> to supply/);
   } finally {
     workspace.remove();
   }
@@ -326,4 +331,54 @@ test('C004 STEP 8 finishes through complete-run and never invokes the write-mode
   assert.match(stepEight, /complete-run\.js"?\s+"\$RFC_DIR"/);
   const handwrittenWrite = stepEight.split('\n').filter((line) => /^node .*render-distribution\.mjs\s*$/.test(line.trim()));
   assert.deepEqual(handwrittenWrite, []);
+});
+
+// PX-371 @verifies C003
+// A cross-package re-grill edits more than one package's Rust surface. The API gate is
+// the only reader of that surface, so the cross-package completion mode runs it and
+// refuses DONE on a blocking finding; a single-package completion is unchanged.
+
+test('C003 postcondition: --cross-package refuses DONE on an API mismatch', () => {
+  const workspace = materializeCompletionWorkspace({ rfcBodies: rfcBodiesWithApiMismatch() });
+  try {
+    const result = runCompletion(workspace.rfcDir, ['--cross-package']);
+
+    assert.notEqual(result.status, 0);
+    const report = readReport(result);
+    const gate = report.gates.find((entry) => entry.name === 'api-consistency');
+    assert.ok(gate, JSON.stringify(report.gates));
+    assert.equal(gate.exitCode, 1);
+    assert.equal(readStatus(workspace.statusPath).state, 'GRILLING');
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C003 postcondition: --cross-package passes a clean cross-package surface', () => {
+  const workspace = materializeCompletionWorkspace({ rfcBodies: rfcBodiesWithApiMatch() });
+  try {
+    const result = runCompletion(workspace.rfcDir, ['--cross-package']);
+
+    assert.equal(result.status, 0, result.stderr);
+    const report = readReport(result);
+    const gate = report.gates.find((entry) => entry.name === 'api-consistency');
+    assert.ok(gate, JSON.stringify(report.gates));
+    assert.equal(gate.exitCode, 0);
+    assert.equal(readStatus(workspace.statusPath).state, 'DONE');
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C003 invariant: a run without --cross-package does not report the API gate', () => {
+  const workspace = materializeCompletionWorkspace({ rfcBodies: rfcBodiesWithApiMismatch() });
+  try {
+    const result = runCompletion(workspace.rfcDir);
+
+    assert.equal(result.status, 0, result.stderr);
+    const report = readReport(result);
+    assert.equal(report.gates.some((entry) => entry.name === 'api-consistency'), false);
+  } finally {
+    workspace.remove();
+  }
 });

@@ -742,12 +742,16 @@ designs, not only their appendices.
 1. Name each defect's **class** and its **target**: the directory whose artifact is wrong.
 2. Guard the edit surface before touching it.
    ```bash
-   node "$CLAUDE_DIR/scripts/grill-me-for-rfc/guard-edit-surface.js" "<TARGET_PATH>"
+   node "$CLAUDE_DIR/scripts/grill-me-for-rfc/guard-edit-surface.js" "<TARGET_PATH>" --package="$RFC_DIR" --allow-cross-package=<evidence.json>
    ```
-   exit 1 → the path is an input and MUST NOT be edited. Resolve the defect in the owning
-   RFC's output instead, and never in the seed.
+   The evidence names the target package and its `verify-api-consistency` verdict at exit 0.
+   exit 1 → the path is an input, the invocation package is unnamed, or the evidence is
+   missing or failing; do not edit it. Resolve the defect in the owning RFC's output
+   instead, and never in the seed.
 3. Correct the target's `RFC.md`, and settle a DesignTree node there so the fix passes that
-   package's own gate. Regenerate its `CheckList.md`, and return its `Status.json` to DONE.
+   package's own gate. Regenerate its `CheckList.md`, then run
+   `complete-run.js "$TARGET_DIR" --cross-package`. If it refuses, record the refusal and
+   leave the target's state unchanged; never write DONE with `update-status.js`.
 4. Correct every other artifact that recorded the defect as live — the recording package's
    RFC and checklist included. A resolution that exists only in the target is a defect in
    the record that still asserts it.
@@ -834,11 +838,11 @@ command handles it — the human is never asked to run anything again.
 4. A defect whose target is another package re-enters **that** package, not this one:
    `guard-edit-surface.js` the target with `--package="$RFC_DIR"` and
    `--allow-cross-package=<evidence.json>`, correct its `RFC.md`, settle a node there, then
-   re-run that package's STEP 6 → STEP 8 before returning here. The evidence names each
+   re-run that package's STEP 6 → STEP 8 before returning here; STEP 8 is
+   `complete-run.js "$TARGET_DIR" --cross-package`. The evidence names each
    edited package and its per-package gate exit codes; a missing file or any non-zero gate
    refuses the write, and a generated file outside `$RFC_DIR` without evidence is
-   `CROSS_PACKAGE_EVIDENCE_MISSING`. A cross-directory fix that leaves the target's gates
-   unrun is not a fix.
+   `CROSS_PACKAGE_EVIDENCE_MISSING`. A cross-directory fix that leaves the target's gates unrun is not a fix.
 
 Re-entry is this command's own loop. STEP 5's RFC prose is written once the grill closes
 again, so the document never carries a decision the re-entry round has not settled.

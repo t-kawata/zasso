@@ -93,3 +93,47 @@ test('C001 invariant: two parses of one RFC are identical', () => {
 
   assert.deepEqual(parse(body), parse(body));
 });
+
+// PX-371 @verifies C004
+// A declaration line is a signature, not a use: reading it as a call made every
+// one-line declaration call itself with its own parameter list, and made a method
+// declaration's receiver count as a caller argument.
+
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+test('C004 boundary: a function declaration line is not a call site', () => {
+  const surface = parse('pub fn use_it() { bind(first, second, third); }');
+
+  assert.deepEqual(surface.references.filter((entry) => entry.symbol === 'use_it'), []);
+  assert.equal(surface.references.find((entry) => entry.symbol === 'bind').argumentCount, 3);
+});
+
+test('C004 precondition: a derive attribute contributes no symbol', () => {
+  const surface = parse('#[derive(Debug, Clone, PartialEq, Eq)]\npub struct Row { value: String }');
+
+  const attributeNames = ['derive', 'Debug', 'Clone', 'PartialEq', 'Eq'];
+  assert.deepEqual(surface.references.filter((entry) => attributeNames.includes(entry.symbol)), []);
+});
+
+test('C004 precondition: a method call is not a cross-package reference', () => {
+  const surface = parse('pub fn use_it(value: &Row) { let _ = value.clone(); let _ = map.get(key); let _ = value.is_empty(); }');
+
+  const methodNames = ['clone', 'get', 'is_empty'];
+  assert.deepEqual(surface.references.filter((entry) => methodNames.includes(entry.symbol)), []);
+});
+
+test('C004 postcondition: self is not a parameter of the method declaration', () => {
+  const surface = parse('impl Row { pub fn admit(&self, row: &Row) -> Result<(), E> { Ok(()) } }');
+
+  const method = declarationOf(surface, 'Row::admit');
+  assert.ok(method, JSON.stringify(surface.declarations));
+  assert.equal(method.parameterCount, 1);
+});
+
+test('C004 postcondition: an associated call resolves to the impl declaration with non-self arity', () => {
+  const surface = parse('impl Row { pub fn admit(&self, row: &Row) -> Result<(), E> { Ok(()) } }\nfn t() { Row::admit(row); }');
+
+  const reference = surface.references.find((entry) => entry.symbol === 'Row::admit');
+  assert.ok(reference, JSON.stringify(surface.references));
+  assert.equal(reference.kind, 'call');
+  assert.equal(reference.argumentCount, 1);
+});

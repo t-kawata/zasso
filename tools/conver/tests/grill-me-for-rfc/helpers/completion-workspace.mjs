@@ -89,6 +89,32 @@ export function rfcBodiesWithUnaccountedOperation() {
   };
 }
 
+/** The rust fence the API gate reads from each side of the declared package boundary. */
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+function crossPackageRust(providerBody, consumerBody) {
+  const bodies = rfcBodiesWithoutDistributionMap();
+  return {
+    'pkg-0001': `${bodies['pkg-0001']}\n\n\`\`\`rust\n${providerBody}\n\`\`\`\n`,
+    'pkg-0002': `${bodies['pkg-0002']}\n\n\`\`\`rust\n${consumerBody}\n\`\`\`\n`,
+  };
+}
+
+/** RFC bodies whose cross-package calls agree with their declarations. */
+export function rfcBodiesWithApiMatch() {
+  return crossPackageRust(
+    'pub fn produce_fact(one: String) -> Result<()> { Ok(()) }',
+    'pub fn consume_it() { produce_fact(one); }',
+  );
+}
+
+/** RFC bodies whose cross-package call has one argument more than the declaration. */
+export function rfcBodiesWithApiMismatch() {
+  return crossPackageRust(
+    'pub fn produce_fact(one: String) -> Result<()> { Ok(()) }',
+    'pub fn consume_it() { produce_fact(one, two); }',
+  );
+}
+
 /** The seed identity block the formula gate reads. */
 // [::TICKET::] PX-367 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-367 --for-spec --no-implementation-order`.
 function seedBody() {

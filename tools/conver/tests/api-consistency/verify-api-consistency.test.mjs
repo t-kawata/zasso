@@ -252,3 +252,73 @@ test('C006 invariant: every finding carries the uniform repair fields', () => {
     workspace.remove();
   }
 });
+
+// PX-371 @verifies C004
+// A bare unresolved call is a method, a variant or a standard-library name the
+// parser cannot type without inference. It is not evidence that a cross-package
+// symbol is missing; only a type use or a Type::method path on a declared type is.
+
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+test('C004 invariant: an unresolvable bare call is not a blocking finding', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub struct Known { value: String }',
+    consumerRust: 'pub fn consume_it() { Unknown(value); }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+    assert.equal(findingOf(result, 'SYMBOL_UNDEFINED', 'Unknown'), undefined);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C004 postcondition: a Type::method path on a declared type is still blocking', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub struct CliBinding { value: String }',
+    consumerRust: 'pub fn use_it() { CliBinding::try_new(args); }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 1);
+    assert.ok(findingOf(result, 'SYMBOL_UNDEFINED', 'CliBinding::try_new'), result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C004 invariant: same-named free functions are not a duplicate declaration', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub fn bind(left: String) {}',
+    consumerRust: 'pub fn bind(left: String, right: String) {}',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+    assert.equal(findingOf(result, 'SYMBOL_DUPLICATE', 'bind'), undefined);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C004 invariant: same-named structs with different shapes remain a duplicate', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub struct Thing { left: String }',
+    consumerRust: 'pub struct Thing { right: String }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 1);
+    assert.ok(findingOf(result, 'SYMBOL_DUPLICATE', 'Thing'), result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});

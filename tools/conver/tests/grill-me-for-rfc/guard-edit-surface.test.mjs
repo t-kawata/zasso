@@ -136,15 +136,15 @@ test('PX-260 invariant: admitting the record does not open any frozen input', ()
 // PX-369 — a cross-package write needs per-package gate evidence
 // ---------------------------------------------------------------------------
 
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
-function crossPackageEvidence({ gateExitCode = 0, packageDir = '/tmp/other' } = {}) {
+// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
+function crossPackageEvidence({ gateExitCode = 0, packageDir = '/tmp/other', gateName = 'verify-api-consistency' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px369-guard-'));
   const evidencePath = path.join(root, 'CROSS-PACKAGE-EVIDENCE.json');
   fs.writeFileSync(evidencePath, JSON.stringify({
     generatedAt: '2026-01-01T00:00:00.000Z',
     editedPackages: [{
       package: packageDir,
-      gates: [{ name: 'verify-api-consistency', exitCode: gateExitCode }],
+      gates: [{ name: gateName, exitCode: gateExitCode }],
     }],
   }, null, 2));
   return { root, evidencePath };
@@ -190,4 +190,42 @@ test('C007 error: a missing evidence file is refused by name', () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /CROSS_PACKAGE_EVIDENCE_INVALID/);
+});
+
+// PX-371 @verifies C002
+// The boundary is the invocation package, not the directory the process happens to
+// run in. A generated file without --package has no boundary to compare against, and
+// evidence that names no API-gate verdict proves nothing about the cross-package surface.
+
+test('C002 invariant: a generated file without --package is refused from any cwd', () => {
+  const cwds = [process.cwd(), path.join(process.cwd(), 'tests'), os.tmpdir()];
+  for (const cwd of cwds) {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md'], { cwd });
+
+    assert.equal(result.status, 1, `cwd ${cwd} must not make the target look local`);
+    assert.match(result.stderr, /CROSS_PACKAGE_PACKAGE_REQUIRED/);
+  }
+});
+
+test('C002 error: evidence that names no verify-api-consistency gate is refused', () => {
+  const evidence = crossPackageEvidence({ gateName: 'pretend-gate' });
+  try {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /CROSS_PACKAGE_GATE_UNKNOWN/);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+test('C002 normal: evidence naming verify-api-consistency at exit zero allows the write', () => {
+  const evidence = crossPackageEvidence({ gateName: 'verify-api-consistency', gateExitCode: 0 });
+  try {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
 });

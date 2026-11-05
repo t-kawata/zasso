@@ -457,6 +457,7 @@ test('PX-355 C006 a stray root view without a manifest declaration is not read',
 // PX-367 — the K1 repair route is executable, and the artifact is unambiguous
 // ---------------------------------------------------------------------------
 
+// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
 test('PX-367 C002 an unstated census names the /educe-sequences route on both axes', () => {
   const root = workspaceWithOneOwnedOperation({ census: false });
   try {
@@ -467,6 +468,9 @@ test('PX-367 C002 an unstated census names the /educe-sequences route on both ax
     assert.match(result.stdout, /^  sequences: .*repair: .*\/educe-sequences/m);
     assert.match(result.stdout, /UNSTATED_DENOMINATOR/);
     assert.match(result.stdout, /Action: .*educe-sequences\/rail\/phase\.mjs/);
+    assert.match(result.stdout, /declaration\.json/);
+    assert.match(result.stdout, /phase\.mjs" through/);
+    assert.doesNotMatch(result.stdout, /begin <spec-path> to supply/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
