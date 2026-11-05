@@ -24,8 +24,24 @@ export const HOLD_END_FRAMES = 12;
 export const STAGE_WEIGHT = Object.freeze([3, 3, 6, 3, 6, 6, 6, 6, 6, 14, 8, 6, 3, 6, 6, 4]);
 const STAGE_INDEX = Object.freeze(Object.fromEntries(STAGE_ORDER.map((stage, index) => [stage, index])));
 const STAGE_WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
-const UPSTREAM_STAGES = [1, 2, 4, 5, 6];
-const SMOOTH_STAGE = 3;
+const UPSTREAM_STAGES = Object.freeze([
+  STAGE_INDEX.explain,
+  STAGE_INDEX.grill,
+  STAGE_INDEX.graphify,
+  STAGE_INDEX.boundify,
+  STAGE_INDEX.split,
+]);
+const SMOOTH_STAGE = STAGE_INDEX.smooth;
+const DRILL_STAGE_INDEX = STAGE_INDEX.drill;
+// Drill is not upstream, but it must be clamped last so a drill event cannot
+// overtake the split that produced the tickets it consumes.
+const ORDERED_STAGE_INDEXES = Object.freeze([...UPSTREAM_STAGES, DRILL_STAGE_INDEX]);
+// Only command-written evidence is trusted as a clock. An artifact mtime is
+// copied by a checkout, so it must yield to these sources.
+const TRUSTED_TIME_SOURCES = new Set(['history', 'status']);
+// Grill is deliberately excluded: orderGrillAfterExplain rewrites grill to follow
+// explain, so a grill timestamp cannot bound explain without forming a cycle.
+const EXPLAIN_DOWNSTREAM_STAGES = Object.freeze(['graphify', 'boundify', 'split']);
 const PRE_SMOOTH_STAGES = Object.freeze(['explain', 'grill']);
 
 const EDuce_PHASES = 18;
@@ -881,10 +897,52 @@ function stageIndexesOf(events) {
   return counts;
 }
 
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+/**
+ * Explain has no command-written clock unless explain-seed ran with --record, so
+ * its only signal is the mtime of INFO-RFC-SEED.md and EXPLAIN-RFC-SEED.md. A
+ * checkout rewrites that mtime, so an artifact-only explain yields to the earliest
+ * downstream stage that does have command evidence. This runs before the upstream
+ * repair: otherwise a late explain drags grill and every later upstream stage with
+ * it and drill, which is not repaired, overtakes the whole chain.
+ */
+// [::TICKET::] PX-375 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-375 --for-spec --no-implementation-order`.
+function clampArtifactExplain(events, initialT, warnings) {
+  const boundByPackage = new Map();
+  for (const event of events) {
+    if (event.kind !== 'stage' || !event.packageId) continue;
+    if (!EXPLAIN_DOWNSTREAM_STAGES.includes(event.stage)) continue;
+    if (!TRUSTED_TIME_SOURCES.has(event.timeSource)) continue;
+    const current = boundByPackage.get(event.packageId);
+    if (current === undefined || event.t < current) boundByPackage.set(event.packageId, event.t);
+  }
+  const warned = new Set();
+  for (const event of events) {
+    if (event.kind !== 'stage' || event.stage !== 'explain' || !event.packageId) continue;
+    if (TRUSTED_TIME_SOURCES.has(event.timeSource)) continue;
+    const bound = boundByPackage.get(event.packageId);
+    if (bound === undefined || event.t <= bound) continue;
+    const floor = Number.isFinite(initialT) ? initialT : 0;
+    const clamped = Math.max(floor, bound);
+    if (!warned.has(event.packageId)) {
+      warned.add(event.packageId);
+      warnings.push(
+        `[order] explain ${event.packageId}: artifact time ${new Date(event.t).toISOString()} clamped to ${new Date(clamped).toISOString()}`,
+      );
+    }
+    event.t = clamped;
+  }
+}
+
+// [::TICKET::] PX-350, PX-375 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-375) --for-spec --no-implementation-order`.
 function repairUpstreamOrder(events, packageIds) {
   const endTime = new Map(packageIds.map((id) => [id, new Array(STAGE_ORDER.length).fill(0)]));
-  for (const stageIndex of UPSTREAM_STAGES) {
+  // Globalize grill and smooth before the per-stage sweep. The sweep clamps each
+  // stage to the previous stage of the same package, so it must see the final grill
+  // time; otherwise a package whose grill lands late keeps an earlier graphify and
+  // the display order regresses to graphify, grill.
+  orderGrillAfterExplain(events);
+  placeSmoothAfterExplainAndGrill(events);
+  for (const stageIndex of ORDERED_STAGE_INDEXES) {
     const stageEvents = events
       .filter((event) => event.kind === 'stage' && STAGE_INDEX[event.stage] === stageIndex && event.packageId)
       .sort((left, right) => left.t - right.t);
@@ -903,8 +961,6 @@ function repairUpstreamOrder(events, packageIds) {
       times[stageIndex] = Math.max(times[stageIndex], event.t);
     }
   }
-  orderGrillAfterExplain(events);
-  placeSmoothAfterExplainAndGrill(events);
 }
 
 /**
@@ -1018,6 +1074,8 @@ export function buildTimeline(model) {
       evidence: run.evidence,
     });
   }
+  const warnings = [];
+  clampArtifactExplain(timeline, model.initialT, warnings);
   repairUpstreamOrder(timeline, (model.packages || []).map((pkg) => pkg.id));
   timeline.sort((left, right) =>
     left.t - right.t || STAGE_INDEX[left.stage] - STAGE_INDEX[right.stage] || left.seq - right.seq);
@@ -1029,7 +1087,7 @@ export function buildTimeline(model) {
     totalWeight += weight;
     cumulative.push(totalWeight);
   }
-  return { timeline, stageCounts, weights, cumulative, totalWeight };
+  return { timeline, stageCounts, weights, cumulative, totalWeight, warnings };
 }
 
 /** Create one fresh frame state over a built timeline. */
@@ -1055,13 +1113,26 @@ export function createFrameState(model, timeline) {
   };
 }
 
+/**
+ * Advance the displayed stage frontier. Only a stage event carries real progress;
+ * a run marker records that a command started or failed (a drill BLOCKED_PREREQUISITE
+ * is precisely the case where the upstream stages are not done yet), and a growth
+ * marker records ticket mass. Letting either move the frontier would show a stage
+ * the workspace has not reached.
+ */
+// [::TICKET::] PX-375 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-375 --for-spec --no-implementation-order`.
+function advanceStageFrontier(state, event) {
+  if (event.kind !== 'stage') return;
+  state.lastStageIndex = Math.max(state.lastStageIndex, STAGE_INDEX[event.stage]);
+  state.lastStage = STAGE_ORDER[state.lastStageIndex];
+}
+
 /** Apply one timeline event to the frame state. */
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 export function applyEvent(state, event) {
   state.lastT = event.t;
   state.lastPrec = event.prec || 'ms';
-  state.lastStageIndex = Math.max(state.lastStageIndex, STAGE_INDEX[event.stage]);
-  state.lastStage = STAGE_ORDER[state.lastStageIndex];
+  advanceStageFrontier(state, event);
   const packageScoped = event.packageId !== null && event.packageId !== undefined;
   if (event.kind === 'stage') {
     const targets = packageScoped ? [state.byId.get(event.packageId)].filter(Boolean) : state.packageModels;
@@ -1178,6 +1249,9 @@ export function buildFrames(model, options = {}) {
   const holdEnd = Math.min(HOLD_END_FRAMES, Math.floor(frameCount / 4));
   const span = Math.max(1, frameCount - 1 - holdStart - holdEnd);
   const timeline = buildTimeline(model);
+  if (Array.isArray(model.warnings)) {
+    for (const message of timeline.warnings) warnOnce(model.warnings, message);
+  }
   const state = createFrameState(model, timeline);
   const frames = [];
   for (let index = 0; index < frameCount; index += 1) {
