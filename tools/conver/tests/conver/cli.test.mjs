@@ -20,6 +20,7 @@ const EMPTY_CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-empty-con
 fs.mkdirSync(path.join(EMPTY_CONFIG_DIR, 'projects'), { recursive: true });
 
 // [::TICKET::] PX-349, PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-352) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-376 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-376 --for-spec --no-implementation-order`.
 function run(args) {
   return spawnSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
@@ -274,5 +275,6 @@ test('a corrupt usage cache is bypassed and the next draw still succeeds', () =>
 
   const repaired = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
   assert.equal(repaired.schema, CACHE_SCHEMA);
-  assert.equal(Object.keys(repaired.files).length, 1);
+  const section = Object.values(repaired.machines)[0];
+  assert.equal(Object.keys(section.files).length, 1);
 });

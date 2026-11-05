@@ -26,6 +26,7 @@ import { selectTitle, selectTitleParts, fitTitleSize, fitTitleLayout } from '../
 const utcDateKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 // [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-376 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-376 --for-spec --no-implementation-order`.
 function writeUsageFixture({ directory, records, projectKey = directory.replace(/[^a-zA-Z0-9]/g, '-') }) {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'conver-usage-config-'));
   const projectDir = path.join(configDir, 'projects', projectKey);
@@ -365,7 +366,9 @@ test('the three script copies are identical', () => {
     'claude-usage.js',
     'draw-progress-gif.js',
     'progress-gif/usage-cache.js',
+    'progress-gif/usage-recovery.js',
     'progress-gif/usage.js',
+    'recover-usage-cache.js',
     'progress-gif/loop.js',
     'progress-gif/engine.js',
     'progress-gif/layout.js',

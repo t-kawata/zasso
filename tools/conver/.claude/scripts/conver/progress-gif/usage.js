@@ -1,4 +1,5 @@
 // [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,6 +8,7 @@ import readline from 'node:readline';
 import {
   fingerprintFile,
   isSameFingerprint,
+  machineIdFor,
   readUsageCache,
   writeUsageCache,
 } from './usage-cache.js';
@@ -196,24 +198,31 @@ export function encodeProjectKey(directory) {
 }
 
 /**
+ * A record without message.id or requestId is identified by the SHA-256 of its
+ * raw JSONL line. A copied line therefore keeps one identity on every machine,
+ * and a different line can never collide with it.
+ */
+// [::TICKET::] PX-376 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-376 --for-spec --no-implementation-order`.
+function anonymousRecordKey(line) {
+  return `anon:${createHash('sha256').update(line).digest('hex')}`;
+}
+
+/**
  * Parse one JSONL log into raw message records.
  *
- * The line number is part of the key for records that carry neither message.id
- * nor requestId, which keeps their identity stable across repeated scans of an
- * unchanged file. It is therefore counted on every read line, malformed or not.
+ * The identity is the message.id, then requestId, then the raw-line hash, so a
+ * repeated scan of an unchanged file yields exactly the same records.
  */
-// [::TICKET::] PX-353, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-353|PX-354) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-353, PX-354, PX-376 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-353|PX-354|PX-376) --for-spec --no-implementation-order`.
 async function parseUsageFile(file) {
   const records = new Map();
   let invalidJson = 0;
   let invalidTimestamp = 0;
-  let lineNumber = 0;
   const input = fs.createReadStream(file, { encoding: 'utf8' });
   const lines = readline.createInterface({ input, crlfDelay: Infinity });
   input.on('error', (error) => lines.destroy(error));
   try {
     for await (const line of lines) {
-      lineNumber += 1;
       if (!line.trim()) continue;
       let record;
       try {
@@ -230,7 +239,7 @@ async function parseUsageFile(file) {
         continue;
       }
       mergeUsageRecord(records, {
-        key: record.message.id || record.requestId || `${file}:${lineNumber}`,
+        key: record.message.id || record.requestId || anonymousRecordKey(line),
         ms,
         model: record.message.model ?? MODEL_FALLBACK,
         miss: tokenCount(usage.input_tokens) + tokenCount(usage.cache_creation_input_tokens),
@@ -262,6 +271,25 @@ function mergeUsageRecord(unique, record) {
   current.miss = Math.max(current.miss, record.miss);
   current.hit = Math.max(current.hit, record.hit);
   current.out = Math.max(current.out, record.out);
+}
+
+/**
+ * The section this machine owns.
+ *
+ * A v1/v2 cache from the same configDir is adopted only when at least one of its
+ * files exists here; otherwise it belongs to another host and is carried as a
+ * foreign section. Adoption is idempotent: the adopted section is rewritten
+ * under the current machineId on the next save.
+ */
+// [::TICKET::] PX-376 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-376 --for-spec --no-implementation-order`.
+function selectCurrentSection(machines, configDir, machineId) {
+  const direct = machines.get(machineId);
+  if (direct) return { id: machineId, section: direct };
+  for (const [id, section] of machines) {
+    if (!section.legacy || section.configDir !== configDir) continue;
+    if ([...section.files.keys()].some((file) => fs.existsSync(file))) return { id, section };
+  }
+  return null;
 }
 
 /**
@@ -319,20 +347,32 @@ export async function aggregateUsage({
     if (belongsToWorkspace) logDirs.push({ dir, cwd });
   }
 
+  const machineId = machineIdFor(resolvedConfigDir);
   const cacheRequested = Boolean(cachePath);
   const cacheFileWasPresent = cacheRequested && fs.existsSync(cachePath);
   const cached = cacheRequested
     ? await readUsageCache({ cachePath, configDir: resolvedConfigDir, projectKey })
     : null;
-  const cachedFiles = cached ? cached.files : new Map();
+  const cachedMachines = cached ? cached.machines : new Map();
+  const currentSection = selectCurrentSection(cachedMachines, resolvedConfigDir, machineId);
+  const carriedMachines = new Map();
+  const unique = new Map();
+  for (const [id, section] of cachedMachines) {
+    if (currentSection && id === currentSection.id) continue;
+    carriedMachines.set(id, section);
+    for (const entry of section.files.values()) {
+      for (const record of entry.records) mergeUsageRecord(unique, record);
+    }
+  }
+  const cachedFiles = currentSection ? currentSection.section.files : new Map();
   const cacheStats = {
     filesReused: 0,
     filesParsed: 0,
     filesDropped: 0,
+    machinesCarried: carriedMachines.size,
     bypassed: cacheRequested && cached === null,
   };
 
-  const unique = new Map();
   const nextFiles = new Map();
   let invalidJson = 0;
   let invalidTimestamp = 0;
@@ -359,15 +399,15 @@ export async function aggregateUsage({
     if (!nextFiles.has(file)) cacheStats.filesDropped += 1;
   }
 
-  // A workspace that never had logs keeps no cache; an existing cache is
-  // rewritten so files that disappeared are actually dropped from disk.
-  if (cacheRequested && (nextFiles.size > 0 || cacheFileWasPresent)) {
-    const written = await writeUsageCache({
-      cachePath,
-      configDir: resolvedConfigDir,
-      projectKey,
-      files: nextFiles,
-    });
+  // Foreign sections are carried verbatim; only this machine's section is
+  // replaced. A workspace that never had logs keeps no cache, while an existing
+  // cache is rewritten so files that disappeared are actually dropped.
+  const nextMachines = new Map(carriedMachines);
+  if (nextFiles.size > 0 || currentSection) {
+    nextMachines.set(machineId, { configDir: resolvedConfigDir, files: nextFiles });
+  }
+  if (cacheRequested && (nextMachines.size > 0 || cacheFileWasPresent)) {
+    const written = await writeUsageCache({ cachePath, machineId, machines: nextMachines });
     if (!written) cacheStats.bypassed = true;
   }
 
