@@ -1,3 +1,4 @@
+// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // PX-350 @verifies C001 @verifies C003 @verifies C004 @verifies C005
@@ -12,9 +13,10 @@ import {
   buildFrames,
   buildModel,
   derivePackageState,
+  progressAt,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { HOLD_END_FRAMES, HOLD_START_FRAMES } from '../../.claude/scripts/conver/progress-gif/loop.js';
-import { INITIAL_TIME, makeModel, packageModel, stageEvent } from './models.mjs';
+import { INITIAL_TIME, eventsForEveryStage, makeModel, packageModel, stageEvent, withPackageCount } from './models.mjs';
 
 test('STAGE_ORDER is the fixed 16-stage order', () => {
   assert.deepEqual(STAGE_ORDER, [
@@ -294,4 +296,36 @@ test('a growth event without contract mass still adds one scope unit per ticket'
   assert.equal(frames[growthFrame - 1].packages[0].total, 8);
   assert.equal(frames[growthFrame].packages[0].total, 10);
   assert.equal(frames[growthFrame].growth[0].addedMass, 2);
+});
+
+// PX-374 @verifies C007 @verifies C010
+test('PX-374 displayed stage is a monotonic frontier', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const events = [
+    stageEvent('drill', INITIAL_TIME, pkg.id, 1),
+    stageEvent('split', INITIAL_TIME + 1000, pkg.id, 1),
+  ];
+  const frames = buildFrames(makeModel({ packages: [pkg], events }), { frames: 120 });
+  const indexes = frames.map((frame) => STAGE_ORDER.indexOf(frame.stage));
+
+  assert.ok(indexes.every((value, index) => index === 0 || value >= indexes[index - 1]));
+  assert.equal(frames.at(-1).t, INITIAL_TIME + 1000);
+});
+
+// PX-374 @verifies C010
+test('PX-374 progressAt equals the last applied frame state', () => {
+  const packages = withPackageCount(2).packages;
+  const model = makeModel({ packages, events: eventsForEveryStage(packages) });
+  const frames = buildFrames(model, { frames: 8000 });
+  const samples = [INITIAL_TIME - 1, INITIAL_TIME, INITIAL_TIME + 1500, INITIAL_TIME + 4500, INITIAL_TIME + 20000];
+
+  for (const timestamp of samples) {
+    const applied = frames.filter((frame) => frame.t <= timestamp);
+    const expected = applied.length === 0 ? 0 : applied.at(-1).overallProgress;
+    assert.equal(progressAt(model, timestamp), expected);
+  }
+
+  const before = JSON.stringify(model);
+  progressAt(model, INITIAL_TIME + 1500);
+  assert.equal(JSON.stringify(model), before);
 });

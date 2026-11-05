@@ -8,8 +8,14 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { analyzeWorkspace, run } from '../../.claude/scripts/conver/draw-progress-gif.js';
-import { computePreviousProgress, SNAPSHOT_SCHEMA } from '../../.claude/scripts/conver/progress-gif/snapshot.js';
-import { buildFrames, computeDensity, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
+import {
+  computePreviousProgress,
+  listHtmlRenders,
+  parseRenderStamp,
+  SNAPSHOT_SCHEMA,
+} from '../../.claude/scripts/conver/progress-gif/snapshot.js';
+import { parseStamp } from '../../.claude/scripts/conver/progress-gif/parse.js';
+import { buildFrames, computeDensity, progressAt, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { computeLayout, formatPercent } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { drawFrame } from '../../.claude/scripts/conver/progress-gif/engine.js';
 import { eventsForEveryStage, makeModel, withPackageCount } from './models.mjs';
@@ -66,6 +72,16 @@ function writePreviousSnapshot(root, snapshot) {
   return file;
 }
 
+/** Write a previous HTML render named by its local YYYYMMDDhhmmss stamp. */
+// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+function writeHtmlRender(root, stamp, body = '<!doctype html>') {
+  const directory = path.join(root, 'progress-gif');
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, `${stamp}.html`);
+  fs.writeFileSync(file, body);
+  return file;
+}
+
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
 function zeroStages() {
   return Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0]));
@@ -108,7 +124,7 @@ function createRecordingContext() {
     setLineDash(values) { calls.push(['dash', ...values]); },
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
-// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-370, PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-370|PX-374) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
     createRadialGradient(...args) {
@@ -161,36 +177,73 @@ test('C001 returns null when a snapshot has no weighted package', () => {
   assert.equal(computePreviousProgress({ schema: SNAPSHOT_SCHEMA, packages: [] }), null);
 });
 
-test('C001 analyzeWorkspace reads the newest snapshot', () => {
+test('C004 analyzeWorkspace uses the newest past HTML stamp, not the snapshot value', () => {
   const root = createGrowingWorkspace();
-  writePreviousSnapshot(root, { schema: SNAPSHOT_SCHEMA, overallProgress: 0.42, packages: [] });
-  const model = analyzeWorkspace(root, { sourceScan: false });
-  assert.equal(model.previousProgress, 0.42);
+  writeHtmlRender(root, '20261101000000');
+  writePreviousSnapshot(root, { schema: SNAPSHOT_SCHEMA, overallProgress: 0.9, packages: [] });
+
+  const model = analyzeWorkspace(root, { sourceScan: false, now: Date.parse('2026-11-02T00:00:00Z') });
+
+  assert.equal(model.previousProgress, progressAt(model, parseStamp('20261101000000').t));
+  assert.notEqual(model.previousProgress, 0.9);
+  assert.equal(model.previousRender.source, 'html');
+  assert.ok(model.previousRender.path.endsWith('20261101000000.html'));
 });
 
-test('C001 a malformed newest snapshot yields null, a warning naming it, no frame key, and no FIND growth', () => {
+test('C005 an HTML stamp at or after the cutoff is excluded', () => {
   const root = createGrowingWorkspace();
-  const malformed = writePreviousSnapshot(root, '{not json');
-  const model = analyzeWorkspace(root, { sourceScan: false });
+  writeHtmlRender(root, '20261101000000');
+  writeHtmlRender(root, '20261103000000');
+
+  const model = analyzeWorkspace(root, { sourceScan: false, now: Date.parse('2026-11-02T00:00:00Z') });
+
+  assert.ok(model.previousRender.path.endsWith('20261101000000.html'));
+});
+
+test('C005 a malformed 14-digit HTML stamp is ignored with a warning', () => {
+  const root = createGrowingWorkspace();
+  writeHtmlRender(root, '20261101000000');
+  writeHtmlRender(root, '20261399999999');
+
+  const model = analyzeWorkspace(root, { sourceScan: false, now: Date.parse('2026-12-31T00:00:00Z') });
+
+  assert.ok(model.previousRender.path.endsWith('20261101000000.html'));
+  assert.ok(model.warnings.some((warning) => warning.startsWith('[render]') && warning.includes('20261399999999')));
+});
+
+test('C006 with no HTML the newest snapshot filename is the clock and its value is ignored', () => {
+  const root = createGrowingWorkspace();
+  const snapshot = writePreviousSnapshot(root, '{not json');
+
+  const model = analyzeWorkspace(root, { sourceScan: false, now: Date.parse('2026-11-02T00:00:00Z') });
+
+  assert.equal(model.previousProgress, progressAt(model, parseStamp(PREVIOUS_STAMP).t));
+  assert.equal(model.previousRender.source, 'snapshot');
+  assert.ok(model.warnings.some((warning) => warning.startsWith('[snapshot]') && warning.includes(snapshot)));
+});
+
+test('C006 with no HTML and no snapshot yields no previous boundary', () => {
+  const root = createGrowingWorkspace();
+
+  const model = analyzeWorkspace(root, { sourceScan: false, now: Date.parse('2026-11-02T00:00:00Z') });
+
   assert.equal(model.previousProgress, null);
-  assert.ok(model.warnings.some((warning) => warning.startsWith('[snapshot]') && warning.includes(malformed)));
-  assert.equal(model.growthEvents.filter((event) => event.stage === 'find').length, 0);
-  const frames = buildFrames(model, { frames: 30 });
+  assert.equal(model.previousRender, undefined);
+  const frames = buildFrames(model, { frames: 10 });
   assert.ok(frames.every((frame) => !('previousProgress' in frame)));
 });
 
-test('C001 a corrupt newest snapshot is authoritative over an older valid one', () => {
+test('listHtmlRenders sorts newest first and rejects invalid calendar stamps', () => {
   const root = createGrowingWorkspace();
-  const directory = path.join(root, ...SNAPSHOT_DIRECTORY);
-  fs.mkdirSync(directory, { recursive: true });
-  fs.writeFileSync(
-    path.join(directory, '20261001000000.json'),
-    JSON.stringify({ schema: SNAPSHOT_SCHEMA, overallProgress: 0.2, packages: [] }),
-  );
-  writePreviousSnapshot(root, '{not json');
-  const model = analyzeWorkspace(root, { sourceScan: false });
-  assert.equal(model.previousProgress, null);
-  assert.equal(model.warnings.filter((warning) => warning.startsWith('[snapshot]')).length, 1);
+  writeHtmlRender(root, '20261101000000');
+  writeHtmlRender(root, '20261102000000');
+  writeHtmlRender(root, '20261399999999');
+
+  const renders = listHtmlRenders(path.join(root, 'progress-gif'), Date.parse('2026-12-31T00:00:00Z'));
+
+  assert.deepEqual(renders.map((render) => render.stamp), ['20261102000000', '20261101000000']);
+  assert.equal(parseRenderStamp('20261399999999'), null);
+  assert.equal(parseRenderStamp('20261101000000').t, parseStamp('20261101000000').t);
 });
 
 test('C002 every frame carries previousProgress, legacy frames omit it, and values clamp', () => {
@@ -263,16 +316,24 @@ test('C004 --dry-run writes no snapshot', async () => {
   assert.equal(fs.existsSync(path.join(root, ...SNAPSHOT_DIRECTORY)), false);
 });
 
-test('two consecutive runs: the second reads the first snapshot and every frame carries it', async () => {
+test('two consecutive runs: the second marker uses the first HTML stamp against the second model', async () => {
   const root = createGrowingWorkspace();
   const options = runOptions();
   const first = await run(root, options);
-  assert.equal(first.model.previousProgress, null);
-  const firstValue = JSON.parse(fs.readFileSync(first.output.snapshot, 'utf8')).overallProgress;
+  const firstStamp = path.basename(first.output.html, '.html');
+  const firstTime = parseStamp(firstStamp).t;
+
+  fs.writeFileSync(
+    path.join(root, 'pkg-1', 'RFC-SPLIT-Status.json'),
+    JSON.stringify({ currentStep: '6', steps: { 6: 'done' }, runId: `${firstTime - 3600000}000000-1` }),
+  );
 
   const second = await run(root, options);
-  assert.equal(second.model.previousProgress, firstValue);
-  assert.ok(second.frames.every((frame) => frame.previousProgress === firstValue));
+  const expected = progressAt(second.model, firstTime);
+
+  assert.ok(expected > 0, 'the added split must move the current model progress at the first stamp');
+  assert.equal(second.model.previousProgress, expected);
+  assert.ok(second.frames.every((frame) => frame.previousProgress === expected));
 });
 
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.

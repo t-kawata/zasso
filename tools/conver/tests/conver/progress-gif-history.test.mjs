@@ -1,3 +1,4 @@
+// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 // PX-366 @verifies C003 @verifies C004 @verifies C005 @verifies C006
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
@@ -151,7 +152,7 @@ test('C005: history and an omission with the same key add one growth event, not 
   assert.equal(growthEntries[0].stage, 'drill');
 });
 
-test('C006: no history produces the frozen pre-change frames and no runs', () => {
+test('C006: no history and no split evidence produces the frozen evidence-gated frames and no runs', () => {
   const root = writeWorkspace({
     packages: [{ id: 'pkg-1', path: 'pkg-1' }],
     files: {
@@ -176,7 +177,11 @@ test('C006: no history produces the frozen pre-change frames and no runs', () =>
   const model = analyzeWorkspace(root, { sourceScan: false });
   const frames = buildFrames(model, { frames: 20 });
 
+  // PX-374 deliberately removed artifact-only split credit: the fixture has
+  // Tickets.json but no RFC-SPLIT-Status.json and no split history, so the
+  // regenerated golden still freezes every frame and the split stage stays 0.
   assert.equal(model.runs.length, 0);
+  assert.equal(model.packages[0].stages.split, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(frames)), GOLDEN);
 });
 
