@@ -16,7 +16,7 @@ Downstream: `Tickets.json` is read/updated by `/make-ticket`, `/plan-ticket`, `/
 
 Invariants:
 - In: RFC. GRAPH, Dirs-Tree, `Tickets.json` and the SPLIT status file are derived from it by the pipeline's naming rule. Out: `DOC_DIR/Tickets.json`.
-- existing `Tickets.json` → ask; stop; overwrite only after user approval.
+- existing `Tickets.json` → evolve in place; never renumber a phase/ticket id; fresh rebuild only when absent.
 - all ticket scripts schema-validate before write; failure → no save.
 - phase processing: P0 → P1 → …; one phase at a time; never bulk-present/process phases.
 - ticketization: every phase-local node exactly once; no omission, duplication, or cross-phase node.
@@ -92,9 +92,46 @@ The GRAPH (`RFC-GRAPH.json`), the Dirs-Tree (`RFC-Dirs-Tree.json`), `Tickets.jso
 ## Output Destination
 
 Out: `./Tickets.json` beside `./RFC.md`, with the SPLIT status at `./RFC-SPLIT-Status.json`; e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`.
-Existing output → ask; stop before overwrite.
+Existing output → evolve in place via `split-evolve.js`; archive previous before promote. Rebuild ← archive `Tickets.json` before run; never a flag.
 
 A ticket that implements a node carrying `unitIds` does not copy them: `add-tickets-for-phase.js` appends every unit its nodes carry to the ticket's own `nodeIds` array before it verifies coverage. The ticket level is the level the consumers read: `verify-consistencies.js` `collectTicketNodeIds` iterates `phases[].tickets[].nodeIds` and never reads a phase-level array, so writing to the phase would put the ids where nothing looks. The schema declares `nodeIds` at both levels as an array of unconstrained strings and requires it at neither, so a unit id is structurally acceptable and no schema change is needed.
+
+## Evolve Mode
+
+Mode ← `Tickets.json` presence; never an argument. Every later block re-derives `SPLIT_MODE` (default `fresh` when unset) and carries `PREVIOUS_TICKETS` from 4-1 to 5-2.
+
+```bash
+if [ -f "Tickets.json" ]; then SPLIT_MODE="evolve"; else SPLIT_MODE="fresh"; fi
+```
+
+`fresh` — absent. Steps 0 → 6 unchanged; phasify + consolidate remain.
+`evolve` — present. `split-evolve.js`: delta → identity → add/update/retire. Existing status is never written; never renumber a phase/ticket id; `round`, `metadata`, authored fields preserved. Derived fields (`nodeIds`, `default_files`, `distribution`, `contracts`, `formulaObligations`, `prerequisites`) recomputed by existing scripts.
+
+Conflict classes; none refuses or stops:
+
+| class | resolution |
+|---|---|
+| new node | append phase at hard-edge position; add tickets |
+| changed node | recompute owning ticket's derived fields |
+| removed node | shrink `nodeIds`; else retire via `retiredFrom` |
+| split node | original key/status kept; extra node → `todo` |
+| merged node | lowest key kept; absorbed → `mergeFrom` |
+| total loss (`identityLost`) | archive → fresh path → `--carry-status` |
+
+```bash
+# read-only delta: conflictClass, identityLost, newNodes, removedNodes, retiredTickets
+node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --check --tickets=Tickets.json --graph=RFC-GRAPH.json --dirs-tree=RFC-Dirs-Tree.json
+
+# apply; archive before promote; second identical run writes nothing
+node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --tickets=Tickets.json --graph=RFC-GRAPH.json --dirs-tree=RFC-Dirs-Tree.json
+
+# total-loss fallback: archive → fresh path → re-attach status/authored by identity ladder
+node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --carry-status --previous=Tickets.pre-evolve-<stamp>.json --fresh=Tickets.json --graph=RFC-GRAPH.json --dirs-tree=RFC-Dirs-Tree.json
+```
+
+Retire deletes `distribution`/`contracts`/`formulaObligations`/`prerequisites` (empty `contracts` rejected by `validate-tickets.js`; empty distribution = empty unit set in `verify-chain`); previous values → `retiredFrom`.
+
+`consolidate-phase-tickets.js` skipped in evolve mode: renumbering invalidates every key/status/external reference; implementation order = phase-array order, not numeric id.
 
 ## List of Scripts Used
 
@@ -130,6 +167,7 @@ Step 5-2 and Step 5-3 also invoke `rfc-graph/project-step-contracts.js --mode=ve
 ```bash
 DOC_PATH="RFC.md"
 DOC_DIR="."
+if [ -f "Tickets.json" ]; then SPLIT_MODE="evolve"; else SPLIT_MODE="fresh"; fi
 # Canonical names the scripts default to; the Step calls do not pass them.
 TICKETS_PATH="Tickets.json"
 STATUS_PATH="RFC-SPLIT-Status.json"
@@ -274,10 +312,24 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" reset-to-step "
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" start-step "4-1"
-node "$CLAUDE_DIR/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js"
+PREVIOUS_TICKETS=""
+if [ "$SPLIT_MODE" = "evolve" ]; then
+  DELTA="$(node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --check --tickets=Tickets.json --graph=RFC-GRAPH.json --dirs-tree=RFC-Dirs-Tree.json)"
+  echo "$DELTA"
+  if printf '%s' "$DELTA" | grep -q '"identityLost":true'; then
+    PREVIOUS_TICKETS="$(node -e "process.stdout.write(require('$CLAUDE_DIR/scripts/tickets/split-evolve.js').archiveTickets('Tickets.json'))")"
+    rm -f Tickets.json
+    node "$CLAUDE_DIR/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js"
+    SPLIT_MODE="fresh"
+  else
+    node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --tickets=Tickets.json --graph=RFC-GRAPH.json --dirs-tree=RFC-Dirs-Tree.json
+  fi
+else
+  node "$CLAUDE_DIR/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js"
+fi
 ```
 
-Weighted topological sorting + SCC condensation; all nodes → `Tickets.json.phase[].nodeIds`. Final `✅` → pass; `⚠️` → report cause; interrupt split.
+Weighted topological sorting + SCC condensation; all nodes → `Tickets.json.phase[].nodeIds`. Final `✅` → pass; `⚠️` → report cause; interrupt split. In evolve mode: delta → plan; never renumber; `status` never written.
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "4-1"
@@ -295,7 +347,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" reset-to-step "
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" start-step "4-2"
 ```
 
-Order: P0 → P1 → …; one phase only; display nodes → judge name/summary → write; never output all phases in bulk.
+Order: P0 → P1 → …; one phase only; display nodes → judge name/summary → write; never output all phases in bulk. In evolve mode: only phases added by `split-evolve.js`; existing name/summary never rewritten (rename new phase via `rename-phases.js`).
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/show-all-nodes-title-summary.js" --phase="P0"
@@ -345,10 +397,14 @@ Before calling `add-tickets-for-phase.js`, attempt to merge every adjacent pair 
 
 When the phase has more than one ticket, every ticket carries `splitReason` from `tdd-order`, `disjoint-io`, `release-boundary`, `ownership-boundary`, `cohesion`. The reason must match an adjacent refused attempt and the graph: `tdd-order` needs a hard intra-phase edge, `ownership-boundary` needs foreign or consumer ownership, `disjoint-io` needs an external I/O surface, `release-boundary` needs evidence, and `cohesion` needs two named unrelated observable behaviours. The script rejects a missing or invalid reason, a missing attempt, an invalid trigger, or `tickets > minimumWorkTickets + acceptedDiscretionaryRefusals`.
 
-stdin ticket array → bulk add; script proves all phase `nodeIds` ticketized; failure → rollback/no write/exit 1.
+stdin ticket array → bulk add; script proves all phase `nodeIds` ticketized; failure → rollback/no write/exit 1. In evolve mode `split-evolve.js` applied at 4-1; `add-tickets-for-phase.js` not called again; projection steps only.
 
 ```bash
-echo '<tickets-array-json>' | node "$CLAUDE_DIR/scripts/tickets/add-tickets-for-phase.js" "P{n}" --enforce-work-budget
+if [ "$SPLIT_MODE" != "evolve" ]; then
+  echo '<tickets-array-json>' | node "$CLAUDE_DIR/scripts/tickets/add-tickets-for-phase.js" "P{n}" --enforce-work-budget
+else
+  echo "[evolve] split-evolve.js applied the plan at 4-1; add-tickets-for-phase.js is skipped."
+fi
 ```
 
 When the package carries `SEQUENCES.json`, the same script also populates each ticket's `distribution` record: the units of the nodes it owns, the operation obligation or consumer reference, the ordered sequence steps whose operations the ticket implements, and `specRefs`. It then writes the Tickets aggregate. The split does not author these records; it only decides which nodes each ticket owns.
@@ -404,6 +460,9 @@ Done: precise tests, all green, empirical genuine correctness, no coverage/inten
 After all 5-2 phase loops complete:
 
 ```bash
+if [ -n "$PREVIOUS_TICKETS" ]; then
+  node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --carry-status --previous="$PREVIOUS_TICKETS" --fresh=Tickets.json --graph=RFC-GRAPH.json --dirs-tree=RFC-Dirs-Tree.json
+fi
 node "$CLAUDE_DIR/scripts/tickets/merge-contracts-to-tickets.js"
 node "$CLAUDE_DIR/scripts/rfc-graph/project-step-contracts.js" --mode=verify
 node "$CLAUDE_DIR/scripts/tickets/verify-ticket-closure.js"
@@ -435,7 +494,11 @@ Sequence: guard → validation → last-phase backward merge → right-to-left p
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" start-step "5-3"
-node "$CLAUDE_DIR/scripts/tickets/consolidate-phase-tickets.js"
+if [ "$SPLIT_MODE" != "evolve" ]; then
+  node "$CLAUDE_DIR/scripts/tickets/consolidate-phase-tickets.js"
+else
+  echo "[evolve] consolidate-phase-tickets.js is skipped in evolve mode: renumbering would destroy every existing ticket key and status."
+fi
 node "$CLAUDE_DIR/scripts/rfc-graph/project-step-contracts.js" --mode=verify
 node "$CLAUDE_DIR/scripts/sequences-slice/verify-chain.mjs" --stage=split --package="." --artifact="$ARTIFACT_PATH" --require-tickets
 node "$CLAUDE_DIR/scripts/sequences-slice/verify-implementation-order.mjs" --package="." --write
@@ -474,7 +537,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" reset-to-step "
 
 ## Notes
 
-Existing destination `Tickets.json` → confirm with user before overwrite.
+Existing destination `Tickets.json` → evolve in place; `status`/`round`/`metadata`/authored fields never written; never renumber.
 
 ## Reverse mode (S1 to S6)
 

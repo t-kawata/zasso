@@ -405,6 +405,7 @@
         "## Language Protocol",
         "## Argument Interpretation",
         "## Output Destination",
+        "## Evolve Mode",
         "## List of Scripts Used",
         "## Analysis Procedure",
         "### Step 0: Initialization (argument parsing + Malfeasance.json initialization + determine output destination) and RFC loading",
@@ -439,7 +440,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "a4e192449f4fe84a94210561ab23451eec6bdda7ca888709142cf18613b1af35"
+      "documentDigest": "ff028419f3f6830bcaa295c4eb85d9b231e165608edb9a06f18dac2d41946a36"
     },
     "start-ticket": {
       "headings": [

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-373 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-373 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
 // The split command is argument-free: the source is the package canonical RFC.md and
@@ -55,4 +56,23 @@ test('C006 the split command carries the consolidation-first work-budget policy'
   assert.match(content, /unlistedFileReason/);
   assert.match(content, /skipped:no-budget-gate/);
   assert.doesNotMatch(content, /list-phases-and-tickets\.jsnode/);
+});
+
+test('C002 the split command selects evolve mode from the presence of Tickets.json', () => {
+  const content = readFileSync(COMMAND_PATH, 'utf8');
+  assert.match(content, /## Evolve Mode/);
+  assert.match(content, /SPLIT_MODE="evolve"/);
+  assert.match(content, /SPLIT_MODE="fresh"/);
+  assert.match(content, /split-evolve\.js/);
+  assert.match(content, /split-evolve\.js"? --check/);
+  assert.match(content, /carry-status/);
+  assert.match(content, /identityLost/);
+});
+
+test('C003 the split command forbids renumbering and status writes in evolve mode', () => {
+  const content = readFileSync(COMMAND_PATH, 'utf8');
+  assert.match(content, /never renumber/i);
+  assert.match(content, /status.{0,40}never written/i);
+  assert.match(content, /consolidate-phase-tickets\.js/);
+  assert.match(content, /skipped in evolve mode|evolve mode skips/i);
 });

@@ -39,7 +39,7 @@ echo "[init] output directory: $DOC_DIR" >&2
 echo "[init] Tickets.json: $TICKETS_PATH" >&2
 
 if [ -f "$TICKETS_PATH" ]; then
-  echo "[init] warning: $TICKETS_PATH already exists and /split-to-tickets will overwrite it." >&2
+  echo "[init] info: $TICKETS_PATH already exists; /split-to-tickets will evolve it in place and archive the previous file before promotion." >&2
 fi
 
 echo "[init] OK: initialization complete" >&2
