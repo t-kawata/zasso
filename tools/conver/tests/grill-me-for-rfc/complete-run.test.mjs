@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { digestOfFindings } from '../../.claude/scripts/api-consistency/finding-identity.mjs';
 import { REQUIRED_GATE_NAMES } from '../../.claude/scripts/grill-me-for-rfc/complete-run.js';
 import { defaultViews } from '../smooth-sequences/helpers/workspace-fixture.mjs';
 import {
@@ -378,6 +379,109 @@ test('C003 invariant: a run without --cross-package does not report the API gate
     assert.equal(result.status, 0, result.stderr);
     const report = readReport(result);
     assert.equal(report.gates.some((entry) => entry.name === 'api-consistency'), false);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// PX-372 @verifies C004
+// A cross-package completion carries evidence: the baseline it authorized and the
+// findings the edits claim to repair. DONE requires the named findings gone and no
+// new blocking finding in scope; an unreadable evidence file refuses before any write.
+
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function writeCrossPackageEvidence(rfcDir, { findings = [], repairs = [], editedPackages = [] } = {}) {
+  const evidencePath = join(rfcDir, 'CROSS-PACKAGE-EVIDENCE.json');
+  writeFileSync(evidencePath, JSON.stringify({
+    format: 2,
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    baseline: { digest: digestOfFindings(findings), findings },
+    editedPackages: editedPackages.length > 0
+      ? editedPackages
+      : [{ id: 'pkg-0001', package: 'crates/provider', gates: [], repairs }],
+  }, null, 2));
+  return evidencePath;
+}
+
+test('C004 normal: cross-package completion accepts a baseline with no new finding', () => {
+  const workspace = materializeCompletionWorkspace({ rfcBodies: rfcBodiesWithApiMatch() });
+  try {
+    const evidencePath = writeCrossPackageEvidence(workspace.rfcDir, { findings: [] });
+
+    const result = runCompletion(workspace.rfcDir, [
+      '--cross-package',
+      '--edited-package=pkg-0001',
+      `--cross-package-evidence=${evidencePath}`,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    const report = readReport(result);
+    assert.equal(report.gates.find((entry) => entry.name === 'api-consistency').exitCode, 0);
+    assert.equal(readStatus(workspace.statusPath).state, 'DONE');
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C004 error: a new blocking finding outside the baseline refuses DONE', () => {
+  const workspace = materializeCompletionWorkspace({ rfcBodies: rfcBodiesWithApiMismatch() });
+  try {
+    const evidencePath = writeCrossPackageEvidence(workspace.rfcDir, { findings: [] });
+
+    const result = runCompletion(workspace.rfcDir, [
+      '--cross-package',
+      '--edited-package=pkg-0002',
+      `--cross-package-evidence=${evidencePath}`,
+    ]);
+
+    assert.notEqual(result.status, 0);
+    const report = readReport(result);
+    assert.equal(report.gates.find((entry) => entry.name === 'api-consistency').exitCode, 1);
+    assert.equal(readStatus(workspace.statusPath).state, 'GRILLING');
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C004 error: malformed cross-package evidence refuses before any write', () => {
+  const workspace = materializeCompletionWorkspace({ rfcBodies: rfcBodiesWithApiMatch() });
+  try {
+    const statusBefore = readFileSync(workspace.statusPath, 'utf8');
+    const evidencePath = join(workspace.rfcDir, 'CROSS-PACKAGE-EVIDENCE.json');
+    writeFileSync(evidencePath, '{}');
+
+    const result = runCompletion(workspace.rfcDir, [
+      '--cross-package',
+      '--edited-package=pkg-0001',
+      `--cross-package-evidence=${evidencePath}`,
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /CROSS_PACKAGE_EVIDENCE_INVALID/);
+    assert.equal(readFileSync(workspace.statusPath, 'utf8'), statusBefore);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('C004 error: evidence naming a repair outside its baseline refuses before any write', () => {
+  const workspace = materializeCompletionWorkspace({ rfcBodies: rfcBodiesWithApiMatch() });
+  try {
+    const statusBefore = readFileSync(workspace.statusPath, 'utf8');
+    const evidencePath = writeCrossPackageEvidence(workspace.rfcDir, {
+      findings: [],
+      repairs: ['0000000000000000'],
+    });
+
+    const result = runCompletion(workspace.rfcDir, [
+      '--cross-package',
+      '--edited-package=pkg-0001',
+      `--cross-package-evidence=${evidencePath}`,
+    ]);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /CROSS_PACKAGE_EVIDENCE_INVALID/);
+    assert.equal(readFileSync(workspace.statusPath, 'utf8'), statusBefore);
   } finally {
     workspace.remove();
   }

@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { digestOfFindings } from '../../.claude/scripts/api-consistency/finding-identity.mjs';
 import { GRILL_GUARD_EDIT_SURFACE, runCommand } from '../question-gate/helpers/fixture-workspace.mjs';
 
 /** The basenames this command never writes, matched by name at any depth. */
@@ -225,6 +226,99 @@ test('C002 normal: evidence naming verify-api-consistency at exit zero allows th
     const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
 
     assert.equal(result.status, 0, result.stderr);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+// PX-372 @verifies C004
+// A repair exists because the API surface disagrees. Requiring the pre-edit gate to
+// exit zero made the first repair impossible. Evidence v2 carries the baseline and
+// the finding the edit resolves; the post-edit completion proves the delta.
+
+const PX372_FINDING = Object.freeze({
+  id: 'abc123abc123abc1',
+  severity: 'blocking',
+  code: 'SYMBOL_UNDEFINED',
+  symbol: 'OperationCatalogue',
+  package: 'pkg-0002',
+  cause: 'pkg-0002 references OperationCatalogue, which no package declares',
+});
+
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function crossPackageEvidenceV2({ apiExitCode = 1, repairs = [PX372_FINDING.id], finding = PX372_FINDING } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px372-guard-'));
+  const evidencePath = path.join(root, 'CROSS-PACKAGE-EVIDENCE.json');
+  fs.writeFileSync(evidencePath, JSON.stringify({
+    format: 2,
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    baseline: {
+      digest: digestOfFindings([finding]),
+      findings: [finding],
+    },
+    editedPackages: [{
+      id: 'pkg-0001',
+      package: '/tmp/other',
+      gates: [
+        { name: 'obligation-coverage', exitCode: 0 },
+        { name: 'verify-api-consistency', exitCode: apiExitCode },
+      ],
+      repairs,
+    }],
+  }, null, 2));
+  return { root, evidencePath };
+}
+
+test('C004 normal: evidence v2 authorizes a repair while the pre-edit API gate still fails', () => {
+  const evidence = crossPackageEvidenceV2();
+  try {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+test('C004 error: evidence v2 refuses a repair the baseline does not hold', () => {
+  const evidence = crossPackageEvidenceV2({ repairs: ['0000000000000000'] });
+  try {
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /CROSS_PACKAGE_REPAIR_UNKNOWN/);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+test('C004 error: evidence v2 refuses a baseline whose digest does not match its findings', () => {
+  const evidence = crossPackageEvidenceV2();
+  try {
+    const data = JSON.parse(fs.readFileSync(evidence.evidencePath, 'utf8'));
+    data.baseline.digest = '0'.repeat(64);
+    fs.writeFileSync(evidence.evidencePath, JSON.stringify(data, null, 2));
+
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /CROSS_PACKAGE_BASELINE_INVALID/);
+  } finally {
+    fs.rmSync(evidence.root, { recursive: true, force: true });
+  }
+});
+
+test('C004 error: evidence v2 refuses a non-API gate that did not pass', () => {
+  const evidence = crossPackageEvidenceV2();
+  try {
+    const data = JSON.parse(fs.readFileSync(evidence.evidencePath, 'utf8'));
+    data.editedPackages[0].gates = [{ name: 'obligation-coverage', exitCode: 1 }];
+    fs.writeFileSync(evidence.evidencePath, JSON.stringify(data, null, 2));
+
+    const result = runCommand(GRILL_GUARD_EDIT_SURFACE, ['/tmp/other/RFC.md', '--package=/tmp/pkg', `--allow-cross-package=${evidence.evidencePath}`]);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /CROSS_PACKAGE_GATE_FAILED/);
   } finally {
     fs.rmSync(evidence.root, { recursive: true, force: true });
   }

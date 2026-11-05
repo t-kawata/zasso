@@ -1,3 +1,4 @@
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 // PX-359 @verifies C001
 // [::TICKET::] PX-359 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-359 --for-spec --no-implementation-order`.
 /**
@@ -58,7 +59,7 @@ test('C001 invariant: default-deny survives the seed rule', () => {
 
 test('C001 invariant: a generated RFC is still editable beside a frozen specification', () => {
   const seedPath = seedWithSpec('docs/CustomDesign_v9.md');
-  const result = runGuard('/tmp/package/RFC.md', [`--seed=${seedPath}`]);
+  const result = runGuard('/tmp/package/RFC.md', [`--seed=${seedPath}`, '--package=/tmp/package']);
 
   assert.equal(result.status, 0, result.stderr);
 });

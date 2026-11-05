@@ -1,3 +1,4 @@
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 // PX-259 @verifies C003
 // PX-259 @verifies C004
 // The gate is what makes the guarantee checkable: it is measured over the workspace, so every
@@ -532,6 +533,24 @@ test('PX-367 C004 every blocking finding renders the repair record', () => {
       assert.match(result.stdout, new RegExp(label));
     }
     assert.match(result.stdout, /Route: upstream/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// PX-372 @verifies C005
+// The repair route is only executable if it names the directory the census material
+// must occupy. `begin` opens a generation; it does not supply a census.
+
+test('PX-372 C005: the denominator repair names educe-sequences/supplied', () => {
+  const root = workspaceWithOneOwnedOperation({ census: false });
+  try {
+    const result = runGate(root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /educe-sequences\/supplied/);
+    assert.match(result.stdout, /declaration\.json/);
+    assert.doesNotMatch(result.stdout, /begin .*supply/i);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

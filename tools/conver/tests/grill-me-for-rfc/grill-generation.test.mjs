@@ -1,3 +1,4 @@
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 // PX-309 @verifies C001
 // PX-309 @verifies C002
 // A grill execution opens one generation. The count moves on a new run, not on a review
@@ -88,4 +89,17 @@ test('C001 a record without the field starts from completedSessions', () => {
   writeFileSync(session.statusPath, JSON.stringify(status, null, 2));
   beginRun(session.rfcDir);
   assert.equal(readStatus(session.statusPath).grillGeneration, 5);
+});
+
+// PX-372 @verifies C004
+// The command must name the evidence generator and the baseline-aware completion
+// arguments; the old "verdict at exit 0" sentence made the repair path circular.
+
+test('PX-372: the cross-package route uses baseline evidence, not a pre-edit API zero', () => {
+  const command = readFileSync(join(PROJECT_ROOT, '.claude/commands/grill-me-for-rfc.md'), 'utf8');
+
+  assert.match(command, /--edited-package/);
+  assert.match(command, /--cross-package-evidence/);
+  assert.match(command, /cross-package-evidence\.mjs/);
+  assert.doesNotMatch(command, /verify-api-consistency` verdict at exit 0/);
 });

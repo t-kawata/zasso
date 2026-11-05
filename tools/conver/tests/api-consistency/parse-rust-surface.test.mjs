@@ -1,3 +1,4 @@
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 // PX-369 @verifies C001
 // The parser is the gate's only view of the Rust surface: if it skips a construct, the
 // gate cannot see the defect. These tests pin the declaration and reference shapes the
@@ -136,4 +137,70 @@ test('C004 postcondition: an associated call resolves to the impl declaration wi
   assert.ok(reference, JSON.stringify(surface.references));
   assert.equal(reference.kind, 'call');
   assert.equal(reference.argumentCount, 1);
+});
+
+// PX-372 @verifies C001
+// A declaration and a use may span lines. The parser reads a balanced parameter
+// list and a balanced argument list across lines, accepts function modifiers, and
+// never turns a declaration line into a call reference.
+
+test('PX-372 C001: a multi-line signature records its full parameter count and yields no call', () => {
+  const surface = parse([
+    'pub fn admit(',
+    '    key: &CommandKey,',
+    '    content: &CommandContent,',
+    '    records: &dyn CommandRecord,',
+    ') -> Result<Admission, TransportError> {',
+    '    records.lookup(key)',
+    '}',
+  ].join('\n'));
+
+  const declaration = declarationOf(surface, 'admit');
+  assert.ok(declaration, JSON.stringify(surface));
+  assert.equal(declaration.parameterCount, 3);
+  assert.equal(
+    surface.references.filter((entry) => entry.symbol === 'admit' && entry.kind === 'call').length,
+    0,
+    JSON.stringify(surface.references),
+  );
+});
+
+test('PX-372 C001: a multi-line call records its full argument count', () => {
+  const surface = parse([
+    'fn use_it() {',
+    '    admit(',
+    '        &key(),',
+    '        &content("a"),',
+    '        &records,',
+    '    );',
+    '}',
+  ].join('\n'));
+
+  const reference = surface.references.find((entry) => entry.symbol === 'admit' && entry.kind === 'call');
+  assert.ok(reference, JSON.stringify(surface.references));
+  assert.equal(reference.argumentCount, 3);
+});
+
+test('PX-372 C001: const, async and unsafe functions are parsed or named, never silently absent', () => {
+  const constSurface = parse('pub const fn from_u64_unchecked(value: u64) -> Self { Self(value) }');
+  const constDeclaration = declarationOf(constSurface, 'from_u64_unchecked');
+  assert.ok(constDeclaration, JSON.stringify(constSurface.declarations));
+  assert.equal(constDeclaration.parameterCount, 1);
+
+  const asyncSurface = parse('pub async fn serve_connection(listener: TcpListener) -> Result<()> { Ok(()) }');
+  assert.ok(declarationOf(asyncSurface, 'serve_connection'), JSON.stringify(asyncSurface.declarations));
+
+  const malformed = parse('pub async fn half_written(');
+  assert.ok(
+    malformed.unparsed.some((entry) => /declaration/.test(entry.reason)),
+    JSON.stringify(malformed),
+  );
+});
+
+test('PX-372 C001: a trait method signature is declared with self excluded', () => {
+  const surface = parse('pub trait Evaluator { fn admit(&self, plan: &Plan) -> Result<(), EvaluationRejection>; }');
+
+  const method = declarationOf(surface, 'Evaluator::admit');
+  assert.ok(method, JSON.stringify(surface.declarations));
+  assert.equal(method.parameterCount, 1);
 });

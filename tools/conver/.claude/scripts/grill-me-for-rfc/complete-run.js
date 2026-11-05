@@ -30,7 +30,11 @@ import {
   renderDistribution,
   writeAtomically,
 } from './render-distribution.mjs';
+import { digestOfFindings } from '../api-consistency/finding-identity.mjs';
 import { COMPLETION_RECEIPT_FILE, writeCompletionReceipt } from './completion-receipt.js';
+import { API_CONSISTENCY_GATE_NAME, REQUIRED_GATE_NAMES } from './stage8-gates.js';
+
+export { REQUIRED_GATE_NAMES };
 
 const { createFinding, renderFindings } = repairFinding;
 
@@ -151,20 +155,30 @@ export const REQUIRED_GATES = Object.freeze([
   },
 ]);
 
-/** The names of the gates, in order, for a caller that reports the evidence set. */
-export const REQUIRED_GATE_NAMES = Object.freeze(REQUIRED_GATES.map((gate) => gate.name));
-
 /**
  * The workspace API verdict, evaluated only for a cross-package re-grill.
  *
  * A single-package completion is not answerable for every other package's Rust
  * surface, so this gate is opt-in. A run that edited a neighbour is answerable, and
- * `--cross-package` is how it says so.
+ * `--cross-package` is how it says so. Evidence narrows the verdict to the edited
+ * packages and compares it with the baseline the edit was authorized against.
  */
 export const API_CONSISTENCY_GATE = Object.freeze({
-  name: 'api-consistency',
+  name: API_CONSISTENCY_GATE_NAME,
   script: '../api-consistency/verify-api-consistency.mjs',
-  args: ({ workspaceRoot }) => [`--workspace=${workspaceRoot}`],
+  args: ({
+    workspaceRoot,
+    editedPackages = [],
+    apiBaselinePath = null,
+    requiredRepairs = [],
+  }) => {
+    if (workspaceRoot === null) return [null];
+    const args = [`--workspace=${workspaceRoot}`];
+    if (editedPackages.length > 0) args.push(`--scope=${editedPackages.join(',')}`);
+    if (apiBaselinePath !== null) args.push(`--baseline=${apiBaselinePath}`);
+    if (requiredRepairs.length > 0) args.push(`--require-resolved=${requiredRepairs.join(',')}`);
+    return args;
+  },
   route: ROUTE.UPSTREAM,
 });
 
@@ -185,6 +199,50 @@ function emit(payload) {
 /** The first non-empty line of a program's output, so a refusal carries a readable cause. */
 function firstLine(text) {
   return String(text ?? '').split('\n').map((line) => line.trim()).find((line) => line.length > 0) ?? '';
+}
+
+/** Every value of a repeatable argument. */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function valuesFor(argv, name) {
+  return argv
+    .filter((argument) => argument.startsWith(`--${name}=`))
+    .map((argument) => argument.slice(`--${name}=`.length));
+}
+
+/**
+ * Read the evidence a cross-package completion was authorized against.
+ *
+ * The guard validates the write; this command validates the post-edit delta. Both
+ * need the baseline and the repair set, and both refuse a record that is not the
+ * measured shape rather than treating it as an empty baseline.
+ */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function readCrossPackageEvidenceFile(evidencePath) {
+  try {
+    const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+    const findings = evidence?.baseline?.findings;
+    if (evidence?.format !== 2
+      || !Array.isArray(evidence.editedPackages)
+      || !Array.isArray(findings)
+      || typeof evidence.baseline.digest !== 'string'
+      || digestOfFindings(findings) !== evidence.baseline.digest) {
+      return null;
+    }
+    const blockingIds = new Set(findings
+      .filter((finding) => finding.severity === 'blocking')
+      .map((finding) => finding.id));
+    const repairs = evidence.editedPackages.flatMap((entry) => (Array.isArray(entry?.repairs) ? entry.repairs : []));
+    if (repairs.some((id) => !blockingIds.has(id))) return null;
+    return evidence;
+  } catch {
+    return null;
+  }
+}
+
+/** The repair ids an evidence record names, across every edited package. */
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+function repairsOf(evidence) {
+  return evidence.editedPackages.flatMap((entry) => (Array.isArray(entry?.repairs) ? entry.repairs : []));
 }
 
 /**
@@ -241,14 +299,17 @@ export function runRequiredGates(context, options = {}) {
 }
 
 /** The repair command a failing gate's finding carries. */
-// [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-371, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-371|PX-372) --for-spec --no-implementation-order`.
 function repairAction(gate, context) {
   if (typeof gate.script !== 'string') {
     return `edit ${path.join(context.rfcDir, gate.repairTarget)} and clear the condition the ${gate.name} gate reports, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
   }
   const target = gate.args(context).filter((argument) => argument !== null).join(' ');
+  if (gate.name === API_CONSISTENCY_GATE_NAME) {
+    return `apply the Action lines of node "$(git rev-parse --show-toplevel)/.claude/scripts/api-consistency/verify-api-consistency.mjs" ${target}, regenerate the cross-package evidence with node "$(git rev-parse --show-toplevel)/.claude/scripts/api-consistency/cross-package-evidence.mjs", then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir} --cross-package --edited-package=<package-id> --cross-package-evidence=<evidence.json>`;
+  }
   if (gate.name === 'obligation-coverage') {
-    return `run /educe-sequences <spec-path> when the finding is an unstated denominator: declare sourceEnumerations in educe-sequences/declaration.json with the supplied census, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/${gate.script}" ${target} and apply its Action lines, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
+    return `run /educe-sequences <spec-path> when the finding is an unstated denominator: place the census document in educe-sequences/supplied/ (the directory is empty when no census was supplied), declare sourceEnumerations in educe-sequences/declaration.json with its file, shape, parameter and role, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/phase.mjs" through <spec-path>, then run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/${gate.script}" ${target} and apply its Action lines, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
   }
   return `run node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/${gate.script}" ${target} and apply its Action lines, then rerun node "$(git rev-parse --show-toplevel)/.claude/scripts/grill-me-for-rfc/complete-run.js" ${context.rfcDir}`;
 }
@@ -323,10 +384,15 @@ function declareDone(rfcDir) {
 export function main(argv = process.argv.slice(2)) {
   const rfcDirArgument = argv[0];
   if (!rfcDirArgument) {
-    process.stderr.write('Usage: complete-run.js <rfc-dir> [--cross-package]\n');
+    process.stderr.write('Usage: complete-run.js <rfc-dir> [--cross-package] [--edited-package=<pkg-id> ...] [--cross-package-evidence=<path>]\n');
     return EXIT_USAGE;
   }
   const crossPackage = argv.includes('--cross-package');
+  const editedPackages = valuesFor(argv, 'edited-package');
+  const evidenceArgument = argv.find((argument) => argument.startsWith('--cross-package-evidence='));
+  const evidencePath = evidenceArgument === undefined
+    ? null
+    : evidenceArgument.slice('--cross-package-evidence='.length);
 
   // Resolved before any write: a package the command cannot identify is not
   // finished, and creating state for it would be worse than refusing.
@@ -340,6 +406,15 @@ export function main(argv = process.argv.slice(2)) {
     return EXIT_USAGE;
   }
 
+  // The evidence is read before any write. A record the command cannot understand
+  // is not an empty baseline; treating it as one would authorize the very delta it
+  // was meant to bound.
+  const crossPackageEvidence = evidencePath === null ? null : readCrossPackageEvidenceFile(evidencePath);
+  if (evidencePath !== null && crossPackageEvidence === null) {
+    emit({ ok: false, code: 'CROSS_PACKAGE_EVIDENCE_INVALID', state: currentState(rfcDir) });
+    return EXIT_REFUSED;
+  }
+
   // A receipt from an earlier attempt is not evidence for this one. Clearing it
   // before the gates run means a failed completion cannot leave DONE authorized.
   fs.rmSync(path.join(rfcDir, COMPLETION_RECEIPT_FILE), { force: true });
@@ -350,7 +425,13 @@ export function main(argv = process.argv.slice(2)) {
     return EXIT_REFUSED;
   }
 
-  const context = { rfcDir, workspaceRoot: resolveWorkspaceRoot(rfcDir) };
+  const context = {
+    rfcDir,
+    workspaceRoot: resolveWorkspaceRoot(rfcDir),
+    editedPackages,
+    apiBaselinePath: evidencePath,
+    requiredRepairs: crossPackageEvidence === null ? [] : repairsOf(crossPackageEvidence),
+  };
   const selectedGates = crossPackage ? [...REQUIRED_GATES, API_CONSISTENCY_GATE] : REQUIRED_GATES;
   const gates = runRequiredGates(context, { gates: selectedGates });
   const failed = gates.filter((gate) => gate.exitCode !== 0);

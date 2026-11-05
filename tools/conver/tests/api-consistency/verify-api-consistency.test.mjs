@@ -10,15 +10,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
+import { digestOfFindings } from '../../.claude/scripts/api-consistency/finding-identity.mjs';
 import { materializeApiWorkspace } from './helpers/workspace.mjs';
 
 const GATE = '.claude/scripts/api-consistency/verify-api-consistency.mjs';
 
-// [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
-function runGate(root) {
-  return spawnSync(process.execPath, [GATE, `--workspace=${root}`, '--json'], { encoding: 'utf8' });
+// [::TICKET::] PX-369, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-372) --for-spec --no-implementation-order`.
+function runGate(root, extraArgs = []) {
+  return spawnSync(process.execPath, [GATE, `--workspace=${root}`, '--json', ...extraArgs], { encoding: 'utf8' });
 }
 
 // [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
@@ -318,6 +320,135 @@ test('C004 invariant: same-named structs with different shapes remain a duplicat
 
     assert.equal(result.status, 1);
     assert.ok(findingOf(result, 'SYMBOL_DUPLICATE', 'Thing'), result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// PX-372 @verifies C002
+// A provider declaration and a consumer call may each span lines. The verifier
+// resolves them without a phantom arity finding, and the fail-closed and
+// baseline behaviors make the gate usable as evidence.
+
+test('PX-372 C002: a multi-line provider and consumer pair is clean', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: [
+      'pub struct CommandKey;',
+      'pub struct CommandContent;',
+      'pub trait CommandRecord {}',
+      'pub fn admit(',
+      '    key: &CommandKey,',
+      '    content: &CommandContent,',
+      '    records: &dyn CommandRecord,',
+      ') -> Result<u8, u8> {',
+      '    0',
+      '}',
+    ].join('\n'),
+    consumerRust: [
+      'pub fn use_it() {',
+      '    admit(',
+      '        &key(),',
+      '        &content("a"),',
+      '        &records,',
+      '    );',
+      '}',
+    ].join('\n'),
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(findingsOf(result), []);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('PX-372 C003: an unreadable workspace is refused, never reported clean', () => {
+  const result = spawnSync(process.execPath, [GATE, '--workspace=/nonexistent-api-root', '--json'], { encoding: 'utf8' });
+
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /WORKSPACE_UNREADABLE/);
+});
+
+test('PX-372 C003: a readable workspace with zero packages is refused', () => {
+  const workspace = materializeApiWorkspace({ noPackages: true });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stdout, /NO_PACKAGE_SURFACE/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('PX-372 C004: --scope counts only findings owned by the scoped package', () => {
+  const workspace = materializeApiWorkspace({
+    consumerRust: 'pub fn use_it(value: Missing) {}',
+  });
+  try {
+    const outside = runGate(workspace.root, ['--scope=pkg-0001']);
+    assert.equal(outside.status, 0, outside.stdout);
+    assert.equal(JSON.parse(outside.stdout).summary.outOfScopeBlocking, 1);
+
+    const inside = runGate(workspace.root, ['--scope=pkg-0002']);
+    assert.equal(inside.status, 1, inside.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('PX-372 C004: a baseline records pre-existing debt and still fails a new finding', () => {
+  const workspace = materializeApiWorkspace({
+    consumerRust: 'pub fn use_it(value: Missing) {}',
+  });
+  try {
+    const first = runGate(workspace.root);
+    const finding = findingsOf(first).find((entry) => entry.code === 'SYMBOL_UNDEFINED');
+    assert.ok(finding, first.stdout);
+    assert.match(finding.id, /^[0-9a-f]{16}$/);
+
+    const baselinePath = join(workspace.root, 'baseline.json');
+    writeFileSync(baselinePath, JSON.stringify({
+      workspaceRoot: workspace.root,
+      digest: digestOfFindings([finding]),
+      findings: [finding],
+    }, null, 2));
+
+    const authorized = runGate(workspace.root, [`--baseline=${baselinePath}`]);
+    assert.equal(authorized.status, 0, authorized.stdout);
+
+    const unresolved = runGate(workspace.root, [`--baseline=${baselinePath}`, `--require-resolved=${finding.id}`]);
+    assert.equal(unresolved.status, 1, unresolved.stdout);
+
+    const emptyBaseline = join(workspace.root, 'empty-baseline.json');
+    writeFileSync(emptyBaseline, JSON.stringify({ workspaceRoot: workspace.root, digest: digestOfFindings([]), findings: [] }, null, 2));
+    const fresh = runGate(workspace.root, [`--baseline=${emptyBaseline}`]);
+    assert.equal(fresh.status, 1, fresh.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('PX-372 C004: a baseline whose digest does not match its findings is refused', () => {
+  const workspace = materializeApiWorkspace({
+    consumerRust: 'pub fn use_it(value: Missing) {}',
+  });
+  try {
+    const first = runGate(workspace.root);
+    const finding = findingsOf(first).find((entry) => entry.code === 'SYMBOL_UNDEFINED');
+    const tamperedPath = join(workspace.root, 'tampered-baseline.json');
+    writeFileSync(tamperedPath, JSON.stringify({
+      workspaceRoot: workspace.root,
+      digest: '0'.repeat(64),
+      findings: [finding],
+    }, null, 2));
+
+    const result = runGate(workspace.root, [`--baseline=${tamperedPath}`]);
+
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stdout, /BASELINE_UNREADABLE/);
   } finally {
     workspace.remove();
   }

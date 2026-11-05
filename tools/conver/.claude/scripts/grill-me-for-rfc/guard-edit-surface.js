@@ -17,8 +17,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 
+import { digestOfFindings } from '../api-consistency/finding-identity.mjs';
 import { OBLIGATION_RECORD_BASENAME } from '../sequences-slice/lib/obligation.mjs';
 import { SEED_FILENAME, parseSeedIdentity, resolveWorkspaceRoot } from '../spec-formula/identity.mjs';
+import {
+  API_CONSISTENCY_GATE_NAME,
+  API_CONSISTENCY_SCRIPT_NAME,
+  KNOWN_GATE_NAMES,
+} from './stage8-gates.js';
 
 /** The basenames this command generates, and may therefore correct anywhere. */
 const GENERATED_BASENAMES = ['RFC.md', 'DesignTree.json', 'CheckList.md', 'Status.json'];
@@ -74,16 +80,22 @@ const CROSS_PACKAGE_CODES = Object.freeze({
   PACKAGE_REQUIRED: 'CROSS_PACKAGE_PACKAGE_REQUIRED',
   GATE_FAILED: 'CROSS_PACKAGE_GATE_FAILED',
   GATE_UNKNOWN: 'CROSS_PACKAGE_GATE_UNKNOWN',
+  REPAIR_UNKNOWN: 'CROSS_PACKAGE_REPAIR_UNKNOWN',
+  BASELINE_INVALID: 'CROSS_PACKAGE_BASELINE_INVALID',
 });
+
+/** The evidence format that carries a baseline and the findings an edit repairs. */
+const EVIDENCE_FORMAT_WITH_BASELINE = 2;
 
 /**
  * The verdicts a cross-package edit must present.
  *
- * The edit changes a Rust surface another package carries. The API gate is the
- * program that reads that surface; evidence that names no verdict from it is a
- * record of some other run, not proof that this edit is safe.
+ * The edit changes a Rust surface another package carries. PX-371 evidence named the
+ * API program at exit zero; that made a repair impossible because the repair is what
+ * removes the finding. Format 2 evidence carries the baseline instead: the edit names
+ * the finding it resolves, and the completion command proves the delta.
  */
-const REQUIRED_CROSS_PACKAGE_GATES = Object.freeze(['verify-api-consistency']);
+const API_GATE_NAMES = new Set([API_CONSISTENCY_GATE_NAME, API_CONSISTENCY_SCRIPT_NAME]);
 
 /** The nearest seed above a path, or null. */
 // [::TICKET::] PX-359, PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361) --for-spec --no-implementation-order`.
@@ -136,7 +148,7 @@ function isInside(targetPath, parentPath) {
  * @param {string} target
  * @returns {{ ok: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-371, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371|PX-372) --for-spec --no-implementation-order`.
 function readCrossPackageEvidence(evidencePath, target) {
   if (evidencePath === null) {
     return {
@@ -184,30 +196,92 @@ function readCrossPackageEvidence(evidencePath, target) {
     };
   }
 
-  const failed = owner.gates.find((gate) => !Number.isInteger(gate?.exitCode) || gate.exitCode !== 0);
+  const unknown = owner.gates.find((gate) => typeof gate?.name !== 'string' || !KNOWN_GATE_NAMES.includes(gate.name));
+  if (unknown !== undefined) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.GATE_UNKNOWN,
+      detail: `the evidence for ${owner.package} names the unknown gate ${unknown?.name ?? '(unnamed)'}`,
+    };
+  }
+
+  const broken = owner.gates.find((gate) => !Number.isInteger(gate.exitCode));
+  if (broken !== undefined) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.EVIDENCE_INVALID,
+      detail: `the gate ${broken.name} carries no integer exit code`,
+    };
+  }
+
+  if (evidence.format !== EVIDENCE_FORMAT_WITH_BASELINE) {
+    const failed = owner.gates.find((gate) => gate.exitCode !== 0);
+    if (failed !== undefined) {
+      return {
+        ok: false,
+        rule: CROSS_PACKAGE_CODES.GATE_FAILED,
+        detail: `${failed.name} exited ${failed.exitCode} for ${owner.package}`,
+      };
+    }
+    const hasApiVerdict = owner.gates.some((gate) => API_GATE_NAMES.has(gate.name));
+    if (!hasApiVerdict) {
+      return {
+        ok: false,
+        rule: CROSS_PACKAGE_CODES.GATE_UNKNOWN,
+        detail: `the evidence for ${owner.package} names no API-gate verdict`,
+      };
+    }
+    return {
+      ok: true,
+      rule: 'cross-package',
+      detail: `${owner.package} gates all exited zero`,
+    };
+  }
+
+  const failed = owner.gates.find((gate) => !API_GATE_NAMES.has(gate.name) && gate.exitCode !== 0);
   if (failed !== undefined) {
     return {
       ok: false,
       rule: CROSS_PACKAGE_CODES.GATE_FAILED,
-      detail: `${failed?.name ?? 'a gate'} exited ${failed?.exitCode} for ${owner.package}`,
+      detail: `${failed.name} exited ${failed.exitCode} for ${owner.package}`,
     };
   }
 
-  const missing = REQUIRED_CROSS_PACKAGE_GATES.filter(
-    (name) => !owner.gates.some((gate) => gate?.name === name),
-  );
-  if (missing.length > 0) {
+  const baselineFindings = evidence.baseline?.findings;
+  if (!Array.isArray(baselineFindings) || typeof evidence.baseline?.digest !== 'string') {
     return {
       ok: false,
-      rule: CROSS_PACKAGE_CODES.GATE_UNKNOWN,
-      detail: `the evidence for ${owner.package} names no ${missing.join(', ')} verdict`,
+      rule: CROSS_PACKAGE_CODES.BASELINE_INVALID,
+      detail: 'the evidence carries no baseline digest and findings',
+    };
+  }
+  if (digestOfFindings(baselineFindings) !== evidence.baseline.digest) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.BASELINE_INVALID,
+      detail: 'the baseline digest does not match its findings',
+    };
+  }
+
+  const repairs = Array.isArray(owner.repairs) ? owner.repairs : [];
+  const blockingIds = new Set(baselineFindings
+    .filter((finding) => finding.severity === 'blocking')
+    .map((finding) => finding.id));
+  const unknownRepair = repairs.find((id) => !blockingIds.has(id));
+  if (repairs.length === 0 || unknownRepair !== undefined) {
+    return {
+      ok: false,
+      rule: CROSS_PACKAGE_CODES.REPAIR_UNKNOWN,
+      detail: repairs.length === 0
+        ? `the evidence for ${owner.package} names no repair`
+        : `the baseline holds no finding ${unknownRepair}`,
     };
   }
 
   return {
     ok: true,
     rule: 'cross-package',
-    detail: `${owner.package} gates all exited zero`,
+    detail: `${owner.package} repairs ${repairs.length} baseline finding(s)`,
   };
 }
 

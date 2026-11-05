@@ -1,3 +1,4 @@
+// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 /**
  * A two-package workspace whose RFCs carry Rust fences.
  *
@@ -15,6 +16,9 @@ export const BOUNDARY_ID = 'boundary-001';
 
 const PROVIDER_PATH = 'crates/provider';
 const CONSUMER_PATH = 'crates/consumer';
+const TREE_MANIFEST = 'WORKSPACIFY-TREE-MANIFEST.json';
+const ALLOCATE_MANIFEST = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
+const TEMP_PREFIX = 'px369-api-';
 
 /** One RFC with an optional Rust fence. */
 // [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
@@ -34,14 +38,23 @@ export function materializeApiWorkspace({
   consumerRust = '',
   declaredEdge = true,
   noFences = false,
+  noPackages = false,
 } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'px369-api-'));
+  const root = mkdtempSync(join(tmpdir(), TEMP_PREFIX));
+  if (noPackages) {
+    writeFileSync(join(root, TREE_MANIFEST), JSON.stringify({
+      workspace: { packages: [] },
+      dependencies: { boundaries: [] },
+    }, null, 2));
+    writeFileSync(join(root, ALLOCATE_MANIFEST), JSON.stringify({ contract_registry: [] }, null, 2));
+    return { root, providerRfc: '', consumerRfc: '', remove: () => rmSync(root, { recursive: true, force: true }) };
+  }
   const providerDir = join(root, PROVIDER_PATH);
   const consumerDir = join(root, CONSUMER_PATH);
   mkdirSync(providerDir, { recursive: true });
   mkdirSync(consumerDir, { recursive: true });
 
-  writeFileSync(join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
+  writeFileSync(join(root, TREE_MANIFEST), JSON.stringify({
     workspace: {
       packages: [
         { id: PROVIDER_ID, name: 'provider', path: PROVIDER_PATH },
@@ -57,7 +70,7 @@ export function materializeApiWorkspace({
     },
   }, null, 2));
 
-  writeFileSync(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({
+  writeFileSync(join(root, ALLOCATE_MANIFEST), JSON.stringify({
     contract_registry: declaredEdge ? [{
       boundary_id: BOUNDARY_ID,
       provider_package: PROVIDER_ID,
