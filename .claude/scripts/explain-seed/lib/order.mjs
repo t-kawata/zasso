@@ -31,6 +31,20 @@ import { toHomeRelative } from '../../lib/path-utils.js';
 export const ORDER_VIEW_PATH = fileURLToPath(new URL('../../workspacify-order/run.mjs', import.meta.url));
 export const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 
+/** The order view records a run only when the command that executes it says so. */
+export const RECORD_FLAG = '--record';
+
+/**
+ * The arguments the order view is spawned with, after the script path.
+ *
+ * A command run passes `--record` so the order view joins the run history; a human reading
+ * the order passes nothing and leaves no trace.
+ */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+export function orderViewArguments(seedPath, recordRun = false) {
+  return recordRun ? [seedPath, RECORD_FLAG] : [seedPath];
+}
+
 /** The marks the order view prints, named here so a change in one place is a change in one place. */
 export const FOCUS_MARKER = '▶';
 export const SERIAL_HEADING = 'waits for';
@@ -211,11 +225,12 @@ function resolveIds(paths, idOfPath) {
 /**
  * Run the order view for one seed and return the order facts it reports.
  *
- * @param {{ root: string, seedPath: string, packages: Array<object> }} input
+ * @param {{ root: string, seedPath: string, packages: Array<object>, recordRun?: boolean }} input
  * @returns {{ level: number, ordinal: number, onCriticalPath: boolean, waitsFor: string[],
  *   usedBy: string[], parallelInLevel: string[], plan: object }}
  */
-export function loadOrderFacts({ root, seedPath, packages }) {
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+export function loadOrderFacts({ root, seedPath, packages, recordRun = false }) {
   const orderRoot = resolveOrderRoot(seedPath);
   if (orderRoot !== resolve(root)) {
     throw new ExplainSeedError(
@@ -224,7 +239,7 @@ export function loadOrderFacts({ root, seedPath, packages }) {
     );
   }
 
-  const run = spawnSync(process.execPath, [ORDER_VIEW_PATH, seedPath], { encoding: 'utf8' });
+  const run = spawnSync(process.execPath, [ORDER_VIEW_PATH, ...orderViewArguments(seedPath, recordRun)], { encoding: 'utf8' });
   if (run.error !== undefined) {
     throw new ExplainSeedError(`the order view could not be run: ${run.error.message}`, {
       field: 'implementation_order',

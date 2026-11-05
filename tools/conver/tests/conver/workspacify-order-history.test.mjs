@@ -9,15 +9,33 @@ import path from 'node:path';
 import { writeWorkspace } from './fixtures.mjs';
 
 const SCRIPT = new URL('../../.claude/scripts/workspacify-order/run.mjs', import.meta.url).pathname;
+const HISTORY_FILE = '.conver-history.jsonl';
 
-test('C007: workspacify-order records its own run in the fitness layer', () => {
-  const root = writeWorkspace({
+function spawnOrder(root, args) {
+  return spawnSync(process.execPath, [SCRIPT, ...args], { cwd: root, encoding: 'utf8' });
+}
+
+function refusedWorkspace() {
+  return writeWorkspace({
     packages: [{ id: 'pkg-1', path: 'pkg-1' }],
     files: { 'pkg-1/.keep': '' },
   });
+}
 
-  const result = spawnSync(process.execPath, [SCRIPT], { cwd: root, encoding: 'utf8' });
-  const historyPath = path.join(root, '.conver-history.jsonl');
+test('C007: a human viewing the order writes no history', () => {
+  const root = refusedWorkspace();
+
+  const result = spawnOrder(root, []);
+
+  assert.equal(result.status, 1, 'the fixture is refused');
+  assert.equal(fs.existsSync(path.join(root, HISTORY_FILE)), false, 'a plain view must not write history');
+});
+
+test('C007: a command run marked --record records its own run in the fitness layer', () => {
+  const root = refusedWorkspace();
+
+  const result = spawnOrder(root, ['--record']);
+  const historyPath = path.join(root, HISTORY_FILE);
 
   assert.equal(fs.existsSync(historyPath), true, 'history file must exist');
   const records = fs.readFileSync(historyPath, 'utf8').trim().split('\n').map((line) => JSON.parse(line));

@@ -58,7 +58,7 @@ import { loadWorkspace } from './lib/workspace.mjs';
 import { verifyRecordedHashes } from './lib/verify.mjs';
 import { boundaryPairs, packagePaths, projectPackage } from './lib/projection.mjs';
 import { collectSettledDecisions } from './lib/neighbour-decisions.mjs';
-import { loadOrderFacts } from './lib/order.mjs';
+import { RECORD_FLAG, loadOrderFacts } from './lib/order.mjs';
 import { splitItems, decisionUnderPlaceholder, questionNumberOf } from './lib/items.mjs';
 import { INFO_DOCUMENT_FILE_NAME, INFO_SECTION_TITLES, renderInfo } from './lib/render.mjs';
 import {
@@ -157,6 +157,19 @@ export const FAULT_MESSAGES = Object.freeze({
   'missing-settle-trace': 'the question does not record why the records could not settle the point',
 });
 
+/**
+ * Separate `--record` from the operation arguments.
+ *
+ * The flag belongs to the run, not to any operation, so `parseArguments` must never see it.
+ */
+// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+export function splitRecordFlag(argv) {
+  return {
+    recordRun: argv.includes(RECORD_FLAG),
+    argv: argv.filter((argument) => argument !== RECORD_FLAG),
+  };
+}
+
 /** The operation, the seed path it acts on, and the round size only `next` takes. */
 // [::TICKET::] PX-222, PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226|PX-229) --for-spec --no-implementation-order`.
 export function parseArguments(argv) {
@@ -196,9 +209,10 @@ export function parseArguments(argv) {
  * a moved order reopens the sections that rest on it.
  *
  * @param {string} seedPath
+ * @param {{ recordRun?: boolean }} [options] — true only when a command execution asked for history
  * @returns {{ info: { text: string, sections: object }, facts: object }}
  */
-export function produceInfo(seedPath) {
+export function produceInfo(seedPath, { recordRun = false } = {}) {
   const { seedText, identity, contractEdges } = readSeed(seedPath);
   const workspace = loadWorkspace({ seedPath, identity });
   const verified = verifyRecordedHashes({ identity, workspace, seedText });
@@ -206,6 +220,7 @@ export function produceInfo(seedPath) {
     root: workspace.root,
     seedPath,
     packages: workspace.treeManifest.workspace?.packages,
+    recordRun,
   });
   const packageId = requireField(identity, 'package.id');
   const settlements = collectSettledDecisions({
@@ -292,8 +307,8 @@ function renderVerdict(verdict) {
 
 /** Write the facts, maintain the explanation, and print the facts. */
 // [::TICKET::] PX-222, PX-225, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-225|PX-229) --for-spec --no-implementation-order`.
-function runInfo(seedPath) {
-  const { info, facts } = produceInfo(seedPath);
+function runInfo(seedPath, { recordRun = false } = {}) {
+  const { info, facts } = produceInfo(seedPath, { recordRun });
   const { infoPath, explainPath } = documentPaths(seedPath);
   const previous = existsSync(explainPath) ? readFileSync(explainPath, 'utf8') : null;
   const frame = buildFrame({ facts, previous });
@@ -322,9 +337,9 @@ function runInfo(seedPath) {
  * highest the document already holds, because a number a question was asked under never moves.
  */
 // [::TICKET::] PX-229, PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-229|PX-236) --for-spec --no-implementation-order`.
-function runNext(seedPath, size) {
+function runNext(seedPath, size, { recordRun = false } = {}) {
   const explainText = readExplanationOrFail(seedPath);
-  const { facts } = produceInfo(seedPath);
+  const { facts } = produceInfo(seedPath, { recordRun });
 
   // The cap bounds the questions asked of one body of material, so a revision — which brings
   // material the earlier rounds never saw — opens a fresh cycle with its own budget.
@@ -360,9 +375,9 @@ function readExplanationOrFail(seedPath) {
 
 /** Decide whether the explanation may be reported. */
 // [::TICKET::] PX-222, PX-226 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-222|PX-226) --for-spec --no-implementation-order`.
-function runCheck(seedPath) {
+function runCheck(seedPath, { recordRun = false } = {}) {
   const explainText = readExplanationOrFail(seedPath);
-  const { facts } = produceInfo(seedPath);
+  const { facts } = produceInfo(seedPath, { recordRun });
   const verdict = verifyExplanation({ facts, explainText });
   process.stdout.write(renderVerdict(verdict));
   return verdict.ok ? EXIT_OK : EXIT_FAILURE;
@@ -421,10 +436,10 @@ export function renderAnswerVerdict({ asked, answered, unanswered, unsettled = [
  * as well as the placeholders and exits zero only when nothing is unsettled.
  */
 // [::TICKET::] PX-226, PX-229 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-226|PX-229) --for-spec --no-implementation-order`.
-function runAnswers(seedPath) {
+function runAnswers(seedPath, { recordRun = false } = {}) {
   const explainText = readExplanationOrFail(seedPath);
   const reading = readAnswers(explainText);
-  const { facts } = produceInfo(seedPath);
+  const { facts } = produceInfo(seedPath, { recordRun });
   const ledger = deriveLedger({ documentText: explainText, projection: facts.projection });
   const unsettled = [...ledger.unsettled].sort();
 
@@ -476,10 +491,10 @@ function readRevision({ payloadArgument }) {
  * before the first byte, so a refused revision leaves the document exactly as it was.
  */
 // [::TICKET::] PX-236 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-236 --for-spec --no-implementation-order`.
-function runRevise(seedPath, payloadArgument) {
+function runRevise(seedPath, payloadArgument, { recordRun = false } = {}) {
   const explainText = readExplanationOrFail(seedPath);
   const revision = readRevision({ payloadArgument });
-  const { facts } = produceInfo(seedPath);
+  const { facts } = produceInfo(seedPath, { recordRun });
 
   const cycles = countCycles(explainText);
   if (cycles >= MAX_CYCLES) {
@@ -502,15 +517,15 @@ function runRevise(seedPath, payloadArgument) {
 }
 
 // [::TICKET::] PX-221, PX-222, PX-226, PX-229, PX-236, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-221|PX-222|PX-226|PX-229|PX-236|PX-366) --for-spec --no-implementation-order`.
-function main(argv) {
+function main(argv, { recordRun = false } = {}) {
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   try {
     const { operation, seedPath, size, payload } = parseArguments(argv);
-    if (operation === OPERATIONS.NEXT) return runNext(seedPath, size);
-    if (operation === OPERATIONS.CHECK) return runCheck(seedPath);
-    if (operation === OPERATIONS.ANSWERS) return runAnswers(seedPath);
-    if (operation === OPERATIONS.REVISE) return runRevise(seedPath, payload);
-    return runInfo(seedPath);
+    if (operation === OPERATIONS.NEXT) return runNext(seedPath, size, { recordRun });
+    if (operation === OPERATIONS.CHECK) return runCheck(seedPath, { recordRun });
+    if (operation === OPERATIONS.ANSWERS) return runAnswers(seedPath, { recordRun });
+    if (operation === OPERATIONS.REVISE) return runRevise(seedPath, payload, { recordRun });
+    return runInfo(seedPath, { recordRun });
   } catch (error) {
     if (error instanceof ExplainSeedError) {
       process.stderr.write(`${ERROR_PREFIX} ${error.message}\n`);
@@ -527,6 +542,7 @@ function isProgramRun() {
 }
 
 if (isProgramRun()) {
-  withRunHistory({ command: 'explain-seed', stage: 'explain' }, () => main(process.argv.slice(2)))
+  const { recordRun, argv } = splitRecordFlag(process.argv.slice(2));
+  withRunHistory({ command: 'explain-seed', stage: 'explain' }, () => main(argv, { recordRun }))
     .then((exitCode) => { process.exitCode = exitCode; });
 }

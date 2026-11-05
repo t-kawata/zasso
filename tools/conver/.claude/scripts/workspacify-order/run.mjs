@@ -17,9 +17,11 @@
  * current directory; with one argument it is found by walking up from that seed, and the
  * package the seed belongs to is marked in the plan and expanded below it.
  *
- * There are no flags: one input says what to show and where, and the workspace says
- * everything else. stdout is the picture and nothing else; a failure writes one line to
- * stderr and exits non-zero without having printed a partial plan.
+ * `--record` is the only flag: a command that executes this view passes it to record the run
+ * in the fitness layer. A human viewing the order omits it, so looking at the plan leaves no
+ * trace. Otherwise one input says what to show and where, and the workspace says everything
+ * else. stdout is the picture and nothing else; a failure writes one line to stderr and exits
+ * non-zero without having printed a partial plan.
  */
 // [::TICKET::] PX-327 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-327 --for-spec --no-implementation-order`.
 import { dirname, resolve } from 'node:path';
@@ -35,6 +37,9 @@ const EXIT_FAILURE = 1;
 
 /** At most one seed path, because a plan can mark one directory at a time. */
 const MAXIMUM_ARGUMENTS = 1;
+
+/** The one flag: a command execution opts in to history, a human view stays silent. */
+const RECORD_FLAG = '--record';
 
 /**
  * Resolve the workspace, derive the order, and write the picture.
@@ -69,19 +74,20 @@ function renderImplementationOrder(argv) {
   return EXIT_OK;
 }
 
-const ARGUMENTS = process.argv.slice(2);
+const ARGUMENTS = process.argv.slice(2).filter((argument) => argument !== RECORD_FLAG);
+const RECORDS_RUN = process.argv.slice(2).includes(RECORD_FLAG);
 const HISTORY = {
   cwd: ARGUMENTS.length === 0 ? process.cwd() : dirname(resolve(ARGUMENTS[0])),
   command: 'workspacify-order',
   stage: 'educe',
 };
 
-recordStart(HISTORY);
+if (RECORDS_RUN) recordStart(HISTORY);
 try {
   process.exitCode = renderImplementationOrder(ARGUMENTS);
-  recordFinish({ ...HISTORY, status: 'COMPLETE' });
+  if (RECORDS_RUN) recordFinish({ ...HISTORY, status: 'COMPLETE' });
 } catch (error) {
-  recordFinish({ ...HISTORY, status: 'BLOCKED_PREREQUISITE' });
+  if (RECORDS_RUN) recordFinish({ ...HISTORY, status: 'BLOCKED_PREREQUISITE' });
   if (error instanceof WorkspacifyOrderError) {
     process.stderr.write(`${ERROR_PREFIX} ${error.message}\n`);
     process.exitCode = EXIT_FAILURE;

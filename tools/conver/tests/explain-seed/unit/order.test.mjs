@@ -14,7 +14,8 @@
 // builder here would be a second renderer, and the test would then agree with itself.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -22,7 +23,7 @@ import {
   materializeExplainSeedWorkspace,
 } from '../helpers/explain-seed-workspace.mjs';
 import { produceInfo } from '../../../.claude/scripts/explain-seed/run.mjs';
-import { loadOrderFacts, parseFocusBlock } from '../../../.claude/scripts/explain-seed/lib/order.mjs';
+import { loadOrderFacts, orderViewArguments, parseFocusBlock } from '../../../.claude/scripts/explain-seed/lib/order.mjs';
 import { ExplainSeedError } from '../../../.claude/scripts/explain-seed/lib/errors.mjs';
 import { renderPosition } from '../../../.claude/scripts/explain-seed/lib/render.mjs';
 import { EXPLAIN_SECTION_FACTS, computeFrameDigests } from '../../../.claude/scripts/explain-seed/lib/digest.mjs';
@@ -331,4 +332,21 @@ test('C005 boundary: a root the two commands disagree on raises rather than pair
       }),
     (error) => error instanceof ExplainSeedError,
   );
+});
+
+test('C007: the order view records only when the calling run marks --record', () => {
+  const workspace = materializeExplainSeedWorkspace();
+  const historyPath = join(dirname(workspace.seedPath), '.conver-history.jsonl');
+  const packages = workspace.manifests.tree.workspace.packages;
+
+  loadOrderFacts({ root: workspace.root, seedPath: workspace.seedPath, packages });
+  assert.equal(existsSync(historyPath), false, 'reading the order for a human writes no history');
+
+  loadOrderFacts({ root: workspace.root, seedPath: workspace.seedPath, packages, recordRun: true });
+  assert.equal(existsSync(historyPath), true, 'a command run records the order view it executes');
+});
+
+test('C007: --record is appended to the order view arguments, never invented', () => {
+  assert.deepEqual(orderViewArguments('/workspace/pkg-1/RFC-SEED.md', false), ['/workspace/pkg-1/RFC-SEED.md']);
+  assert.deepEqual(orderViewArguments('/workspace/pkg-1/RFC-SEED.md', true), ['/workspace/pkg-1/RFC-SEED.md', '--record']);
 });

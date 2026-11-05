@@ -7,7 +7,7 @@
         test-workspacify-reverse test-workspacify test-crystalize-readme \
         test-drill-rfc-down test-stub-resolution test-educe-sequences \
         check-conventions check-bundle-fresh check-path-emission test-coverage \
-        deploy stubs crimes
+        deploy stubs crimes push-all
 
 # list-tickets: チケット一覧を表示する（私用ヘルパー）
 list-tickets:
@@ -162,4 +162,16 @@ install-to-projects:
 	node install.js -y -t ~/shyme/gaia/.claude
 	node install.js -y -t ~/shyme/conver/.claude
 	node install.js -y -t ~/shyme/crystal/.claude
+	node install.js -y -t ~/shyme/doors/.claude
 	cp README.md ~/shyme/conver/README.md
+
+# push-all: distribute this conver build into every project, then commit and push each
+#   repository in dependency order. Installing first is what makes the consumer commits
+#   meaningful: each push carries the freshly installed .claude tree, not the previous one.
+push-all:
+	$(MAKE) -C ~/shyme/zasso/tools/conver install-to-projects
+	$(MAKE) -C ~/shyme/conver push
+	$(MAKE) -C ~/shyme/zasso push
+	$(MAKE) -C ~/shyme/gaia push
+	$(MAKE) -C ~/shyme/crystal push
+	$(MAKE) -C ~/shyme/doors push

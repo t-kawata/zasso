@@ -63,7 +63,7 @@ test('renderHtml is self-contained and exposes a download button', () => {
   assert.match(speedTag[0], /max="400"/);
   assert.match(speedTag[0], /step="10"/);
   assert.match(speedTag[0], /value="150"/);
-  assert.match(html, /150 ms\/frame/);
+  assert.doesNotMatch(html, /ms\/frame/);
   const columnsTag = /<input[^>]*id="columns"[^>]*>/.exec(html);
   assert.ok(columnsTag, 'missing column control');
   assert.match(columnsTag[0], /type="number"/);
@@ -80,6 +80,38 @@ test('renderHtml is self-contained and exposes a download button', () => {
   const script = extractInlineScript(html);
   assert.ok(script.length > 0);
   assert.doesNotThrow(() => new Function(script));
+});
+
+test('the numeric inputs render at half their former width', () => {
+  const html = renderHtml({
+    model,
+    options: { fps: 10, scale: 1, title: 'PROGRESS: one' },
+    engineSource: '',
+    layoutSource: '',
+    loopSource: '',
+    viewerSource: '',
+    fontCss: '',
+  });
+  assert.match(html, /#controls input\[type="number"\] \{ width: 36px; \}/);
+});
+
+test('the controls expose a checked loop switch by default', () => {
+  const html = renderHtml({
+    model,
+    options: { fps: 10, scale: 1, title: 'PROGRESS: one' },
+    engineSource: '',
+    layoutSource: '',
+    loopSource: '',
+    viewerSource: '',
+    fontCss: '',
+  });
+  const loopTag = /<input[^>]*id="loop"[^>]*>/.exec(html);
+  assert.ok(loopTag, 'missing loop control');
+  assert.match(loopTag[0], /type="checkbox"/);
+  assert.match(loopTag[0], /checked/);
+  assert.match(html, /<label[^>]*>Loop <input[^>]*id="loop"/);
+  assert.ok(html.indexOf('id="columns"') < html.indexOf('id="loop"'));
+  assert.ok(html.indexOf('id="loop"') < html.indexOf('id="seek"'));
 });
 
 test('collectUsedText includes title, package names, stage names and the percent glyphs', () => {

@@ -901,7 +901,7 @@ EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
 | 逆回転の入口（`/workspacify-reverse`） | R0〜R8 を直列に1回。引数を取らず、主題（カレントディレクトリ）と出力先（その下の予約ルート）を導出する。構造の測定・依存の測定・クレーム台帳・origin spec の描画・パターン判定・Red 再建計画・終端状態の観測を含む |
 | stage one（`/workspacify-tree`） | `parse` / `extract` / `gate` / `finalize` の4段と G0〜G5。仕様書の分割・候補のハーベスト・ワークスペース設計・owner 一意性・過分割の検査・依存 DAG と実装順序の証明・原子的公開 |
 | stage two（`/workspacify-allocate`） | G0〜G6。マニフェストの受け取り検証（自己ハッシュと仕様書の再ハッシュ）・ディレクトリ計画・seed の描画と読み戻し・self-grill と residual の到達・双方向契約・WIG・公開と reload と後片付け |
-| 実装順の表示・検査（`workspacify-order/run.mjs`） | ビルド順（stage one の DAG）と実装順（シーケンス・ステップ契約・境界契約から導出）を別概念として描画する。公開済みの `implementation_order` と食い違う場合、またはサイドカーが古い場合は描画を拒否する。引数は0個または `RFC-SEED.md` 1個 |
+| 実装順の表示・検査（`workspacify-order/run.mjs`） | ビルド順（stage one の DAG）と実装順（シーケンス・ステップ契約・境界契約から導出）を別概念として描画する。公開済みの `implementation_order` と食い違う場合、またはサイドカーが古い場合は描画を拒否する。引数は0個または `RFC-SEED.md` 1個。実行履歴に記録するのはコマンド実行時のみで、その場合は `--record` を付ける（手元の目視では付けないので記録されない） |
 | 要求台帳（`/educe-sequences`） | 仕様書を18フェーズ・31宣言チェックで走査し、全行をエントリへ割り当て、各ステップを引用行に接地させ、`<spec>-sequences.json` を書く。schema v3 は型付きステップ契約と `registry_contribution` を持つ。run 状態は `educe-sequences/` に隔離する |
 | 共有される規約 | 予約ルートの名前は1箇所で宣言され、逆回転の出力先と「どの走査もその名前へ降りない」規則の両方がそこから導出される。staging の decisions 文書は公開の成功時に削除され、パッケージの走査からは予約ルートが除外される |
 

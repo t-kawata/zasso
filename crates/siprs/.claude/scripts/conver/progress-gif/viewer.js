@@ -12,6 +12,7 @@ export const DEFAULT_SPEED_MS = 150;
 export const MIN_FRAMES = 20;
 export const MAX_FRAMES = 600;
 export const DEFAULT_FRAMES = 200;
+export const DEFAULT_LOOP = true;
 export const GIF_DELAY_MIN_CS = 2;
 export const GIF_DELAY_MAX_CS = 100;
 
@@ -43,6 +44,19 @@ export function delayCentiseconds(speedMs) {
   return Math.max(GIF_DELAY_MIN_CS, Math.min(GIF_DELAY_MAX_CS, Math.round(safe / 10)));
 }
 
+/**
+ * Advance playback by one frame. A looping animation wraps to the first frame;
+ * a non-looping one holds the last frame and reports that playback has ended.
+ */
+export function advancePlayback(index, frameCount, loop) {
+  const count = Math.floor(Number(frameCount));
+  if (!Number.isFinite(count) || count <= 0) return { index: 0, ended: true };
+  const current = Math.max(0, Math.min(count - 1, Math.floor(Number(index)) || 0));
+  if (current + 1 < count) return { index: current + 1, ended: false };
+  if (loop) return { index: 0, ended: false };
+  return { index: count - 1, ended: true };
+}
+
 export function startViewer({ model, options, buildFrames, computeLayout, makeEngine }) {
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
@@ -51,8 +65,8 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   const pauseButton = document.getElementById('pause');
   const framesInput = document.getElementById('frames');
   const speedInput = document.getElementById('speed');
-  const speedValue = document.getElementById('speed-value');
   const columnsInput = document.getElementById('columns');
+  const loopInput = document.getElementById('loop');
   const seekInput = document.getElementById('seek');
   const seekValue = document.getElementById('seek-value');
   let frames = [];
@@ -63,6 +77,7 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   let frameCount = clampFrames(options.frames);
   let speedMs = clampSpeedMs(options.speedMs);
   let columns = clampColumns(options.columns);
+  let loop = DEFAULT_LOOP;
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   function showError(error) {
@@ -83,7 +98,6 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
 
   function syncSpeedControls() {
     speedInput.value = String(speedMs);
-    speedValue.textContent = `${speedMs} ms/frame`;
   }
 
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
@@ -128,7 +142,12 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   function tick(time) {
     if (playing && time - last >= speedMs) {
       drawAt(index);
-      index = (index + 1) % Math.max(1, frames.length);
+      const next = advancePlayback(index, frames.length, loop);
+      index = next.index;
+      if (next.ended) {
+        playing = false;
+        pauseButton.textContent = 'Play';
+      }
       last = time;
       syncSeekControls();
     }
@@ -155,7 +174,7 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
     link.href = URL.createObjectURL(blob);
     link.download = options.stamp + '.gif';
     link.click();
-    status.textContent = `GIF ready (${gif.length} bytes, ${speedMs} ms/frame)`;
+    status.textContent = `GIF ready (${gif.length} bytes)`;
   }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -196,6 +215,12 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
       });
       if (location.hash === '#download') encodeAndDownload();
       pauseButton.addEventListener('click', function () {
+        const isAtEnd = !loop && index >= frames.length - 1;
+        if (!playing && isAtEnd) {
+          index = 0;
+          drawAt(index);
+          syncSeekControls();
+        }
         playing = !playing;
         pauseButton.textContent = playing ? 'Pause' : 'Play';
         last = 0;
@@ -213,6 +238,9 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
         columns = clampColumns(columnsInput.value);
         syncColumnsControls();
         relayout();
+      });
+      loopInput.addEventListener('change', function () {
+        loop = loopInput.checked;
       });
       seekInput.addEventListener('input', function () {
         playing = false;

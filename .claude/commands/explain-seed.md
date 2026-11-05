@@ -451,7 +451,8 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
 
 ## Flow
 
-1. **Write facts, write frame** — `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" info "$SEED_PATH"`
+1. **Write facts, write frame** — `node "$CLAUDE_DIR/scripts/explain-seed/run.mjs" info "$SEED_PATH" --record`
+   `--record` marks this as a command run, so the order view records it in the run history; the later gate calls omit it and add no second marker.
    G1. fail: report stderr diagnosis (artefact + field) as-is; repair nothing; no retry with another seed; no hand-authored document.
 
 2. **Settle and bundle** — auto; never ask.

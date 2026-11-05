@@ -4,6 +4,7 @@ import {
   SPEED_MAX_MS,
   MIN_FRAMES,
   MAX_FRAMES,
+  DEFAULT_LOOP,
   clampFrames,
   clampSpeedMs,
 } from './viewer.js';
@@ -66,7 +67,7 @@ canvas { max-width: 96vw; height: auto; background: #06080c; }
 button { padding: 8px 18px; background: #1b2430; color: #dfe; border: 1px solid #345; border-radius: 6px; cursor: pointer; }
 #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin: 10px 0; }
 #controls label { display: flex; align-items: center; gap: 6px; color: #9aa; font: 12px system-ui, sans-serif; }
-#controls input[type="number"] { width: 72px; }
+#controls input[type="number"] { width: 36px; }
 #controls input[type="range"] { width: 150px; }
 #error { color: #ff9a9a; max-width: 90vw; }
 #status { color: #9aa; }
@@ -78,8 +79,9 @@ button { padding: 8px 18px; background: #1b2430; color: #dfe; border: 1px solid 
 <div id="controls">
 <button id="pause">Pause</button>
 <label>Frames <input id="frames" type="number" min="${MIN_FRAMES}" max="${MAX_FRAMES}" step="1" value="${frames}"></label>
-<label>Speed <input id="speed" type="number" min="${SPEED_MIN_MS}" max="${SPEED_MAX_MS}" step="10" value="${speedMs}"><span id="speed-value">${speedMs} ms/frame</span></label>
+<label>Speed <input id="speed" type="number" min="${SPEED_MIN_MS}" max="${SPEED_MAX_MS}" step="10" value="${speedMs}"></label>
 <label>Columns <input id="columns" type="number" min="${MIN_COLUMNS}" max="${MAX_COLUMNS}" step="1" value="${columns}"></label>
+<label>Loop <input id="loop" type="checkbox"${DEFAULT_LOOP ? ' checked' : ''}></label>
 <label>Seek <input id="seek" type="range" min="0" max="0" step="1" value="0"><span id="seek-value">0/0</span></label>
 <button id="download">Download GIF</button>
 <span id="status"></span>

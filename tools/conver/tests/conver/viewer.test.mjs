@@ -11,11 +11,13 @@ import {
   MIN_FRAMES,
   MAX_FRAMES,
   DEFAULT_FRAMES,
+  DEFAULT_LOOP,
   GIF_DELAY_MIN_CS,
   GIF_DELAY_MAX_CS,
   clampFrames,
   clampSpeedMs,
   delayCentiseconds,
+  advancePlayback,
 } from '../../.claude/scripts/conver/progress-gif/viewer.js';
 
 test('the speed control defaults to 150 milliseconds inside the 20 to 400 range', () => {
@@ -106,4 +108,45 @@ test('the GIF delay stays inside the browser-safe centisecond window', () => {
     assert.ok(delay >= GIF_DELAY_MIN_CS, `delay ${delay} below minimum`);
     assert.ok(delay <= GIF_DELAY_MAX_CS, `delay ${delay} above maximum`);
   }
+});
+
+test('advancePlayback wraps to the first frame when looping is on', () => {
+  assert.equal(DEFAULT_LOOP, true);
+  assert.deepEqual(advancePlayback(0, 3, true), { index: 1, ended: false });
+  assert.deepEqual(advancePlayback(1, 3, true), { index: 2, ended: false });
+  assert.deepEqual(advancePlayback(2, 3, true), { index: 0, ended: false });
+});
+
+test('advancePlayback stops on the last frame when looping is off', () => {
+  assert.deepEqual(advancePlayback(0, 3, false), { index: 1, ended: false });
+  assert.deepEqual(advancePlayback(1, 3, false), { index: 2, ended: false });
+  assert.deepEqual(advancePlayback(2, 3, false), { index: 2, ended: true });
+});
+
+test('advancePlayback treats an empty or single-frame animation as already ended', () => {
+  assert.deepEqual(advancePlayback(0, 0, true), { index: 0, ended: true });
+  assert.deepEqual(advancePlayback(0, 1, true), { index: 0, ended: false });
+  assert.deepEqual(advancePlayback(0, 1, false), { index: 0, ended: true });
+});
+
+test('the viewer stops playback when a non-looping animation reaches the end', () => {
+  const source = fs.readFileSync(
+    new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /let loop = DEFAULT_LOOP;/);
+  assert.match(source, /advancePlayback\(index, frames\.length, loop\)/);
+  assert.match(source, /if \(next\.ended\)/);
+  assert.match(source, /pauseButton\.textContent = 'Play';/);
+});
+
+test('the viewer reads the loop switch and no longer renders a ms/frame label', () => {
+  const source = fs.readFileSync(
+    new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /document\.getElementById\('loop'\)/);
+  assert.match(source, /loopInput\.addEventListener\('change'/);
+  assert.match(source, /loop = loopInput\.checked;/);
+  assert.doesNotMatch(source, /ms\/frame/);
 });
