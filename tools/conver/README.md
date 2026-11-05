@@ -192,6 +192,16 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 **drill の役割は、進化の差分反映に加えて、root spec の数式・理論を Tickets まで貫通させることへ拡張されています。** `Tickets.json` が存在するタイミング以降は、FRESH / MIGRATION / REPAIR / VERIFY_ONLY のいずれでも実行でき、数式の所有・ledger・sidecar・GRAPH・Dirs-Tree・ヘッダ・Tickets の一致を証明します。欠落は `Action` / `Verify` を伴う finding として出て、修復して再実行し `COMPLETE` に到達します。終端は `COMPLETE` / `BLOCKED_PREREQUISITE` / `REPAIR_NO_PROGRESS`。workspace 全体の数式完全性は S8 の rollout レポートで確認します。
 
+**最近のアップデート**:
+
+- **いつでも進化**: `Tickets.json` が存在すれば、FRESH / MIGRATION / REPAIR / VERIFY_ONLY / 再開のいずれでも実行できます。無い場合は `BLOCKED_PREREQUISITE`（`TICKETS_MISSING_ROUTE_SPLIT_TO_TICKETS`）で `/split-to-tickets` を案内し、勝手にチケットを作りません
+- **ループ状態の保持**: root `round`、`metadata` の全キー、既存フェーズ ID、既存チケット ID / `phaseId`、既存 `status` を保存します。staging は実体の sha256 と id/status マップを baseline に記録し、`--approve` が compare-and-swap で検証します（`STALE_STAGING_BASELINE`）。delta も導出元の sha256 を持ち、古い delta は `STALE_DELTA` として拒否されます
+- **数式の貫通**: RFC Formula ledger → `RFC-FORMULAS.json` → GRAPH → Dirs-Tree → 実装ヘッダ → Tickets の一致を Step 2〜5 と G5 で証明します。`FORMULA_NO_TICKET` / `FORMULA_DUPLICATE_TICKET` / `RFC.md` origin / 欠落シンボル・テストは promote 前に拒否されます。所有数式ゼロは正当な状態です
+- **no-arg drill**: 引数なしで README と SEQUENCES ビューを一度だけ解決します。README は**任意**（無ければ `README_PRESENT=false` で続行）。Step 5 は view → ledger → GRAPH → 実装ヘッダ → Tickets の貫通を検証します
+- **COMPLETE の唯一の宣言元**: `DRILL-REPORT.json` / `.md` だけが `COMPLETE` を宣言します。`DESIGN_DONE` と `COMPLETE` は別状態です。全 finding は `Action` / `Verify` を持ち、修復して再実行し、進捗しなければ `REPAIR_NO_PROGRESS` で終わります
+- **run history**: `begin-run` / `end-step` が `runs` と `generation` を記録します。`generation` は出力 digest が変わったときだけ進み、`--audit` は generation を書かずに実行回数だけ数えます。progress-gif の run マーカーも同じ記録を読みます
+- **cross-package API 整合**: 全パッケージ RFC の Rust フェンスを読み、未定義・重複・arity・ジェネリック arity・種別不一致・未宣言依存を検出します。drill では P2 residue として報告し、パッケージ内のブロッカーにはなりません。読めない構文は `UNPARSED_SURFACE` advisory です
+
 ### 進化の入口は、上流ループを通過したかどうかで決まる
 
 正典 RFC を新しい情報で進化させる入口は、**上流ループ（`/explain-seed` → `/grill-me-for-rfc` → `/smooth-sequences` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets`）を終えたかどうか**で切り替わります。コマンド名の一覧ではなく、**ループ単位**で覚えてください。
@@ -210,7 +220,7 @@ flowchart TD
 - **上流ループを終える前** — 正典 RFC はまだ唯一の設計成果物です。`/grill-me-for-rfc` に新しい資料を渡して再実行すると、その資料はセッションに記録されて読み取り段に届き、確定した差分が RFC に反映されます。書き直しの直前には旧 RFC の退避が取られるため、反映後に差分を確認できます。
 - **上流ループを終えた後** — RFC からグラフ・ディレクトリ境界・チケットが既に導出されています。ここで RFC だけを書き換えると、派生成物は古い設計を抱えたまま取り残され、しかもそれを検出できません。進化は `/drill-rfc-down` が担います。RFC への追記を差分として読み、grill → graphify → boundify → split → verify を通して派生成物と歩調を合わせるためです。
 
-**但し書き（より正確には `/graphify-rfc` が境界）** — 実際に入口が切り替わるのは上流ループの完了時ではなく、**`/graphify-rfc` が最初の派生成物 `RFC-GRAPH.json` を書いた瞬間**です（旧名の木では `*-GRAPH.json`）。以降は `/grill-me-for-rfc` が RFC の書き換えを拒否し、`/drill-rfc-down` へ誘導します。したがって `/graphify-rfc` 済み・`/boundify-graph` 未の狭間では、grill は拒否し、drill は前提成果物（`RFC-Dirs-Tree.json` / `Tickets.json` / `README.md`）が揃わず起動しません。この窓では先に `/boundify-graph` まで進めてから `/drill-rfc-down` を使ってください。
+**但し書き（より正確には `/graphify-rfc` が境界）** — 実際に入口が切り替わるのは上流ループの完了時ではなく、**`/graphify-rfc` が最初の派生成物 `RFC-GRAPH.json` を書いた瞬間**です（旧名の木では `*-GRAPH.json`）。以降は `/grill-me-for-rfc` が RFC の書き換えを拒否し、`/drill-rfc-down` へ誘導します。したがって `/graphify-rfc` 済み・`/boundify-graph` 未の狭間では、grill は拒否し、drill は前提成果物（`RFC-Dirs-Tree.json` / `Tickets.json`）が揃わず起動しません（`README.md` は任意で、無ければ `README_PRESENT=false` として続行します）。この窓では先に `/boundify-graph` まで進めてから `/drill-rfc-down` を使ってください。
 
 **編集方針**:
 
@@ -354,8 +364,15 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - **前提のチケットへの記録**: 導出した前提は各チケットの `prerequisites` に書かれ、実装ループの冒頭ゲートがそれを再検査します。**依存先が `done` / `reviewed` になる前に make → plan → start → review へ入ることはできません**
 - **ワークスペース全体の保証**: 最終 `verify-chain --require-tickets` が、全グラフ単位がいずれかのチケットへ届き、所有シーケンスの各ステップがちょうど1チケットに届き、操作の実装チケットが全体で1つであることを確認します。フェーズ単位ではなくワークスペース全体に対する保証です
 - **詳細度ガイドライン**: `background` 300字以上 / `scope` を型シグネチャ付きで列挙 / `notes` 複数セクション 500字以上 / `testUnit`・`testIntegration`・`testExceptions` を明記（TDD 必須）
-- **フェーズ統合**: 3 チケット未満のフェーズは後方のフェーズへ自動マージ（Step 5-3）。ID 再採番は `prerequisites[].ticket` と distribution の `implementerTicketId` / `implementerTicketKey` も書き換えます
-- 出力先は RFC と同階層の `Tickets.json`（既存ファイルがあれば上書き確認）
+- **フェーズ統合**: 3 チケット未満のフェーズは後方のフェーズへ自動マージ（Step 5-3。**fresh 経路のみ**）。ID 再採番は `prerequisites[].ticket` と distribution の `implementerTicketId` / `implementerTicketKey` も書き換えます。evolve はキー保護のため再採番しません
+- 出力先は RFC と同階層の `Tickets.json`。**既存 Tickets.json は上書きせず進化**します
+- **進化モード**: モードは引数ではなく `Tickets.json` の有無で決まります。無ければ fresh 生成、あれば `split-evolve.js` が GRAPH / Dirs-Tree / SEQUENCES との差分を導出し、add / update / retire として既存チケットへ適用します。**フェーズ ID・チケット ID は再採番せず、既存の `status` / `round` / `metadata` / authored フィールドは書き換えません**。昇格前に旧 `Tickets.json` を `Tickets.pre-evolve-<stamp>-<digest>.json` へ自動アーカイブします
+- **5つの衝突クラスは拒否せず収束**: new node（硬い辺の位置にフェーズ追加）/ changed node（所有チケットの派生フィールドのみ再計算）/ removed node（`nodeIds` 縮小、全滅なら `retiredFrom` 付き retire）/ split node（元キーと status を維持し追加分を `todo`）/ merged node（最小キーを残し吸収側を retire）。対応付けは `id` → `headingRefs` → `title` / `slug` → Dirs-Tree の `default_files` の順です
+- **全滅時のフォールバック**: `identityLost` のときは旧 `Tickets.json` をアーカイブして fresh 経路を実行し、`--carry-status` が同一性ラダーで status と authored を再付与します。停止も再構築要求も出しません
+- **retire の派生フィールド**: `distribution` / `contracts` / `formulaObligations` / `prerequisites` は空配列ではなく**削除**します（`validate-tickets.js` は空の `contracts` を拒否し、`verify-chain` は空 distribution を空 unit 集合として扱うため）。旧値は `retiredFrom` に保存します
+- **fresh 専用ステップの保護**: evolve では `add-tickets-for-phase.js`（4-1 で適用済み）と `consolidate-phase-tickets.js`（再採番がキーを壊す）をスキップします。`SPLIT_MODE` 未設定時は fresh に倒れるため、従来経路は1バイトも変わりません
+- **ワークロード予算**: `add-tickets-for-phase.js --enforce-work-budget` が `minimumWorkTickets` を下限に、`splitReason`（`tdd-order` / `disjoint-io` / `release-boundary` / `ownership-boundary` / `cohesion`）と `mergeAttempts` / `acceptedDiscretionaryRefusals` を検証します。統合優先で、分割は証拠がある場合だけ許されます
+- **順序の分離**: 物語上のシーケンス順と実装順を分離し、`SEQUENCE_ORDER_MISMATCH` は実データの前提（前のステップが後のステップの事実を produce する）がある場合だけ発火します
 - **逆対応（S1〜S6）**: 逆モードの処理が既存テストをチケットへ対応付け、**Red を持たない契約をすべて記録**し、欠落ごとに再建チケットを1枚生成します（Red の再建 — 「[適合ループ](#適合ループ--4つの入口と第五層)」節の「逆回転に固有の最深の論点」を参照）
 
 ### 実装ループ（AI 自動実行）
@@ -489,7 +506,7 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/conver/conver.js" -k <api
 
 ### セッションアーキテクチャ
 
-チケット P0-1 の処理フロー:
+チケットの処理フロー:
 
 ```mermaid
 sequenceDiagram
@@ -512,7 +529,7 @@ sequenceDiagram
     CV->>SC: /resolve-ticket →（任意）/jpush-branch
     Note over CV: 全チケット reviewed
     CV->>SD: /find-omissions RFC-GRAPH.json
-    Note over CV: 次のチケット P0-2 へ
+    Note over CV: 次のチケットへ
 ```
 
 - `-b 0` を指定すると review が別セッションで独立実行されます
@@ -934,7 +951,7 @@ graphify の見出し抽出と Step 0 の重複解消は、コードフェンス
 | 表示・検索 | `list-phases-and-tickets.js` / `all-tickets.js` / `search-tickets.js` / `get-ticket-as-markdown.js` |
 | フェーズ管理 | `add-phase.js` / `add-px-phase.js` / `write-tickets-json-template.js` / `rename-phases.js` |
 | make/plan/start/review | `show-ticket-context.js` / `ensure-ticket.js` / `insert-field-template.js` / `list-remaining-stubs.js` / `check-ticket-status.js` / `check-ticket-prerequisites.js`（4コマンド共通の前提ゲート） / `verify-make-contracts.js` / `verify-make-distribution.js`（Step 9.5） / `verify-plan-contracts.js` / `verify-red-coverage.js` / `verify-final-contracts.js` / `validate-ticket-targets.js` / `enumerate-ticket-targets.js` / `annotate-ticket-context-by-git-diff.js` / `resolve-ambiguous-markers.js` |
-| split・配布 | `add-tickets-for-phase.js`（単位と distribution の付与） / `merge-contracts-to-tickets.js`（ステップ・境界契約の投影） / `verify-ticket-closure.js` / `verify-all-ticket-coverage.js` / `show-phase-distribution.js` / `show-ticket-distribution.js` |
+| split・配布 | `add-tickets-for-phase.js`（単位と distribution の付与） / `split-evolve.js`（既存 Tickets の進化。差分・同一性・配置・retire・CAS 昇格） / `update-phase.js`（フェーズ所有権の追加・挿入。再採番なし） / `merge-contracts-to-tickets.js`（ステップ・境界契約の投影） / `verify-ticket-closure.js` / `verify-all-ticket-coverage.js` / `show-phase-distribution.js` / `show-ticket-distribution.js` |
 | consolidate | `batch-update-stub.js` / `batch-create-resolving-tickets.js` / `consolidate-stubs-gate.sh` / `require-consolidated-manifest.js` / `preflight-stub-cleanup.js` / `validate-no-external-excuses.js` / `clean-consolidation-artifacts.js` |
 | find | `get-next-check-target-ticket.js` / `add-omission-ticket.js` / `create-tmp-omissions.js` / `validate-graph-arg.js` / `phasify-omissions.js` |
 | 犯罪・スタブ | `scan-crimes.sh` / `malfeasance-create.js` / `malfeasance-update.js` / `insert-stub.js` / `scan-incomplete-implementations.js` / `ensure-malfeasance.js` |
@@ -962,7 +979,7 @@ graphify の見出し抽出と Step 0 の重複解消は、コードフェンス
 
 ### drill-rfc-down（`.claude/scripts/drill-rfc-down/`）
 
-`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree/README.md の実在検証と `[VARIABLES]` 出力）/ `session-init.js`（セッション生成・継続）/ `settle-run.js`（先行記録の走査と確定の駆動。grill の同名ファイルとバイト同一）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `generate-dir-templates-delta.js`（新規ファイルのヘッダ付き機械生成）/ `refresh-file-headers.js`（既存ヘッダ更新・本体不変）/ `split-delta-analyzer.js` / `split-step.js` / `detect-orphan-contracts.js`（孤立エッジ契約の検出）/ `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
+`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree の実在検証、README.md の在否判定、`[VARIABLES]` 出力）/ `resolve-material.js`（README と SEQUENCES ビューの自動解決。README は任意）/ `drill-report.js`（`DRILL-REPORT.json` / `.md` の生成。`COMPLETE` の唯一の宣言元）/ `session-init.js`（セッション生成・継続）/ `settle-run.js`（先行記録の走査と確定の駆動。grill の同名ファイルとバイト同一）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `generate-dir-templates-delta.js`（新規ファイルのヘッダ付き機械生成）/ `refresh-file-headers.js`（既存ヘッダ更新・本体不変）/ `split-delta-analyzer.js` / `split-step.js` / `detect-orphan-contracts.js`（孤立エッジ契約の検出）/ `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
 
 ---
 
@@ -1133,8 +1150,8 @@ Canvas renders the board and downloads `YYYYMMDDhhmmss.gif`.
 The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a dark board with a
 package grid on the left, a vertical 16-stage ladder on the right, and one circular cell per
 package. The cell interior is a phyllotaxis dot field; dots light up with stage progress and
-an additive glow rises with density. PX-350 established the sample grammar; PX-351 widened
-the board and added the speed/seek controls and the overall progress bar. The ladder labels
+an additive glow rises with density. The sample grammar was established first; the board
+was later widened with the speed/seek controls and the overall progress bar. The ladder labels
 are uppercase and set larger so they stay readable when the GIF is scaled down.
 
 - The only execution gate is that `WORKSPACIFY-TREE-MANIFEST.json` and
