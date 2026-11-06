@@ -327,9 +327,9 @@ test('PX-374 progressAt equals the last applied frame state', () => {
   for (const timestamp of samples) {
     const built = buildTimeline(model);
     const state = createFrameState(model, built);
-    let lastIndex = -1;
-    built.timeline.forEach((event, index) => { if (event.evidenceT <= timestamp) lastIndex = index; });
-    for (let index = 0; index <= lastIndex; index += 1) applyEvent(state, built.timeline[index]);
+    for (const event of built.timeline) {
+      if (event.evidenceT <= timestamp) applyEvent(state, event);
+    }
     assert.equal(progressAt(model, timestamp), frameFromState(state, model, 0).overallProgress);
   }
 

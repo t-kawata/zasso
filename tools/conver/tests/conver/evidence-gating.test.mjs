@@ -294,9 +294,9 @@ test('C010: progressAt equals the animation state and never mutates the model', 
   for (const timestamp of [INITIAL_TIME - 1, INITIAL_TIME, INITIAL_TIME + 1500, INITIAL_TIME + 4500, INITIAL_TIME + 20000]) {
     const built = buildTimeline(model);
     const state = createFrameState(model, built);
-    let lastIndex = -1;
-    built.timeline.forEach((event, index) => { if (event.evidenceT <= timestamp) lastIndex = index; });
-    for (let index = 0; index <= lastIndex; index += 1) applyEvent(state, built.timeline[index]);
+    for (const event of built.timeline) {
+      if (event.evidenceT <= timestamp) applyEvent(state, event);
+    }
     assert.equal(progressAt(model, timestamp), frameFromState(state, model, 0).overallProgress);
   }
 

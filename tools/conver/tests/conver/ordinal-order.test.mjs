@@ -248,17 +248,13 @@ test('C006: a status beyond analysisTime plus 24 hours warns and clamps the disp
   assert.equal(buildFrames(model, { frames: 60 }).at(-1).stage, 'drill');
 });
 
-test('C007: progressAt is the ordinal prefix ending at the last event at or before the stamp', () => {
+test('C007: progressAt applies every event at or before the stamp and nothing after it', () => {
   const model = gaiaArtifactShape(40);
   const built = buildTimeline(model);
   const stamp = Date.parse('2026-10-29T12:00:00Z');
   const state = createFrameState(model, built);
-  let lastIndex = -1;
-  built.timeline.forEach((event, index) => {
-    if (event.evidenceT <= stamp) lastIndex = index;
-  });
-  for (let index = 0; index <= lastIndex; index += 1) {
-    applyEvent(state, built.timeline[index]);
+  for (const event of built.timeline) {
+    if (event.evidenceT <= stamp) applyEvent(state, event);
   }
   const expected = frameFromState(state, model, 0).overallProgress;
   assert.equal(progressAt(model, stamp), expected);

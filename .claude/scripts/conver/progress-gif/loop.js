@@ -1291,20 +1291,18 @@ export function frameFromState(state, model, index) {
 }
 
 /**
- * The animation state at one timestamp. The marker and the animation share the
- * ordinal timeline; the marker applies the prefix ending at the last event whose
- * evidence time is at or before the stamp, so it is always a frame-shaped state.
+ * The animation state at one timestamp. Only events whose evidence time is at or
+ * before the stamp may contribute: an ordinal prefix would also sweep in work
+ * from an early stage that happened after the stamp, which is exactly the work
+ * the previous-render marker must exclude.
  */
 // [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
 export function progressAt(model, timestamp) {
   const timeline = buildTimeline(model);
   const state = createFrameState(model, timeline);
-  let lastIndex = -1;
-  timeline.timeline.forEach((event, index) => {
-    if (event.evidenceT <= timestamp) lastIndex = index;
-  });
-  for (let index = 0; index <= lastIndex; index += 1) {
-    applyEvent(state, timeline.timeline[index]);
+  for (const event of timeline.timeline) {
+    if (event.evidenceT > timestamp) continue;
+    applyEvent(state, event);
   }
   return frameFromState(state, model, 0).overallProgress;
 }

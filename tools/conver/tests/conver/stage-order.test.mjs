@@ -161,9 +161,9 @@ test('C004: the other-PC model plays in workflow order, monotonically', () => {
   for (const timestamp of [initialT, Date.parse('2026-10-28T00:00:00Z'), Date.parse('2026-11-05T00:00:00Z')]) {
     const built = buildTimeline(model);
     const state = createFrameState(model, built);
-    let lastIndex = -1;
-    built.timeline.forEach((event, index) => { if (event.evidenceT <= timestamp) lastIndex = index; });
-    for (let index = 0; index <= lastIndex; index += 1) applyEvent(state, built.timeline[index]);
+    for (const event of built.timeline) {
+      if (event.evidenceT <= timestamp) applyEvent(state, event);
+    }
     assert.equal(progressAt(model, timestamp), frameFromState(state, model, 0).overallProgress);
   }
 });

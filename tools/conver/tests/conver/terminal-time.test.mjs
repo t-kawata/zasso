@@ -7,6 +7,7 @@ import {
   buildFrames,
   buildTimeline,
   formatUsageTitle,
+  progressAt,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { INITIAL_TIME, makeModel, packageModel, stageEvent } from './models.mjs';
 
@@ -89,6 +90,36 @@ test('a late event before analysisTime is fully applied and dated today', () => 
   assert.equal(last.t, analysisTime);
   assert.equal(last.pi[0][2], 0.4);
   assert.equal(last.pi[0][15], 1);
+});
+
+test('the previous marker excludes work done after the previous render', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const initialT = Date.parse('2026-10-26T00:00:00Z');
+  const previousT = Date.parse('2026-11-05T00:00:00Z');
+  const analysisTime = Date.parse('2026-11-06T03:00:00Z');
+  const lateMake = {
+    ...stageEvent('make', Date.parse('2026-11-06T02:30:00Z'), pkg.id, 0.2),
+    timeSource: 'status',
+  };
+  const model = makeModel({
+    initialT,
+    analysisTime,
+    packages: [pkg],
+    events: [
+      { ...stageEvent('educe', initialT, null, 0.5), timeSource: 'status' },
+      lateMake,
+      { ...stageEvent('drill', Date.parse('2026-11-04T23:00:00Z'), pkg.id, 0.5), timeSource: 'status' },
+    ],
+  });
+  const withoutLateWork = makeModel({
+    initialT,
+    analysisTime,
+    packages: [pkg],
+    events: model.events.filter((event) => event.stage !== 'make'),
+  });
+
+  assert.equal(progressAt(model, previousT), progressAt(withoutLateWork, previousT));
+  assert.ok(progressAt(model, analysisTime) > progressAt(model, previousT));
 });
 
 test('every event is applied by the final frame', () => {
