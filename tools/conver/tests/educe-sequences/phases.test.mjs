@@ -211,6 +211,7 @@ test('phase 9 preserves a v3 artifact that is already present', () => {
 
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('phase 9 refuses an ungrounded pinned column before writing the artifact', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
   const { context } = open();
   const declarationPath = join(context.directory, 'declaration.json');
   const declaration = JSON.parse(readFileSync(declarationPath, 'utf8'));
@@ -222,7 +223,7 @@ test('phase 9 refuses an ungrounded pinned column before writing the artifact', 
   const spanPath = join(context.directory, 'readings-span.jsonl');
   const span = readFileSync(spanPath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
   span[0].operations = span[0].operations.map((operation) => operation.id === 'Admit'
-    ? { ...operation, disposition: 'active', required_proof_classes: [] }
+    ? { ...operation, disposition: 'active', external_dependency_class: 'none', required_proof_classes: [] }
     : operation);
   writeFileSync(spanPath, `${span.map((row) => JSON.stringify(row)).join('\n')}\n`);
 

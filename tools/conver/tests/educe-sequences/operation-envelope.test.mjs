@@ -12,6 +12,7 @@ import {
   readArtifactSchema,
   readSpecification,
 } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
+import { SURFACES, surfaceAvailabilityOf } from '../../.claude/scripts/smooth-sequences/lib/surfaces.mjs';
 
 const { buildArtifact } = artifactModule;
 
@@ -47,6 +48,14 @@ function operationsWithStatus(overrides = {}) {
       allowed_status_transitions: { Pending: ['Settled'], Settled: [] },
       ...overrides,
     }
+    : operation);
+}
+
+/** The ledger readings with Admit active and its finality surface stated. */
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+function operationsWithFinality(overrides = {}) {
+  return RUN_INPUT.readings.operations.map((operation) => operation.id === 'Admit'
+    ? { ...operation, disposition: 'active', external_dependency_class: 'none', ...overrides }
     : operation);
 }
 
@@ -176,4 +185,78 @@ test('PX-386 C005: a well-formed finality axis reaches the artifact', () => {
   const admit = artifact.operations.find((operation) => operation.id === 'Admit');
   assert.equal(admit.external_dependency_class, 'network');
   assert.equal(admit.finality_predicate, 'closed when the peer acknowledges');
+});
+
+// PX-388 @verifies C001
+// The smooth detector reads external_dependency_class on every active operation and
+// blocks the finality surface when it is absent. An artifact composed without the axis
+// can never complete, so the producer refuses it and names the operation to repair.
+
+test('PX-388 C001: an active operation without the dependency class is refused', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+  const operations = operationsWithFinality({ external_dependency_class: undefined });
+  assert.throws(
+    () => compose({ readings: { ...RUN_INPUT.readings, operations } }),
+    (error) => error.code === 'OPERATION_EXTERNAL_DEPENDENCY_MISSING' && /Admit/.test(error.message),
+  );
+});
+
+test('PX-388 C001: the schema declares the required finality axes', () => {
+  const axes = readArtifactSchema().operations.envelope.axes;
+  assert.equal(axes.external_dependency_class, 'string');
+  assert.equal(axes.finality_predicate, 'string');
+});
+
+// PX-388 @verifies C002
+// A non-none class claims the operation waits on an external system; without a finality
+// predicate the claim cannot be checked, so the reading is refused with both facts named.
+
+test('PX-388 C002: a non-none class without finality is refused', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+  const operations = operationsWithFinality({ external_dependency_class: 'network' });
+  assert.throws(
+    () => compose({ readings: { ...RUN_INPUT.readings, operations } }),
+    (error) => error.code === 'OPERATION_FINALITY_MISSING'
+      && /Admit/.test(error.message) && /network/.test(error.message),
+  );
+});
+
+// PX-388 @verifies C003
+// The artifact that passes the gate is the artifact smooth measures: every active
+// operation carries the class, and the EXTERNAL_DEPENDENCY surface reports present.
+// An operation whose disposition is not active is outside the surface and stays exempt.
+
+test('PX-388 C003: none composes and reaches the artifact', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+  const artifact = compose({ readings: { ...RUN_INPUT.readings, operations: operationsWithFinality() } });
+  const admit = artifact.operations.find((operation) => operation.id === 'Admit');
+  assert.equal(admit.external_dependency_class, 'none');
+});
+
+test('PX-388 C003: a non-none class with finality reaches the artifact unchanged', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+  const operations = operationsWithFinality({
+    external_dependency_class: 'network',
+    finality_predicate: 'closed when the peer acknowledges',
+  });
+  const artifact = compose({ readings: { ...RUN_INPUT.readings, operations } });
+  const admit = artifact.operations.find((operation) => operation.id === 'Admit');
+  assert.equal(admit.external_dependency_class, 'network');
+  assert.equal(admit.finality_predicate, 'closed when the peer acknowledges');
+});
+
+test('PX-388 C003: a non-active operation is exempt from the requirement', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+  const operations = RUN_INPUT.readings.operations.map((operation) => operation.id === 'Admit'
+    ? { ...operation, disposition: 'disposed', external_dependency_class: 'network' }
+    : operation);
+  assert.doesNotThrow(() => compose({ readings: { ...RUN_INPUT.readings, operations } }));
+});
+
+test('PX-388 C003: the artifact makes the smooth external-dependency surface present', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+  const artifact = compose({ readings: { ...RUN_INPUT.readings, operations: operationsWithFinality() } });
+  const availability = surfaceAvailabilityOf({ artifact }, SURFACES.EXTERNAL_DEPENDENCY);
+  assert.equal(availability.present, true);
+  assert.equal(availability.cardinality, 1);
 });

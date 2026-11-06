@@ -177,3 +177,14 @@ test('C001 the command names every declared operation envelope axis', () => {
   }
   assert.match(COMMAND, /OperationStatus/);
 });
+
+// PX-388 @verifies C001
+// The reader must know the axis is required and which refusal it will see, or it can
+// satisfy the command by omitting the fact and still report COMPLETE.
+
+test('PX-388 C001: the command requires the class on every active operation', () => {
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+  assert.match(COMMAND, /Every active operation states `external_dependency_class`/);
+  assert.match(COMMAND, /OPERATION_EXTERNAL_DEPENDENCY_MISSING/);
+  assert.match(COMMAND, /OPERATION_FINALITY_MISSING/);
+});
