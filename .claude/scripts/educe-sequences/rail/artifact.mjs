@@ -44,6 +44,12 @@ const V3_ARTIFACT_SURFACES = Object.freeze([
 /** The operation envelope the artifact schema declares. */
 const OPERATION_ENVELOPE = readArtifactSchema().operations.envelope;
 
+/** The disposition an active operation carries; the same predicate smooth reads. */
+const ACTIVE_OPERATION_DISPOSITION = 'active';
+
+/** The class an operation reads when it waits on no external system. */
+const NO_EXTERNAL_DEPENDENCY = 'none';
+
 /** The status members a status-bearing operation may use, or null when unstated. */
 // [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
 function operationStatusMembers(pins) {
@@ -113,13 +119,46 @@ function assertAxisShape(operation, axis, value, shape) {
   throw envelopeError('OPERATION_ENVELOPE_SHAPE', `operation ${operation.id} ${axis} names unknown shape ${shape}`);
 }
 
+/** Whether the operation is active, and so subject to the finality surface. */
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+function isActiveOperation(operation) {
+  return operation?.disposition === ACTIVE_OPERATION_DISPOSITION;
+}
+
+/**
+ * Require the dependency class the smooth finality check reads.
+ *
+ * smooth blocks S3.finality-missing-for-external when an active operation omits the
+ * axis, so an artifact that omits it can never complete. The refusal names the id so
+ * the reader repairs the reading rather than guesses which operation is missing.
+ */
+// [::TICKET::] PX-388 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-388 --for-spec --no-implementation-order`.
+function assertExternalDependencyStated(operation) {
+  const dependencyClass = operation.external_dependency_class;
+  if (typeof dependencyClass !== 'string') {
+    throw envelopeError(
+      'OPERATION_EXTERNAL_DEPENDENCY_MISSING',
+      `operation ${operation.id} is active and declares no external_dependency_class`,
+    );
+  }
+  if (dependencyClass !== NO_EXTERNAL_DEPENDENCY && typeof operation.finality_predicate !== 'string') {
+    throw envelopeError(
+      'OPERATION_FINALITY_MISSING',
+      `operation ${operation.id} waits on ${dependencyClass} and declares no finality_predicate`,
+    );
+  }
+}
+
 /**
  * Validate the operation envelope axes the specification declared.
  *
- * An absent axis is not an error: a project that states no status axis carries neither
- * status field. A present axis must have the declared shape, and a status value must be a
- * member of the declared OperationStatus enumeration, so a non-member never reaches the
- * view or sequences-slice C6.
+ * An absent optional axis is not an error: a project that states no status axis carries
+ * neither status field. One axis is required on every active operation:
+ * external_dependency_class is the surface smooth's finality check reads, so omitting it
+ * would produce an artifact smoothing can never complete. A non-none class also requires
+ * finality_predicate. A present axis must have the declared shape, and a status value must
+ * be a member of the declared OperationStatus enumeration, so a non-member never reaches
+ * the view or sequences-slice C6.
  *
  * @param {object[]} operations — the composed operation rows
  * @param {object} pins — the pins established for this generation
@@ -134,6 +173,7 @@ export function validateOperationEnvelope(operations, pins) {
       if (operation[axis] === undefined) continue;
       assertAxisShape(operation, axis, operation[axis], shape);
     }
+    if (isActiveOperation(operation)) assertExternalDependencyStated(operation);
     if (operation.initial_status !== undefined) {
       assertStatusMember(operation, operation.initial_status, members, 'initial_status');
     }
