@@ -73,6 +73,29 @@ function countAuthoredSteps(index) {
   return (index.artifact?.steps ?? []).filter((step) => hasAuthoredContract(step)).length;
 }
 
+/** Whether a step carries at least one typed authored fact. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function hasTypedAuthoredContract(step) {
+  if (['synthesized', 'projected'].includes(step?.contract?.contract_origin)) return false;
+  const authored = step?.contract?.authored;
+  return authored !== null
+    && typeof authored === 'object'
+    && AUTHORED_FACT_FIELDS.some((field) => Array.isArray(authored[field]) && authored[field].length > 0);
+}
+
+/** The steps a typed check can actually evaluate: typed authored facts only. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+export function countTypedAuthoredSteps(index) {
+  return (index.artifact?.steps ?? []).filter((step) => hasTypedAuthoredContract(step)).length;
+}
+
+/** Whether the workspace states any prose contract at all. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function hasProseContractSteps(index) {
+  return (index.artifact?.steps ?? []).some((step) => typeof step?.contract_prose === 'string'
+    && step.contract_prose.trim() !== '');
+}
+
 /** The typed steps that declare at least one crossing. */
 // [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -309,17 +332,17 @@ export const CHECK_REGISTRY = Object.freeze([
   check('S5.precondition-not-implied', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countAuthoredSteps,
+    denominator: countTypedAuthoredSteps,
   }),
   check('S5.consumes-not-produced', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countAuthoredSteps,
+    denominator: countTypedAuthoredSteps,
   }),
   check('S5.error-set-mismatch', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countAuthoredSteps,
+    denominator: countTypedAuthoredSteps,
   }),
   check('S5.boundary-uncovered', 'meshing', {
     requires: [SURFACES.STEP_CROSSINGS, SURFACES.CONTRACT_REGISTRY],
@@ -339,7 +362,7 @@ export const CHECK_REGISTRY = Object.freeze([
   check('S5.authored-source-missing', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countAuthoredSteps,
+    denominator: countTypedAuthoredSteps,
   }),
   check('S6.cycle', 'danger', {
     requires: [SURFACES.TYPED_STEP_CONTRACTS],
@@ -416,6 +439,50 @@ function buildVacuousEntry(entry, denominator) {
   };
 }
 
+/** A check the project states does not apply, with the ground it cites. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function buildNotApplicableEntry(entry, reason, ground = null) {
+  return {
+    id: entry.id,
+    family: entry.family,
+    status: 'notApplicable',
+    reason,
+    ground,
+    denominator: 0,
+    evaluatedClaims: 0,
+  };
+}
+
+/** The authored applicability family each check belongs to. */
+const APPLICABILITY_KEY_BY_CHECK = Object.freeze({
+  'S3.status-initial-unknown': 'S3.status',
+  'S3.transition-target-unknown': 'S3.status',
+  'S3.transition-out-of-terminal': 'S3.status',
+  'S3.interface-mapping-missing': 'S3.interface',
+  'S3.interface-value-unknown': 'S3.interface',
+  'S4.contribution-missing': 'S4.contribution',
+  'S4.contribution-ground-missing': 'S4.contribution',
+  'S4.contribution-unowned': 'S4.contribution',
+  'S5.precondition-not-implied': 'S5.meshing',
+  'S5.consumes-not-produced': 'S5.meshing',
+  'S5.error-set-mismatch': 'S5.meshing',
+  'S5.authored-source-missing': 'S5.meshing',
+  'S6.cycle': 'S6.danger',
+  'S6.object-flow-missing': 'S6.danger',
+  'S6.graph-empty': 'S6.danger',
+  'S6.orphan-object': 'S6.danger',
+  'S6.order-contradiction': 'S6.danger',
+  'S6.boundary-effect-drift': 'S6.danger',
+});
+
+/** The authored not-applicable record for a check, or null. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function applicabilityForCheck(checkId, index) {
+  const key = APPLICABILITY_KEY_BY_CHECK[checkId];
+  const record = key === undefined ? undefined : index.vocabulary?.applicability?.[key];
+  return record?.applicable === false ? record : null;
+}
+
 /**
  * Classify one check by its denominator and the claims it actually evaluated.
  *
@@ -424,16 +491,39 @@ function buildVacuousEntry(entry, denominator) {
  */
 // [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-export function classifyCheck({ denominator, evaluatedClaims, required = true }) {
+export function classifyCheck({ denominator, evaluatedClaims, required = true, applicable = true }) {
+  if (applicable === false) return { status: 'notApplicable', reason: 'declared not applicable', evaluatedClaims: 0 };
   if (denominator === 0) return { status: 'blocked', reason: 'empty denominator', evaluatedClaims: 0 };
   if (required && evaluatedClaims === 0) return { status: 'vacuous', reason: 'zero evaluated claims', evaluatedClaims: 0 };
   return { status: 'executed', reason: null, evaluatedClaims };
 }
 
 /** The claims a check actually evaluates, over and above its row denominator. */
-// [::TICKET::] PX-289, PX-290 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-289|PX-290) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-289, PX-290, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-289|PX-290|PX-383) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+function countAuthoredFacts(index, fields) {
+  let count = 0;
+  for (const step of collectTypedSteps(index)) {
+    const authored = step.contract?.authored;
+    if (authored === null || typeof authored !== 'object') continue;
+    for (const field of fields) {
+      if (Array.isArray(authored[field])) count += authored[field].length;
+    }
+  }
+  return count;
+}
+
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
 function evaluatedClaimsFor(entry, index, denominator) {
+  if (entry.id === 'S3.interface-mapping-missing' || entry.id === 'S3.interface-value-unknown') {
+    const requiredInterfaces = index.vocabulary?.requiredInterfaces;
+    if (!Array.isArray(requiredInterfaces) || requiredInterfaces.length === 0) return 0;
+    return countActiveOperations(index) * requiredInterfaces.length;
+  }
+  if (entry.id === 'S5.precondition-not-implied') return countAuthoredFacts(index, ['pre']);
+  if (entry.id === 'S5.consumes-not-produced') return countAuthoredFacts(index, ['consumes']);
+  if (entry.id === 'S5.error-set-mismatch') return countAuthoredFacts(index, ['errors']);
+  if (entry.id === 'S5.authored-source-missing') return countAuthoredFacts(index, ['pre', 'post', 'invariants']);
   if (entry.id === 'S6.boundary-effect-drift') return countActiveOperations(index);
   return denominator;
 }
@@ -481,10 +571,19 @@ export function buildFamilySubChecks(family, index, skippedReasons = new Map()) 
       const stated = skippedReasons.get(entry.id);
       if (stated !== undefined) return buildBlockedEntry(entry, entry.requires[0] ?? 'unknown', stated);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+      const applicability = applicabilityForCheck(entry.id, index);
+      if (applicability !== null) {
+        return buildNotApplicableEntry(entry, 'declared not applicable', applicability.ground);
+      }
       const reason = findBlockingReason(entry, index);
       if (reason !== null) return buildBlockedEntry(entry, reason.surface, reason.reason);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const denominator = entry.denominator(index);
+      if (denominator === 0
+        && entry.requires.includes(SURFACES.AUTHORED_CONTRACTS)
+        && hasProseContractSteps(index)) {
+        return buildNotApplicableEntry(entry, 'prose contracts are not typed evidence');
+      }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const evaluatedClaims = evaluatedClaimsFor(entry, index, denominator);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.

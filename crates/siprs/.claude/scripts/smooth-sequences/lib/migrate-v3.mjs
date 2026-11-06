@@ -33,6 +33,10 @@ export const SCHEMA_V2 = 2;
 export const SCHEMA_V3 = 3;
 export const UNCITED_AUTHORED_FACT = 'UNCITED_AUTHORED_FACT';
 export const UNCITED_BOUNDARY_GROUND = 'UNCITED_BOUNDARY_GROUND';
+export const VACUOUS_AUTHORED_FACT = 'VACUOUS_AUTHORED_FACT';
+
+/** A quote shorter than this cannot support a fact beyond restating itself. */
+const MIN_QUOTE_CONTENT_TOKENS = 3;
 export const UNKNOWN_ANNOTATION_TARGET = 'UNKNOWN_ANNOTATION_TARGET';
 
 const AUTHORSHIP_KEY = 'authorship';
@@ -356,12 +360,28 @@ function hasAnnotations(annotations) {
     || (annotations?.grounded_objects ?? []).length > 0;
 }
 
-/** Refuse an authored assertion that does not cite its step line and quote. */
+/** Whether a fact merely restates a quote too short to support it. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function isVacuousFact(entry, quote) {
+  const quoteTokens = contentTokens(quote);
+  const factTokens = contentTokens(entry.text);
+  return quoteTokens.length < MIN_QUOTE_CONTENT_TOKENS
+    && factTokens.length > 0
+    && factTokens.every((token) => quoteTokens.includes(token));
+}
+
+/** Refuse an authored assertion that does not cite its source line and quote. */
 export function assertCitedFact(entry, step, field, options = {}) {
   const refuse = (why) => {
     throw new SmoothSequencesError(`authored ${field} entry of ${step.id} is uncited: ${why}`, {
       code: UNCITED_AUTHORED_FACT,
-      repair: `Record {factId, text, source: {step: "${step.id}", line: ${step.line}, quote: <substring of the step quote>}} or mark a typed origin {origin: "contract_registry", source: {boundaryId, field}}.`,
+      repair: `Record {factId, text, source: {step: "${step.id}", line: ${step.line}, quote: <substring of the step quote>}} or {operation, line, quote} on the operation line, or mark a typed origin {origin: "contract_registry", source: {boundaryId, field}}.`,
+    });
+  };
+  const refuseVacuous = (why) => {
+    throw new SmoothSequencesError(`authored ${field} entry of ${step.id} is vacuous: ${why}`, {
+      code: VACUOUS_AUTHORED_FACT,
+      repair: 'State a fact the cited quote supports beyond a one-word restatement, or cite a typed row.',
     });
   };
   if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) refuse('it is not a fact object');
@@ -369,15 +389,31 @@ export function assertCitedFact(entry, step, field, options = {}) {
   if (typeof entry.text !== 'string' || entry.text.trim() === '') refuse('it has no text');
   const source = entry.source;
   if (source === null || typeof source !== 'object' || Array.isArray(source)) refuse('it has no source object');
-  if (source.step !== step.id) refuse(`source step ${source.step} is not ${step.id}`);
-  if (source.line !== step.line) refuse(`source line ${source.line} is not ${step.line}`);
-  const quote = normalizeQuote(source.quote);
-  if (quote === '' || !normalizeQuote(step.quote).includes(quote)) refuse('the quote is not in the step quote');
+
+  let citationQuote;
+  if (typeof source.operation === 'string' && source.operation.length > 0) {
+    if (source.operation !== step.operation) refuse(`source operation ${source.operation} is not ${step.operation}`);
+    if (!Number.isInteger(source.line) || source.line < 1) refuse('the operation citation has no line');
+    const specLine = options.specLines?.[options.specPath]?.[source.line - 1];
+    if (typeof specLine !== 'string') refuse(`the specification line ${source.line} is unavailable`);
+    const quote = normalizeQuote(source.quote);
+    if (quote === '' || !normalizeQuote(specLine).includes(quote)) refuse('the quote is not in the operation line');
+    citationQuote = specLine;
+  } else {
+    if (source.step !== step.id) refuse(`source step ${source.step} is not ${step.id}`);
+    if (source.line !== step.line) refuse(`source line ${source.line} is not ${step.line}`);
+    const quote = normalizeQuote(source.quote);
+    if (quote === '' || !normalizeQuote(step.quote).includes(quote)) refuse('the quote is not in the step quote');
+    citationQuote = step.quote;
+  }
 
   const origin = resolveFactOrigin(entry, { ...options, step });
   if (origin === null) {
-    if (!isFactTextSupported(entry.text, step.quote)) {
-      refuse('the text is not supported by the step quote and cites no typed row');
+    if (!isFactTextSupported(entry.text, citationQuote)) {
+      refuse('the text is not supported by the cited quote and cites no typed row');
+    }
+    if (isVacuousFact(entry, citationQuote)) {
+      refuseVacuous('the fact restates a quote too short to support it');
     }
     return;
   }
@@ -506,9 +542,18 @@ function synthesizedSurfacesOf(authorship) {
 }
 
 /** Build the v3 artifact from a v2 artifact and an annotations document. */
-// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306, PX-310, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288|PX-306|PX-310|PX-383) --for-spec --no-implementation-order`.
 function migrateV2ToV3(input) {
-  const { artifact, treeManifest, allocateManifest, packages, sourceDigest, annotations = {} } = input;
+  const {
+    artifact,
+    treeManifest,
+    allocateManifest,
+    packages,
+    sourceDigest,
+    annotations = {},
+    specLines = {},
+    specPath = artifact?.spec?.path,
+  } = input;
   const boundaries = treeManifest.dependencies?.boundaries ?? [];
   const boundariesById = new Map(boundaries.map((boundary) => [boundary.id, boundary]));
   const contractsByBoundary = new Map((allocateManifest.contract_registry ?? []).map((contract) => [contract.boundary_id, contract]));
@@ -535,6 +580,8 @@ function migrateV2ToV3(input) {
         ...normalizeAuthoredContract(authored, step, {
           contractRegistry: allocateManifest.contract_registry ?? [],
           operation,
+          specLines,
+          specPath,
         }),
       };
     return {
@@ -638,9 +685,16 @@ function previousAuthoredIds(authorship, previousSynthesized, surface, allIds) {
 }
 
 /** Merge a new annotations document into an existing v3 artifact. */
-// [::TICKET::] PX-286, PX-288, PX-306, PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288|PX-306|PX-310) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-286, PX-288, PX-306, PX-310, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-286|PX-288|PX-306|PX-310|PX-383) --for-spec --no-implementation-order`.
 function mergeAnnotationsIntoV3(input) {
-  const { artifact, treeManifest, allocateManifest = null, annotations = {} } = input;
+  const {
+    artifact,
+    treeManifest,
+    allocateManifest = null,
+    annotations = {},
+    specLines = {},
+    specPath = artifact?.spec?.path,
+  } = input;
   const next = JSON.parse(JSON.stringify(artifact));
   const boundaries = treeManifest?.dependencies?.boundaries ?? [];
   const boundariesById = new Map(boundaries.map((boundary) => [boundary.id, boundary]));
@@ -664,6 +718,8 @@ function mergeAnnotationsIntoV3(input) {
     const authored = normalizeAuthoredContract(contract, step, {
       contractRegistry: allocateManifest?.contract_registry ?? [],
       operation,
+      specLines,
+      specPath,
     });
     step.contract = { ...authored, authored: { ...authored }, contract_origin: classifyContractOrigin(authored, derived) };
     if (typeof contract.contract_prose === 'string' && contract.contract_prose.trim() !== '') {

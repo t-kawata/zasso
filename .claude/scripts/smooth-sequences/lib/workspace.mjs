@@ -78,6 +78,16 @@ function packageDirectory(root, packagePath) {
  * @returns {object} a frozen workspace value
  */
 // [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
+/** The specification lines an authored notApplicable ground is verified against. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function readSpecificationLines(root, artifact) {
+  const relative = artifact?.spec?.path;
+  if (typeof relative !== 'string' || relative.length === 0) return { specPath: null, specLines: {} };
+  const absolute = resolve(root, relative);
+  if (!existsSync(absolute)) return { specPath: relative, specLines: {} };
+  return { specPath: relative, specLines: { [relative]: readFileSync(absolute, 'utf8').split('\n') } };
+}
+
 export function loadWorkspace(root) {
   const treeManifest = readJsonFile(join(root, TREE_MANIFEST_FILE_NAME), {
     code: 'UNREADABLE_TREE_MANIFEST',
@@ -110,7 +120,12 @@ export function loadWorkspace(root) {
     allocateManifest,
     artifact,
     packages,
-    vocabulary: loadVocabulary({ artifact, artifactPath, allocateManifest }),
+    vocabulary: loadVocabulary({
+      artifact,
+      artifactPath,
+      allocateManifest,
+      specification: readSpecificationLines(root, artifact),
+    }),
   });
 }
 

@@ -27,6 +27,18 @@ const DECLARATION_START = /^\s*(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe
 /** An impl block, with or without a trait. */
 const IMPL_LINE = /^\s*impl(?:<[^>]*>)?\s+(?:[\w:]+\s+for\s+)?([A-Za-z_]\w*)/;
 
+/** A trait impl, whose methods belong to the implemented type rather than the trait. */
+const TRAIT_IMPL_LINE = /^\s*impl(?:<[^>]*>)?\s+([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)(?:<[^>]*>)?\s+for\s+([A-Za-z_]\w*)/;
+
+/** A use statement, which declares scope rather than referencing a symbol. */
+const USE_START = /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+/;
+
+/** The target of a type alias, so an alias can resolve the declaration it names. */
+const TYPE_ALIAS_TARGET = /=\s*([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*;/;
+
+/** A module declaration, whose name is a namespace rather than a type. */
+const MODULE_LINE = /^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_]\w*)/;
+
 /** A type used with generic arguments, or a bare capitalised identifier. */
 const TYPE_USE = /\b([A-Z]\w*)\s*(?:<([^<>]*(?:<[^<>]*>[^<>]*)*)>)?/g;
 
@@ -124,6 +136,12 @@ function parameterCountOf(parameterText) {
   return splitTopLevel(parameterText).filter((parameter) => !SELF_PARAMETER.test(parameter)).length;
 }
 
+/** Whether a method's parameter list takes a receiver. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function hasReceiver(parameterText) {
+  return splitTopLevel(parameterText).some((parameter) => SELF_PARAMETER.test(parameter));
+}
+
 /** The generic parameter names a `<...>` list declares. */
 // [::TICKET::] PX-369, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-372) --for-spec --no-implementation-order`.
 function genericParameterNames(genericText) {
@@ -151,7 +169,7 @@ function fieldNames(bodyLines) {
  * workspace should have declared. Reading it as an undefined type made every enum
  * result look like a missing cross-package symbol.
  */
-// [::TICKET::] PX-371, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-371|PX-372) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-371, PX-372, PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-371|PX-372|PX-382|PX-383) --for-spec --no-implementation-order`.
 function enumVariantNames(bodyLines) {
   const names = [];
   for (const line of bodyLines) {
@@ -267,19 +285,171 @@ function readFunctionSignature(lines, startIndex, nameEndColumn) {
   };
 }
 
+/** The matching opening brace for a `{`, or -1. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function matchingBrace(text, openIndex) {
+  let depth = 0;
+  for (let index = openIndex; index < text.length; index += 1) {
+    if (text[index] === '{') depth += 1;
+    if (text[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+/** One entry of a use statement, with the prefix it inherits. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function parseUseEntry(entry, prefixSegments) {
+  const trimmed = entry.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed === '*') {
+    return { segments: prefixSegments, alias: '*', glob: true };
+  }
+  const aliasMatch = /^(.+?)\s+as\s+([A-Za-z_]\w*)$/.exec(trimmed);
+  const path = aliasMatch === null ? trimmed : aliasMatch[1].trim();
+  const alias = aliasMatch === null ? null : aliasMatch[2];
+  const glob = path.endsWith('::*');
+  const pathText = glob ? path.slice(0, -'::*'.length) : path;
+  const segments = pathText.split('::').filter((segment) => segment.length > 0);
+  if (segments.length === 0) return null;
+  return {
+    segments: [...prefixSegments, ...segments],
+    alias: glob ? '*' : (alias ?? segments[segments.length - 1]),
+    glob,
+  };
+}
+
+/** Flatten a use body, including one or more braced groups, into path entries. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function flattenUseBody(body, prefixSegments = []) {
+  const braceIndex = body.indexOf('{');
+  if (braceIndex === -1) {
+    return splitTopLevel(body)
+      .map((entry) => parseUseEntry(entry, prefixSegments))
+      .filter((entry) => entry !== null);
+  }
+  const head = body.slice(0, braceIndex).replace(/::$/, '').trim();
+  const headSegments = head.length === 0 ? [] : head.split('::').filter((segment) => segment.length > 0);
+  const closeIndex = matchingBrace(body, braceIndex);
+  if (closeIndex === -1) return null;
+  const inner = body.slice(braceIndex + 1, closeIndex);
+  const suffix = body.slice(closeIndex + 1).trim();
+  if (suffix.length > 0 && suffix !== ';') return null;
+  const results = [];
+  for (const entry of splitTopLevel(inner)) {
+    if (entry.includes('{')) {
+      const nested = flattenUseBody(entry, [...prefixSegments, ...headSegments]);
+      if (nested === null) return null;
+      results.push(...nested);
+    } else {
+      const parsed = parseUseEntry(entry, [...prefixSegments, ...headSegments]);
+      if (parsed !== null) results.push(parsed);
+    }
+  }
+  return results;
+}
+
+/** Group one use statement's path entries by root and module path. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function parseUseText(text, line, origin) {
+  const withoutSemicolon = text.replace(/;?\s*$/, '').trim();
+  const isPublic = /^pub(?:\([^)]*\))?\s+/.test(withoutSemicolon);
+  const body = withoutSemicolon.replace(/^pub(?:\([^)]*\))?\s+/, '').replace(/^use\s+/, '').trim();
+  const entries = flattenUseBody(body);
+  if (entries === null || entries.length === 0) {
+    return { imports: [], unparsed: [{ line, reason: 'use statement shape could not be read' }] };
+  }
+  const groups = new Map();
+  for (const entry of entries) {
+    if (entry.segments.length === 0) {
+      return { imports: [], unparsed: [{ line, reason: 'use statement shape could not be read' }] };
+    }
+    const root = entry.segments[0];
+    const modulePath = entry.segments.slice(0, -1);
+    const key = `${root}\u0000${modulePath.join('::')}\u0000${isPublic}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        root,
+        modulePath,
+        names: [],
+        glob: false,
+        public: isPublic,
+        line,
+        packageId: origin.packageId,
+        rfcPath: origin.rfcPath,
+      });
+    }
+    const group = groups.get(key);
+    group.names.push({
+      name: entry.segments[entry.segments.length - 1],
+      alias: entry.alias,
+      glob: entry.glob,
+    });
+    if (entry.glob) group.glob = true;
+  }
+  return { imports: [...groups.values()], unparsed: [] };
+}
+
+/**
+ * Every use statement in a fence, with the use text blanked out.
+ *
+ * A use statement may share a line with a declaration. The sanitized lines keep the
+ * columns of the remaining code intact while removing the use text, so the parser can
+ * read both the import and the declaration that follows it.
+ */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function collectUseStatements(lines, firstLine, origin) {
+  const imports = [];
+  const unparsed = [];
+  const sanitizedLines = [...lines];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!USE_START.test(stripNonCode(sanitizedLines[index]))) continue;
+    const startIndex = index;
+    let statement = '';
+    let closed = false;
+    for (; index < lines.length; index += 1) {
+      const code = stripNonCode(sanitizedLines[index]);
+      const semicolon = code.indexOf(';');
+      const segment = semicolon === -1 ? code : code.slice(0, semicolon + 1);
+      statement += ` ${segment}`;
+      const original = sanitizedLines[index];
+      const consumedEnd = semicolon === -1 ? original.length : semicolon + 1;
+      sanitizedLines[index] = ' '.repeat(consumedEnd) + original.slice(consumedEnd);
+      if (semicolon !== -1) {
+        closed = true;
+        break;
+      }
+    }
+    if (!closed) {
+      unparsed.push({ line: firstLine + startIndex, reason: 'use statement shape could not be read' });
+      continue;
+    }
+    const parsed = parseUseText(statement.trim(), firstLine + startIndex, origin);
+    imports.push(...parsed.imports);
+    unparsed.push(...parsed.unparsed);
+  }
+  return { imports, unparsed, sanitizedLines };
+}
+
 /**
  * Read one Rust fence into declarations, references and unparsed constructs.
  *
  * @param {string[]} lines — the fence body, without the fence markers
  * @param {number} firstLine — the RFC line number of the first body line
  * @param {{ packageId: string, rfcPath: string }} origin
- * @returns {{ declarations: object[], references: object[], unparsed: object[] }}
+ * @returns {{ declarations: object[], references: object[], unparsed: object[], imports: object[] }}
  */
-// [::TICKET::] PX-369, PX-371, PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371|PX-372) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-371, PX-372, PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371|PX-372|PX-382|PX-383) --for-spec --no-implementation-order`.
 function parseFence(lines, firstLine, origin) {
   const declarations = [];
   const references = [];
   const unparsed = [];
+  const useStatements = collectUseStatements(lines, firstLine, origin);
+  unparsed.push(...useStatements.unparsed);
+  const { imports } = useStatements;
+  lines = useStatements.sanitizedLines;
   const declaredOnLine = new Map();
   const skippedLines = new Set();
   const typeDeclarationLines = new Set();
@@ -291,6 +461,7 @@ function parseFence(lines, firstLine, origin) {
   const unparsedDeclarationLines = new Set();
   let implementationType = null;
   let implementationDepth = 0;
+  let implementationOpened = false;
   let traitName = null;
   let traitDepth = 0;
 
@@ -316,7 +487,8 @@ function parseFence(lines, firstLine, origin) {
     }
 
     if (trimmed.startsWith('impl')) {
-      const match = IMPL_LINE.exec(line);
+      const traitImpl = TRAIT_IMPL_LINE.exec(line);
+      const match = traitImpl === null ? IMPL_LINE.exec(line) : [traitImpl[0], traitImpl[2]];
       if (match === null) {
         unparsed.push({ line: lineNumber, reason: 'impl block could not be read' });
         unparsedDeclarationLines.add(index);
@@ -328,7 +500,8 @@ function parseFence(lines, firstLine, origin) {
       }
       implementationType = match[1];
       implementationDepth = braceDelta(line);
-      if (implementationDepth <= 0) {
+      implementationOpened = implementationDepth > 0;
+      if (implementationDepth <= 0 && line.includes('{')) {
         // A one-line impl: read the methods between its braces on this same line.
         const open = line.indexOf('{');
         const close = line.lastIndexOf('}');
@@ -341,6 +514,7 @@ function parseFence(lines, firstLine, origin) {
               kind: 'fn',
               genericArity: 0,
               parameterCount: parameterCountOf(method[2]),
+              receiver: hasReceiver(method[2]),
               fields: [],
               packageId: origin.packageId,
               rfcPath: origin.rfcPath,
@@ -355,7 +529,8 @@ function parseFence(lines, firstLine, origin) {
 
     if (implementationType !== null) {
       implementationDepth += braceDelta(line);
-      if (implementationDepth <= 0) implementationType = null;
+      if (implementationDepth > 0) implementationOpened = true;
+      if (implementationOpened && implementationDepth <= 0) implementationType = null;
     }
 
     const fnMatch = FUNCTION_START.exec(stripNonCode(line));
@@ -375,6 +550,7 @@ function parseFence(lines, firstLine, origin) {
         kind: 'fn',
         genericArity: genericArity(signature.genericText),
         parameterCount: parameterCountOf(signature.parameterText),
+        receiver: hasReceiver(signature.parameterText),
         fields: [],
         packageId: origin.packageId,
         rfcPath: origin.rfcPath,
@@ -391,9 +567,25 @@ function parseFence(lines, firstLine, origin) {
       continue;
     }
 
+    const moduleMatch = MODULE_LINE.exec(line);
+    if (moduleMatch !== null) {
+      declarations.push({
+        symbol: moduleMatch[1],
+        kind: 'module',
+        genericArity: 0,
+        parameterCount: 0,
+        fields: [],
+        packageId: origin.packageId,
+        rfcPath: origin.rfcPath,
+        line: lineNumber,
+      });
+      continue;
+    }
+
     const declaration = DECLARATION_KEYWORD.exec(line);
     if (declaration !== null) {
       const [, keyword, symbol, genericText] = declaration;
+      const aliasTarget = keyword === 'type' ? (TYPE_ALIAS_TARGET.exec(line)?.[1] ?? null) : null;
       if ((keyword === 'const' || keyword === 'static') && symbol === 'fn') {
         unparsed.push({ line: lineNumber, reason: 'declaration shape could not be read' });
         unparsedDeclarationLines.add(index);
@@ -412,7 +604,8 @@ function parseFence(lines, firstLine, origin) {
         kind: keyword,
         genericArity: genericArity(genericText),
         parameterCount: 0,
-        fields: keyword === 'struct' || keyword === 'trait' || keyword === 'enum' ? fieldNames([...inlineBody, ...body]) : [],
+        fields: keyword === 'struct' || keyword === 'enum' ? fieldNames([...inlineBody, ...body]) : [],
+        ...(aliasTarget === null ? {} : { aliasTarget }),
         packageId: origin.packageId,
         rfcPath: origin.rfcPath,
         line: lineNumber,
@@ -556,20 +749,21 @@ function parseFence(lines, firstLine, origin) {
     }
   }
 
-  return { declarations, references, unparsed };
+  return { declarations, references, unparsed, imports };
 }
 
 /**
  * Read every Rust fence in one RFC.
  *
  * @param {{ rfcText: string, packageId: string, rfcPath?: string }} input
- * @returns {{ declarations: object[], references: object[], unparsed: object[] }}
+ * @returns {{ declarations: object[], references: object[], unparsed: object[], imports: object[] }}
  */
 export function parseRustSurface({ rfcText, packageId, rfcPath = '' } = {}) {
   const lines = String(rfcText ?? '').split('\n');
   const declarations = [];
   const references = [];
   const unparsed = [];
+  const imports = [];
   const origin = { packageId, rfcPath };
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -581,8 +775,9 @@ export function parseRustSurface({ rfcText, packageId, rfcPath = '' } = {}) {
     declarations.push(...parsed.declarations);
     references.push(...parsed.references);
     unparsed.push(...parsed.unparsed.map((entry) => ({ ...entry, packageId, rfcPath })));
+    imports.push(...parsed.imports.map((entry) => ({ ...entry, packageId, rfcPath })));
     index = bodyEnd;
   }
 
-  return { declarations, references, unparsed };
+  return { declarations, references, unparsed, imports };
 }

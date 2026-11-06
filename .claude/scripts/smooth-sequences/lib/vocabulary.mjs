@@ -11,6 +11,7 @@
 import { collectCandidateColumns } from '../../sequences-slice/lib/obligation.mjs';
 
 import { SmoothSequencesError } from './errors.mjs';
+import { normalizeFactText } from './fact-origin.mjs';
 
 export const VOCABULARY_FIELD = 'vocabulary';
 export const TERMINAL_STATUS_CHECK = 'S3.terminal-status';
@@ -51,12 +52,82 @@ function readDeclaredNames(value, fieldName, artifactPath) {
   return names;
 }
 
+/**
+ * Verify that an authored ground quotes the specification line it names.
+ *
+ * A notApplicable record is an authored assertion about the project. The assertion is
+ * mechanical only when the cited line exists and carries the quote, so an unreadable or
+ * mismatched ground is refused rather than accepted as a check that does not apply.
+ */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function verifyApplicabilityGround(ground, { artifactPath, checkKey, specPath, specLines }) {
+  const specificationLines = specLines?.[specPath];
+
+  if (!Array.isArray(specificationLines)) {
+    throw invalidVocabulary(
+      artifactPath,
+      `${VOCABULARY_FIELD}.applicability.${checkKey} needs the specification at ${specPath ?? '(unstated path)'} to verify its ground`,
+    );
+  }
+  const lineText = specificationLines[ground.line - 1];
+  if (typeof lineText !== 'string') {
+    throw invalidVocabulary(
+      artifactPath,
+      `${VOCABULARY_FIELD}.applicability.${checkKey} ground line ${ground.line} is not in ${specPath}`,
+    );
+  }
+  const quote = normalizeFactText(ground.quote);
+  if (quote === '' || !normalizeFactText(lineText).includes(quote)) {
+    throw invalidVocabulary(
+      artifactPath,
+      `${VOCABULARY_FIELD}.applicability.${checkKey} ground quote is not on ${specPath} line ${ground.line}`,
+    );
+  }
+}
+
+/**
+ * The applicability a project authors for a check family.
+ *
+ * A check a project states does not apply must carry a specification line and quote;
+ * the detector verifies that the ground is on the line rather than accepting a bare false.
+ */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function readApplicability(declared, artifactPath, specification) {
+  const { specPath, specLines } = specification;
+  const value = declared?.applicability;
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw invalidVocabulary(artifactPath, `${VOCABULARY_FIELD}.applicability must be an object`);
+  }
+  const applicability = {};
+  for (const [checkKey, record] of Object.entries(value)) {
+    if (record === null || typeof record !== 'object' || Array.isArray(record)
+      || typeof record.applicable !== 'boolean') {
+      throw invalidVocabulary(artifactPath, `${VOCABULARY_FIELD}.applicability.${checkKey} must state a boolean applicable`);
+    }
+    if (record.applicable === false) {
+      const ground = record.ground;
+      if (ground === null || typeof ground !== 'object' || Array.isArray(ground)
+        || !Number.isInteger(ground.line) || ground.line < 1
+        || typeof ground.quote !== 'string' || ground.quote.trim() === '') {
+        throw invalidVocabulary(artifactPath, `${VOCABULARY_FIELD}.applicability.${checkKey} needs a ground line and quote`);
+      }
+      const cited = { line: ground.line, quote: ground.quote.trim() };
+      verifyApplicabilityGround(cited, { artifactPath, checkKey, specPath, specLines });
+      applicability[checkKey] = { applicable: false, ground: cited };
+      continue;
+    }
+    applicability[checkKey] = { applicable: true };
+  }
+  return applicability;
+}
+
 /** The two declared lists, each null when the field is absent or null. */
-// [::TICKET::] PX-276, PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-276|PX-297) --for-spec --no-implementation-order`.
-function readDeclaredVocabulary(artifact, artifactPath) {
+// [::TICKET::] PX-276, PX-297, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-276|PX-297|PX-383) --for-spec --no-implementation-order`.
+function readDeclaredVocabulary(artifact, artifactPath, specification) {
   const declared = artifact?.[VOCABULARY_FIELD];
   if (declared === undefined || declared === null) {
-    return { terminalStatuses: null, requiredInterfaces: null, actPatterns: null };
+    return { terminalStatuses: null, requiredInterfaces: null, actPatterns: null, applicability: {} };
   }
   if (typeof declared !== 'object' || Array.isArray(declared)) {
     throw invalidVocabulary(artifactPath, `${VOCABULARY_FIELD} must be an object`);
@@ -65,6 +136,7 @@ function readDeclaredVocabulary(artifact, artifactPath) {
     terminalStatuses: readDeclaredNames(declared.terminalStatuses, 'terminalStatuses', artifactPath),
     requiredInterfaces: readDeclaredNames(declared.requiredInterfaces, 'requiredInterfaces', artifactPath),
     actPatterns: readDeclaredNames(declared.actPatterns, 'actPatterns', artifactPath),
+    applicability: readApplicability(declared, artifactPath, specification),
   };
 }
 
@@ -118,16 +190,16 @@ function declaredInterfaceColumns(allocateManifest) {
  * it. Neither source ever consults whether an operation carries the column, so a missing
  * mapping stays a finding rather than shrinking the required set.
  */
-// [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-276, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-276|PX-383) --for-spec --no-implementation-order`.
 function deriveRequiredInterfaces(artifact, allocateManifest) {
   const declared = declaredInterfaceColumns(allocateManifest);
-  if (declared.length > 0) return declared;
+  if (declared.length > 0) return { names: declared, source: 'allocate.declared_interfaces' };
   const activeArtifact = {
     ...artifact,
     operations: (artifact?.operations ?? []).filter((operation) => operation?.disposition === ACTIVE_DISPOSITION),
   };
   const pinned = collectCandidateColumns(activeArtifact);
-  return pinned.length > 0 ? pinned : null;
+  return pinned.length > 0 ? { names: pinned, source: 'pins.columns' } : { names: null, source: null };
 }
 
 /**
@@ -171,10 +243,18 @@ export function normalizeInterfaceValue(value) {
  *   actPatterns: string[]|null, withheld: Array<{layer: string, check: string, reason: string}> }}
  */
 // [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
-export function loadVocabulary({ artifact, artifactPath, allocateManifest }) {
-  const declared = readDeclaredVocabulary(artifact, artifactPath);
+export function loadVocabulary({
+  artifact,
+  artifactPath,
+  allocateManifest,
+  specification = {},
+}) {
+  const declared = readDeclaredVocabulary(artifact, artifactPath, specification);
   const terminalStatuses = declared.terminalStatuses ?? deriveTerminalStatuses(artifact);
-  const requiredInterfaces = declared.requiredInterfaces ?? deriveRequiredInterfaces(artifact, allocateManifest);
+  const required = declared.requiredInterfaces === null
+    ? deriveRequiredInterfaces(artifact, allocateManifest)
+    : { names: declared.requiredInterfaces, source: 'artifact.vocabulary' };
+  const requiredInterfaces = required.names;
   const interfaceVocabulary = deriveInterfaceVocabulary(artifact);
 
   const withheld = [];
@@ -195,6 +275,11 @@ export function loadVocabulary({ artifact, artifactPath, allocateManifest }) {
     terminalStatuses,
     requiredInterfaces,
     actPatterns: declared.actPatterns,
+    applicability: Object.freeze(declared.applicability),
+    sources: Object.freeze({
+      terminalStatuses: declared.terminalStatuses === null ? 'derived' : 'artifact.vocabulary',
+      requiredInterfaces: required.source,
+    }),
     interfaceVocabulary,
     withheld: Object.freeze(withheld),
   });

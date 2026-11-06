@@ -12,7 +12,8 @@
  * is atomic, so a refused run leaves the artifact byte-identical.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { migrateArtifactToV3, renderArtifact, SCHEMA_V3 } from './lib/migrate-v3.mjs';
@@ -26,6 +27,16 @@ const EXIT_MISUSE = 2;
 // [::TICKET::] PX-275 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-275 --for-spec --no-implementation-order`.
 function digestOf(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+/** The specification lines an operation-level citation is verified against. */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function readSpecLines(root, artifact) {
+  const relative = artifact?.spec?.path;
+  if (typeof relative !== 'string' || relative.length === 0) return { specPath: null, specLines: {} };
+  const absolute = resolve(root, relative);
+  if (!existsSync(absolute)) return { specPath: relative, specLines: {} };
+  return { specPath: relative, specLines: { [relative]: readFileSync(absolute, 'utf8').split('\n') } };
 }
 
 /** One line describing what the migration will add. */
@@ -61,7 +72,14 @@ export function main(argv) {
     const loaded = loadWorkspace(root);
     const annotationDocument = annotationsPath === null ? {} : JSON.parse(readFileSync(annotationsPath, 'utf8'));
     const sourceDigest = digestOf(loaded.artifactPath);
-    const migrated = migrateArtifactToV3({ ...loaded, sourceDigest, annotations: annotationDocument });
+    const { specPath, specLines } = readSpecLines(root, loaded.artifact);
+    const migrated = migrateArtifactToV3({
+      ...loaded,
+      sourceDigest,
+      annotations: annotationDocument,
+      specPath,
+      specLines,
+    });
     const rendered = renderArtifact(migrated);
     if (rendered === readFileSync(loaded.artifactPath, 'utf8')) {
       process.stdout.write(loaded.artifact.schema_version === SCHEMA_V3
