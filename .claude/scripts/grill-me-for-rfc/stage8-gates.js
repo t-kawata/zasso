@@ -1,3 +1,4 @@
+// [::TICKET::] PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-379 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 /**
@@ -8,7 +9,7 @@
  * to one side and silently ignored by the other.
  */
 
-/** The ten conditions STEP 8 requires, in the order the command states them. */
+/** The eleven conditions STEP 8 requires, in the order the command states them. */
 export const REQUIRED_GATE_NAMES = Object.freeze([
   'design-tree-resolved',
   'checklist-approved',

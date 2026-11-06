@@ -528,6 +528,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "6"
 Out: checklist hierarchy `P<n>` → `P<n>-<ticket>`.
 Step 6 also reports `## Consolidation`: phases before → after, tickets preserved, final phase ticket count. A `skipped:no-budget-gate` in the add result is a command-contract failure, not a pass; the canonical command always passes `--enforce-work-budget`. `skipped:no-distribution` is the only allowed skip.
 Stage counters: `end-step 6` records `runs` and advances `generation` only when the Tickets.json digest changes; `--audit` on that step writes no generation.
+`end-step 6` also calls `discharge-rederive`: the obligation is removed only when graphify, boundify and split receipts all bind the current RFC; a partial chain leaves it in place and split still succeeds.
 
 ### Resuming from an Error
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-379 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
 /**
  * update-status.js <rfc-dir> <operation> [args...]
@@ -10,7 +11,8 @@
  *   begin-run                 - Open one grill generation for this invocation
  *   inc-loop                  - Increment reviewLoopCount
  *   record-rederive           - Record the chain a canonical rewrite owes
- *   clear-rederive            - Discharge the recorded rederive obligation
+ *   discharge-rederive        - Remove the obligation when every chain receipt matches
+ *   clear-rederive            - Remove the obligation unconditionally
  *   show                      - Output the current Status.json
  */
 import fs from "fs";
@@ -22,6 +24,15 @@ import { toHomeRelative } from '../lib/path-utils.js';
 import recorder from '../lib/run-history-recorder.cjs';
 import { REQUIRED_GATE_NAMES } from './complete-run.js';
 import { COMPLETION_RECEIPT_FILE, readCompletionReceipt } from './completion-receipt.js';
+import stageReceipt from '../rfc-graph/lib/stage-receipt.js';
+
+const { compareStageReceipts, digestFile } = stageReceipt;
+
+/** The canonical RFC the obligation binds. */
+const RFC_FILE_NAME = "RFC.md";
+
+/** The chain the grammar records when a caller names none. */
+const DEFAULT_REDERIVE_CHAIN = Object.freeze(["graphify", "boundify", "split"]);
 
 /** This script opens the grill generation; complete-run.js closes it. */
 const RUN_HISTORY = { command: 'grill-me-for-rfc', stage: 'grill' };
@@ -180,17 +191,52 @@ switch (operation) {
   case "record-rederive": {
     const chainArgument = args.find((argument) => argument.startsWith("--chain="));
     const chain = chainArgument === undefined
-      ? ["graphify", "boundify", "split"]
+      ? [...DEFAULT_REDERIVE_CHAIN]
       : chainArgument.slice("--chain=".length).split(",").map((entry) => entry.trim()).filter(Boolean);
-    const rfcPath = path.join(path.resolve(rfcDir), "RFC.md");
+    const rfcPath = path.join(path.resolve(rfcDir), RFC_FILE_NAME);
     if (!fs.existsSync(rfcPath)) {
       console.error(`Cannot record rederive: ${rfcPath} does not exist`);
       process.exit(1);
     }
     const sourceDigest = createHash("sha256").update(fs.readFileSync(rfcPath)).digest("hex");
-    status.rederive = { required: true, chain, sourceDigest, recordedAt: new Date().toISOString() };
+    // A run that records its own debt may finish; a debt carried past the run that
+    // recorded it must be discharged before another completion is accepted.
+    const recordedGeneration = Number.isInteger(status.grillGeneration)
+      ? status.grillGeneration
+      : null;
+    status.rederive = {
+      required: true,
+      chain,
+      sourceDigest,
+      ...(recordedGeneration === null ? {} : { recordedGeneration }),
+      recordedAt: new Date().toISOString(),
+    };
     saveAndValidate();
     process.stdout.write(JSON.stringify({ ok: true, rederive: status.rederive }) + "\n");
+    break;
+  }
+  case "discharge-rederive": {
+    const rederive = status.rederive;
+    if (rederive?.required !== true) {
+      process.stdout.write(JSON.stringify({ ok: true, discharged: false, reason: "no-obligation" }) + "\n");
+      break;
+    }
+    const directory = path.resolve(rfcDir);
+    const chain = Array.isArray(rederive.chain) && rederive.chain.length > 0
+      ? rederive.chain
+      : [...DEFAULT_REDERIVE_CHAIN];
+    const findings = compareStageReceipts(
+      directory,
+      chain,
+      digestFile(path.join(directory, RFC_FILE_NAME)),
+    );
+    if (findings.length > 0) {
+      process.stdout.write(JSON.stringify({ ok: true, discharged: false, findings }) + "\n");
+      break;
+    }
+    delete status.rederive;
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, discharged: true }) + "\n");
     break;
   }
   case "clear-rederive": {

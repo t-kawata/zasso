@@ -145,7 +145,7 @@ const SOURCE_DIGEST_PATTERN = /^[0-9a-f]{64}$/;
  * legacy completion path. Present but malformed is not: a reader that treated a partial
  * record as discharge would let DONE authorize itself.
  */
-// [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-377) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-377, PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-377|PX-379) --for-spec --no-implementation-order`.
 function validateOptionalRederive(status, errors) {
   const rederive = status.rederive;
   if (rederive === undefined) return;
@@ -165,6 +165,12 @@ function validateOptionalRederive(status, errors) {
   }
   if (rederive.recordedAt !== undefined && isNaN(Date.parse(rederive.recordedAt))) {
     errors.push('Status.json.rederive.recordedAt: must be a valid ISO 8601 date');
+  }
+  // Absent is valid: a record written before the generation was stamped is overdue,
+  // not malformed. Present must name the run that recorded the debt.
+  if (rederive.recordedGeneration !== undefined
+    && (!Number.isInteger(rederive.recordedGeneration) || rederive.recordedGeneration < 1)) {
+    errors.push('Status.json.rederive.recordedGeneration: must be an integer >= 1');
   }
 }
 

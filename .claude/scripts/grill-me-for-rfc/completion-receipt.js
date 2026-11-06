@@ -1,6 +1,7 @@
+// [::TICKET::] PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-379 --for-spec --no-implementation-order`.
 // PX-371 — the evidence that a grill run's gate list passed.
 //
-// DONE used to be a state any caller could write. complete-run.js evaluated the ten
+// DONE used to be a state any caller could write. complete-run.js evaluated the eleven
 // required gates and then asked update-status.js to write DONE, but update-status.js
 // had no way to know whether that evaluation happened. The receipt is that missing
 // fact: complete-run.js writes it only after every gate exits zero, and
