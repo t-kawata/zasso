@@ -30,7 +30,7 @@ import { loadTreeManifest, checkAllocateEntryGate, readManifestSource } from './
 import { buildDirectoryPlan } from './lib/directory-plan.mjs';
 import { checkPlannedPathSafety } from './lib/path-safety.mjs';
 import { checkExistingOutputPolicy, createStagingRoot, materializeDirectories, verifyStaging, publishStagedTree, snapshotDirectories, verifyDirectorySet } from './lib/tree-staging.mjs';
-import { deriveExpectedAllocation, lookupInventoryItem } from './lib/allocation-model.mjs';
+import { collectPackageSegments, deriveExpectedAllocation } from './lib/allocation-model.mjs';
 import { buildAuthoringPacket } from './lib/seed-authoring-packet.mjs';
 import { SEED_FILE_NAME, ALLOCATE_MANIFEST_FILE_NAME, validateDecisionsAuthoringSurface } from './lib/seed-model.mjs';
 import { buildReferenceBlock } from './lib/reference-block.mjs';
@@ -189,23 +189,6 @@ function buildContractEdgesForPackage({ manifest, packageId, decision }) {
   return edges;
 }
 
-/** Segment ids behind a package's allocated inventory items. */
-function collectPackageSegments({ manifest, packageId }) {
-  const segments = new Set();
-  for (const entry of manifest.workspace?.ownership?.entries ?? []) {
-    if (entry.owner_package !== packageId) {
-      continue;
-    }
-    const record = lookupInventoryItem(manifest, entry.category, entry.inventory_ref);
-    for (const ref of record?.source_refs ?? []) {
-      if (typeof ref.segment_id === 'string') {
-        segments.add(ref.segment_id);
-      }
-    }
-  }
-  return [...segments].sort();
-}
-
 /** The implementation order entry of a package, taken from the stage-1 proof. */
 function orderEntryForPackage({ manifest, packageId }) {
   const order = manifest.dependencies?.dag?.implementation_order ?? { serial: [], levels: [] };
@@ -221,6 +204,7 @@ function orderEntryForPackage({ manifest, packageId }) {
 }
 
 // [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 function renderAllSeeds({ manifestRef, expectedByPackage, decisions, reverse }) {
   const { manifest, manifestPath, manifestDir } = manifestRef;
   const packages = manifest.workspace?.packages ?? [];
@@ -280,6 +264,7 @@ function renderAllSeeds({ manifestRef, expectedByPackage, decisions, reverse }) 
  * before any gate looks at its content.
  */
 // [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 function renderOneSeed({ pkg, decisions, workspace, expectedAllocation, residualQuestions }) {
   const { manifest, manifestPath, manifestDir, segmentIds, reverse } = workspace;
   const decision = packageDecisionByPackageId(decisions, pkg.id);

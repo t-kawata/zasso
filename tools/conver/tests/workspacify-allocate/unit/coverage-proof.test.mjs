@@ -93,3 +93,59 @@ test('C004 the proof is computed from parsed seeds, never from renderer state', 
   const second = buildCoverageProof({ manifest, expectedAllocation, parsedByPackage });
   assert.deepEqual(first, second);
 });
+
+// PX-389 @verifies C001
+// A prose chapter carries a formula but no harvested declaration. The zero-omission
+// proof must treat it as material so a seed owns it before S8 measures the formula set.
+
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+function formulaManifest() {
+  return {
+    structure: {
+      segment_count: 2,
+      segments: [
+        { id: 's-000001', line_start: 1, line_end: 10, owned_inventory_ids: [] },
+        { id: 's-000002', line_start: 11, line_end: 20, owned_inventory_ids: [], formula_ids: ['fx-0123456789ab'] },
+      ],
+    },
+  };
+}
+
+test('PX-389 C001: a formula-bearing segment is material and uncovered without a seed claim', () => {
+  const proof = buildCoverageProof({
+    manifest: formulaManifest(),
+    expectedAllocation: new Map(),
+    parsedByPackage: new Map([['pkg-a', { referenceBlock: { source_segments: [] }, traceabilityRows: [] }]]),
+  });
+
+  assert.deepEqual(proof.material_segments, ['s-000002']);
+  assert.deepEqual(proof.non_material_segments, ['s-000001']);
+  assert.deepEqual(proof.uncovered, ['s-000002']);
+});
+
+test('PX-389 C001: a seed claim covers the formula-bearing segment', () => {
+  const proof = buildCoverageProof({
+    manifest: formulaManifest(),
+    expectedAllocation: new Map(),
+    parsedByPackage: new Map([['pkg-a', { referenceBlock: { source_segments: ['s-000002'] }, traceabilityRows: [] }]]),
+  });
+
+  assert.deepEqual(proof.uncovered, []);
+  assert.equal(proof.segments_covered, 1);
+});
+
+test('PX-389 C001: inventory and formula material on one segment count once', () => {
+  const proof = buildCoverageProof({
+    manifest: {
+      structure: {
+        segment_count: 1,
+        segments: [{ id: 's-000001', line_start: 1, line_end: 10, owned_inventory_ids: ['claim-000001'], formula_ids: ['fx-0123456789ab'] }],
+      },
+    },
+    expectedAllocation: new Map(),
+    parsedByPackage: new Map([['pkg-a', { referenceBlock: { source_segments: ['s-000001'] }, traceabilityRows: [] }]]),
+  });
+
+  assert.deepEqual(proof.material_segments, ['s-000001']);
+  assert.deepEqual(proof.uncovered, []);
+});

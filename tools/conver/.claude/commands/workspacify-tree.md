@@ -111,7 +111,7 @@ Purpose: **iterative procedure to raise the information level** — decide works
 
 1. Candidate classification: settle every `review_required|unresolved` via approvals; no unknown
 2. Package design: every package has `layer|kind|responsibilities` (non-empty)|`seed_required|owns`; tree paths match package leaf dirs; every numbered chapter (`S00`, `S01`, ...) is named in at least one responsibility, because a chapter no directory names is a chapter no directory will implement
-3. Ownership: unique owner for object/claim/invariant/state-machine/error-code/required-test; `unallocated==0`; every `owns` object/claim has exactly one matching `ownership` entry; one-sided declaration is G3 refusal (`ownership_disagreement_count`)
+3. Ownership: unique owner for object/claim/invariant/state-machine/error-code/required-test; `unallocated==0`; every `owns` object/claim has exactly one matching `ownership` entry; one-sided declaration is G3 refusal (`ownership_disagreement_count`). A segment carrying a specification formula but no harvested item is material: own it with a grounded `segment_ownership` entry (`segmentId|packageId|source{line,quote}`), or G3 refuses `FORMULA_SEGMENT_UNOWNED`
 4. Dependencies/boundaries: enumerate permitted package edges with `reasonCode`; every forbidden edge has `alternative` and dev policy; every boundary consumer/provider in catalog; decide every adversarial dependency review and record it in `dependency_reviews`: `keep|replace_with_port|merge|split|residual`; residual = published-graph default plus later per-directory grill, never abandoned judgement
 5. Specification observations: settle every `structure.spec_pulse` candidate as `spec_defects` (`candidate_id|ai_interpretation|chosen_default|rationale`) or `residual_questions` (`candidate_id|topic|alternatives` non-empty|`chosen_default|why_unresolved`). No unsettled candidate. Free text forbids `TODO|TBD|ask the human|waiting for approval|human review required|confirm with the operator`
 6. Approval register: every judgement grounds in `approvals` (`decisionId|rationale|approver`)
@@ -129,6 +129,7 @@ For multi-package input: declare all packages in `workspace`, `tree`, `ownership
 |---|---|
 | `workspace` | required `id/name/path/layer/kind/responsibilities/seed_required`; owns six candidate categories; layer `foundation|protocol|ports|adapters|core|interfaces|conformance`; kind `production-library|adapter|binary|test-support|conformance` |
 | `ownership` | exactly one candidate/canonical-name owner; object family owner in protocol; claim primary owner likewise |
+| `segment_ownership` | a formula-bearing prose segment with no harvested item: `segmentId|packageId|source{line,quote}`; the quote must occur on the cited line inside that segment |
 | `dependencies` | `from/to/reasonCode/reason`; exact camel key `reasonCode`, never `reason_code`; value from `REASON_CODES` vocabulary; forbidden edge requires `alternative`; same pair normal+forbidden refuses |
 | `tree` | leaf-path set equals package-path set for non-empty workspace |
 | `boundaries` | edge-corresponding contract boundary; catalog consumer/provider; bidirectional edge/boundary coverage |
@@ -168,6 +169,7 @@ Out: per-gate status and stdout `finalAudit`; COMPLETE/exit 0 iff all gates PASS
 | `missing_responsibilities_count` | ② package design |
 | `uncovered_chapter_count` | ② name every numbered chapter in a package responsibility; `spec_defects` is not an owner |
 | `unallocated_count` | ③ ownership |
+| `formula_segment_orphan_count` | ③ a formula-bearing segment with no inventory item and no grounded `segment_ownership` entry; reported only when non-zero |
 | `ownership_disagreement_count` | ③ register both owns and ownership |
 | `orphan_object_count|orphan_claim_count|owner_collision_count` | ③ ownership |
 | `unknown_dependency_count|layer_violation_count|cycle_count` | ④ edges/boundaries |

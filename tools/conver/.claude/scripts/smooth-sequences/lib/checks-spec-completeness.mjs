@@ -45,6 +45,9 @@ const REGENERATION_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scr
 /** The command that opens an allocate regeneration. */
 const ALLOCATE_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --allocate-decisions=<candidate> --reason=<reason>';
 
+/** The command that opens a tree-decision regeneration. */
+const TREE_DECISIONS_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --tree-decisions=<candidate> --reason=<reason>';
+
 /** The detector that re-measures the workspace after an in-place repair. */
 const DETECTOR_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"';
 
@@ -174,6 +177,7 @@ function readTreeManifest(root) {
  * @param {{root: string, artifact?: object, treeManifest?: object}} input
  * @returns {{ok: boolean, specDigest: string|null, summary: object, findings: Array<object>, worklist: Array<object>}}
  */
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 export function runSpecCompleteness({ root, artifact = null, treeManifest = null }) {
   const resolvedArtifact = artifact ?? rootArtifact(root);
   const resolvedTree = treeManifest ?? readTreeManifest(root);
@@ -254,7 +258,7 @@ export function runSpecCompleteness({ root, artifact = null, treeManifest = null
       findings.push(finding('S8.segment-coverage', {
         packageId,
         reason: `the package carries no seed: ${pkg.path}/RFC-SEED.md`,
-        producer: REGENERATION_COMMAND,
+        producer: ALLOCATE_COMMAND,
         rerun: DETECTOR_COMMAND,
         repairClass: 'regeneration',
       }));
@@ -268,7 +272,7 @@ export function runSpecCompleteness({ root, artifact = null, treeManifest = null
       findings.push(finding('S8.segment-coverage', {
         packageId,
         reason: error.message,
-        producer: REGENERATION_COMMAND,
+        producer: ALLOCATE_COMMAND,
         rerun: DETECTOR_COMMAND,
         repairClass: 'regeneration',
       }));
@@ -414,7 +418,7 @@ export function runSpecCompleteness({ root, artifact = null, treeManifest = null
         specLine: formula.lineStart,
         missingField: 'owner',
         reason: `${formula.id} is in the specification and no package claims its line`,
-        producer: ALLOCATE_COMMAND,
+        producer: TREE_DECISIONS_COMMAND,
         rerun: DETECTOR_COMMAND,
         repairClass: 'regeneration',
       }));

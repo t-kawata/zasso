@@ -46,6 +46,7 @@ import { riskFieldForClass } from '../shared-obligations/risk-fields.mjs';
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { compareFindingSets, computeFindingKey, readWaivers } from './lib/evidence-ledger.mjs';
 import { computeFindingKeysDigest, MODE_VERIFICATION, readStatus, writeGeneration } from './lib/generation.mjs';
+import { buildCheckSetRecord } from './lib/check-set.mjs';
 import { summarizeProvenance } from './lib/provenance.mjs';
 import { readReadingsForRegistry, summarizeReadings } from './lib/readings-summary.mjs';
 import {
@@ -461,6 +462,7 @@ export function checkSetVersionOf(reason) {
   return match === null ? null : match[1];
 }
 
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-302 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-302 --for-spec --no-implementation-order`.
@@ -486,6 +488,7 @@ export function runCommand(argv, io = {}) {
     const loaded = loadWorkspace(root);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const status = readStatus(root);
+    const checkSet = buildCheckSetRecord(status === null ? undefined : (status.checkSetDigest ?? null));
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
     const baseline = readFindingBaseline(root);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -734,6 +737,7 @@ export function runCommand(argv, io = {}) {
           artifact: artifactDigest,
           evidenceManifest: evidenceManifest?.generation ?? null,
           exemptions: (declaration.exemptions ?? []).length,
+          checkSetDigest: checkSet.digest,
         },
         assurance: decisionSet.metrics,
         receiptDebt,
@@ -808,6 +812,9 @@ export function runCommand(argv, io = {}) {
       instrument,
       denominator,
       verdict,
+      // The report records which checks measured it; the previous-status comparison is
+      // status metadata, never part of the report identity a verification compares.
+      checkSet: { digest: checkSet.digest },
       evidencePolicy: strictEvidence ? 'strict' : 'legacy',
       wouldExit: parsed.audit ? wouldExit : null,
     });
@@ -838,6 +845,7 @@ export function runCommand(argv, io = {}) {
       schemaHistory: provenance.schemaHistory,
       calibrationDigest: calibration?.digest ?? null,
       formulaCompleteness: report.formulaCompleteness,
+      checkSet,
     });
     if (closureMode) {
       writeCertificate(root, certificate);

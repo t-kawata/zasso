@@ -125,3 +125,18 @@ test('C001 error: a ledger whose digest does not reproduce the body is stale', (
 
   assert.equal(result.findings.some((finding) => finding.checkId === 'S8.ledger-stale'), true, JSON.stringify(result.findings));
 });
+
+// PX-389 @verifies C001
+// An unowned formula is a segment-ownership defect. The producer named on the finding
+// must be a command that can actually change ownership, or the repair loop dead-ends.
+
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+test('PX-389 C001: an unowned formula names tree-decision regeneration', () => {
+  const workspace = buildWorkspace({ packageA: { segments: [] }, packageB: { segments: [] } });
+  const result = runSpecCompleteness({ root: workspace.root });
+
+  const unowned = result.findings.filter((finding) => finding.checkId === 'S8.formula-unowned');
+  assert.equal(unowned.length > 0, true, JSON.stringify(result.findings));
+  assert.equal(unowned.every((finding) => /--tree-decisions/.test(finding.producer)), true, unowned[0].producer);
+  assert.equal(unowned.every((finding) => !/--allocate-decisions/.test(finding.producer)), true);
+});
