@@ -90,3 +90,43 @@ export function materializeApiWorkspace({
     remove: () => rmSync(root, { recursive: true, force: true }),
   };
 }
+
+/**
+ * A workspace with an arbitrary package list and declared boundaries.
+ *
+ * The two-package helper above covers the common case; a re-export chain needs a third
+ * package, and this helper keeps the fixture data explicit rather than adding a fourth
+ * branch to the two-package shape.
+ *
+ * @param {{ packages: Array<{id: string, name?: string, path: string, rust?: string}>,
+ *   boundaries?: Array<{id?: string, provider: string, consumer: string}> }} input
+ * @returns {{ root: string, remove: () => void }}
+ */
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+export function materializeApiWorkspaceWithPackages({ packages, boundaries = [] }) {
+  const root = mkdtempSync(join(tmpdir(), TEMP_PREFIX));
+  for (const pkg of packages) {
+    const directory = join(root, pkg.path);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'RFC.md'), rfcText(pkg.id, pkg.rust ?? ''));
+  }
+  const namedBoundaries = boundaries.map((boundary, index) => ({
+    id: boundary.id ?? `boundary-${String(index + 1).padStart(3, '0')}`,
+    provider_package: boundary.provider,
+    consumer_package: boundary.consumer,
+  }));
+  writeFileSync(join(root, TREE_MANIFEST), JSON.stringify({
+    workspace: {
+      packages: packages.map((pkg) => ({ id: pkg.id, name: pkg.name ?? pkg.id, path: pkg.path })),
+    },
+    dependencies: { boundaries: namedBoundaries },
+  }, null, 2));
+  writeFileSync(join(root, ALLOCATE_MANIFEST), JSON.stringify({
+    contract_registry: namedBoundaries.map((boundary) => ({
+      boundary_id: boundary.id,
+      provider_package: boundary.provider_package,
+      consumer_package: boundary.consumer_package,
+    })),
+  }, null, 2));
+  return { root, remove: () => rmSync(root, { recursive: true, force: true }) };
+}

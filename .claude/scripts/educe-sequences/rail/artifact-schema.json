@@ -10,6 +10,20 @@
       "type": "array",
       "items": "string",
       "optional": true
+    },
+    "requiredInterfaces": {
+      "type": "array",
+      "items": "string",
+      "optional": true
+    },
+    "terminalStatuses": {
+      "type": "array",
+      "items": "string",
+      "optional": true
+    },
+    "applicability": {
+      "type": "object",
+      "optional": true
     }
   },
   "required": [

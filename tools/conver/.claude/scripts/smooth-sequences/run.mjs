@@ -454,6 +454,13 @@ function readSpecLines(root, artifact) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-310 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-310 --for-spec --no-implementation-order`.
+/** The check-set version an API gate summary line records, or null. */
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+export function checkSetVersionOf(reason) {
+  const match = /checkSetVersion=([A-Za-z0-9_.-]+)/.exec(String(reason ?? ''));
+  return match === null ? null : match[1];
+}
+
 export function runCommand(argv, io = {}) {
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-302 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-302 --for-spec --no-implementation-order`.
@@ -525,6 +532,7 @@ export function runCommand(argv, io = {}) {
         family: 'closure',
         surface: 'design-authoring-gate',
         reason: gate.reason || `${gate.script} exited ${gate.exitCode}`,
+        checkSetVersion: checkSetVersionOf(gate.reason),
         producer: gate.script,
         repairClass: 'regeneration',
       }));

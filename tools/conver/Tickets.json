@@ -58575,6 +58575,349 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-06"
+        },
+        {
+          "id": 382,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "API cross-package gate: resolve Rust imports and re-exports before claiming a defect",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-382.md",
+          "background": "### Goal\nMake verify-api-consistency.mjs resolve every Rust reference through its import scope and re-exports, so a cross-package claim is made only when the workspace states the dependency.\n\n### Purpose\nThe current gate builds one workspace-global map from bare declaration names. It therefore treats an external crate import, a crate-local re-export, a glob-imported enum variant, two crates that legitimately declare the same type name, and a trait impl associated function as cross-package defects. The gate exists to prove cross-package agreement, not to re-implement Rust name resolution with a bare-name table.\n\n### Motivation\nPX-369 added the gate to smooth closure; PX-371 and PX-372 refined the line parser but never parsed use statements. Measured on the three sample workspaces: gaia reports 802 blocking findings, crystal 231 and doors 103. Gaia last smooth pass was recorded on 2026-10-29, before the gate was added. Concrete false positives: gaia adapters import BoundedValue from gaia_ports, which re-exports it from gaia_foundation, and the RFC states that a re-export is not a second edge; doors-cli imports clap::Command, which the gate resolves to pjsip-prebuilt Command; enum variants imported through OperationErrorCode are reported as undefined types.\n\n### Constraints\nThe cross-package claim stays strict. Blocking is limited to explicit workspace imports or re-exports whose declaration, shape, arity, generic arity or boundary is missing. External, crate-local and builtin references are out of scope. An unresolved bare symbol becomes a named, counted UNSCOPED_SYMBOL state, never a silent pass. No project names, column names or crate-specific allowlists enter the code. Existing smooth verdicts remain acceptable under their recorded checkSetVersion. Gaia graphify, crystal grill and doors smooth must not gain a new blocking finding from this ticket.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**",
+            "  - [File/module path] .claude/scripts/api-consistency/parse-rust-surface.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Add a use-statement parser that reads multi-line, grouped, aliased, glob and pub use forms; record each imported name with its root, path, alias and glob flag. Add trait impl methods, type aliases and enum variants to the local declaration table. Record whether an associated call carries a receiver so arity comparison can add the receiver back.",
+            "  - [Before → After] Before, every capitalized token and every Type::method path is a reference resolved against one global bare-name map, and use lines are read as references. After, imports are declarations of scope; a reference resolves through the package local table, an explicit import, a glob import, or a named unresolved state.",
+            "  - [API contract change] The parser export keeps its shape { declarations, references, unparsed }; references gain importKind and receiver metadata additively. The verifier keeps its finding shape and exit codes; it gains checkSetVersion and UNSCOPED_SYMBOL.",
+            "  - [Data schema change] None to Tickets.json, artifact schemas or manifests.",
+            "  - [Config/env change] None. Sample workspaces are passed only by an opt-in read-only test harness.",
+            "  - [Dependency added/removed] None.",
+            "  - [File/module path] .claude/scripts/api-consistency/verify-api-consistency.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Build a crate-name-to-package map from WORKSPACIFY-TREE-MANIFEST.json (hyphen to underscore). Classify every reference. Resolve explicit workspace imports against the imported package public surface, including pub use re-exports. Resolve glob imports to a candidate set and report ambiguity. Check shape, arity, generic arity and boundary only for explicit workspace imports. Report unresolved bare names as UNSCOPED_SYMBOL counts. Record checkSetVersion in the JSON summary.",
+            "  - [Before → After] Before, declarationsBySymbol is a global map and every unresolved reference blocks. After, the same cross-package defects block, but external, crate-local, builtin, enum-variant and same-name-across-crates references do not.",
+            "  - [API contract change] Finding codes keep their existing ids. New code UNSCOPED_SYMBOL is advisory-counted and never blocking in a fragment surface; checkSetVersion is additive.",
+            "  - [File/module path] .claude/scripts/smooth-sequences/lib/closure-gates.mjs and .claude/scripts/smooth-sequences/run.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Pass the workspace checkSetVersion to the API gate and carry it into the CLOSURE entry. Keep the existing gate exit semantics and report shape.",
+            "  - [File/module path] .claude/scripts/grill-me-for-rfc/complete-run.js and .claude/scripts/drill-rfc-down/verify-step.js",
+            "  - [Action] verify only",
+            "  - [What specifically changes] No behavior change. Their existing invocation keeps the finding shape and exit code; a compatibility test proves an older verdict is still consumed.",
+            "  - [File/module path] tests/api-consistency/ and tests/smooth-sequences/closure-gates.test.mjs",
+            "  - [Action] add/modify",
+            "  - [What specifically changes] Add fixtures for each import kind, re-export chain, alias, glob, trait impl, receiver arity, same-name types and external imports; add an opt-in sample read-only diff.",
+            "",
+            "**Out of scope (items intentionally excluded, with justification):**",
+            "  - [Excluded item] Editing gaia, crystal or doors design files to silence a finding.",
+            "  - [Why excluded] The ticket changes the resolver; a sample edit is allowed only after the read-only diff proves a true cross-package defect, and then only as a minimal authored input change.",
+            "  - [Excluded item] Adding a project or crate allowlist to the parser.",
+            "  - [Why excluded] The crate map already distinguishes workspace crates from external roots; an allowlist would hardcode a project.",
+            "",
+            "**Affected areas (components/systems impacted, even without direct modification):**",
+            "  - [Affected component] smooth closure, grill --cross-package, drill P2, graphify verdict consumption.",
+            "  - [Nature of impact] API surface of findings and verdict compatibility.",
+            "  - [Corresponding change needed Y/N + details] Y for closure checkSetVersion plumbing and compatibility tests; N for the three project designs until the read-only diff is classified."
+          ],
+          "testUnit": [
+            "UT: [C001 normal] an explicit workspace import resolves to exactly one declaration with matching shape and arity; the gate reports no blocking finding and records the import kind.",
+            "UT: [C001 error] an explicit workspace import with an undeclared target, shape mismatch, arity mismatch, generic arity mismatch or missing boundary reports the corresponding blocking finding with the imported package and symbol.",
+            "UT: [C001 boundary] an external crate import, a crate:: re-export, a glob-imported enum variant, two crates declaring the same bare type name, and a trait impl associated function produce no blocking finding; the unresolved bare symbol count is reported separately.",
+            "UT: [C002 normal] package A imports a symbol from workspace crate B that re-exports it from C; the gate checks the boundary against B and follows the declaration to C for shape.",
+            "UT: [C002 error] a re-export whose imported crate has no boundary reports the missing boundary against the imported crate, not against the original declarer.",
+            "UT: [C002 boundary] a pub use chain with two hops resolves the final declaration and reports no second edge.",
+            "UT: [C003 normal] an existing smooth verdict recorded with an older checkSetVersion is accepted by the downstream consumer; a new run records the new version.",
+            "UT: [C003 error] a finding produced under a newer checkSetVersion is not written into an older verdict.",
+            "UT: [Boundary] an unreadable use shape is reported as a named UNSCOPED_SYMBOL or UNPARSED_SURFACE, never silently skipped.",
+            "UT: [Invariant] every reference in a fixture belongs to exactly one import kind; a classification loop over the fixture accounts for every reference."
+          ],
+          "testIntegration": [
+            "IT: smooth closure runs the API gate over a synthetic workspace that mixes a real cross-package defect with external imports, crate-local re-exports, enum variants and same-name types; only the real defect blocks and the CLOSURE entry carries checkSetVersion.",
+            "IT: grill --cross-package and drill P2 consume the same finding shape and exit code as before; their existing tests remain green.",
+            "IT: the opt-in read-only sample diff records every delta on the sample workspaces and classifies it as false positive, true defect or scope declaration; no unclassified blocking finding remains.",
+            "IT: graphify consumes a pre-change verdict recorded under its checkSetVersion without re-running the gate."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/api-consistency/parse-rust-surface.mjs",
+            ".claude/scripts/api-consistency/verify-api-consistency.mjs",
+            ".claude/scripts/smooth-sequences/lib/closure-gates.mjs",
+            "tests/api-consistency/parse-rust-surface.test.mjs",
+            "tests/api-consistency/verify-api-consistency.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** A synthetic workspace with an explicit workspace import that resolves to one declaration and a declared boundary produces zero blocking findings, and the JSON summary records the import kind and checkSetVersion.",
+            "**[Error case]** An explicit workspace import with a missing declaration, shape mismatch, arity mismatch, generic arity mismatch or missing boundary produces the named blocking finding against the imported package.",
+            "**[Edge case]** External crate imports, crate:: re-exports, glob enum variants, same-name types in different crates and trait impl methods produce zero blocking findings; unresolved bare symbols are counted as UNSCOPED_SYMBOL, and an unreadable use shape is named.",
+            "**[Sample gate]** The read-only diff on gaia, crystal and doors classifies every delta. Gaia existing verdict remains accepted; crystal current grill and doors current smooth gain no blocking finding."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "api-consistency import resolution",
+              "precondition": "An RFC code fence carries a use statement and a reference; the workspace tree manifest provides the crate-to-package map.",
+              "postcondition": "Every reference is classified as local-crate, workspace-explicit, workspace-glob, workspace-reexport, external, builtin or unresolved; only an explicit workspace import with a missing declaration, shape or arity mismatch or missing boundary produces a blocking finding.",
+              "invariant": "Exactly one classification per reference; an unknown import shape is a named refusal and never a silent skip."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "api-consistency re-export boundary",
+              "precondition": "Package A imports a symbol from workspace crate B; B re-exports the symbol from workspace crate C.",
+              "postcondition": "The boundary is checked against B; the declaration is followed to C for shape; no C boundary is required.",
+              "invariant": "A re-export is not a second dependency edge."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "smooth verdict compatibility",
+              "precondition": "An existing smooth verdict records a check-set version and a downstream command reads it.",
+              "postcondition": "The downstream command accepts the verdict under its recorded version; the new gate applies only on a new run.",
+              "invariant": "No retroactive invalidation of an existing verdict."
+            }
+          ],
+          "notes": "- [Implementation steps] (1) Red: add fixtures for local, explicit workspace, glob, re-export, external, builtin, enum variant, trait impl, alias and receiver arity. (2) Green: parse use statements; classify references; resolve local declarations. (3) Resolve workspace imports and follow pub use re-exports. (4) Add receiver-aware arity. (5) Add checkSetVersion and compatibility tests. (6) Run the opt-in sample diff and classify every delta.\n- [Risks] A fragmented RFC fence may not parse. Every unreadable shape becomes a named refusal, not a silent skip. The sample diff is the acceptance gate; a true defect is fixed in the sample only as a minimal authored input change.\n- [Caveats] The resolver follows import paths, not a compiler type system. A reference with no import and no local declaration is UNSCOPED_SYMBOL, not a guessed cross-package defect.\n- [Open items] None. The sample declarations are applied after make install-to-projects.\n- [Future improvements] A shared Rust surface module could serve the gate and a future compiler-backed check.\nImplementation summary:\n- Changed files: .claude/scripts/api-consistency/parse-rust-surface.mjs, .claude/scripts/api-consistency/verify-api-consistency.mjs, .claude/scripts/smooth-sequences/run.mjs, and the API/drill/grill/closure tests.\n- Key changes: use-statement parsing, import-scoped resolution, re-export boundary, trait-impl/type-alias/receiver support, UNSCOPED_SYMBOL accounting, checkSetVersion carriage.\n- Test results: consolidated impact set 213 tests, 212 pass, 0 fail, 1 skipped. API suite 62 pass. Drill/grill/closure batch 35 pass. Quality checks: 0 issues.\n- No sample workspace was edited. The gaia/crystal/doors read-only diff is a post-install verification step; no generated artifact was touched.\n- Red coverage: 3/3 contracts covered by @verifies annotations.\nSample read-only diff (new gate, no workspace edit):\n- gaia: 16 blocking (8 DEPENDENCY_EDGE_MISSING for pkg-0009 gaia-heat imports of gaia-foundation types without a declared boundary; 6 SYMBOL_UNDEFINED for gaia-rest/gaia-conformance symbols declared in gaia-operation but imported through gaia-core; 2 ARITY_MISMATCH at Tag::new and object_hash).\n- crystal: 2 blocking (1 SYMBOL_UNDEFINED for pkg-crystal-bootstrap OperationCatalogue through the facade module alias; 1 ARITY_MISMATCH for TypedId::for_test called with 0 arguments against a 1-parameter declaration).\n- doors: 0 blocking.\n- Classification: these residual findings are true cross-package defects, not parse false positives. They were not repaired by editing gaia/crystal in this ticket; the exact minimal repairs are post-install authored edits (add the missing re-export or boundary, or correct the test-helper call).\n- The old gate counts were gaia 802, crystal 231, doors 103. The new gate removes the external/local/enum/same-name/re-export false positives and leaves these 16/2/0 true claims.\nSample diff correction after the final resolver refinement:\n- gaia: 16 blocking (unchanged; true cross-package claims: 8 missing foundation boundary in gaia-heat, 6 symbols declared in gaia-operation but imported through gaia-core, 2 arity mismatches).\n- crystal: 1 blocking (TypedId::for_test called with 0 arguments against a 1-parameter test-helper declaration). The facade module re-export (pub use crystal_operation as operation) now resolves generically, so OperationCatalogue is no longer a finding.\n- doors: 0 blocking.\n- The remaining findings are true authored-input defects, not parse false positives. No sample file was changed in this ticket; minimal repairs are post-install authored edits.\nReview report:\n- Reviewed PX-382 and PX-383 together; both statuses set to reviewed.\n- Fixed: crate-root workspace glob imports were treated as module aliases and never resolved; they now resolve through the imported package. External/local globs no longer swallow unresolved symbols; they remain counted as UNSCOPED_SYMBOL.\n- Added: the PX-382 summary records importKinds per reference classification.\n- Added: a test pins the missing imported-member advisory behavior; the multi-line clean-pair test now asserts the advisory code set.\n- Re-measured the samples read-only: no sample file edited. API gate blocking gaia 16, crystal 1, doors 0 (unchanged). Gaia smooth 52/52 checks executed. Crystal/doors remain 29 executed / 23 blocked until their post-install declarations.\n- No open crimes, no stubs, no external excuses, no ambiguous annotations.\n- Contract and target gates: passed.",
+          "invariants": "- [Normal establishment] Every reference parsed from a Rust fence is classified into exactly one import kind: local-crate, workspace-explicit, workspace-glob, workspace-reexport, external, builtin or unresolved. The classification is total over the reference set.\n- [Invariant on error] An unreadable use statement or declaration shape is reported as a named UNSCOPED_SYMBOL or UNPARSED_SURFACE finding with its line; it is never silently skipped and never converted into a blocking cross-package claim.\n- [Internal state invariant] The workspace symbol table is keyed by package and import path, not by a bare name shared across crates. A declaration in package A and a same-named declaration in package B are independent unless a package imports one from the other.\n- [Boundary invariant] A blocking finding is emitted only when an explicit workspace import or re-export names a target whose declaration, shape, arity, generic arity or boundary is missing. External, crate-local and builtin references emit no blocking finding. An existing verdict recorded under an older checkSetVersion remains acceptable to downstream commands.",
+          "instrumentation": "- [Logging] The gate prints one line per finding to stderr with code, package, symbol and cause; the JSON summary keeps blocking, advisory, out-of-scope, new and resolved counts.\n- [Metrics] Add unscopedSymbolCount and checkSetVersion to the JSON summary; the smooth CLOSURE entry carries the same version.\n- [Error tracking] Every parser failure becomes a named UNSCOPED_SYMBOL or UNPARSED_SURFACE record with a line number; no catch-all swallow.\n- [Health check] verify-api-consistency.mjs --workspace=<root> --json exits 0 or 1 and remains deterministic; the opt-in sample diff is the acceptance health check.\nStatic quality check: passed (0 issues after review fixes)\nTranslatability: no issues\nTests: consolidated impact set 1344 tests, 1343 pass, 0 fail, 1 skipped; grill complete-run 23/23\nSample API gate: gaia 16 blocking, crystal 1, doors 0; checkSetVersion and importKinds recorded",
+          "investigation": "- parse-rust-surface.mjs:13 defines DECLARATION_KEYWORD; :22 FUNCTION_START; :28 IMPL_LINE; :31 TYPE_USE; :42 PATH_CALL_USE; :51 BUILTIN_SYMBOLS. The file has no use-statement parser: the reference loops at :494 and :527 read every capitalized token and every call path, including use lines.\n- verify-api-consistency.mjs:185-189 builds declarationsBySymbol as one global map; :202-226 compares every same-name type declaration across packages; :230-262 resolves every reference against that map; :279 emits DEPENDENCY_EDGE_MISSING for the first owner found. There is no import path in the resolution.\n- dependencyPairs at :101-116 reads tree and allocate boundaries. It is correct; the missing piece is the imported crate, not the boundary set.\n- smooth-sequences/lib/closure-gates.mjs:29-30 invokes verify-api-consistency.mjs; run.mjs:524 converts a gate failure into CLOSURE:<script>. grill-me-for-rfc/complete-run.js:218 and drill-rfc-down/verify-step.js:146-153 invoke the same gate.\n- Measured samples: gaia 802 blocking (531 SYMBOL_UNDEFINED, 213 DEPENDENCY_EDGE_MISSING, 24 ARITY_MISMATCH, 13 SYMBOL_DUPLICATE, 11 GENERIC_ARITY_MISMATCH, 10 KIND_MISMATCH); crystal 231; doors 103. Gaia adapters/gaia-ekyc-adapter/RFC.md:230 imports BoundedValue from gaia_ports; gaia-ports/RFC.md:3308 pub use gaia_foundation::BoundedValue and the RFC states a re-export is not a second edge. doors-cli/RFC.md:121 imports clap::{Arg, Command}; :166 calls Command::new. doors-rest/RFC.md:483 glob-imports OperationErrorCode and :489 uses AlreadyExists.\n- Existing tests: tests/api-consistency/parse-rust-surface.test.mjs covers declarations, impl methods, type uses, calls and unparsed macros; it has no use, re-export, alias, glob, trait-impl or receiver-arity case. verify-api-consistency.test.mjs covers declarations, arity, generic arity, kinds, duplicates and dependency edges on small fixtures with no imports.",
+          "boyScoutPlan": "- Extract verb-phrase functions from the parser: parseUseStatements, classifyImport, resolveLocalDeclaration, resolveWorkspaceImport, followReExport, compareCallArity. Each answers one question; the reference loop becomes a call sequence that reads as prose.\n- Name domain values instead of bare locals: importedSymbol, importRoot, importKind, receiverPresent, declaredArity, argumentCount. Replace generic names such as entry, row and value in the touched functions.\n- Extract the import-kind vocabulary into a frozen named constant and use it in both the parser and the verifier. No inline string decides a classification.\n- Make every parser failure explicit: an unreadable use shape pushes a named record with its line; no try/catch silently returns an empty list.\n- Proactive improvement: the existing same-name duplicate loop is split into compareImportedShape and compareImportedKind so the global bare-name comparison is deleted rather than commented around.",
+          "created_at": "2026-11-06",
+          "updated_at": "2026-11-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 precondition] an explicit workspace import is set up as a two-package fixture\n```js\nconst workspace = materializeApiWorkspace({\n  providerRust: 'pub struct Known { value: String }',\n  consumerRust: 'use provider::Known; pub fn use_it(value: Known) {}',\n  declaredEdge: true,\n});\nconst result = runGate(workspace.root);\n```",
+            "UT: [C001 postcondition] a resolved explicit workspace import yields no blocking finding\n```js\nassert.equal(result.status, 0, result.stdout);\nassert.deepEqual(findingsOf(result), []);\nassert.equal(result.summary.checkSetVersion, API_CHECK_SET_VERSION);\n```",
+            "UT: [C001 postcondition error] an explicit workspace import whose target is undeclared is blocking\n```js\nconst missing = materializeApiWorkspace({\n  providerRust: 'pub struct Known { value: String }',\n  consumerRust: 'use provider::Missing; pub fn use_it(value: Missing) {}',\n  declaredEdge: true,\n});\nconst missingResult = runGate(missing.root);\nassert.equal(missingResult.status, 1);\nassert.ok(findingOf(missingResult, 'SYMBOL_UNDEFINED', 'Missing'), missingResult.stdout);\n```",
+            "UT: [C001 boundary] external, crate-local and same-name references are not blocking\n```js\nconst external = materializeApiWorkspace({\n  consumerRust: 'use clap::Command; pub fn run() { Command::new(\"doors\"); }',\n  declaredEdge: true,\n});\nassert.equal(runGate(external.root).status, 0);\n\nconst local = materializeApiWorkspace({\n  consumerRust: 'use crate::wire::Config; pub fn run(value: Config) {}',\n  declaredEdge: true,\n});\nassert.equal(runGate(local.root).status, 0);\n\nconst sameName = materializeApiWorkspace({\n  providerRust: 'pub struct Candidate { left: String }',\n  consumerRust: 'pub struct Candidate { right: String }',\n  declaredEdge: true,\n});\nassert.equal(runGate(sameName.root).status, 0);\n```",
+            "UT: [C001 invariant] every reference belongs to one import kind and an unreadable use shape is named\n```js\nconst surface = parseRustSurface({\n  rfcText: '```rust\\nuse provider::{Known, Missing as M};\\npub fn f(x: Known) {}\\n```',\n  packageId: 'pkg-0002',\n  rfcPath: 'crates/consumer/RFC.md',\n});\nassert.equal(surface.imports.length, 1);\nassert.deepEqual(surface.imports[0].names.map((entry) => entry.alias), ['Known', 'M']);\nassert.equal(surface.references.some((entry) => entry.symbol === 'Known'), false);\n\nconst malformed = parseRustSurface({\n  rfcText: '```rust\\nuse provider::{Known,\\n```',\n  packageId: 'pkg-0002',\n  rfcPath: 'crates/consumer/RFC.md',\n});\nassert.equal(malformed.unparsed.some((entry) => /use/.test(entry.reason)), true);\n```",
+            "UT: [C001 receiver] a trait impl method is declared on the implemented type and receiver arity is recorded\n```js\nconst surface = parseRustSurface({\n  rfcText: '```rust\\nimpl From<crate::error::DoorsError> for ErrorBody { fn from(value: crate::error::DoorsError) -> Self { ErrorBody(value) } }\\nimpl Row { fn admit(&self, row: Row) {} }\\n```',\n  packageId: 'pkg-0002',\n  rfcPath: 'crates/operation/RFC.md',\n});\nconst method = surface.declarations.find((entry) => entry.symbol === 'ErrorBody::from');\nassert.ok(method, JSON.stringify(surface.declarations));\nassert.equal(method.receiver, false);\nconst admit = surface.declarations.find((entry) => entry.symbol === 'Row::admit');\nassert.equal(admit.receiver, true);\nassert.equal(admit.parameterCount, 1);\n```",
+            "UT: [C002 precondition] a re-export chain is set up with a declared provider boundary\n```js\nconst workspace = materializeApiWorkspace({\n  providerRust: 'pub struct BoundedValue { value: String }',\n  consumerRust: 'pub use provider::BoundedValue;',\n  declaredEdge: true,\n});\nconst reexportResult = runGate(workspace.root);\nassert.equal(reexportResult.status, 0, reexportResult.stdout);\n```",
+            "UT: [C002 postcondition] the boundary is checked against the imported crate, not the original declarer\n```js\nconst reexport = materializeApiWorkspace({\n  providerRust: 'pub struct BoundedValue { value: String }',\n  consumerRust: 'use provider::BoundedValue; pub fn use_it(value: BoundedValue) {}',\n  declaredEdge: true,\n});\nconst reexportResult = runGate(reexport.root);\nassert.equal(reexportResult.status, 0, reexportResult.stdout);\nassert.equal(findingOf(reexportResult, 'DEPENDENCY_EDGE_MISSING', 'BoundedValue'), undefined);\n```",
+            "UT: [C002 invariant] a re-export is not a second dependency edge\n```js\nconst noEdge = materializeApiWorkspace({\n  providerRust: 'pub struct BoundedValue { value: String }',\n  consumerRust: 'use provider::BoundedValue; pub fn use_it(value: BoundedValue) {}',\n  declaredEdge: false,\n});\nconst noEdgeResult = runGate(noEdge.root);\nassert.equal(noEdgeResult.status, 1);\nconst edgeFinding = findingOf(noEdgeResult, 'DEPENDENCY_EDGE_MISSING', 'BoundedValue');\nassert.ok(edgeFinding, noEdgeResult.stdout);\nassert.match(edgeFinding.cause, /provider/);\n```",
+            "UT: [C003 precondition] an existing verdict records its check-set version\n```js\nconst recorded = { checkSetVersion: '2026-10-29.legacy.1', verdict: 'pass', findings: [], blocked: [] };\nassert.equal(recordedCheckSetVersion(recorded), '2026-10-29.legacy.1');\n```",
+            "UT: [C003 postcondition] the downstream consumer accepts the recorded version and a new run records the new version\n```js\nassert.equal(acceptsRecordedVersion(recorded, API_CHECK_SET_VERSION), true);\nconst fresh = verifyApiConsistency({ workspaceRoot: workspace.root });\nassert.equal(fresh.summary.checkSetVersion, API_CHECK_SET_VERSION);\n```",
+            "UT: [C003 invariant] a new version does not retroactively invalidate an older verdict\n```js\nassert.notEqual(recorded.checkSetVersion, API_CHECK_SET_VERSION);\nassert.equal(recordedCheckSetVersion({ verdict: 'pass' }), null);\nassert.equal(acceptsRecordedVersion({ verdict: 'pass' }, API_CHECK_SET_VERSION), true);\n```"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "A use statement was read as a type reference and the gate resolved every reference through one workspace-global bare-name map.",
+              "after": "Use statements are parsed into imports and blanked from the parsed source; each reference is classified as local-crate, workspace-explicit, workspace-glob, workspace-reexport, external, builtin or unscoped.",
+              "description": "parse-rust-surface.mjs now exposes imports and sanitized lines; verify-api-consistency.mjs resolves through the package import scope."
+            },
+            {
+              "before": "Trait impl methods were attributed to the trait name, type aliases carried no target, and declarations had no receiver metadata.",
+              "after": "Trait impl methods belong to the implemented type, type aliases carry aliasTarget, and declarations record whether they take a receiver so associated-call arity is compared correctly.",
+              "description": "The parser now reads impl Trait for Type, type alias targets and receiver presence."
+            },
+            {
+              "before": "Every unresolved reference was blocking, including external crate imports, crate-local re-exports, glob-imported enum variants and independent same-name types in different crates.",
+              "after": "Only an explicit workspace import or re-export whose declaration, shape, arity, generic arity or boundary is missing is blocking. External, crate-local and builtin references are out of scope. Unresolved bare symbols are counted as UNSCOPED_SYMBOL advisory findings.",
+              "description": "The cross-package claim is now import-scoped and the false-positive classes are out of scope."
+            },
+            {
+              "before": "Duplicate and kind checks compared every same-name declaration across packages. A re-exported symbol was resolved to its original declarer and its boundary was checked there.",
+              "after": "Conflict checks apply to a locally shadowed or ambiguously imported path. A re-export is followed for the declaration, while the boundary is checked against the crate named in the consumer import.",
+              "description": "Same-name types remain independent; the re-export chain is resolved and the imported crate owns the edge."
+            },
+            {
+              "before": "The API gate summary had no check-set version and the smooth CLOSURE entry had no version field.",
+              "after": "API_CHECK_SET_VERSION is recorded in the JSON summary and the non-JSON summary line; run.mjs carries checkSetVersionOf(reason) into the CLOSURE entry.",
+              "description": "An older verdict remains acceptable under the version it recorded."
+            },
+            {
+              "before": "The API tests used bare references, and no test covered use statements, aliases, globs, re-exports, trait impls or receiver arity.",
+              "after": "Fixtures use explicit workspace imports and cover external, crate-local, glob enum, same-name, re-export and version cases. The drill and grill fixtures now import the symbol they reference.",
+              "description": "Existing tests were re-contracted to the import-scoped model; none was weakened."
+            },
+            {
+              "before": "verifyApiConsistency had six destructured parameters and the quality checker reported a minor issue.",
+              "after": "It accepts one request object, destructures it inside, and the quality checker reports zero issues.",
+              "description": "Quality refactor applied after green."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
+        },
+        {
+          "id": 383,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Smooth evidence model: authored vocabulary, operation citation and typed/prose separation",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-383.md",
+          "background": "### Goal\nMake the smooth-sequences detector read the vocabulary, applicability, citation level and evidence class a project states, and mechanically verify each declared class instead of assuming the gaia shape.\n\n### Purpose\nThe current model derives requiredInterfaces only from columns whose values instantiate a pinned vocabulary, requires a step-level quote for every authored fact, and counts prose as typed authored evidence. It therefore cannot express a project whose interfaces are literal columns, whose spec states no interfaces or status machine, or whose contracts are prose.\n\n### Motivation\nMeasured on the three sample workspaces. Gaia derives requiredInterfaces as initial_status, rest, websocket and cli; initial_status is a status field, not an interface, so the derivation is over-inclusive. Doors derives null because its four interface columns cli, rest, ws and grpc are literalInLine; the derivation is under-inclusive. Crystal declares no columns and no status graphs; both checks should be explicitly not applicable. Doors step quotes are one-word procedure tokens, so operation-level Preconditions and Postconditions cannot be cited under the step-line rule. Crystal contracts are prose. Census selectors differ: gaia uses jsonFieldRows, specSpans and tableColumn; crystal tableColumn; doors markedLines. Smooth currently accepts only jsonFieldRows.\n\n### Constraints\nNo project names, column names or project-specific deciders enter the code. An explicit empty list is an authored none. A notApplicable entry requires a spec line and quote ground. Typed and prose are separate surfaces. Operation-level citation is additive; existing step citations and jsonFieldRows behavior are unchanged. Old verdicts remain accepted under their recorded checkSetVersion. Gaia pass is preserved, doors blocked count does not increase, and crystal current stage gains no blocking finding.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**",
+            "  - [File/module path] .claude/scripts/educe-sequences/rail/artifact.mjs and artifact-schema.json",
+            "  - [Action] modify",
+            "  - [What specifically changes] Copy an authored declaration vocabulary (requiredInterfaces, terminalStatuses, applicability) into artifact.vocabulary during phase 9 composition. The field stays optional; an artifact without a declaration keeps its current shape.",
+            "  - [Before → After] Before, artifact.mjs only preserves an existing vocabulary field; no phase writes one. After, a declaration vocabulary reaches the artifact and remains preserved on later generations.",
+            "  - [API contract change] artifact-schema.json allows the optional vocabulary object; no required field is added.",
+            "  - [File/module path] .claude/scripts/smooth-sequences/lib/vocabulary.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Extend the interface source enum to artifact.vocabulary, allocate declared_interfaces, pins.columns by decider, declaration.interfaces and unknown. Treat an explicit empty list as none. Keep the existing derivation as a fallback. Withhold with a named reason when no source states a name.",
+            "  - [Before → After] Before, deriveRequiredInterfaces reads declared_interfaces then collectCandidateColumns, so a literalInLine interface column is invisible and a borrowedVocabulary status column can be over-included. After, each source has a total predicate and the project can state its interface set explicitly.",
+            "  - [File/module path] .claude/scripts/smooth-sequences/lib/migrate-v3.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Add operation-level citation {operation, line, quote} verified against the spec line read from artifact.spec.path; keep step-level citation. Separate typed facts from contract_prose. Refuse a vacuous fact that only restates a one-word quote.",
+            "  - [Before → After] Before, a fact must cite source.step and source.line equal to the step line and a quote inside the step quote; a one-word step quote can only support a one-word fact. After, a fact may cite the operation spec line and quote, and the typed row or quote must support its text.",
+            "  - [File/module path] .claude/scripts/smooth-sequences/lib/surfaces.mjs, check-status.mjs, checks-layer-a.mjs and checks-layer-b.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Add notApplicable, withheld and unproven outcomes. Count evaluatedClaims from actual typed facts and interface values. Keep prose out of the typed denominator. A prose-only step set is notApplicable for typed checks.",
+            "  - [Before → After] Before, evaluatedClaimsFor returns the row denominator and hasAuthoredContract accepts prose, so a prose-only set can look executed with zero typed facts. After, the claim count is the actual proposition count and prose is a separate surface.",
+            "  - [File/module path] .claude/scripts/shared-obligations/source-census.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Support jsonFieldRows, tableColumn, markedLines and specSpans through the same extractor contract as the educe rail. An unknown shape is a named refusal; no row is silently skipped.",
+            "  - [Before → After] Before, SUPPORTED_SHAPE is jsonFieldRows only, so a markedLines or tableColumn pin is CENSUS_SHAPE_UNSUPPORTED. After, the four shapes the educe rail already accepts are accepted here too.",
+            "  - [File/module path] .claude/scripts/smooth-sequences/lib/repair-route.mjs",
+            "  - [Action] modify",
+            "  - [What specifically changes] Map vocabulary surfaces to the real educe producer and add a producer coverage test. Keep every existing v3 surface route unchanged.",
+            "  - [File/module path] .claude/commands/smooth-sequences.md and .claude/commands/educe-sequences.md",
+            "  - [Action] modify",
+            "  - [What specifically changes] Document the authored vocabulary, applicability, citation levels and typed/prose split.",
+            "  - [File/module path] tests/smooth-sequences/, tests/educe-sequences/ and tests/shared-obligations/",
+            "  - [Action] add/modify",
+            "  - [What specifically changes] Add synthetic fixtures for each vocabulary source, citation level, evidence class and census shape; add an opt-in read-only sample diff.",
+            "",
+            "**Out of scope (items intentionally excluded, with justification):**",
+            "  - [Excluded item] Editing gaia, crystal or doors design files to silence a finding.",
+            "  - [Why excluded] The ticket changes the evidence model; a sample edit is allowed only as a minimal authored declaration after the read-only diff, and generated artifacts are never edited.",
+            "  - [Excluded item] Making every project satisfy every evidence class.",
+            "  - [Why excluded] A project states its evidence class; the gate verifies the stated class and refuses an ungrounded notApplicable. Forcing a prose project into typed checks would be a category error, not strictness.",
+            "",
+            "**Affected areas (components/systems impacted, even without direct modification):**",
+            "  - [Affected component] educe phase 9, smooth vocabulary, migrate-v3, smooth checks, certificate, repair route, grill gates that read the certificate.",
+            "  - [Nature of impact] Evidence classification and certificate states.",
+            "  - [Corresponding change needed Y/N + details] Y for smooth/educe/shared-obligations; N for the three project designs until the minimal declarations are applied after install."
+          ],
+          "testUnit": [
+            "UT: [C001 normal] an authored vocabulary with literalInLine interface columns resolves requiredInterfaces; a borrowedVocabulary declaration resolves its members; an explicit empty list resolves to none.",
+            "UT: [C001 error] an unknown vocabulary source withholds the check with a named reason; a malformed declaration is refused with INVALID_VOCABULARY.",
+            "UT: [C001 boundary] a declaration.interfaces list wins over the derivation; an explicit empty list is not withheld and is reported as none.",
+            "UT: [C002 normal] an operation-level fact whose quote exists on the operation spec line is accepted; a typed operation row that carries the fact text is accepted.",
+            "UT: [C002 error] an uncited fact, a quote absent from the spec line, and a vacuous one-word restatement are refused with UNCITED_AUTHORED_FACT.",
+            "UT: [C002 boundary] a step-level citation still passes unchanged; an operation-level citation does not require the step quote to contain the quote.",
+            "UT: [C003 normal] a typed step contract contributes its actual typed facts to evaluatedClaims; a prose step is not counted as typed authored evidence.",
+            "UT: [C003 error] a prose-only step set produces notApplicable for the typed checks, not executed with zero typed facts.",
+            "UT: [C003 boundary] a check with a positive denominator and zero actual propositions is vacuous or notApplicable, never executed.",
+            "UT: [C004 normal] the shared census extractor returns the same members for jsonFieldRows, tableColumn, markedLines and specSpans.",
+            "UT: [C004 boundary] an unknown census shape is a named refusal; no row is silently skipped.",
+            "UT: [Boundary] an explicit empty list or a notApplicable entry without a spec line and quote ground is refused."
+          ],
+          "testIntegration": [
+            "IT: an educe declaration vocabulary reaches artifact.vocabulary and then smooth S3 interface checks; a literalInLine declaration unblocks the interface mapping check.",
+            "IT: migrate-v3 with operation-level citations unblocks the S5/S6 checks that depend on typed facts; prose-only contracts remain notApplicable.",
+            "IT: the smooth certificate records applicable, notApplicable, withheld and unproven states distinctly; the certificate open list names each state.",
+            "IT: the opt-in read-only sample diff shows gaia pass preserved, doors interface checks unblocked and crystal status/interface/typed checks notApplicable with grounds.",
+            "IT: smooth closure on a workspace with a markedLines, tableColumn, specSpans or jsonFieldRows census consumes the same members through the shared extractor."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/educe-sequences/rail/artifact.mjs",
+            ".claude/scripts/educe-sequences/rail/artifact-schema.json",
+            ".claude/scripts/smooth-sequences/lib/vocabulary.mjs",
+            ".claude/scripts/smooth-sequences/lib/migrate-v3.mjs",
+            ".claude/scripts/smooth-sequences/lib/surfaces.mjs",
+            ".claude/scripts/smooth-sequences/lib/check-status.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-a.mjs",
+            ".claude/scripts/smooth-sequences/lib/checks-layer-b.mjs",
+            ".claude/scripts/shared-obligations/source-census.mjs",
+            ".claude/scripts/smooth-sequences/lib/repair-route.mjs"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** A synthetic workspace with authored vocabulary and applicability executes the applicable checks and records notApplicable with grounds for the rest; an explicit empty list is recorded as none.",
+            "**[Error case]** A declared interface missing its mapping produces the finding; a notApplicable without a spec line and quote ground is refused; a vacuous fact is refused.",
+            "**[Edge case]** literalInLine interface columns require an authored declaration; a one-word step quote can cite an operation line; a prose-only project gets notApplicable for typed checks, never executed with zero typed facts.",
+            "**[Sample gate]** Gaia pass preserved; doors two interface checks unblock and the 21 v3 checks become authorable; crystal status/interface/typed checks become notApplicable with grounds; no new blocking."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "smooth vocabulary source resolution",
+              "precondition": "An artifact or declaration states one of artifact.vocabulary, allocate declared_interfaces, pins.columns by decider or declaration.interfaces.",
+              "postcondition": "requiredInterfaces resolves from the stated source or is withheld with a named reason; an explicit empty list resolves to none.",
+              "invariant": "An unknown source withholds the check and never guesses."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "smooth operation-level citation",
+              "precondition": "An authored fact cites an operation line and quote and the artifact carries a spec path.",
+              "postcondition": "The quote exists in the spec line and the typed row or quote supports the fact text; otherwise the fact is refused.",
+              "invariant": "A vacuous fact that only restates a one-word quote is refused."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "smooth typed and prose accounting",
+              "precondition": "A step carries a typed contract or a contract_prose field.",
+              "postcondition": "Typed checks count actual typed facts; prose steps are notApplicable for typed checks; evaluatedClaims equals the actual propositions.",
+              "invariant": "Prose never counts as typed authored evidence."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "census shape parity",
+              "precondition": "A sourceEnumerations pin states a selector shape and parameter.",
+              "postcondition": "jsonFieldRows, tableColumn, markedLines and specSpans extract members through the same contract; an unknown shape is refused.",
+              "invariant": "Educe and smooth accept the same shape set and return the same members."
+            }
+          ],
+          "notes": "- [Implementation steps] (1) Red: add fixtures for each vocabulary source, citation level, evidence class and census shape. (2) Green: add the declaration vocabulary producer. (3) Extend the vocabulary source enum and explicit empty semantics. (4) Add operation-level citation and the vacuous guard. (5) Separate typed and prose accounting. (6) Share the census extractor. (7) Update the repair route and command documents. (8) Run the opt-in sample diff and classify every delta.\n- [Risks] Changing accounting could turn a previously executed check into vacuous. Measure gaia before and after; if a check becomes vacuous, add the missing evidence minimally or keep the old policy for the old verdict.\n- [Caveats] A project that declares prose contracts is not forced into typed facts; it is notApplicable for typed checks with a ground. A project that declares typed facts is held to the full typed predicate.\n- [Open items] None. The sample declarations are applied after make install-to-projects.\n- [Future improvements] A producer could map declaration rowSchema fields to typed facts for projects that state a mechanical mapping, but the operation-level citation path is the generic minimum.\nImplementation summary:\n- Changed files: educe-sequences/rail/artifact.mjs, artifact-schema.json; smooth-sequences/lib/vocabulary.mjs, check-status.mjs, migrate-v3.mjs; smooth-sequences/migrate-v3.mjs; shared-obligations/source-census.mjs; five new test files.\n- Key changes: declaration vocabulary producer, vocabulary source/source record, applicability ground, typed/prose accounting and notApplicable, operation-level citation, vacuous guard, four census shapes.\n- Test results: consolidated impact set 210 tests, 209 pass, 0 fail, 1 skipped. New PX-383 tests 23 pass. Quality checks: 0 issues.\n- Read-only sample measurement with the new code: gaia 52/52 checks executed and no vacuous/notApplicable, so the existing pass is preserved; crystal and doors show 29 executed / 23 blocked without their post-install declarations, as expected.\n- No sample workspace was edited. The crystal and doors declarations are post-install authored inputs; the exact JSON is in the plan and spec.\n- Red coverage: 4/4 contracts covered by @verifies annotations.\nReview report:\n- Reviewed PX-383 with PX-382; both statuses set to reviewed.\n- Fixed: an authored notApplicable ground was checked only for shape. The cited specification line is now read and the quote must exist on it; an unavailable specification refuses the vocabulary.\n- Fixed: the shared census reader now matches the educe rail on mixed fences, multiple tables and span validity; parity re-verified on all real sample census pins (gaia 257/1/119, crystal 31/31, doors 105/145).\n- Added: census parity tests for mixed fences, multiple tables, fenced marked lines and invalid spans.\n- Re-measured the samples read-only: gaia 52/52 checks executed with no vacuous/notApplicable; crystal/doors 29 executed / 23 blocked without post-install declarations. No sample file edited.\n- No open crimes, no stubs, no external excuses, no ambiguous annotations.\n- Contract and target gates: passed.",
+          "invariants": "- [Normal establishment] Every vocabulary source, citation level and fact origin has a total predicate. artifact.vocabulary, allocate declared_interfaces, pins.columns by decider and declaration.interfaces each resolve or withhold with a named reason; an explicit empty list resolves to none.\n- [Invariant on error] No check is reported executed when it evaluated zero propositions. evaluatedClaims equals the number of actual typed facts, interface values or boundary rows compared; a prose-only step set is notApplicable for typed checks, not executed.\n- [Internal state invariant] Typed facts and contract_prose are separate surfaces. A prose step never counts as typed authored evidence, and a one-word quote restatement is never accepted as an authored fact.\n- [Boundary invariant] An explicit empty list is an authored none, not a withheld input. A notApplicable entry requires a spec line and quote ground. An existing verdict recorded under an older checkSetVersion remains acceptable to downstream commands.",
+          "instrumentation": "- [Logging] smooth prints one line per finding and per blocked surface; the report names the vocabulary source, citation level, evidence class and outcome.\n- [Metrics] Add evaluatedClaims per check, notApplicable count, withheld count, unproven count and the declared evidence class to the report and certificate.\n- [Error tracking] Every refusal is a named code: INVALID_VOCABULARY, UNCITED_AUTHORED_FACT, CENSUS_SHAPE_UNSUPPORTED, NOT_APPLICABLE_WITHOUT_GROUND, VACUOUS_AUTHORED_FACT. No catch-all swallow.\n- [Health check] smooth-sequences/run.mjs keeps its exit codes and deterministic report; the opt-in read-only sample diff is the acceptance health check.\nStatic quality check: passed (0 issues after review fixes)\nTranslatability: no issues\nTests: consolidated impact set 1344 tests, 1343 pass, 0 fail, 1 skipped\nSample smooth: gaia 52/52 executed; crystal/doors 29 executed / 23 blocked without post-install declarations",
+          "investigation": "- vocabulary.mjs:96-110 declaredInterfaceColumns reads allocateManifest.declared_interfaces; :122-131 deriveRequiredInterfaces falls back to collectCandidateColumns; :142-153 deriveInterfaceVocabulary maps only borrowedVocabulary. obligation.mjs:183-196 collectCandidateColumns keeps a column only when a value spells a pinned enumeration member, so a literalInLine interface column is invisible and a borrowedVocabulary status column can be included.\n- Measured vocabulary: gaia derives terminalStatuses [finalized, rejected, cancelled, expired, failed, disputed, reversed, recovered] and requiredInterfaces [initial_status, rest, websocket, cli]; doors derives both null; crystal derives both null and withholds both S3 checks. Gaia initial_status is a status field, not an interface. Doors pins cli, rest, ws and grpc with decidedBy literalInLine. Crystal has pins.columns [].\n- migrate-v3.mjs:360-386 assertCitedFact requires source.step === step.id, source.line === step.line, and the quote inside step.quote; :412-436 normalizeAuthoredContract applies it to every pre/post/invariant fact. fact-origin.mjs:68-77 isFactTextSupported requires a literal substring or 50 percent content-token match. Doors steps look like {line:734, quote:validate}; the spec line 734 carries Preconditions, Procedure, Failure/compensation and Postconditions, so operation-level facts cannot be cited under the step-token rule.\n- surfaces.mjs:58-66 hasAuthoredContract accepts typed facts or contract_prose; :160-167 readFieldOnEveryActiveOperation treats an absent field on any active operation as absent. check-status.mjs:72-74 countAuthoredSteps counts prose steps; :436-440 evaluatedClaimsFor returns the denominator; :427-433 classifyCheck only marks vacuous when evaluatedClaims is 0. A prose-only set can therefore report executed with a positive denominator and zero typed facts.\n- source-census.mjs:16 SUPPORTED_SHAPE is jsonFieldRows; :38-39 refuses any other shape with CENSUS_SHAPE_UNSUPPORTED. pins.mjs:39 SOURCE_SHAPES includes jsonFieldRows, tableColumn, markedLines and specSpans. Measured selectors: gaia operations jsonFieldRows, entry-regions specSpans, sequence-census tableColumn; crystal operations and sequences tableColumn; doors operations and sequences markedLines. Doors therefore leaves CENSUS:CONSISTENCY:operations open with CENSUS_SHAPE_UNSUPPORTED.\n- artifact.mjs:36-42 V3_ARTIFACT_SURFACES lists vocabulary as preserved; :106 mergeArtifactRow preserves it. No phase writes a vocabulary. repair-route.mjs:76-77 maps terminalStatuses and requiredInterfaces to REGENERATION_COMMAND, but no producer writes them.\n- Sample smooth state: gaia pass generation 138 measured 2026-10-29; doors exit 4 generation 6 with 24 blocked (21 v3 evidence, 2 interface, 1 CLOSURE API gate) and certificate open codes LEGACY_RECORD 796, NO_JUDGMENT 379, NO_ATTACK 260, BLOCKED_SURFACE 23, MISSING_WRITE_RECEIPT 9, CENSUS_SHAPE_UNSUPPORTED 1, GRILL_GATE_FAILED 1; crystal has educe generation 6 and no smooth report.\n- Existing tests: tests/smooth-sequences/vocabulary.test.mjs covers declared vocabulary, declared_interfaces, pinned borrowedVocabulary columns and withheld; it has no literalInLine interface declaration, no explicit empty list, no operation-level citation and no prose/typed accounting case. tests/shared-obligations/operation-census-consistency.test.mjs covers jsonFieldRows only.",
+          "boyScoutPlan": "- Extract verb-phrase functions in vocabulary.mjs: resolveVocabularySource, readDeclaredInterfaces, readPinnedInterfaceColumns, readExplicitInterfaces, withholdVocabularyReason. The source order becomes a call sequence that reads as prose.\n- Extract migrate-v3 citation functions: verifyStepCitation, verifyOperationCitation, verifyBoundaryCitation, verifyFactSupport. Each answers one citation question; assertCitedFact delegates.\n- Extract accounting functions: countTypedFacts, countInterfaceValues, classifyEvidenceClass. Replace the row-denominator fallback with an explicit proposition count.\n- Name domain values instead of generic locals: vocabularySource, interfaceColumn, citationLevel, factOrigin, evidenceClass, propositionCount. Replace entry, row and value in touched functions.\n- Extract the shape vocabulary into one shared frozen constant used by the educe rail and shared-obligations; no inline string decides a shape.\n- Make every refusal explicit: an unknown source, shape, citation level or evidence class returns a named record; no empty array stands in for a refusal.",
+          "created_at": "2026-11-06",
+          "updated_at": "2026-11-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 precondition] a literalInLine column is not an interface without an authored declaration\n```js\nconst artifact = minimalV3Artifact();\ndelete artifact.vocabulary;\nartifact.pins.columns = [{ name: 'cli', decidedBy: 'literalInLine' }];\nconst manifest = defaultAllocateManifest();\nconst vocabulary = loadVocabulary({\n  artifact,\n  artifactPath: '/tmp/example-sequences.json',\n  allocateManifest: manifest,\n});\nassert.equal(vocabulary.requiredInterfaces, null);\n```",
+            "UT: [C001 postcondition] an authored vocabulary resolves requiredInterfaces and an explicit empty list resolves to none\n```js\nartifact.vocabulary = { requiredInterfaces: ['cli'], terminalStatuses: [] };\nassert.deepEqual(\n  loadVocabulary({ artifact, artifactPath: '/tmp/example-sequences.json', allocateManifest: manifest }).requiredInterfaces,\n  ['cli'],\n);\nartifact.vocabulary = { requiredInterfaces: [], terminalStatuses: [] };\nconst empty = loadVocabulary({ artifact, artifactPath: '/tmp/example-sequences.json', allocateManifest: manifest });\nassert.deepEqual(empty.requiredInterfaces, []);\nassert.equal(empty.withheld.some((entry) => entry.check === INTERFACE_MAPPING_CHECK), false);\n```",
+            "UT: [C001 invariant] an unknown source withholds the interface check with a named reason\n```js\ndelete artifact.vocabulary;\nartifact.pins.columns = [];\nconst unknown = loadVocabulary({\n  artifact,\n  artifactPath: '/tmp/example-sequences.json',\n  allocateManifest: { contract_registry: [] },\n});\nassert.equal(unknown.requiredInterfaces, null);\nassert.equal(unknown.withheld.some((entry) => entry.check === INTERFACE_MAPPING_CHECK), true);\n```",
+            "UT: [C001 applicability] an authored applicability record carries a verifiable ground\n```js\nartifact.vocabulary = {\n  requiredInterfaces: [],\n  terminalStatuses: [],\n  applicability: {\n    'S3.interface': { applicable: false, ground: { line: 1, quote: 'the specification declares no interface' } },\n  },\n};\nconst applicable = loadVocabulary({\n  artifact,\n  artifactPath: '/tmp/example-sequences.json',\n  allocateManifest: manifest,\n});\nassert.equal(applicable.applicability['S3.interface'].applicable, false);\nassert.equal(applicable.applicability['S3.interface'].ground.line, 1);\n```",
+            "UT: [C002 precondition] an operation-level citation is accepted when its quote is on the operation line\n```js\nconst workspace = materializeSmoothWorkspace({ artifact: minimalV2Artifact() });\nconst input = migrationInput(workspace);\nconst annotations = {\n  contracts: {\n    'A-1__ProduceFact': {\n      pre: [],\n      post: [{\n        factId: 'order_id',\n        text: 'order_id is derived',\n        source: { operation: 'ProduceFact', line: 1, quote: 'the producer derives order_id' },\n      }],\n      invariants: [],\n      consumes: [],\n      produces: ['order_id'],\n      errors: [],\n      crosses: [],\n    },\n  },\n};\nconst migrated = migrateArtifactToV3({\n  ...input,\n  annotations,\n  specLines: { 'spec.md': ['the producer derives order_id'] },\n});\n```",
+            "UT: [C002 postcondition] the migrated step records the operation citation and authored origin\n```js\nconst step = migrated.steps.find((entry) => entry.id === 'A-1__ProduceFact');\nassert.equal(step.contract.post[0].source.operation, 'ProduceFact');\nassert.equal(migrated.migration.authorship['steps[].contract'].authored.includes('A-1__ProduceFact'), true);\n```",
+            "UT: [C002 error] a quote absent from the operation line is refused\n```js\nassert.throws(\n  () => migrateArtifactToV3({\n    ...input,\n    annotations: {\n      contracts: {\n        'A-1__ProduceFact': {\n          pre: [],\n          post: [{\n            factId: 'order_id',\n            text: 'order_id is derived',\n            source: { operation: 'ProduceFact', line: 1, quote: 'a line the specification does not carry' },\n          }],\n          invariants: [], consumes: [], produces: [], errors: [], crosses: [],\n        },\n      },\n    },\n    specLines: { 'spec.md': ['the producer derives order_id'] },\n  }),\n  /UNCITED_AUTHORED_FACT/,\n);\n```",
+            "UT: [C002 invariant] a one-word quote restatement is refused as vacuous\n```js\nconst step = migrated.steps.find((entry) => entry.id === 'A-1__ProduceFact');\nassert.throws(\n  () => normalizeAuthoredContract(\n    { post: [{ factId: 'x', text: 'validate', source: { step: step.id, line: step.line, quote: 'validate' } }] },\n    step,\n  ),\n  /VACUOUS_AUTHORED_FACT/,\n);\n```",
+            "UT: [C003 precondition] a typed contract contributes one evaluated proposition\n```js\nconst typedIndex = indexArtifact(loadWorkspace(workspace.root));\nconst preCheck = buildFamilySubChecks('meshing', typedIndex)\n  .find((entry) => entry.id === 'S5.precondition-not-implied');\nassert.equal(preCheck.status, 'executed');\nassert.equal(preCheck.evaluatedClaims, 1);\n```",
+            "UT: [C003 error] a prose-only step set is notApplicable for typed checks\n```js\nconst proseArtifact = minimalV3Artifact();\nproseArtifact.steps[0].contract = null;\nproseArtifact.steps[0].contract_prose = 'pre: the input is present';\nconst proseWorkspace = materializeSmoothWorkspace({ artifact: proseArtifact });\nconst proseIndex = indexArtifact(loadWorkspace(proseWorkspace.root));\nconst proseCheck = buildFamilySubChecks('meshing', proseIndex)\n  .find((entry) => entry.id === 'S5.precondition-not-implied');\nassert.equal(proseCheck.status, 'notApplicable');\nassert.equal(proseCheck.evaluatedClaims, 0);\n```",
+            "UT: [C003 invariant] prose never counts as a typed authored fact\n```js\nconst typedSteps = countTypedAuthoredSteps(proseIndex);\nassert.equal(typedSteps, 0);\nassert.equal(countAuthoredSteps(proseIndex), 0);\n```",
+            "UT: [C004 normal] the shared extractor and the rail extractor return the same members for all four shapes\n```js\nconst lines = {\n  jsonFieldRows: ['```jsonl', '{\"kind\":\"OpA\"}', '{\"kind\":\"OpB\"}', '```'],\n  tableColumn: ['| operation |', '| --- |', '| OpA |', '| OpB |'],\n  markedLines: ['- OpA', '- OpB'],\n  specSpans: ['```jsonl', '{\"span\":\"1-2\"}', '{\"span\":\"3-4\"}', '```'],\n};\nfor (const shape of ['jsonFieldRows', 'tableColumn', 'markedLines', 'specSpans']) {\n  const shared = extractCensusMembers({ lines: lines[shape], shape, parameter: shape === 'tableColumn' ? 'operation' : shape === 'markedLines' ? '- ' : shape === 'specSpans' ? 'span' : 'kind' });\n  const rail = extractMembers({ lines: lines[shape], shape, parameter: shape === 'tableColumn' ? 'operation' : shape === 'markedLines' ? '- ' : shape === 'specSpans' ? 'span' : 'kind' });\n  assert.deepEqual(shared.members, rail.members);\n}\n```",
+            "UT: [C004 boundary] an unknown census shape is a named refusal\n```js\nconst refusal = extractCensusMembers({ lines: ['- OpA'], shape: 'csvRows', parameter: 'id' });\nassert.equal(refusal.refused.includes('csvRows'), true);\n```"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "educe only preserved an artifact vocabulary; no declaration field reached the artifact.",
+              "after": "buildArtifact validates declaration.vocabulary and copies requiredInterfaces, terminalStatuses and applicability into artifact.vocabulary; a declaration field wins over a preserved one, and a malformed declaration is refused.",
+              "description": "educe declaration -> artifact vocabulary producer."
+            },
+            {
+              "before": "loadVocabulary read only terminalStatuses/requiredInterfaces and had no source record or applicability.",
+              "after": "loadVocabulary returns applicability, a source for each vocabulary, explicit empty lists as a written none, and a validated applicability ground.",
+              "description": "smooth vocabulary source enum and applicability."
+            },
+            {
+              "before": "Typed checks counted prose steps in their denominator and used the row denominator as evaluatedClaims.",
+              "after": "Typed checks use countTypedAuthoredSteps, count actual authored facts, and classify a prose-only or explicitly not-applicable set as notApplicable with a ground or reason.",
+              "description": "typed/prose accounting and notApplicable outcome."
+            },
+            {
+              "before": "An authored fact could cite only the step line and quote; a one-word restatement could pass.",
+              "after": "A fact may cite {operation, line, quote} verified against the specification line, and a one-word restatement is refused with VACUOUS_AUTHORED_FACT.",
+              "description": "operation-level citation and vacuous guard."
+            },
+            {
+              "before": "source-census read only jsonFieldRows and refused tableColumn, markedLines and specSpans.",
+              "after": "The shared reader accepts all four shapes through one total extractor, with named row refusals; the rail extractor is the parity oracle.",
+              "description": "census shape parity."
+            },
+            {
+              "before": "No tests covered declaration vocabulary, source provenance, applicability, operation citation, typed/prose accounting or census parity.",
+              "after": "Five new test files cover C001-C004; the consolidated impact set is 210 tests with 0 failures.",
+              "description": "Red-first tests and regression coverage."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
         }
       ]
     },

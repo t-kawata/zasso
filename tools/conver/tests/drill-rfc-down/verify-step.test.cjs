@@ -216,17 +216,27 @@ describe('PX-368 Step 5 report and scopes', () => {
 
 // PX-369 @verifies C001
 describe('PX-369 cross-package API verdict', () => {
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
   it('C001 invariant: the API gate is P2 residue and never blocks this package', () => {
     const project = setupProject();
     const workspaceRoot = path.join(tmpRoot, 'api-workspace');
-    fs.mkdirSync(path.join(workspaceRoot, 'crates', 'pkg'), { recursive: true });
+    fs.mkdirSync(path.join(workspaceRoot, 'crates', 'provider'), { recursive: true });
+    fs.mkdirSync(path.join(workspaceRoot, 'crates', 'consumer'), { recursive: true });
     fs.writeFileSync(path.join(workspaceRoot, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({
-      workspace: { packages: [{ id: 'pkg-0001', name: 'pkg', path: 'crates/pkg' }] },
+      workspace: {
+        packages: [
+          { id: 'pkg-0001', name: 'pkg_0001', path: 'crates/provider' },
+          { id: 'pkg-0002', name: 'pkg_0002', path: 'crates/consumer' },
+        ],
+      },
       dependencies: { boundaries: [] },
     }));
     fs.writeFileSync(path.join(workspaceRoot, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({ contract_registry: [] }));
-    fs.writeFileSync(path.join(workspaceRoot, 'crates', 'pkg', 'RFC.md'), [
-      '# RFC pkg-0001', '', '```rust', 'pub fn use_it(value: Missing) {}', '```', '',
+    fs.writeFileSync(path.join(workspaceRoot, 'crates', 'provider', 'RFC.md'), [
+      '# RFC pkg-0001', '', '```rust', 'pub struct Known { value: String }', '```', '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(workspaceRoot, 'crates', 'consumer', 'RFC.md'), [
+      '# RFC pkg-0002', '', '```rust', 'use pkg_0001::Missing; pub fn use_it(value: Missing) {}', '```', '',
     ].join('\n'));
 
     const { sessionDir, result } = runVerifyStepWithSession(project, [`--workspace=${workspaceRoot}`]);

@@ -41,6 +41,45 @@ const V3_ARTIFACT_SURFACES = Object.freeze([
   'vocabulary',
 ]);
 
+/** The vocabulary fields a declaration may author for the artifact to carry. */
+const DECLARATION_VOCABULARY_FIELDS = Object.freeze([
+  'requiredInterfaces',
+  'terminalStatuses',
+  'applicability',
+]);
+
+/**
+ * The vocabulary a declaration states, validated before it reaches the artifact.
+ *
+ * The artifact is the detector's only input; a malformed declaration must fail here
+ * rather than become a vocabulary the detector reads as absent.
+ */
+// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+function declarationVocabularyOf(declaration) {
+  const vocabulary = declaration?.vocabulary;
+  if (vocabulary === undefined) return null;
+  if (vocabulary === null || typeof vocabulary !== 'object' || Array.isArray(vocabulary)) {
+    throw new Error('declaration vocabulary must be an object');
+  }
+  const stated = {};
+  for (const field of DECLARATION_VOCABULARY_FIELDS) {
+    if (vocabulary[field] === undefined) continue;
+    if (field === 'applicability') {
+      if (vocabulary[field] === null || typeof vocabulary[field] !== 'object' || Array.isArray(vocabulary[field])) {
+        throw new Error('declaration vocabulary.applicability must be an object');
+      }
+      stated[field] = vocabulary[field];
+      continue;
+    }
+    if (!Array.isArray(vocabulary[field])
+      || vocabulary[field].some((entry) => typeof entry !== 'string' || entry.trim() === '')) {
+      throw new Error(`declaration vocabulary.${field} must be an array of non-empty strings`);
+    }
+    stated[field] = vocabulary[field];
+  }
+  return Object.keys(stated).length === 0 ? null : stated;
+}
+
 /** Whether two artifacts were read from the same specification and the same material. */
 export function isSameRevision(previous, next) {
   return previous?.spec?.sha256 === next?.spec?.sha256
@@ -182,6 +221,9 @@ export function buildArtifact({ specPath, spec, declaration, readings, supplied 
   // The demand is stated after the rest is composed, because it is read from what was composed:
   // the candidate columns are the pinned vocabularies crossed with this artifact's own operation
   // rows. Who owes a demand is deliberately absent — the rail emits, and the slice assigns.
+  const authoredVocabulary = declarationVocabularyOf(declaration);
   const withDemand = { ...composed, demand: demandFactsBeside(specPath, composed) };
-  return preserveV3Surfaces(previousArtifact, withDemand);
+  const preserved = preserveV3Surfaces(previousArtifact, withDemand);
+  if (authoredVocabulary === null) return preserved;
+  return { ...preserved, vocabulary: { ...(preserved.vocabulary ?? {}), ...authoredVocabulary } };
 }

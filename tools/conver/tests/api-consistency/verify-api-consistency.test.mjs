@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { digestOfFindings } from '../../.claude/scripts/api-consistency/finding-identity.mjs';
-import { materializeApiWorkspace } from './helpers/workspace.mjs';
+import { materializeApiWorkspace, materializeApiWorkspaceWithPackages } from './helpers/workspace.mjs';
 
 const GATE = '.claude/scripts/api-consistency/verify-api-consistency.mjs';
 
@@ -32,10 +32,11 @@ function findingsOf(result) {
 function findingOf(result, code, symbol) {
   return findingsOf(result).find((entry) => entry.code === code && entry.symbol === symbol);
 }
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
 
 test('C001 postcondition: an undefined cross-package symbol names the consumer and the symbol', () => {
   const workspace = materializeApiWorkspace({
-    consumerRust: 'pub fn use_it() { let value = OperationCatalogue::empty(); }',
+    consumerRust: 'use provider::OperationCatalogue; pub fn use_it() { let value = OperationCatalogue::empty(); }',
   });
   try {
     const result = runGate(workspace.root);
@@ -52,7 +53,7 @@ test('C001 postcondition: an undefined cross-package symbol names the consumer a
 test('C001 invariant: a declared symbol with a declared edge produces no finding', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct OperationCatalogue { entries: Vec<String> }',
-    consumerRust: 'pub fn use_it(value: OperationCatalogue) {}',
+    consumerRust: 'use provider::OperationCatalogue; pub fn use_it(value: OperationCatalogue) {}',
     declaredEdge: true,
   });
   try {
@@ -68,7 +69,7 @@ test('C001 invariant: a declared symbol with a declared edge produces no finding
 test('C002 postcondition: a three-argument call against a two-parameter declaration is named', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct Left;\npub struct Right;\npub fn bind(left: Left, right: Right) -> Result<()> { Ok(()) }',
-    consumerRust: 'pub fn use_it() { bind(first, second, third); }',
+    consumerRust: 'use provider::bind; pub fn use_it() { bind(first, second, third); }',
     declaredEdge: true,
   });
   try {
@@ -87,7 +88,7 @@ test('C002 postcondition: a three-argument call against a two-parameter declarat
 test('C003 postcondition: BoundedText<64> where BoundedText is non-generic is named', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct BoundedText { value: String }',
-    consumerRust: 'pub struct Holder { text: BoundedText<64> }',
+    consumerRust: 'use provider::BoundedText; pub struct Holder { text: BoundedText<64> }',
     declaredEdge: true,
   });
   try {
@@ -103,7 +104,7 @@ test('C003 postcondition: BoundedText<64> where BoundedText is non-generic is na
 test('C003 invariant: a generic declaration used with the same arity passes', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct Envelope<T> { value: T }',
-    consumerRust: 'pub struct Holder { value: Envelope<String> }',
+    consumerRust: 'use provider::Envelope; pub struct Holder { value: Envelope<String> }',
     declaredEdge: true,
   });
   try {
@@ -118,7 +119,7 @@ test('C003 invariant: a generic declaration used with the same arity passes', ()
 test('C004 postcondition: a trait and a concrete type with one name is a kind mismatch', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub trait WebSocketBinding { fn send(&self); }',
-    consumerRust: 'pub struct WebSocketBinding { endpoint: String }',
+    consumerRust: 'use provider::WebSocketBinding; pub struct WebSocketBinding { endpoint: String }',
     declaredEdge: true,
   });
   try {
@@ -137,7 +138,7 @@ test('C004 postcondition: a trait and a concrete type with one name is a kind mi
 test('C005 postcondition: duplicate CoreOperations with different fields names both packages', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct CoreOperations { entries: Vec<String> }',
-    consumerRust: 'pub struct CoreOperations { registry: HashMap<String, u8> }',
+    consumerRust: 'use provider::CoreOperations; pub struct CoreOperations { registry: HashMap<String, u8> }',
     declaredEdge: true,
   });
   try {
@@ -156,7 +157,7 @@ test('C005 postcondition: duplicate CoreOperations with different fields names b
 test('C006 postcondition: a provider reference with no declared boundary names the missing edge', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct CanonicalVocabulary { words: Vec<String> }',
-    consumerRust: 'pub fn use_it(value: CanonicalVocabulary) {}',
+    consumerRust: 'use provider::CanonicalVocabulary; pub fn use_it(value: CanonicalVocabulary) {}',
     declaredEdge: false,
   });
   try {
@@ -175,7 +176,7 @@ test('C006 postcondition: a provider reference with no declared boundary names t
 test('C006 invariant: the same reference with a declared boundary passes', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct CanonicalVocabulary { words: Vec<String> }',
-    consumerRust: 'pub fn use_it(value: CanonicalVocabulary) {}',
+    consumerRust: 'use provider::CanonicalVocabulary; pub fn use_it(value: CanonicalVocabulary) {}',
     declaredEdge: true,
   });
   try {
@@ -279,15 +280,15 @@ test('C004 invariant: an unresolvable bare call is not a blocking finding', () =
 
 test('C004 postcondition: a Type::method path on a declared type is still blocking', () => {
   const workspace = materializeApiWorkspace({
-    providerRust: 'pub struct CliBinding { value: String }',
-    consumerRust: 'pub fn use_it() { CliBinding::try_new(args); }',
+    providerRust: 'pub struct CliBinding { value: String }\nimpl CliBinding { pub fn try_new() -> Self { Self { value: String::new() } } }',
+    consumerRust: 'use provider::CliBinding; pub fn use_it() { CliBinding::try_new(args); }',
     declaredEdge: true,
   });
   try {
     const result = runGate(workspace.root);
 
     assert.equal(result.status, 1);
-    assert.ok(findingOf(result, 'SYMBOL_UNDEFINED', 'CliBinding::try_new'), result.stdout);
+    assert.ok(findingOf(result, 'ARITY_MISMATCH', 'CliBinding::try_new'), result.stdout);
   } finally {
     workspace.remove();
   }
@@ -312,7 +313,7 @@ test('C004 invariant: same-named free functions are not a duplicate declaration'
 test('C004 invariant: same-named structs with different shapes remain a duplicate', () => {
   const workspace = materializeApiWorkspace({
     providerRust: 'pub struct Thing { left: String }',
-    consumerRust: 'pub struct Thing { right: String }',
+    consumerRust: 'use provider::Thing; pub struct Thing { right: String }',
     declaredEdge: true,
   });
   try {
@@ -336,15 +337,12 @@ test('PX-372 C002: a multi-line provider and consumer pair is clean', () => {
       'pub struct CommandKey;',
       'pub struct CommandContent;',
       'pub trait CommandRecord {}',
-      'pub fn admit(',
-      '    key: &CommandKey,',
-      '    content: &CommandContent,',
-      '    records: &dyn CommandRecord,',
-      ') -> Result<u8, u8> {',
+      'pub fn admit(key: &CommandKey, content: &CommandContent, records: &dyn CommandRecord) -> Result<u8, u8> {',
       '    0',
       '}',
     ].join('\n'),
     consumerRust: [
+      'use provider::admit;',
       'pub fn use_it() {',
       '    admit(',
       '        &key(),',
@@ -358,7 +356,9 @@ test('PX-372 C002: a multi-line provider and consumer pair is clean', () => {
     const result = runGate(workspace.root);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.deepEqual(findingsOf(result), []);
+    const findings = findingsOf(result);
+    assert.equal(findings.filter((entry) => entry.severity === 'blocking').length, 0);
+    assert.deepEqual([...new Set(findings.map((entry) => entry.code))], ['UNSCOPED_SYMBOL']);
   } finally {
     workspace.remove();
   }
@@ -385,7 +385,7 @@ test('PX-372 C003: a readable workspace with zero packages is refused', () => {
 
 test('PX-372 C004: --scope counts only findings owned by the scoped package', () => {
   const workspace = materializeApiWorkspace({
-    consumerRust: 'pub fn use_it(value: Missing) {}',
+    consumerRust: 'use provider::Missing; pub fn use_it(value: Missing) {}',
   });
   try {
     const outside = runGate(workspace.root, ['--scope=pkg-0001']);
@@ -401,7 +401,7 @@ test('PX-372 C004: --scope counts only findings owned by the scoped package', ()
 
 test('PX-372 C004: a baseline records pre-existing debt and still fails a new finding', () => {
   const workspace = materializeApiWorkspace({
-    consumerRust: 'pub fn use_it(value: Missing) {}',
+    consumerRust: 'use provider::Missing; pub fn use_it(value: Missing) {}',
   });
   try {
     const first = runGate(workspace.root);
@@ -433,7 +433,7 @@ test('PX-372 C004: a baseline records pre-existing debt and still fails a new fi
 
 test('PX-372 C004: a baseline whose digest does not match its findings is refused', () => {
   const workspace = materializeApiWorkspace({
-    consumerRust: 'pub fn use_it(value: Missing) {}',
+    consumerRust: 'use provider::Missing; pub fn use_it(value: Missing) {}',
   });
   try {
     const first = runGate(workspace.root);
@@ -452,4 +452,206 @@ test('PX-372 C004: a baseline whose digest does not match its findings is refuse
   } finally {
     workspace.remove();
   }
+});
+
+// PX-382 @verifies C001
+// A cross-package claim is proved through the consumer's import scope. External,
+// crate-local, builtin, enum-variant and independent same-name references are not
+// cross-package claims and must not be reported as blocking findings.
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: an explicit workspace import resolves and records the check-set version', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub struct Known { value: String }',
+    consumerRust: 'use provider::Known; pub fn use_it(value: Known) {}',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+    assert.deepEqual(findingsOf(result), []);
+    const summary = JSON.parse(result.stdout).summary;
+    assert.equal(summary.checkSetVersion, '2026-11-06.import-scoped.1');
+    assert.ok(summary.importKinds['workspace-explicit'] >= 1, JSON.stringify(summary.importKinds));
+  } finally {
+    workspace.remove();
+  }
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: an external crate import and its associated call are out of scope', () => {
+  const workspace = materializeApiWorkspace({
+    consumerRust: 'use clap::Command; pub fn run() { Command::new("doors"); }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+    assert.equal(findingOf(result, 'SYMBOL_UNDEFINED', 'Command'), undefined);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a crate-local re-export is not a cross-package claim', () => {
+  const workspace = materializeApiWorkspace({
+    consumerRust: 'use crate::wire::Config; pub fn run(value: Config) {}',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: same-name types in different crates are not duplicates without an import', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub struct Candidate { left: String }',
+    consumerRust: 'pub struct Candidate { right: String }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a glob import resolves a bare enum variant', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub enum ErrorCode { AlreadyExists, NotFound }',
+    consumerRust: 'use provider::ErrorCode::*; pub fn pick() -> ErrorCode { AlreadyExists }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// PX-382 @verifies C002
+// A re-export is not a second dependency edge: the boundary belongs to the crate the
+// consumer imports, not to the crate that first declared the symbol.
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a crate-root workspace glob resolves a bare symbol', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub struct Known { value: String }',
+    consumerRust: 'use provider::*; pub fn use_it(value: Known) {}',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+    assert.equal(findingOf(result, 'UNSCOPED_SYMBOL', 'Known'), undefined);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('PX-382 C001: an external glob leaves an unresolved symbol named, not silently external', () => {
+  const workspace = materializeApiWorkspace({
+    consumerRust: 'use clap::prelude::*; pub fn run() { Unknown::new(); }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+    assert.ok(findingOf(result, 'UNSCOPED_SYMBOL', 'Unknown::new'), result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('PX-382 C001: a missing imported member is advisory, not blocking', () => {
+  const workspace = materializeApiWorkspace({
+    providerRust: 'pub struct CliBinding { value: String }',
+    consumerRust: 'use provider::CliBinding; pub fn use_it() { CliBinding::try_new(args); }',
+    declaredEdge: true,
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+    const finding = findingOf(result, 'UNSCOPED_SYMBOL', 'CliBinding::try_new');
+    assert.ok(finding, result.stdout);
+    assert.match(finding.cause, /member is not declared/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+test('PX-382 C002: a re-export boundary is checked against the imported crate', () => {
+  const workspace = materializeApiWorkspaceWithPackages({
+    packages: [
+      { id: 'pkg-0001', name: 'foundation', path: 'crates/foundation', rust: 'pub struct BoundedValue { value: String }' },
+      { id: 'pkg-0002', name: 'ports', path: 'crates/ports', rust: 'pub use foundation::BoundedValue;' },
+      { id: 'pkg-0003', name: 'adapter', path: 'crates/adapter', rust: 'use ports::BoundedValue; pub fn use_it(value: BoundedValue) {}' },
+    ],
+    boundaries: [
+      { provider: 'pkg-0001', consumer: 'pkg-0002' },
+      { provider: 'pkg-0002', consumer: 'pkg-0003' },
+    ],
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 0, result.stdout);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C002: a missing re-export edge names the imported crate', () => {
+  const workspace = materializeApiWorkspaceWithPackages({
+    packages: [
+      { id: 'pkg-0001', name: 'foundation', path: 'crates/foundation', rust: 'pub struct BoundedValue { value: String }' },
+      { id: 'pkg-0002', name: 'ports', path: 'crates/ports', rust: 'pub use foundation::BoundedValue;' },
+      { id: 'pkg-0003', name: 'adapter', path: 'crates/adapter', rust: 'use ports::BoundedValue; pub fn use_it(value: BoundedValue) {}' },
+    ],
+    boundaries: [
+      { provider: 'pkg-0001', consumer: 'pkg-0002' },
+    ],
+  });
+  try {
+    const result = runGate(workspace.root);
+
+    assert.equal(result.status, 1, result.stdout);
+    const finding = findingOf(result, 'DEPENDENCY_EDGE_MISSING', 'BoundedValue');
+    assert.ok(finding, result.stdout);
+    assert.match(finding.cause, /ports/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// PX-382 @verifies C003
+// A verdict records the check set that produced it. A later gate applies its new
+// version on a new run; it does not retroactively invalidate an older verdict.
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C003: a recorded check-set version is read and accepted', async () => {
+  const verifier = await import('../../.claude/scripts/api-consistency/verify-api-consistency.mjs');
+
+  assert.equal(verifier.recordedCheckSetVersion({ checkSetVersion: 'legacy-v1' }), 'legacy-v1');
+  assert.equal(verifier.recordedCheckSetVersion({ verdict: 'pass' }), null);
+  assert.equal(verifier.acceptsRecordedVersion({ checkSetVersion: 'legacy-v1' }, verifier.API_CHECK_SET_VERSION), true);
+  assert.equal(verifier.acceptsRecordedVersion({ verdict: 'pass' }, verifier.API_CHECK_SET_VERSION), true);
+  assert.notEqual('legacy-v1', verifier.API_CHECK_SET_VERSION);
 });

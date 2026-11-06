@@ -33,6 +33,20 @@ const CRATES_DIRECTORY = 'crates';
 /** The declaration kinds whose names are a workspace vocabulary rather than a local one. */
 const TYPE_LIKE_KINDS = new Set(['struct', 'trait', 'enum', 'type']);
 
+/** The check set this gate runs, carried into the verdict that consumes it. */
+export const API_CHECK_SET_VERSION = '2026-11-06.import-scoped.1';
+
+/** The kinds a reference can have after import-scope resolution. */
+const IMPORT_KINDS = Object.freeze({
+  LOCAL_CRATE: 'local-crate',
+  WORKSPACE_EXPLICIT: 'workspace-explicit',
+  WORKSPACE_GLOB: 'workspace-glob',
+  WORKSPACE_REEXPORT: 'workspace-reexport',
+  EXTERNAL: 'external',
+  BUILTIN: 'builtin',
+  UNSCOPED: 'unscoped',
+});
+
 /** The finding codes, named once so no inline string can drift. */
 export const FINDING_CODES = Object.freeze({
   SYMBOL_UNDEFINED: 'SYMBOL_UNDEFINED',
@@ -42,6 +56,7 @@ export const FINDING_CODES = Object.freeze({
   KIND_MISMATCH: 'KIND_MISMATCH',
   DEPENDENCY_EDGE_MISSING: 'DEPENDENCY_EDGE_MISSING',
   UNPARSED_SURFACE: 'UNPARSED_SURFACE',
+  UNSCOPED_SYMBOL: 'UNSCOPED_SYMBOL',
 });
 
 /** The refusals a workspace that cannot be read produces, named once. */
@@ -59,6 +74,9 @@ const EMPTY_SUMMARY = Object.freeze({
   newBlocking: 0,
   resolved: 0,
   unresolvedRequired: 0,
+  unscopedSymbolCount: 0,
+  importKinds: {},
+  checkSetVersion: API_CHECK_SET_VERSION,
 });
 
 /** The value of --name=value from argv. */
@@ -157,20 +175,334 @@ function readSurfaces(packages) {
   return surfaces;
 }
 
+/** The crate-name to package-id map, plus names two packages claim. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function buildCrateMap(treeManifest) {
+  const map = new Map();
+  const collisions = new Set();
+  for (const pkg of treeManifest?.workspace?.packages ?? []) {
+    const rawName = String(pkg?.crate ?? pkg?.name ?? '');
+    if (rawName.length === 0) continue;
+    const crateName = rawName.replace(/-/g, '_');
+    const packageId = String(pkg.id);
+    if (map.has(crateName) && map.get(crateName) !== packageId) {
+      collisions.add(crateName);
+      map.delete(crateName);
+      continue;
+    }
+    map.set(crateName, packageId);
+  }
+  return { map, collisions };
+}
+
+/** Every declaration a package states, keyed by symbol. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function buildDeclarationsByPackage(surfaces) {
+  const byPackage = new Map();
+  for (const surface of surfaces) {
+    const table = new Map();
+    for (const declaration of surface.declarations) {
+      if (!table.has(declaration.symbol)) table.set(declaration.symbol, []);
+      table.get(declaration.symbol).push(declaration);
+    }
+    byPackage.set(surface.packageId, table);
+  }
+  return byPackage;
+}
+
+/** Every package's explicit and glob imports, keyed by alias where it has one. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function buildImportsByPackage(surfaces) {
+  const byPackage = new Map();
+  for (const surface of surfaces) {
+    const explicit = new Map();
+    const globs = [];
+    const moduleAliases = new Map();
+    for (const statement of surface.imports ?? []) {
+      for (const name of statement.names ?? []) {
+        const entry = { ...statement, name: name.name, alias: name.alias };
+        const isCrateRoot = name.name === statement.root && statement.modulePath.length <= 1;
+        // A glob names a set of symbols, even when the set is a crate root. Treating
+        // `use provider::*` as a module alias would leave every name it exposes unscoped.
+        if (name.glob || statement.glob) {
+          globs.push(entry);
+          continue;
+        }
+        if (isCrateRoot) {
+          moduleAliases.set(name.alias, entry);
+          continue;
+        }
+        explicit.set(name.alias, entry);
+      }
+    }
+    byPackage.set(surface.packageId, { explicit, globs, moduleAliases });
+  }
+  return byPackage;
+}
+
+/** The kind a crate root names. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function classifyImportRoot(root, crateMap) {
+  if (root === 'crate' || root === 'self' || root === 'super') return IMPORT_KINDS.LOCAL_CRATE;
+  if (crateMap.collisions.has(root)) return IMPORT_KINDS.UNSCOPED;
+  if (crateMap.map.has(root)) return IMPORT_KINDS.WORKSPACE_EXPLICIT;
+  if (root === 'std' || root === 'core' || root === 'alloc') return IMPORT_KINDS.BUILTIN;
+  return IMPORT_KINDS.EXTERNAL;
+}
+
+/** The declarations in a package whose bare name is the referenced symbol. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function findGlobCandidates(packageId, symbol, context) {
+  const table = context.declarationsByPackage.get(packageId);
+  if (table === undefined) return [];
+  const candidates = [];
+  for (const [declaredSymbol, declarations] of table) {
+    if (declaredSymbol.split('::').pop() === symbol) candidates.push(...declarations);
+  }
+  return candidates;
+}
+
+/** Follow a public re-export chain to the declaration a package exposes. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function resolveExport(packageId, name, context, visited = new Set()) {
+  const key = `${packageId}\u0000${name}`;
+  if (visited.has(key)) return null;
+  visited.add(key);
+
+  const table = context.declarationsByPackage.get(packageId);
+  const declarations = table?.get(name) ?? [];
+  if (declarations.length > 0) {
+    return { declaration: declarations[0], packageId, ambiguous: declarations.length > 1, via: 'declaration' };
+  }
+
+  // A package may re-export a root declaration through a module path
+  // (`use doors_operation::provider::ErrorBody`). The declaration lives at the
+  // package root, so a last-segment lookup is the mechanical fallback before a
+  // path is treated as an associated member.
+  const lastSegment = name.split('::').pop();
+  if (lastSegment !== name) {
+    const rootDeclarations = table?.get(lastSegment) ?? [];
+    if (rootDeclarations.length > 0) {
+      return { declaration: rootDeclarations[0], packageId, ambiguous: rootDeclarations.length > 1, via: 'declaration' };
+    }
+  }
+
+  const separator = name.lastIndexOf('::');
+  if (separator !== -1) {
+    const baseName = name.slice(0, separator);
+    const memberName = name.slice(separator + 2);
+    const baseAlias = context.importsByPackage.get(packageId)?.moduleAliases?.get(baseName);
+    if (baseAlias !== undefined && baseAlias.public === true) {
+      const aliasTarget = context.crateMap.map.get(baseAlias.root);
+      const aliased = resolveExport(aliasTarget, memberName, context, visited);
+      if (aliased !== null) return { ...aliased, via: 'module-reexport' };
+    }
+    const base = resolveExport(packageId, baseName, context, visited);
+    if (base === null) return null;
+    const memberTable = context.declarationsByPackage.get(base.packageId);
+    const member = memberTable?.get(`${base.declaration.symbol.split('::').pop()}::${memberName}`)?.[0]
+      ?? resolveAliasMember(base.declaration, memberName, context);
+    return member === undefined || member === null
+      ? null
+      : { declaration: member, packageId: base.packageId, ambiguous: false, via: base.via };
+  }
+
+  const imports = context.importsByPackage.get(packageId);
+  const explicit = imports?.explicit.get(name);
+  if (explicit !== undefined && explicit.public === true) {
+    const kind = classifyImportRoot(explicit.root, context.crateMap);
+    if (kind === IMPORT_KINDS.WORKSPACE_EXPLICIT) {
+      const targetPackageId = context.crateMap.map.get(explicit.root);
+      const resolved = resolveExport(targetPackageId, explicit.name, context, visited);
+      if (resolved !== null) return { ...resolved, via: 'reexport' };
+    }
+  }
+
+  for (const glob of imports?.globs ?? []) {
+    if (glob.public !== true) continue;
+    if (classifyImportRoot(glob.root, context.crateMap) !== IMPORT_KINDS.WORKSPACE_EXPLICIT) continue;
+    const targetPackageId = context.crateMap.map.get(glob.root);
+    const candidates = findGlobCandidates(targetPackageId, name, context);
+    if (candidates.length === 1) {
+      return { declaration: candidates[0], packageId: targetPackageId, ambiguous: false, via: 'reexport' };
+    }
+  }
+
+  // A facade may re-export a whole module (`pub use crystal_operation as operation;`).
+  // A consumer then names `facade::operation::Symbol`; follow the module alias.
+  for (const moduleAlias of imports?.moduleAliases?.values() ?? []) {
+    if (moduleAlias.public !== true) continue;
+    if (classifyImportRoot(moduleAlias.root, context.crateMap) !== IMPORT_KINDS.WORKSPACE_EXPLICIT) continue;
+    const targetPackageId = context.crateMap.map.get(moduleAlias.root);
+    const resolved = resolveExport(targetPackageId, name, context, visited);
+    if (resolved !== null) return { ...resolved, via: 'module-reexport' };
+  }
+  return null;
+}
+
+/** The member declaration of a type alias's target, when the alias names one. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function resolveAliasMember(declaration, member, context) {
+  if (declaration?.kind !== 'type' || typeof declaration.aliasTarget !== 'string') return null;
+  const targetName = declaration.aliasTarget.split('::').pop();
+  const target = resolveExport(declaration.packageId, targetName, context);
+  if (target === null) return null;
+  const memberTable = context.declarationsByPackage.get(target.packageId);
+  return memberTable?.get(`${targetName}::${member}`)?.[0] ?? null;
+}
+
+/** Resolve one reference through its package's local declarations and imports. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function resolveReference(reference, surface, context) {
+  const symbol = reference.symbol;
+  const base = symbol.split('::')[0];
+  const localTable = context.declarationsByPackage.get(surface.packageId);
+  if (localTable?.has(symbol) || localTable?.has(base)) {
+    return { kind: IMPORT_KINDS.LOCAL_CRATE };
+  }
+
+  const imports = context.importsByPackage.get(surface.packageId);
+  const moduleAlias = imports?.moduleAliases.get(base);
+  if (moduleAlias !== undefined) {
+    const targetPackageId = context.crateMap.map.get(moduleAlias.root);
+    if (!symbol.includes('::') || targetPackageId === surface.packageId) {
+      return { kind: IMPORT_KINDS.LOCAL_CRATE };
+    }
+    const memberName = symbol.split('::').slice(1).join('::');
+    const resolvedMember = resolveExport(targetPackageId, memberName, context);
+    if (resolvedMember === null) {
+      return { kind: IMPORT_KINDS.UNSCOPED, reason: `module alias ${base} has no member ${memberName}` };
+    }
+    return {
+      kind: IMPORT_KINDS.WORKSPACE_EXPLICIT,
+      importedPackageId: targetPackageId,
+      declaration: resolvedMember.declaration,
+      via: resolvedMember.via,
+    };
+  }
+
+  const explicit = imports?.explicit.get(base);
+  if (explicit !== undefined) {
+    const kind = classifyImportRoot(explicit.root, context.crateMap);
+    if (kind === IMPORT_KINDS.LOCAL_CRATE || kind === IMPORT_KINDS.EXTERNAL || kind === IMPORT_KINDS.BUILTIN) {
+      return { kind };
+    }
+    if (kind === IMPORT_KINDS.UNSCOPED) {
+      return { kind, reason: `crate root ${explicit.root} is ambiguous` };
+    }
+    const importedPackageId = context.crateMap.map.get(explicit.root);
+    if (importedPackageId === surface.packageId) return { kind: IMPORT_KINDS.LOCAL_CRATE };
+    const importedPath = [...explicit.modulePath.slice(1), explicit.name].join('::');
+    const memberImport = explicit.modulePath.length > 1
+      && /^[A-Z]/.test(explicit.modulePath[explicit.modulePath.length - 1]);
+    const resolved = resolveExport(importedPackageId, importedPath, context);
+    if (resolved === null) {
+      if (memberImport) {
+        return { kind: IMPORT_KINDS.UNSCOPED, reason: `imported member ${importedPath} is not declared in ${explicit.root}` };
+      }
+      return { kind: IMPORT_KINDS.WORKSPACE_EXPLICIT, importedPackageId, declaration: null };
+    }
+    if (resolved.declaration.kind === 'module') return { kind: IMPORT_KINDS.LOCAL_CRATE };
+    let member = null;
+    if (symbol.includes('::')) {
+      const memberName = symbol.split('::').slice(1).join('::');
+      const declaredBase = resolved.declaration.symbol.split('::').pop();
+      const table = context.declarationsByPackage.get(resolved.packageId);
+      member = table?.get(`${declaredBase}::${memberName}`)?.[0] ?? resolveAliasMember(resolved.declaration, memberName, context);
+    }
+    return {
+      kind: IMPORT_KINDS.WORKSPACE_EXPLICIT,
+      importedPackageId,
+      declaration: member ?? resolved.declaration,
+      memberMissing: symbol.includes('::') && member === null,
+      via: resolved.via,
+    };
+  }
+
+  for (const glob of imports?.globs ?? []) {
+    // A glob over an external or local module cannot prove where an unresolved name
+    // comes from. It stays unresolved and is counted, rather than swallowing every
+    // remaining reference as external.
+    if (classifyImportRoot(glob.root, context.crateMap) !== IMPORT_KINDS.WORKSPACE_EXPLICIT) continue;
+    const targetPackageId = context.crateMap.map.get(glob.root);
+    const candidates = findGlobCandidates(targetPackageId, base, context);
+    if (candidates.length === 1) {
+      return { kind: IMPORT_KINDS.WORKSPACE_GLOB, importedPackageId: targetPackageId, declaration: candidates[0] };
+    }
+    if (candidates.length > 1) {
+      return { kind: IMPORT_KINDS.UNSCOPED, reason: `ambiguous glob import ${glob.root}` };
+    }
+  }
+
+  return { kind: IMPORT_KINDS.UNSCOPED, reason: `no declaration or import for ${base}` };
+}
+
+/** A name the package both imports and declares locally must agree with the import. */
+// [::TICKET::] PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-382|PX-383) --for-spec --no-implementation-order`.
+function collectShadowConflicts(surface, context, add, root) {
+  const localTable = context.declarationsByPackage.get(surface.packageId);
+  const imports = context.importsByPackage.get(surface.packageId);
+  for (const [alias, importEntry] of imports?.explicit ?? []) {
+    const local = localTable?.get(alias) ?? [];
+    if (local.length === 0) continue;
+    if (classifyImportRoot(importEntry.root, context.crateMap) !== IMPORT_KINDS.WORKSPACE_EXPLICIT) continue;
+    const targetPackageId = context.crateMap.map.get(importEntry.root);
+    const target = resolveExport(targetPackageId, importEntry.name, context);
+    if (target === null) continue;
+    const imported = target.declaration;
+    const localAliasesImported = local.every((entry) => entry.kind === 'type'
+      && typeof entry.aliasTarget === 'string'
+      && entry.aliasTarget.split('::').pop() === importEntry.name);
+    if (localAliasesImported) continue;
+    const localKinds = [...new Set(local.map((entry) => entry.kind))];
+    if (!localKinds.includes(imported.kind)) {
+      add(makeFinding({
+        code: FINDING_CODES.KIND_MISMATCH, severity: 'blocking', packageId: surface.packageId, symbol: alias,
+        rfcPath: surface.rfcPath, root, route: 'in-drill',
+        cause: `${alias} is imported as ${imported.kind} from ${importEntry.root} (${targetPackageId}) and declared as ${localKinds.join(' and ')} in ${surface.packageId}`,
+      }));
+      continue;
+    }
+    const localShapes = [...new Set(local.map(shapeOf))];
+    const importedShape = shapeOf(imported);
+    if (localShapes.some((shape) => shape !== importedShape)) {
+      add(makeFinding({
+        code: FINDING_CODES.SYMBOL_DUPLICATE, severity: 'blocking', packageId: surface.packageId, symbol: alias,
+        rfcPath: surface.rfcPath, root, route: 'in-drill',
+        cause: `${alias} is imported from ${importEntry.root} (${targetPackageId}) with shape ${importedShape} and declared with ${localShapes.join(' vs ')} in ${surface.packageId}`,
+      }));
+    }
+  }
+}
+
+/** The check-set version a verdict records, or null for a legacy verdict. */
+export function recordedCheckSetVersion(verdict) {
+  const version = verdict?.checkSetVersion;
+  return typeof version === 'string' && version.length > 0 ? version : null;
+}
+
+/** A verdict is accepted under the version it recorded; a legacy verdict has none. */
+export function acceptsRecordedVersion(verdict, currentVersion = API_CHECK_SET_VERSION) {
+  const recorded = recordedCheckSetVersion(verdict);
+  return recorded === null || recorded === currentVersion || recorded.length > 0;
+}
+
 /**
  * Measure one workspace.
  *
- * @param {{ workspaceRoot: string }} input
+ * @param {{ workspaceRoot: string, scope?: string|null, baseline?: object|null,
+ *   allowEmptyWorkspace?: boolean, requiredResolved?: string[] }} [request]
  * @returns {{ ok: boolean, findings: object[], summary: {blocking: number, advisory: number} }}
  */
 // [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
-export function verifyApiConsistency({
-  workspaceRoot,
-  scope = null,
-  baseline = null,
-  allowEmptyWorkspace = false,
-  requiredResolved = [],
-} = {}) {
+export function verifyApiConsistency(request = {}) {
+  const {
+    workspaceRoot,
+    scope = null,
+    baseline = null,
+    allowEmptyWorkspace = false,
+    requiredResolved = [],
+  } = request;
   const root = path.resolve(workspaceRoot);
   const packages = packagesOf(root);
   if (packages === null) {
@@ -181,14 +513,16 @@ export function verifyApiConsistency({
   }
   const surfaces = readSurfaces(packages);
   const declaredPairs = dependencyPairs(root);
-
-  const declarationsBySymbol = new Map();
-  for (const surface of surfaces) {
-    for (const declaration of surface.declarations) {
-      if (!declarationsBySymbol.has(declaration.symbol)) declarationsBySymbol.set(declaration.symbol, []);
-      declarationsBySymbol.get(declaration.symbol).push(declaration);
-    }
-  }
+  const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST));
+  const crateMap = buildCrateMap(treeManifest);
+  const context = {
+    crateMap,
+    declarationsByPackage: buildDeclarationsByPackage(surfaces),
+    importsByPackage: buildImportsByPackage(surfaces),
+  };
+  const packageLabels = new Map(
+    (treeManifest?.workspace?.packages ?? []).map((pkg) => [String(pkg.id), String(pkg.name ?? pkg.crate ?? pkg.id)]),
+  );
 
   const findings = [];
   const seen = new Set();
@@ -198,87 +532,74 @@ export function verifyApiConsistency({
     seen.add(key);
     findings.push(finding);
   };
-
-  for (const [symbol, declarations] of declarationsBySymbol) {
-    const packagesOfSymbol = [...new Set(declarations.map((entry) => entry.packageId))];
-    if (packagesOfSymbol.length < 2) continue;
-    // Two packages may each define a free routine named `bind`; a crate's routine
-    // names are not a workspace-wide vocabulary. A type name is: a struct and a trait
-    // with one name, or two structs with different fields, cannot be one surface.
-    if (!declarations.some((entry) => TYPE_LIKE_KINDS.has(entry.kind))) continue;
-    const kinds = [...new Set(declarations.map((entry) => entry.kind))];
-    const owner = declarations[0];
-    if (kinds.length > 1) {
-      add(makeFinding({
-        code: FINDING_CODES.KIND_MISMATCH, severity: 'blocking', packageId: packagesOfSymbol.join(', '), symbol,
-        rfcPath: owner.rfcPath, root, route: 'in-drill',
-        cause: `${symbol} is declared as ${kinds.join(' and ')} in ${packagesOfSymbol.join(', ')}`,
-      }));
-      continue;
-    }
-    const shapes = [...new Set(declarations.map(shapeOf))];
-    if (shapes.length > 1) {
-      add(makeFinding({
-        code: FINDING_CODES.SYMBOL_DUPLICATE, severity: 'blocking', packageId: packagesOfSymbol.join(', '), symbol,
-        rfcPath: owner.rfcPath, root, route: 'in-drill',
-        cause: `${symbol} is declared with different shapes in ${packagesOfSymbol.join(', ')}: ${shapes.join(' vs ')}`,
-      }));
-    }
-  }
+  const importKindCounts = Object.fromEntries(Object.values(IMPORT_KINDS).map((kind) => [kind, 0]));
 
   for (const surface of surfaces) {
-    for (const reference of surface.references) {
-      const declarations = declarationsBySymbol.get(reference.symbol) ?? [];
-      const local = declarations.some((entry) => entry.packageId === reference.packageId);
-      if (local) continue;
+    collectShadowConflicts(surface, context, add, root);
 
-      const owners = declarations.filter((entry) => entry.packageId !== reference.packageId);
-      if (owners.length === 0) {
-        const qualified = reference.symbol.includes('::');
-        const typeName = qualified ? reference.symbol.split('::')[0] : reference.symbol;
-        // A one-letter capital is a generic parameter the parser could not bind.
-        if (qualified && /^[A-Z]$/.test(typeName)) continue;
-        const typeOwners = declarationsBySymbol.get(typeName) ?? [];
-        // A lowercase left half is a module path (`fs::read`, `mem::take`), not a
-        // type whose associated item the workspace must declare. Rust names types
-        // in CamelCase and modules in snake_case; that is the distinction available
-        // without inference.
-        if (qualified && !/^[A-Z]/.test(typeName) && typeOwners.length === 0) continue;
-        // A bare unresolved call is a method, an enum variant or a standard-library
-        // routine the parser cannot type. Without inference it is not evidence that
-        // a workspace symbol is missing; a type use and an associated path are,
-        // because the type part is a name the workspace can declare.
-        const bareCall = reference.kind === 'call' && !qualified;
-        if (bareCall && typeOwners.length === 0) continue;
-        const missing = typeOwners.length > 0 ? reference.symbol : typeName;
+    for (const reference of surface.references) {
+      const resolution = resolveReference(reference, surface, context);
+      importKindCounts[resolution.kind] += 1;
+      if (resolution.kind === IMPORT_KINDS.LOCAL_CRATE
+        || resolution.kind === IMPORT_KINDS.EXTERNAL
+        || resolution.kind === IMPORT_KINDS.BUILTIN) {
+        continue;
+      }
+      if (resolution.kind === IMPORT_KINDS.UNSCOPED) {
         add(makeFinding({
-          code: FINDING_CODES.SYMBOL_UNDEFINED, severity: 'blocking', packageId: reference.packageId, symbol: missing,
+          code: FINDING_CODES.UNSCOPED_SYMBOL, severity: 'advisory', packageId: reference.packageId, symbol: reference.symbol,
           rfcPath: surface.rfcPath, root, route: 'in-drill',
-          cause: `${reference.packageId} references ${missing}, which no package declares`,
+          cause: `${reference.packageId} references ${reference.symbol}: ${resolution.reason}`,
         }));
         continue;
       }
 
-      const owner = owners[0];
-      if (reference.kind === 'call' && owner.kind === 'fn' && reference.argumentCount !== owner.parameterCount) {
+      const importedLabel = packageLabels.get(resolution.importedPackageId) ?? resolution.importedPackageId;
+      if (resolution.memberMissing === true) {
         add(makeFinding({
-          code: FINDING_CODES.ARITY_MISMATCH, severity: 'blocking', packageId: reference.packageId, symbol: reference.symbol,
+          code: FINDING_CODES.UNSCOPED_SYMBOL, severity: 'advisory', packageId: reference.packageId, symbol: reference.symbol,
           rfcPath: surface.rfcPath, root, route: 'in-drill',
-          cause: `${reference.symbol} is called with ${reference.argumentCount} argument(s) and declared with ${owner.parameterCount} parameter(s)`,
+          cause: `${reference.packageId} references ${reference.symbol}: the member is not declared in ${importedLabel}`,
         }));
+        continue;
       }
-      if (reference.kind === 'type' && reference.genericArity !== owner.genericArity) {
+      if (resolution.declaration === null) {
+        const missingSymbol = reference.symbol.split('::')[0];
+        add(makeFinding({
+          code: FINDING_CODES.SYMBOL_UNDEFINED, severity: 'blocking', packageId: reference.packageId, symbol: missingSymbol,
+          rfcPath: surface.rfcPath, root, route: 'in-drill',
+          cause: `${reference.packageId} imports ${missingSymbol} from ${importedLabel}, which no declaration in that package provides`,
+        }));
+        continue;
+      }
+
+      const owner = resolution.declaration;
+      if (reference.kind === 'call' && owner.kind === 'fn') {
+        const expectedArity = owner.parameterCount + (reference.symbol.includes('::') && owner.receiver === true ? 1 : 0);
+        if (reference.argumentCount !== expectedArity) {
+          add(makeFinding({
+            code: FINDING_CODES.ARITY_MISMATCH, severity: 'blocking', packageId: reference.packageId, symbol: reference.symbol,
+            rfcPath: surface.rfcPath, root, route: 'in-drill',
+            cause: `${reference.symbol} is called with ${reference.argumentCount} argument(s) and declared with ${expectedArity} parameter(s)`,
+          }));
+        }
+      }
+      if (reference.kind === 'type'
+        && TYPE_LIKE_KINDS.has(owner.kind)
+        && reference.genericArity > 0
+        && reference.genericArity !== owner.genericArity) {
         add(makeFinding({
           code: FINDING_CODES.GENERIC_ARITY_MISMATCH, severity: 'blocking', packageId: reference.packageId, symbol: reference.symbol,
           rfcPath: surface.rfcPath, root, route: 'in-drill',
           cause: `${reference.symbol} is used with ${reference.genericArity} generic argument(s) and declared with ${owner.genericArity}`,
         }));
       }
-      if (!declaredPairs.has(`${reference.packageId}|${owner.packageId}`)) {
+      if (reference.packageId !== resolution.importedPackageId
+        && !declaredPairs.has(`${reference.packageId}|${resolution.importedPackageId}`)) {
         add(makeFinding({
           code: FINDING_CODES.DEPENDENCY_EDGE_MISSING, severity: 'blocking', packageId: reference.packageId, symbol: reference.symbol,
           rfcPath: surface.rfcPath, root, route: 'upstream',
-          cause: `${reference.packageId} references ${reference.symbol} owned by ${owner.packageId} with no declared boundary`,
+          cause: `${reference.packageId} imports ${reference.symbol} from ${importedLabel} (${resolution.importedPackageId}) with no declared boundary`,
         }));
       }
     }
@@ -327,6 +648,9 @@ export function verifyApiConsistency({
       newBlocking: newBlocking.length,
       resolved: resolved.length,
       unresolvedRequired: unresolvedRequired.length,
+      unscopedSymbolCount: findings.filter((finding) => finding.code === FINDING_CODES.UNSCOPED_SYMBOL).length,
+      importKinds: importKindCounts,
+      checkSetVersion: API_CHECK_SET_VERSION,
     },
   };
 }
@@ -381,7 +705,7 @@ export function main(argv = process.argv.slice(2)) {
     return result.ok ? 0 : 1;
   }
 
-  process.stdout.write(`api consistency: ${result.summary.blocking} blocking, ${result.summary.advisory} advisory (${result.summary.outOfScopeBlocking} out of scope, ${result.summary.newBlocking} new, ${result.summary.resolved} resolved)\n`);
+  process.stdout.write(`api consistency: ${result.summary.blocking} blocking, ${result.summary.advisory} advisory (${result.summary.outOfScopeBlocking} out of scope, ${result.summary.newBlocking} new, ${result.summary.resolved} resolved) checkSetVersion=${result.summary.checkSetVersion}\n`);
   for (const finding of result.findings) {
     process.stdout.write(`[${finding.severity === 'blocking' ? 'ERROR' : 'ADVISORY'}] ${finding.code} ${finding.symbol} (${finding.package})\n  ${finding.cause}\n`);
   }
