@@ -156,7 +156,8 @@ node "$CLAUDE_DIR/scripts/smooth-sequences/migrate-v3.mjs" <root> --annotations=
     "<operation-id>": {
       "registry_contribution": "required|not_required",
       "registry_contribution_ground": "<ground when not_required>",
-      "boundary_effects": [{ "boundary": "<boundary-id>", "direction": "provides|consumes" }]
+      "boundary_effects": [{ "boundary": "<boundary-id>", "direction": "provides|consumes" }],
+      "allowed_status_transitions": { "<status>": ["<status>"] }
     }
   },
   "boundary_grounds": [
@@ -165,9 +166,23 @@ node "$CLAUDE_DIR/scripts/smooth-sequences/migrate-v3.mjs" <root> --annotations=
 }
 ```
 
-Every entry in `pre`, `post` and `invariants` is `{factId, text, source: {step, line, quote}}`. The quote must appear in the step quote at that line; an uncited assertion is refused with `UNCITED_AUTHORED_FACT`. A ground whose `reasonCode` does not match the tree boundary is refused with `UNCITED_BOUNDARY_GROUND`. The migration is incremental: a later annotations document updates only the rows it names, and the same document is byte-identical on a second run. A step is authored only when every row of its surface is authored; a partial surface stays blocked and the reason reports `authored N/M`. A waiver records a finding's disposition; it never turns a blocked surface into a measured one.
+Every entry in `pre`, `post` and `invariants` is `{factId, text, source: {step, line, quote}}`. The quote must appear in the step quote at that line; an uncited assertion is refused with `UNCITED_AUTHORED_FACT`. A ground whose `reasonCode` does not match the tree boundary is refused with `UNCITED_BOUNDARY_GROUND`. The migration is incremental: a later annotations document updates only the rows it names, and the same document is byte-identical on a second run. A step is authored only when every row of its surface is authored; a partial surface stays blocked and the reason reports `authored N/M`. A waiver records a finding's disposition; it never turns a blocked surface into a measured one. `allowed_status_transitions` is an annotation field; `initial_status` is not: a v2 artifact that needs an initial status requires a specification regeneration. `migrate-v3 --suggest-annotations` proposes the rows the workspace determines and lists the rest in `unresolved`; the candidate is a starting point, not an authored claim.
+
+**API closure findings.** A `CLOSURE:verify-api-consistency` entry is restored by editing the package RFC (a missing re-export or signature) or the allocate decisions (a missing boundary). `node "$CLAUDE_DIR/scripts/api-consistency/verify-api-consistency.mjs" --workspace=<root> --repair-plan` classifies each finding: a `false-positive` needs no project edit; a `repair-candidate` names the authored surface and line. The plan writes nothing.
 
 **Readings.** An inquest `Yes` answer is not a finding and cannot be waived. Revise the specification for the named subject and line, open a regeneration, rerun the educe reader phases, and confirm the new readings have zero `Yes`. `--advisory-readings` is a diagnostic policy, never a repair.
+
+**Reading freshness.** Every inquest and adversarial row carries `artifactDigest`, `readerGeneration` and `readAt`. Write them through the shared writer, never by a direct file write:
+
+```bash
+node "$CLAUDE_DIR/scripts/shared-obligations/evidence-writer.mjs" \
+  --root=<workspace> --kind=<inquest|adversarial|span|uncovered|adjudicate|reroute> \
+  --input=<staging.jsonl>
+```
+
+A row without the digest is `LEGACY_RECORD`; a row from another generation is `READER_GENERATION_STALE`; a row older than the generation start is `READING_NOT_REREAD`. None of them closes the obligation, and a direct write leaves no receipt (`MISSING_WRITE_RECEIPT`).
+
+**Applicability.** A project may declare `vocabulary.applicability.<family> = {applicable: false, ground: {line, quote}}` for `S3.interface`, `S3.status`, `S4.contribution`, `S5.meshing` or `S6.danger`. The quote must occur on the cited specification line. The family is then `notApplicable`; this is an authored specification claim, not a waiver, and it never turns a blocked surface into a pass.
 
 **Semantic effort gate (E1–E6).** Run with `--require-effort` for a closure that must prove observable effort. A held judgment then carries an `effort` record; a missing trace, a shallow search, a missing alternative, a missing counterexample attempt, a missing discriminator or `uncertainty: high` keeps it open with the named code.
 
@@ -377,7 +392,7 @@ In-place staged-candidate edit → `CANDIDATE_CHANGED`.
 
 ### Step 6 — Complete
 
-Done iff a fresh enforce run exits 0 **and** the verdict is `pass`: chain verifies; transaction closed; zero findings; zero blocked surfaces; zero unresolved readings; `status.json` names the generation the fresh run computed. **Calibration.** Closure mode also requires `smooth-sequences/CALIBRATION.json` with a matching digest and `detected: true` for every seed; a missing or failed calibration is `CALIBRATION_MISSING`/`CALIBRATION_FAILED` and the run is `unproven` (exit 4).
+Done iff a fresh enforce run exits 0 **and** the verdict is `pass`: chain verifies; transaction closed; zero findings; zero blocked surfaces; zero unresolved readings; `status.json` names the generation the fresh run computed. **Calibration.** Closure mode also requires `smooth-sequences/CALIBRATION.json` with a matching digest and `detected: true` for every **applicable** seed; a seed the workspace cannot carry is recorded as `notMeasured` and does not fail the run, while an applicable seed that was not detected still does. A missing or failed calibration is `CALIBRATION_MISSING`/`CALIBRATION_FAILED` and the run is `unproven` (exit 4). `status.json` carries the same `{ ok, code?, notMeasured }` verdict the report does.
 
 **Closure mode.** A v3 workspace enters closure mode by default; `--legacy` keeps the old report path. When the workspace carries `educe-sequences/EVIDENCE-MANIFEST.json`, pass is the `smooth-sequences/COMPLETION-CERTIFICATE.json` status `complete`, not a zero-finding count. An absent or empty readings file is an open obligation (`MISSING_EVIDENCE`); a phase receipt whose input digest no longer matches is `STALE_RECEIPT`; a check that evaluated zero claims is `vacuous`. In closure mode the effort gate is always on; `--require-effort` and `--strict-freshness` are compatibility flags and are implied. `complete` requires `basisResolvedRatio`, `quoteGroundedRatio`, `effortCoverage` and `blindAttackRatio` to be 1, and `templateAttackRatio`, `inheritedRatio`, `escapeActConflictCount` and `staleReceiptCount` to be 0. A closure run that has not produced this evidence is `unproven`: structural validity alone is never reported as `complete` or `pass`. `discriminatingRatio` and `rejudgeAgreement` are optional: a `null` value means the evidence was not measured and is listed in `assurance.notMeasured`; a numeric value is gated when it is present. Open semantic obligations are written to `smooth-sequences/JUDGMENT-WORKLIST.json` and close only through a held decision. A workspace without the manifest keeps the legacy path so an old report stays readable, but it cannot claim the closure guarantee.
 The console and JSON report carry an `instrument:` line with the inquest Yes ratio, the attack broken ratio, basis-quote discrimination and effort distinctness. It is a diagnostic: it never changes the verdict, and a zero-finding run whose instrument has never fired is reported as non-discriminating.
@@ -435,6 +450,7 @@ A blocked check is named in the report with `{checkId, family, surface, producer
 
 - The v3 evidence surfaces are restored with `node "$CLAUDE_DIR/scripts/smooth-sequences/migrate-v3.mjs" <root> --annotations=<file>`. A blocked line prints that command as its producer.
 - `operations[].allowed_status_transitions` absent, migration-synthesized, or unknown provenance → S3 status checks blocked. A v2-authored transition graph stays authored; a migration that adds a terminal closure makes the surface migration.
+- `operations[].external_dependency_class` absent → `S3.finality-missing-for-external` blocked. The classification is a specification-derived reading, so its producer is regeneration (`node "$CLAUDE_DIR/scripts/regeneration/run.mjs" open --spec=<candidate>`), not an annotations document. A present `none` or a present `finality_predicate` clears the check; a present non-`none` without finality is a finding.
 - `operations[].registry_contribution` absent or migration-synthesized → S4.contribution blocked.
 - `operations[].boundary_effects` absent → S6.boundary-effect-drift blocked. A field present on every active operation, even as `[]`, is a measured zero.
 - `steps[].contract` absent, migration-synthesized, or unknown provenance → S5.projection-only and the S6 graph checks blocked.

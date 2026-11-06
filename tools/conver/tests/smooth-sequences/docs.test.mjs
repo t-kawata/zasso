@@ -1,3 +1,4 @@
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-293 --for-spec --no-implementation-order`.
@@ -239,4 +240,26 @@ test('the command documents the judgment pass, inquest findings and the generic 
   }
   assert.match(command, /never converts an open finding into a held judgment|never convert an open finding/i);
   assert.match(command, /do not generate records/i);
+});
+
+// @verifies C004
+test('the command documents applicability and the reading writer', () => {
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  assert.match(command, /applicability/);
+  assert.match(command, /notApplicable/);
+  assert.match(command, /readings\.mjs|evidence-writer\.mjs/);
+});
+
+// PX-387 @verifies C005
+// The annotation schema must name the status axis the producer accepts, and the
+// command must say that initial_status is not an annotation. A repair route that
+// omits either fact sends the AI to an authoring surface that cannot carry it.
+
+test('PX-387 C005: the annotation schema names the status axis and the regeneration-only field', () => {
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  assert.match(command, /"allowed_status_transitions"/);
+  assert.match(command, /initial_status[^\n]*(?:regeneration|not annotat)/i);
+  assert.match(command, /CLOSURE:verify-api-consistency/);
+  assert.match(command, /--repair-plan/);
 });

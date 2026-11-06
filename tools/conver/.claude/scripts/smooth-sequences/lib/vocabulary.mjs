@@ -21,6 +21,15 @@ const ACTIVE_DISPOSITION = 'active';
 const DECLARED_INTERFACES_FIELD = 'declared_interfaces';
 const WITHHELD_LAYER = 'vocabulary';
 
+/** The check families a project may declare not applicable. */
+export const APPLICABILITY_FAMILIES = Object.freeze([
+  'S3.interface',
+  'S3.status',
+  'S4.contribution',
+  'S5.meshing',
+  'S6.danger',
+]);
+
 /** One withheld-surface record, shaped the same way every other withheld entry is. */
 // [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 function buildWithheldEntry(check, reason) {
@@ -91,7 +100,7 @@ function verifyApplicabilityGround(ground, { artifactPath, checkKey, specPath, s
  * A check a project states does not apply must carry a specification line and quote;
  * the detector verifies that the ground is on the line rather than accepting a bare false.
  */
-// [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-383, PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-383|PX-384) --for-spec --no-implementation-order`.
 function readApplicability(declared, artifactPath, specification) {
   const { specPath, specLines } = specification;
   const value = declared?.applicability;
@@ -101,6 +110,9 @@ function readApplicability(declared, artifactPath, specification) {
   }
   const applicability = {};
   for (const [checkKey, record] of Object.entries(value)) {
+    if (!APPLICABILITY_FAMILIES.includes(checkKey)) {
+      throw invalidVocabulary(artifactPath, `${VOCABULARY_FIELD}.applicability.${checkKey} is not a declared check family`);
+    }
     if (record === null || typeof record !== 'object' || Array.isArray(record)
       || typeof record.applicable !== 'boolean') {
       throw invalidVocabulary(artifactPath, `${VOCABULARY_FIELD}.applicability.${checkKey} must state a boolean applicable`);

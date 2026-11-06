@@ -118,6 +118,7 @@ function archiveCurrentPair(root, previousGeneration) {
 // [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function writeGeneration(input) {
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
   const {
     root,
     report,
@@ -187,6 +188,7 @@ export function writeGeneration(input) {
     findingKeysDigest,
     schemaHistory,
     calibrationDigest,
+    calibration: report.calibration?.verdict ?? null,
     verdict,
     remainingOpen: Number.isInteger(report.remainingOpen) ? report.remainingOpen : null,
     effortDebt: report.effortDebt ?? null,

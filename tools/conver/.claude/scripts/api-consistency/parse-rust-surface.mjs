@@ -89,15 +89,50 @@ const KEYWORD_CALLS = new Set([
 const FENCE_OPEN = /^\s*```rust\b/;
 const FENCE_CLOSE = /^\s*```\s*$/;
 
-/** Split a comma-separated list at the top level, respecting nested brackets. */
+/**
+ * Split a comma-separated list at the top level.
+ *
+ * A comma inside a string literal or a line comment is not a separator, and a struct
+ * literal's braces keep its fields in one argument. Both rules are about the source,
+ * not about the symbol scan: masking the literals before this split would turn an
+ * empty string argument into "no argument" and a struct literal into several.
+ */
 // [::TICKET::] PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-369 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-386, PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-386|PX-387) --for-spec --no-implementation-order`.
 function splitTopLevel(text) {
+  const source = String(text ?? '');
   const parts = [];
   let depth = 0;
   let current = '';
-  for (const character of String(text ?? '')) {
-    if (character === '<' || character === '(' || character === '[') depth += 1;
-    if (character === '>' || character === ')' || character === ']') depth -= 1;
+  let inString = false;
+  let inLineComment = false;
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (inLineComment) {
+      current += character;
+      if (character === '\n') inLineComment = false;
+      continue;
+    }
+    if (inString) {
+      current += character;
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+      current += character;
+      continue;
+    }
+    if (character === '/' && source[index + 1] === '/') {
+      inLineComment = true;
+      current += character;
+      continue;
+    }
+    if (character === '<' || character === '(' || character === '[' || character === '{') depth += 1;
+    if (character === '>' || character === ')' || character === ']' || character === '}') depth -= 1;
     if (character === ',' && depth === 0) {
       parts.push(current);
       current = '';
@@ -107,6 +142,12 @@ function splitTopLevel(text) {
   }
   if (current.trim().length > 0) parts.push(current);
   return parts.map((part) => part.trim()).filter((part) => part.length > 0);
+}
+
+/** The number of argument slots in a call's inner text. */
+// [::TICKET::] PX-386, PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-386|PX-387) --for-spec --no-implementation-order`.
+function countArgumentSlots(innerText) {
+  return innerText === null ? 0 : splitTopLevel(innerText).length;
 }
 
 /** Replace string literals and line comments with spaces, preserving column positions. */
@@ -224,21 +265,26 @@ function findCharacter(lines, startIndex, startColumn, target) {
  *
  * @returns {{ innerText: string|null, endIndex: number, endColumn: number }}
  */
-// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-372, PX-386, PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-372|PX-386|PX-387) --for-spec --no-implementation-order`.
 function readBalanced(lines, startIndex, startColumn, open = '(', close = ')') {
   let depth = 0;
   const parts = [];
   for (let index = startIndex; index < lines.length; index += 1) {
-    const code = stripNonCode(lines[index]);
+    const raw = lines[index];
+    // Delimiters inside a string or a comment are prose, not structure. The masked
+    // line decides the depth; the raw character is still the argument text, so an
+    // empty string remains one argument instead of disappearing into the mask.
+    const masked = stripNonCode(raw);
     let current = '';
     const from = index === startIndex ? startColumn : 0;
-    for (let column = from; column < code.length; column += 1) {
-      const character = code[column];
-      if (character === open) {
+    for (let column = from; column < raw.length; column += 1) {
+      const delimiter = masked[column];
+      const character = raw[column];
+      if (delimiter === open) {
         depth += 1;
         if (depth === 1) continue;
       }
-      if (character === close) {
+      if (delimiter === close) {
         depth -= 1;
         if (depth === 0) {
           return { innerText: `${parts.join('\n')}${current}`, endIndex: index, endColumn: column };
@@ -441,7 +487,7 @@ function collectUseStatements(lines, firstLine, origin) {
  * @param {{ packageId: string, rfcPath: string }} origin
  * @returns {{ declarations: object[], references: object[], unparsed: object[], imports: object[] }}
  */
-// [::TICKET::] PX-369, PX-371, PX-372, PX-382, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371|PX-372|PX-382|PX-383) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-369, PX-371, PX-372, PX-382, PX-383, PX-386, PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-369|PX-371|PX-372|PX-382|PX-383|PX-386|PX-387) --for-spec --no-implementation-order`.
 function parseFence(lines, firstLine, origin) {
   const declarations = [];
   const references = [];
@@ -741,7 +787,7 @@ function parseFence(lines, firstLine, origin) {
         symbol,
         kind: 'call',
         genericArity: 0,
-        argumentCount: callArguments.innerText === null ? 0 : splitTopLevel(callArguments.innerText).length,
+        argumentCount: countArgumentSlots(callArguments.innerText),
         packageId: origin.packageId,
         rfcPath: origin.rfcPath,
         line: lineNumber,

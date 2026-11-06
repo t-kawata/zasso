@@ -1,3 +1,5 @@
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
 // PX-383 @verifies C001
 // The interface set and the applicability of each check family are authored facts.
 // The detector resolves them from the stated source and withholds when no source states
@@ -7,9 +9,10 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { buildFamilySubChecks } from '../../.claude/scripts/smooth-sequences/lib/check-status.mjs';
+import { APPLICABILITY_KEY_BY_CHECK, buildFamilySubChecks } from '../../.claude/scripts/smooth-sequences/lib/check-status.mjs';
 import { indexArtifact } from '../../.claude/scripts/smooth-sequences/lib/index.mjs';
 import {
+  APPLICABILITY_FAMILIES,
   INTERFACE_MAPPING_CHECK,
   loadVocabulary,
 } from '../../.claude/scripts/smooth-sequences/lib/vocabulary.mjs';
@@ -147,6 +150,22 @@ test('C001 a declared S3.interface notApplicable is carried into the check statu
   }
 });
 
+test('C001 an applicability family outside the declared set is refused', () => {
+  const artifact = minimalV3Artifact();
+  artifact.vocabulary = {
+    requiredInterfaces: [],
+    terminalStatuses: [],
+    applicability: {
+      'S3.statuz': { applicable: false, ground: { line: 2, quote: 'no interface is declared' } },
+    },
+  };
+
+  assert.throws(
+    () => vocabularyOf(artifact),
+    (error) => error.code === 'INVALID_VOCABULARY' && /S3\.statuz/.test(error.message),
+  );
+});
+
 test('C001 an explicit empty interface set is vacuous, never executed', () => {
   const artifact = minimalV3Artifact();
   artifact.vocabulary = { requiredInterfaces: [], terminalStatuses: [] };
@@ -161,4 +180,37 @@ test('C001 an explicit empty interface set is vacuous, never executed', () => {
   } finally {
     workspace.remove();
   }
+});
+
+// @verifies C004
+test('C004 a grounded S3.status notApplicable makes the three status checks notApplicable', () => {
+  const artifact = minimalV3Artifact();
+  artifact.vocabulary = {
+    requiredInterfaces: [],
+    terminalStatuses: [],
+    applicability: {
+      'S3.status': { applicable: false, ground: { line: 2, quote: 'no interface is declared' } },
+    },
+  };
+  const vocabulary = vocabularyOf(artifact);
+  const index = {
+    artifact: { operations: [{ id: 'op', disposition: 'active' }], sequences: [], steps: [] },
+    vocabulary,
+    allocateManifest: {},
+    packages: [],
+  };
+  const checks = buildFamilySubChecks('envelope', index);
+  for (const id of [
+    'S3.status-initial-unknown',
+    'S3.transition-target-unknown',
+    'S3.transition-out-of-terminal',
+  ]) {
+    assert.equal(checks.find((entry) => entry.id === id).status, 'notApplicable', id);
+  }
+});
+
+// @verifies C004
+test('C004 the declared applicability families and the check mapping agree', () => {
+  const mapped = [...new Set(Object.values(APPLICABILITY_KEY_BY_CHECK))].sort();
+  assert.deepEqual(mapped, [...APPLICABILITY_FAMILIES].sort());
 });

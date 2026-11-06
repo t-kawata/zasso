@@ -1,3 +1,4 @@
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
 // PX-256 @verifies C003
 // PX-256 @verifies C005
 // The projection decides which units a package is told to implement, so the partition is
@@ -418,4 +419,18 @@ test('C006 without an assignments map the projection is unchanged', () => {
   const view = buildPackageView(unownedSequenceInput(), 'pkg-0001');
   assert.deepEqual(view.ownedSequenceUnits, []);
   assert.deepEqual(view.crossBoundarySequenceUnits, []);
+});
+
+// @verifies C005
+test('C005 the view carries a declared status envelope', () => {
+  const input = liveShapedInput();
+  const first = buildPackageView(input, OCCUPIED_PACKAGE).ownedOperationUnits[0];
+  const operation = input.artifact.operations.find((entry) => entry.id === first.operationId);
+  operation.initial_status = 'Pending';
+  operation.allowed_status_transitions = { Pending: ['Settled'], Settled: [] };
+
+  const view = buildPackageView(input, OCCUPIED_PACKAGE);
+  const unit = view.ownedOperationUnits.find((entry) => entry.operationId === first.operationId);
+  assert.equal(unit.obligation.initialStatus, 'Pending');
+  assert.deepEqual(unit.obligation.allowedStatusTransitions, { Pending: ['Settled'], Settled: [] });
 });

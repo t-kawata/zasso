@@ -22,6 +22,7 @@ import path from 'node:path';
 import repairFinding from '../lib/repair-finding.js';
 import { digestOfFindings, findingIdentity } from './finding-identity.mjs';
 import { parseRustSurface } from './parse-rust-surface.mjs';
+import { buildRepairPlan } from './repair-plan.mjs';
 
 const { createFinding } = repairFinding;
 
@@ -496,12 +497,14 @@ export function acceptsRecordedVersion(verdict, currentVersion = API_CHECK_SET_V
  */
 // [::TICKET::] PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-371 --for-spec --no-implementation-order`.
 export function verifyApiConsistency(request = {}) {
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
   const {
     workspaceRoot,
     scope = null,
     baseline = null,
     allowEmptyWorkspace = false,
     requiredResolved = [],
+    includeRepairContext = false,
   } = request;
   const root = path.resolve(workspaceRoot);
   const packages = packagesOf(root);
@@ -514,6 +517,7 @@ export function verifyApiConsistency(request = {}) {
   const surfaces = readSurfaces(packages);
   const declaredPairs = dependencyPairs(root);
   const treeManifest = readJsonOrNull(path.join(root, TREE_MANIFEST));
+  const allocateManifest = readJsonOrNull(path.join(root, ALLOCATE_MANIFEST));
   const crateMap = buildCrateMap(treeManifest);
   const context = {
     crateMap,
@@ -652,6 +656,7 @@ export function verifyApiConsistency(request = {}) {
       importKinds: importKindCounts,
       checkSetVersion: API_CHECK_SET_VERSION,
     },
+    ...(includeRepairContext ? { surfaces, treeManifest, allocateManifest } : {}),
   };
 }
 
@@ -659,9 +664,10 @@ export function verifyApiConsistency(request = {}) {
 export function main(argv = process.argv.slice(2)) {
   const workspaceRoot = argumentFor(argv, 'workspace');
   if (workspaceRoot === null) {
-    process.stderr.write('usage: verify-api-consistency.mjs --workspace=<root> [--scope=<pkg>] [--baseline=<path>] [--require-resolved=<id,...>] [--allow-empty-workspace] [--json]\n');
+    process.stderr.write('usage: verify-api-consistency.mjs --workspace=<root> [--scope=<pkg>] [--baseline=<path>] [--require-resolved=<id,...>] [--allow-empty-workspace] [--repair-plan] [--json]\n');
     return 1;
   }
+  const repairPlanRequested = argv.includes('--repair-plan');
 
   const scope = argumentFor(argv, 'scope');
   const baselinePath = argumentFor(argv, 'baseline');
@@ -694,7 +700,21 @@ export function main(argv = process.argv.slice(2)) {
     baseline,
     allowEmptyWorkspace,
     requiredResolved: requireResolved === null ? [] : requireResolved.split(',').filter((id) => id.length > 0),
+    includeRepairContext: repairPlanRequested,
   });
+  if (repairPlanRequested && result.code === null) {
+    try {
+      result.repairPlan = buildRepairPlan({
+        surfaces: result.surfaces ?? [],
+        findings: result.findings,
+        allocateManifest: result.allocateManifest ?? {},
+        treeManifest: result.treeManifest ?? {},
+      });
+    } catch (error) {
+      process.stderr.write(`api consistency: ${error.code ?? 'REPAIR_PLAN_FAILED'}: ${error.message}\n`);
+      return 2;
+    }
+  }
   if (argv.includes('--json')) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return result.ok ? 0 : 1;
@@ -708,6 +728,14 @@ export function main(argv = process.argv.slice(2)) {
   process.stdout.write(`api consistency: ${result.summary.blocking} blocking, ${result.summary.advisory} advisory (${result.summary.outOfScopeBlocking} out of scope, ${result.summary.newBlocking} new, ${result.summary.resolved} resolved) checkSetVersion=${result.summary.checkSetVersion}\n`);
   for (const finding of result.findings) {
     process.stdout.write(`[${finding.severity === 'blocking' ? 'ERROR' : 'ADVISORY'}] ${finding.code} ${finding.symbol} (${finding.package})\n  ${finding.cause}\n`);
+  }
+  if (result.repairPlan !== undefined) {
+    process.stdout.write('repair plan:\n');
+    for (const entry of result.repairPlan.entries) {
+      const surface = entry.surface === undefined ? '' : ` -> ${entry.surface}`;
+      const reason = entry.reason === undefined ? '' : ` | ${entry.reason}`;
+      process.stdout.write(`  [${entry.classification}] ${entry.finding.code} ${entry.finding.symbol} (${entry.finding.package})${surface}${reason}\n`);
+    }
   }
   return result.ok ? 0 : 1;
 }
