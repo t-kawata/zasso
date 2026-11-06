@@ -1,3 +1,4 @@
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -63,6 +64,7 @@ const BLOCKED_PRODUCER_BY_SURFACE = Object.freeze({
   [SURFACES.SEQUENCES]: MIGRATE_V3_ANNOTATIONS_COMMAND,
   [SURFACES.STEPS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
   [SURFACES.OPERATION_TRANSITIONS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
+  [SURFACES.OPERATION_INITIAL_STATUS]: REGENERATION_COMMAND,
   [SURFACES.REGISTRY_CONTRIBUTION]: MIGRATE_V3_ANNOTATIONS_COMMAND,
   [SURFACES.BOUNDARY_EFFECTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,
   [SURFACES.TYPED_STEP_CONTRACTS]: MIGRATE_V3_ANNOTATIONS_COMMAND,

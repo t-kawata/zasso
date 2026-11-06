@@ -169,6 +169,18 @@ Every entry in `pre`, `post` and `invariants` is `{factId, text, source: {step, 
 
 **Readings.** An inquest `Yes` answer is not a finding and cannot be waived. Revise the specification for the named subject and line, open a regeneration, rerun the educe reader phases, and confirm the new readings have zero `Yes`. `--advisory-readings` is a diagnostic policy, never a repair.
 
+**Reading freshness.** Every inquest and adversarial row carries `artifactDigest`, `readerGeneration` and `readAt`. Write them through the shared writer, never by a direct file write:
+
+```bash
+node "$CLAUDE_DIR/scripts/shared-obligations/evidence-writer.mjs" \
+  --root=<workspace> --kind=<inquest|adversarial|span|uncovered|adjudicate|reroute> \
+  --input=<staging.jsonl>
+```
+
+A row without the digest is `LEGACY_RECORD`; a row from another generation is `READER_GENERATION_STALE`; a row older than the generation start is `READING_NOT_REREAD`. None of them closes the obligation, and a direct write leaves no receipt (`MISSING_WRITE_RECEIPT`).
+
+**Applicability.** A project may declare `vocabulary.applicability.<family> = {applicable: false, ground: {line, quote}}` for `S3.interface`, `S3.status`, `S4.contribution`, `S5.meshing` or `S6.danger`. The quote must occur on the cited specification line. The family is then `notApplicable`; this is an authored specification claim, not a waiver, and it never turns a blocked surface into a pass.
+
 **Semantic effort gate (E1–E6).** Run with `--require-effort` for a closure that must prove observable effort. A held judgment then carries an `effort` record; a missing trace, a shallow search, a missing alternative, a missing counterexample attempt, a missing discriminator or `uncertainty: high` keeps it open with the named code.
 
 - **E1 Effort trace.** `searched` must name at least the kind's minimum distinct rows: judgment 3, risk 2, distribution 2, reading 2, escape 2. `alternatives` must cover every other verdict in the worklist vocabulary. `counterexampleAttempt` must name a concrete candidate, its source and why it fails. `discriminator` must name the basis and a different verdict that would follow if the basis were absent or false.

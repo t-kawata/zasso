@@ -22,12 +22,43 @@ import {
   validateAttackRecord,
   validateJudgmentRecord,
 } from './judgment.mjs';
+import { validateReadingCitation } from './predicates.mjs';
 
 /** The file each evidence kind lives in. */
 export const EVIDENCE_FILE_BY_KIND = Object.freeze({
   judgment: 'educe-sequences/readings-judgment.jsonl',
   attack: 'educe-sequences/readings-attack.jsonl',
   effort: 'educe-sequences/readings-effort.jsonl',
+});
+
+/** The six reading kinds the rail writes and the closure gate measures. */
+export const RAIL_READING_KINDS = Object.freeze([
+  'inquest',
+  'adversarial',
+  'span',
+  'uncovered',
+  'adjudicate',
+  'reroute',
+]);
+
+/** The file each rail-written reading kind lives in. */
+export const RAIL_READING_FILE_BY_KIND = Object.freeze({
+  inquest: 'educe-sequences/readings-inquest.jsonl',
+  adversarial: 'educe-sequences/readings-adversarial.jsonl',
+  span: 'educe-sequences/readings-span.jsonl',
+  uncovered: 'educe-sequences/readings-uncovered.jsonl',
+  adjudicate: 'educe-sequences/readings-adjudicate.jsonl',
+  reroute: 'educe-sequences/readings-reroute.jsonl',
+});
+
+/** The fields a rail-written reading must carry beyond its signature. */
+const READING_REQUIRED_FIELDS = Object.freeze({
+  inquest: ['subject', 'lens', 'answer'],
+  adversarial: ['subject', 'outcome'],
+  span: ['subject'],
+  uncovered: ['subject'],
+  adjudicate: ['subject'],
+  reroute: ['subject'],
 });
 
 /**
@@ -72,6 +103,40 @@ function stampRecord(record, { generation, now }) {
     ok: true,
     record: { ...record, readAt: now.toISOString(), readerGeneration: generation },
   };
+}
+
+/** A reading record with the artifact digest the closure gate binds it to. */
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+function stampReadingRecord(record, { generation, now, artifactDigest }) {
+  const stamped = stampRecord(record, { generation, now });
+  if (!stamped.ok) return stamped;
+  return { ok: true, record: { ...stamped.record, artifactDigest } };
+}
+
+/** Whether a reading carries a line citation at all. */
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+function hasCitation(record) {
+  return record?.line !== undefined || record?.quote !== undefined;
+}
+
+/** Validate one rail-written reading record before it is stored. */
+export function validateReadingRecord(kind, record, { linesByPath } = {}) {
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+    return { ok: false, code: 'READING_SHAPE', problems: ['the reading record is not an object'] };
+  }
+  if (!text(record.reader)) {
+    return { ok: false, code: 'MISSING_SIGNATURE', problems: ['the reading record has no reader signature'] };
+  }
+  for (const field of READING_REQUIRED_FIELDS[kind] ?? []) {
+    if (!text(record[field])) {
+      return { ok: false, code: 'MISSING_FIELD', problems: [`the reading record has no ${field}`] };
+    }
+  }
+  if (kind === 'inquest' || hasCitation(record)) {
+    const citation = validateReadingCitation(record, linesByPath);
+    if (!citation.ok) return { ok: false, code: citation.code, problems: [citation.problem] };
+  }
+  return { ok: true, code: null, problems: [] };
 }
 
 /** The judgment a staged attack names, when it is available. */
@@ -134,13 +199,18 @@ export function validateForKind(kind, record, item, options = {}) {
   return { ok: false, code: 'UNKNOWN_EVIDENCE_KIND', problems: [`${kind} is not an evidence kind`] };
 }
 
-/** Write every row once, through a temporary file, so a failure leaves no partial file. */
-export function writeAtomically(path, rows) {
+/** Write complete lines once, through a temporary file, so a failure leaves no partial file. */
+export function writeLinesAtomically(path, lines) {
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.tmp`;
-  writeFileSync(temporary, `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`);
+  writeFileSync(temporary, lines.map((line) => `${line}\n`).join(''));
   renameSync(temporary, path);
   return path;
+}
+
+/** Write every row once, through a temporary file, so a failure leaves no partial file. */
+export function writeAtomically(path, rows) {
+  return writeLinesAtomically(path, rows.map((row) => JSON.stringify(row)));
 }
 
 /**
@@ -210,6 +280,114 @@ export function writeEvidence(request) {
   // are read as a duplicate and neither decides it.
   const merged = mergeBatch(readJsonLinesIfPresent(join(root, path)), written);
   writeAtomically(join(root, path), merged);
+  const receipt = writeReceiptFor(root, { kind, path, generation, now });
+  return { ok: true, written, rejected: [], receipt };
+}
+
+/** The identity a reading batch replaces within its own file. */
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+function readingIdentity(record, kind) {
+  if (kind === 'inquest') {
+    return typeof record?.subject === 'string' && typeof record?.lens === 'string'
+      ? `${record.subject}\u0000${record.lens}`
+      : undefined;
+  }
+  return typeof record?.subject === 'string' ? record.subject : undefined;
+}
+
+/** Read JSONL as raw lines, keeping each untouched line byte-identical. */
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+function readRawJsonLines(path) {
+  if (!existsSync(path)) return [];
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => ({ raw: line, parsed: JSON.parse(line) }));
+}
+
+/** Merge a batch into the raw lines of one reading file. */
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+function mergeReadingBatch(existing, batch, kind) {
+  const byIdentity = new Map();
+  for (const row of batch) {
+    const id = readingIdentity(row, kind);
+    if (id !== undefined) byIdentity.set(id, row);
+  }
+  const merged = [];
+  const placed = new Set();
+  for (const line of existing) {
+    const id = readingIdentity(line.parsed, kind);
+    if (id !== undefined && byIdentity.has(id)) {
+      if (!placed.has(id)) {
+        merged.push(JSON.stringify(byIdentity.get(id)));
+        placed.add(id);
+      }
+      continue;
+    }
+    merged.push(line.raw);
+  }
+  for (const row of batch) {
+    const id = readingIdentity(row, kind);
+    if (id !== undefined && !placed.has(id)) {
+      merged.push(JSON.stringify(row));
+      placed.add(id);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Write one rail-authored reading batch, stamp its freshness fields and record its receipt.
+ *
+ * A batch is an increment: rows it does not name stay byte-identical. A row it names is
+ * replaced, because two records for one subject are not two readings of it.
+ *
+ * @param {{root: string, kind: string, records: object[], artifactDigest?: string|null,
+ *   artifactPath?: string|null, generation: number|null, generationStartedAt?: string|null,
+ *   now?: Date, linesByPath?: object}} request
+ * @returns {{ok: boolean, written: object[], rejected: object[], receipt?: object}}
+ */
+export function writeReadingBatch(request) {
+  const {
+    root, kind, records, artifactDigest = null, artifactPath = null,
+    generation = null, generationStartedAt = null, now = new Date(), linesByPath,
+  } = request;
+  if (!RAIL_READING_KINDS.includes(kind)) {
+    return { ok: false, written: [], rejected: [{ obligationId: null, code: 'UNKNOWN_EVIDENCE_KIND' }] };
+  }
+  if (Number.isInteger(generation) && generation > 0 && typeof generationStartedAt !== 'string') {
+    return { ok: false, written: [], rejected: [{ obligationId: null, code: 'READING_NOT_REREAD' }] };
+  }
+  const digest = artifactDigest ?? (artifactPath === null ? null : sha256File(artifactPath));
+  if (digest === null) {
+    return { ok: false, written: [], rejected: [{ obligationId: null, code: 'ARTIFACT_DIGEST_UNAVAILABLE' }] };
+  }
+  const written = [];
+  const rejected = [];
+  for (const record of Array.isArray(records) ? records : []) {
+    const validated = validateReadingRecord(kind, record, { linesByPath });
+    if (!validated.ok) {
+      rejected.push({
+        obligationId: null,
+        subject: record?.subject ?? null,
+        code: validated.code,
+        problems: validated.problems,
+      });
+      continue;
+    }
+    const stamped = stampReadingRecord(record, { generation, now, artifactDigest: digest });
+    if (!stamped.ok) {
+      rejected.push({ obligationId: null, subject: record.subject ?? null, code: stamped.code });
+      continue;
+    }
+    written.push(stamped.record);
+  }
+  if (rejected.length > 0) {
+    return { ok: false, written: [], rejected };
+  }
+  const path = RAIL_READING_FILE_BY_KIND[kind];
+  const merged = mergeReadingBatch(readRawJsonLines(join(root, path)), written, kind);
+  writeLinesAtomically(join(root, path), merged);
   const receipt = writeReceiptFor(root, { kind, path, generation, now });
   return { ok: true, written, rejected: [], receipt };
 }
@@ -284,7 +462,7 @@ function argumentFor(argv, name) {
 
 /** The reader context a staged record is validated against. */
 // [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
-function readerContext(root) {
+export function readerContext(root) {
   const status = readJsonIfPresent(join(root, 'educe-sequences', 'status.json'));
   const allocate = readJsonIfPresent(join(root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'));
   const tree = readJsonIfPresent(join(root, 'WORKSPACIFY-TREE-MANIFEST.json'));
@@ -317,13 +495,13 @@ function readerContext(root) {
 
 /** Run the CLI. */
 // [::TICKET::] PX-297 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-297) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-306 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-306 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-384) --for-spec --no-implementation-order`.
 function runCli(argv) {
   const root = resolve(argumentFor(argv, 'root') ?? process.cwd());
   const kind = argumentFor(argv, 'kind');
   const input = argumentFor(argv, 'input');
   if (kind === null || input === null) {
-    process.stderr.write('usage: evidence-writer.mjs --root=<workspace> --kind=<judgment|attack|effort> --input=<staging.jsonl>\n');
+    process.stderr.write('usage: evidence-writer.mjs --root=<workspace> --kind=<judgment|attack|effort|inquest|adversarial|span|uncovered|adjudicate|reroute> --input=<staging.jsonl>\n');
     return 2;
   }
   const context = readerContext(root);
@@ -331,25 +509,34 @@ function runCli(argv) {
     process.stderr.write('evidence-writer: the workspace carries no generation; run the reading phases first\n');
     return 2;
   }
-  const worklist = readJsonIfPresent(join(root, 'smooth-sequences', 'JUDGMENT-WORKLIST.json'));
-  const judgments = readJsonLinesIfPresent(join(root, 'educe-sequences', 'readings-judgment.jsonl'));
   const records = readJsonLinesIfPresent(resolve(input));
-  const result = writeEvidence({
-    root,
-    kind,
-    records,
-    worklist,
-    judgments,
-    artifact: context.artifact,
-    artifactDigest: context.artifactDigest,
-    generation: context.generation,
-    generationStartedAt: context.generationStartedAt,
-    linesByPath: context.linesByPath,
-    sources: context.sources,
-    contractRegistry: context.contractRegistry,
-    rfcByPackage: context.rfcByPackage,
-    requireAnchor: true,
-  });
+  const result = RAIL_READING_KINDS.includes(kind)
+    ? writeReadingBatch({
+      root,
+      kind,
+      records,
+      artifactDigest: context.artifactDigest,
+      artifactPath: context.artifactPath,
+      generation: context.generation,
+      generationStartedAt: context.generationStartedAt,
+      linesByPath: context.linesByPath,
+    })
+    : writeEvidence({
+      root,
+      kind,
+      records,
+      worklist: readJsonIfPresent(join(root, 'smooth-sequences', 'JUDGMENT-WORKLIST.json')),
+      judgments: readJsonLinesIfPresent(join(root, 'educe-sequences', 'readings-judgment.jsonl')),
+      artifact: context.artifact,
+      artifactDigest: context.artifactDigest,
+      generation: context.generation,
+      generationStartedAt: context.generationStartedAt,
+      linesByPath: context.linesByPath,
+      sources: context.sources,
+      contractRegistry: context.contractRegistry,
+      rfcByPackage: context.rfcByPackage,
+      requireAnchor: true,
+    });
   process.stdout.write(`${JSON.stringify({
     ok: result.ok,
     written: result.written.length,

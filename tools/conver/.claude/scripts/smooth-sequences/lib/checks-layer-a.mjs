@@ -20,6 +20,7 @@ import {
   routeForStep,
   SURFACE,
 } from './repair-route.mjs';
+import { SURFACES } from './surfaces.mjs';
 import { normalizeInterfaceValue } from './vocabulary.mjs';
 
 const DRAWN_OUTCOMES = new Set(['direct', 'viaNeighbour', 'singleStep']);
@@ -104,6 +105,7 @@ export function checkEnumerationIntegrity(index) {
 // [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
 export function collectOperationEnvelope(index) {
   const findings = [];
   const terminalStatuses = index.vocabulary.terminalStatuses === null ? null : new Set(index.vocabulary.terminalStatuses);
@@ -116,10 +118,16 @@ export function collectOperationEnvelope(index) {
   }
   const skippedReasons = new Map();
   if (terminalStatuses === null) {
-    skippedReasons.set('S3.transition-out-of-terminal', 'terminalStatuses is not declared in vocabulary and no active operation status graph ends at a status');
+    skippedReasons.set('S3.transition-out-of-terminal', {
+      surface: SURFACES.TERMINAL_STATUSES,
+      reason: 'terminalStatuses is not declared in vocabulary and no active operation status graph ends at a status',
+    });
   }
   if (requiredInterfaces === null) {
-    skippedReasons.set('S3.interface-mapping-missing', 'requiredInterfaces is not declared in vocabulary, no declared_interfaces column exists, and no pinned operation column names an interface');
+    skippedReasons.set('S3.interface-mapping-missing', {
+      surface: SURFACES.REQUIRED_INTERFACES,
+      reason: 'requiredInterfaces is not declared in vocabulary, no declared_interfaces column exists, and no pinned operation column names an interface',
+    });
   }
   return { findings, subChecks: buildFamilySubChecks('envelope', index, skippedReasons) };
 }
@@ -130,17 +138,25 @@ export function checkOperationEnvelope(index) {
 }
 
 /** The status graph: every named status resolves, and no terminal status leaves. */
-// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-385) --for-spec --no-implementation-order`.
 function checkStatusGraph(index, operation, terminalStatuses, findings) {
   const transitions = operation.allowed_status_transitions ?? {};
   const statuses = new Set(Object.keys(transitions));
   const routeFor = (checkId) => routeForOperation(checkId, index, operation);
-  if (!statuses.has(operation.initial_status)) {
+  const initialStatus = typeof operation.initial_status === 'string' ? operation.initial_status.trim() : '';
+  if (initialStatus === '') {
     addFinding(findings, 'S3.status-initial-unknown', operation.id, {
       className: 'deficiency',
       route: routeFor('S3.status-initial-unknown'),
-      why: `initial status ${operation.initial_status} is not a declared status of ${operation.id}`,
-      fix: `declare ${operation.initial_status} in allowed_status_transitions or correct the initial status`,
+      why: `operation ${operation.id} has no initial_status field`,
+      fix: 'declare initial_status for the operation or declare S3.status notApplicable with a spec-line ground',
+    });
+  } else if (Object.keys(transitions).length > 0 && !statuses.has(initialStatus)) {
+    addFinding(findings, 'S3.status-initial-unknown', operation.id, {
+      className: 'deficiency',
+      route: routeFor('S3.status-initial-unknown'),
+      why: `initial status ${initialStatus} is not a declared status of ${operation.id}`,
+      fix: `declare ${initialStatus} in allowed_status_transitions or correct the initial status`,
     });
   }
   for (const [source, targets] of Object.entries(transitions)) {

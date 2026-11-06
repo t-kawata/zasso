@@ -1,3 +1,5 @@
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
 // The command file is a summary of the arrays it describes (PX-241, contract C011).
 //
 // PX-240's contract C016 states that the command file and the phase table cannot drift,
@@ -17,7 +19,7 @@ import { PHASE_EXPECTS, PINS_FILE, WORKLIST_FILE } from '../../.claude/scripts/e
 import { ARCHIVE_DIRECTORY, DECLARATION_FILE, readingsFileName } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 import { RUN_DIRECTORY_NAME } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
 import { SUPPLIED_DIRECTORY } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
-import { UNREACHED_ESCAPES, DIAGRAMMED_OUTCOMES } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
+import { UNREACHED_ESCAPES, DIAGRAMMED_OUTCOMES, readArtifactSchema } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { SOURCE_ROLES } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
 import { PHASE_GUIDANCE } from '../../.claude/scripts/educe-sequences/rail/phases.mjs';
 
@@ -157,4 +159,21 @@ test('PX-299 the command file and phase 4 guidance name every census role the ra
 
   assert.deepEqual(absentFromCommand, [], `the command file does not name the role(s): ${absentFromCommand.join(', ')}`);
   assert.deepEqual(absentFromGuidance, [], `the phase 4 guidance does not name the role(s): ${absentFromGuidance.join(', ')}`);
+});
+
+// @verifies C011
+test('C011 the command names the reading writer and its three freshness fields', () => {
+  assert.match(COMMAND, /readings\.mjs|evidence-writer\.mjs/);
+  assert.match(COMMAND, /artifactDigest/);
+  assert.match(COMMAND, /readerGeneration/);
+  assert.match(COMMAND, /readAt/);
+});
+
+// @verifies C001
+test('C001 the command names every declared operation envelope axis', () => {
+  const axes = Object.keys(readArtifactSchema().operations.envelope.axes);
+  for (const axis of axes) {
+    assert.match(COMMAND, new RegExp(axis), axis);
+  }
+  assert.match(COMMAND, /OperationStatus/);
 });

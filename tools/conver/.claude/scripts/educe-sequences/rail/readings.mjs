@@ -7,10 +7,15 @@
 // are validated line by line before anything downstream sees them, because a reading
 // file that is only mostly well formed is the failure this module exists to catch.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 import { SmoothSequencesError } from '../../smooth-sequences/lib/errors.mjs';
 import { appendWriteReceipt } from '../../shared-obligations/evidence.mjs';
+import {
+  RAIL_READING_KINDS,
+  readerContext,
+  writeReadingBatch,
+} from '../../shared-obligations/evidence-writer.mjs';
 import { readStatus } from './run-state.mjs';
 
 // The levels a partition may be taken at belong with the partition rule rather than here,
@@ -659,4 +664,58 @@ export function writeReadingsFile(path, readings) {
     path: `${basename(directory)}/${basename(path)}`,
     generation: status?.generation ?? null,
   });
+}
+
+/** Parse `--name=value` or `--name value`. */
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+function argumentFor(argv, name) {
+  const inline = argv.find((entry) => entry.startsWith(`--${name}=`));
+  if (inline !== undefined) return inline.slice(`--${name}=`.length);
+  const index = argv.indexOf(`--${name}`);
+  return index === -1 ? null : argv[index + 1] ?? null;
+}
+
+/** Read a staged JSONL file as records. */
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+function readStagedRecords(path) {
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => JSON.parse(line));
+}
+
+/** Run the reading writer CLI the educe command names. */
+export function runReadingWriterCli(argv) {
+  const root = resolve(argumentFor(argv, 'root') ?? process.cwd());
+  const kind = argumentFor(argv, 'kind');
+  const input = argumentFor(argv, 'input');
+  if (kind === null || input === null || !RAIL_READING_KINDS.includes(kind)) {
+    process.stderr.write('usage: readings.mjs --root=<workspace> --kind=<inquest|adversarial|span|uncovered|adjudicate|reroute> --input=<staging.jsonl>\n');
+    return 2;
+  }
+  const context = readerContext(root);
+  if (context.generation === null) {
+    process.stderr.write('readings.mjs: the workspace carries no generation; run the reading phases first\n');
+    return 2;
+  }
+  const result = writeReadingBatch({
+    root,
+    kind,
+    records: readStagedRecords(resolve(input)),
+    artifactDigest: context.artifactDigest,
+    artifactPath: context.artifactPath,
+    generation: context.generation,
+    generationStartedAt: context.generationStartedAt,
+    linesByPath: context.linesByPath,
+  });
+  process.stdout.write(`${JSON.stringify({
+    ok: result.ok,
+    written: result.written.length,
+    rejected: result.rejected,
+  }, null, 2)}\n`);
+  return result.ok ? 0 : 1;
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  process.exitCode = runReadingWriterCli(process.argv.slice(2));
 }

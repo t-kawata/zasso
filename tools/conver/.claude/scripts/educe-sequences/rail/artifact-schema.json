@@ -79,6 +79,23 @@
     "v3Required": ["registry_contribution"],
     "registryContribution": { "values": ["required", "not_required"], "groundRequiredFor": ["not_required"] },
     "boundaryEffects": { "required": ["boundary", "direction"] },
+    "envelope": {
+      "statusEnumeration": "OperationStatus",
+      "axes": {
+        "initial_status": "status",
+        "allowed_status_transitions": "transitions",
+        "required_authority": "string",
+        "requires_session_binding": "boolean",
+        "requires_remote_time_handshake": "boolean",
+        "required_pre_state_checkpoint": "boolean",
+        "required_proof_classes": "stringArray",
+        "result_object_classes": "stringArray",
+        "idempotency_scope": "string",
+        "reversal_or_recovery_rule": "string",
+        "reject_code_families": "stringArray",
+        "cancellation_rule": "string"
+      }
+    },
     "grounding": {
       "properties": {
         "required": ["classification", "quote"],

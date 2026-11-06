@@ -1,3 +1,4 @@
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -171,6 +172,42 @@ test('S7 selects a carried boundary by relation and subject, not by the unit-id 
     provider.obligationUnits[0].unitId = 'ctr-boundary-999';
     provider.obligationUnits[0].subject = 'boundary-unknown';
     assert.equal(checkArtifactViewConsistency(index).filter((finding) => finding.checkId === 'S7.rfc-boundary-missing').length, 0);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('S3 names a missing initial_status instead of interpolating undefined', () => {
+  const artifact = minimalV3Artifact();
+  artifact.operations[0] = operationRow('ProduceFact', {
+    initial_status: '',
+    allowed_status_transitions: { open: ['closed'], closed: [] },
+  });
+  const { workspace, index } = indexOf({ artifact });
+  try {
+    const finding = checkOperationEnvelope(index)
+      .find((entry) => entry.checkId === 'S3.status-initial-unknown');
+    assert.ok(finding);
+    assert.match(finding.why, /has no initial_status field/);
+    assert.doesNotMatch(finding.why, /undefined/);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// @verifies C003
+test('S3 accepts an empty transition map with a declared initial status', () => {
+  const artifact = minimalV3Artifact();
+  artifact.operations[0] = operationRow('ProduceFact', {
+    initial_status: 'open',
+    allowed_status_transitions: {},
+  });
+  const { workspace, index } = indexOf({ artifact });
+  try {
+    const findings = checkOperationEnvelope(index)
+      .filter((entry) => entry.checkId === 'S3.status-initial-unknown');
+    assert.equal(findings.length, 0);
   } finally {
     workspace.remove();
   }
