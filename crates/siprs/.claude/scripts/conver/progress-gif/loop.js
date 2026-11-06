@@ -1324,6 +1324,15 @@ export function buildFrames(model, options = {}) {
     for (const message of timeline.warnings) warnOnce(model.warnings, message);
   }
   const state = createFrameState(model, timeline);
+  // The ordinal clock ends at the last stage's estimate, which is always in the
+  // past. The final frames must still reach the analysis instant so the header
+  // date and the cumulative token figure cover every recorded day, including
+  // the day the render ran.
+  const lastDisplayT = timeline.timeline.length > 0 ? timeline.timeline.at(-1).t : (model.initialT || 0);
+  const tailEndT = Number.isFinite(model.analysisTime) && model.analysisTime > lastDisplayT
+    ? model.analysisTime
+    : lastDisplayT;
+  const tailStart = frameCount - 1 - holdEnd;
   const frames = [];
   for (let index = 0; index < frameCount; index += 1) {
     const rawProgress = span <= 0 ? (index === frameCount - 1 ? 1 : 0) : (index - holdStart) / span;
@@ -1340,6 +1349,11 @@ export function buildFrames(model, options = {}) {
       if (progress < 1 && threshold >= targetWeight) break;
       applyEvent(state, event);
       state.cursor += 1;
+    }
+    if (progress >= 1 && tailEndT > lastDisplayT) {
+      const tailSpan = frameCount - 1 - tailStart;
+      const ratio = tailSpan > 0 ? (index - tailStart) / tailSpan : 1;
+      state.lastT = lastDisplayT + (tailEndT - lastDisplayT) * Math.max(0, Math.min(1, ratio));
     }
     frames.push(frameFromState(state, model, index));
   }
