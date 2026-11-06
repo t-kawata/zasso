@@ -8,6 +8,7 @@
  * passes and no review/unresolved item remains.
  */
 import { runOwnershipChecks } from './ownership.mjs';
+import { checkFormulaSegmentOwnership } from './segment-ownership.mjs';
 import { runDagChecks } from './dag.mjs';
 import { checkDependencyMatrix } from './dependencies.mjs';
 import { validatePackageCatalog, validateWorkspaceTree } from './workspace-model.mjs';
@@ -42,7 +43,7 @@ export function runGatePipeline(input = {}) {
   const reviewRequiredCount = countReviewRequired(inventoryData) + unresolvedCandidates.length;
 
   const structureResult = evaluateStructure(structure);
-  const ownershipResult = evaluateOwnership(inventoryData, packages);
+  const ownershipResult = evaluateOwnership(inventoryData, packages, structure, decisionsData);
   const catalogErrors = validatePackageCatalog(packages);
   const boundaryRisks = findOverSplitRisks(packages);
   const treeReport = evaluateTree(workspaceData, packages);
@@ -220,7 +221,12 @@ function evaluateStructure(structure) {
   };
 }
 
-function evaluateOwnership(inventoryData, packages) {
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+function evaluateOwnership(inventoryData, packages, structure, decisionsData) {
+  const segmentResult = checkFormulaSegmentOwnership({
+    segments: structure?.segments ?? [],
+    segmentOwnership: decisionsData?.segment_ownership ?? [],
+  });
   const result = runOwnershipChecks({
     objects: inventoryData.objects ?? [],
     claims: inventoryData.claims ?? [],
@@ -230,12 +236,13 @@ function evaluateOwnership(inventoryData, packages) {
     requiredTests: inventoryData.requiredTests ?? [],
     packages,
   });
+  const unallocatedCount = result.unallocated_count + segmentResult.orphanCount;
   const clean =
     result.orphan_object_count === 0 &&
     result.orphan_claim_count === 0 &&
     result.owner_collision_count === 0 &&
     result.invalid_owner_layer_count === 0 &&
-    result.unallocated_count === 0 &&
+    unallocatedCount === 0 &&
     // A catalogue and a table that disagree is a defect of its own: the item would be
     // published with no owner while every other count reads zero.
     result.ownership_disagreement_count === 0;
@@ -244,10 +251,11 @@ function evaluateOwnership(inventoryData, packages) {
     orphan_claim_count: result.orphan_claim_count,
     owner_collision_count: result.owner_collision_count,
     invalid_owner_layer_count: result.invalid_owner_layer_count,
-    unallocated_count: result.unallocated_count,
+    unallocated_count: unallocatedCount,
+    ...(segmentResult.orphanCount > 0 ? { formula_segment_orphan_count: segmentResult.orphanCount } : {}),
     ownership_disagreement_count: result.ownership_disagreement_count,
   };
-  return { counts, isClean: clean, details: result.details };
+  return { counts, isClean: clean, details: [...result.details, ...segmentResult.details] };
 }
 
 function evaluateTree(workspaceData, packages) {
@@ -455,7 +463,7 @@ function applyParentGating(checks) {
   return gates;
 }
 
-// [::TICKET::] PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-217 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-217, PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-217|PX-389) --for-spec --no-implementation-order`.
 function buildFinalAudit(aggregate) {
   const { gates, ownershipResult, dagResult, dbResult, reviewRequiredCount, unresolvedCandidates, responsibilityResult } = aggregate;
   const passed = gates.every((gate) => gate.status === GATE_STATUS.PASS);
@@ -469,6 +477,11 @@ function buildFinalAudit(aggregate) {
     orphan_claim_count: ownershipResult.counts.orphan_claim_count,
     owner_collision_count: ownershipResult.counts.owner_collision_count,
     unallocated_count: ownershipResult.counts.unallocated_count ?? 0,
+    // Written only when the defect exists, so a manifest produced before this check
+    // keeps its bytes and its recorded hash.
+    ...(ownershipResult.counts.formula_segment_orphan_count > 0
+      ? { formula_segment_orphan_count: ownershipResult.counts.formula_segment_orphan_count }
+      : {}),
     unknown_dependency_count: report.unknown_dependency_count,
     forbidden_dependency_count: report.forbidden_edge_count,
     layer_violation_count: report.layer_violation_count,

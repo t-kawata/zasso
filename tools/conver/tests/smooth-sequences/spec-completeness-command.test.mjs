@@ -79,9 +79,28 @@ test('C001 invariant: a specification defect routes to regeneration, never an ed
   assert.match(route.where, /read-only/);
 });
 
-test('C001 invariant: an ownership defect routes to allocate regeneration', () => {
+// PX-389 @verifies C001
+// Segment ownership is a stage-1 decision. Allocate cannot change it, so routing the
+// finding there is a dead end; the repair must open a tree-decision candidate.
+
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+test('PX-389 C001: a formula-ownership defect routes to tree-decision regeneration', () => {
   const route = repairRouteFor('S8.formula-unowned', { locator: 'fx-0123456789ab' });
 
   assert.equal(route.repairClass, 'regeneration');
+  assert.match(route.producer, /--tree-decisions/);
+  assert.doesNotMatch(route.producer, /--allocate-decisions/);
+  assert.match(route.where, /workspacify\/tree\/DECISIONS\.json/);
+});
+
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+test('PX-389 C001: a missing or malformed seed routes to allocate regeneration', () => {
+  const route = repairRouteFor('S8.segment-coverage', {
+    packageId: 'pkg-b',
+    packagesById: new Map([['pkg-b', { id: 'pkg-b', path: 'pkg-b' }]]),
+  });
+
+  assert.equal(route.repairClass, 'regeneration');
   assert.match(route.producer, /--allocate-decisions/);
+  assert.doesNotMatch(route.producer, /grill-me-for-rfc/);
 });

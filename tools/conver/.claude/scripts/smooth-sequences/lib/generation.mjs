@@ -117,6 +117,7 @@ function archiveCurrentPair(root, previousGeneration) {
 // [::TICKET::] PX-283 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-283 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-285 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 export function writeGeneration(input) {
 // [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
   const {
@@ -128,6 +129,7 @@ export function writeGeneration(input) {
     schemaHistory = [],
     calibrationDigest = null,
     formulaCompleteness = null,
+    checkSet = null,
     now = new Date().toISOString(),
   } = input;
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -189,6 +191,9 @@ export function writeGeneration(input) {
     schemaHistory,
     calibrationDigest,
     calibration: report.calibration?.verdict ?? null,
+    checkSetDigest: checkSet?.digest ?? null,
+    previousCheckSetDigest: checkSet?.previousDigest ?? null,
+    checkSetStale: checkSet?.stale ?? null,
     verdict,
     remainingOpen: Number.isInteger(report.remainingOpen) ? report.remainingOpen : null,
     effortDebt: report.effortDebt ?? null,

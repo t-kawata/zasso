@@ -12,7 +12,12 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { copyFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 
-import { EXIT_CODES } from './lib/errors.mjs';
+import { EXIT_CODES, WorkSpacifyTreeError } from './lib/errors.mjs';
+import {
+  annotateFormulaSegments,
+  attachOwnedInventory,
+  validateSegmentOwnership,
+} from './lib/segment-ownership.mjs';
 import {
   ARCHITECTURE_DELTA_FILE_NAME,
   MEASUREMENTS,
@@ -52,7 +57,6 @@ import { normalizeTextBytes } from './lib/normalization.mjs';
 import { sha256Hex } from './lib/hash.mjs';
 import { buildHeadingTree, collectHeadingWarnings } from './lib/headings.mjs';
 import { segmentAtHeadings, verifyReconstruction } from './lib/segmentation.mjs';
-import { attachOwnedInventory } from './lib/segment-ownership.mjs';
 import { buildSpecPulse } from './lib/spec-pulse.mjs';
 import { validateSpecDefects } from './lib/spec-defects.mjs';
 import { buildDependencyReviewForDecisions, mergeReviewsWithCandidates, collectReviewResiduals } from './lib/dependency-review.mjs';
@@ -342,7 +346,7 @@ const FINALIZE_REFUSAL_HINTS = Object.freeze({
  * Both the forward finalize and the reverse entry point call this, so the
  * reverse rotation judges exactly the manifest the forward rotation publishes.
  */
-// [::TICKET::] P22-11, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-215, PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|PX-215|PX-389) --for-spec --no-implementation-order`.
 function prepareForwardPipeline(specPath, decisionsPath) {
   const analysis = analyzeSpec(specPath);
   const decisions = loadDecisionInput(path.resolve(decisionsPath));
@@ -350,14 +354,28 @@ function prepareForwardPipeline(specPath, decisionsPath) {
   if (!schemaReport.ok) {
     throw new Error(`decision schema invalid at ${decisionsPath}: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
   }
+  const segmentClaims = validateSegmentOwnership({
+    ownership: decisions.segment_ownership ?? [],
+    segments: analysis.segments,
+    packages: decisions.workspace ?? [],
+    sourceText: analysis.sourceText,
+  });
+  if (!segmentClaims.ok) {
+    const first = segmentClaims.errors[0];
+    throw new WorkSpacifyTreeError(`${first.code}: ${first.message}`, { gateId: 'G3', code: first.code });
+  }
   const inventory = prepareInventory(analysis, decisions);
   const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
-  const ownershipTable = buildOwnershipTable(inventory, decisions);
+  const segments = annotateFormulaSegments({
+    segments: attachOwnedInventory({ segments: analysis.segments, inventory }),
+    sourceText: analysis.sourceText,
+  });
+  const ownershipTable = buildOwnershipTable(inventory, decisions, segmentClaims.entries);
   // The review is computed once and handed to the pipeline, so the gate judges
   // exactly the candidate set the manifest publishes.
   const dependencyReview = buildDependencyReviewForDecisions(decisions, ownershipTable.entries);
   const pipelineInput = {
-    structure: { reconstruction: analysis.reconstruction, headings: analysis.headings, segments: analysis.segments, spec_pulse: specPulse },
+    structure: { reconstruction: analysis.reconstruction, headings: analysis.headings, segments, spec_pulse: specPulse },
     inventory,
     workspace: { packages: decisions.workspace, tree: decisions.tree ?? [] },
     dependencies: {
@@ -371,6 +389,7 @@ function prepareForwardPipeline(specPath, decisionsPath) {
     decisions: {
       approvals: decisions.approvals,
       ownership: decisions.ownership,
+      segment_ownership: segmentClaims.entries,
       semantic_review: decisions.semantic_review ?? {},
       // The pulse candidates must be settled in this session, never handed to a human.
       spec_defects: decisions.spec_defects ?? [],
@@ -380,18 +399,18 @@ function prepareForwardPipeline(specPath, decisionsPath) {
     },
   };
   const pipeline = runGatePipeline(pipelineInput);
-  return { analysis, decisions, inventory, specPulse, ownershipTable, dependencyReview, pipeline };
+  return { analysis, decisions, inventory, segments, specPulse, ownershipTable, dependencyReview, pipeline };
 }
 
 /** The manifest sections the forward rotation publishes, and reverse mode extends. */
-// [::TICKET::] P22-11, PX-217 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|PX-217) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-217, PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|PX-217|PX-389) --for-spec --no-implementation-order`.
 function buildForwardManifestSections(prepared) {
-  const { analysis, decisions, inventory, specPulse, ownershipTable, dependencyReview, pipeline } = prepared;
+  const { analysis, decisions, inventory, segments, specPulse, ownershipTable, dependencyReview, pipeline } = prepared;
   return {
     status: 'COMPLETE',
     run: buildRunSection(),
     input: buildInputSection(analysis),
-    structure: buildStructureSection(analysis, inventory, specPulse),
+    structure: buildStructureSection(analysis, specPulse, segments),
     inventory: {
       objects: inventory.objects,
       claims: inventory.claims,
@@ -977,7 +996,8 @@ function buildAdaptersSection(decisions) {
   };
 }
 
-function buildOwnershipTable(inventory, decisions) {
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+function buildOwnershipTable(inventory, decisions, segmentClaims = []) {
   const packages = decisions.workspace;
   const packageIds = new Set(packages.map((pkg) => pkg.id));
   const entries = [];
@@ -1014,6 +1034,18 @@ function buildOwnershipTable(inventory, decisions) {
         owner_package: owner,
       });
     }
+  }
+  // A grounded segment claim is an allocation of prose, not an inventory item. It is
+  // published with its own category and segment id so stage 2 can carry it into the
+  // seed without inventing an inventory row for it.
+  for (const claim of segmentClaims) {
+    entries.push({
+      inventory_ref: claim.segmentId,
+      canonical_name: `segment ${claim.segmentId}`,
+      category: 'segment',
+      owner_package: claim.packageId,
+      segment_id: claim.segmentId,
+    });
   }
   return { entries, packages: [...packageIds] };
 }
@@ -1173,15 +1205,17 @@ function buildSpecPulseForAnalysis(analysis, inventory) {
   });
 }
 
-function buildStructureSection(analysis, inventory, specPulse) {
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+function buildStructureSection(analysis, specPulse, segments) {
   return {
     heading_count: analysis.headings.length,
     segment_level: 2,
     segment_count: analysis.segments.length,
     headings: analysis.headings,
-    // Each segment declares the harvested material it carries, so stage 2 can tell
-    // a segment no seed owes (prose) from one that must be carried.
-    segments: attachOwnedInventory({ segments: analysis.segments, inventory }),
+    // Each segment declares the harvested material and the formulas it carries, so
+    // stage 2 can tell a segment no seed owes (bare prose) from one that must be
+    // carried either by an inventory item or by a grounded segment claim.
+    segments,
     // The pulse reports how the specification reads as a document; the AI settles
     // every candidate before the manifest may be published.
     spec_pulse: specPulse,

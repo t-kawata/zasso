@@ -13,7 +13,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, w
 import { join } from 'node:path';
 
 import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
-import { buildReport, readPreviousReport } from '../../.claude/scripts/smooth-sequences/lib/report.mjs';
+import { buildCheckSetRecord } from '../../.claude/scripts/smooth-sequences/lib/check-set.mjs';
+import { buildReport, readPreviousReport, renderReportMarkdown } from '../../.claude/scripts/smooth-sequences/lib/report.mjs';
 import { readStatus, writeGeneration } from '../../.claude/scripts/smooth-sequences/lib/generation.mjs';
 import { collectDesignFiles, prepareDerivationRoot, snapshotDesignFiles } from '../../.claude/scripts/regeneration/lib/staging.mjs';
 import { materializeSmoothWorkspace } from './helpers/workspace-fixture.mjs';
@@ -266,6 +267,75 @@ test('PX-386 C002: status.json carries the calibration verdict and notMeasured',
 
     const status = JSON.parse(readFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), 'utf8'));
     assert.deepEqual(status.calibration, { ok: true, notMeasured: ['S7.sequence-step-order'] });
+  } finally {
+    workspace.remove();
+  }
+});
+
+// PX-389 @verifies C002
+// A status written before the S8 and API gates reads as current unless the record names
+// the check set that produced it. The digest is written beside the verdict, not inside it.
+
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+test('PX-389 C002: the report and status carry the check-set digest', () => {
+  const workspace = materializeSmoothWorkspace();
+  try {
+    const checkSet = buildCheckSetRecord(undefined);
+    const report = buildReport({
+      workspace: { root: workspace.root },
+      findings: [],
+      withheld: [],
+      checks: { run: 52, blocked: 0, failed: 0, families: 7 },
+      checkSet,
+    });
+
+    assert.match(renderReportMarkdown(report), new RegExp(`check set: ${checkSet.digest.slice(0, 12)}`));
+
+    writeGeneration({
+      root: workspace.root,
+      report,
+      inputDigest: 'input-check-set',
+      exitCode: 0,
+      now: '2026-10-20T00:00:00.000Z',
+      checkSet,
+    });
+
+    const status = JSON.parse(readFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), 'utf8'));
+    assert.equal(status.checkSetDigest, checkSet.digest);
+    assert.equal(status.previousCheckSetDigest, null);
+    assert.equal(status.checkSetStale, false);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+test('PX-389 C002: a status without a digest is marked as a previous check set', () => {
+  const workspace = materializeSmoothWorkspace();
+  try {
+    const checkSet = buildCheckSetRecord('a'.repeat(64));
+    const report = buildReport({
+      workspace: { root: workspace.root },
+      findings: [],
+      withheld: [],
+      checks: { run: 52, blocked: 0, failed: 0, families: 7 },
+      checkSet,
+    });
+
+    assert.match(renderReportMarkdown(report), new RegExp(`check set: ${checkSet.digest.slice(0, 12)}`));
+
+    writeGeneration({
+      root: workspace.root,
+      report,
+      inputDigest: 'input-previous-check-set',
+      exitCode: 0,
+      now: '2026-10-20T00:00:00.000Z',
+      checkSet,
+    });
+
+    const status = JSON.parse(readFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), 'utf8'));
+    assert.equal(status.previousCheckSetDigest, 'a'.repeat(64));
+    assert.equal(status.checkSetStale, true);
   } finally {
     workspace.remove();
   }
