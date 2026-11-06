@@ -2,6 +2,7 @@
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
+// PX-380 @verifies C005 @verifies C006
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -15,6 +16,7 @@ import {
   selectSubsets,
 } from '../../.claude/scripts/conver/progress-gif/fonts.js';
 import { STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
+import { STAGE_CAPTIONS } from '../../.claude/scripts/conver/progress-gif/layout.js';
 
 const model = {
   schema: 'conver-progress-model-v1',
@@ -112,6 +114,36 @@ test('the controls expose a checked loop switch by default', () => {
   assert.match(html, /<label[^>]*>Loop <input[^>]*id="loop"/);
   assert.ok(html.indexOf('id="columns"') < html.indexOf('id="loop"'));
   assert.ok(html.indexOf('id="loop"') < html.indexOf('id="seek"'));
+});
+
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+test('the controls expose an unchecked en language switch', () => {
+  const html = renderHtml({
+    model,
+    options: { fps: 10, scale: 1, title: 'PROGRESS: one' },
+    engineSource: '',
+    layoutSource: '',
+    loopSource: '',
+    viewerSource: '',
+    fontCss: '',
+  });
+  const languageTag = /<input[^>]*id="language"[^>]*>/.exec(html);
+  assert.ok(languageTag, 'missing language control');
+  assert.match(languageTag[0], /type="checkbox"/);
+  assert.doesNotMatch(languageTag[0], /checked/);
+  assert.match(html, /<label[^>]*>en <input[^>]*id="language"/);
+  assert.ok(html.indexOf('id="loop"') < html.indexOf('id="language"'));
+  assert.ok(html.indexOf('id="language"') < html.indexOf('id="seek"'));
+});
+
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+test('collectUsedText includes every caption in both languages', () => {
+  const text = collectUsedText(model, { title: 'PROGRESS: one' });
+  for (const table of Object.values(STAGE_CAPTIONS)) {
+    for (const description of Object.values(table)) {
+      assert.ok(text.includes(description), `missing caption ${description}`);
+    }
+  }
 });
 
 test('collectUsedText includes title, package names, stage names and the percent glyphs', () => {

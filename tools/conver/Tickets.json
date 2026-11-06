@@ -58211,6 +58211,181 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-06"
+        },
+        {
+          "id": 380,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Render bilingual stage captions under the progress bar",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-380.md",
+          "background": "The header currently shows only the uppercase stage name next to the date. The stage name must carry a one-line description so each phase explains itself. Japanese descriptions are long, so keeping the description at 18px would overflow the header; the name keeps its size and only the description shrinks to fit. An en checkbox switches the caption to English, unchecked by default. No other display change is in scope.\n\n### Goal\nThe header renders `<date> <NAME>: <description>` with the command name at its current HEADER_STAGE_SIZE and the description at the largest size that fits before the percent block, in the same group colour, and an en checkbox switches the caption language between Japanese (default) and English.\n\n### Purpose\nA viewer who does not know the conver stage vocabulary can read what each stage does without leaving the animation. The date and the stage name stay exactly as legible as before; only the explanatory text adapts.\n\n### Motivation\nThe user asked for the header description in both languages. The fixed 18px size would clip the longest Japanese descriptions, and clipping a user-supplied sentence is worse than reducing only its own size. The browser already has the real font metrics, so the size can be chosen at draw time without changing the board.\n\n### Constraints\n- The command name keeps HEADER_STAGE_SIZE; only the description size may change.\n- The name and the description share groupColor(stage).\n- Exactly one half-width space separates the date from the caption.\n- The generated HTML stays self-contained and offline; no network request and no new dependency.\n- Ladder labels, board width and height, colours, title, progress bar, percent, and the other controls must not change.\n- The output must stay deterministic for a given model, options and font.",
+          "scope": [
+            "File tools/conver/.claude/scripts/conver/progress-gif/layout.js: add the frozen STAGE_CAPTIONS table with ja and en descriptions for all 16 STAGE_ORDER keys.",
+            "File layout.js: export stageCaption(stage, language) returning the description or null, and stageCaptionText(stage, language) returning `NAME: description` with the name uppercased.",
+            "File layout.js: export MIN_DESCRIPTION_SIZE and the pure helpers fitDescriptionSize(measureAt, availableWidth, maxSize, minSize) and ellipsizeDescription(measure, text, availableWidth).",
+            "File engine.js: replace the separate date and stage drawText calls with drawStageCaption, which draws the date unchanged, measures one half-width space, draws the uppercase name at HEADER_STAGE_SIZE, and draws the description at the fitted size.",
+            "File engine.js: read the optional options.language field, default to ja, and pass the chosen caption colour through groupColor(stage).",
+            "File viewer.js: read document.getElementById('language'), keep a language state initialised to ja, and redraw the current frame on change.",
+            "File viewer.js: pass the language in the options object to drawFrame in drawAt and in encodeAndDownload so the GIF matches the screen.",
+            "File html.js: add a label containing the text en and an input with id language, type checkbox, unchecked by default, between the loop and seek controls.",
+            "File fonts.js: import STAGE_CAPTIONS and add every ja and en description to collectUsedText so a future subset manifest covers every drawn glyph.",
+            "Before: header draws frame.stage.toUpperCase() at the fixed header.stageX (232) in groupColor(stage), with no description. After: header draws the date unchanged, then one measured half-width space, then `NAME` at HEADER_STAGE_SIZE, then the description at the fitted size, both in groupColor(stage).",
+            "API: layout.js gains STAGE_CAPTIONS, stageCaption, stageCaptionText, MIN_DESCRIPTION_SIZE, fitDescriptionSize and ellipsizeDescription; drawFrame options gains an optional language field. No existing export is removed or renamed.",
+            "Data schema: none. The snapshot schema, model schema and Tickets schema are unchanged.",
+            "Config and environment: none. No new environment variable, flag or dependency.",
+            "Non-change: ladder labels, board dimensions, group colours, title band, progress bar, percent, frames, speed, columns, loop and seek behaviour, and the tooltip.",
+            "Non-change why: the request is limited to the header caption line and the language switch; every other surface already has a tested specification.",
+            "Impact: the rendered HTML canvas and the downloaded GIF header only; file layout, network behaviour and font assets are untouched.",
+            "Impact response: no other component needs a change; the tests update only the header, controls and used-text assertions.",
+            "Sync: copy the five changed scripts to the root .claude/scripts/conver/progress-gif mirror file by file; do not run the full installer, which can roll back unrelated installed files."
+          ],
+          "testUnit": [
+            "UT: [Normal] stageCaption returns the exact ja and en description for every one of the 16 STAGE_ORDER stages; stageCaption('educe','ja') is 設計書から要実装操作を抽出し各部へ配布 and stageCaption('educe','en') is List design operations for builders. Covers C001 precondition (frame.stage is a STAGE_ORDER key and language is ja or en) and postcondition (the description equals the table entry for that stage and language).",
+            "UT: [Normal] stageCaptionText('smooth','ja') returns SMOOTH, then an ASCII colon, then exactly one ASCII space, then the Japanese description; the name is the uppercase STAGE_ORDER key. Covers the C001 invariant (the drawn run is NAME COLON SPACE description with the name uppercased).",
+            "UT: [Error] stageCaption(null,'ja'), stageCaption('','ja'), stageCaption('unknown','ja') and stageCaption('educe','fr') return null; drawFrame with frame.stage null or undefined emits no caption fillText and does not throw.",
+            "UT: [Boundary] fitDescriptionSize with max 18 and min 12 returns 18 when the measured description fits at 18, returns the largest smaller integer size whose measured width fits when 18 overflows, and returns 12 when only 12 fits. Covers C002 precondition (available width is a finite number greater than zero) and postcondition (the returned size is within the minimum and maximum bounds and the measured description fits the available width whenever any bound size fits).",
+            "UT: [Invariant] the size returned by fitDescriptionSize never exceeds the maximum and never falls below the minimum for available widths 0, 1, 100, 475.6, 556.4, 628.4 and Infinity. Covers the C002 invariant (the returned size never exceeds the maximum and never falls below the minimum).",
+            "UT: [Boundary] every ja and en description at the size returned for a 724-wide board has a measured width no greater than the available description width; the worst Japanese description SMOOTH measures at most 475.6 px at its returned size.",
+            "UT: [Boundary] ellipsizeDescription returns the input unchanged when the measured width fits and otherwise returns one line ending in the ellipsis whose measured width is at most the available width.",
+            "UT: [Normal] drawFrame with a recording context emits, in order, the date run, the uppercase name run with a font matching HEADER_STAGE_SIZE and the description run with a font matching the fitted size for frame.stage smooth.",
+            "UT: [Invariant] the name run and the description run use the colour returned by groupColor(stage); the date run keeps HEADER_DATE_COLOUR. Covers C004 precondition (frame.stage is present), postcondition (the name run and the description run share the colour returned by groupColor for the stage) and invariant (the date keeps HEADER_DATE_COLOUR).",
+            "UT: [Normal] options.language 'en' draws the English description; options with no language or language 'ja' draws Japanese. Covers the C005 postcondition (the canvas draws Japanese; checking the box redraws the current frame in English).",
+            "UT: [Boundary] the caption x equals header.dateX plus the measured date width plus one measured half-width space for both ms and day precision. Covers C003 precondition (the date string and the date font are known) and postcondition (the caption x equals dateX plus the measured date width plus one measured half-width space).",
+            "UT: [Boundary] for every stage at the narrowest 724-wide board the description right edge stays left of header.percentX minus the measured percent width minus the 12 px gap; no caption run overlaps the percent block.",
+            "UT: [Normal] collectUsedText includes every ja and en description. Covers C006 precondition (the caption table contains both languages), postcondition (collectUsedText includes every ja and en description) and invariant (no drawable description is missing from the collected text).",
+            "UT: [Normal] renderHtml emits a label containing the text en and an input with id language, type checkbox and no checked attribute; the existing frames, speed, columns, loop and seek controls keep their relative order.",
+            "UT: [Normal] the viewer reads document.getElementById('language'), keeps a language state, redraws the current frame on change, and passes language to both the playback drawFrame call and the GIF download drawFrame call.",
+            "UT: [Invariant] the name font size is exactly HEADER_STAGE_SIZE times layout.scale for every stage and never shrinks with the description."
+          ],
+          "testIntegration": [
+            "IT: layout.js exports the caption table and the fitting functions; fonts.js consumes the same table, so collectUsedText and drawHeader cannot disagree about which descriptions exist.",
+            "IT: html.js, viewer.js and engine.js together render the selected language through the inline bundle: the viewer defaults to Japanese, an en checkbox change redraws with language en, and the GIF download path uses the same language.",
+            "IT: the inline script produced by renderHtml contains startViewer, computeLayout and drawFrame and parses as valid JavaScript when the four source stubs are empty.",
+            "IT: the root .claude/scripts/conver/progress-gif copies of layout.js, engine.js, viewer.js, html.js and fonts.js are byte-identical to tools/conver/.claude/scripts/conver/progress-gif after the sync step."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/conver/progress-gif/layout.js",
+            ".claude/scripts/conver/progress-gif/engine.js",
+            ".claude/scripts/conver/progress-gif/viewer.js",
+            ".claude/scripts/conver/progress-gif/html.js",
+            ".claude/scripts/conver/progress-gif/fonts.js",
+            "tests/conver/layout.test.mjs",
+            "tests/conver/render.test.mjs",
+            "tests/conver/html.test.mjs",
+            "tests/conver/viewer.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: the default header shows the Japanese caption for the current stage with the name at 18px and the description shrunk only as needed.",
+            "Happy path: checking en shows the English caption on the next draw and in the downloaded GIF.",
+            "Error case: an unknown, empty or null stage draws no caption and does not throw.",
+            "Edge case: every Japanese description fits the narrowest 724px board without touching the percent block.",
+            "Happy path check: stageCaption('educe','ja') is 設計書から要実装操作を抽出し各部へ配布 and stageCaption('educe','en') is List design operations for builders.",
+            "Happy path check: the name run uses HEADER_STAGE_SIZE and the description run uses the fitted size, both with groupColor(stage), while the date keeps HEADER_DATE_COLOUR.",
+            "Error check: stageCaption(null,'ja'), stageCaption('','ja'), stageCaption('unknown','ja') and stageCaption('educe','fr') return null.",
+            "Edge check: the fitted size is never smaller than MIN_DESCRIPTION_SIZE, and the ellipsis fallback keeps the measured width inside the available width."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "stage caption selection",
+              "precondition": "frame.stage is a STAGE_ORDER key and language is ja or en",
+              "postcondition": "the description equals the table entry for that stage and language",
+              "invariant": "the drawn run is NAME COLON SPACE description with the name uppercased"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "description fitting",
+              "precondition": "available width is a finite number greater than zero",
+              "postcondition": "the returned size is within the minimum and maximum bounds and the measured description fits the available width whenever any bound size fits",
+              "invariant": "the returned size never exceeds the maximum and never falls below the minimum"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "caption placement",
+              "precondition": "the date string and the date font are known",
+              "postcondition": "the caption x equals dateX plus the measured date width plus one measured half-width space",
+              "invariant": "the rendered date string and colour are unchanged"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "caption colour",
+              "precondition": "frame.stage is present",
+              "postcondition": "the name run and the description run share the colour returned by groupColor for the stage",
+              "invariant": "the date keeps HEADER_DATE_COLOUR"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "language control",
+              "precondition": "the rendered HTML loads with the checkbox unchecked",
+              "postcondition": "the canvas draws Japanese; checking the box redraws the current frame in English",
+              "invariant": "the default language is Japanese"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "embedded font coverage",
+              "precondition": "the caption table contains both languages",
+              "postcondition": "collectUsedText includes every ja and en description",
+              "invariant": "no drawable description is missing from the collected text"
+            }
+          ],
+          "notes": "Source of truth is tools/conver/.claude; the repo-root .claude is the installed mirror and must be resynced file by file, not by a full installer run.\n\n- [Implementation steps] 1) Add the caption table and pure helpers to layout.js. 2) Extend the layout header with caption geometry if needed. 3) Rewrite the engine header caption to use the table and helpers. 4) Add the descriptions to collectUsedText. 5) Add the en checkbox and the viewer language state and redraw/GIF wiring. 6) Write the Red tests first, then implement, then refactor. 7) Sync the five scripts to the root mirror.\n- [Risks] Node test doubles use a synthetic measure function while the browser uses real font metrics; the drawing code must always measure with the same font string it draws with. The description size changes between stages but never within one stage, so no frame-to-frame jitter occurs.\n- [Caveats] HEADER_STAGE_X (232) becomes unused by the header; keep the constant only if another consumer appears, otherwise remove it with its layout field. The font bundle currently has no subset manifest, so the full Noto Sans JP TTF is embedded; collectUsedText still governs future subset selection.\n- [Open items] None.\n- [Future improvements] If new stages are added, add both language entries to STAGE_CAPTIONS; the tests iterate STAGE_ORDER so a missing entry fails immediately.\nImplementation summary:\n- Changed files: .claude/scripts/conver/progress-gif/{layout,engine,viewer,html,fonts}.js and tests/conver/{layout,render,html,viewer}.test.mjs; synced to the root .claude and crates/siprs mirrors.\n- Tests: node --test on the 13 affected files, 165 tests, all pass.\n- Quality checks: run-quality-checks.js reports 0 issues.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: three script copies verified byte-identical\n- Annotation: every changed source file carries PX-380 provenance; zero AMBIGUOUS markers\n- Issues found and fixes applied: none\nRevision:\n- Replaced all 16 Japanese descriptions with the shortened wording.\n- Measured with the bundled font: every caption fits at 18px even on the 724px board; the widest is EDUCE at 342.0px in a 492.5px room.\n- Updated the render test to force a tight room so the shrink and ellipsis branches stay covered.\n- Affected tests: 165 pass, 0 fail; quality checks 0 issues; three copies byte-identical.",
+          "invariants": "- [Normal condition] The header always draws the date unchanged, then exactly one measured half-width space, then the uppercase stage name at HEADER_STAGE_SIZE, then the description in groupColor(stage); the name size never changes with the description size.\n- [Error invariant] An absent, empty or unknown stage draws no caption and never throws; a missing measureText capability falls back to a length-based estimate.\n- [Internal state invariant] STAGE_CAPTIONS is frozen; fitDescriptionSize and ellipsizeDescription are pure with an injected measure function and share no mutable state; the selected language only chooses which table column is read.\n- [Boundary invariant] The description size stays in [MIN_DESCRIPTION_SIZE, HEADER_STAGE_SIZE] and its measured right edge never crosses header.percentX minus the measured percent width minus the 12 px gap; when even the minimum does not fit, the description ends with the ellipsis at the minimum size.",
+          "instrumentation": "- [Logging] No new runtime log. The renderer stays silent; buildModel warnings are unchanged.\n- [Metrics] Not applicable: a static rendering component exposes no counters or gauges.\n- [Error tracking] Invalid stage or language returns null and draws nothing; no new throw path is introduced.\n- [Health check] The existing node --test suites for layout, render, html, viewer and fonts exercise the renderer; the dry-run markdown report remains the manual check.\nStatic quality check: passed (0 issues)\nTranslatability: no debug output, no generic variable names\nTests: 165 affected tests passed, 0 failed",
+          "investigation": "Evidence gathered from the current source.\n\n- layout.js:53 exports HEADER_STAGE_X = 232; layout.js:288-294 places dateX at 12 and stageX at 232 with percentX at width - 12; layout.js:325-332 implements formatDate as `MM/DD HH:MM` or `MM/DD --:--`.\n- engine.js:18-24 defines HEADER_TITLE_SIZE 14, HEADER_DATE_SIZE 20, HEADER_STAGE_SIZE 18, HEADER_PERCENT_SIZE 11 and HEADER_PERCENT_COLOUR #b8c2d6.\n- engine.js:498-511 draws the date at header.dateX/stageY using formatDate(frame.t, frame.prec) with colour #f4f7ff, then draws frame.stage.toUpperCase() at header.stageX with groupColor(frame.stage).\n- engine.js:341-349 drawText sets globalAlpha, font, fillStyle, textAlign and textBaseline; the default baseline is middle, fixed at the header y.\n- html.js:79-88 lists the controls in order frames, speed, columns, loop, seek, download, status; the controls CSS is at html.js:68-74.\n- viewer.js:60-80 owns the mutable state; viewer.js:89-92 drawAt calls makeEngine().drawFrame(ctx, layout, frames[position], model, options); viewer.js:158-178 encodeAndDownload draws every frame with the same options before quantising.\n- fonts.js:7-13 collectUsedText joins the title, the digit glyph set, STAGE_ORDER and package names; loadFontBundle selects subsets when subset-manifest.json exists and otherwise embeds NotoSansJP[wght].ttf.\n- The bundled font directory currently contains only NotoSansJP[wght].ttf and OFL.txt; no subset-manifest.json exists, so the full TTF is embedded and every caption glyph is available today. collectUsedText must still include the captions for a future subset build.\n- Measured with the bundled Noto Sans JP metrics: `11/05 09:35` at 20px = 100.3px, a half-width space at 20px = 4.0px, so the caption starts at x 116.3. The available width after the date is 628.4px on the 796px board and 556.4px on the 724px board (percent `100%` at 11px plus a 12px gap reserved).\n- The widest name prefix at 18px is `CONSOLIDATE: ` at 124.2px. The shortened Japanese descriptions all fit at 18px: the widest is EDUCE at 342.0px inside the 492.5px description room on the 724px board, so fitting is a safety net rather than a routine shrink. Every English description fits at 18px (worst 445px for the whole CONSOLIDATE run).\n- loop.js emits stage keys exactly matching STAGE_ORDER (educe, explain, grill, smooth, graphify, boundify, split, make, plan, start, review, resolve, consolidate, find, crystalize, drill).\n- render.test.mjs uses a recording context whose measureText is `length * 6`; new tests inject a size-aware measure function so the fitting is verified without changing the existing harness.\n- html.test.mjs currently asserts that collectUsedText does not match /REVIEWED/ or /SPLIT/. collectUsedText adds the description strings only, not the `NAME: ` prefix, so /SPLIT/ stays absent and the existing assertion remains valid; the new test asserts that every description is present.",
+          "boyScoutPlan": "- Extract the caption drawing into drawStageCaption(ctx, layout, stage, language), named after the single responsibility, so drawHeader remains a readable sequence: title, progress bar, caption, percent.\n- Replace the inline `String(frame.stage).toUpperCase()` and fixed stageX with stageCaptionText and a measured date-anchored x computed by a named helper.\n- Introduce named constants MIN_DESCRIPTION_SIZE, CAPTION_GAP and ELLIPSIS instead of magic numbers.\n- Keep fitDescriptionSize and ellipsizeDescription pure with an injected measure function so they need no unwrap and no hidden state.\n- Read the language through one helper returning ja or en, so an unknown value never reaches the table lookup.\n- Add tests for every new exported function; leave no touched line untested.",
+          "created_at": "2026-11-06",
+          "updated_at": "2026-11-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C001 stage selection\n```js\nconst jaEduce = stageCaption('educe', 'ja');\nconst enEduce = stageCaption('educe', 'en');\nassert.equal(jaEduce, '設計書から要実装操作を抽出し各部へ配布');\nassert.equal(enEduce, 'List design operations for builders');\nconst run = stageCaptionText('smooth', 'ja');\nassert.match(run, /^SMOOTH: /);\nassert.equal(stageCaption(null, 'ja'), null);\nassert.equal(stageCaption('unknown', 'ja'), null);\n```",
+            "UT: [Boundary] C002 description fitting\n```js\nconst measureAt = (text, size) => [...String(text)].reduce((width, character) => width + (character.codePointAt(0) > 0x2e80 ? size : size * 0.55), 0);\nassert.equal(fitDescriptionSize(measureAt, 'short text', 600, 18, 12), 18);\nconst longText = '設計書'.repeat(30);\nconst fitted = fitDescriptionSize(measureAt, longText, 300, 18, 12);\nassert.ok(fitted >= 12 && fitted <= 18);\nassert.ok(measureAt(longText, fitted) <= 300);\nassert.equal(fitDescriptionSize(measureAt, longText, 0, 18, 12), 12);\n```",
+            "UT: [Boundary] C003 caption placement\n```js\nconst dateText = formatDate(frame.t, frame.prec);\nctx.font = `600 20px ConverNoto, system-ui, sans-serif`;\nconst dateWidth = ctx.measureText(dateText).width;\nconst spaceWidth = ctx.measureText(' ').width;\nconst nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH: ');\nassert.equal(nameRun[2], layout.header.dateX + dateWidth + spaceWidth);\nassert.equal(nameRun[4].includes('18px'), true);\n```",
+            "UT: [Invariant] C004 caption colour\n```js\nconst nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH: ');\nconst descriptionRun = calls.find((call) => call[0] === 'fillText' && call[1] === STAGE_CAPTIONS.ja.smooth);\nassert.equal(nameRun[6], groupColor('smooth'));\nassert.equal(descriptionRun[6], groupColor('smooth'));\nconst dateRun = calls.find((call) => call[0] === 'fillText' && /\\d{2}\\/\\d{2}/.test(call[1]));\nassert.equal(dateRun[6], '#f4f7ff');\n```",
+            "UT: [Normal] C005 language control\n```js\nconst languageTag = /<input[^>]*id=\"language\"[^>]*>/.exec(html)[0];\nassert.match(languageTag, /type=\"checkbox\"/);\nassert.doesNotMatch(languageTag, /checked/);\nassert.match(viewerSource, /document\\.getElementById\\('language'\\)/);\nassert.match(viewerSource, /language = languageInput\\.checked \\? 'en' : 'ja'/);\nassert.match(viewerSource, /drawFrame\\(ctx, layout, frames\\[position % frames\\.length\\], model, renderOptions\\(\\)\\)/);\n```",
+            "UT: [Normal] C006 embedded font coverage\n```js\nconst usedText = collectUsedText(model, { title: 'PROGRESS: one' });\nfor (const table of Object.values(STAGE_CAPTIONS)) {\n  for (const description of Object.values(table)) {\n    assert.ok(usedText.includes(description));\n  }\n}\n```"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "header drew only the uppercase stage name at the fixed x=232",
+              "after": "header draws date, one half-width space, NAME at 18px and the fitted description in groupColor",
+              "description": "Stage caption line in the progress header"
+            },
+            {
+              "before": "no caption table",
+              "after": "STAGE_CAPTIONS holds ja and en descriptions for all 16 stages; stageCaption and stageCaptionText select them",
+              "description": "Bilingual caption source"
+            },
+            {
+              "before": "fixed 18px stage text could overflow",
+              "after": "fitDescriptionSize shrinks only the description from 18px to 12px; ellipsizeDescription is the safety fallback",
+              "description": "Description fitting"
+            },
+            {
+              "before": "collectUsedText covered title, stages and package names",
+              "after": "collectUsedText also covers every ja and en description",
+              "description": "Embedded font glyph coverage"
+            },
+            {
+              "before": "no language control",
+              "after": "an unchecked en checkbox redraws the current frame and drives the GIF download in English",
+              "description": "Language switch"
+            },
+            {
+              "before": "root and siprs mirrors lagged",
+              "after": "engine.js, html.js, layout.js, viewer.js and fonts.js are byte-identical in all three copies",
+              "description": "Installed mirror sync"
+            },
+            {
+              "before": "the approved long Japanese descriptions overflowed and forced a shrink on the narrow board",
+              "after": "the shortened Japanese descriptions all render at 18px, with fitting kept as a safety net",
+              "description": "Shortened Japanese stage descriptions"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
         }
       ]
     },

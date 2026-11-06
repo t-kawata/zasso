@@ -21,6 +21,100 @@ const GROUP_COLOURS = Object.freeze({
   evolution: '#EC4899',
 });
 
+/**
+ * The one-line description shown after the header stage name. The key set must
+ * stay identical to STAGE_ORDER; a missing entry removes the caption instead of
+ * inventing text. English entries are deliberately short because the header
+ * reserves only the space between the date and the percent block.
+ */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+export const STAGE_CAPTIONS = Object.freeze({
+  ja: Object.freeze({
+    educe: '設計書から要実装操作を抽出し各部へ配布',
+    explain: '各部の役割定義と大まかな設計判断',
+    grill: '各部の詳細設計判断とRFC作成',
+    smooth: '部間の設計齟齬・欠落・リスクの修復',
+    graphify: '各部RFCの機械検証可能な空間への変換',
+    boundify: '各部への設計参照の付与とファイル生成',
+    split: '各部を作業チケットへ細分化',
+    make: 'チケット単位の実装・契約・テストをSPEC化',
+    plan: 'SPECをコード含む実装計画へ具体化',
+    start: 'チケット単位の完全実装とテスト',
+    review: 'チケット単位の実装・契約・テストの点検',
+    resolve: '複数チケットを横断した重大問題の解決',
+    consolidate: '不完全な実装記録の集約と完工準備',
+    find: '実装の欠陥・矛盾の検知とチケット化',
+    crystalize: '各部単位での完全なREADME化',
+    drill: '各部RFCの改訂による品質向上',
+  }),
+  en: Object.freeze({
+    educe: 'List design operations for builders',
+    explain: 'Role brief plus rough design choices',
+    grill: 'Refine design decisions; write each RFC',
+    smooth: 'Fix cross-team design gaps and conflicts',
+    graphify: 'Turn RFCs into checkable design spaces',
+    boundify: 'Generate files anchored to each design',
+    split: 'Split teams into ticket-sized units',
+    make: 'Write complete contract and test SPECs',
+    plan: 'Make each SPEC a concrete code plan',
+    start: 'Implement and test each ticket fully',
+    review: 'Audit code, contracts, and tests',
+    resolve: 'Fix all critical issues across tickets',
+    consolidate: 'Prepare incomplete work for completion',
+    find: 'Find gaps and conflicts; create tickets',
+    crystalize: 'Write a complete README per team',
+    drill: "Evolve each team's RFC to raise quality",
+  }),
+});
+
+export const DEFAULT_CAPTION_LANGUAGE = 'ja';
+export const MIN_DESCRIPTION_SIZE = 12;
+export const CAPTION_ELLIPSIS = '…';
+
+/** The description for one stage, or null when the stage or language is unknown. */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+export function stageCaption(stage, language = DEFAULT_CAPTION_LANGUAGE) {
+  if (language !== 'ja' && language !== 'en') return null;
+  const key = String(stage || '').toLowerCase();
+  return Object.prototype.hasOwnProperty.call(STAGE_CAPTIONS[language], key) ? STAGE_CAPTIONS[language][key] : null;
+}
+
+/** The drawn run: the uppercase stage name, an ASCII colon, one space, the description. */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+export function stageCaptionText(stage, language = DEFAULT_CAPTION_LANGUAGE) {
+  const description = stageCaption(stage, language);
+  return description === null ? null : `${String(stage).toUpperCase()}: ${description}`;
+}
+
+/**
+ * The largest integer font size at which the description fits the available width.
+ * The caller supplies a measure function bound to the real font so this stays pure
+ * and testable without a Canvas; sizes below the minimum are never returned.
+ */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+export function fitDescriptionSize(measureAt, text, availableWidth, maxSize, minSize = MIN_DESCRIPTION_SIZE) {
+  const maximum = Math.max(1, Math.floor(maxSize));
+  const minimum = Math.max(1, Math.min(maximum, Math.floor(minSize)));
+  const width = Number(availableWidth);
+  if (!Number.isFinite(width) || width <= 0) return minimum;
+  for (let size = maximum; size > minimum; size -= 1) {
+    if (measureAt(text, size) <= width) return size;
+  }
+  return minimum;
+}
+
+/** Trim the description to one line ending in the ellipsis when it still overflows. */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+export function ellipsizeDescription(measureAt, text, availableWidth, size) {
+  const source = String(text || '');
+  if (measureAt(source, size) <= availableWidth) return source;
+  let candidate = source;
+  while (candidate.length > 0 && measureAt(`${candidate}${CAPTION_ELLIPSIS}`, size) > availableWidth) {
+    candidate = candidate.slice(0, -1);
+  }
+  return `${candidate}${CAPTION_ELLIPSIS}`;
+}
+
 export const BOARD_WIDTH = 724;
 export const BASE_HEIGHT = 384;
 export const BOARD_GUTTER = 12;
@@ -50,7 +144,6 @@ export const HEADER_BAR_X = BOARD_GUTTER;
 export const HEADER_BAR_Y = 34;
 export const HEADER_BAR_HEIGHT = 6;
 export const HEADER_DATE_Y = 56;
-export const HEADER_STAGE_X = 232;
 export const DOT_TARGET = 110;
 export const MIN_RADIUS_RATIO = 0.26;
 export const MAX_RADIUS_RATIO = 0.40;
@@ -224,6 +317,7 @@ function buildLadderRows(scale, ladderX) {
 }
 
 /** Compute the fixed 724-wide board; only the row count grows the height. */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
 export function computeLayout(model, options = {}) {
   const scale = Math.max(0.5, Math.min(3, Number(options.scale) || 1));
   const measureText = options.measureText || ((text) => String(text).length * 6);
@@ -288,8 +382,6 @@ export function computeLayout(model, options = {}) {
       barHeight: HEADER_BAR_HEIGHT * scale,
       dateX: 12 * scale,
       dateY: HEADER_DATE_Y * scale,
-      stageX: HEADER_STAGE_X * scale,
-      stageY: HEADER_DATE_Y * scale,
       percentX: (baseWidth - HEADER_BAR_X) * scale,
       percentY: HEADER_DATE_Y * scale,
     },

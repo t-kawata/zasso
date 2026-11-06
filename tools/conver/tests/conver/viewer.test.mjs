@@ -1,5 +1,6 @@
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // PX-351 @verifies C003
+// PX-380 @verifies C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -149,4 +150,27 @@ test('the viewer reads the loop switch and no longer renders a ms/frame label', 
   assert.match(source, /loopInput\.addEventListener\('change'/);
   assert.match(source, /loop = loopInput\.checked;/);
   assert.doesNotMatch(source, /ms\/frame/);
+});
+
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+test('the viewer switches the caption language and redraws the current frame', () => {
+  const source = fs.readFileSync(
+    new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /document\.getElementById\('language'\)/);
+  assert.match(source, /languageInput\.addEventListener\('change'/);
+  assert.match(source, /language = languageInput\.checked \? 'en' : 'ja'/);
+  assert.match(source, /drawAt\(index\)/);
+});
+
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+test('the viewer passes the selected language to the playback and GIF draws', () => {
+  const source = fs.readFileSync(
+    new URL('../../.claude/scripts/conver/progress-gif/viewer.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /renderOptions\(\)/);
+  assert.match(source, /drawFrame\(ctx, layout, frames\[position % frames\.length\], model, renderOptions\(\)\)/);
+  assert.match(source, /engine\.drawFrame\(ctx, layout, frame, model, renderOptions\(\)\)/);
 });

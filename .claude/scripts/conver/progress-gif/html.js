@@ -35,6 +35,7 @@ export function extractInlineScript(html) {
  * sources and the font are all inline; the document makes no network request and
  * needs no server.
  */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
 export function renderHtml(input) {
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -82,6 +83,7 @@ button { padding: 8px 18px; background: #1b2430; color: #dfe; border: 1px solid 
 <label>Speed <input id="speed" type="number" min="${SPEED_MIN_MS}" max="${SPEED_MAX_MS}" step="10" value="${speedMs}"></label>
 <label>Columns <input id="columns" type="number" min="${MIN_COLUMNS}" max="${MAX_COLUMNS}" step="1" value="${columns}"></label>
 <label>Loop <input id="loop" type="checkbox"${DEFAULT_LOOP ? ' checked' : ''}></label>
+<label>en <input id="language" type="checkbox"></label>
 <label>Seek <input id="seek" type="range" min="0" max="0" step="1" value="0"><span id="seek-value">0/0</span></label>
 <button id="download">Download GIF</button>
 <span id="status"></span>

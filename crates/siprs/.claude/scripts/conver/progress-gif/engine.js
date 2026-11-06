@@ -4,6 +4,10 @@ import {
   formatDate,
   formatPercent,
   radiusForArea,
+  stageCaption,
+  fitDescriptionSize,
+  ellipsizeDescription,
+  MIN_DESCRIPTION_SIZE,
 } from './layout.js';
 
 const BACKGROUND = [5, 7, 10];
@@ -20,8 +24,11 @@ const MIN_TITLE_SIZE = 10;
 export const TITLE_SEGMENT_GAP = 12;
 export const TITLE_ELLIPSIS = '…';
 const HEADER_DATE_SIZE = 20;
-const HEADER_STAGE_SIZE = 18;
+export const HEADER_STAGE_SIZE = 18;
+export const HEADER_DATE_COLOUR = '#f4f7ff';
 const HEADER_PERCENT_SIZE = 11;
+// Minimum breathing room between the caption and the right-aligned percent block.
+const CAPTION_GAP = 12;
 export const LADDER_LABEL_SIZE = 14;
 
 /** Build the fixed 256-colour palette: background, grayscale ramp and seven group ramps. */
@@ -456,7 +463,68 @@ export function fitTitleLayout(ctx, parts, options) {
   return { size, left: TITLE_ELLIPSIS, right: parts.right };
 }
 
-// [::TICKET::] PX-351, PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-352|PX-354) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+function dateFontFor(scale) {
+  return `600 ${HEADER_DATE_SIZE * scale}px ${FONT_FAMILY}`;
+}
+
+/**
+ * Draw the date and the stage caption as one line. The date keeps its own colour
+ * and size and the uppercase stage name keeps HEADER_STAGE_SIZE; only the
+ * description shrinks, because the supplied descriptions are longer than the
+ * header band between the date and the percent block.
+ */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+function drawStageCaption(ctx, layout, frame, options) {
+  const header = layout.header;
+  const scale = layout.scale;
+  const dateText = formatDate(frame.t, frame.prec);
+  const dateFont = dateFontFor(scale);
+  drawText(ctx, { text: dateText, x: header.dateX, y: header.dateY, font: dateFont, colour: HEADER_DATE_COLOUR });
+
+  const description = stageCaption(frame.stage, options.language);
+  if (description === null) return;
+
+  ctx.font = dateFont;
+  const dateWidth = ctx.measureText(dateText).width;
+  const spaceWidth = ctx.measureText(' ').width;
+  const captionX = header.dateX + dateWidth + spaceWidth;
+
+  const nameText = `${String(frame.stage).toUpperCase()}: `;
+  const nameFont = `600 ${HEADER_STAGE_SIZE * scale}px ${FONT_FAMILY}`;
+  ctx.font = nameFont;
+  const nameWidth = ctx.measureText(nameText).width;
+
+  const percentText = formatPercent(frame.overallProgress);
+  ctx.font = `500 ${HEADER_PERCENT_SIZE * scale}px ${FONT_FAMILY}`;
+  const percentWidth = ctx.measureText(percentText).width;
+  const availableWidth = header.percentX - percentWidth - CAPTION_GAP * scale - captionX - nameWidth;
+
+  const descriptionFont = (size) => `400 ${size}px ${FONT_FAMILY}`;
+  const measureDescription = (text, size) => {
+    ctx.font = descriptionFont(size);
+    return ctx.measureText(text).width;
+  };
+  const size = fitDescriptionSize(
+    measureDescription,
+    description,
+    availableWidth,
+    HEADER_STAGE_SIZE * scale,
+    MIN_DESCRIPTION_SIZE * scale,
+  );
+  const fittedDescription = ellipsizeDescription(measureDescription, description, availableWidth, size);
+  const colour = groupColor(frame.stage);
+  drawText(ctx, { text: nameText, x: captionX, y: header.dateY, font: nameFont, colour });
+  drawText(ctx, {
+    text: fittedDescription,
+    x: captionX + nameWidth,
+    y: header.dateY,
+    font: descriptionFont(size),
+    colour,
+  });
+}
+
+// [::TICKET::] PX-351, PX-352, PX-354, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-352|PX-354|PX-380) --for-spec --no-implementation-order`.
 function drawHeader(ctx, layout, frame, options) {
   const scale = layout.scale;
   const header = layout.header;
@@ -495,20 +563,7 @@ function drawHeader(ctx, layout, frame, options) {
     });
   }
   drawProgressBar(ctx, layout, frame);
-  drawText(ctx, {
-    text: formatDate(frame.t, frame.prec),
-    x: header.dateX,
-    y: header.dateY,
-    font: `600 ${HEADER_DATE_SIZE * scale}px ${FONT_FAMILY}`,
-    colour: '#f4f7ff',
-  });
-  drawText(ctx, {
-    text: String(frame.stage || '').toUpperCase(),
-    x: header.stageX,
-    y: header.stageY,
-    font: `600 ${HEADER_STAGE_SIZE * scale}px ${FONT_FAMILY}`,
-    colour: groupColor(frame.stage),
-  });
+  drawStageCaption(ctx, layout, frame, options);
   drawText(ctx, {
     text: formatPercent(frame.overallProgress),
     x: header.percentX,

@@ -2,12 +2,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { STAGE_ORDER } from './loop.js';
+import { STAGE_CAPTIONS } from './layout.js';
 
 /** Collect every text run the renderer can draw. */
 export function collectUsedText(model, options = {}) {
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
   const parts = [options.title || 'PROGRESS', 'PROGRESS 0123456789/:.-%'];
   for (const stage of STAGE_ORDER) parts.push(stage);
+  // The language switch draws either column at runtime, so both must be covered.
+  for (const table of Object.values(STAGE_CAPTIONS)) {
+    for (const description of Object.values(table)) parts.push(description);
+  }
   for (const pkg of (model && model.packages) || []) parts.push(pkg.name || pkg.id);
   return parts.join(' ');
 }

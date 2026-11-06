@@ -1,5 +1,5 @@
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-import { clampColumns } from './layout.js';
+import { clampColumns, DEFAULT_CAPTION_LANGUAGE } from './layout.js';
 
 /**
  * Browser-side viewer. It receives the model, the options and the pure engine
@@ -67,6 +67,7 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   const speedInput = document.getElementById('speed');
   const columnsInput = document.getElementById('columns');
   const loopInput = document.getElementById('loop');
+  const languageInput = document.getElementById('language');
   const seekInput = document.getElementById('seek');
   const seekValue = document.getElementById('seek-value');
   let frames = [];
@@ -78,6 +79,7 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
   let speedMs = clampSpeedMs(options.speedMs);
   let columns = clampColumns(options.columns);
   let loop = DEFAULT_LOOP;
+  let language = DEFAULT_CAPTION_LANGUAGE;
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
   function showError(error) {
@@ -85,10 +87,16 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
     errorBox.hidden = false;
   }
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
+  /** Draw options plus the caption language currently selected in the controls. */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+  function renderOptions() {
+    return { ...options, language };
+  }
+
+// [::TICKET::] PX-349, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-380) --for-spec --no-implementation-order`.
   function drawAt(position) {
     if (!layout || frames.length === 0) return;
-    makeEngine().drawFrame(ctx, layout, frames[position % frames.length], model, options);
+    makeEngine().drawFrame(ctx, layout, frames[position % frames.length], model, renderOptions());
   }
 
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
@@ -154,12 +162,12 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
     requestAnimationFrame(tick);
   }
 
-// [::TICKET::] PX-349, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-351) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-349, PX-351, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-351|PX-380) --for-spec --no-implementation-order`.
   function encodeAndDownload() {
     status.textContent = 'Encoding GIF...';
     const engine = makeEngine();
     const indexed = frames.map((frame) => {
-      engine.drawFrame(ctx, layout, frame, model, options);
+      engine.drawFrame(ctx, layout, frame, model, renderOptions());
       const image = ctx.getImageData(0, 0, layout.width, layout.height);
       return engine.quantizeRgba(image.data, null, layout.width, layout.height);
     });
@@ -241,6 +249,10 @@ export function startViewer({ model, options, buildFrames, computeLayout, makeEn
       });
       loopInput.addEventListener('change', function () {
         loop = loopInput.checked;
+      });
+      languageInput.addEventListener('change', function () {
+        language = languageInput.checked ? 'en' : 'ja';
+        drawAt(index);
       });
       seekInput.addEventListener('input', function () {
         playing = false;

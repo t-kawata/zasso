@@ -1,5 +1,6 @@
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // PX-351 @verifies C001 @verifies C004 @verifies C005
+// PX-380 @verifies C001 @verifies C002 @verifies C006
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -12,6 +13,13 @@ import {
   stripCommonPrefix,
   formatDate,
   formatPercent,
+  STAGE_CAPTIONS,
+  stageCaption,
+  stageCaptionText,
+  fitDescriptionSize,
+  ellipsizeDescription,
+  MIN_DESCRIPTION_SIZE,
+  CAPTION_ELLIPSIS,
   MIN_CELL,
   MAX_CELL,
   MAX_CELL_RADIUS,
@@ -288,4 +296,87 @@ test('formatters keep the denominator and render a clamped percentage', () => {
   assert.equal(formatPercent(-1), '0%');
   assert.equal(formatPercent(Number.NaN), '0%');
   assert.equal(formatPercent(undefined), '0%');
+});
+
+const CJK_CODE_POINT_START = 0x2e80;
+const ASCII_ADVANCE_RATIO = 0.55;
+
+/** A deterministic stand-in for the bundled font: full-width for CJK, 0.55em for ASCII. */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+function measureGlyphRun(text, size) {
+  let width = 0;
+  for (const character of String(text)) {
+    width += character.codePointAt(0) >= CJK_CODE_POINT_START ? size : size * ASCII_ADVANCE_RATIO;
+  }
+  return width;
+}
+
+test('every stage carries a Japanese and an English caption', () => {
+  assert.equal(STAGE_ORDER.length, 16);
+  for (const stage of STAGE_ORDER) {
+    const japanese = stageCaption(stage, 'ja');
+    const english = stageCaption(stage, 'en');
+    assert.equal(typeof japanese, 'string', `${stage} ja type`);
+    assert.ok(japanese.length > 0, `${stage} ja empty`);
+    assert.equal(typeof english, 'string', `${stage} en type`);
+    assert.ok(english.length > 0, `${stage} en empty`);
+  }
+  assert.equal(stageCaption('educe', 'ja'), '設計書から要実装操作を抽出し各部へ配布');
+  assert.equal(stageCaption('educe', 'en'), 'List design operations for builders');
+});
+
+test('stageCaption returns null for an unknown, empty or unsupported input', () => {
+  assert.equal(stageCaption(null, 'ja'), null);
+  assert.equal(stageCaption('', 'ja'), null);
+  assert.equal(stageCaption('unknown', 'ja'), null);
+  assert.equal(stageCaption('educe', 'fr'), null);
+  assert.equal(stageCaption('EDUCE', 'ja'), STAGE_CAPTIONS.ja.educe);
+});
+
+test('stageCaptionText uppercases the name and joins it with one ASCII space', () => {
+  assert.equal(stageCaptionText('smooth', 'ja'), `SMOOTH: ${STAGE_CAPTIONS.ja.smooth}`);
+  assert.equal(stageCaptionText('make', 'en'), `MAKE: ${STAGE_CAPTIONS.en.make}`);
+  assert.equal(stageCaptionText('unknown', 'ja'), null);
+});
+
+test('fitDescriptionSize picks the largest size that fits inside the bounds', () => {
+  assert.equal(fitDescriptionSize(measureGlyphRun, 'short', 600, 18, MIN_DESCRIPTION_SIZE), 18);
+  const longJapanese = '設計書'.repeat(7);
+  const fitted = fitDescriptionSize(measureGlyphRun, longJapanese, 300, 18, MIN_DESCRIPTION_SIZE);
+  assert.ok(fitted >= MIN_DESCRIPTION_SIZE && fitted <= 18);
+  assert.ok(measureGlyphRun(longJapanese, fitted) <= 300);
+  assert.ok(measureGlyphRun(longJapanese, fitted + 1) > 300);
+});
+
+test('fitDescriptionSize never leaves its bounds', () => {
+  const text = '設計書'.repeat(100);
+  for (const width of [0, -1, Number.NaN, 1, 100, 475.6, 556.4, 628.4, Number.POSITIVE_INFINITY]) {
+    const size = fitDescriptionSize(measureGlyphRun, text, width, 18, MIN_DESCRIPTION_SIZE);
+    assert.ok(size >= MIN_DESCRIPTION_SIZE && size <= 18, `width ${width} size ${size}`);
+  }
+  assert.equal(fitDescriptionSize(measureGlyphRun, text, 0, 18, MIN_DESCRIPTION_SIZE), MIN_DESCRIPTION_SIZE);
+});
+
+test('every caption fits the description room of the narrowest board', () => {
+  // Measured with the bundled Noto Sans JP on the 724 px board: the date, one
+  // space, the widest name prefix and the percent block leave 475.6 px.
+  const descriptionRoom = 475.6;
+  for (const language of ['ja', 'en']) {
+    for (const stage of STAGE_ORDER) {
+      const description = stageCaption(stage, language);
+      const size = fitDescriptionSize(measureGlyphRun, description, descriptionRoom, 18, MIN_DESCRIPTION_SIZE);
+      assert.ok(
+        measureGlyphRun(description, size) <= descriptionRoom,
+        `${language} ${stage} overflows at ${size}px`,
+      );
+    }
+  }
+});
+
+test('ellipsizeDescription cuts only when the text does not fit', () => {
+  assert.equal(ellipsizeDescription(measureGlyphRun, 'short', 600, 18), 'short');
+  const text = '設計書'.repeat(20);
+  const clipped = ellipsizeDescription(measureGlyphRun, text, 200, MIN_DESCRIPTION_SIZE);
+  assert.ok(clipped.endsWith(CAPTION_ELLIPSIS));
+  assert.ok(measureGlyphRun(clipped, MIN_DESCRIPTION_SIZE) <= 200);
 });

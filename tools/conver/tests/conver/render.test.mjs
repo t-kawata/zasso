@@ -1,16 +1,17 @@
 // PX-350 @verifies C002 @verifies C003 @verifies C007
 // PX-354 @verifies C009 @verifies C010
+// PX-380 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { computeLayout, formatPercent, groupColor } from '../../.claude/scripts/conver/progress-gif/layout.js';
+import { computeLayout, formatDate, formatPercent, groupColor, STAGE_CAPTIONS, stageCaption, MIN_DESCRIPTION_SIZE } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { buildFrames, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
-import { drawFrame, makePalette, LADDER_LABEL_SIZE } from '../../.claude/scripts/conver/progress-gif/engine.js';
+import { drawFrame, makePalette, LADDER_LABEL_SIZE, HEADER_STAGE_SIZE, HEADER_DATE_COLOUR } from '../../.claude/scripts/conver/progress-gif/engine.js';
 import { eventsForEveryStage, makeModel, withPackageCount } from './models.mjs';
 
 /** A Canvas 2D stand-in that records every drawing call the renderer makes. */
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-function createRecordingContext() {
+// [::TICKET::] PX-350, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380) --for-spec --no-implementation-order`.
+function createRecordingContext(measure = (text) => String(text).length * 6) {
   const calls = [];
   let composite = 'source-over';
   const ctx = {
@@ -44,15 +45,15 @@ function createRecordingContext() {
     fill() { calls.push(['fill']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     stroke() { calls.push(['stroke']); },
-// [::TICKET::] PX-350, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-354) --for-spec --no-implementation-order`.
-    fillText(text, x, y) { calls.push(['fillText', text, x, y, ctx.font, ctx.textAlign]); },
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-    measureText(text) { return { width: String(text).length * 6 }; },
+// [::TICKET::] PX-350, PX-354, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-354|PX-380) --for-spec --no-implementation-order`.
+    fillText(text, x, y) { calls.push(['fillText', text, x, y, ctx.font, ctx.textAlign, ctx.fillStyle]); },
+// [::TICKET::] PX-350, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380) --for-spec --no-implementation-order`.
+    measureText(text) { return { width: measure(text, ctx.font) }; },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     setLineDash(values) { calls.push(['dash', ...values]); },
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380) --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
-// [::TICKET::] PX-350, PX-351, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-354) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351, PX-354, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-354|PX-380) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     createRadialGradient(...args) {
@@ -205,4 +206,120 @@ test('a legacy title stays single and emits no right-aligned block', () => {
   const legacy = calls.find((call) => call[0] === 'fillText' && call[1] === 'PROGRESS: demo');
   assert.equal(legacy[5], 'left');
   assert.equal(legacy[2], 12);
+});
+
+const CJK_CODE_POINT_START = 0x2e80;
+const ASCII_ADVANCE_RATIO = 0.55;
+
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+function fontSizeOf(font) {
+  const match = /(\d+(?:\.\d+)?)px/.exec(String(font));
+  return match ? Number(match[1]) : 12;
+}
+
+/** Measure with the same size-aware rule the header uses, based on the recorded font. */
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+function measureFont(text, font) {
+  const size = fontSizeOf(font);
+  let width = 0;
+  for (const character of String(text)) {
+    width += character.codePointAt(0) >= CJK_CODE_POINT_START ? size : size * ASCII_ADVANCE_RATIO;
+  }
+  return width;
+}
+
+// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+function drawHeaderFor(stage, language, columns = 8) {
+  const model = makeModel({ packages: withPackageCount(2).packages });
+  model.events = eventsForEveryStage(model.packages);
+  const layout = computeLayout(model, { measureText: measureFont, columns });
+  const baseFrame = buildFrames(model, { frames: 120, fps: 10 }).at(-1);
+  const { ctx, calls } = createRecordingContext(measureFont);
+  drawFrame(ctx, layout, { ...baseFrame, stage }, model, { title: 'PROGRESS: demo', language });
+  return { ctx, calls, layout, model, frame: { ...baseFrame, stage } };
+}
+
+test('the header draws the date, one space, the stage name and its description', () => {
+  const { calls, layout, frame } = drawHeaderFor('smooth', 'ja');
+  const dateText = formatDate(frame.t, frame.prec);
+  const dateRun = calls.find((call) => call[0] === 'fillText' && call[1] === dateText);
+  assert.ok(dateRun, 'missing date run');
+  assert.equal(dateRun[2], layout.header.dateX);
+  assert.equal(dateRun[6], HEADER_DATE_COLOUR);
+
+  const dateWidth = measureFont(dateRun[1], dateRun[4]);
+  const spaceWidth = measureFont(' ', dateRun[4]);
+  const nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH: ');
+  assert.ok(nameRun, 'missing stage name run');
+  assert.equal(nameRun[2], layout.header.dateX + dateWidth + spaceWidth);
+  assert.match(nameRun[4], new RegExp(`600 ${HEADER_STAGE_SIZE}px`));
+
+  const descriptionRun = calls.find((call) => call[0] === 'fillText' && call[1] === STAGE_CAPTIONS.ja.smooth);
+  assert.ok(descriptionRun, 'missing description run');
+  assert.equal(descriptionRun[2], nameRun[2] + measureFont('SMOOTH: ', nameRun[4]));
+  const descriptionSize = fontSizeOf(descriptionRun[4]);
+  assert.ok(descriptionSize <= HEADER_STAGE_SIZE);
+  assert.ok(descriptionSize >= MIN_DESCRIPTION_SIZE);
+  assert.equal(descriptionRun[6], groupColor('smooth'));
+  assert.equal(nameRun[6], groupColor('smooth'));
+});
+
+test('the language option selects the English caption', () => {
+  const { calls } = drawHeaderFor('smooth', 'en');
+  assert.ok(calls.some((call) => call[0] === 'fillText' && call[1] === STAGE_CAPTIONS.en.smooth));
+  assert.equal(calls.some((call) => call[0] === 'fillText' && call[1] === STAGE_CAPTIONS.ja.smooth), false);
+});
+
+test('an absent or unknown stage draws no caption run', () => {
+  const namePrefixes = STAGE_ORDER.map((stage) => `${stage.toUpperCase()}: `);
+  for (const stage of [null, '', 'unknown']) {
+    const { calls } = drawHeaderFor(stage, 'ja');
+    assert.equal(
+      calls.filter((call) => call[0] === 'fillText' && namePrefixes.includes(String(call[1]))).length,
+      0,
+      `caption drawn for ${JSON.stringify(stage)}`,
+    );
+    assert.ok(calls.some((call) => call[0] === 'fillText' && /\d{2}\/\d{2}/.test(call[1])));
+  }
+});
+
+test('the command name keeps its size while the description shrinks when the room is tight', () => {
+  const { layout, model, frame } = drawHeaderFor('smooth', 'ja', 4);
+  assert.equal(layout.width, 724);
+  // Force a tight room so the shrink branch stays exercised after the captions
+  // were shortened; the real 724 px board fits every caption at 18 px.
+  const tightLayout = { ...layout, header: { ...layout.header, percentX: layout.header.dateX + 420 } };
+  const { ctx, calls } = createRecordingContext(measureFont);
+  drawFrame(ctx, tightLayout, frame, model, { title: 'PROGRESS: demo', language: 'ja' });
+
+  const nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH: ');
+  const descriptionRun = calls.find((call) => call[0] === 'fillText'
+    && call[3] === nameRun[3]
+    && call[2] > nameRun[2]
+    && call[2] < tightLayout.header.percentX);
+  assert.ok(nameRun && descriptionRun);
+  assert.equal(fontSizeOf(nameRun[4]), HEADER_STAGE_SIZE);
+  assert.ok(fontSizeOf(descriptionRun[4]) < HEADER_STAGE_SIZE);
+  assert.ok(descriptionRun[1].endsWith('…'));
+});
+
+test('no caption crosses the percent block for any stage on the narrow board', () => {
+  for (const language of ['ja', 'en']) {
+    for (const stage of STAGE_ORDER) {
+      const { calls, layout, frame } = drawHeaderFor(stage, language, 4);
+      const percentText = formatPercent(frame.overallProgress);
+      const percentRun = calls.find((call) => call[0] === 'fillText' && call[1] === percentText);
+      assert.ok(percentRun, 'missing percent run');
+      const percentLeft = percentRun[2] - measureFont(percentText, percentRun[4]);
+      const descriptionText = stageCaption(stage, language);
+      const descriptionRun = calls.find((call) => call[0] === 'fillText' && call[1] === descriptionText);
+      assert.ok(descriptionRun, `missing description for ${language} ${stage}`);
+      const descriptionRight = descriptionRun[2] + measureFont(descriptionText, descriptionRun[4]);
+      assert.ok(
+        descriptionRight <= percentLeft,
+        `${language} ${stage} caption right ${descriptionRight} crosses ${percentLeft}`,
+      );
+      assert.ok(descriptionRight <= layout.width - 12);
+    }
+  }
 });
