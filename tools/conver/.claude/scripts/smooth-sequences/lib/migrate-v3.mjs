@@ -834,3 +834,171 @@ export function applyStepAnnotations(artifact, annotations = {}) {
 export function renderArtifact(artifact) {
   return `${JSON.stringify(artifact, null, 2)}\n`;
 }
+
+/** A step contract the suggestion can cite, or the reason it cannot. */
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
+function suggestStepContract(step, crossings) {
+  const prose = typeof step.contract === 'string' ? step.contract.trim() : '';
+  if (prose === '') {
+    return { unresolved: { kind: 'contract', id: step.id, field: 'facts', reason: 'the step carries no prose contract' } };
+  }
+  if (!isFactTextSupported(prose, step.quote)) {
+    return { unresolved: { kind: 'contract', id: step.id, field: 'facts', reason: 'the prose contract is not supported by the step quote' } };
+  }
+  const quoteTokens = contentTokens(step.quote);
+  const factTokens = contentTokens(prose);
+  if (quoteTokens.length < MIN_QUOTE_CONTENT_TOKENS
+    && factTokens.length > 0
+    && factTokens.every((token) => quoteTokens.includes(token))) {
+    return { unresolved: { kind: 'contract', id: step.id, field: 'facts', reason: 'the prose contract restates a quote too short to support it' } };
+  }
+  return {
+    contract: {
+      pre: [],
+      post: [{
+        factId: `contract:${step.id}`,
+        text: prose,
+        source: { step: step.id, line: step.line, quote: step.quote },
+      }],
+      invariants: [],
+      consumes: [],
+      produces: [],
+      errors: [],
+      crosses: crossings,
+    },
+  };
+}
+
+/** The contribution a v2 operation states, or the reason it cannot be derived. */
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
+function suggestContribution(operation) {
+  if (operation.registry_contribution === 'required' || operation.registry_contribution === 'not_required') {
+    return {
+      fragment: {
+        registry_contribution: operation.registry_contribution,
+        ...(typeof operation.registry_contribution_ground === 'string'
+          && operation.registry_contribution_ground.trim() !== ''
+          ? { registry_contribution_ground: operation.registry_contribution_ground }
+          : {}),
+      },
+      unresolved: [],
+    };
+  }
+  if (operation.mutates_protocol_state === true) {
+    return { fragment: { registry_contribution: 'required' }, unresolved: [] };
+  }
+  if (operation.mutates_protocol_state === false) {
+    return {
+      fragment: {
+        registry_contribution: 'not_required',
+        registry_contribution_ground: 'mutates_protocol_state is false',
+      },
+      unresolved: [],
+    };
+  }
+  return {
+    fragment: {},
+    unresolved: [{
+      kind: 'operation',
+      id: operation.id,
+      field: 'registry_contribution',
+      reason: 'mutates_protocol_state is absent; the contribution cannot be derived',
+    }],
+  };
+}
+
+/** The operation rows the suggestion can derive, and the rows it cannot. */
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
+function suggestOperationRow(operation, owners, boundaries) {
+  const contribution = suggestContribution(operation);
+  const row = {
+    ...contribution.fragment,
+    boundary_effects: boundaryEffectsOf(operation.id, owners, boundaries),
+  };
+  const transitions = normalizeStatusGraph(operation, operation.status_terminality_ground ?? {});
+  if (Object.keys(transitions).length > 0) row.allowed_status_transitions = transitions;
+  const unresolved = [...contribution.unresolved];
+  if (Object.keys(transitions).length === 0) {
+    unresolved.push({
+      kind: 'operation',
+      id: operation.id,
+      field: 'allowed_status_transitions',
+      reason: 'the v2 artifact states no status fields; a specification regeneration must add them',
+    });
+  }
+  if (operation.initial_status === undefined) {
+    unresolved.push({
+      kind: 'operation',
+      id: operation.id,
+      field: 'initial_status',
+      reason: 'initial_status is not annotatable; a specification regeneration must add it',
+    });
+  }
+  return { row, unresolved };
+}
+
+/**
+ * Suggest an annotations document from the records the workspace already carries.
+ *
+ * A suggestion is a candidate, not an authored claim. Every emitted fact cites the
+ * step line and quote it came from; a row whose citation or derivation is not
+ * determined is returned in `unresolved` and omitted from the document. The caller
+ * decides the semantic rows the tool cannot determine.
+ */
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
+export function suggestAnnotations(input) {
+  const { artifact, treeManifest, packages = [] } = input;
+  const boundaries = treeManifest?.dependencies?.boundaries ?? [];
+  const ownersByOperation = operationOwnersOf(packages);
+  const sequenceUnits = sequenceCrossUnitsOf(packages);
+  const contracts = {};
+  const operations = {};
+  const unresolved = [];
+  const crossedBySteps = new Set();
+
+  for (const step of artifact.steps ?? []) {
+    const crossings = crossingsOf(step, ownersByOperation.get(step.operation) ?? new Set(), sequenceUnits, boundaries);
+    for (const boundary of crossings) crossedBySteps.add(boundary);
+    const suggested = suggestStepContract(step, crossings);
+    if (suggested.unresolved !== undefined) {
+      unresolved.push(suggested.unresolved);
+      continue;
+    }
+    contracts[step.id] = suggested.contract;
+  }
+
+  for (const operation of artifact.operations ?? []) {
+    if (operation.disposition !== ACTIVE_DISPOSITION) continue;
+    const suggested = suggestOperationRow(
+      operation,
+      ownersByOperation.get(operation.id) ?? new Set(),
+      boundaries,
+    );
+    operations[operation.id] = suggested.row;
+    unresolved.push(...suggested.unresolved);
+  }
+
+  const boundaryGrounds = [];
+  for (const boundary of boundaries) {
+    if (crossedBySteps.has(boundary.id)) continue;
+    if (typeof boundary.dependency_reason_code !== 'string') {
+      unresolved.push({
+        kind: 'boundary',
+        id: boundary.id,
+        field: 'ground',
+        reason: 'the tree boundary states no dependency_reason_code',
+      });
+      continue;
+    }
+    boundaryGrounds.push({
+      boundary: boundary.id,
+      ground: `no step in the workspace crosses ${boundary.id}`,
+      source: { reasonCode: boundary.dependency_reason_code },
+    });
+  }
+
+  return {
+    annotations: { contracts, operations, boundary_grounds: boundaryGrounds },
+    unresolved,
+  };
+}

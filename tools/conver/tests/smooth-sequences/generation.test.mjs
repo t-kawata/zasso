@@ -243,3 +243,30 @@ test('a refused run at exit 2 creates no run directory', () => {
     workspace.remove();
   }
 });
+
+// PX-386 @verifies C002
+// The calibration verdict is part of the run's evidence, so status.json carries the
+// same notMeasured partition the report does.
+
+test('PX-386 C002: status.json carries the calibration verdict and notMeasured', () => {
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
+  const workspace = materializeSmoothWorkspace();
+  try {
+    const report = {
+      ...reportFor(workspace.root),
+      calibration: { verdict: { ok: true, notMeasured: ['S7.sequence-step-order'] } },
+    };
+    writeGeneration({
+      root: workspace.root,
+      report,
+      inputDigest: 'input-calibration',
+      exitCode: 0,
+      now: '2026-10-20T00:00:00.000Z',
+    });
+
+    const status = JSON.parse(readFileSync(join(workspace.root, RUN_DIRECTORY, 'status.json'), 'utf8'));
+    assert.deepEqual(status.calibration, { ok: true, notMeasured: ['S7.sequence-step-order'] });
+  } finally {
+    workspace.remove();
+  }
+});

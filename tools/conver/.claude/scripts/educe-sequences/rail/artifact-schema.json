@@ -84,6 +84,8 @@
       "axes": {
         "initial_status": "status",
         "allowed_status_transitions": "transitions",
+        "external_dependency_class": "string",
+        "finality_predicate": "string",
         "required_authority": "string",
         "requires_session_binding": "boolean",
         "requires_remote_time_handshake": "boolean",

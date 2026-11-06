@@ -68,3 +68,44 @@ test('calibrate.mjs accepts an explicit workspace root outside the current direc
     workspace.remove();
   }
 });
+
+// PX-386 @verifies C002
+// An inapplicable seed proves nothing about the detector, so it is recorded as not
+// measured. It must not fail the calibration; an applicable seed that was not
+// detected must still fail it.
+
+test('PX-386 C002: an inapplicable seed is notMeasured, not a failure', () => {
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
+  assert.deepEqual(
+    calibrationVerdict({ seeds: [
+      { checkId: 'S7.sequence-steps-undistributed', applicable: true, detected: true },
+      { checkId: 'S7.active-operation-residual', applicable: true, detected: true },
+      { checkId: 'S7.distribution-map', applicable: true, detected: true },
+      { checkId: 'S7.rfc-boundary-missing', applicable: true, detected: true },
+      { checkId: 'S7.sequence-step-order', applicable: false, detected: false },
+    ] }),
+    { ok: true, notMeasured: ['S7.sequence-step-order'] },
+  );
+});
+
+test('PX-386 C002: an applicable undetected seed still fails', () => {
+  assert.deepEqual(
+    calibrationVerdict({ seeds: [
+      { checkId: 'S7.sequence-steps-undistributed', applicable: true, detected: false },
+      { checkId: 'S7.sequence-step-order', applicable: false, detected: false },
+    ] }),
+    { ok: false, code: 'CALIBRATION_FAILED' },
+  );
+});
+
+test('PX-386 C002: fewer than four applicable seeds fail even when the inapplicable ones exist', () => {
+  assert.deepEqual(
+    calibrationVerdict({ seeds: [
+      { checkId: 'S7.a', applicable: true, detected: true },
+      { checkId: 'S7.b', applicable: true, detected: true },
+      { checkId: 'S7.c', applicable: true, detected: true },
+      { checkId: 'S7.d', applicable: false, detected: false },
+    ] }),
+    { ok: false, code: 'CALIBRATION_FAILED' },
+  );
+});

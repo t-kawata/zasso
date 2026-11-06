@@ -183,8 +183,11 @@ function checkStatusGraph(index, operation, terminalStatuses, findings) {
 }
 
 /** A step that waits on an external dependency must say when it is complete. */
-// [::TICKET::] PX-277 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-277 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-277, PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-277|PX-386) --for-spec --no-implementation-order`.
 function checkFinality(index, operation, findings) {
+  // A missing classification is missing evidence: the surface blocks the check in
+  // the registry, and no finding is manufactured from an undefined value.
+  if (typeof operation.external_dependency_class !== 'string') return;
   if (operation.external_dependency_class === 'none' || operation.finality_predicate) return;
   addFinding(findings, 'S3.finality-missing-for-external', operation.id, {
     className: 'omission',

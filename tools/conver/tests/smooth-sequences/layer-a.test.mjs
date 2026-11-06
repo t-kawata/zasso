@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 import { indexArtifact } from '../../.claude/scripts/smooth-sequences/lib/index.mjs';
 import { loadWorkspace } from '../../.claude/scripts/smooth-sequences/lib/workspace.mjs';
+import { evaluateCheckRegistry } from '../../.claude/scripts/smooth-sequences/lib/check-registry.mjs';
 import {
   checkArtifactViewConsistency,
   checkBoundaryClauses,
@@ -208,6 +209,47 @@ test('S3 accepts an empty transition map with a declared initial status', () => 
     const findings = checkOperationEnvelope(index)
       .filter((entry) => entry.checkId === 'S3.status-initial-unknown');
     assert.equal(findings.length, 0);
+  } finally {
+    workspace.remove();
+  }
+});
+
+// PX-386 @verifies C003
+// An operation reading that does not classify its external dependency is missing
+// evidence, not a claim that every operation has one. The whole check is blocked so
+// no fabricated finality predicate is forced on the project.
+
+test('PX-386 C003: an absent external-dependency surface blocks the finality check', () => {
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
+  const artifact = minimalV3Artifact();
+  for (const operation of artifact.operations) delete operation.external_dependency_class;
+  const { workspace, index } = indexOf({ artifact });
+  try {
+    const result = evaluateCheckRegistry(index);
+    const blocked = result.blocked.find((entry) => entry.checkId === 'S3.finality-missing-for-external');
+    assert.ok(blocked, JSON.stringify(result.blocked));
+    assert.equal(blocked.surface, 'operations[].external_dependency_class');
+    assert.equal(
+      result.findings.some((entry) => entry.checkId === 'S3.finality-missing-for-external'),
+      false,
+    );
+  } finally {
+    workspace.remove();
+  }
+});
+
+// PX-386 @verifies C004
+test('PX-386 C004: a present external class without finality is one finding', () => {
+  const artifact = minimalV3Artifact();
+  artifact.operations[0] = operationRow('ProduceFact', { external_dependency_class: 'network' });
+  delete artifact.operations[0].finality_predicate;
+  const { workspace, index } = indexOf({ artifact });
+  try {
+    const findings = checkOperationEnvelope(index)
+      .filter((entry) => entry.checkId === 'S3.finality-missing-for-external');
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].subject, 'ProduceFact');
+    assert.doesNotMatch(findings[0].why, /undefined/);
   } finally {
     workspace.remove();
   }

@@ -148,6 +148,7 @@ function countBoundaryGrounds(index) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export const CHECK_REGISTRY = Object.freeze([
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
   check('S1.duplicate-id', 'enumeration', {
     requires: [SURFACES.OPERATIONS, SURFACES.SEQUENCES, SURFACES.STEPS],
@@ -190,7 +191,7 @@ export const CHECK_REGISTRY = Object.freeze([
     denominator: countActiveOperations,
   }),
   check('S3.finality-missing-for-external', 'envelope', {
-    requires: [SURFACES.OPERATIONS],
+    requires: [SURFACES.OPERATIONS, SURFACES.EXTERNAL_DEPENDENCY],
     claims: 'spec',
     denominator: countActiveOperations,
   }),

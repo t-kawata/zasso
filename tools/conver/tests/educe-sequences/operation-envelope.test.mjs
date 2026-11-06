@@ -146,3 +146,34 @@ test('C002 an initial status that is not a key of a non-empty transition map is 
     (error) => error.code === 'OPERATION_STATUS_UNKNOWN' && /initial_status/.test(error.message),
   );
 });
+
+// PX-386 @verifies C005
+// The external-dependency classification and its finality predicate are operation
+// reading facts the smooth detector checks. They are declared here so a malformed
+// value is refused at composition rather than becoming a detector finding.
+
+test('PX-386 C005: the finality axes are declared in the operation envelope', () => {
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
+  const axes = readArtifactSchema().operations.envelope.axes;
+  assert.equal(axes.external_dependency_class, 'string');
+  assert.equal(axes.finality_predicate, 'string');
+});
+
+test('PX-386 C005: a malformed finality axis is refused before the artifact', () => {
+  const operations = operationsWithStatus({ external_dependency_class: 7, finality_predicate: {} });
+  assert.throws(
+    () => compose({ readings: { ...RUN_INPUT.readings, operations } }),
+    (error) => error.code === 'OPERATION_ENVELOPE_SHAPE',
+  );
+});
+
+test('PX-386 C005: a well-formed finality axis reaches the artifact', () => {
+  const operations = operationsWithStatus({
+    external_dependency_class: 'network',
+    finality_predicate: 'closed when the peer acknowledges',
+  });
+  const artifact = compose({ readings: { ...RUN_INPUT.readings, operations } });
+  const admit = artifact.operations.find((operation) => operation.id === 'Admit');
+  assert.equal(admit.external_dependency_class, 'network');
+  assert.equal(admit.finality_predicate, 'closed when the peer acknowledges');
+});

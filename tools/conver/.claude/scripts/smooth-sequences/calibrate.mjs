@@ -248,10 +248,14 @@ export function runCalibration({ root, now = new Date().toISOString() }) {
       rmSync(sandbox.root, { recursive: true, force: true });
     }
   }
+  const notMeasured = seeds
+    .filter((seed) => seed.applicable === false)
+    .map((seed) => seed.checkId);
   const calibration = {
     schemaVersion: CALIBRATION_SCHEMA_VERSION,
     measuredAt: now,
     seeds,
+    notMeasured,
     digest: digestValue({ seeds }),
   };
   mkdirSync(join(root, CALIBRATION_DIRECTORY), { recursive: true });
@@ -272,7 +276,24 @@ export function readCalibration(root) {
   }
 }
 
-/** Whether the calibration proves the detector can fire. */
+/** The seeds a workspace can exercise and the seeds it cannot. */
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
+function partitionSeeds(seeds) {
+  return {
+    applicable: seeds.filter((seed) => seed.applicable !== false),
+    notMeasured: seeds.filter((seed) => seed.applicable === false).map((seed) => seed.checkId),
+  };
+}
+
+/**
+ * Whether the calibration proves the detector can fire.
+ *
+ * A seed the workspace cannot carry says nothing about the detector, so it is
+ * reported as notMeasured instead of failing the run. The minimum still counts the
+ * seeds that were actually exercised: an inapplicable seed never lowers the proof
+ * required from the applicable ones.
+ */
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
 export function calibrationVerdict(calibration) {
   if (calibration === null || calibration === undefined) {
     return { ok: false, code: 'CALIBRATION_MISSING' };
@@ -281,10 +302,11 @@ export function calibrationVerdict(calibration) {
     return { ok: false, code: 'CALIBRATION_FAILED' };
   }
   const seeds = Array.isArray(calibration.seeds) ? calibration.seeds : [];
-  if (seeds.length < MINIMUM_SEEDS || seeds.some((seed) => seed.detected !== true)) {
+  const { applicable, notMeasured } = partitionSeeds(seeds);
+  if (applicable.length < MINIMUM_SEEDS || applicable.some((seed) => seed.detected !== true)) {
     return { ok: false, code: 'CALIBRATION_FAILED' };
   }
-  return { ok: true };
+  return { ok: true, notMeasured };
 }
 
 // Direct invocation is the command line the smooth-sequences procedure names. Without it
@@ -293,6 +315,8 @@ export function calibrationVerdict(calibration) {
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = process.argv[2] ?? process.cwd();
   const calibration = runCalibration({ root });
-  const detected = calibration.seeds.filter((seed) => seed.detected).length;
-  process.stdout.write(`smooth-sequences calibration: ${detected}/${calibration.seeds.length} seeds detected; ${join(root, CALIBRATION_DIRECTORY, CALIBRATION_FILE_NAME)}\n`);
+  const { applicable, notMeasured } = partitionSeeds(calibration.seeds);
+  const detected = applicable.filter((seed) => seed.detected).length;
+  const measured = notMeasured.length === 0 ? 'none' : notMeasured.join(', ');
+  process.stdout.write(`smooth-sequences calibration: ${detected}/${applicable.length} applicable seeds detected; notMeasured: ${measured}; ${join(root, CALIBRATION_DIRECTORY, CALIBRATION_FILE_NAME)}\n`);
 }

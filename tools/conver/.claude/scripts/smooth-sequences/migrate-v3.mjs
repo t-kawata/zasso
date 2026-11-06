@@ -12,11 +12,11 @@
  * is atomic, so a refused run leaves the artifact byte-identical.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
 import { SmoothSequencesError } from './lib/errors.mjs';
-import { migrateArtifactToV3, renderArtifact, SCHEMA_V3 } from './lib/migrate-v3.mjs';
+import { migrateArtifactToV3, renderArtifact, SCHEMA_V3, suggestAnnotations } from './lib/migrate-v3.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
 
 const EXIT_OK = 0;
@@ -58,18 +58,40 @@ function summaryOf(artifact, migrated) {
 /** Run the migration. */
 // [::TICKET::] PX-276 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-276 --for-spec --no-implementation-order`.
 export function main(argv) {
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
   const dryRun = argv.includes('--dry-run');
+  const suggest = argv.includes('--suggest-annotations');
+  const writeCandidate = argv.includes('--write');
   const annotationsArgument = argv.find((argument) => argument.startsWith('--annotations='));
   const annotationsPath = annotationsArgument === undefined ? null : annotationsArgument.slice('--annotations='.length);
-  const paths = argv.filter((argument) => argument !== '--dry-run' && !argument.startsWith('--annotations='));
+  const paths = argv.filter((argument) => argument !== '--dry-run'
+    && argument !== '--suggest-annotations'
+    && argument !== '--write'
+    && !argument.startsWith('--annotations='));
   if (paths.length > 1) {
-    process.stderr.write('migrate-v3: usage: migrate-v3.mjs [workspace-root] [--dry-run] [--annotations=<file>]\n');
+    process.stderr.write('migrate-v3: usage: migrate-v3.mjs [workspace-root] [--dry-run] [--annotations=<file>] [--suggest-annotations [--write]]\n');
     return EXIT_MISUSE;
   }
 
   try {
     const root = assertWorkspaceRoot(startDirectoryFor(paths[0]));
     const loaded = loadWorkspace(root);
+    if (suggest) {
+      const { annotations, unresolved } = suggestAnnotations(loaded);
+      process.stdout.write(`${JSON.stringify(annotations, null, 2)}\n`);
+      process.stderr.write(`suggest-annotations: resolved contracts=${Object.keys(annotations.contracts).length} operations=${Object.keys(annotations.operations).length} boundaryGrounds=${annotations.boundary_grounds.length}; unresolved=${unresolved.length}\n`);
+      for (const entry of unresolved) {
+        const field = entry.field === undefined ? '' : ` ${entry.field}`;
+        process.stderr.write(`suggest-annotations: unresolved ${entry.kind} ${entry.id}${field}: ${entry.reason}\n`);
+      }
+      if (writeCandidate) {
+        const candidatePath = resolve(root, 'regeneration/candidates/suggested-ANNOTATIONS.json');
+        mkdirSync(dirname(candidatePath), { recursive: true });
+        writeFileSync(candidatePath, `${JSON.stringify(annotations, null, 2)}\n`);
+        process.stderr.write(`suggest-annotations: wrote ${candidatePath}\n`);
+      }
+      return EXIT_OK;
+    }
     const annotationDocument = annotationsPath === null ? {} : JSON.parse(readFileSync(annotationsPath, 'utf8'));
     const sourceDigest = digestOf(loaded.artifactPath);
     const { specPath, specLines } = readSpecLines(root, loaded.artifact);

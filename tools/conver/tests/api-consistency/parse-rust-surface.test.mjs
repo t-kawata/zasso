@@ -280,3 +280,52 @@ test('PX-382 C001: an unreadable use statement is reported, not skipped', () => 
 
   assert.ok(surface.unparsed.some((entry) => /use/.test(entry.reason)), JSON.stringify(surface.unparsed));
 });
+
+// PX-386 @verifies C001
+// A call's argument count is a property of the source, not of the text after masking:
+// a string literal is one argument, and a struct literal's commas do not split it.
+
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
+function callOf(body, symbol) {
+  const surface = parse(body);
+  return surface.references.find((entry) => entry.symbol === symbol && entry.kind === 'call');
+}
+
+test('PX-386 C001: a string-literal argument is one argument', () => {
+  const call = callOf('pub fn use_it() { Tag::new("a"); }', 'Tag::new');
+  assert.ok(call, 'the call must be recorded');
+  assert.equal(call.argumentCount, 1);
+});
+
+test('PX-386 C001: two string-literal arguments are two arguments', () => {
+  const call = callOf('pub fn use_it() { Tag::new("a", "b"); }', 'Tag::new');
+  assert.equal(call.argumentCount, 2);
+});
+
+test('PX-386 C001: an empty string literal is still one argument', () => {
+  const call = callOf('pub fn use_it() { Tag::new(""); }', 'Tag::new');
+  assert.equal(call.argumentCount, 1);
+});
+
+test('PX-386 C001: a struct-literal comma is not an argument separator', () => {
+  const call = callOf('pub fn use_it() { object_hash(&Pre { a, b }); }', 'object_hash');
+  assert.equal(call.argumentCount, 1);
+});
+
+test('PX-386 C001: a comma inside a string does not split the argument list', () => {
+  const call = callOf('pub fn use_it() { Tag::new("a,b"); }', 'Tag::new');
+  assert.equal(call.argumentCount, 1);
+});
+
+test('PX-386 C001: an associated call nested in another call keeps its own count', () => {
+  const surface = parse('pub fn use_it() { hash_parts(Tag::new("x"), &p); }');
+  const outer = surface.references.find((entry) => entry.symbol === 'hash_parts' && entry.kind === 'call');
+  const inner = surface.references.find((entry) => entry.symbol === 'Tag::new' && entry.kind === 'call');
+  assert.equal(outer.argumentCount, 2);
+  assert.equal(inner.argumentCount, 1);
+});
+
+test('PX-386 C001: an empty argument list stays zero and a trailing comma stays one', () => {
+  assert.equal(callOf('pub fn use_it() { target(); }', 'target').argumentCount, 0);
+  assert.equal(callOf('pub fn use_it() { target(1,); }', 'target').argumentCount, 1);
+});

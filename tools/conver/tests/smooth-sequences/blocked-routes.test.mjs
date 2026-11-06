@@ -134,3 +134,14 @@ test('C003 transitions present but initial_status absent block the new surface',
   assert.equal(check.surface, SURFACES.OPERATION_INITIAL_STATUS);
   assert.match(producerForBlockedSurface(check.surface), /regeneration\/run\.mjs/);
 });
+
+// PX-386 @verifies C003
+// The external-dependency classification is a specification-derived reading, so its
+// blocked surface is restored by regeneration, never by an annotations document.
+
+test('PX-386 C003: the external-dependency surface maps to regeneration', () => {
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
+  assert.equal(SURFACES.EXTERNAL_DEPENDENCY, 'operations[].external_dependency_class');
+  const producer = producerForBlockedSurface(SURFACES.EXTERNAL_DEPENDENCY);
+  assert.match(producer, /regeneration\/run\.mjs" open --spec=/);
+});

@@ -249,3 +249,17 @@ test('the command documents applicability and the reading writer', () => {
   assert.match(command, /notApplicable/);
   assert.match(command, /readings\.mjs|evidence-writer\.mjs/);
 });
+
+// PX-387 @verifies C005
+// The annotation schema must name the status axis the producer accepts, and the
+// command must say that initial_status is not an annotation. A repair route that
+// omits either fact sends the AI to an authoring surface that cannot carry it.
+
+test('PX-387 C005: the annotation schema names the status axis and the regeneration-only field', () => {
+// [::TICKET::] PX-387 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-387 --for-spec --no-implementation-order`.
+  const command = readFileSync('.claude/commands/smooth-sequences.md', 'utf8');
+  assert.match(command, /"allowed_status_transitions"/);
+  assert.match(command, /initial_status[^\n]*(?:regeneration|not annotat)/i);
+  assert.match(command, /CLOSURE:verify-api-consistency/);
+  assert.match(command, /--repair-plan/);
+});
