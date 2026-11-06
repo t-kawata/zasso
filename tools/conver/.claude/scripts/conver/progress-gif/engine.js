@@ -24,9 +24,19 @@ const MIN_TITLE_SIZE = 10;
 export const TITLE_SEGMENT_GAP = 12;
 export const TITLE_ELLIPSIS = '…';
 const HEADER_DATE_SIZE = 20;
-export const HEADER_STAGE_SIZE = 18;
+export const HEADER_NAME_SIZE = 18;
+// Compatibility alias: existing importers read HEADER_STAGE_SIZE for the name.
+export const HEADER_STAGE_SIZE = HEADER_NAME_SIZE;
+export const HEADER_DESCRIPTION_INSET = 2;
+export const HEADER_DESCRIPTION_SIZE = HEADER_NAME_SIZE - HEADER_DESCRIPTION_INSET;
 export const HEADER_DATE_COLOUR = '#f4f7ff';
 const HEADER_PERCENT_SIZE = 11;
+const HEADER_NAME_WEIGHT = 600;
+const HEADER_DESCRIPTION_WEIGHT = 400;
+const HEADER_PERCENT_WEIGHT = 500;
+// Date-to-name gap and the space on each side of the colon, in half-width spaces.
+const CAPTION_DATE_GAP = 2;
+const CAPTION_COLON_GAP = 1;
 // Minimum breathing room between the caption and the right-aligned percent block.
 const CAPTION_GAP = 12;
 export const LADDER_LABEL_SIZE = 14;
@@ -35,8 +45,8 @@ export const LADDER_LABEL_SIZE = 14;
 export function makePalette() {
   const palette = [BACKGROUND.slice()];
   for (let index = 1; index <= 24; index += 1) {
-    const value = Math.round((index * 255) / 24);
-    palette.push([value, value, value]);
+    const greyStep = Math.round((index * 255) / 24);
+    palette.push([greyStep, greyStep, greyStep]);
   }
   const colours = [...new Set(STAGE_ORDER.map((stage) => groupColor(stage)))].map(hexToRgb);
   for (const colour of colours) {
@@ -134,7 +144,7 @@ class ByteWriter {
   }
 
   pushBytes(values) {
-    for (const value of values) this.push(value);
+    for (const sourceValue of values) this.push(sourceValue);
   }
 
   flush() {
@@ -183,8 +193,8 @@ function lzwEncode(pixels) {
   emit(CLEAR);
   let prefix = pixels[0] || 0;
   for (let index = 1; index < pixels.length; index += 1) {
-    const value = pixels[index];
-    const key = prefix * 256 + value;
+    const pixel = pixels[index];
+    const key = prefix * 256 + pixel;
     const code = table[key];
     if (code !== 0) {
       prefix = code;
@@ -201,7 +211,7 @@ function lzwEncode(pixels) {
       table[key] = next;
       next += 1;
     }
-    prefix = value;
+    prefix = pixel;
   }
   emit(prefix);
   emit(EOI);
@@ -463,44 +473,39 @@ export function fitTitleLayout(ctx, parts, options) {
   return { size, left: TITLE_ELLIPSIS, right: parts.right };
 }
 
-// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-380, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-380|PX-381) --for-spec --no-implementation-order`.
 function dateFontFor(scale) {
-  return `600 ${HEADER_DATE_SIZE * scale}px ${FONT_FAMILY}`;
+  return `${HEADER_NAME_WEIGHT} ${HEADER_DATE_SIZE * scale}px ${FONT_FAMILY}`;
 }
 
-/**
- * Draw the date and the stage caption as one line. The date keeps its own colour
- * and size and the uppercase stage name keeps HEADER_STAGE_SIZE; only the
- * description shrinks, because the supplied descriptions are longer than the
- * header band between the date and the percent block.
- */
-// [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
-function drawStageCaption(ctx, layout, frame, options) {
+/** Measure the caption line: date, gap, name, colon and description. */
+// [::TICKET::] PX-380, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-380|PX-381) --for-spec --no-implementation-order`.
+function measureCaption(ctx, layout, frame, options) {
   const header = layout.header;
   const scale = layout.scale;
   const dateText = formatDate(frame.t, frame.prec);
   const dateFont = dateFontFor(scale);
-  drawText(ctx, { text: dateText, x: header.dateX, y: header.dateY, font: dateFont, colour: HEADER_DATE_COLOUR });
-
   const description = stageCaption(frame.stage, options.language);
-  if (description === null) return;
+  if (description === null) {
+    return { dateText, dateFont, description: null };
+  }
 
   ctx.font = dateFont;
   const dateWidth = ctx.measureText(dateText).width;
   const spaceWidth = ctx.measureText(' ').width;
-  const captionX = header.dateX + dateWidth + spaceWidth;
+  const captionX = header.dateX + dateWidth + CAPTION_DATE_GAP * spaceWidth;
 
-  const nameText = `${String(frame.stage).toUpperCase()}: `;
-  const nameFont = `600 ${HEADER_STAGE_SIZE * scale}px ${FONT_FAMILY}`;
+  const nameText = `${String(frame.stage).toUpperCase()}${' '.repeat(CAPTION_COLON_GAP)}: `;
+  const nameFont = `${HEADER_NAME_WEIGHT} ${HEADER_NAME_SIZE * scale}px ${FONT_FAMILY}`;
   ctx.font = nameFont;
   const nameWidth = ctx.measureText(nameText).width;
 
   const percentText = formatPercent(frame.overallProgress);
-  ctx.font = `500 ${HEADER_PERCENT_SIZE * scale}px ${FONT_FAMILY}`;
+  ctx.font = `${HEADER_PERCENT_WEIGHT} ${HEADER_PERCENT_SIZE * scale}px ${FONT_FAMILY}`;
   const percentWidth = ctx.measureText(percentText).width;
   const availableWidth = header.percentX - percentWidth - CAPTION_GAP * scale - captionX - nameWidth;
 
-  const descriptionFont = (size) => `400 ${size}px ${FONT_FAMILY}`;
+  const descriptionFont = (size) => `${HEADER_DESCRIPTION_WEIGHT} ${size}px ${FONT_FAMILY}`;
   const measureDescription = (text, size) => {
     ctx.font = descriptionFont(size);
     return ctx.measureText(text).width;
@@ -509,19 +514,57 @@ function drawStageCaption(ctx, layout, frame, options) {
     measureDescription,
     description,
     availableWidth,
-    HEADER_STAGE_SIZE * scale,
+    HEADER_DESCRIPTION_SIZE * scale,
     MIN_DESCRIPTION_SIZE * scale,
   );
-  const fittedDescription = ellipsizeDescription(measureDescription, description, availableWidth, size);
-  const colour = groupColor(frame.stage);
-  drawText(ctx, { text: nameText, x: captionX, y: header.dateY, font: nameFont, colour });
+  return {
+    dateText,
+    dateFont,
+    description,
+    captionX,
+    nameText,
+    nameFont,
+    nameWidth,
+    availableWidth,
+    descriptionFont,
+    measureDescription,
+    size,
+    fittedDescription: ellipsizeDescription(measureDescription, description, availableWidth, size),
+    colour: groupColor(frame.stage),
+  };
+}
+
+/** Draw the measured caption line. */
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+function drawCaption(ctx, layout, metrics) {
   drawText(ctx, {
-    text: fittedDescription,
-    x: captionX + nameWidth,
-    y: header.dateY,
-    font: descriptionFont(size),
-    colour,
+    text: metrics.dateText,
+    x: layout.header.dateX,
+    y: layout.header.dateY,
+    font: metrics.dateFont,
+    colour: HEADER_DATE_COLOUR,
   });
+  if (metrics.description === null) return;
+  drawText(ctx, {
+    text: metrics.nameText,
+    x: metrics.captionX,
+    y: layout.header.dateY,
+    font: metrics.nameFont,
+    colour: metrics.colour,
+  });
+  drawText(ctx, {
+    text: metrics.fittedDescription,
+    x: metrics.captionX + metrics.nameWidth,
+    y: layout.header.dateY,
+    font: metrics.descriptionFont(metrics.size),
+    colour: metrics.colour,
+  });
+}
+
+/** Draw the date and the stage caption as one line. */
+// [::TICKET::] PX-380, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-380|PX-381) --for-spec --no-implementation-order`.
+function drawStageCaption(ctx, layout, frame, options) {
+  drawCaption(ctx, layout, measureCaption(ctx, layout, frame, options));
 }
 
 // [::TICKET::] PX-351, PX-352, PX-354, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-352|PX-354|PX-380) --for-spec --no-implementation-order`.
@@ -585,9 +628,9 @@ function findTopStage(progress) {
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 function collectActiveStages(frame, packageIndex) {
   const stages = new Set();
-  for (const value of frame.active || []) {
-    if (value < 0 && value <= -100) stages.add(-100 - value);
-    else if (Math.floor(value / STAGE_ORDER.length) === packageIndex) stages.add(value % STAGE_ORDER.length);
+  for (const activeCell of frame.active || []) {
+    if (activeCell < 0 && activeCell <= -100) stages.add(-100 - activeCell);
+    else if (Math.floor(activeCell / STAGE_ORDER.length) === packageIndex) stages.add(activeCell % STAGE_ORDER.length);
   }
   return stages;
 }

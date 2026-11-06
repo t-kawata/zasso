@@ -1,3 +1,4 @@
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 // Regression tests for the two evidence-time defects found on the gaia
 // workspace: a COMPLETE drill at a gate step was not credited, and an
 // artifact-only grill event could drag smooth and the upstream chain past a
@@ -78,12 +79,13 @@ test('an artifact-only grill yields to the earliest trusted downstream stage', (
 
   const built = buildTimeline(model);
   assert.equal(built.timeline.find((event) => event.stage === 'grill').t, graphifyTime);
-  assert.ok(built.warnings.some((message) => message.startsWith('[order] grill pkg-1')));
+  assert.ok(built.warnings.some((message) => message.startsWith('[order] grill')));
 });
 
 test('a trusted grill time is never clamped by an artifact rule', () => {
   const grillTime = Date.parse('2026-10-30T00:00:00Z');
   const model = makeModel({
+    initialT: Date.parse('2026-10-01T00:00:00Z'),
     packages: [packageModel({ id: 'pkg-1' })],
     events: [
       { ...stageEvent('grill', grillTime, 'pkg-1', 0.3), timeSource: 'status' },
@@ -93,7 +95,7 @@ test('a trusted grill time is never clamped by an artifact rule', () => {
 
   const built = buildTimeline(model);
   assert.equal(built.timeline.find((event) => event.stage === 'grill').t, grillTime);
-  assert.ok(!built.warnings.some((message) => message.startsWith('[order] grill pkg-1')));
+  assert.ok(!built.warnings.some((message) => message.startsWith('[order] grill')));
 });
 
 test('a late artifact grill cannot drag smooth past a completed drill', () => {

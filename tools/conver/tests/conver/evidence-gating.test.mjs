@@ -1,3 +1,4 @@
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 // PX-374 @verifies C001 @verifies C002 @verifies C003 @verifies C008 @verifies C009 @verifies C010
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,8 +9,12 @@ import path from 'node:path';
 import { analyzeWorkspace } from '../../.claude/scripts/conver/draw-progress-gif.js';
 import {
   STAGE_ORDER,
+  applyEvent,
   buildFrames,
+  buildTimeline,
   countFactSectionsIn,
+  createFrameState,
+  frameFromState,
   progressAt,
   stageProgressOf,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
@@ -287,9 +292,12 @@ test('C010: progressAt equals the animation state and never mutates the model', 
   const frames = buildFrames(model, { frames: 8000 });
 
   for (const timestamp of [INITIAL_TIME - 1, INITIAL_TIME, INITIAL_TIME + 1500, INITIAL_TIME + 4500, INITIAL_TIME + 20000]) {
-    const applied = frames.filter((frame) => frame.t <= timestamp);
-    const expected = applied.length === 0 ? 0 : applied.at(-1).overallProgress;
-    assert.equal(progressAt(model, timestamp), expected);
+    const built = buildTimeline(model);
+    const state = createFrameState(model, built);
+    let lastIndex = -1;
+    built.timeline.forEach((event, index) => { if (event.evidenceT <= timestamp) lastIndex = index; });
+    for (let index = 0; index <= lastIndex; index += 1) applyEvent(state, built.timeline[index]);
+    assert.equal(progressAt(model, timestamp), frameFromState(state, model, 0).overallProgress);
   }
 
   const before = JSON.stringify(model);

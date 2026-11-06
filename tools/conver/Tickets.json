@@ -58386,6 +58386,195 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-06"
+        },
+        {
+          "id": 381,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make progress-gif stage order ordinal and refine the header caption typography",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-381.md",
+          "invariants": "- 【Normal establishment】For every frame produced by buildFrames, STAGE_ORDER.indexOf(frame.stage) is non-decreasing, the sequence of stage transitions is a subsequence of STAGE_ORDER, and every stage with at least one finite inc>0 event appears at least once.\n- 【Error invariant】A malformed, missing, day-precision or future-dated timestamp never throws; it produces an [evidence] warning and a deterministic fallback, and the render still exits 0.\n- 【Internal state invariant】buildTimeline and progressAt are pure with respect to model.events: no function writes event.t. Progress accumulates from the original evidence times.\n- 【Boundary invariant】displayDate is non-decreasing and, when model.analysisTime is finite, stays within [initialT, analysisTime + MAX_FUTURE_SKEW_MS]; previousProgress is clamped to [0,1] and omitted when null.",
+          "background": "### Goal\nMake the progress-gif animation display every evidenced pipeline stage exactly once, in STAGE_ORDER (educe, explain, grill, smooth, graphify, boundify, split, make, plan, start, review, resolve, consolidate, find, crystalize, drill), regardless of file mtimes, workspace copies, stage re-runs, future-dated timestamps, missing timestamps, or overlapping evidence. Also refine the header caption line under the progress bar to `MM/DD hh:mm  NAME : description` with the description two points smaller than the command name and normal weight.\n\n### Purpose\nThe animation is the progress view of the whole pipeline; stage order is its primary truth. PX-374 and PX-375 enforced order by rewriting event timestamps, which silently collapsed the date axis and deleted SMOOTH from the animation. Separating the order clock (ordinal) from the evidence clock (timestamps) makes order exact by construction while keeping dates as advisory estimates.\n\n### Motivation\nThe artifact gaia progress-gif/20261106104748.html (generated on /Users/sh02/shyme/gaia, v0.0.373) plays EDUCE -> EXPLAIN -> GRILL -> GRAPHIFY -> BOUNDIFY -> SPLIT -> DRILL; SMOOTH never appears and the October stages collapse onto 10/30. Rebuilding the same embedded model with ordinal slots produces all eight stages in workflow order with dates 10/26 - 11/05 and zero monotonicity violations. The header also currently prints `11/05 08:57 DRILL: ...`; the requested style is `11/05 08:57  DRILL : ...` with the description about two points smaller and normal weight.\n\n### Constraints\n- Do not rewrite historical Tickets.json, RFC artifacts, .conver-history.jsonl, HTML renders or snapshots.\n- Do not weaken or delete tests; Red tests must fail for the absence of the ordinal clock and the caption style.\n- Keep the evidence gating, [evidence] warnings and the previous-progress marker semantics added by PX-374.\n- The model remains a deterministic function of the workspace; do not call Date.now() while constructing frames.\n- Keep the three script copies byte-identical: tools/conver/.claude, root .claude, crates/siprs/.claude.\n- Never order stages by timestamp; order only by the ordinal stage rank.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - File/module path: tools/conver/.claude/scripts/conver/progress-gif/loop.js (and the two byte-identical copies under .claude and crates/siprs/.claude).\n  - Action: modify buildTimeline, createFrameState, applyEvent, frameFromState, progressAt and buildFrames; remove clampUntrustedStageTimes, repairUpstreamOrder, orderGrillAfterExplain and placeSmoothAfterExplainAndGrill.\n  - What specifically changes: build an ordinal timeline grouped by STAGE_ORDER; within a stage sort by evidence time; compute per-stage displayDate with a trusted-first estimate, an untrusted down-clamp to the next trusted stage, and one forward pass; never write event.t; keep computeEventWeight and STAGE_WEIGHT so pacing is unchanged.\n  - Before -> After: before, stage order came from rewritten timestamps and SMOOTH was pinned to the global last grill event (0 frames in the artifact); after, stage order is the ordinal stage rank, every evidenced stage appears once, and displayDate is a monotonic estimate.\n  - API contract change: additive only. buildTimeline returns displayDate and orderIndex; frameFromState adds evidenceT; existing function names and argument lists are unchanged.\n  - Data schema change: none. Tickets.json, snapshots and .conver-history.jsonl keep their schemas.\n  - Config/env change: new named constants HEADER_NAME_SIZE, HEADER_DESCRIPTION_INSET, CAPTION_DATE_GAP, CAPTION_COLON_GAP, MAX_FUTURE_SKEW_MS; draw-progress-gif.run stamps model.analysisTime (options.now or the render clock) so the future bound is deterministic per render; no environment variable.\n  - Dependency added/removed: none.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - Excluded item: reproducing the true interleaving of concurrent or repeated stage runs across packages.\n  - Why excluded: gaia evidence is genuinely concurrent (52 per-package order violations; .conver-history.jsonl has 3 records), so a single linear animation can only show a projection; exact interleaving requires recording every stage start/finish in history, which is a separate improvement.\n  - Excluded item: browser pixel rasterisation.\n  - Why excluded: verified through the recording 2D context; no wheel or pixel diff is needed for a text-layout change.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - Affected component: progress-gif renderer (loop -> frames), header caption (engine.js), caption metadata (layout.js), used-glyph collector (fonts.js), bundled sources (html.js).\n  - Nature of impact: animation stage order, displayed date estimates, previous-progress marker position, header text layout. No performance, security or data-format impact.\n  - Corresponding change needed Y/N: no consumer change; draw-progress-gif.js keeps its CLI and report fields."
+          ],
+          "testUnit": [
+            "UT: [Normal] @verifies C001 — a model with all 16 stages at shuffled, inverted and duplicated evidence times yields exactly the STAGE_ORDER sequence, one contiguous frame range per stage.",
+            "UT: [Normal] @verifies C001 — the 20261106104748 embedded-model fixture (3710 events, 3487 grill) yields EDUCE, EXPLAIN, GRILL, SMOOTH, GRAPHIFY, BOUNDIFY, SPLIT, DRILL and SMOOTH has more than zero frames.",
+            "UT: [Normal] @verifies C001 — a crystal-shaped model whose educe generationStartedAt is later than explain and grill still emits EDUCE first and only once.",
+            "UT: [Edge] @verifies C001 — a make event at 3000 and a split event at 5000 still yield SPLIT then MAKE, and SPLIT is not skipped.",
+            "UT: [Edge] @verifies C001 — a review event after drill still yields REVIEW then DRILL, and REVIEW is not skipped.",
+            "UT: [Edge] @verifies C001 — a grill tail that continues after drill (gaia shape) keeps SMOOTH in the sequence and never regresses the stage index.",
+            "UT: [Error] @verifies C005 — a DesignTree resolvedAt of YYYY-MM-DD is not used as an instant; the event falls back to the design-tree mtime or initialT with an [evidence] warning and no event carries prec 'day'.",
+            "UT: [Error] @verifies C004 — an EXPLAIN-RFC-SEED.md mtime earlier than initialT still emits an explain event at initialT with an [evidence] warning instead of dropping the stage silently.",
+            "UT: [Error] @verifies C006 — a status timestamp later than model.analysisTime plus 24 hours produces an [evidence] warning and is clamped to the analysisTime bound; the stage order is unchanged.",
+            "UT: [Boundary] @verifies C003 — an untrusted explain mtime of 2026-11-05 does not drag trusted grill/graphify; on the gaia shape the displayed dates differ from the evidence dates by at most one day.",
+            "UT: [Boundary] @verifies C003 — displayDate is non-decreasing and every displayed date is within [initialT, generatedAt + 24h].",
+            "UT: [Invariant] @verifies C002 — buildTimeline and progressAt do not mutate model.events; every original event.t is preserved after both calls.",
+            "UT: [Invariant] @verifies C001 — every frame sequence has a non-decreasing stage index and every evidenced stage appears at least once.",
+            "UT: [Invariant] @verifies C007 — progressAt(T) equals the overallProgress of the ordinal position whose evidenceT is at or before T, and the value is in [0,1].",
+            "UT: [Normal] @verifies C008 — the recording context receives the date, a two-space gap, 'DRILL : ' and the description in that order; the description x equals the name end and a space precedes and follows the colon.",
+            "UT: [Normal] @verifies C008 — at scale 1 the name font is '600 18px' and the description font is '400 16px' for both ja and en.",
+            "UT: [Boundary] @verifies C008 — at scale 2 the sizes are 36px and 32px; in a tight width the description shrinks to the 12px minimum and is ellipsized while the name stays 18px and bold.",
+            "UT: [Invariant] @verifies C008 — the name and description use the same group colour and the name size is unchanged from the pre-ticket 18px value.",
+            "UT: [Normal] @verifies C009 — loop.js, layout.js, engine.js, fonts.js, html.js and viewer.js are byte-identical across the three script trees."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] @verifies C001 @verifies C003 — analyzeWorkspace plus buildFrames over a fixture built from the 20261106104748 embedded model: the stage transition list equals [educe, explain, grill, smooth, graphify, boundify, split, drill].",
+            "IT: [Verification] @verifies C002 @verifies C007 — two consecutive renders: the second previousProgress maps the first HTML stamp through the ordinal state machine, stays in [0,1], and does not use the snapshot value.",
+            "IT: [Verification] @verifies C004 @verifies C005 @verifies C006 — a workspace with an old explain artifact, a day-only resolvedAt and a future status emits the three warnings, keeps the stage order and exits 0.",
+            "IT: [Prerequisites] @verifies C009 — copy loop.js, layout.js, engine.js, fonts.js, html.js and viewer.js to the root and siprs trees and compare bytes; the copy-identity test passes.",
+            "IT: [Related tickets] — PX-374 supplies evidence gating and the previous-render clock; PX-375 supplied the monotonic frontier that this ticket replaces; PX-380 supplies the header caption and the en switch."
+          ],
+          "testExceptions": [
+            "IT: Browser pixel rasterization — cannot test in Node because Canvas rasterization is environment-dependent and not deterministic; this is not a design defect (not a defect). Alternative verification: the recording 2D context asserts every fillText call, font string, colour and coordinate, and the GIF encoder tests cover frame bytes."
+          ],
+          "instrumentation": "- [Logging] The renderer records [evidence] warnings for an artifact older than initialT, a day-precision timestamp, and a future timestamp; buildFrames merges buildTimeline warnings once through warnOnce.\n- [Metrics] None; the renderer is an offline one-shot process and adds no counters.\n- [Error tracking] Every warning stays in model.warnings and is printed by the markdown report; the draw exits 0 for all timestamp anomalies.\n- [Health check] The impact-set test command and the copy-identity test are the health gate for this ticket.\nStatic quality check: passed\nTranslatability: no issues\nTests: all 278 affected tests passed",
+          "notes": "- [Implementation steps] Red tests for C001-C009 first; then replace the repair functions with computeStageDisplayDates plus buildOrdinalTimeline; then update frameFromState/applyEvent to carry displayDate and evidenceT; then map progressAt; then update the caption constants and drawStageCaption; then sync the three copies and regenerate the affected goldens.\n- [Risks] Removing the repair changes every existing stage-order golden; regenerate them deliberately and review the diff. The previous-progress marker must keep the same state machine or the marker and animation diverge.\n- [Caveats] Dates become estimates by design; stage order is exact and dates are advisory. The real interleaving across packages is not recoverable from the current artifacts.\n- [Open items] None. A future ticket can record every stage start/finish in .conver-history.jsonl and upgrade the order clock to real execution order when the history is complete.\n- [Future improvements] A per-package ladder view and a history-coverage report per stage.\nImplementation summary:\n- Changed files: .claude/scripts/conver/progress-gif/loop.js, engine.js, .claude/scripts/conver/draw-progress-gif.js, tests/conver/ordinal-order.test.mjs, tests/conver/stage-order.test.mjs, tests/conver/loop.test.mjs, tests/conver/evidence-gating.test.mjs, tests/conver/progress-gif-evidence-time.test.mjs, tests/conver/render.test.mjs, tests/conver/fixtures/no-history-frames.json, plus the root and crates/siprs/.claude copies.\n- Key changes: ordinal order clock; evidence times preserved; display-date estimates with a trusted-first down-clamp and one forward pass; day-precision rejection; old-artifact retention with warning; future sanity bound via model.analysisTime; previous-progress prefix mapping; header caption spacing and 16px/400 description.\n- Test results: 278 affected tests pass, 0 fail; quality checks 0 issues; the three progress-gif trees are byte-identical.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues; generic value variables renamed to domain names in engine.js and loop.js\n- Dependencies: the three progress-gif trees are byte-identical; annotation coverage 15/15, 0 ambiguous\n- Issues found and fixes applied: displayDate is floored at initialT so the boundary invariant [initialT, analysisTime + 24h] holds; the day-precision warning is deduplicated across stageProgressOf and stageEventsOf; the gaia and trusted-grill fixtures now use a realistic initialT.\n- Verification: 278 tests pass, 0 fail; 0 open crimes; 0 unclassified stubs; verify-red-coverage 9/9.\nReview gates: verify-final-contracts ok (100% coverage, stubsOk), validate-ticket-targets verified_empty. G7c formula merge is not applicable: PX-381 carries no Formula Obligations and no Dirs-Tree/RFC-FORMULAS artifact (pipeline unavailable for this progress-gif ticket), so there is no formula id to project.",
+          "acceptanceCriteria": [
+            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - The 20261106104748 model fixture plays EDUCE, EXPLAIN, GRILL, SMOOTH, GRAPHIFY, BOUNDIFY, SPLIT, DRILL in that order; SMOOTH has frames; the stage index and displayed dates are monotone; the header reads '11/05 08:57  DRILL : 各部RFCの改訂による品質向上' with DRILL at 18px/600 and the description at 16px/400 in the same colour.",
+            "**[Error case] — Describe an error scenario the feature must handle:**\n  - A workspace with an explain artifact older than initialT, a date-only resolvedAt and a 2035 status still renders exit 0, emits one warning per anomaly, and never reorders or deletes a stage.",
+            "**[Edge case] — Describe any boundary or exception to verify:**\n  - An educe re-run after explain, a make event before split, a review after drill and a grill tail after drill each produce the exact STAGE_ORDER subsequence; at scale 2 the caption sizes are 36px and 32px and a tight width ellipsizes the description without shrinking the name."
+          ],
+          "investigation": "Evidence gathered before implementation:\n- Artifact: gaia progress-gif/20261106104748.html embeds MODEL (3710 events, 3487 grill, 29 packages) and OPTIONS.frames=200. The snapshot snapshots/20261106104748.json has workspaceRoot \"/Users/sh02/shyme/gaia\" (the other PC), generatedAt 2026-11-06T01:47:48Z, and no event timeline.\n- Raw model: explain has 58 artifact events at 2026-11-05T00:48:55Z (the copied mtime); grill has 3487 status events from 2026-10-05T23:44Z to 2026-11-06T01:42Z; smooth has 29 status events at 2026-10-29T03:49:34Z; graphify, boundify, split and drill have trusted status times.\n- Current repair result on that model: explain clamps to 10/28-10/30; grill, graphify and boundify minima collapse to 10/30T01:15Z; smooth becomes 11/06T01:42Z (min=max) and buildFrames emits 0 smooth frames. The stage transitions are educe 0, explain 28, grill 50, graphify 92, boundify 106, split 121, drill 131.\n- Live gaia (original mtimes): explain 10/26T00:38Z; grill status to 11/06T01:42Z; smooth measuredAt 10/29T03:49Z; graphify min 10/28T08:39Z; 52 per-package pairs violate max(previous stage) <= min(next stage), e.g. grill max 11/06 > graphify min 10/28.\n- Crystal: tree manifest initialT 11/02T08:32:18Z; explain seed mtime 11/02T08:35Z (3-minute margin); educe generationStartedAt 11/06T00:20:05Z. A workspacify-tree re-run would move initialT past explain and drop it silently today.\n- Synthetic repros: an untrusted explain at 9000 drags every grill/graphify to 9000; smooth status 2000 pinned to grill 9000 and never displayed; make 3000 before split 5000 hides SPLIT; review 6000 after drill 5000 hides REVIEW; initialT after an explain mtime emits 0 explain events with no warning; a day-precision event keeps prec 'day'; a 2035 status stretches the animation to 2035.\n- Code anchors: loop.js:219 resolveArtifactTime, loop.js:309 resolvedQuestions, loop.js:931 clampUntrustedStageTimes, loop.js:960 repairUpstreamOrder, loop.js:977 smooth skip, loop.js:994 orderGrillAfterExplain, loop.js:1009 placeSmoothAfterExplainAndGrill, loop.js:1118 createFrameState, loop.js:1147 advanceStageFrontier, loop.js:1269 buildFrames; parse.js:198 parseTimestamp; engine.js:468 dateFontFor, engine.js:478 drawStageCaption, engine.js:491 captionX, engine.js:493 nameText.\n- Ordinal preview on the artifact model: educe/explain/grill 10/26T00:35Z, smooth/graphify 10/29T03:49Z, boundify 10/29T12:48Z, split 11/02T06:25Z, drill 11/04T23:57Z; transitions educe 0, explain 28, grill 50, smooth 92, graphify 112, boundify 132, split 153, drill 167; zero time/stage/progress violations.",
+          "boyScoutPlan": "Translatability improvements planned for the touched code:\n- Extract computeStageDisplayDates(model) and buildOrdinalTimeline(model) so buildTimeline reads as \"compute dates; order stages; weigh events\".\n- Rename HEADER_STAGE_SIZE to HEADER_NAME_SIZE and add HEADER_DESCRIPTION_INSET, CAPTION_DATE_GAP and CAPTION_COLON_GAP so drawStageCaption contains no magic numbers.\n- Split drawStageCaption into measureCaption(ctx, layout, frame, options) and drawCaption(ctx, layout, metrics) so the measurement and the draw are separate sentences.\n- Delete the four repair functions and their comments; a stale comment about smooth ordering would contradict the new ordinal clock.\n- Replace silent null returns with a warning plus an explicit fallback in resolveArtifactTime and resolvedQuestions.\n- Keep every function one responsibility and every name a domain concept (displayDate, evidenceT, orderIndex, captionMetrics).",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "ordinal order clock -> frame stage sequence (replaces PX-375 repairUpstreamOrder)",
+              "precondition": "A model whose stage events carry arbitrary, inverted or duplicated evidence timestamps, including a later educe re-run and a grill tail after drill.",
+              "postcondition": "buildFrames emits each evidenced stage exactly once in STAGE_ORDER and the frame stage index never decreases; timestamps do not change the sequence.",
+              "invariant": "For every frame sequence, stage transitions are a subsequence of STAGE_ORDER and each evidenced stage appears at least once."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "evidence clock -> progress accumulation",
+              "precondition": "A model passed to buildTimeline and progressAt.",
+              "postcondition": "Every model.events[i].t keeps its original value and no repair function writes event times.",
+              "invariant": "buildTimeline and progressAt are pure with respect to model.events, and frame.evidenceT is the maximum applied evidence time."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "display-date estimate -> header date",
+              "precondition": "A stage with trusted status or history events, or only artifact events, plus the next trusted stage.",
+              "postcondition": "displayDate[stage] is the earliest trusted time when present, otherwise the earliest evidence clamped down to the next trusted stage; a forward pass keeps displayDate non-decreasing.",
+              "invariant": "displayDate changes never write evidence times and stay within [initialT, generatedAt + 24h]."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "artifact origin -> stage event presence",
+              "precondition": "An EXPLAIN-RFC-SEED.md whose mtime precedes the model initialT.",
+              "postcondition": "An explain event is still emitted at initialT with an [evidence] warning instead of being dropped.",
+              "invariant": "A stage with an existing artifact never disappears from the timeline without a warning."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "timestamp precision -> ordering key",
+              "precondition": "A DesignTree question whose resolvedAt is the date-only string YYYY-MM-DD.",
+              "postcondition": "The value is not used as an instant; the event falls back to the design-tree mtime or initialT and an [evidence] warning is recorded.",
+              "invariant": "No timeline event carries prec day."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "clock sanity -> displayed date bound",
+              "precondition": "A status or history timestamp later than model.analysisTime plus 24 hours.",
+              "postcondition": "An [evidence] warning is recorded and the display estimate is clamped to the analysisTime bound; the stage order is unchanged.",
+              "invariant": "Displayed dates never exceed analysisTime plus 24 hours when analysisTime is finite."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "previous render -> previous-progress marker",
+              "precondition": "The newest past HTML render stamp T and the current model.",
+              "postcondition": "previousProgress equals the overallProgress after applying the ordinal timeline events whose evidence time is at or before T.",
+              "invariant": "The marker is in [0,1] and uses the same state machine as the frames."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "caption layout -> header drawing",
+              "precondition": "A frame with a known stage and a caption in ja or en at scale s.",
+              "postcondition": "The header draws the date, two half-width spaces, NAME colon space, then the description; the name is 18*s px weight 600 and the description is 16*s px weight 400 with a 12*s minimum, both in the same colour.",
+              "invariant": "The stage name size remains 18*s, the description size never exceeds 16*s, and overflow shrinks or ellipsizes the description only."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "distribution copies -> byte identity",
+              "precondition": "The three progress-gif script trees under tools/conver, root .claude and crates/siprs/.claude.",
+              "postcondition": "loop.js, layout.js, engine.js, fonts.js, html.js and viewer.js are byte-identical across the three trees.",
+              "invariant": "The copy-identity test passes without excluding a file."
+            }
+          ],
+          "created_at": "2026-11-06",
+          "updated_at": "2026-11-06",
+          "default_files": [
+            "tools/conver/.claude/scripts/conver/progress-gif/loop.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/layout.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/engine.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/fonts.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/html.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/viewer.js",
+            "tools/conver/.claude/scripts/conver/draw-progress-gif.js",
+            "tools/conver/tests/conver/loop.test.mjs",
+            "tools/conver/tests/conver/stage-order.test.mjs",
+            "tools/conver/tests/conver/evidence-gating.test.mjs",
+            "tools/conver/tests/conver/previous-progress.test.mjs",
+            "tools/conver/tests/conver/layout.test.mjs",
+            "tools/conver/tests/conver/render.test.mjs",
+            "tools/conver/tests/conver/html.test.mjs",
+            "tools/conver/tests/conver/progress-gif-history.test.mjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] @verifies C001 — ordinal stage order with shuffled evidence times\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { buildFrames, STAGE_ORDER } from '../.claude/scripts/conver/progress-gif/loop.js';\nimport { makeModel, eventsForEveryStage } from './tests/conver/models.mjs';\n\ntest('shuffled evidence times still play STAGE_ORDER', () => {\n  const model = makeModel({ events: eventsForEveryStage(['pkg-1']).map((event, index) => ({ ...event, t: 9_000_000 - index * 1000 })) });\n  const frames = buildFrames(model, { frames: 240 });\n  const seen = [...new Set(frames.map((frame) => frame.stage))];\n  const expected = STAGE_ORDER.filter((stage) => model.events.some((event) => event.stage === stage && event.inc > 0));\n  assert.deepEqual(seen, expected);\n  const indexes = frames.map((frame) => STAGE_ORDER.indexOf(frame.stage));\n  assert.ok(indexes.every((value, index) => index === 0 || value >= indexes[index - 1]));\n});\n```",
+            "UT: [Edge] @verifies C001 — educe re-run, make before split, review after drill\n```js\nconst reRunModel = makeModel({ events: [\n  stageEvent('explain', 1000, 'pkg-1'),\n  stageEvent('grill', 2000, 'pkg-1'),\n  stageEvent('educe', 9000, null),\n]});\nassert.deepEqual([...new Set(buildFrames(reRunModel, { frames: 120 }).map((f) => f.stage))], ['educe', 'explain', 'grill']);\n\nconst invertedModel = makeModel({ events: [\n  stageEvent('split', 5000, 'pkg-1'),\n  stageEvent('make', 3000, 'pkg-1'),\n  stageEvent('review', 6000, 'pkg-1'),\n  stageEvent('drill', 4000, 'pkg-1'),\n]});\nassert.deepEqual([...new Set(buildFrames(invertedModel, { frames: 160 }).map((f) => f.stage))], ['split', 'make', 'review', 'drill']);\n```",
+            "UT: [Invariant] @verifies C002 — buildTimeline and progressAt never rewrite evidence times\n```js\nconst before = model.events.map((event) => event.t);\nconst built = buildTimeline(model);\nconst progress = progressAt(model, model.events.at(-1).t);\nassert.deepEqual(model.events.map((event) => event.t), before);\nassert.ok(Number.isFinite(progress) && progress >= 0 && progress <= 1);\nassert.ok(built.timeline.every((event, index) => index === 0 || event.evidenceT >= built.timeline[index - 1].evidenceT || event.kind !== 'stage'));\n```",
+            "UT: [Boundary] @verifies C003 — untrusted explain mtime does not drag trusted stages\n```js\nconst gaia = makeModel({ events: [\n  stageEvent('educe', Date.parse('2026-10-26T00:35:57Z'), null),\n  { ...stageEvent('explain', Date.parse('2026-11-05T00:48:55Z'), 'pkg-1'), timeSource: 'artifact' },\n  stageEvent('grill', Date.parse('2026-10-05T23:44:46Z'), 'pkg-1'),\n  stageEvent('smooth', Date.parse('2026-10-29T03:49:34Z'), null),\n  stageEvent('graphify', Date.parse('2026-10-28T08:39:16Z'), 'pkg-1'),\n]});\nconst built = buildTimeline(gaia);\nconst dates = ['educe', 'explain', 'grill', 'smooth', 'graphify'].map((stage) => built.displayDate.get(stage));\nassert.ok(dates.every((value, index) => index === 0 || value >= dates[index - 1]));\nassert.equal(built.displayDate.get('graphify') - built.displayDate.get('smooth'), 0);\nassert.ok(built.displayDate.get('explain') <= Date.parse('2026-10-26T00:35:57Z'));\n```",
+            "UT: [Error] @verifies C004 — an explain artifact older than initialT is kept with a warning\n```js\nconst initialT = Date.parse('2026-11-01T00:00:00Z');\nconst warnings = [];\nconst events = stageEventsOf(pkg, { ...emptyArtifacts(), explain: oldExplainPath }, { ...emptyWorkspace(), initialT }, warnings);\nconst explain = events.filter((event) => event.stage === 'explain');\nassert.equal(explain.length, 1);\nassert.equal(explain[0].t, initialT);\nassert.match(warnings.join('\\n'), /precedes the model origin/);\n```",
+            "UT: [Error] @verifies C005 — a date-only resolvedAt is never used as an instant\n```js\nconst warnings = [];\nconst events = stageEventsOf(pkg, { ...emptyArtifacts(), status: { state: 'DONE' }, designTree: { nodes: [{ status: 'resolved', questions: [{ resolvedAt: '2026-11-05' }] }] } }, { ...emptyWorkspace(), initialT: Date.parse('2026-11-01T00:00:00Z') }, warnings);\nassert.equal(events.some((event) => event.prec === 'day'), false);\nassert.match(warnings.join('\\n'), /day precision/);\n```",
+            "UT: [Error] @verifies C006 — a future status timestamp is warned and clamped\n```js\nconst future = makeModel({ analysisTime: Date.parse('2026-11-06T00:00:00Z'), events: [stageEvent('drill', Date.parse('2035-01-01T00:00:00Z'), 'pkg-1')] });\nconst built = buildTimeline(future);\nconst bound = future.analysisTime + 24 * 60 * 60 * 1000;\nassert.ok(built.displayDate.get('drill') <= bound);\nassert.match(built.warnings.join('\\n'), /future timestamp/);\nassert.equal(buildFrames(future, { frames: 60 }).at(-1).stage, 'drill');\n```",
+            "UT: [Invariant] @verifies C007 — progressAt maps the previous render stamp onto the ordinal state\n```js\nconst frames = buildFrames(model, { frames: 200 });\nconst stamp = Date.parse('2026-10-29T12:00:00Z');\nconst applied = frames.filter((frame) => frame.evidenceT <= stamp);\nconst expected = applied.length === 0 ? 0 : applied.at(-1).overallProgress;\nassert.equal(progressAt(model, stamp), expected);\nassert.ok(expected >= 0 && expected <= 1);\n```",
+            "UT: [Normal] @verifies C008 — date, two-space gap, 'DRILL : ', description\n```js\nconst ctx = createRecordingContext((text) => text.length * 6);\ndrawFrame(ctx, computeLayout(model, { scale: 1 }), { ...frame, stage: 'drill', t: Date.parse('2026-11-05T00:00:00Z') }, model, { language: 'ja' });\nconst fills = ctx.calls.filter((call) => call[0] === 'fillText').map((call) => ({ text: call[1], x: call[2], font: call[4], colour: call[6] }));\nassert.deepEqual(fills.slice(0, 4).map((call) => call.text), ['11/05 08:57', '  ', 'DRILL : ', '各部RFCの改訂による品質向上']);\nassert.match(fills[2].font, /600 18px/);\nassert.match(fills[3].font, /400 16px/);\nassert.equal(fills[2].colour, fills[3].colour);\nassert.ok(fills[3].x > fills[2].x);\n```",
+            "UT: [Boundary] @verifies C008 — scale 2 and a tight width shrink only the description\n```js\nconst wide = createRecordingContext((text) => text.length * 12);\ndrawFrame(wide, computeLayout(model, { scale: 2 }), frame, model, { language: 'en' });\nconst wideFills = wide.calls.filter((call) => call[0] === 'fillText');\nassert.match(wideFills.find((call) => call[1] === 'DRILL : ')[4], /600 36px/);\nassert.match(wideFills.at(-1)[4], /400 32px/);\n\nconst tight = createRecordingContext((text) => text.length * 6);\nconst tightLayout = computeLayout(model, { scale: 1, percentX: computeLayout(model, { scale: 1 }).header.dateX + 420 });\ndrawFrame(tight, tightLayout, frame, model, { language: 'ja' });\nconst tightFills = tight.calls.filter((call) => call[0] === 'fillText');\nassert.match(tightFills.find((call) => call[1] === 'DRILL : ')[4], /600 18px/);\nassert.match(tightFills.at(-1)[1], /…$/);\nassert.ok(parseFloat(tightFills.at(-1)[4].match(/(\\d+)px/)[1]) <= 16);\n```",
+            "IT: [Integration point] @verifies C001 @verifies C003 — the artifact model plays the eight stages in order\n```js\nconst model = loadEmbeddedArtifactModel('progress-gif/20261106104748.html');\nconst frames = buildFrames(model, { frames: 200 });\nconst transitions = frames.filter((frame, index) => index === 0 || frame.stage !== frames[index - 1].stage).map((frame) => frame.stage);\nassert.deepEqual(transitions, ['educe', 'explain', 'grill', 'smooth', 'graphify', 'boundify', 'split', 'drill']);\nassert.ok(frames.some((frame) => frame.stage === 'smooth'));\nassert.deepEqual(buildTimeline(model).warnings.filter((warning) => /order/.test(warning)), []);\n```",
+            "IT: [Prerequisites] @verifies C009 — the three script trees are byte-identical\n```js\nimport fs from 'node:fs';\nimport path from 'node:path';\nfor (const name of ['loop.js', 'layout.js', 'engine.js', 'fonts.js', 'html.js', 'viewer.js']) {\n  const source = fs.readFileSync(path.join(root, 'tools/conver/.claude/scripts/conver/progress-gif', name));\n  const rootCopy = fs.readFileSync(path.join(root, '.claude/scripts/conver/progress-gif', name));\n  const siprsCopy = fs.readFileSync(path.join(root, 'crates/siprs/.claude/scripts/conver/progress-gif', name));\n  assert.deepEqual(source, rootCopy);\n  assert.deepEqual(source, siprsCopy);\n}\n```"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "Stage order came from rewritten timestamps; a late explain dragged grill/graphify forward, smooth was pinned to the global last grill event and never rendered, and an artifact older than initialT was dropped silently.",
+              "after": "Stage order is the ordinal STAGE_ORDER group; evidence times are never rewritten; display dates are monotonic estimates; SMOOTH renders exactly once between grill and graphify.",
+              "description": "loop.js: replaced clampUntrustedStageTimes, repairUpstreamOrder, orderGrillAfterExplain and placeSmoothAfterExplainAndGrill with collectStageGroups, computeStageDisplayDates and buildOrdinalTimeline; buildFrames enters each stage at the start of its own weight slot."
+            },
+            {
+              "before": "A single untrusted explain mtime could drag every package's grill and graphify to the same instant; a missing downstream bound left the mtime unchanged.",
+              "after": "An untrusted stage yields only to the next trusted stage; trusted times are never moved; a forward pass keeps displayDate non-decreasing.",
+              "description": "loop.js: computeStageDisplayDates clamps an untrusted estimate down to the next trusted stage and warns with [order]; the estimated display date is stored per stage."
+            },
+            {
+              "before": "An explain artifact older than initialT produced no event and no warning; a date-only resolvedAt was used as an instant; a future status could stretch the axis.",
+              "after": "The artifact event is kept at initialT with an [evidence] warning; date-only values fall back to the artifact mtime; a future timestamp is warned and the display is clamped to analysisTime + 24h.",
+              "description": "loop.js: resolveCompletionEvidence now accepts an evidence/context split and returns an initial fallback; resolvedQuestions uses parseInstant and warns on day precision; draw-progress-gif stamps model.analysisTime."
+            },
+            {
+              "before": "progressAt compared a raw event timestamp against the timeline and could not be expressed as a frame state.",
+              "after": "progressAt applies the ordinal prefix ending at the last event whose evidenceT is at or before the stamp, so the marker and the animation share one state machine.",
+              "description": "loop.js: progressAt walks the ordinal timeline and applies the prefix; frameFromState adds evidenceT."
+            },
+            {
+              "before": "Header read '11/05 08:57 DRILL: description' with one space and an 18px description.",
+              "after": "Header reads '11/05 08:57  DRILL : description'; the name stays 18px/600 and the description is 16px/400 with a 12px minimum, in the same colour.",
+              "description": "engine.js: added HEADER_NAME_SIZE, HEADER_DESCRIPTION_SIZE, HEADER_DESCRIPTION_INSET, CAPTION_DATE_GAP and CAPTION_COLON_GAP; split drawStageCaption into measureCaption and drawCaption."
+            },
+            {
+              "before": "The progress-gif tests encoded the timestamp-repair behaviour and the old golden frames.",
+              "after": "The tests encode the ordinal contract and the new caption geometry; the no-history golden was regenerated deliberately.",
+              "description": "tests/conver/ordinal-order.test.mjs added; stage-order, loop, evidence-gating, progress-gif-evidence-time, render and fixture goldens updated; the three script trees were re-synced."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
         }
       ]
     },

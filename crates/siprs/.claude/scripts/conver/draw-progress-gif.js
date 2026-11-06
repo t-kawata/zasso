@@ -203,6 +203,7 @@ function initialTimeOf(root, tree, alloc, treePath) {
 }
 
 // [::TICKET::] PX-364 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-364 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 export function analyzeWorkspace(root, options = {}) {
   const { tree, alloc, warnings, treePath } = readManifests(root);
   const discovered = discoverPackages(root, tree, alloc);
@@ -233,6 +234,9 @@ export function analyzeWorkspace(root, options = {}) {
     workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, runs,
     warnings, initialT, previousProgress: null,
   });
+  // The future-sanity bound is anchored to the render clock, not to the
+  // workspace origin, so a legitimate late stage is never mistaken for skew.
+  if (Number.isFinite(options.now)) model.analysisTime = options.now;
   const previous = readPreviousProgress(root, options, warnings, model);
   model.previousProgress = previous && Number.isFinite(previous.value) ? clamp01(previous.value) : null;
   if (previous) {
@@ -366,8 +370,12 @@ async function collectUsageSeries(root, model, options) {
   }
 }
 
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 export async function run(root, options) {
   const model = analyzeWorkspace(root, options);
+  if (!Number.isFinite(model.analysisTime)) {
+    model.analysisTime = Number.isFinite(options.now) ? options.now : Date.now();
+  }
   const workspaceName = path.basename(root);
   const titleName = `${workspaceName}${readVersionSuffix()}`;
   model.titleName = titleName;

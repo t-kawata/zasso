@@ -1,3 +1,4 @@
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 // PX-375 @verifies C001 @verifies C002 @verifies C003 @verifies C004
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,6 +10,7 @@ import {
   buildFrames,
   buildTimeline,
   createFrameState,
+  frameFromState,
   progressAt,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { INITIAL_TIME, makeModel, packageModel, stageEvent } from './models.mjs';
@@ -68,7 +70,7 @@ test('C002: an artifact-only explain is clamped to the earliest trusted downstre
   const lateTimeline = buildTimeline(lateModel);
   const explain = lateTimeline.timeline.find((event) => event.stage === 'explain');
   assert.equal(explain.t, Date.parse('2026-10-28T08:39:00Z'));
-  assert.ok((lateTimeline.warnings ?? []).some((message) => message.startsWith('[order] explain pkg-1')));
+  assert.ok((lateTimeline.warnings ?? []).some((message) => message.startsWith('[order] explain')));
 
   const inRangeModel = makeModel({
     initialT,
@@ -157,9 +159,12 @@ test('C004: the other-PC model plays in workflow order, monotonically', () => {
   assert.ok(indexes.every((value, index) => index === 0 || value >= indexes[index - 1]));
 
   for (const timestamp of [initialT, Date.parse('2026-10-28T00:00:00Z'), Date.parse('2026-11-05T00:00:00Z')]) {
-    const applied = frames.filter((frame) => frame.t <= timestamp);
-    const expected = applied.length === 0 ? 0 : applied[applied.length - 1].overallProgress;
-    assert.equal(progressAt(model, timestamp), expected);
+    const built = buildTimeline(model);
+    const state = createFrameState(model, built);
+    let lastIndex = -1;
+    built.timeline.forEach((event, index) => { if (event.evidenceT <= timestamp) lastIndex = index; });
+    for (let index = 0; index <= lastIndex; index += 1) applyEvent(state, built.timeline[index]);
+    assert.equal(progressAt(model, timestamp), frameFromState(state, model, 0).overallProgress);
   }
 });
 

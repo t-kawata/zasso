@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { computeLayout, formatDate, formatPercent, groupColor, STAGE_CAPTIONS, stageCaption, MIN_DESCRIPTION_SIZE } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { buildFrames, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
-import { drawFrame, makePalette, LADDER_LABEL_SIZE, HEADER_STAGE_SIZE, HEADER_DATE_COLOUR } from '../../.claude/scripts/conver/progress-gif/engine.js';
+import { drawFrame, makePalette, LADDER_LABEL_SIZE, HEADER_STAGE_SIZE, HEADER_NAME_SIZE, HEADER_DESCRIPTION_SIZE, HEADER_DATE_COLOUR } from '../../.claude/scripts/conver/progress-gif/engine.js';
 import { eventsForEveryStage, makeModel, withPackageCount } from './models.mjs';
 
 /** A Canvas 2D stand-in that records every drawing call the renderer makes. */
@@ -53,7 +53,7 @@ function createRecordingContext(measure = (text) => String(text).length * 6) {
     setLineDash(values) { calls.push(['dash', ...values]); },
 // [::TICKET::] PX-350, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380) --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
-// [::TICKET::] PX-350, PX-351, PX-354, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-354|PX-380) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351, PX-354, PX-380, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-354|PX-380|PX-381) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     createRadialGradient(...args) {
@@ -239,7 +239,7 @@ function drawHeaderFor(stage, language, columns = 8) {
   return { ctx, calls, layout, model, frame: { ...baseFrame, stage } };
 }
 
-test('the header draws the date, one space, the stage name and its description', () => {
+test('the header draws the date, two spaces, the stage name and its description', () => {
   const { calls, layout, frame } = drawHeaderFor('smooth', 'ja');
   const dateText = formatDate(frame.t, frame.prec);
   const dateRun = calls.find((call) => call[0] === 'fillText' && call[1] === dateText);
@@ -249,16 +249,17 @@ test('the header draws the date, one space, the stage name and its description',
 
   const dateWidth = measureFont(dateRun[1], dateRun[4]);
   const spaceWidth = measureFont(' ', dateRun[4]);
-  const nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH: ');
+  const nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH : ');
   assert.ok(nameRun, 'missing stage name run');
-  assert.equal(nameRun[2], layout.header.dateX + dateWidth + spaceWidth);
-  assert.match(nameRun[4], new RegExp(`600 ${HEADER_STAGE_SIZE}px`));
+  assert.equal(nameRun[2], layout.header.dateX + dateWidth + 2 * spaceWidth);
+  assert.match(nameRun[4], new RegExp(`600 ${HEADER_NAME_SIZE}px`));
 
   const descriptionRun = calls.find((call) => call[0] === 'fillText' && call[1] === STAGE_CAPTIONS.ja.smooth);
   assert.ok(descriptionRun, 'missing description run');
-  assert.equal(descriptionRun[2], nameRun[2] + measureFont('SMOOTH: ', nameRun[4]));
+  assert.equal(descriptionRun[2], nameRun[2] + measureFont('SMOOTH : ', nameRun[4]));
   const descriptionSize = fontSizeOf(descriptionRun[4]);
-  assert.ok(descriptionSize <= HEADER_STAGE_SIZE);
+  assert.equal(descriptionSize, HEADER_DESCRIPTION_SIZE);
+  assert.match(descriptionRun[4], /400 /);
   assert.ok(descriptionSize >= MIN_DESCRIPTION_SIZE);
   assert.equal(descriptionRun[6], groupColor('smooth'));
   assert.equal(nameRun[6], groupColor('smooth'));
@@ -271,7 +272,7 @@ test('the language option selects the English caption', () => {
 });
 
 test('an absent or unknown stage draws no caption run', () => {
-  const namePrefixes = STAGE_ORDER.map((stage) => `${stage.toUpperCase()}: `);
+  const namePrefixes = STAGE_ORDER.map((stage) => `${stage.toUpperCase()} : `);
   for (const stage of [null, '', 'unknown']) {
     const { calls } = drawHeaderFor(stage, 'ja');
     assert.equal(
@@ -292,14 +293,14 @@ test('the command name keeps its size while the description shrinks when the roo
   const { ctx, calls } = createRecordingContext(measureFont);
   drawFrame(ctx, tightLayout, frame, model, { title: 'PROGRESS: demo', language: 'ja' });
 
-  const nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH: ');
+  const nameRun = calls.find((call) => call[0] === 'fillText' && call[1] === 'SMOOTH : ');
   const descriptionRun = calls.find((call) => call[0] === 'fillText'
     && call[3] === nameRun[3]
     && call[2] > nameRun[2]
     && call[2] < tightLayout.header.percentX);
   assert.ok(nameRun && descriptionRun);
-  assert.equal(fontSizeOf(nameRun[4]), HEADER_STAGE_SIZE);
-  assert.ok(fontSizeOf(descriptionRun[4]) < HEADER_STAGE_SIZE);
+  assert.equal(fontSizeOf(nameRun[4]), HEADER_NAME_SIZE);
+  assert.ok(fontSizeOf(descriptionRun[4]) < HEADER_DESCRIPTION_SIZE);
   assert.ok(descriptionRun[1].endsWith('…'));
 });
 

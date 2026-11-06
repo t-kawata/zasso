@@ -1,3 +1,4 @@
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -12,6 +13,10 @@ import {
   reconstructTicketGrowth,
   buildFrames,
   buildModel,
+  buildTimeline,
+  createFrameState,
+  applyEvent,
+  frameFromState,
   derivePackageState,
   progressAt,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
@@ -320,9 +325,12 @@ test('PX-374 progressAt equals the last applied frame state', () => {
   const samples = [INITIAL_TIME - 1, INITIAL_TIME, INITIAL_TIME + 1500, INITIAL_TIME + 4500, INITIAL_TIME + 20000];
 
   for (const timestamp of samples) {
-    const applied = frames.filter((frame) => frame.t <= timestamp);
-    const expected = applied.length === 0 ? 0 : applied.at(-1).overallProgress;
-    assert.equal(progressAt(model, timestamp), expected);
+    const built = buildTimeline(model);
+    const state = createFrameState(model, built);
+    let lastIndex = -1;
+    built.timeline.forEach((event, index) => { if (event.evidenceT <= timestamp) lastIndex = index; });
+    for (let index = 0; index <= lastIndex; index += 1) applyEvent(state, built.timeline[index]);
+    assert.equal(progressAt(model, timestamp), frameFromState(state, model, 0).overallProgress);
   }
 
   const before = JSON.stringify(model);

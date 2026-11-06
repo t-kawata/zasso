@@ -24,29 +24,12 @@ export const HOLD_END_FRAMES = 12;
 export const STAGE_WEIGHT = Object.freeze([3, 3, 6, 3, 6, 6, 6, 6, 6, 14, 8, 6, 3, 6, 6, 4]);
 const STAGE_INDEX = Object.freeze(Object.fromEntries(STAGE_ORDER.map((stage, index) => [stage, index])));
 const STAGE_WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
-const UPSTREAM_STAGES = Object.freeze([
-  STAGE_INDEX.explain,
-  STAGE_INDEX.grill,
-  STAGE_INDEX.graphify,
-  STAGE_INDEX.boundify,
-  STAGE_INDEX.split,
-]);
-const SMOOTH_STAGE = STAGE_INDEX.smooth;
-const DRILL_STAGE_INDEX = STAGE_INDEX.drill;
-// Drill is not upstream, but it must be clamped last so a drill event cannot
-// overtake the split that produced the tickets it consumes.
-const ORDERED_STAGE_INDEXES = Object.freeze([...UPSTREAM_STAGES, DRILL_STAGE_INDEX]);
 // Only command-written evidence is trusted as a clock. An artifact mtime is
 // copied by a checkout, so it must yield to these sources.
 const TRUSTED_TIME_SOURCES = new Set(['history', 'status']);
-// Both explain and grill fall back to a file mtime when no command wrote a time,
-// so a checkout can move them past a completed drill. Their times must yield to
-// the earliest trusted downstream stage of the same package. Grill itself is not
-// a bound: orderGrillAfterExplain rewrites grill to follow explain, so using a
-// grill timestamp as a bound would form a cycle.
-const ARTIFACT_CLAMPED_STAGES = Object.freeze(['explain', 'grill']);
-const ARTIFACT_CLAMP_BOUND_STAGES = Object.freeze(['graphify', 'boundify', 'split']);
-const PRE_SMOOTH_STAGES = Object.freeze(['explain', 'grill']);
+// The display date is an estimate, so a clock that runs far past the render is
+// not allowed to stretch the axis. Evidence times are still preserved.
+const MAX_FUTURE_SKEW_MS = 24 * 60 * 60 * 1000;
 
 const EDuce_PHASES = 18;
 // Phase 1 of the drill has twelve sub-steps (1-1..1-12). Steps 2-1..5-1 are the
@@ -207,8 +190,8 @@ function resolveStatusTime(status) {
   if (!status) return null;
   const runId = runIdTime(status);
   if (runId) return runId;
-  for (const value of [status.completedAt, status.updatedAt, status.measuredAt, status.generationStartedAt, status.generatedAt]) {
-    const parsed = parseInstant(value);
+  for (const candidateTimestamp of [status.completedAt, status.updatedAt, status.measuredAt, status.generationStartedAt, status.generatedAt]) {
+    const parsed = parseInstant(candidateTimestamp);
     if (parsed) return parsed;
   }
   return null;
@@ -218,10 +201,10 @@ function resolveStatusTime(status) {
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 function resolveArtifactTime(file, initialT) {
   if (!file) return null;
-  const value = mtime(file);
-  if (value === null) return null;
-  if (Number.isFinite(initialT) && value < initialT) return null;
-  return { t: value, prec: 'ms' };
+  const fileMtime = mtime(file);
+  if (fileMtime === null) return null;
+  if (Number.isFinite(initialT) && fileMtime < initialT) return null;
+  return { t: fileMtime, prec: 'ms' };
 }
 
 /**
@@ -229,18 +212,29 @@ function resolveArtifactTime(file, initialT) {
  * an artifact mtime is used only when neither supplies a time, so a later touch
  * or a copied mtime cannot move a command completion.
  */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
-function resolveCompletionEvidence({ history = null, status = null, statusTime = null, artifactPath = null, initialT = 0 } = {}) {
+// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
+function resolveCompletionEvidence({ evidence = {}, artifactPath = null, context = {} } = {}) {
+  const { initialT = 0, warnings = null, label = '' } = context;
   const candidates = [];
-  if (history) candidates.push({ ...history, source: 'history' });
-  const statusCandidate = statusTime || (status ? resolveStatusTime(status) : null);
+  if (evidence.history) candidates.push({ ...evidence.history, source: 'history' });
+  const statusCandidate = evidence.statusTime || (evidence.status ? resolveStatusTime(evidence.status) : null);
   if (statusCandidate) candidates.push({ ...statusCandidate, source: 'status' });
   if (candidates.length > 0) {
     return candidates.sort((left, right) => left.t - right.t
       || SOURCE_RANK[left.source] - SOURCE_RANK[right.source])[0];
   }
-  const artifact = resolveArtifactTime(artifactPath, initialT);
-  return artifact ? { ...artifact, source: 'artifact' } : null;
+  if (!artifactPath) return null;
+  const fileMtime = mtime(artifactPath);
+  if (fileMtime === null) return null;
+  if (Number.isFinite(initialT) && fileMtime < initialT) {
+    // A checkout copies mtimes forward, so an artifact older than the model
+    // origin is still real evidence; clamp it to the origin with a warning
+    // instead of letting the stage disappear from the animation.
+    const message = `[evidence] ${label || artifactPath}: artifact mtime ${new Date(fileMtime).toISOString()} precedes the model origin; clamped to ${new Date(initialT).toISOString()}`;
+    if (warnings && !warnings.includes(message)) warnings.push(message);
+    return { t: initialT, prec: 'ms', source: 'initial' };
+  }
+  return { t: fileMtime, prec: 'ms', source: 'artifact' };
 }
 
 /** The status file that evidences one stage, or null for artifact-only stages. */
@@ -305,15 +299,24 @@ function resolveExecutionEvidence(artifacts, workspaceArtifacts, stage, packageI
 }
 
 
-// [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
-function resolvedQuestions(designTree) {
+// [::TICKET::] PX-349, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-381) --for-spec --no-implementation-order`.
+function resolvedQuestions(designTree, warnings = [], packageId = null) {
   const resolved = [];
+  const dayPrecision = new Set();
   const visit = (nodes) => {
     for (const node of nodes || []) {
       if (node.status === 'resolved') {
         let best = null;
         for (const question of node.questions || []) {
-          const parsed = parseTimestamp(question.resolvedAt);
+          const parsed = parseInstant(question.resolvedAt);
+          if (!parsed && typeof question.resolvedAt === 'string' && question.resolvedAt.trim() !== '') {
+            const repeated = dayPrecision.has(question.resolvedAt);
+            if (!repeated) {
+              dayPrecision.add(question.resolvedAt);
+              const message = `[evidence] grill ${packageId}: day precision resolvedAt ${question.resolvedAt} ignored`;
+              if (!warnings.includes(message)) warnings.push(message);
+            }
+          }
           if (parsed && (!best || parsed.t > best.t)) best = parsed;
         }
         resolved.push({ node, at: best });
@@ -378,7 +381,7 @@ export function stageProgressOf(artifacts, workspaceArtifacts = {}, packageId = 
 
   const grillEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'grill', packageId);
   if (grillEvidence.hasStatus) {
-    const resolved = resolvedQuestions(artifacts.designTree);
+    const resolved = resolvedQuestions(artifacts.designTree, warnings, packageId);
     const totalNodes = countNodes(artifacts.designTree);
     if (totalNodes > 0) stages.grill += 0.9 * (resolved.length / totalNodes);
     if (artifacts.status.state === 'DONE') stages.grill += 0.1;
@@ -519,15 +522,14 @@ function addEvent(events, event) {
 }
 
 /** Add one stage event at the earliest command/artifact evidence time. */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
 function emitStageEvent(events, input) {
-  const { stage, packageId, inc, evidence, evidenceInfo, initialT } = input;
+  const { stage, packageId, inc, evidence, evidenceInfo, initialT, warnings = [] } = input;
   if (!evidenceInfo || !evidenceInfo.executed) return false;
   const when = resolveCompletionEvidence({
-    history: evidenceInfo.history,
-    status: evidenceInfo.status,
+    evidence: { history: evidenceInfo.history, status: evidenceInfo.status },
     artifactPath: evidenceInfo.artifactPath,
-    initialT,
+    context: { initialT, warnings, label: `${stage} ${packageId}` },
   });
   if (!when) return false;
   addEvent(events, {
@@ -554,10 +556,9 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
   if (educe && Array.isArray(educe.phases)) {
     const done = educe.phases.filter((phase) => phase.status === 'done').length / EDuce_PHASES;
     const when = resolveCompletionEvidence({
-      history: educeEvidence.history,
-      status: educe,
+      evidence: { history: educeEvidence.history, status: educe },
       artifactPath: workspaceArtifacts.sequencesPath,
-      initialT,
+      context: { initialT, warnings, label: `educe ${pkg.id}` },
     });
     if (when) {
       addEvent(events, { t: when.t, prec: when.prec, stage: 'educe', packageId: null, inc: 0.02, evidence: 'educe-sequences/status.json', timeSource: when.source });
@@ -579,10 +580,9 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
   const smooth = workspaceArtifacts.smoothStatus;
   if (smooth) {
     const when = resolveCompletionEvidence({
-      history: smoothEvidence.history,
-      status: smooth,
+      evidence: { history: smoothEvidence.history, status: smooth },
       artifactPath: workspaceArtifacts.smoothStatusPath,
-      initialT,
+      context: { initialT, warnings, label: `smooth ${pkg.id}` },
     });
     if (when) {
       const certificate = workspaceArtifacts.smoothCertificate;
@@ -610,11 +610,11 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
 
   const explainEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'explain', pkg.id);
   if (artifacts.info) {
-    const when = resolveCompletionEvidence({ history: explainEvidence.history, artifactPath: artifacts.info, initialT });
+    const when = resolveCompletionEvidence({ evidence: { history: explainEvidence.history }, artifactPath: artifacts.info, context: { initialT, warnings, label: `explain ${pkg.id}` } });
     if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'explain', packageId: pkg.id, inc: 0.35, evidence: artifacts.info, timeSource: when.source });
   }
   if (artifacts.explain) {
-    const when = resolveCompletionEvidence({ history: explainEvidence.history, artifactPath: artifacts.explain, initialT });
+    const when = resolveCompletionEvidence({ evidence: { history: explainEvidence.history }, artifactPath: artifacts.explain, context: { initialT, warnings, label: `explain ${pkg.id}` } });
     if (when) {
       const sections = countFactSectionsIn(readTextOrEmpty(artifacts.explain));
       addEvent(events, {
@@ -632,7 +632,7 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
   const grillEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'grill', pkg.id);
   if (grillEvidence.hasStatus) {
     const designTime = artifacts.designTree ? parseStampFromMtime(artifacts.designTreePath || '') : null;
-    const resolved = resolvedQuestions(artifacts.designTree);
+    const resolved = resolvedQuestions(artifacts.designTree, warnings, pkg.id);
     const totalNodes = countNodes(artifacts.designTree);
     for (const item of resolved) {
       const at = item.at || designTime || { t: initialT, prec: 'ms' };
@@ -648,10 +648,9 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
     }
     if (artifacts.status.state === 'DONE') {
       const when = resolveCompletionEvidence({
-        history: grillEvidence.history,
-        status: artifacts.status,
+        evidence: { history: grillEvidence.history, status: artifacts.status },
         artifactPath: artifacts.designTreePath,
-        initialT,
+        context: { initialT, warnings, label: `grill ${pkg.id}` },
       });
       if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'grill', packageId: pkg.id, inc: 0.1, evidence: 'Status.json', timeSource: when.source });
     }
@@ -668,6 +667,7 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
       evidence: artifacts.graphPath || 'RFC-GRAPHIFY-Status.json',
       evidenceInfo: graphifyEvidence,
       initialT,
+      warnings,
     });
   }
 
@@ -677,10 +677,9 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
     const statusTime = resolveStatusTime(artifacts.boundifyStatus);
     const earliestStatus = [dirsTime, statusTime].filter(Boolean).sort((left, right) => left.t - right.t)[0] || null;
     const when = resolveCompletionEvidence({
-      history: boundifyEvidence.history,
-      statusTime: earliestStatus,
+      evidence: { history: boundifyEvidence.history, statusTime: earliestStatus },
       artifactPath: artifacts.dirsPath,
-      initialT,
+      context: { initialT, warnings, label: `boundify ${pkg.id}` },
     });
     if (when) {
       addEvent(events, {
@@ -704,6 +703,7 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
       evidence: artifacts.ticketsPath || 'RFC-SPLIT-Status.json',
       evidenceInfo: splitEvidence,
       initialT,
+      warnings,
     });
   }
 
@@ -758,19 +758,23 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
 
   for (const manifest of artifacts.manifests || []) {
     const when = resolveCompletionEvidence({
-      history: findEarliestHistoryFinish(artifacts.historyRecords, pkg.id, 'consolidate'),
-      statusTime: { t: manifest.t, prec: manifest.prec },
+      evidence: {
+        history: findEarliestHistoryFinish(artifacts.historyRecords, pkg.id, 'consolidate'),
+        statusTime: { t: manifest.t, prec: manifest.prec },
+      },
       artifactPath: manifest.path,
-      initialT,
+      context: { initialT, warnings, label: `consolidate ${pkg.id}` },
     });
     if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'consolidate', packageId: pkg.id, inc: 0.5 / Math.max(1, artifacts.manifests.length), evidence: manifest.path, timeSource: when.source });
   }
   for (const omission of artifacts.omissions || []) {
     const when = resolveCompletionEvidence({
-      history: findEarliestHistoryFinish(artifacts.historyRecords, pkg.id, 'find'),
-      statusTime: { t: omission.t, prec: omission.prec },
+      evidence: {
+        history: findEarliestHistoryFinish(artifacts.historyRecords, pkg.id, 'find'),
+        statusTime: { t: omission.t, prec: omission.prec },
+      },
       artifactPath: omission.path,
-      initialT,
+      context: { initialT, warnings, label: `find ${pkg.id}` },
     });
     if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'find', packageId: pkg.id, inc: 1 / Math.max(1, artifacts.omissions.length), evidence: omission.path, timeSource: when.source });
   }
@@ -784,6 +788,7 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
       evidence: 'CRYSTALIZE-Status.json',
       evidenceInfo: crystalizeEvidence,
       initialT,
+      warnings,
     });
   }
 
@@ -796,6 +801,7 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
       evidence: drillEvidence.hasHistory ? artifacts.historyPath : 'drills/Status.json',
       evidenceInfo: drillEvidence,
       initialT,
+      warnings,
     });
   }
 
@@ -810,9 +816,9 @@ function runIdTime(status) {
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function parseStampFromMtime(file) {
   if (!file) return null;
-  const value = mtime(file);
-  if (value === null) return null;
-  return { t: value, prec: 'ms', mtime: true };
+  const fileMtime = mtime(file);
+  if (fileMtime === null) return null;
+  return { t: fileMtime, prec: 'ms', mtime: true };
 }
 
 /** Build a workspace model from package states and events. */
@@ -919,104 +925,6 @@ function stageIndexesOf(events) {
   return counts;
 }
 
-/**
- * Explain and grill have no command-written clock unless their tool recorded one,
- * so their only signal can be a seed-file or DesignTree mtime. A checkout rewrites
- * that mtime, so an artifact-only event yields to the earliest downstream stage
- * that does have command evidence. This runs before the upstream repair: otherwise
- * a late event drags grill, smooth and every later upstream stage with it, and a
- * drill that already completed is overtaken by stages it produced.
- */
-// [::TICKET::] PX-375 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-375 --for-spec --no-implementation-order`.
-function clampUntrustedStageTimes(events, initialT, warnings) {
-  const boundByPackage = new Map();
-  for (const event of events) {
-    if (event.kind !== 'stage' || !event.packageId) continue;
-    if (!ARTIFACT_CLAMP_BOUND_STAGES.includes(event.stage)) continue;
-    if (!TRUSTED_TIME_SOURCES.has(event.timeSource)) continue;
-    const current = boundByPackage.get(event.packageId);
-    if (current === undefined || event.t < current) boundByPackage.set(event.packageId, event.t);
-  }
-  const warned = new Set();
-  for (const event of events) {
-    if (event.kind !== 'stage' || !ARTIFACT_CLAMPED_STAGES.includes(event.stage) || !event.packageId) continue;
-    if (TRUSTED_TIME_SOURCES.has(event.timeSource)) continue;
-    const bound = boundByPackage.get(event.packageId);
-    if (bound === undefined || event.t <= bound) continue;
-    const floor = Number.isFinite(initialT) ? initialT : 0;
-    const clamped = Math.max(floor, bound);
-    const warningKey = `${event.stage}:${event.packageId}`;
-    if (!warned.has(warningKey)) {
-      warned.add(warningKey);
-      warnings.push(
-        `[order] ${event.stage} ${event.packageId}: artifact time ${new Date(event.t).toISOString()} clamped to ${new Date(clamped).toISOString()}`,
-      );
-    }
-    event.t = clamped;
-  }
-}
-
-// [::TICKET::] PX-350, PX-375 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-375) --for-spec --no-implementation-order`.
-function repairUpstreamOrder(events, packageIds) {
-  const endTime = new Map(packageIds.map((id) => [id, new Array(STAGE_ORDER.length).fill(0)]));
-  // Globalize grill and smooth before the per-stage sweep. The sweep clamps each
-  // stage to the previous stage of the same package, so it must see the final grill
-  // time; otherwise a package whose grill lands late keeps an earlier graphify and
-  // the display order regresses to graphify, grill.
-  orderGrillAfterExplain(events);
-  placeSmoothAfterExplainAndGrill(events);
-  for (const stageIndex of ORDERED_STAGE_INDEXES) {
-    const stageEvents = events
-      .filter((event) => event.kind === 'stage' && STAGE_INDEX[event.stage] === stageIndex && event.packageId)
-      .sort((left, right) => left.t - right.t);
-    for (const event of stageEvents) {
-      const times = endTime.get(event.packageId);
-      if (!times) continue;
-      let previous = 0;
-      for (let candidate = stageIndex - 1; candidate >= 1; candidate -= 1) {
-        if (candidate === SMOOTH_STAGE) continue;
-        if (times[candidate] > 0) {
-          previous = times[candidate];
-          break;
-        }
-      }
-      if (event.t < previous) event.t = previous;
-      times[stageIndex] = Math.max(times[stageIndex], event.t);
-    }
-  }
-}
-
-/**
- * The ladder is displayed globally, so every package must finish explain before
- * grill begins. Per-package ordering alone lets one package's grill run while
- * another package is still explaining.
- */
-function orderGrillAfterExplain(events) {
-  const explainEnd = events.reduce((latest, event) => (
-    event.kind === 'stage' && event.stage === 'explain' ? Math.max(latest, event.t) : latest
-  ), -Infinity);
-  if (!Number.isFinite(explainEnd)) return;
-  for (const event of events) {
-    if (event.kind === 'stage' && event.stage === 'grill') event.t = Math.max(event.t, explainEnd);
-  }
-}
-
-/**
- * Smooth is a workspace-level step that applies to every cell. Its artifact can be
- * measured after graphify or fall back to the initial time; either way the animation
- * must show it after explain and grill and before graphify.
- */
-function placeSmoothAfterExplainAndGrill(events) {
-  const predecessorEnd = events.reduce((latest, event) => {
-    if (event.kind !== 'stage' || !PRE_SMOOTH_STAGES.includes(event.stage)) return latest;
-    return Math.max(latest, event.t);
-  }, -Infinity);
-  if (!Number.isFinite(predecessorEnd)) return;
-  for (const event of events) {
-    if (event.kind === 'stage' && event.stage === 'smooth') event.t = predecessorEnd;
-  }
-}
-
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 function computeEventWeight(count) {
   return count > 0 ? (1 + Math.log(1 + count)) / count : 0;
@@ -1050,83 +958,218 @@ function createPackageModels(model) {
   return { packageModels, byId: new Map(packageModels.map((pkg) => [pkg.id, pkg])) };
 }
 
-/** Build the repaired, sorted event timeline and its frame weights. */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
-export function buildTimeline(model) {
-  const timeline = [];
+/**
+ * Group the model by stage. The ordinal order clock only needs the stage groups;
+ * run and growth markers are decorations that never advance the stage frontier.
+ */
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+function collectStageGroups(model) {
+  const stageGroups = new Map();
+  const decorations = [];
+  let seq = 0;
   for (const event of model.events || []) {
     if (!Number.isFinite(event.t) || !(event.inc > 0)) continue;
     if (STAGE_INDEX[event.stage] === undefined) continue;
-    timeline.push({
+    const entry = {
       kind: 'stage',
-      t: event.t,
-      prec: event.prec || 'ms',
       stage: event.stage,
       packageId: event.packageId,
+      evidenceT: event.t,
+      prec: event.prec || 'ms',
       inc: event.inc,
-      seq: timeline.length,
+      seq: seq++,
       timeSource: event.timeSource,
       evidence: event.evidence,
-    });
+    };
+    const group = stageGroups.get(event.stage) || [];
+    group.push(entry);
+    stageGroups.set(event.stage, group);
   }
   for (const event of model.growthEvents || []) {
     if (!Number.isFinite(event.t) || STAGE_INDEX[event.stage] === undefined) continue;
-    timeline.push({
+    decorations.push({
       kind: 'growth',
-      t: event.t,
-      prec: event.prec || 'ms',
       stage: event.stage,
       packageId: event.packageId,
+      evidenceT: event.t,
+      prec: event.prec || 'ms',
       addedMass: computeGrowthMass(event),
       addedTicketKeys: event.addedTicketKeys || [],
-      seq: timeline.length,
+      seq: seq++,
       evidence: event.evidence,
     });
   }
   for (const run of model.runs || []) {
     if (!Number.isFinite(run.t) || STAGE_INDEX[run.stage] === undefined) continue;
-    timeline.push({
+    decorations.push({
       kind: 'run',
-      t: run.t,
-      prec: run.prec || 'ms',
       stage: run.stage,
       packageId: run.packageId,
+      evidenceT: run.t,
+      prec: run.prec || 'ms',
       status: run.status,
       runId: run.runId,
-      seq: timeline.length,
+      seq: seq++,
       evidence: run.evidence,
     });
   }
-  const warnings = [];
-  clampUntrustedStageTimes(timeline, model.initialT, warnings);
-  repairUpstreamOrder(timeline, (model.packages || []).map((pkg) => pkg.id));
-  timeline.sort((left, right) =>
-    left.t - right.t || STAGE_INDEX[left.stage] - STAGE_INDEX[right.stage] || left.seq - right.seq);
+  return { stageGroups, decorations };
+}
+
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+function trustedStageTimes(events) {
+  return events
+    .filter((event) => event.kind === 'stage' && TRUSTED_TIME_SOURCES.has(event.timeSource))
+    .map((event) => event.evidenceT);
+}
+
+/**
+ * A display date is an estimate, never an ordering key. Trusted command evidence
+ * seeds it; an untrusted stage yields to the next trusted stage so a copied mtime
+ * cannot drag the axis, and a forward pass keeps the header date monotonic.
+ */
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+function computeStageDisplayDates(stageGroups, model, warnings) {
+  const presentStages = STAGE_ORDER.filter((stage) => stageGroups.has(stage));
+  const analysisTime = Number.isFinite(model.analysisTime) ? model.analysisTime : null;
+  const bound = analysisTime === null ? null : analysisTime + MAX_FUTURE_SKEW_MS;
+  const trustedByStage = new Map(presentStages.map((stage) => [stage, trustedStageTimes(stageGroups.get(stage))]));
+  const estimates = new Map();
+  for (const stage of presentStages) {
+    const events = stageGroups.get(stage);
+    const trusted = trustedByStage.get(stage);
+    let estimate = trusted.length > 0
+      ? Math.min(...trusted)
+      : Math.min(...events.map((event) => event.evidenceT));
+    if (trusted.length === 0) {
+      const position = presentStages.indexOf(stage);
+      for (const downstream of presentStages.slice(position + 1)) {
+        const downstreamTrusted = trustedByStage.get(downstream);
+        if (downstreamTrusted.length === 0) continue;
+        const wall = Math.min(...downstreamTrusted);
+        if (estimate > wall) {
+          warnings.push(`[order] ${stage}: display date ${new Date(estimate).toISOString()} clamped to ${new Date(wall).toISOString()}`);
+          estimate = wall;
+        }
+        break;
+      }
+    }
+    if (Number.isFinite(model.initialT)) estimate = Math.max(model.initialT, estimate);
+    if (bound !== null) {
+      const latest = Math.max(...events.map((event) => event.evidenceT));
+      if (latest > bound) {
+        warnings.push(`[evidence] ${stage}: future timestamp ${new Date(latest).toISOString()} exceeds analysisTime + 24h; display clamped`);
+        estimate = Math.min(estimate, bound);
+      }
+    }
+    estimates.set(stage, estimate);
+  }
+  const displayDate = new Map();
+  let previous = -Infinity;
+  for (const stage of presentStages) {
+    previous = Math.max(previous, estimates.get(stage));
+    displayDate.set(stage, previous);
+  }
+  return { displayDate, presentStages };
+}
+
+/**
+ * Walk the stages in STAGE_ORDER. Within a stage the evidence clock orders the
+ * events; decorations whose stage has no stage event attach to the nearest
+ * present stage so a run marker is still drawn somewhere meaningful.
+ */
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+function buildOrdinalTimeline(stageGroups, decorations, displayDate, presentStages) {
+  const assigned = new Map(presentStages.map((stage) => [stage, stageGroups.get(stage).slice()]));
+  for (const event of decorations) {
+    let target = assigned.has(event.stage) ? event.stage : null;
+    if (target === null) {
+      for (let index = STAGE_INDEX[event.stage]; index >= 0; index -= 1) {
+        const candidate = STAGE_ORDER[index];
+        if (assigned.has(candidate)) { target = candidate; break; }
+      }
+    }
+    if (target === null) {
+      for (let index = STAGE_INDEX[event.stage] + 1; index < STAGE_ORDER.length; index += 1) {
+        const candidate = STAGE_ORDER[index];
+        if (assigned.has(candidate)) { target = candidate; break; }
+      }
+    }
+    if (target !== null) assigned.get(target).push(event);
+  }
+  const timeline = [];
+  const stageStartIndex = new Map();
+  for (const stage of presentStages) {
+    const events = assigned.get(stage).sort((left, right) =>
+      left.evidenceT - right.evidenceT
+      || String(left.packageId ?? '').localeCompare(String(right.packageId ?? ''))
+      || left.seq - right.seq);
+    stageStartIndex.set(stage, timeline.length);
+    for (const event of events) {
+      timeline.push({ ...event, t: displayDate.get(stage), orderIndex: timeline.length });
+    }
+  }
   const stageCounts = stageIndexesOf(timeline);
   const weights = timeline.map((event) => computeEventWeight(stageCounts[STAGE_INDEX[event.stage]]));
   const cumulative = [];
+  const stageStartWeight = new Map();
   let totalWeight = 0;
-  for (const weight of weights) {
-    totalWeight += weight;
+  for (let index = 0; index < timeline.length; index += 1) {
+    const stage = timeline[index].stage;
+    if (!stageStartWeight.has(stage)) stageStartWeight.set(stage, totalWeight);
+    totalWeight += weights[index];
     cumulative.push(totalWeight);
   }
-  return { timeline, stageCounts, weights, cumulative, totalWeight, warnings };
+  return { timeline, stageCounts, weights, cumulative, totalWeight, stageStartIndex, stageStartWeight };
+}
+
+/** Build the ordinal timeline: stage order is the ordinal clock, dates are estimates. */
+// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+export function buildTimeline(model) {
+  const { stageGroups, decorations } = collectStageGroups(model);
+  const warnings = [];
+  const { displayDate, presentStages } = computeStageDisplayDates(stageGroups, model, warnings);
+  if (presentStages.length === 0) {
+    const timeline = decorations
+      .slice()
+      .sort((left, right) => left.evidenceT - right.evidenceT || left.seq - right.seq)
+      .map((event, index) => ({ ...event, t: event.evidenceT, orderIndex: index }));
+    const stageCounts = stageIndexesOf(timeline);
+    const weights = timeline.map((event) => computeEventWeight(stageCounts[STAGE_INDEX[event.stage]]));
+    const cumulative = [];
+    const stageStartIndex = new Map();
+    const stageStartWeight = new Map();
+    let totalWeight = 0;
+    for (let index = 0; index < timeline.length; index += 1) {
+      const stage = timeline[index].stage;
+      if (!stageStartIndex.has(stage)) {
+        stageStartIndex.set(stage, index);
+        stageStartWeight.set(stage, totalWeight);
+      }
+      totalWeight += weights[index];
+      cumulative.push(totalWeight);
+    }
+    return { timeline, stageCounts, weights, cumulative, totalWeight, stageStartIndex, stageStartWeight, displayDate, stageOrder: [], warnings };
+  }
+  const built = buildOrdinalTimeline(stageGroups, decorations, displayDate, presentStages);
+  return { ...built, displayDate, stageOrder: presentStages, warnings };
 }
 
 /** Create one fresh frame state over a built timeline. */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
 export function createFrameState(model, timeline) {
   const { packageModels, byId } = createPackageModels(model);
-  const timelineStart = timeline.timeline.length > 0 ? timeline.timeline[0].t : (model.initialT || 0);
+  const first = timeline.timeline.length > 0 ? timeline.timeline[0] : null;
   return {
     model,
     timeline: timeline.timeline,
     packageModels,
     byId,
-    lastT: timelineStart,
-    lastStageIndex: 0,
-    lastStage: STAGE_ORDER[0],
-    lastPrec: 'ms',
+    lastT: first ? first.t : (model.initialT || 0),
+    lastEvidenceT: first ? first.evidenceT : (model.initialT || 0),
+    lastStageIndex: first ? STAGE_INDEX[first.stage] : 0,
+    lastStage: first ? first.stage : STAGE_ORDER[0],
+    lastPrec: first ? first.prec : 'ms',
     cursor: 0,
     seenGrowthKeys: new Set(),
     active: [],
@@ -1151,9 +1194,10 @@ function advanceStageFrontier(state, event) {
 }
 
 /** Apply one timeline event to the frame state. */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
 export function applyEvent(state, event) {
   state.lastT = event.t;
+  state.lastEvidenceT = Math.max(state.lastEvidenceT, event.evidenceT);
   state.lastPrec = event.prec || 'ms';
   advanceStageFrontier(state, event);
   const packageScoped = event.packageId !== null && event.packageId !== undefined;
@@ -1189,7 +1233,7 @@ export function applyEvent(state, event) {
 }
 
 /** Project the current state into one frame payload. */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
 export function frameFromState(state, model, index) {
   const packageFrames = state.packageModels.map((pkg) => {
     const reviewed = Math.min(pkg.reviewed, pkg.total);
@@ -1221,6 +1265,7 @@ export function frameFromState(state, model, index) {
   const frame = {
     index,
     t: state.lastT,
+    evidenceT: state.lastEvidenceT,
     prec: state.lastPrec,
     stage: state.lastStage,
     packages: packageFrames,
@@ -1246,16 +1291,20 @@ export function frameFromState(state, model, index) {
 }
 
 /**
- * The animation state at one timestamp. The marker and the animation must share
- * this state machine; a snapshot value computed by an older model cannot.
+ * The animation state at one timestamp. The marker and the animation share the
+ * ordinal timeline; the marker applies the prefix ending at the last event whose
+ * evidence time is at or before the stamp, so it is always a frame-shaped state.
  */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
 export function progressAt(model, timestamp) {
   const timeline = buildTimeline(model);
   const state = createFrameState(model, timeline);
-  for (const event of timeline.timeline) {
-    if (event.t > timestamp) break;
-    applyEvent(state, event);
+  let lastIndex = -1;
+  timeline.timeline.forEach((event, index) => {
+    if (event.evidenceT <= timestamp) lastIndex = index;
+  });
+  for (let index = 0; index <= lastIndex; index += 1) {
+    applyEvent(state, timeline.timeline[index]);
   }
   return frameFromState(state, model, 0).overallProgress;
 }
@@ -1264,8 +1313,7 @@ export function progressAt(model, timestamp) {
  * Build frames with the sample's stage-weighted clock. Raw event count is a poor clock:
  * a stage with thousands of grill questions would otherwise consume the whole animation.
  */
-// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-370, PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-370|PX-374|PX-381) --for-spec --no-implementation-order`.
 export function buildFrames(model, options = {}) {
   const frameCount = Math.max(1, Number(options.frames) || 120);
   const holdStart = Math.min(HOLD_START_FRAMES, Math.floor(frameCount / 4));
@@ -1285,8 +1333,12 @@ export function buildFrames(model, options = {}) {
     state.rootPulse = false;
     state.growthThisFrame = [];
     state.runsThisFrame = [];
-    while (state.cursor < timeline.timeline.length && timeline.cumulative[state.cursor] <= targetWeight) {
-      applyEvent(state, timeline.timeline[state.cursor]);
+    while (state.cursor < timeline.timeline.length) {
+      const event = timeline.timeline[state.cursor];
+      const entersStage = timeline.stageStartIndex.get(event.stage) === state.cursor;
+      const threshold = entersStage ? timeline.stageStartWeight.get(event.stage) : timeline.cumulative[state.cursor];
+      if (progress < 1 && threshold >= targetWeight) break;
+      applyEvent(state, event);
       state.cursor += 1;
     }
     frames.push(frameFromState(state, model, index));
