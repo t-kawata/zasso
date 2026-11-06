@@ -22,6 +22,8 @@ export const SURFACES = Object.freeze({
   SEQUENCES: 'sequences',
   STEPS: 'steps',
   OPERATION_TRANSITIONS: 'operations[].allowed_status_transitions',
+  OPERATION_INITIAL_STATUS: 'operations[].initial_status',
+  EXTERNAL_DEPENDENCY: 'operations[].external_dependency_class',
   REGISTRY_CONTRIBUTION: 'operations[].registry_contribution',
   BOUNDARY_EFFECTS: 'operations[].boundary_effects',
   TYPED_STEP_CONTRACTS: 'steps[].contract',
@@ -185,7 +187,9 @@ function readOptionalArraySurface(index, surface, rows) {
  * @returns {{ present: boolean, origin: string, cardinality: number,
  *   authoredCardinality: number, synthesizedCardinality: number }}
  */
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
 export function surfaceAvailabilityOf(index, surface) {
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
   switch (surface) {
     case SURFACES.OPERATIONS:
       return readArraySurface(index, surface, index.artifact?.operations);
@@ -195,6 +199,10 @@ export function surfaceAvailabilityOf(index, surface) {
       return readArraySurface(index, surface, index.artifact?.steps);
     case SURFACES.OPERATION_TRANSITIONS:
       return readFieldOnEveryActiveOperation(index, surface, 'allowed_status_transitions');
+    case SURFACES.OPERATION_INITIAL_STATUS:
+      return readFieldOnEveryActiveOperation(index, surface, 'initial_status');
+    case SURFACES.EXTERNAL_DEPENDENCY:
+      return readFieldOnEveryActiveOperation(index, surface, 'external_dependency_class');
     case SURFACES.REGISTRY_CONTRIBUTION:
       return readFieldOnEveryActiveOperation(index, surface, 'registry_contribution');
     case SURFACES.BOUNDARY_EFFECTS:

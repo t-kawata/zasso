@@ -148,6 +148,7 @@ function countBoundaryGrounds(index) {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-307 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-307 --for-spec --no-implementation-order`.
 export const CHECK_REGISTRY = Object.freeze([
+// [::TICKET::] PX-386 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-386 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-312 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-312 --for-spec --no-implementation-order`.
   check('S1.duplicate-id', 'enumeration', {
     requires: [SURFACES.OPERATIONS, SURFACES.SEQUENCES, SURFACES.STEPS],
@@ -175,7 +176,7 @@ export const CHECK_REGISTRY = Object.freeze([
     denominator: (index) => countRows(index.artifact?.sequences),
   }),
   check('S3.status-initial-unknown', 'envelope', {
-    requires: [SURFACES.OPERATIONS, SURFACES.OPERATION_TRANSITIONS],
+    requires: [SURFACES.OPERATIONS, SURFACES.OPERATION_TRANSITIONS, SURFACES.OPERATION_INITIAL_STATUS],
     claims: 'spec',
     denominator: countActiveOperations,
   }),
@@ -190,7 +191,7 @@ export const CHECK_REGISTRY = Object.freeze([
     denominator: countActiveOperations,
   }),
   check('S3.finality-missing-for-external', 'envelope', {
-    requires: [SURFACES.OPERATIONS],
+    requires: [SURFACES.OPERATIONS, SURFACES.EXTERNAL_DEPENDENCY],
     claims: 'spec',
     denominator: countActiveOperations,
   }),
@@ -454,7 +455,7 @@ function buildNotApplicableEntry(entry, reason, ground = null) {
 }
 
 /** The authored applicability family each check belongs to. */
-const APPLICABILITY_KEY_BY_CHECK = Object.freeze({
+export const APPLICABILITY_KEY_BY_CHECK = Object.freeze({
   'S3.status-initial-unknown': 'S3.status',
   'S3.transition-target-unknown': 'S3.status',
   'S3.transition-out-of-terminal': 'S3.status',
@@ -563,13 +564,19 @@ function findBlockingReason(entry, index) {
  *   reason?: string, denominator?: number}>}
  */
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-384 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-384 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
 export function buildFamilySubChecks(family, index, skippedReasons = new Map()) {
   return CHECK_REGISTRY
     .filter((entry) => entry.family === family)
     .map((entry) => {
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const stated = skippedReasons.get(entry.id);
-      if (stated !== undefined) return buildBlockedEntry(entry, entry.requires[0] ?? 'unknown', stated);
+      if (stated !== undefined) {
+        const surface = typeof stated === 'string' ? (entry.requires[0] ?? 'unknown') : stated.surface;
+        const reason = typeof stated === 'string' ? stated : stated.reason;
+        return buildBlockedEntry(entry, surface, reason);
+      }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const applicability = applicabilityForCheck(entry.id, index);
       if (applicability !== null) {

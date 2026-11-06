@@ -41,6 +41,121 @@ const V3_ARTIFACT_SURFACES = Object.freeze([
   'vocabulary',
 ]);
 
+/** The operation envelope the artifact schema declares. */
+const OPERATION_ENVELOPE = readArtifactSchema().operations.envelope;
+
+/** The status members a status-bearing operation may use, or null when unstated. */
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
+function operationStatusMembers(pins) {
+  const enumeration = (pins?.enumerations ?? [])
+    .find((entry) => entry.name === OPERATION_ENVELOPE.statusEnumeration);
+  return Array.isArray(enumeration?.members)
+    ? enumeration.members.map((member) => String(member))
+    : null;
+}
+
+/** A named refusal the phase gate can report. */
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
+function envelopeError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+/** Refuse a status that is not a member of the declared enumeration. */
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
+function assertStatusMember(operation, value, members, field) {
+  if (members === null) {
+    throw envelopeError(
+      'OPERATION_STATUS_ENUMERATION_MISSING',
+      `operation ${operation.id} states ${field} but the declaration has no ${OPERATION_ENVELOPE.statusEnumeration} enumeration`,
+    );
+  }
+  if (!members.includes(String(value))) {
+    throw envelopeError(
+      'OPERATION_STATUS_UNKNOWN',
+      `operation ${operation.id} ${field} ${value} is not a member of ${OPERATION_ENVELOPE.statusEnumeration}`,
+    );
+  }
+}
+
+/** Refuse a value whose shape the declared axis does not carry. */
+// [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
+function assertAxisShape(operation, axis, value, shape) {
+  const fail = (expected) => {
+    throw envelopeError('OPERATION_ENVELOPE_SHAPE', `operation ${operation.id} ${axis} must be ${expected}`);
+  };
+  if (shape === 'status') {
+    if (typeof value !== 'string' || value.trim() === '') fail('a non-empty string');
+    return;
+  }
+  if (shape === 'string') {
+    if (typeof value !== 'string') fail('a string');
+    return;
+  }
+  if (shape === 'boolean') {
+    if (typeof value !== 'boolean') fail('a boolean');
+    return;
+  }
+  if (shape === 'stringArray') {
+    if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) fail('an array of strings');
+    return;
+  }
+  if (shape === 'transitions') {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) fail('an object of status arrays');
+    for (const [source, targets] of Object.entries(value)) {
+      if (!Array.isArray(targets) || targets.some((entry) => typeof entry !== 'string')) {
+        fail(`an array of statuses at ${source}`);
+      }
+    }
+    return;
+  }
+  throw envelopeError('OPERATION_ENVELOPE_SHAPE', `operation ${operation.id} ${axis} names unknown shape ${shape}`);
+}
+
+/**
+ * Validate the operation envelope axes the specification declared.
+ *
+ * An absent axis is not an error: a project that states no status axis carries neither
+ * status field. A present axis must have the declared shape, and a status value must be a
+ * member of the declared OperationStatus enumeration, so a non-member never reaches the
+ * view or sequences-slice C6.
+ *
+ * @param {object[]} operations — the composed operation rows
+ * @param {object} pins — the pins established for this generation
+ * @returns {void}
+ */
+export function validateOperationEnvelope(operations, pins) {
+  const members = operationStatusMembers(pins);
+  const axes = Object.entries(OPERATION_ENVELOPE.axes);
+  for (const operation of operations) {
+    if (operation === null || typeof operation !== 'object') continue;
+    for (const [axis, shape] of axes) {
+      if (operation[axis] === undefined) continue;
+      assertAxisShape(operation, axis, operation[axis], shape);
+    }
+    if (operation.initial_status !== undefined) {
+      assertStatusMember(operation, operation.initial_status, members, 'initial_status');
+    }
+    if (operation.allowed_status_transitions !== undefined) {
+      for (const [source, targets] of Object.entries(operation.allowed_status_transitions)) {
+        assertStatusMember(operation, source, members, 'allowed_status_transitions source');
+        for (const target of targets) {
+          assertStatusMember(operation, target, members, 'allowed_status_transitions target');
+        }
+      }
+      if (operation.initial_status !== undefined
+        && Object.keys(operation.allowed_status_transitions).length > 0
+        && !Object.hasOwn(operation.allowed_status_transitions, operation.initial_status)) {
+        throw envelopeError(
+          'OPERATION_STATUS_UNKNOWN',
+          `operation ${operation.id} initial_status ${operation.initial_status} is not a key of allowed_status_transitions`,
+        );
+      }
+    }
+  }
+}
+
 /** The vocabulary fields a declaration may author for the artifact to carry. */
 const DECLARATION_VOCABULARY_FIELDS = Object.freeze([
   'requiredInterfaces',
@@ -217,6 +332,11 @@ export function buildArtifact({ specPath, spec, declaration, readings, supplied 
     exemptions: declaration.exemptions,
     verify: { command: VERIFY_COMMAND, expected_exit: 0 },
   };
+
+  // The envelope is validated before the artifact is handed to the demand or the v3
+  // preservation pass, so a non-member status refuses the reading rather than reaching a
+  // downstream C6 finding or a property obligation.
+  validateOperationEnvelope(composed.operations, pins);
 
   // The demand is stated after the rest is composed, because it is read from what was composed:
   // the candidate columns are the pinned vocabularies crossed with this artifact's own operation

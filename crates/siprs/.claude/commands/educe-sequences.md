@@ -44,6 +44,49 @@ cited line orders an act. The 31 declared rail checks are unchanged:
 the v3 checks live in the `smooth-sequences` check family, so the rail's `31/31` gate
 still means the same thing.
 
+### Reading writer
+
+A `[read]` phase stages its records and invokes the shared writer; it never writes
+`readings-*.jsonl` directly:
+
+```bash
+node "$CLAUDE_DIR/scripts/shared-obligations/evidence-writer.mjs" \
+  --root=<workspace> --kind=<inquest|adversarial|span|uncovered|adjudicate|reroute> \
+  --input=<staging.jsonl>
+```
+
+The writer validates the reader signature and, where the record cites one, the line and
+quote. It stamps `readerGeneration` and `readAt`, binds `artifactDigest` to the current
+artifact, and records a write receipt. A direct write has no receipt; the closure gate
+refuses it with `MISSING_WRITE_RECEIPT`.
+
+### Declaration vocabulary
+
+A declaration may state `vocabulary.requiredInterfaces`, `vocabulary.terminalStatuses`
+and `vocabulary.applicability`. Each applicability key is one of `S3.interface`,
+`S3.status`, `S4.contribution`, `S5.meshing` or `S6.danger`; a false record carries
+`{line, quote}` from the specification. An unknown key is refused with
+`INVALID_VOCABULARY` rather than silently ignored.
+
+### Operation envelope
+
+An operation reading may state the envelope axes:
+`initial_status`, `allowed_status_transitions`, `external_dependency_class`,
+`finality_predicate`, `required_authority`, `requires_session_binding`,
+`requires_remote_time_handshake`, `required_pre_state_checkpoint`,
+`required_proof_classes`, `result_object_classes`, `idempotency_scope`,
+`reversal_or_recovery_rule`, `reject_code_families` and `cancellation_rule`.
+`external_dependency_class` = how the operation waits on an external system;
+`finality_predicate` = when that wait is complete. An active operation with no external
+dependency reads `external_dependency_class: "none"`. Omit any other axis the specification
+does not state; never invent one.
+
+When `initial_status` or `allowed_status_transitions` is present, read the
+`OperationStatus` enumeration and make every source, target and initial value a member.
+A non-member is refused at phase 9 with `OPERATION_STATUS_UNKNOWN`; a status axis without
+the enumeration is refused with `OPERATION_STATUS_ENUMERATION_MISSING`. An empty transition
+map with a member initial status is valid.
+
 ## Argument Interpretation
 
 - `<spec-file>` = first whitespace-delimited token of invocation; only argument; path of existing readable file with extension.

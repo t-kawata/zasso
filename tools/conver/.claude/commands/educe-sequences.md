@@ -70,16 +70,16 @@ and `vocabulary.applicability`. Each applicability key is one of `S3.interface`,
 
 ### Operation envelope
 
-An operation reading may state the envelope axes the specification actually declares:
+An operation reading may state the envelope axes:
 `initial_status`, `allowed_status_transitions`, `external_dependency_class`,
 `finality_predicate`, `required_authority`, `requires_session_binding`,
 `requires_remote_time_handshake`, `required_pre_state_checkpoint`,
 `required_proof_classes`, `result_object_classes`, `idempotency_scope`,
 `reversal_or_recovery_rule`, `reject_code_families` and `cancellation_rule`.
-`external_dependency_class` names how the operation waits on an external system;
-`finality_predicate` states when that wait is complete. A project with no external
-dependency states `external_dependency_class: "none"` on every active operation.
-Omit an axis the specification does not state; never invent one.
+`external_dependency_class` = how the operation waits on an external system;
+`finality_predicate` = when that wait is complete. An active operation with no external
+dependency reads `external_dependency_class: "none"`. Omit any other axis the specification
+does not state; never invent one.
 
 When `initial_status` or `allowed_status_transitions` is present, read the
 `OperationStatus` enumeration and make every source, target and initial value a member.
