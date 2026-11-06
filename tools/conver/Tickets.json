@@ -59447,6 +59447,122 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-06"
+        },
+        {
+          "id": 388,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Require the finality surface on every active educe operation",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-388.md",
+          "background": "### Goal\nEvery active operation in an educe artifact carries a string `external_dependency_class`; every non-`none` value also carries a string `finality_predicate`.\n\n### Purpose\nAlign the educe producer with the smooth-sequences `S3.finality-missing-for-external` consumer. An educe run that reports COMPLETE must produce an artifact smoothing can complete.\n\n### Motivation\nPX-386 made `operations[].external_dependency_class` blocking for smooth but left it optional in educe: `rail/artifact.mjs` states \"An absent axis is not an error\". crystal generation 7 completed all 18 phases with 31 active operations and zero axes, so smooth blocks forever. gaia (150/150) and doors (105/105) carry the axis only because their readers emitted it voluntarily.\n\n### Constraints\n- Do not derive `none` in smooth; the class is a specification reading.\n- Do not edit gaia, crystal or doors.\n- Keep every other envelope axis optional.\n- Every refusal names the operation id, and the class when finality is missing.",
+          "scope": [
+            ".claude/scripts/educe-sequences/rail/artifact.mjs — validateOperationEnvelope: before, an active operation without the axis composes; after, it throws `OPERATION_EXTERNAL_DEPENDENCY_MISSING` naming the id.",
+            ".claude/scripts/educe-sequences/rail/artifact.mjs — a non-`none` class without `finality_predicate` throws `OPERATION_FINALITY_MISSING` naming the id and class.",
+            ".claude/scripts/educe-sequences/rail/artifact.mjs — named constant `ACTIVE_OPERATION_DISPOSITION`; no bare `'active'` literal in the new predicate.",
+            ".claude/commands/educe-sequences.md — Operation envelope: \"may state\" becomes \"states\"; every active operation states the class; a non-`none` value adds finality; both refusal codes are named.",
+            "tests/educe-sequences/operation-envelope.test.mjs — helper for active-operation readings; tests for absence, `none`, non-`none` without finality, non-`none` with finality, and non-active exemption.",
+            "tests/educe-sequences/operation-envelope.test.mjs — the schema axis loop includes `external_dependency_class` and `finality_predicate`.",
+            "tests/conventions/educe-sequences-command.test.mjs — the command names the mandatory axis and both refusal codes.",
+            "API: no public signature change; `buildArtifact` keeps its input object and adds a refusal path.",
+            "Schema: `artifact-schema.json` already types both axes as `string`; no schema change.",
+            "Config/dependencies: none.",
+            "Non-change: smooth-sequences scripts; the consumer already requires the axis. Changing both sides at once would hide which contract drifted.",
+            "Non-change: gaia, crystal and doors workspaces; inspection is read-only and gaia/doors already comply.",
+            "Impact: conver package only; a crystal re-run now fails with the 31 operation ids instead of COMPLETE."
+          ],
+          "testUnit": [
+            "UT: [Normal] PX-388 C003: an active operation with `external_dependency_class: \"none\"` composes and the artifact carries the field.",
+            "UT: [Error] PX-388 C001: an active operation without the axis throws `OPERATION_EXTERNAL_DEPENDENCY_MISSING`; the message contains the operation id.",
+            "UT: [Error] PX-388 C002: an active operation with a non-`none` class and no `finality_predicate` throws `OPERATION_FINALITY_MISSING`; the message contains the id and class.",
+            "UT: [Boundary] a non-active operation without the axis is accepted and the artifact is returned.",
+            "UT: [Invariant] a non-`none` class with `finality_predicate` reaches the artifact unchanged.",
+            "UT: [Boundary] a present non-string class (for example `7`) is refused with `OPERATION_ENVELOPE_SHAPE`, not treated as absent.",
+            "UT: [Schema] `readArtifactSchema().operations.envelope.axes` declares both axes as `string`.",
+            "UT: [Doc] the command matches `/OPERATION_EXTERNAL_DEPENDENCY_MISSING/`, `/OPERATION_FINALITY_MISSING/` and the mandatory-active-operation sentence."
+          ],
+          "testIntegration": [
+            "IT: an artifact built by the educe rail with active operations reports `surfaceAvailabilityOf({ artifact }, SURFACES.EXTERNAL_DEPENDENCY).available === true` in the smooth surface reader (educe rail + smooth surfaces).",
+            "IT: a refused composition raises before any artifact is returned, so the rail reports the named code through `envelopeError` (buildArtifact + named-refusal path)."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/educe-sequences/rail/artifact.mjs",
+            ".claude/commands/educe-sequences.md",
+            "tests/educe-sequences/operation-envelope.test.mjs",
+            "tests/conventions/educe-sequences-command.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: an active operation with `external_dependency_class: \"none\"` composes; the artifact carries it and the smooth EXTERNAL_DEPENDENCY surface is available.",
+            "Error case: an active operation without the axis, or a non-`none` class without `finality_predicate`, refuses with a named code and the operation id.",
+            "Edge case: a non-active operation without the axis is accepted; a present non-string axis refuses by shape."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "educe artifact composition to smooth S3.finality-missing-for-external",
+              "precondition": "readings.operations contains an operation with disposition active and no string external_dependency_class",
+              "postcondition": "buildArtifact throws an error whose code is OPERATION_EXTERNAL_DEPENDENCY_MISSING and whose message contains the operation id",
+              "invariant": "no artifact is returned and the refusal happens before demand and v3 preservation"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "educe artifact composition to smooth S3.finality-missing-for-external",
+              "precondition": "an active operation states a non-none external_dependency_class and no string finality_predicate",
+              "postcondition": "buildArtifact throws an error whose code is OPERATION_FINALITY_MISSING and whose message contains the operation id and class",
+              "invariant": "the value none never requires finality_predicate"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "educe artifact composition to smooth S3.finality-missing-for-external",
+              "precondition": "every active operation states a string external_dependency_class, and every non-none class states finality_predicate",
+              "postcondition": "buildArtifact returns an artifact carrying both fields unchanged, and the smooth EXTERNAL_DEPENDENCY surface is available",
+              "invariant": "operations whose disposition is not active are exempt from the axis requirement"
+            }
+          ],
+          "notes": "### Implementation steps\n1. Red: add the operation-envelope tests for C001-C003 and the command-doc test; confirm they fail.\n2. Green: add the active-operation requirement to `validateOperationEnvelope`.\n3. Refactor: name the disposition constant; update the JSDoc that says an absent axis is never an error.\n4. Docs: make the axis mandatory and name both codes.\n\n### Risks\n- A workspace with active operations read before this ticket fails educe until the reader states the class. This is intended and actionable: the error lists the ids.\n- Fixtures without `disposition` stay valid; no golden artifact changes.\n\n### Caveats\n- The gate keys on `disposition === 'active'`; an operation that omits `disposition` is outside both the smooth surface and this requirement.\n\n### Open items\n- None.\n\n### Future improvements\n- When another axis becomes consumer-required, follow the same pattern: producer gate plus a named code, never a consumer-side default.\nImplementation summary:\n- Changed files: .claude/scripts/educe-sequences/rail/artifact.mjs, .claude/commands/educe-sequences.md, tests/educe-sequences/operation-envelope.test.mjs, tests/conventions/educe-sequences-command.test.mjs, tests/educe-sequences/phases.test.mjs.\n- Key changes: the artifact gate now requires external_dependency_class on every active operation and finality_predicate for every non-none class; the command states the same contract and names both codes.\n- TDD: the C001/C002 and command tests failed red before the implementation; 666 educe tests pass after it.\n- Quality: 0 issues; make check-conventions passes; annotations 4 files, 0 missing, 0 ambiguous.\n- Samples: gaia and doors already satisfy the requirement; crystal's re-run now stops with the 31 operation ids instead of COMPLETE.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: producer/consumer contract verified (educe artifact gate vs smooth S3.finality-missing-for-external)\n- Issues found and fixes applied: the phase-9 fixture made Admit active without the axis, so the new gate refused before the ungrounded-column check; the fixture now states external_dependency_class none and the assertion is unchanged.\n- Verified: C001/C002 and the command test failed before implementation; 666 educe tests pass; the produced artifact reports the smooth EXTERNAL_DEPENDENCY surface present with cardinality 1.\n- Samples: gaia 150/150 and doors 105/105 already satisfy the requirement; crystal 0/31 now stops with the 31 operation ids instead of COMPLETE.",
+          "invariants": "- 【Normal establishment】Every operation whose `disposition` is `active` in a returned artifact carries a string `external_dependency_class`.\n- 【Invariant on error】The refusal happens inside `buildArtifact` before `demand` and v3 preservation; no partial artifact is returned.\n- 【Internal invariant】The requirement keys on `disposition === 'active'`, the same predicate smooth's `collectActiveOperations` uses; non-active operations are exempt.\n- 【Boundary condition】A present non-string axis is refused by the existing `OPERATION_ENVELOPE_SHAPE` check; `none` never requires `finality_predicate`.",
+          "instrumentation": "- Logging: the rail prints the refusal code and the operation id; no new log sink.\n- Metrics: none; the ticket adds a refusal, not a counter.\n- Error tracking: `OPERATION_EXTERNAL_DEPENDENCY_MISSING` and `OPERATION_FINALITY_MISSING` are stable codes for downstream reports.\n- Health check: `node .claude/scripts/educe-sequences/rail/run.mjs <spec>` on a workspace with active operations exits non-zero until every active operation states the class.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (no generic vars, single-letter declarations, debug output, or magic numbers)\nTests: 666 educe tests passed, 0 failed\nAnnotations: 4 files, 0 missing, 0 ambiguous\nConventions: make check-conventions pass",
+          "investigation": "- `rail/artifact.mjs:117-140` defines `validateOperationEnvelope`; its doc states \"An absent axis is not an error\". It is called at line 339 inside `buildArtifact`, before `demandFactsBeside` and `preserveV3Surfaces`.\n- `rail/artifact-schema.json:84-90` types `external_dependency_class` and `finality_predicate` as `string` but requires neither.\n- `smooth-sequences/lib/surfaces.mjs:54-56` collects `disposition === 'active'`; lines 204-205 read `external_dependency_class` on every active operation.\n- `smooth-sequences/lib/check-status.mjs:193-197` requires `[OPERATIONS, EXTERNAL_DEPENDENCY]` for `S3.finality-missing-for-external`.\n- `smooth-sequences/lib/checks-layer-a.mjs:190-196` skips a non-string class and reports only a non-`none` class without finality.\n- `tests/educe-sequences/fixtures/spec/ledger.run.json` operations carry no `disposition`, so existing fixtures are unaffected; the new tests supply active rows through a helper.\n- Sample evidence (read-only): gaia 150/150, doors 105/105, crystal 0/31 active operations carry the axis.",
+          "boyScoutPlan": "- Functions: add `assertExternalDependencyStated` (verb phrase) and `isActiveOperation`; one responsibility each.\n- Constants: name `ACTIVE_OPERATION_DISPOSITION` instead of a bare `'active'` literal.\n- Comments: rewrite the `validateOperationEnvelope` JSDoc that says an absent axis is not an error so it names the one required axis and why.\n- Errors: reuse `envelopeError` so the code and message shape match `OPERATION_STATUS_UNKNOWN`.\n- Untouched code: no `buildArtifact` signature change; no consumer-side default in smooth.",
+          "created_at": "2026-11-06",
+          "updated_at": "2026-11-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Helper] PX-388 active ledger readings\n  ```js\n  function operationsWithFinality(overrides = {}) {\n    return RUN_INPUT.readings.operations.map((operation) => operation.id === 'Admit'\n      ? { ...operation, disposition: 'active', external_dependency_class: 'none', ...overrides }\n      : operation);\n  }\n  ```",
+            "UT: [Error] PX-388 C001: an active operation without the dependency class is refused\n  ```js\n  const operations = operationsWithFinality({ external_dependency_class: undefined });\n  assert.throws(\n    () => compose({ readings: { ...RUN_INPUT.readings, operations } }),\n    (error) => error.code === 'OPERATION_EXTERNAL_DEPENDENCY_MISSING' && /Admit/.test(error.message),\n  );\n  ```",
+            "UT: [Error] PX-388 C002: a non-none class without finality is refused\n  ```js\n  const operations = operationsWithFinality({ external_dependency_class: 'network' });\n  assert.throws(\n    () => compose({ readings: { ...RUN_INPUT.readings, operations } }),\n    (error) => error.code === 'OPERATION_FINALITY_MISSING'\n      && /Admit/.test(error.message) && /network/.test(error.message),\n  );\n  ```",
+            "UT: [Normal] PX-388 C003: none composes and reaches the artifact\n  ```js\n  const artifact = compose({ readings: { ...RUN_INPUT.readings, operations: operationsWithFinality() } });\n  const admit = artifact.operations.find((operation) => operation.id === 'Admit');\n  assert.equal(admit.external_dependency_class, 'none');\n  ```",
+            "UT: [Invariant] PX-388 C003: a non-none class with finality reaches the artifact unchanged\n  ```js\n  const operations = operationsWithFinality({\n    external_dependency_class: 'network',\n    finality_predicate: 'closed when the peer acknowledges',\n  });\n  const artifact = compose({ readings: { ...RUN_INPUT.readings, operations } });\n  const admit = artifact.operations.find((operation) => operation.id === 'Admit');\n  assert.equal(admit.finality_predicate, 'closed when the peer acknowledges');\n  ```",
+            "UT: [Boundary] PX-388 C003: a non-active operation is exempt\n  ```js\n  const operations = RUN_INPUT.readings.operations.map((operation) => operation.id === 'Admit'\n    ? { ...operation, disposition: 'disposed', external_dependency_class: 'network' }\n    : operation);\n  assert.doesNotThrow(() => compose({ readings: { ...RUN_INPUT.readings, operations } }));\n  ```",
+            "UT: [Doc] PX-388 C001: the command requires the axis and names both codes\n  ```js\n  assert.match(COMMAND, /Every active operation states `external_dependency_class`/);\n  assert.match(COMMAND, /OPERATION_EXTERNAL_DEPENDENCY_MISSING/);\n  assert.match(COMMAND, /OPERATION_FINALITY_MISSING/);\n  ```",
+            "IT: PX-388 C003: the artifact makes the smooth external-dependency surface present\n  ```js\n  const artifact = compose({ readings: { ...RUN_INPUT.readings, operations: operationsWithFinality() } });\n  const availability = surfaceAvailabilityOf({ artifact }, SURFACES.EXTERNAL_DEPENDENCY);\n  assert.equal(availability.present, true);\n  assert.equal(availability.cardinality, 1);\n  ```"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "validateOperationEnvelope accepted an active operation without external_dependency_class, so an educe COMPLETE artifact could still block smooth's finality surface forever.",
+              "after": "validateOperationEnvelope refuses an active operation without the class with OPERATION_EXTERNAL_DEPENDENCY_MISSING, and a non-none class without finality_predicate with OPERATION_FINALITY_MISSING; both messages name the operation id.",
+              "description": "artifact.mjs: add ACTIVE_OPERATION_DISPOSITION / NO_EXTERNAL_DEPENDENCY constants, isActiveOperation and assertExternalDependencyStated, and rewrite the validateOperationEnvelope JSDoc."
+            },
+            {
+              "before": "The command said an operation reading 'may state' the axes and did not name a refusal for the required axis.",
+              "after": "The command states the axes; every active operation states external_dependency_class, a non-none value also states finality_predicate, and both refusal codes are named.",
+              "description": "educe-sequences.md: make the finality surface mandatory and name OPERATION_EXTERNAL_DEPENDENCY_MISSING / OPERATION_FINALITY_MISSING."
+            },
+            {
+              "before": "No test distinguished an active operation with the axis from one without it.",
+              "after": "C001-C003 tests cover absence, none, non-none with finality, non-none without finality, non-active exemption, schema declaration, the command text, and the smooth EXTERNAL_DEPENDENCY surface.",
+              "description": "tests/educe-sequences/operation-envelope.test.mjs and tests/conventions/educe-sequences-command.test.mjs."
+            },
+            {
+              "before": "The phase-9 ungrounded-column fixture made Admit active without the dependency class, so the new gate refused before the column check.",
+              "after": "The fixture states external_dependency_class: 'none' on Admit; the assertion still proves the ungrounded-column refusal.",
+              "description": "tests/educe-sequences/phases.test.mjs: satisfy the new precondition without weakening the test."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
         }
       ]
     },
