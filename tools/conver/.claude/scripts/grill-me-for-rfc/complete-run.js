@@ -67,7 +67,7 @@ const UNCHECKED_ITEM = /^\s*-\s*\[ \]\s+/m;
 const NO_WORKSPACE_ROOT = 'NO_WORKSPACE_ROOT: neither workspace manifest is above this RFC directory';
 
 /**
- * The ten required conditions of STEP 8, in the order the command states them.
+ * The eleven required conditions of STEP 8, in the order the command states them.
  *
  * A predicate gate reads the package record directly; a script gate spawns the program the
  * command names, so the evidence cannot disagree with the gate a reader would run. Every
@@ -80,8 +80,12 @@ const NO_WORKSPACE_ROOT = 'NO_WORKSPACE_ROOT: neither workspace manifest is abov
  * The obligation is discharged only when every stage in that chain carries a receipt
  * bound to the current RFC digest. A package with no recorded obligation is legacy and
  * passes, so the first chain run can populate the receipts without a false refusal.
+ * A debt recorded by the current run passes as pending: the grill itself is finished,
+ * and the recorded obligation keeps the package stale until the chain discharges it.
+ * A debt carried past the run that recorded it keeps the gate closed.
  */
 // [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-379 --for-spec --no-implementation-order`.
 export function evaluateRederiveReceipts(rfcDir) {
   let status;
   try {
@@ -91,16 +95,23 @@ export function evaluateRederiveReceipts(rfcDir) {
   }
   const rederive = status?.rederive;
   if (rederive?.required !== true) {
-    return { exitCode: 0, detail: 'no rederive owed' };
+    return { exitCode: 0, status: 'passed', detail: 'no rederive owed' };
   }
   const chain = Array.isArray(rederive.chain) && rederive.chain.length > 0
     ? rederive.chain
     : ['graphify', 'boundify', 'split'];
   const rfcDigest = digestFile(path.join(rfcDir, RFC_FILE_NAME));
   const findings = compareStageReceipts(rfcDir, chain, rfcDigest);
-  return findings.length === 0
-    ? { exitCode: 0, detail: 'stage receipts match the current RFC' }
-    : { exitCode: 1, detail: findings.map((finding) => `${finding.code}:${finding.stage}`).join(', ') };
+  if (findings.length === 0) {
+    return { exitCode: 0, status: 'passed', detail: 'stage receipts match the current RFC' };
+  }
+  // A debt this run recorded is forward-looking: the grill may finish, and the
+  // recorded obligation keeps the package stale until the chain discharges it.
+  if (Number.isInteger(rederive.recordedGeneration)
+    && rederive.recordedGeneration === status.grillGeneration) {
+    return { exitCode: 0, status: 'pending', detail: `rederive owed: ${chain.join(', ')}` };
+  }
+  return { exitCode: 1, detail: findings.map((finding) => `${finding.code}:${finding.stage}`).join(', ') };
 }
 
 export const REQUIRED_GATES = Object.freeze([
@@ -513,12 +524,16 @@ export function main(argv = process.argv.slice(2)) {
   }
 
   const status = JSON.parse(fs.readFileSync(path.join(rfcDir, STATUS_FILE_NAME), 'utf8'));
+  const rederiveGate = gates.find((gate) => gate.name === 'rederive-receipts');
   emit({
     ok: true,
     state: status.state,
     rendered: rendered.rendered,
     wrote: rendered.wrote ?? false,
     distributionGeneration: status.distributionGeneration ?? null,
+    rederive: rederiveGate?.status === 'pending'
+      ? { status: 'pending', detail: rederiveGate.detail }
+      : null,
     gates,
     withheld: gates.filter((gate) => gate.status === 'withheld').map((gate) => gate.script),
   });

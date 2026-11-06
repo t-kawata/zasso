@@ -120,6 +120,16 @@ test('C004 invariant: STEP 0 classifies the canon and names the owner of each st
   assert.match(step0, /partial|materialized-stale/, 'the states that may rewrite are named');
   assert.match(step0, /rederive/, 'the chain is part of the guard, not a later reminder');
   assert.match(step0, /drill-rfc-down/, 'the fresh refusal points at the command whose job the evolution is');
+  assert.match(step0, /pending/, 'DONE records a forward debt as pending instead of refusing it');
+  assert.match(step0, /graphify-rfc[\s\S]*boundify-graph[\s\S]*split-to-tickets/, 'the chain is named in execution order');
+});
+
+// [::TICKET::] PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-379 --for-spec --no-implementation-order`.
+test('C001 invariant: STEP 8 passes a current-generation debt as pending', () => {
+  const step8 = section(read('grill-me-for-rfc'), '### STEP 8', '### STEP 8a');
+
+  assert.match(step8, /pending/, 'the three-way verdict is stated');
+  assert.match(step8, /recordedGeneration|current grill generation|forward/, 'the debt this run recorded is distinguished from an overdue one');
 });
 
 // [::TICKET::] PX-238 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-238 --for-spec --no-implementation-order`.

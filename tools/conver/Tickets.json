@@ -58065,6 +58065,152 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-06"
+        },
+        {
+          "id": 379,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Let a grill run complete with a pending rederive debt and discharge it at chain completion",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-379.md",
+          "background": "- Goal: a grill run on a package that must rederive completes and records the debt instead of refusing DONE.\n- Purpose: the completion gate answers whether the grill design is finished, not whether a downstream stage that has not run yet is finished.\n- Motivation: gaia-certificates reached every design gate and stopped only on RECEIPT_MISSING:boundify and RECEIPT_MISSING:split, while boundify itself was blocked by other packages missing ledgers; the grill cycle cannot depend on a later stage that depends on a third package.\n- Constraint: no receipt is forged, no obligation is cleared before the chain actually matches the RFC, and a later RFC edit still makes the package materialized-stale.",
+          "scope": [
+            "update-status.js record-rederive: add recordedGeneration, equal to Status.json.grillGeneration when it is an integer and null otherwise; sourceDigest and recordedAt stay unchanged",
+            "update-status.js: add discharge-rederive; return no-obligation when Status.json.rederive is absent, compare every recorded chain stage with compareStageReceipts against digestFile(RFC.md), delete rederive only on zero findings, and report discharged true or the findings",
+            "complete-run.js evaluateRederiveReceipts: keep no-obligation and all-receipts-match as passed; return exitCode 0 with status pending and a detail naming the chain when findings exist and rederive.recordedGeneration equals status.grillGeneration; return exitCode 1 with the findings otherwise",
+            "complete-run.js main: surface the pending rederive summary in the completion JSON so the operator sees the chain to run after DONE",
+            "complete-run.js: leave the gate list, the completion receipt gate names and the DONE writer unchanged",
+            "update-split-step-status.js: after the atomicWrite of a non-audit end-step 6, invoke update-status.js discharge-rederive for the package directory; a subprocess failure prints a warning and leaves the obligation",
+            "update-split-step-status.js: audit mode writes no receipt and therefore calls no discharge",
+            "check-all-schema.js validateOptionalRederive: accept an optional integer recordedGeneration at or above 1, and reject any other present value",
+            "grill-me-for-rfc.md: replace the DONE-waits sentence with DONE carries the debt as pending and names graphify, boundify, split; revise the STEP 8 gate definition to the three-way verdict",
+            "split-to-tickets.md: state that the final non-audit end-step 6 discharges the rederive obligation only when every recorded chain receipt matches the current RFC",
+            "Non-change: canonical RFC rewriting, stage receipt fields, the mutation gate and canon-state classification stay as they are; the debt record is the guard and canon-state already treats it as stale",
+            "Non-change: clear-rederive remains available for an explicit human discharge and is never called by the new automatic path",
+            "Impact: conver grill and split commands; a package with a recorded obligation starts completing and is discharged by its chain; a package with no obligation keeps the legacy path"
+          ],
+          "testUnit": [
+            "UT: [C001 normal] begin-run sets grillGeneration=1; record-rederive stores recordedGeneration=1; evaluateRederiveReceipts returns exitCode 0, status pending, detail rederive owed graphify boundify split when the boundify and split receipts are missing",
+            "UT: [C001 invariant] complete-run keeps Status.json.rederive unchanged after writing DONE; assert readStatus(rfcDir).rederive.required === true and status.state === DONE",
+            "UT: [C002 error] record at generation 1, begin-run to generation 2, evaluateRederiveReceipts returns exitCode 1 with RECEIPT_MISSING:graphify and no completion receipt exists",
+            "UT: [C002 error] a graphify receipt whose sourceDigest is a repeated b character digest while RFC.md hashes to the fixture text returns exitCode 1 with RECEIPT_STALE:graphify",
+            "UT: [C003 normal] write fresh graphify, boundify and split receipts with sourceDigest equal to digestOf(RFC_TEXT), run update-split-step-status.js end-step 6, assert Status.json.rederive is undefined and stdout reports discharged true",
+            "UT: [C003 invariant] omit the boundify receipt, run end-step 6, assert the split step is done, its receipt is written and Status.json.rederive.required remains true",
+            "UT: [C003 edge] run end-step 6 with audit, assert the split status has no receipt and Status.json.rederive remains true",
+            "UT: [C004 normal] a Status.json without rederive returns no rederive owed; discharge-rederive reports no-obligation and writes nothing; a legacy record without recordedGeneration remains schema-valid",
+            "UT: [C004 error] a recordedGeneration string is rejected by check-all-schema.js and an integer at or above 1 is accepted"
+          ],
+          "testIntegration": [
+            "IT: real split CLI end-step 6 on an init.js session invokes update-status.js discharge-rederive in the same package directory and removes the obligation only after the split status file is written",
+            "IT: on a package with Tickets.json, DONE with a pending obligation makes canon-state.js return materialized-stale so drill is not the next owner",
+            "IT: after discharge, canon-state.js returns materialized-fresh with every receipt matching the current RFC"
+          ],
+          "default_files": [
+            ".claude/scripts/grill-me-for-rfc/update-status.js",
+            ".claude/scripts/grill-me-for-rfc/complete-run.js",
+            ".claude/scripts/grill-me-for-rfc/check-all-schema.js",
+            ".claude/scripts/rfc-graph/update-split-step-status.js",
+            ".claude/scripts/grill-me-for-rfc/stage8-gates.js",
+            ".claude/scripts/grill-me-for-rfc/completion-receipt.js",
+            ".claude/commands/grill-me-for-rfc.md",
+            ".claude/commands/split-to-tickets.md",
+            "tests/grill-me-for-rfc/rederive.test.mjs",
+            "tests/split-to-tickets/receipts.test.cjs",
+            "tests/grill-me-for-rfc/canon-state.test.mjs",
+            "tests/grill-me-for-rfc/args/command-file.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a partial package records a rederive at STEP 0, passes every other gate with rederive-receipts pending, and reaches DONE while Status.json.rederive remains",
+            "Error case: an obligation recorded by an earlier generation with missing or stale receipts keeps DONE refused with RECEIPT_MISSING or RECEIPT_STALE",
+            "Edge case: the final non-audit split step removes the obligation only when graphify, boundify and split receipts all bind the current RFC; any missing or stale receipt leaves it in place without failing split"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "rederive-receipts gate -> complete-run DONE",
+              "precondition": "Status.json.rederive.required is true and recordedGeneration equals Status.json.grillGeneration and at least one stage in the chain has no receipt bound to the current RFC digest",
+              "postcondition": "evaluateRederiveReceipts returns exitCode 0 with status pending and complete-run declares DONE while Status.json.rederive remains recorded",
+              "invariant": "completion never deletes or rewrites the rederive record"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "rederive-receipts gate -> overdue obligation",
+              "precondition": "Status.json.rederive.recordedGeneration is older than Status.json.grillGeneration and a chain receipt is missing or bound to a different RFC digest",
+              "postcondition": "evaluateRederiveReceipts returns exitCode 1 with RECEIPT_MISSING or RECEIPT_STALE and complete-run writes neither the completion receipt nor DONE",
+              "invariant": "a failed gate writes no completion evidence"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "split end-step 6 -> rederive discharge",
+              "precondition": "a non-audit end-step 6 completes with a rederive obligation whose chain receipts all carry the current RFC digest",
+              "postcondition": "Status.json.rederive is removed after the split status write and stdout reports discharged true",
+              "invariant": "a missing, stale or output-mismatched chain receipt leaves the obligation in place and split still exits zero"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "legacy completion and split paths",
+              "precondition": "Status.json carries no rederive record, or a legacy record without recordedGeneration",
+              "postcondition": "evaluateRederiveReceipts returns exitCode 0 no rederive owed, discharge-rederive is a no-op, and existing split behavior is unchanged",
+              "invariant": "the optional recordedGeneration field keeps every legacy Status.json schema-valid"
+            }
+          ],
+          "notes": "- Implementation steps: Red tests for the five verdicts and the discharge path; Green record stamp, gate classification, discharge operation, split call, schema validation; Refactor comments and command text.\n- Risks: an obligation recorded by an older generation is intentionally refused, so a package stuck before this change must re-enter STEP 0 once to stamp the current generation.\n- Caveats: pending is not a pass of the chain; it is a pass of the grill with a recorded debt, and canon-state keeps drill out until discharge.\n- Open items: none; the gaia workspace sequencing of nine missing ledgers is operational and not part of this ticket.\n- Future improvements: if a chain ever omits split, the discharge call site must move to the recorded chain final stage; the current producer always records graphify, boundify, split.\nImplementation summary:\n- Changed files: update-status.js, complete-run.js, check-all-schema.js, update-split-step-status.js, stage8-gates.js, completion-receipt.js, grill-me-for-rfc.md, split-to-tickets.md\n- Tests: 71 passed, 0 failed (rederive 15, command-file, canon-state, completion-receipt, complete-run, completion-gates integration, grill-generation, split receipts)\n- Red evidence: pending/discharge/schema tests failed before the implementation for absent behavior\n- Quality: 0 issues; scan-crimes 0; no unresolved stubs\nReview report:\n- Static quality check: passed, 0 issues\n- Translatability: no issues; new functions are verb phrases and new names are domain terms\n- Dependencies: consistent; no new package dependency, only an internal child-process call to update-status.js\n- Annotations: 8 changed source files verified; 0 missing; 0 ambiguous\n- Crimes/stubs: 0 open crimes; 0 unclassified stubs; no terminal-excuse markers\n- Design verification: C001 pending completion, C002 overdue refusal, C003 discharge-on-full-match with partial-chain and audit guards, C004 legacy no-op and schema floor\n- Formula obligations: not applicable (conver has no RFC-FORMULAS.json, Dirs-Tree, or formulaObligations)\n- Issues found and fixed during review: none",
+          "invariants": "- Normal establishment: the first begin-run sets grillGeneration to 1; record-rederive stores that same value in recordedGeneration; evaluateRederiveReceipts returns pending only when the two are equal and at least one chain receipt does not match the current RFC digest.\n- Error: a record whose recordedGeneration is absent or older than grillGeneration never passes as pending; missing receipts stay RECEIPT_MISSING and stale receipts stay RECEIPT_STALE.\n- Internal: completion never deletes or rewrites Status.json.rederive; discharge-rederive is the only automatic writer that deletes it, and it deletes only after compareStageReceipts returns zero findings for the recorded chain.\n- Boundary: split persists its own receipt before discharge reads the filesystem; audit mode writes no receipt and triggers no discharge; a discharge failure leaves the obligation and does not fail the split step.",
+          "testExceptions": [],
+          "instrumentation": "- Logging: complete-run emits the rederive gate with status pending and its chain detail in the existing gates array; discharge-rederive prints one JSON object with discharged and findings.\n- Metrics: no new counter; grillGeneration and the obligation record are the observable state.\n- Error tracking: a discharge subprocess failure prints a warning with the exit reason and leaves the obligation; the next canon-state read reports materialized-stale.\n- Health check: node .claude/scripts/grill-me-for-rfc/canon-state.js <package> returns materialized-fresh only after discharge.\nStatic quality check: passed (0 issues)\nTranslatability: no generic names, no leftover debug output, verb-phrase functions\nTests: 77 tests passed, 0 failed (rederive, command-file, canon-state, completion-receipt, complete-run, completion-gates integration, grill-generation, split receipts)\nRed coverage: 4/4 contracts covered\nFinal contracts: 4/4 (100%)\nTargets: verified empty; no target stubs or crimes",
+          "investigation": "Read .claude/scripts/grill-me-for-rfc/complete-run.js: evaluateRederiveReceipts reads Status.json.rederive and, when required, calls compareStageReceipts(rfcDir, chain, digestFile(RFC.md)); any finding fails the gate. runRequiredGates records verdict.status if present, otherwise passed or failed, so an exit-0 gate can already carry a distinct status. update-status.js: openRunGeneration increments Status.json.grillGeneration from completedSessions or 0, so the first begin-run yields 1; record-rederive stores required, chain, sourceDigest and recordedAt but no generation; clear-rederive exists with no caller in any script or command. update-split-step-status.js: executeEndStep writes the split receipt into the in-memory status for end-step 6, and main persists it with atomicWrite after the switch, so a discharge reader invoked inside executeEndStep would read the pre-write file. check-all-schema.js validateOptionalRederive accepts required, chain, sourceDigest and recordedAt, and rejects malformed records. canon-state.js classifies a tickets-bearing package as materialized-stale when rederive.required is true, regardless of receipt freshness. Command text grill-me-for-rfc.md line 341 states DONE waits for every receipt, and line 823 defines the gate as every stage receipt carrying the current RFC digest. Existing tests: tests/grill-me-for-rfc/rederive.test.mjs drives init.js and update-status.js and asserts the error path for an owed receipt; tests/split-to-tickets/receipts.test.cjs drives the three stage CLIs and asserts receipt fields; canon-state.test.mjs asserts a recorded obligation marks tickets stale.",
+          "boyScoutPlan": "Name the generation field recordedGeneration and the operation discharge-rederive so the obligation keeps one vocabulary. Split evaluateRederiveReceipts into a receipt comparison and a pending-or-overdue classification helper so each function answers one question. Extract the update-status path and Status.json name into named constants in update-split-step-status.js instead of embedding a relative path. Replace the stale ten-condition comments in stage8-gates.js, complete-run.js and completion-receipt.js with eleven. Make every new failure path explicit: a discharge subprocess failure prints a warning and leaves the obligation instead of swallowing the error.",
+          "created_at": "2026-11-06",
+          "updated_at": "2026-11-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 normal] a debt recorded by this run passes as pending\n```js\nconst rfcDir = freshSession();\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify,boundify,split');\nconst verdict = evaluateRederiveReceipts(rfcDir);\nassert.equal(verdict.exitCode, 0);\nassert.equal(verdict.status, 'pending');\nassert.match(verdict.detail, /rederive owed: graphify, boundify, split/);\n```",
+            "UT: [C001 invariant] DONE keeps the debt on disk\n```js\nconst rfcDir = freshSession();\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify,boundify,split');\nconst receipt = writeCompletionReceipt(\n  rfcDir,\n  REQUIRED_GATE_NAMES.map((name) => ({ name, exitCode: 0 })),\n);\nupdateStatus(rfcDir, 'set-state', 'DONE', `--completion-receipt=${receipt.path}`);\nconst status = readStatus(rfcDir);\nassert.equal(status.state, 'DONE');\nassert.equal(status.rederive.required, true);\nassert.deepEqual(status.rederive.chain, ['graphify', 'boundify', 'split']);\n```",
+            "UT: [C002 error] a debt from an earlier generation is refused\n```js\nconst rfcDir = freshSession();\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify');\nupdateStatus(rfcDir, 'begin-run');\nconst verdict = evaluateRederiveReceipts(rfcDir);\nassert.equal(verdict.exitCode, 1);\nassert.match(verdict.detail, /RECEIPT_MISSING:graphify/);\n```",
+            "UT: [C002 error] a stale receipt is refused\n```js\nconst rfcDir = freshSession();\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify');\nwriteGraphifyReceipt(rfcDir, {\n  sourceDigest: 'b'.repeat(64),\n  outputDigest: digestOf(GRAPH_TEXT),\n});\nconst verdict = evaluateRederiveReceipts(rfcDir);\nassert.equal(verdict.exitCode, 1);\nassert.match(verdict.detail, /RECEIPT_STALE:graphify/);\n```",
+            "UT: [C003 normal] a fresh chain discharges after the split write\n```js\nconst rfcDir = freshSession();\nwriteFreshChainReceipts(rfcDir);\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify,boundify,split');\nconst splitStatus = join(rfcDir, 'RFC-SPLIT-Status.json');\nrun(SPLIT, [`--status=${splitStatus}`, 'end-step', '6']);\nassert.equal(readStatus(rfcDir).rederive, undefined);\nassert.equal(JSON.parse(readFileSync(splitStatus, 'utf8')).receipt.stage, 'split');\n```",
+            "UT: [C003 invariant] a partial chain keeps the debt and the split still succeeds\n```js\nconst rfcDir = freshSession();\nwriteFreshChainReceipts(rfcDir, { omit: 'boundify' });\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify,boundify,split');\nconst splitStatus = join(rfcDir, 'RFC-SPLIT-Status.json');\nrun(SPLIT, [`--status=${splitStatus}`, 'end-step', '6']);\nassert.equal(JSON.parse(readFileSync(splitStatus, 'utf8')).steps['6'], 'done');\nassert.equal(readStatus(rfcDir).rederive.required, true);\n```",
+            "UT: [C003 edge] audit writes no split receipt and discharges nothing\n```js\nconst rfcDir = freshSession();\nwriteFreshChainReceipts(rfcDir);\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify,boundify,split');\nconst splitStatus = join(rfcDir, 'RFC-SPLIT-Status.json');\nrun(SPLIT, [`--status=${splitStatus}`, 'end-step', '6', '--audit']);\nassert.equal(JSON.parse(readFileSync(splitStatus, 'utf8')).receipt, undefined);\nassert.equal(readStatus(rfcDir).rederive.required, true);\n```",
+            "UT: [C004 normal] no debt makes discharge a no-op\n```js\nconst rfcDir = freshSession();\nconst stdout = execFileSync(\n  process.execPath,\n  [UPDATE_STATUS, rfcDir, 'discharge-rederive'],\n  { encoding: 'utf8' },\n);\nassert.deepEqual(JSON.parse(stdout), {\n  ok: true,\n  discharged: false,\n  reason: 'no-obligation',\n});\nassert.equal(readStatus(rfcDir).rederive, undefined);\n```",
+            "UT: [C004 normal] the current generation is schema-valid\n```js\nconst rfcDir = freshSession();\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify');\nassert.equal(readStatus(rfcDir).rederive.recordedGeneration, 1);\nexecFileSync(process.execPath, [CHECK_SCHEMA, rfcDir], { stdio: 'pipe' });\n```",
+            "UT: [C004 error] a non-integer generation is rejected by the schema\n```js\nconst rfcDir = freshSession();\nconst status = readStatus(rfcDir);\nstatus.rederive = {\n  required: true,\n  chain: ['graphify'],\n  sourceDigest: digestOf(RFC_TEXT),\n  recordedGeneration: 'one',\n};\nwriteFileSync(join(rfcDir, 'Status.json'), JSON.stringify(status, null, 2));\nconst result = spawnSync(process.execPath, [CHECK_SCHEMA, rfcDir], { encoding: 'utf8' });\nassert.equal(result.status, 1);\nassert.match(result.stdout, /recordedGeneration/);\n```",
+            "IT: a pending debt keeps drill out until discharge\n```js\nconst rfcDir = packageWithTicketsAndFreshReceipts();\nupdateStatus(rfcDir, 'begin-run');\nupdateStatus(rfcDir, 'record-rederive', '--chain=graphify,boundify,split');\nassert.equal(canonState(rfcDir).state, 'materialized-stale');\nwriteFreshChainReceipts(rfcDir);\nrun(SPLIT, [`--status=${join(rfcDir, 'RFC-SPLIT-Status.json')}`, 'end-step', '6']);\nassert.equal(canonState(rfcDir).state, 'materialized-fresh');\n```"
+          ],
+          "startedAt": "2026-11-06",
+          "changes": [
+            {
+              "before": "record-rederive stored no generation",
+              "after": "record-rederive stores recordedGeneration from Status.json.grillGeneration unless the run never opened a generation",
+              "description": "update-status.js: bind the debt to the run that recorded it"
+            },
+            {
+              "before": "evaluateRederiveReceipts failed on any missing or stale chain receipt",
+              "after": "a debt recorded by the current generation returns exit 0 status pending; an older debt still exits 1 with RECEIPT_MISSING or RECEIPT_STALE",
+              "description": "complete-run.js: three-way gate verdict and pending summary in the completion JSON"
+            },
+            {
+              "before": "no caller could discharge an obligation automatically",
+              "after": "update-status.js discharge-rederive deletes the record only when compareStageReceipts returns zero findings; update-split-step-status.js calls it after the non-audit end-step 6 atomic write",
+              "description": "close the discharge path at the chain final stage"
+            },
+            {
+              "before": "recordedGeneration was not validated",
+              "after": "check-all-schema.js accepts an optional integer >= 1 and rejects any other present value",
+              "description": "keep legacy Status.json valid while rejecting malformed generations"
+            },
+            {
+              "before": "the grill contract said DONE waits for every receipt and the split step said nothing about discharge",
+              "after": "the grill names the debt as pending and the split final step owns the discharge",
+              "description": "command contracts match the implemented behavior"
+            },
+            {
+              "before": "ten-condition comments in stage8-gates.js, complete-run.js and completion-receipt.js",
+              "after": "eleven-condition comments",
+              "description": "remove a stale count"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-06"
         }
       ]
     },

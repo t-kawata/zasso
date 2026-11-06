@@ -22,6 +22,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { fromHomeRelative, toHomeRelative } = require('../lib/path-utils');
 const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
 const {
@@ -66,6 +67,38 @@ const STEP_ORDER = [
 
 /** This script is the only one /split-to-tickets runs at both ends of its run. */
 const RUN_HISTORY = { command: 'split-to-tickets', stage: 'split' };
+
+/** The grill record that carries a rederive obligation, and the writer that owns it. */
+const STATUS_FILE_NAME = 'Status.json';
+const UPDATE_STATUS_SCRIPT = path.join(__dirname, '..', 'grill-me-for-rfc', 'update-status.js');
+const FINAL_STEP_ID = '6';
+
+/**
+ * Ask the Status.json owner to discharge a rederive obligation the chain has fulfilled.
+ *
+ * The split receipt is already on disk when this runs, so the comparison sees the final
+ * stage. A discharge is a no-op when no obligation exists, and a failed call leaves the
+ * obligation in place: the package stays stale and the next grill names the repair.
+ */
+// [::TICKET::] PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-379 --for-spec --no-implementation-order`.
+function dischargeRederiveObligation(rfcDir) {
+  if (!fs.existsSync(path.join(rfcDir, STATUS_FILE_NAME)) || !fs.existsSync(UPDATE_STATUS_SCRIPT)) {
+    return null;
+  }
+  try {
+    const stdout = execFileSync(
+      process.execPath,
+      [UPDATE_STATUS_SCRIPT, rfcDir, 'discharge-rederive'],
+      { encoding: 'utf8', stdio: 'pipe' },
+    );
+    const result = JSON.parse(stdout);
+    logLine(JSON.stringify({ rederiveDischarge: result }));
+    return result;
+  } catch (error) {
+    console.error(`[WARN] rederive discharge skipped: ${String(error.stderr ?? error.message).trim()}`);
+    return null;
+  }
+}
 
 /** Array of allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
@@ -656,7 +689,7 @@ Step IDs (definition order): ${STEP_ORDER.join(', ')}
 /**
  * Main processing: parse arguments, dispatch subcommand, write file
  */
-// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-379 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-379) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
 
@@ -780,6 +813,12 @@ function main() {
       `File path: ${statusPath}`,
       'Check disk space and write permissions.'
     );
+  }
+
+  // The split receipt is on disk only now, so the discharge comparison must run here
+  // rather than inside executeEndStep, which still holds the pre-write file.
+  if (subcommand === 'end-step' && stepId === FINAL_STEP_ID && !audit) {
+    dischargeRederiveObligation(path.dirname(statusPath));
   }
 }
 
