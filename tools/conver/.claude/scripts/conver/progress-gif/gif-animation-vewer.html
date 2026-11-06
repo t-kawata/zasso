@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GIF Frame Viewer</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin:0; height:100%; background:#14161a; color:#e6e6e6;
+    font:14px/1.4 system-ui,sans-serif; }
+  body { display:flex; flex-direction:column; }
+  #stage { flex:1; min-height:0; display:flex; align-items:center; justify-content:center;
+    background:
+      conic-gradient(#2a2d33 25%,#20232a 0 50%,#2a2d33 0 75%,#20232a 0) 0 0/20px 20px;
+    overflow:auto; }
+  canvas { image-rendering:pixelated; max-width:100%; max-height:100%; object-fit:contain; display:none; }
+  #hint { position:absolute; inset:0 0 80px 0; display:flex; align-items:center; justify-content:center;
+    font-size:20px; color:#8a8f98; pointer-events:none; text-align:center; }
+  #bar { padding:10px 16px 14px; background:#1b1e24; border-top:1px solid #2c3038; }
+  #row { display:flex; gap:12px; align-items:center; }
+  input[type=range] { flex:1; }
+  button { background:#2c3038; color:#e6e6e6; border:1px solid #3a3f48; border-radius:6px;
+    padding:4px 12px; cursor:pointer; }
+  button:hover { background:#383d47; }
+  #info { margin-top:6px; color:#9aa0aa; font-variant-numeric:tabular-nums; }
+  body.drag #stage { outline:3px dashed #5aa0ff; outline-offset:-10px; }
+  #err { color:#ff7b7b; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv"></canvas></div>
+<div id="hint">ここにGIFアニメーションをドロップ</div>
+<div id="bar">
+  <div id="row">
+    <button id="prev">◀</button>
+    <button id="play">▶</button>
+    <button id="next">▶|</button>
+    <input type="range" id="seek" min="0" max="0" value="0" step="1" disabled>
+    <span id="pos">0 / 0</span>
+  </div>
+  <div id="info"><span id="meta">未読込</span> <span id="err"></span></div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+const seek = $("seek"), pos = $("pos"), meta = $("meta"), err = $("err"), hint = $("hint");
+
+let frames = [];      // {canvas, delay, time}
+let cur = 0, timer = null, name = "";
+
+/* ---------- GIF decoder ---------- */
+function parseGIF(buf) {
+  const d = new Uint8Array(buf);
+  let p = 0;
+  const u8 = () => d[p++];
+  const u16 = () => { const v = d[p] | (d[p+1] << 8); p += 2; return v; };
+  const str = n => { let s = ""; for (let i = 0; i < n; i++) s += String.fromCharCode(d[p++]); return s; };
+
+  const sig = str(6);
+  if (sig !== "GIF87a" && sig !== "GIF89a") throw new Error("GIFではありません");
+  const W = u16(), H = u16();
+  const flags = u8(); const bgIndex = u8(); u8();
+  let gct = null;
+  if (flags & 0x80) { const n = 3 << ((flags & 7) + 1); gct = d.subarray(p, p + n); p += n; }
+
+  const out = [];
+  let gce = { delay: 10, trans: -1, disposal: 0 };
+
+  const full = document.createElement("canvas"); full.width = W; full.height = H;
+  const fctx = full.getContext("2d", { willReadFrequently: true });
+  let prevImg = null;
+  let last = null; // 直前フレームの領域と処理方法
+
+  while (p < d.length) {
+    const b = u8();
+    if (b === 0x3B) break;
+    if (b === 0x21) {
+      const label = u8();
+      if (label === 0xF9) {
+        u8();
+        const f = u8();
+        gce = { disposal: (f >> 2) & 7, trans: (f & 1) ? 0 : -1, delay: u16() * 10 };
+        const ti = u8();
+        if (f & 1) gce.trans = ti; else gce.trans = -1;
+        u8();
+      } else {
+        while (true) { const n = u8(); if (!n) break; p += n; }
+      }
+    } else if (b === 0x2C) {
+      const x = u16(), y = u16(), w = u16(), h = u16();
+      const lf = u8();
+      let ct = gct;
+      if (lf & 0x80) { const n = 3 << ((lf & 7) + 1); ct = d.subarray(p, p + n); p += n; }
+      const interlaced = !!(lf & 0x40);
+      const minCode = u8();
+      const chunks = [];
+      let total = 0;
+      while (true) { const n = u8(); if (!n) break; chunks.push(d.subarray(p, p + n)); p += n; total += n; }
+      const data = new Uint8Array(total);
+      let o = 0; for (const c of chunks) { data.set(c, o); o += c.length; }
+      const idx = lzw(data, minCode, w * h);
+
+      // 前フレームの破棄処理
+      if (last) {
+        if (last.disposal === 2) fctx.clearRect(last.x, last.y, last.w, last.h);
+        else if (last.disposal === 3 && prevImg) fctx.putImageData(prevImg, 0, 0);
+      }
+      if (gce.disposal === 3) prevImg = fctx.getImageData(0, 0, W, H);
+
+      // 行の並べ替え
+      let rows = null;
+      if (interlaced) {
+        rows = new Array(h); let r = 0;
+        for (const [s, st] of [[0,8],[4,8],[2,4],[1,2]])
+          for (let yy = s; yy < h; yy += st) rows[yy] = r++;
+      }
+      const img = fctx.getImageData(x, y, w, h);
+      const px = img.data;
+      for (let yy = 0; yy < h; yy++) {
+        const srcRow = rows ? rows[yy] : yy;
+        for (let xx = 0; xx < w; xx++) {
+          const ci = idx[srcRow * w + xx];
+          if (ci === gce.trans || !ct) continue;
+          const di = (yy * w + xx) * 4;
+          px[di] = ct[ci*3]; px[di+1] = ct[ci*3+1]; px[di+2] = ct[ci*3+2]; px[di+3] = 255;
+        }
+      }
+      fctx.putImageData(img, x, y);
+
+      const snap = document.createElement("canvas"); snap.width = W; snap.height = H;
+      snap.getContext("2d").drawImage(full, 0, 0);
+      out.push({ canvas: snap, delay: gce.delay });
+      last = { x, y, w, h, disposal: gce.disposal };
+      gce = { delay: 10, trans: -1, disposal: 0 };
+    } else if (b === 0) {
+      continue;
+    } else {
+      break;
+    }
+  }
+  let t = 0;
+  for (const f of out) { f.time = t; t += f.delay; }
+  return { W, H, frames: out, duration: t };
+}
+
+function lzw(data, minCode, size) {
+  const out = new Uint8Array(size);
+  const clear = 1 << minCode, eoi = clear + 1;
+  let codeSize = minCode + 1, next = eoi + 1;
+  const prefix = new Uint16Array(4096), suffix = new Uint8Array(4096), len = new Uint16Array(4096);
+  for (let i = 0; i < clear; i++) { suffix[i] = i; len[i] = 1; }
+  let bits = 0, nb = 0, di = 0, op = 0, prev = -1;
+  const stack = new Uint8Array(4097);
+  while (op < size) {
+    while (nb < codeSize && di < data.length) { bits |= data[di++] << nb; nb += 8; }
+    if (nb < codeSize) break;
+    const code = bits & ((1 << codeSize) - 1);
+    bits >>>= codeSize; nb -= codeSize;
+    if (code === clear) { codeSize = minCode + 1; next = eoi + 1; prev = -1; continue; }
+    if (code === eoi) break;
+    let c = code, sp = 0;
+    if (prev === -1) { out[op++] = suffix[code]; prev = code; continue; }
+    if (code >= next) { stack[sp++] = firstOf(prev); c = prev; }
+    while (c >= clear) { stack[sp++] = suffix[c]; c = prefix[c]; }
+    stack[sp++] = suffix[c];
+    const first = suffix[c];
+    while (sp > 0 && op < size) out[op++] = stack[--sp];
+    if (next < 4096) {
+      prefix[next] = prev; suffix[next] = first; next++;
+      if (next === (1 << codeSize) && codeSize < 12) codeSize++;
+    }
+    prev = code;
+  }
+  function firstOf(c) { while (c >= clear) c = prefix[c]; return suffix[c]; }
+  return out;
+}
+
+/* ---------- UI ---------- */
+function show(i) {
+  if (!frames.length) return;
+  cur = Math.max(0, Math.min(frames.length - 1, i));
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(frames[cur].canvas, 0, 0);
+  seek.value = cur;
+  const f = frames[cur];
+  pos.textContent = `${cur + 1} / ${frames.length}`;
+  meta.textContent = `${name} — ${cv.width}×${cv.height}px — delay ${f.delay}ms — t=${f.time}ms`;
+}
+function stop() { clearTimeout(timer); timer = null; $("play").textContent = "▶"; }
+function play() {
+  if (!frames.length) return;
+  $("play").textContent = "⏸";
+  const tick = () => {
+    show((cur + 1) % frames.length);
+    timer = setTimeout(tick, Math.max(20, frames[cur].delay));
+  };
+  timer = setTimeout(tick, Math.max(20, frames[cur].delay));
+}
+
+async function load(file) {
+  err.textContent = ""; stop();
+  try {
+    const g = parseGIF(await file.arrayBuffer());
+    if (!g.frames.length) throw new Error("フレームがありません");
+    frames = g.frames; name = file.name;
+    cv.width = g.W; cv.height = g.H; cv.style.display = "block";
+    cv.style.width = Math.max(g.W, Math.min(innerWidth, g.W * Math.max(1, Math.floor(Math.min(innerWidth / g.W, (innerHeight - 120) / g.H))))) + "px";
+    hint.style.display = "none";
+    seek.max = frames.length - 1; seek.disabled = false;
+    show(0);
+  } catch (e) { err.textContent = "エラー: " + e.message; }
+}
+
+seek.addEventListener("input", () => { stop(); show(+seek.value); });
+$("prev").onclick = () => { stop(); show(cur - 1); };
+$("next").onclick = () => { stop(); show(cur + 1); };
+$("play").onclick = () => timer ? stop() : play();
+
+addEventListener("keydown", e => {
+  if (!frames.length) return;
+  const step = e.shiftKey ? 10 : 1;
+  if (e.key === "ArrowLeft") { stop(); show(cur - step); }
+  else if (e.key === "ArrowRight") { stop(); show(cur + step); }
+  else if (e.key === "Home") { stop(); show(0); }
+  else if (e.key === "End") { stop(); show(frames.length - 1); }
+  else if (e.key === " ") { e.preventDefault(); timer ? stop() : play(); }
+});
+
+let dragDepth = 0;
+addEventListener("dragenter", e => { e.preventDefault(); dragDepth++; document.body.classList.add("drag"); });
+addEventListener("dragleave", e => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("drag"); } });
+addEventListener("dragover", e => e.preventDefault());
+addEventListener("drop", e => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove("drag");
+  const f = [...e.dataTransfer.files].find(f => f.type === "image/gif" || /\.gif$/i.test(f.name));
+  if (f) load(f); else err.textContent = "GIFファイルをドロップしてください";
+});
+</script>
+</body>
+</html>
