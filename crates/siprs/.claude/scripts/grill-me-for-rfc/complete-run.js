@@ -33,6 +33,9 @@ import {
 import { digestOfFindings } from '../api-consistency/finding-identity.mjs';
 import { COMPLETION_RECEIPT_FILE, writeCompletionReceipt } from './completion-receipt.js';
 import { API_CONSISTENCY_GATE_NAME, REQUIRED_GATE_NAMES } from './stage8-gates.js';
+import stageReceipt from '../rfc-graph/lib/stage-receipt.js';
+
+const { compareStageReceipts, digestFile } = stageReceipt;
 
 export { REQUIRED_GATE_NAMES };
 
@@ -70,6 +73,36 @@ const NO_WORKSPACE_ROOT = 'NO_WORKSPACE_ROOT: neither workspace manifest is abov
  * command names, so the evidence cannot disagree with the gate a reader would run. Every
  * entry carries the route its repair follows and the command this refusal prints.
  */
+/**
+ * The rederive obligation a rewrite leaves behind.
+ *
+ * A grill run on a partially materialized or stale package records the chain it owes.
+ * The obligation is discharged only when every stage in that chain carries a receipt
+ * bound to the current RFC digest. A package with no recorded obligation is legacy and
+ * passes, so the first chain run can populate the receipts without a false refusal.
+ */
+// [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
+export function evaluateRederiveReceipts(rfcDir) {
+  let status;
+  try {
+    status = JSON.parse(fs.readFileSync(path.join(rfcDir, STATUS_FILE_NAME), 'utf8'));
+  } catch {
+    return { exitCode: 1, detail: `cannot read ${STATUS_FILE_NAME}` };
+  }
+  const rederive = status?.rederive;
+  if (rederive?.required !== true) {
+    return { exitCode: 0, detail: 'no rederive owed' };
+  }
+  const chain = Array.isArray(rederive.chain) && rederive.chain.length > 0
+    ? rederive.chain
+    : ['graphify', 'boundify', 'split'];
+  const rfcDigest = digestFile(path.join(rfcDir, RFC_FILE_NAME));
+  const findings = compareStageReceipts(rfcDir, chain, rfcDigest);
+  return findings.length === 0
+    ? { exitCode: 0, detail: 'stage receipts match the current RFC' }
+    : { exitCode: 1, detail: findings.map((finding) => `${finding.code}:${finding.stage}`).join(', ') };
+}
+
 export const REQUIRED_GATES = Object.freeze([
   {
     name: 'design-tree-resolved',
@@ -146,6 +179,12 @@ export const REQUIRED_GATES = Object.freeze([
     script: 'check-distribution-completeness.js',
     args: ({ workspaceRoot }) => [workspaceRoot],
     route: ROUTE.UPSTREAM,
+  },
+  {
+    name: 'rederive-receipts',
+    route: ROUTE.IN_DRILL,
+    repairTarget: STATUS_FILE_NAME,
+    evaluate: ({ rfcDir }) => evaluateRederiveReceipts(rfcDir),
   },
   {
     name: 'formula-coverage',

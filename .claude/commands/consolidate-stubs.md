@@ -143,4 +143,4 @@ Heal-loop recovery (strict order):
 4. re-run this gate
 loop until rollback+apply+gate all exit 0.
 
-manifest `./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json` — the newest one, never a concatenating glob — → find-omissions Step 1: one ticket per unit referencing a completed key (active-future-todo units already tracked, skipped). find-omissions consumes+removes the manifest (and `ROLLBACK-*.json`) on full success — re-running requires a fresh consolidation.
+manifest `./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json` — the newest one, never a concatenating glob — → find-omissions Step 1: one ticket per unit referencing a completed key (active-future-todo units already tracked, skipped). Step 1 commits through `ticket-mutation-gate.js` (snapshot→verify→promote/rollback); this command creates no tickets. find-omissions consumes+removes the manifest (and `ROLLBACK-*.json`) on full success — re-running requires a fresh consolidation.

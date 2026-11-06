@@ -319,13 +319,30 @@ ask; stop — Overwrite mode: `$RFC_PATH` exists but `Status.json` doesn't → a
 
 Resume mode carrying material: arguments and newly discovered entries are a re-entry round, not a fresh read. `init.js` records them beside the ones already held — in the order given, each once — and reports the paths this invocation appended in `addedMaterials`; the material list is never replaced, and a path already recorded changes nothing. `list-files.js` below walks the whole recorded list, so the new material reaches the reading step with no second command to run.
 
-Guard — before any question is drafted and before anything is written, confirm the canon still stands alone:
+Guard — before any question is drafted and before anything is written, classify the derivation state:
 
 ```bash
-node "$CLAUDE_DIR/scripts/grill-me-for-rfc/canon-state.js" "$RFC_DIR"
+CANON_JSON="$(node "$CLAUDE_DIR/scripts/grill-me-for-rfc/canon-state.js" "$RFC_DIR" --json)"
+CANON_EXIT=$?
+printf '%s\n' "$CANON_JSON"
+if [ "$CANON_EXIT" -eq 1 ]; then
+  exit 1
+fi
+CANON_STATE="$(printf '%s' "$CANON_JSON" | node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>console.log(JSON.parse(s).state))')"
+case "$CANON_STATE" in
+  partial|materialized-stale)
+    node "$CLAUDE_DIR/scripts/grill-me-for-rfc/update-status.js" "$RFC_DIR" record-rederive --chain=graphify,boundify,split
+    ;;
+esac
 ```
 
-exit 1 → stop. The RFC has already been derived into a graph, a directory tree or tickets, and those were computed against the RFC as it stands: rewriting it here would leave them carrying the old design with nothing to detect the drift. Report the artifact the guard named and point the user at `/drill-rfc-down`, the command that evolves a materialised canon — it re-runs this same grill over the delta and carries it into the derived artifacts. Write no RFC in this run.
+exit 1 → stop: **materialized-fresh** — tickets + every stage receipt matches this RFC; evolve with `/drill-rfc-down`, write no RFC here.
+
+`partial` — graph/tree, no tickets: drill cannot run; grill owns the rewrite; `record-rederive` writes `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets`; DONE waits for every receipt to match the new RFC digest.
+
+`materialized-stale` — tickets, but a receipt mismatches or a rederive is recorded: grill owns the repair; same chain; drill is not owner until fresh.
+
+`standalone` — no obligation.
 
 Sequence material — an optional input this run may have been handed. `sequences-material.js` is the tolerant reader: it reports whether a sequences artifact or a generated per-package view is available, and it exits 0 for every input, so it can never stop the command. It runs here, after the guard and before the strict reader below, because that ordering is what keeps a recorded-but-deleted view from wedging the session.
 
@@ -803,7 +820,7 @@ The renderer is the only writer of the ledger, the map block and the managed anc
 
 **Owner-cell role grammar.** The Distribution ledger is the authored authority for an operation's role. An Owner cell may annotate the row's own package as `pkg-xxxx (implementer)` or `pkg-xxxx (consumer)`; a co-owner's name stays unannotated because that package's own row carries its declaration. The renderer reads the annotation before it writes the map, so a role is authored in the table and never in the generated `json distribution-map` block or `SEQUENCES.json`. An unannotated legacy row keeps the `roleCandidate` fallback; anything else in parentheses is prose.
 
-gate (all 10 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so either every owned active operation is proved to declare `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger, or the artifact version withholds the check by name — a withheld check is never reported as proved AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures AND `check-formula-coverage.js "$RFC_DIR"` exits 0 with zero blocking findings and every advisory listed, so every owned formula reached the ledger with its theory, realization and tests. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" "$SEQUENCES_ARTIFACT"` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
+gate (all 11 required): all DesignTree nodes `resolved` (`open-count`=0) AND all CheckList items ✅ AND zero TBD/TODO/stub/delegation in the RFC body AND the seed divergence ledger and the defect ledger are present and well formed AND `defect-report.js --gate` exits 0 AND `check-obligation-coverage.js "$WORKSPACE_ROOT"` exits 0, so every demand is placed by a route that resolves and every axis is measured against a structure the workspace holds rather than against the artifact itself AND `check-ledger-discharge.js "$WORKSPACE_ROOT"` exits 0, so every unit every view holds is accounted for by its own package's distribution ledger AND `check-contribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so either every owned active operation is proved to declare `registry_contribution=required`, or `not_required` with a ground, and is recorded by its owner's distribution ledger, or the artifact version withholds the check by name — a withheld check is never reported as proved AND `check-distribution-completeness.js "$WORKSPACE_ROOT"` exits 0, so every clause of the distribution criterion holds — including the clause that no gate claims more than the criterion measures AND `rederive-receipts` exits 0, so every stage receipt the rederive obligation names carries the current RFC digest, AND `check-formula-coverage.js "$RFC_DIR"` exits 0 with zero blocking findings and every advisory listed, so every owned formula reached the ledger with its theory, realization and tests. That last command is the whole answer in one place, and the two before it are the halves a reader repairs separately. Before working through any of them, `report-obligation-state.js "$WORKSPACE_ROOT" "$SEQUENCES_ARTIFACT"` prints the same verdicts with the repair named per directory, which is the faster way to find which directory to open.
 
 The two gates answer the two halves of one guarantee. The coverage gate is measured over the workspace and can be satisfied before this package has an RFC; the discharge gate answers the accounting half, so no package can declare DONE while another package's ledger still omits a unit it was handed.
 

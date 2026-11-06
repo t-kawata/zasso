@@ -45,9 +45,14 @@ const TICKETS_SCRIPT_DIR = '$(git rev-parse --show-toplevel)/.claude/scripts/tic
  *          |{ success: false, error: string, errors?: string[] }}
  */
 // [::TICKET::] PX-123: createResolvingTicket. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-123 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127|PX-378) --for-spec --no-implementation-order`.
 function createResolvingTicket({ ticketsData, sourceKey, seed, stubs = [] }) {
-  const res = createTicketFromSource({ ticketsData, sourceKey, seed });
+  const cloneSeed = {
+    ...seed,
+    origin: seed?.origin ?? { kind: 'resolving', sourceTicket: sourceKey },
+    ownershipTransfer: seed?.ownershipTransfer === true,
+  };
+  const res = createTicketFromSource({ ticketsData, sourceKey, seed: cloneSeed });
   if (!res.success) return res;
   // The stubs[] content must reference the NEW ticket key: after Step 1 rewrites
   // the source marker to the returned key, phasify's rewriteSourceMarkerLines

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
 /**
  * The gate names a grill completion and a cross-package evidence record share.
@@ -18,6 +19,7 @@ export const REQUIRED_GATE_NAMES = Object.freeze([
   'ledger-discharge',
   'contribution-completeness',
   'distribution-completeness',
+  'rederive-receipts',
   'formula-coverage',
 ]);
 

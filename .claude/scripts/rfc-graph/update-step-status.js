@@ -25,6 +25,7 @@ const {
   coverageFor,
   outputDigest,
 } = require('./lib/status-generation');
+const { recordStageReceipt, collectStageGateVerdicts } = require('./lib/stage-receipt');
 
 /** This script is the only one /graphify-rfc runs at both ends of its run. */
 const RUN_HISTORY = { command: 'graphify-rfc', stage: 'graphify' };
@@ -290,14 +291,15 @@ function executeBeginRun(status, runId) {
  * @param {number} n — Step number to complete
  * @param {{ audit?: boolean }} [options]
  */
-// [::TICKET::] PX-313, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-366) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-366, PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-366|PX-377) --for-spec --no-implementation-order`.
 function executeEndStep(status, n, { audit = false } = {}) {
   status.steps[String(n)] = STATUS_DONE;
   status.currentStep = n + 1;
   if (n >= MAX_STEP && status.runId !== null && status.runId !== undefined) {
     const filePath = fromHomeRelative(status.graphFile);
+    const graphDigest = outputDigest(filePath);
     const result = completeGeneration(status, {
-      outputDigest: outputDigest(filePath),
+      outputDigest: graphDigest,
       coverage: coverageFor('graphify', filePath),
       audit,
     });
@@ -305,6 +307,15 @@ function executeEndStep(status, n, { audit = false } = {}) {
       throw new Error(`${result.code}: the stage generation was not written`);
     }
     Object.assign(status, result.status);
+    if (!audit) {
+      Object.assign(status, recordStageReceipt(status, {
+        stage: 'graphify',
+        rfcPath: fromHomeRelative(status.sourceFile),
+        outputPath: filePath,
+        outputDigest: graphDigest,
+        gateVerdicts: collectStageGateVerdicts(status),
+      }));
+    }
   }
   if (n >= MAX_STEP) {
     if (require.main === module) recordRunHistory('finish', { ...RUN_HISTORY, status: 'COMPLETE' });

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
 /**
  * update-status.js <rfc-dir> <operation> [args...]
  *
@@ -8,10 +9,13 @@
  *                                             WRITING | REVIEWING | DONE
  *   begin-run                 - Open one grill generation for this invocation
  *   inc-loop                  - Increment reviewLoopCount
+ *   record-rederive           - Record the chain a canonical rewrite owes
+ *   clear-rederive            - Discharge the recorded rederive obligation
  *   show                      - Output the current Status.json
  */
 import fs from "fs";
 import path from "path";
+import { createHash } from "node:crypto";
 import { validateAll } from "./check-all-schema.js";
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 import { toHomeRelative } from '../lib/path-utils.js';
@@ -171,6 +175,28 @@ switch (operation) {
     status.reviewLoopCount = (status.reviewLoopCount || 0) + 1;
     saveAndValidate();
     process.stdout.write(JSON.stringify({ ok: true, reviewLoopCount: status.reviewLoopCount }) + "\n");
+    break;
+  }
+  case "record-rederive": {
+    const chainArgument = args.find((argument) => argument.startsWith("--chain="));
+    const chain = chainArgument === undefined
+      ? ["graphify", "boundify", "split"]
+      : chainArgument.slice("--chain=".length).split(",").map((entry) => entry.trim()).filter(Boolean);
+    const rfcPath = path.join(path.resolve(rfcDir), "RFC.md");
+    if (!fs.existsSync(rfcPath)) {
+      console.error(`Cannot record rederive: ${rfcPath} does not exist`);
+      process.exit(1);
+    }
+    const sourceDigest = createHash("sha256").update(fs.readFileSync(rfcPath)).digest("hex");
+    status.rederive = { required: true, chain, sourceDigest, recordedAt: new Date().toISOString() };
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, rederive: status.rederive }) + "\n");
+    break;
+  }
+  case "clear-rederive": {
+    delete status.rederive;
+    saveAndValidate();
+    process.stdout.write(JSON.stringify({ ok: true, rederive: null }) + "\n");
     break;
   }
   case "show": {

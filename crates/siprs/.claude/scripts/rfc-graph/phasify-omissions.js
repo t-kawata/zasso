@@ -30,6 +30,7 @@ const fs = require('fs');
 const path = require('path');
 const { directionOf, isHardEdge, providerConsumerEdge } = require('./lib/edge-order.js');
 const { writeLine } = require('../lib/cli-output');
+const { runMutationGate } = require('../tickets/ticket-mutation-gate.js');
 
 /** Normalize a hard edge to consumer -> provider for the phase merger. */
 // [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
@@ -1303,7 +1304,7 @@ function rollbackFromSnapshot(ticketsPath, withBackup) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127, PX-341, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127|PX-341|PX-356) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127, PX-341, PX-356, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127|PX-341|PX-356|PX-378) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1777,13 +1778,33 @@ function runPhasifyOmissions(opts) {
     snapshotPath: 'tickets/Tickets-' + ts + '.json'
   };
 
-  // Step P: Atomic write merged Tickets.json
-  try {
-    atomicWrite(opts.ticketsPath, JSON.stringify(mergedResult.data, null, 2) + '\n');
-  } catch (e) {
-    console.error('[ERROR] Cannot write Tickets.json: ' + e.message);
+  // Step P: the mutation gate verifies and promotes Tickets.json. A refusal leaves
+  // the original file, the backup and the snapshot untouched.
+  const addedKeys = output.phases.flatMap(function(phase) {
+    return (phase.tickets || []).map(function(ticket) {
+      return formatTicketKey(phase.id, ticket.id);
+    });
+  });
+  const gate = runMutationGate({
+    ticketsPath: opts.ticketsPath,
+    manifest: {
+      command: 'find-omissions',
+      reason: 'phasified omissions',
+      added: addedKeys,
+      origin: 'omission',
+    },
+    afterDocument: mergedResult.data,
+    packageDirectory: path.dirname(opts.ticketsPath),
+    graphPath: opts.graphPath,
+    filesChanged: true,
+  });
+  if (!gate.ok) {
+    console.error('[ERROR] mutation gate refused the merge:');
+    for (const entry of gate.findings) {
+      console.error('  - ' + entry.code + ': ' + (entry.subject || '') + ' ' + (entry.message || ''));
+    }
     console.error('Backup preserved: ' + backupPath);
-    process.exit(3);
+    process.exit(1);
   }
 
   // Step Q: Move artifacts to subdirectories (PX-112)

@@ -34,6 +34,7 @@ const {
   coverageFor,
   outputDigest,
 } = require('./lib/status-generation');
+const { recordStageReceipt, collectStageGateVerdicts } = require('./lib/stage-receipt');
 
 // ============================================================
 // Constants
@@ -300,15 +301,18 @@ function executeBeginRun(status, runId) {
   logLine(JSON.stringify({ runs: status.runs, runId: status.runId }));
 }
 
-// [::TICKET::] PX-313, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-366) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-313, PX-366, PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-366|PX-377) --for-spec --no-implementation-order`.
 function executeEndStep(status, stepId, { audit = false } = {}) {
   status.steps[stepId] = STATUS_DONE;
   const idx = STEP_ORDER.indexOf(stepId);
   if (stepId === '6' && status.runId !== null && status.runId !== undefined) {
     const graphPath = fromHomeRelative(status.graphFile);
+    const dirsTreePath = graphPath.replace(/-GRAPH\.json$/, '-Dirs-Tree.json');
+    const sidecarPath = path.join(path.dirname(graphPath), 'RFC-FORMULAS.json');
     const ticketsPath = path.join(path.dirname(graphPath), 'Tickets.json');
+    const ticketsDigest = outputDigest(ticketsPath);
     const result = completeGeneration(status, {
-      outputDigest: outputDigest(ticketsPath),
+      outputDigest: ticketsDigest,
       coverage: coverageFor('split', ticketsPath),
       audit,
     });
@@ -316,6 +320,16 @@ function executeEndStep(status, stepId, { audit = false } = {}) {
       throw new Error(`${result.code}: the stage generation was not written`);
     }
     Object.assign(status, result.status);
+    if (!audit) {
+      Object.assign(status, recordStageReceipt(status, {
+        stage: 'split',
+        rfcPath: fromHomeRelative(status.sourceFile),
+        inputs: { graph: graphPath, dirsTree: dirsTreePath, sidecar: sidecarPath },
+        outputPath: ticketsPath,
+        outputDigest: ticketsDigest,
+        gateVerdicts: collectStageGateVerdicts(status),
+      }));
+    }
   }
   if (idx === STEP_ORDER.length - 1) {
     if (require.main === module) recordRunHistory('finish', { ...RUN_HISTORY, status: 'COMPLETE' });
