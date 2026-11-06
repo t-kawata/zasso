@@ -20,6 +20,7 @@ import { isReasonlessNotApplicable } from './seed-model.mjs';
  * @param {{ manifest: object, expectedAllocation: Map<string, object[]>, parsedByPackage: Map<string, object>, duplicateOwnerRefs?: string[] }} input
  * @returns {{ segments_total: number, segments_covered: number, material_segments: string[], non_material_segments: string[], uncovered: string[], per_package_segments: object, unallocated_items: string[], duplicate_owner_refs: string[], not_applicable_without_reason: string[] }}
  */
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 export function buildCoverageProof({ manifest, expectedAllocation = new Map(), parsedByPackage = new Map(), duplicateOwnerRefs = [] }) {
   const segments = manifest?.structure?.segments ?? [];
   const covered = new Set();
@@ -37,13 +38,14 @@ export function buildCoverageProof({ manifest, expectedAllocation = new Map(), p
     }
   }
 
-  // A segment with no harvested material is prose: no seed owes it, but it is
-  // recorded so the omission is visible rather than silent.
+  // A segment with no harvested declaration and no formula is prose: no seed owes it,
+  // but it is recorded so the omission is visible rather than silent. A formula-bearing
+  // segment is material even without inventory, because S8 measures its formulas.
   const materialSegments = segments
-    .filter((segment) => (segment.owned_inventory_ids ?? []).length > 0)
+    .filter((segment) => (segment.owned_inventory_ids ?? []).length > 0 || (segment.formula_ids ?? []).length > 0)
     .map((segment) => segment.id);
   const nonMaterialSegments = segments
-    .filter((segment) => (segment.owned_inventory_ids ?? []).length === 0)
+    .filter((segment) => (segment.owned_inventory_ids ?? []).length === 0 && (segment.formula_ids ?? []).length === 0)
     .map((segment) => segment.id);
   const uncovered = materialSegments.filter((segmentId) => !covered.has(segmentId));
 

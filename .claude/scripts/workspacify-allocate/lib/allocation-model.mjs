@@ -18,6 +18,7 @@ export const SEMANTIC_OWNER = 'semantic_owner';
  * @param {{ ownershipEntries: Array<object>, packages: Array<object> }} input
  * @returns {{ expectedByPackage: Map<string, object[]>, ok: boolean, duplicateRefs: string[], unknownRefs: string[] }}
  */
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 export function deriveExpectedAllocation({ ownershipEntries = [], packages = [] }) {
   const packageIds = new Set(packages.map((pkg) => pkg.id));
   const ownerCountByKey = new Map();
@@ -26,6 +27,12 @@ export function deriveExpectedAllocation({ ownershipEntries = [], packages = [] 
 
   const byPackage = new Map(packages.map((pkg) => [pkg.id, []]));
   for (const entry of ownershipEntries) {
+    // A segment claim allocates prose, not an inventory item. It reaches the seed
+    // through collectPackageSegments; treating it as an allocation row would make
+    // seed parity expect a row that no inventory list can satisfy.
+    if (entry.category === 'segment') {
+      continue;
+    }
     const key = allocationKey(entry);
     ownerCountByKey.set(key, (ownerCountByKey.get(key) ?? 0) + 1);
     if (!packageIds.has(entry.owner_package)) {
@@ -87,6 +94,38 @@ export function buildInventoryIndex(manifest) {
  */
 export function lookupInventoryItem(manifest, category, inventoryRef) {
   return buildInventoryIndex(manifest).get(`${category}:${inventoryRef}`);
+}
+
+/**
+ * The specification segments a package carries.
+ *
+ * Two sources are one set: the source refs of its owned inventory items, and the
+ * grounded segment claims the tree published as category=segment ownership rows. The
+ * second is what lets a formula-bearing prose chapter be owned without inventing an
+ * inventory item for it.
+ *
+ * @param {{ manifest: object, packageId: string }} input
+ * @returns {string[]} segment ids, sorted and unique
+ */
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+export function collectPackageSegments({ manifest, packageId }) {
+  const segments = new Set();
+  for (const entry of manifest.workspace?.ownership?.entries ?? []) {
+    if (entry.owner_package !== packageId) {
+      continue;
+    }
+    if (typeof entry.segment_id === 'string') {
+      segments.add(entry.segment_id);
+      continue;
+    }
+    const record = lookupInventoryItem(manifest, entry.category, entry.inventory_ref);
+    for (const ref of record?.source_refs ?? []) {
+      if (typeof ref.segment_id === 'string') {
+        segments.add(ref.segment_id);
+      }
+    }
+  }
+  return [...segments].sort();
 }
 
 /** Stable identity of an allocation entry. */

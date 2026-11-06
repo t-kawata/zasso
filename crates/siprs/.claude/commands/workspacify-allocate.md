@@ -217,7 +217,7 @@ Checks, all required:
 - decisions schema; authoring surface: §4–§13 present only.
 - G3.7: five-focus coverage; final-pass convergence; residual type; stage-1 residual carry; forbidden vocabulary absent.
 - render each seed; exact 14 ordered headings; non-empty typed bodies; Allocation Index; three agreeing references; complete contracts; extant segment ids.
-- seed↔manifest parity; zero transfer loss: every non-empty-owned-inventory segment referenced; empty-owned segment recorded non-material.
+- seed↔manifest parity; zero transfer loss: every non-empty-owned-inventory segment referenced; empty-owned segment recorded non-material; a formula-bearing segment is material even without inventory and is covered by a `category=segment` ownership entry.
 - bilateral contracts (G4); WIG (G5); implementation order == stage-1 proof.
 - each residual `grill_question` verbatim in target §12.
 - `semantic_review.status === "APPROVED"`.
@@ -282,7 +282,7 @@ Exactly one seed/package. Exact ordered headings:
 ## 14. Source Traceability Index
 ```
 
-- §1: machine-injected JSON: three reference paths, implementation order, contract ids, covered segments.
+- §1: machine-injected JSON: three reference paths, implementation order, contract ids, covered segments (inventory refs and grounded `category=segment` claims).
 - §2: machine-injected contract JSON: all boundary clause groups.
 - §3: machine-injected Allocation Index + coverage.
 - §14: machine-injected segment ids.

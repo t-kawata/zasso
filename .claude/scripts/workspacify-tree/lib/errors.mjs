@@ -26,10 +26,12 @@ export const EXIT_CODES = Object.freeze({
  * (G0..G5, or a sub-gate such as G1.3) and the exit code the CLI must return.
  */
 export class WorkSpacifyTreeError extends Error {
-  constructor(message, { gateId = 'GENERAL', exitCode = EXIT_CODES.FAIL } = {}) {
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+  constructor(message, { gateId = 'GENERAL', exitCode = EXIT_CODES.FAIL, code = null } = {}) {
     super(message);
     this.name = 'WorkSpacifyTreeError';
     this.gateId = gateId;
     this.exitCode = exitCode;
+    this.code = code;
   }
 }

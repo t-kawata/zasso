@@ -263,7 +263,7 @@ export function buildReport(input) {
   const {
     workspace, findings, withheld, blocked, waived, downgrade,
     checks, provenance, readings, denominator, instrument, verdict, evidencePolicy,
-    wouldExit,
+    wouldExit, checkSet,
   } = input;
   const sorted = [...findings]
     .map((finding) => ({ ...finding, persisted: finding.persisted ?? false, repairClass: finding.repairClass ?? 'in-place' }))
@@ -293,6 +293,7 @@ export function buildReport(input) {
     instrument: instrument ?? emptyInstrument(),
     denominator: denominator ?? emptyDenominator(),
     evidencePolicy: evidencePolicy ?? 'legacy',
+    checkSet: checkSet ?? null,
     verdict: verdict ?? defaultVerdict,
     wouldExit: wouldExit ?? null,
     downgrade: downgrade ?? null,
@@ -392,7 +393,7 @@ function formatInstrumentLine(instrument = emptyInstrument()) {
 
 /** The lines every console block opens with after its finding count. */
 // [::TICKET::] PX-283, PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-283|PX-284) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-285, PX-302, PX-311 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-285|PX-302|PX-311) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-285, PX-302, PX-311, PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-285|PX-302|PX-311|PX-389) --for-spec --no-implementation-order`.
 function buildSummaryLines(report) {
   const readingsLine = report.readings?.policy === 'advisory'
     ? `${formatReadingsLine(report.readings)} (advisory; not blocking)`
@@ -409,8 +410,19 @@ function buildSummaryLines(report) {
   if (report.downgrade !== null) {
     lines.push(`downgrade: ${report.downgrade.from}->${report.downgrade.to} (${report.downgrade.code})`);
   }
+  const checkSetLine = formatCheckSetLine(report);
+  if (checkSetLine !== null) {
+    lines.push(checkSetLine);
+  }
   lines.push(...renderReadingsWithheldLine(report.readings));
   return lines;
+}
+
+/** The check set a report was measured by, or null for a report that did not record one. */
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+function formatCheckSetLine(report) {
+  if (!report.checkSet?.digest) return null;
+  return `check set: ${report.checkSet.digest.slice(0, 12)}`;
 }
 
 /** The waived findings as one line. */
@@ -470,6 +482,7 @@ export function renderReportMarkdown(report, { limit = MAX_MARKDOWN_FINDINGS } =
     `readings: ${formatReadingsLine(report.readings)}`,
     formatInstrumentLine(report.instrument),
     ...renderReadingsWithheldLine(report.readings),
+    ...(formatCheckSetLine(report) === null ? [] : [formatCheckSetLine(report)]),
     renderDenominatorLine(report.denominator),
     `blocked: ${report.blocked.length === 0 ? 'none' : `${report.blocked.length} check(s) in ${surfaceCount} surface(s)`}`,
     `waived: ${report.waived.length}`,

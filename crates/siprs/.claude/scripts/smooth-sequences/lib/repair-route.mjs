@@ -21,15 +21,20 @@ export const SURFACE = Object.freeze({
   PACKAGE_RFC: 'package-rfc',
   PACKAGE_OBLIGATION: 'package-obligation',
   ALLOCATE_DECISIONS: 'allocate-decisions',
+  TREE_DECISIONS: 'tree-decisions',
   PACKAGE_VIEW: 'package-view',
 });
 
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const ALLOCATE_DECISIONS_PATH = 'workspacify/allocate/DECISIONS.json';
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+export const TREE_DECISIONS_PATH = 'workspacify/tree/DECISIONS.json';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const REGENERATION_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --spec=<candidate> --reason=<reason>';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const REGENERATION_ALLOCATE_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --allocate-decisions=<candidate> --reason=<reason>';
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
+export const REGENERATION_TREE_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/regeneration/run.mjs" open --tree-decisions=<candidate> --reason=<reason>';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export const DETECTOR_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"';
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -43,8 +48,11 @@ const GRILL_PACKAGE_COMMAND = '/grill-me-for-rfc';
 /** The S8 findings whose repair is a regeneration of the specification. */
 const S8_REGENERATION_CHECK_IDS = Object.freeze(['S8.spec-unreadable', 'S8.spec-hash-mismatch']);
 
+/** The S8 findings whose repair is a tree-decision regeneration. */
+const S8_TREE_CHECK_IDS = Object.freeze(['S8.formula-unowned']);
+
 /** The S8 findings whose repair is allocate-decision regeneration. */
-const S8_ALLOCATE_CHECK_IDS = Object.freeze(['S8.formula-unowned']);
+const S8_ALLOCATE_CHECK_IDS = Object.freeze(['S8.segment-coverage']);
 
 /** The S8 findings whose repair is a package re-grill. */
 const S8_GRILL_CHECK_IDS = Object.freeze([
@@ -54,7 +62,6 @@ const S8_GRILL_CHECK_IDS = Object.freeze([
   'S8.implementation-design-missing',
   'S8.cross-package-row-missing',
   'S8.formula-invented',
-  'S8.segment-coverage',
 ]);
 
 /** The producer that restores one blocked evidence surface. */
@@ -157,7 +164,6 @@ const ALLOCATE_CHECK_IDS = Object.freeze([
 const PACKAGE_RFC_CHECK_IDS = Object.freeze(['S7.rfc-boundary-missing']);
 
 const S8_SPEC_CHECK_IDS = Object.freeze(['S8.spec-unreadable', 'S8.spec-hash-mismatch']);
-const S8_ALLOCATE_ROUTE_CHECK_IDS = Object.freeze(['S8.formula-unowned']);
 const S8_PACKAGE_RFC_CHECK_IDS = Object.freeze([
   'S8.formula-missing',
   'S8.formula-invented',
@@ -189,7 +195,8 @@ export const REPAIR_ROUTE_BY_CHECK_ID = Object.freeze(Object.fromEntries([
   ...ALLOCATE_CHECK_IDS.map((checkId) => [checkId, SURFACE.ALLOCATE_DECISIONS]),
   ...PACKAGE_RFC_CHECK_IDS.map((checkId) => [checkId, SURFACE.PACKAGE_RFC]),
   ...S8_SPEC_CHECK_IDS.map((checkId) => [checkId, SURFACE.SPEC]),
-  ...S8_ALLOCATE_ROUTE_CHECK_IDS.map((checkId) => [checkId, SURFACE.ALLOCATE_DECISIONS]),
+  ...S8_TREE_CHECK_IDS.map((checkId) => [checkId, SURFACE.TREE_DECISIONS]),
+  ...S8_ALLOCATE_CHECK_IDS.map((checkId) => [checkId, SURFACE.ALLOCATE_DECISIONS]),
   ...S8_PACKAGE_RFC_CHECK_IDS.map((checkId) => [checkId, SURFACE.PACKAGE_RFC]),
   ...PACKAGE_VIEW_CHECK_IDS.map((checkId) => [checkId, SURFACE.PACKAGE_VIEW]),
 ]));
@@ -238,6 +245,13 @@ export function repairRouteFor(checkId, context = {}) {
 // [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
   if (S8_REGENERATION_CHECK_IDS.includes(checkId)) return buildSpecTarget(context);
+  if (S8_TREE_CHECK_IDS.includes(checkId)) {
+    return {
+      where: appendLocator(TREE_DECISIONS_PATH, context.locator),
+      producer: REGENERATION_TREE_COMMAND,
+      repairClass: 'regeneration',
+    };
+  }
   if (S8_ALLOCATE_CHECK_IDS.includes(checkId)) {
     return {
       where: appendLocator(ALLOCATE_DECISIONS_PATH, context.locator),
@@ -283,6 +297,12 @@ export function repairRouteFor(checkId, context = {}) {
       return {
         where: appendLocator(ALLOCATE_DECISIONS_PATH, context.locator),
         producer: REGENERATION_ALLOCATE_COMMAND,
+        repairClass: 'regeneration',
+      };
+    case SURFACE.TREE_DECISIONS:
+      return {
+        where: appendLocator(TREE_DECISIONS_PATH, context.locator),
+        producer: REGENERATION_TREE_COMMAND,
         repairClass: 'regeneration',
       };
     case SURFACE.PACKAGE_RFC:

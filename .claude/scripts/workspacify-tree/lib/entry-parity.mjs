@@ -26,6 +26,7 @@ const FINAL_AUDIT_ZERO_COUNTS = [
   'review_required_count',
   'unresolved_count',
   'unallocated_count',
+  'formula_segment_orphan_count',
   'missing_responsibilities_count',
 ];
 
@@ -36,6 +37,7 @@ const FINAL_AUDIT_ZERO_COUNTS = [
  * @param {string} specPath - path to the original specification
  * @returns {{ ok: boolean, errors: Array<string> }}
  */
+// [::TICKET::] PX-389 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-389 --for-spec --no-implementation-order`.
 export function checkTreeEntryGate(manifest, specPath) {
   const errors = [];
 

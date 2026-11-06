@@ -129,10 +129,12 @@ S8 formula findings route by surface:
 |---|---|---|
 | `S8.formula-missing`, `S8.formula-digest-mismatch`, `S8.theory-incomplete`, `S8.implementation-design-missing`, `S8.cross-package-row-missing`, `S8.formula-invented` | `/grill-me-for-rfc <package>` for the owning package | `judgment-required` |
 | `S8.spec-unreadable`, `S8.spec-hash-mismatch` | specification regeneration transaction | `regeneration` |
-| `S8.formula-unowned`, `S8.segment-coverage` | allocate-decisions regeneration | `regeneration` |
+| `S8.formula-unowned` | tree-decisions regeneration (`node "$CLAUDE_DIR/scripts/regeneration/run.mjs" open --tree-decisions=<candidate> --reason=<reason>`) | `regeneration` |
+| `S8.segment-coverage` | allocate-decisions regeneration | `regeneration` |
 | `S8.ledger-stale` | package `RFC.md` through `/grill-me-for-rfc <package>` | `in-place` |
 | `S8.waiver-refused` | remove the waiver naming a formula omission | `judgment-required` |
 
+A formula-bearing prose segment is material: it is owned by an owned inventory item or by a grounded `segment_ownership` entry in the tree decisions. The tree gate refuses a formula segment with neither (`FORMULA_SEGMENT_UNOWNED`), so a fresh manifest never reaches S8 with an unowned formula.
 A waiver never removes an S8 formula from the denominator. `SMOOTH-VERDICT.json` carries `formulaCompleteness` and `worklistDigest`; graphify and split refuse a receipt whose summary is not `pass` or whose worklist moved.
 
 Blocked surfaces have no authored file of their own. Every blocked line names its producer. The v3 evidence surfaces (`operations[].allowed_status_transitions`, `operations[].registry_contribution`, `operations[].boundary_effects`, `steps[].contract`, `steps[].contract.authored`, `steps[].contract.crosses`) are restored by an annotations document:

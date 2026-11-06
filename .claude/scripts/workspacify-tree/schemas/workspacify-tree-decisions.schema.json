@@ -45,6 +45,25 @@
       }
     },
     "dependencies": { "type": "array", "items": { "type": "object" } },
+    "segment_ownership": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["segmentId", "packageId", "source"],
+        "properties": {
+          "segmentId": { "type": "string", "pattern": "^s-\\d{6}$" },
+          "packageId": { "type": "string", "pattern": "\\S+" },
+          "source": {
+            "type": "object",
+            "required": ["line", "quote"],
+            "properties": {
+              "line": { "type": "integer", "minimum": 1 },
+              "quote": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
     "adapters": {},
     "dependency_reviews": {
       "type": "array",
