@@ -9,10 +9,10 @@ import { buildEvidence } from '../../.claude/scripts/api-consistency/cross-packa
 import { verifyApiConsistency } from '../../.claude/scripts/api-consistency/verify-api-consistency.mjs';
 import { materializeApiWorkspace } from './helpers/workspace.mjs';
 
-// [::TICKET::] PX-372 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-372 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-372, PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-372|PX-382) --for-spec --no-implementation-order`.
 function measurableWorkspace() {
   return materializeApiWorkspace({
-    consumerRust: 'pub fn use_it(value: Missing) {}',
+    consumerRust: 'use provider::Missing; pub fn use_it(value: Missing) {}',
   });
 }
 

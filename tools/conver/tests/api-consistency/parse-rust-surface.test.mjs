@@ -204,3 +204,79 @@ test('PX-372 C001: a trait method signature is declared with self excluded', () 
   assert.ok(method, JSON.stringify(surface.declarations));
   assert.equal(method.parameterCount, 1);
 });
+
+// PX-382 @verifies C001
+// A use statement declares scope; it is not a reference. The parser records every
+// import with its root and alias so the verifier can resolve a reference through the
+// package's imports instead of a workspace-global bare-name table.
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a use statement is an import, not a type reference', () => {
+  const surface = parse('use clap::{Arg, Command};\npub fn run() { Command::new("doors"); }');
+
+  assert.equal(Array.isArray(surface.imports), true);
+  assert.equal(surface.imports.length, 1);
+  assert.equal(surface.imports[0].root, 'clap');
+  assert.deepEqual(surface.imports[0].names.map((entry) => entry.alias), ['Arg', 'Command']);
+  assert.equal(surface.references.some((entry) => entry.symbol === 'Arg'), false);
+  assert.equal(surface.references.some((entry) => entry.line === 4), false);
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a multi-line grouped use records every alias and yields no type reference', () => {
+  const surface = parse([
+    'use provider::{',
+    '  Known,',
+    '  Missing as M,',
+    '};',
+  ].join('\n'));
+
+  assert.equal(surface.imports.length, 1);
+  assert.deepEqual(surface.imports[0].names.map((entry) => entry.alias), ['Known', 'M']);
+  assert.equal(surface.references.length, 0);
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a glob use is recorded and a bare variant is not a type reference', () => {
+  const surface = parse('use provider::ErrorCode::*;\npub fn pick() -> ErrorCode { AlreadyExists }');
+
+  assert.equal(surface.imports.length, 1);
+  assert.equal(surface.imports[0].glob, true);
+  assert.equal(surface.imports[0].names[0].name, 'ErrorCode');
+  assert.ok(surface.references.some((entry) => entry.symbol === 'AlreadyExists'));
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a trait impl method is declared on the implemented type', () => {
+  const surface = parse('impl From<crate::error::DoorsError> for ErrorBody { fn from(value: crate::error::DoorsError) -> Self { ErrorBody(value) } }');
+
+  const method = declarationOf(surface, 'ErrorBody::from');
+  assert.ok(method, JSON.stringify(surface.declarations));
+  assert.equal(method.receiver, false);
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: an impl method records whether it takes self', () => {
+  const surface = parse('impl Row { fn admit(&self, row: Row) {} }');
+
+  const method = declarationOf(surface, 'Row::admit');
+  assert.ok(method, JSON.stringify(surface.declarations));
+  assert.equal(method.receiver, true);
+  assert.equal(method.parameterCount, 1);
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: a type alias records its target', () => {
+  const surface = parse('pub type OperationErrorCode = ErrorCode;');
+
+  const alias = declarationOf(surface, 'OperationErrorCode');
+  assert.ok(alias, JSON.stringify(surface.declarations));
+  assert.equal(alias.aliasTarget, 'ErrorCode');
+});
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C001: an unreadable use statement is reported, not skipped', () => {
+  const surface = parse('use provider::{Known,');
+
+  assert.ok(surface.unparsed.some((entry) => /use/.test(entry.reason)), JSON.stringify(surface.unparsed));
+});

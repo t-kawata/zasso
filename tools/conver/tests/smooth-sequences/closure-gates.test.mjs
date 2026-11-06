@@ -58,3 +58,19 @@ test('a failing closure gate keeps the certificate incomplete and names the repa
   assert.equal(entry.code, 'GRILL_GATE_FAILED');
   assert.equal(entry.subject, 'unstated denominator: 1');
 });
+
+// PX-382 @verifies C003
+// The closure entry records which check set the API gate ran under, so an older
+// verdict is accepted under its own version rather than silently re-judged.
+
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
+test('PX-382 C003: the closure reason yields the recorded check-set version', async () => {
+  const runModule = await import('../../.claude/scripts/smooth-sequences/run.mjs');
+
+  assert.equal(typeof runModule.checkSetVersionOf, 'function');
+  assert.equal(
+    runModule.checkSetVersionOf('api consistency: 0 blocking, 0 advisory (0 out of scope, 0 new, 0 resolved) checkSetVersion=2026-11-06.import-scoped.1'),
+    '2026-11-06.import-scoped.1',
+  );
+  assert.equal(runModule.checkSetVersionOf('no version here'), null);
+});

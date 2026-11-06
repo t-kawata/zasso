@@ -100,18 +100,20 @@ function crossPackageRust(providerBody, consumerBody) {
 }
 
 /** RFC bodies whose cross-package calls agree with their declarations. */
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
 export function rfcBodiesWithApiMatch() {
   return crossPackageRust(
     'pub fn produce_fact(one: String) -> Result<()> { Ok(()) }',
-    'pub fn consume_it() { produce_fact(one); }',
+    'use pkg_0001::produce_fact; pub fn consume_it() { produce_fact(one); }',
   );
 }
 
 /** RFC bodies whose cross-package call has one argument more than the declaration. */
+// [::TICKET::] PX-382 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-382 --for-spec --no-implementation-order`.
 export function rfcBodiesWithApiMismatch() {
   return crossPackageRust(
     'pub fn produce_fact(one: String) -> Result<()> { Ok(()) }',
-    'pub fn consume_it() { produce_fact(one, two); }',
+    'use pkg_0001::produce_fact; pub fn consume_it() { produce_fact(one, two); }',
   );
 }
 
