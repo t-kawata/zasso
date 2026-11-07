@@ -352,7 +352,8 @@ Order: P0 → P1 → …; one phase only; display nodes → judge name/summary �
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/show-all-nodes-title-summary.js" --phase="P0"
 echo '{"name":"Authentication Infrastructure","summary":"Authentication token generation, verification, and session management"}' | node "$CLAUDE_DIR/scripts/rfc-graph/write-phase-name-summary.js" "P0"
-node "$CLAUDE_DIR/scripts/rfc-graph/check-phase-names-summaries.jsnode" .claude/scripts/rfc-graph/update-split-step-status.js end-step "4-2"
+node "$CLAUDE_DIR/scripts/rfc-graph/check-phase-names-summaries.js"
+node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "4-2"
 ```
 
 Missing name/summary → fail; no Step 5.

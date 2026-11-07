@@ -58,6 +58,13 @@ test('C006 the split command carries the consolidation-first work-budget policy'
   assert.doesNotMatch(content, /list-phases-and-tickets\.jsnode/);
 });
 
+test('C003 the phase name gate and the end-step are two commands', () => {
+  const content = readFileSync(COMMAND_PATH, 'utf8');
+  assert.doesNotMatch(content, /check-phase-names-summaries\.jsnode/);
+  assert.match(content, /check-phase-names-summaries\.js"/);
+  assert.match(content, /update-split-step-status\.js" end-step "4-2"/);
+});
+
 test('C002 the split command selects evolve mode from the presence of Tickets.json', () => {
   const content = readFileSync(COMMAND_PATH, 'utf8');
   assert.match(content, /## Evolve Mode/);

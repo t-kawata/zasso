@@ -53,7 +53,7 @@ evidence about what a line says.
 
 ## 4. The checks
 
-The checks are declared once, at `engine.mjs:885`, and the count the run prints is derived
+The checks are declared once, at `engine.mjs:934`, and the count the run prints is derived
 from that array rather than restated. Each check carries the defect that produced it, the
 reading it refuses to accept, and its scope, because a check whose origin is forgotten is
 the first one deleted when it turns red.
@@ -251,7 +251,7 @@ for a line.
 
 A `[read]` phase is the one place a machine cannot go, so what it hands back is a shape the
 machine can check: a declaration, and one signed readings file per brief, both validated
-line by line at `readings.mjs:502` before anything downstream sees them. Two files are
+line by line at `readings.mjs:507` before anything downstream sees them. Two files are
 carried per brief rather than one because a single reader asked for four sections answers
 three of them from the first and calls it reading.
 

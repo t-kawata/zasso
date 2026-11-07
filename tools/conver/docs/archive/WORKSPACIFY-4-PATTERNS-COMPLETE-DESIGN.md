@@ -111,7 +111,7 @@ Evidence, all from the code:
 
 | Fact | Source |
 |---|---|
-| `RFC-SEED.md` is written into **every package directory** | `allocate-manifest.mjs:43` — `` path: `${pkg.path}/${SEED_FILE_NAME}` `` |
+| `RFC-SEED.md` is written into **every package directory** | `allocate-manifest.mjs:44` — `` path: packageFilePath(pkg.path, SEED_FILE_NAME) `` |
 | There is exactly one seed per package | `workspacify-allocate/lib/reverse-mode.mjs:212` — *"each of the N seed-bearing package(s) holds exactly one `RFC-SEED.md`"* |
 | The seed names its package | `seed-render.mjs:76` — `` `${SEED_TITLE_PREFIX}${pkg.name}` `` where `SEED_TITLE_PREFIX = '# RFC Seed: '` |
 | `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:84` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
@@ -331,7 +331,7 @@ Two receptacles exist, and they are not interchangeable:
 | `ARCHITECTURE-DELTA.json` | the reverse rotation (**T5**) | logical structure vs physical structure mismatches |
 | `<X>.json.delta.json` | the **evolution loop** (`/drill-rfc-down`) | how an artefact changed across one drill round |
 
-The `.delta.json` family is written by `drill-rfc-down/boundify-step.js:66`
+The `.delta.json` family is written by `drill-rfc-down/boundify-step.js:67`
 (`` return `${dirsTreePath}.delta.json` ``) and the file's own comment says *"the delta
 (`.delta.json`) is the persistent record and is kept"*. Both trees carry examples:
 `RFC-ROOT-Dirs-Tree.json.delta.json`, `RFC-ROOT-GRAPH.json.delta.json`, `Tickets.json.delta.json`.
@@ -638,7 +638,7 @@ Each of these is a formulation that was tried and rejected:
 | `scrub` / `detect` / `verify` as workflow steps | `scrub` **removes** forward traces. On a pattern-2 project those traces are its 143 `Initial Design Artifact` headers and its `@verifies` annotations. Removing them is supreme law 4 territory and destroys exactly what must be carried forward |
 | `oracle compare` as a workflow step | An answer key exists only in the paired-tree experiment. No real project has one |
 | An invocation that hands a rotation a path the rotation can derive | §9. The criterion the family applies is that an argument is hidden unless hiding it breaks one of the four patterns. `--root`, `--graph`, `--measured`, `--sidecars`, `--delta`, `--out` and `--prior-partition` left the reverse rotation for this reason, and the decisions document left both forward rotations; all of them are refused by name rather than ignored, because a question dropped in silence reads exactly like one answered |
-| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:383-387` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
+| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:383-388` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
 | Any statement that the project must already be a complete conver project | §1.2 |
 
 ### 5.9 The round, and what success is
@@ -706,11 +706,11 @@ think the rows are still there.
 | The exit is reachable | Measured 2026-09-11: `analyze --through=r8` on `siprs-for-reverse` → exit 0, ~3 min (A.1). Re-evidenced in the tree on 2026-09-15: `tests/workspacify-reverse/analysis/` holds that run's documents, 29 of them after the removal recorded in A.1, and `ORIGIN-LONG-SPEC.json` is published only when the r8 stage ran (`scope.mjs:1923`), so its presence is the exit having been reached rather than a memory of one |
 | The analysis does not write to its subject | The run's own digest comparison; plus `git status` clean afterwards |
 | The workspace root is a package, path `.` | `structure-parity.mjs` lines 69, 126–131, 172 |
-| `RFC-SEED.md` is per-package | `allocate-manifest.mjs:43`, `workspacify-allocate/lib/reverse-mode.mjs:212` |
+| `RFC-SEED.md` is per-package | `allocate-manifest.mjs:44`, `workspacify-allocate/lib/reverse-mode.mjs:212` |
 | `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:84` |
 | Graph / Dirs-Tree sit beside their RFC | `.claude/commands/boundify-graph.md` |
 | The isolation check rejects a pattern-2 tree | `holdout isolation siprs-with-4layers` → exit 1, 9 artefacts named |
-| The `.delta.json` family is the evolution loop's | `drill-rfc-down/boundify-step.js:66` |
+| The `.delta.json` family is the evolution loop's | `drill-rfc-down/boundify-step.js:67` |
 | The interrupted cycle's **in-flight work** is accounted for (§3.3) | `reverse-split.js` reads the declared tickets' lifecycles (`TERMINAL_TICKET_STATUSES`, `ticketLifecyclesFrom`) and reports every non-terminal one, re-homed or named as re-homed-nowhere, with the declared key set and the partition it came from (`renderInFlightReport`). A ticket whose document declares no status is reported as absent rather than assumed terminal. `P23-9`, measured 2026-09-13 |
 
 ### 7.2 Verified as *absent*

@@ -16,6 +16,11 @@ const path = require('node:path');
 
 const { readFormulaIds, readHeaderFormulaIds, isFormulaId } = require('./lib/formula-ids.js');
 const { readHeaderNodeId } = require('./lib/unit-ids.mjs');
+const {
+  resolveGraphPath,
+  resolveDirsTreePath,
+  reportResolvedPath,
+} = require('../lib/package-artifacts');
 
 // [::TICKET::] PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361) --for-spec --no-implementation-order`.
 function argumentFor(argv, name) {
@@ -115,10 +120,25 @@ function verifyFormulaFileCoverage({ graph, dirsTree, sidecar, root }) {
 
 // [::TICKET::] PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-361) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  const graphPath = argumentFor(argv, 'graph');
-  const dirsTreePath = argumentFor(argv, 'dirs-tree');
-  if (graphPath === null || dirsTreePath === null) {
-    console.error('[ERROR] --graph=<GRAPH.json> --dirs-tree=<Dirs-Tree.json> are required');
+  const graphFlag = argumentFor(argv, 'graph');
+  const dirsTreeFlag = argumentFor(argv, 'dirs-tree');
+  let graphPath;
+  let dirsTreePath;
+  // /boundify-graph runs this gate bare, so both layers resolve from the
+  // invocation directory; an explicit flag remains an override for non-canonical callers.
+  try {
+    graphPath = graphFlag !== null
+      ? path.resolve(graphFlag)
+      : resolveGraphPath({ cwd: process.cwd() });
+    if (graphFlag === null) reportResolvedPath('graph', graphPath);
+    dirsTreePath = dirsTreeFlag !== null
+      ? path.resolve(dirsTreeFlag)
+      : resolveDirsTreePath({ cwd: process.cwd(), graphPath });
+    if (dirsTreeFlag === null) reportResolvedPath('dirs-tree', dirsTreePath);
+  } catch (error) {
+    console.error('[ERROR] ' + (error.code || 'MISSING_ARTIFACT') + ': ' + error.message);
+    console.error('Cause: the coverage gate reads both layers');
+    console.error('Action: ' + (error.remedy || 'pass both paths and re-run'));
     return 1;
   }
   const root = path.resolve(argumentFor(argv, 'root') ?? path.dirname(graphPath));

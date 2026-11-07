@@ -63,7 +63,7 @@ test('C005 plan, start and review run the prerequisite gate at entry', () => {
 
 test('C005 the workflow briefs implementation prerequisites and step contracts', () => {
   assert.match(DOCUMENT, /## Implementation Prerequisites/);
-  assert.match(DOCUMENT, /`## Distribution Obligations` or `## Implementation Prerequisites`/);
+  assert.match(DOCUMENT, /`## Distribution Obligations`, `## Formula Obligations` or `## Implementation Prerequisites`/);
   assert.match(DOCUMENT, /Operation-Boundary Contracts/);
 });
 
