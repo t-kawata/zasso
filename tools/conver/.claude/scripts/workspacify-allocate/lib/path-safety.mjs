@@ -15,6 +15,41 @@ import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 
 const NUL = String.fromCharCode(0);
 
+/** The tree manifest's spelling for the workspace root package. */
+export const ROOT_PACKAGE_PATH = '.';
+
+/**
+ * A package path in the spelling the tree manifest uses.
+ *
+ * The root may be written ".", "./", or as the empty string. All three name the
+ * workspace root itself, which already exists and is never planned or published as a
+ * directory. Non-root paths lose only a leading "./" and a trailing slash.
+ *
+ * @param {string|null|undefined} value - a manifest package path
+ * @returns {string} root-relative POSIX path, or "." for the root
+ */
+export function normalizePackagePath(value) {
+  const posix = String(value ?? '').replace(/\\/g, '/');
+  const trimmed = posix.replace(/\/+$/, '');
+  if (trimmed === '' || trimmed === ROOT_PACKAGE_PATH) return ROOT_PACKAGE_PATH;
+  const normalized = path.posix.normalize(trimmed);
+  return normalized === '' || normalized === ROOT_PACKAGE_PATH ? ROOT_PACKAGE_PATH : normalized;
+}
+
+/**
+ * The root-relative path of a file this pipeline places into a package.
+ *
+ * A root package has no directory prefix; its files sit at the workspace root.
+ *
+ * @param {string|null|undefined} packagePath - a manifest package path
+ * @param {string} fileName - a file name such as RFC-SEED.md
+ * @returns {string} root-relative POSIX file path
+ */
+export function packageFilePath(packagePath, fileName) {
+  const normalized = normalizePackagePath(packagePath);
+  return normalized === ROOT_PACKAGE_PATH ? fileName : `${normalized}/${fileName}`;
+}
+
 /**
  * Classify a root-relative POSIX path for unsafe patterns.
  *

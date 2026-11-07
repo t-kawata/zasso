@@ -8,7 +8,7 @@
  * pure function: the same (tree, packages) always yields the same sorted set.
  */
 import { validatePackageCatalog, validateWorkspaceTree } from '../../workspacify-tree/lib/workspace-model.mjs';
-import { classifyUnsafePath } from './path-safety.mjs';
+import { ROOT_PACKAGE_PATH, classifyUnsafePath, normalizePackagePath } from './path-safety.mjs';
 
 /**
  * Build the sorted, de-duplicated set of directories to materialize.
@@ -36,7 +36,11 @@ export function buildDirectoryPlan({ tree, packages }) {
     }
   }
 
-  const nodePaths = collectTreeNodePaths(treeArr);
+  // The workspace root is a package, never a directory to create: a plan that named
+  // "." would ask the publisher to rename the root onto itself.
+  const nodePaths = collectTreeNodePaths(treeArr)
+    .map(normalizePackagePath)
+    .filter((nodePath) => nodePath !== ROOT_PACKAGE_PATH);
   for (const nodePath of nodePaths) {
     const reasons = classifyUnsafePath(nodePath);
     if (reasons.length > 0) {

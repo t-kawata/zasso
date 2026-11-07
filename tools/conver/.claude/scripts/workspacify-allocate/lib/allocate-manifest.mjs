@@ -16,6 +16,7 @@ import path from 'node:path';
 import { sha256Hex } from '../../workspacify-tree/lib/hash.mjs';
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
 import { SEED_FILE_NAME } from './seed-model.mjs';
+import { packageFilePath } from './path-safety.mjs';
 
 /** Hash algorithm recorded in the manifest. */
 export const ALLOCATE_MANIFEST_HASH_ALGORITHM = 'SHA-256';
@@ -40,7 +41,7 @@ export function buildAllocateManifest({ manifestRef, plan, renderedByPackage = n
     .filter((pkg) => pkg.seed_required !== false)
     .map((pkg) => ({
       package: pkg.id,
-      path: `${pkg.path}/${SEED_FILE_NAME}`,
+      path: packageFilePath(pkg.path, SEED_FILE_NAME),
       sha256: hashSeed({ manifestDir, pkg, renderedByPackage }),
     }))
     .sort((left, right) => left.package.localeCompare(right.package));

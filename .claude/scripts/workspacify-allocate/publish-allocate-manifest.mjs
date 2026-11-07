@@ -14,6 +14,7 @@ import path from 'node:path';
 import { createStagingRoot, materializeDirectories, publishStagedTree } from './lib/tree-staging.mjs';
 import { ALLOCATE_MANIFEST_FILE_NAME, SEED_FILE_NAME } from './lib/seed-model.mjs';
 import { renderAllocateManifest } from './lib/allocate-manifest.mjs';
+import { packageFilePath } from './lib/path-safety.mjs';
 
 /**
  * Verify the staged set before publication.
@@ -77,9 +78,11 @@ function expandPlannedDirectories(relativeDirs) {
  */
 // [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
 export function publishedTopLevelNames({ plan, renderedByPackage }) {
+  const seedPaths = [...renderedByPackage.values()]
+    .map(({ package: pkg }) => packageFilePath(pkg.path, SEED_FILE_NAME));
   return [...new Set([
     ...(plan.relativeDirs ?? []).map((relativeDir) => relativeDir.split('/')[0]),
-    ...[...renderedByPackage.values()].map(({ package: pkg }) => pkg.path.split('/')[0]),
+    ...seedPaths.map((seedPath) => seedPath.split('/')[0]),
     ALLOCATE_MANIFEST_FILE_NAME,
   ])].sort();
 }
@@ -134,14 +137,14 @@ export function publishWorkspace({ manifestDir, plan, renderedByPackage, allocat
   try {
     materializeDirectories(staging.path, plan.relativeDirs);
     for (const { package: pkg, seedText } of renderedByPackage.values()) {
-      writeFileSync(path.join(staging.path, pkg.path, SEED_FILE_NAME), seedText, 'utf8');
+      writeFileSync(path.join(staging.path, packageFilePath(pkg.path, SEED_FILE_NAME)), seedText, 'utf8');
     }
     writeFileSync(path.join(staging.path, ALLOCATE_MANIFEST_FILE_NAME), renderAllocateManifest(allocateManifest), 'utf8');
 
     const staged = verifyStagedWorkspace({
       stagingRoot: staging.path,
       plan,
-      seedRelPaths: [...renderedByPackage.values()].map(({ package: pkg }) => `${pkg.path}/${SEED_FILE_NAME}`),
+      seedRelPaths: [...renderedByPackage.values()].map(({ package: pkg }) => packageFilePath(pkg.path, SEED_FILE_NAME)),
     });
     if (!staged.ok) {
       rmSync(staging.path, { recursive: true, force: true });

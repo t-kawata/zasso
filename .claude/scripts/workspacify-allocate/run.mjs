@@ -28,7 +28,7 @@ import {
 
 import { loadTreeManifest, checkAllocateEntryGate, readManifestSource } from './lib/tree-manifest-input.mjs';
 import { buildDirectoryPlan } from './lib/directory-plan.mjs';
-import { checkPlannedPathSafety } from './lib/path-safety.mjs';
+import { checkPlannedPathSafety, packageFilePath } from './lib/path-safety.mjs';
 import { checkExistingOutputPolicy, createStagingRoot, materializeDirectories, verifyStaging, publishStagedTree, snapshotDirectories, verifyDirectorySet } from './lib/tree-staging.mjs';
 import { collectPackageSegments, deriveExpectedAllocation } from './lib/allocation-model.mjs';
 import { buildAuthoringPacket } from './lib/seed-authoring-packet.mjs';
@@ -685,7 +685,7 @@ export function runReverse(args) {
   }));
 
   const plannedWrites = packagesRequiringSeed(packages)
-    .map((pkg) => ({ path: `${pkg.path}/${SEED_FILE_NAME}` }));
+    .map((pkg) => ({ path: packageFilePath(pkg.path, SEED_FILE_NAME) }));
   plannedWrites.push({ path: ALLOCATE_MANIFEST_FILE_NAME });
 
   // Every gate, judged once, before anything is written. A2 is judged here on the
@@ -773,7 +773,7 @@ function reportReverseOutcome(records) {
 // [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function writeReverseSeeds({ manifestDir, renderedByPackage }) {
   for (const { seedText, package: pkg } of renderedByPackage.values()) {
-    writeFileSync(path.join(manifestDir, pkg.path, SEED_FILE_NAME), seedText, 'utf8');
+    writeFileSync(path.join(manifestDir, packageFilePath(pkg.path, SEED_FILE_NAME)), seedText, 'utf8');
   }
 }
 

@@ -333,17 +333,17 @@ export const CHECK_REGISTRY = Object.freeze([
   check('S5.precondition-not-implied', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countTypedAuthoredSteps,
+    denominator: (index) => countAuthoredDeclarations(index, ['pre']),
   }),
   check('S5.consumes-not-produced', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countTypedAuthoredSteps,
+    denominator: (index) => countAuthoredDeclarations(index, ['consumes']),
   }),
   check('S5.error-set-mismatch', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countTypedAuthoredSteps,
+    denominator: (index) => countAuthoredDeclarations(index, ['errors']),
   }),
   check('S5.boundary-uncovered', 'meshing', {
     requires: [SURFACES.STEP_CROSSINGS, SURFACES.CONTRACT_REGISTRY],
@@ -363,7 +363,7 @@ export const CHECK_REGISTRY = Object.freeze([
   check('S5.authored-source-missing', 'meshing', {
     requires: [SURFACES.AUTHORED_CONTRACTS],
     claims: 'spec',
-    denominator: countTypedAuthoredSteps,
+    denominator: (index) => countAuthoredDeclarations(index, ['pre', 'post', 'invariants']),
   }),
   check('S6.cycle', 'danger', {
     requires: [SURFACES.TYPED_STEP_CONTRACTS],
@@ -493,13 +493,33 @@ function applicabilityForCheck(checkId, index) {
 // [::TICKET::] PX-289 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-289 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 export function classifyCheck({ denominator, evaluatedClaims, required = true, applicable = true }) {
+  // A declaration-based check counts an explicit empty array as the statement it is,
+  // so its zero evaluated facts have already been evaluated. Callers of that shape
+  // pass required=false; every other check keeps the vacuous guard.
   if (applicable === false) return { status: 'notApplicable', reason: 'declared not applicable', evaluatedClaims: 0 };
   if (denominator === 0) return { status: 'blocked', reason: 'empty denominator', evaluatedClaims: 0 };
   if (required && evaluatedClaims === 0) return { status: 'vacuous', reason: 'zero evaluated claims', evaluatedClaims: 0 };
   return { status: 'executed', reason: null, evaluatedClaims };
 }
 
-/** The claims a check actually evaluates, over and above its row denominator. */
+/**
+ * The steps that declare one authored fact family.
+ *
+ * An explicit empty array is a statement ("this step has no preconditions"), so it
+ * counts as a declaration. A family the author never wrote is absent, and a check
+ * over it has no surface to evaluate.
+ */
+function countAuthoredDeclarations(index, fields) {
+  let count = 0;
+  for (const step of collectTypedSteps(index)) {
+    const authored = step.contract?.authored;
+    if (authored === null || typeof authored !== 'object') continue;
+    if (fields.some((field) => Array.isArray(authored[field]))) count += 1;
+  }
+  return count;
+}
+
+/** The facts the authored arrays carry, which is what a typed comparison walks. */
 // [::TICKET::] PX-289, PX-290, PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-289|PX-290|PX-383) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
 function countAuthoredFacts(index, fields) {
@@ -513,6 +533,20 @@ function countAuthoredFacts(index, fields) {
   }
   return count;
 }
+
+/**
+ * The typed checks whose denominator counts declarations rather than facts.
+ *
+ * An explicit empty array is an authored statement, so these checks execute over it
+ * even when no fact follows. Their denominator is already zero when the family is
+ * absent, which is the state that must block.
+ */
+const DECLARATION_DENOMINATOR_CHECK_IDS = Object.freeze(new Set([
+  'S5.precondition-not-implied',
+  'S5.consumes-not-produced',
+  'S5.error-set-mismatch',
+  'S5.authored-source-missing',
+]));
 
 // [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
 function evaluatedClaimsFor(entry, index, denominator) {
@@ -586,15 +620,23 @@ export function buildFamilySubChecks(family, index, skippedReasons = new Map()) 
       if (reason !== null) return buildBlockedEntry(entry, reason.surface, reason.reason);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const denominator = entry.denominator(index);
+      // A prose-only step set is not typed evidence, so the typed checks do not apply.
+      // A step set that authored any typed fact has declared itself typed: an empty
+      // fact family is then a missing surface with a producer, not a prose artifact.
       if (denominator === 0
         && entry.requires.includes(SURFACES.AUTHORED_CONTRACTS)
-        && hasProseContractSteps(index)) {
+        && hasProseContractSteps(index)
+        && countTypedAuthoredSteps(index) === 0) {
         return buildNotApplicableEntry(entry, 'prose contracts are not typed evidence');
       }
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
       const evaluatedClaims = evaluatedClaimsFor(entry, index, denominator);
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
-      const resolution = classifyCheck({ denominator, evaluatedClaims, required: true });
+      const resolution = classifyCheck({
+        denominator,
+        evaluatedClaims,
+        required: !DECLARATION_DENOMINATOR_CHECK_IDS.has(entry.id),
+      });
       if (resolution.status === 'blocked') {
         return buildBlockedEntry(entry, entry.requires[0] ?? 'unknown', resolution.reason);
       }
