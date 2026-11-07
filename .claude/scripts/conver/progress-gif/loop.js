@@ -1074,6 +1074,31 @@ function computeStageDisplayDates(stageGroups, model, warnings) {
 }
 
 /**
+ * Attach the stage-weighted clock to an ordered timeline. The weights depend on
+ * how many events each stage contributes, never on the order of the stages, so
+ * the ordinal and execution-order timelines share this arithmetic.
+ */
+// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+function weighTimeline(timeline) {
+  const stageCounts = stageIndexesOf(timeline);
+  const weights = timeline.map((event) => computeEventWeight(stageCounts[STAGE_INDEX[event.stage]]));
+  const cumulative = [];
+  const stageStartIndex = new Map();
+  const stageStartWeight = new Map();
+  let totalWeight = 0;
+  for (let index = 0; index < timeline.length; index += 1) {
+    const stage = timeline[index].stage;
+    if (!stageStartIndex.has(stage)) {
+      stageStartIndex.set(stage, index);
+      stageStartWeight.set(stage, totalWeight);
+    }
+    totalWeight += weights[index];
+    cumulative.push(totalWeight);
+  }
+  return { stageCounts, weights, cumulative, totalWeight, stageStartIndex, stageStartWeight };
+}
+
+/**
  * Walk the stages in STAGE_ORDER. Within a stage the evidence clock orders the
  * events; decorations whose stage has no stage event attach to the nearest
  * present stage so a run marker is still drawn somewhere meaningful.
@@ -1098,61 +1123,118 @@ function buildOrdinalTimeline(stageGroups, decorations, displayDate, presentStag
     if (target !== null) assigned.get(target).push(event);
   }
   const timeline = [];
-  const stageStartIndex = new Map();
   for (const stage of presentStages) {
     const events = assigned.get(stage).sort((left, right) =>
       left.evidenceT - right.evidenceT
       || String(left.packageId ?? '').localeCompare(String(right.packageId ?? ''))
       || left.seq - right.seq);
-    stageStartIndex.set(stage, timeline.length);
     for (const event of events) {
-      timeline.push({ ...event, t: displayDate.get(stage), orderIndex: timeline.length });
+      // The ordinal path keeps the evidence time as the progress prefix key so
+      // previousProgress stays identical to PX-374/PX-381.
+      // [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+      timeline.push({ ...event, t: displayDate.get(stage), orderT: event.evidenceT, orderIndex: timeline.length });
     }
   }
-  const stageCounts = stageIndexesOf(timeline);
-  const weights = timeline.map((event) => computeEventWeight(stageCounts[STAGE_INDEX[event.stage]]));
-  const cumulative = [];
-  const stageStartWeight = new Map();
-  let totalWeight = 0;
-  for (let index = 0; index < timeline.length; index += 1) {
-    const stage = timeline[index].stage;
-    if (!stageStartWeight.has(stage)) stageStartWeight.set(stage, totalWeight);
-    totalWeight += weights[index];
-    cumulative.push(totalWeight);
-  }
-  return { timeline, stageCounts, weights, cumulative, totalWeight, stageStartIndex, stageStartWeight };
+  return { timeline, ...weighTimeline(timeline) };
 }
 
-/** Build the ordinal timeline: stage order is the ordinal clock, dates are estimates. */
-// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+/** Runs grouped by stage and package, each group ordered by its command time. */
+// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+function executionRunMap(runs) {
+  const byStageAndPackage = new Map();
+  for (const run of runs || []) {
+    if (!Number.isFinite(run.t) || STAGE_INDEX[run.stage] === undefined) continue;
+    const key = `${run.stage}\u0000${run.packageId ?? ''}`;
+    const group = byStageAndPackage.get(key) || [];
+    group.push(run);
+    byStageAndPackage.set(key, group);
+  }
+  for (const group of byStageAndPackage.values()) {
+    group.sort((left, right) => left.t - right.t);
+  }
+  return byStageAndPackage;
+}
+
+/**
+ * The execution-order key for one stage or growth event.
+ *
+ * A run is the command that produced the event, so an event inside the run
+ * coverage follows the latest run at or before it. An event before the first run,
+ * or one whose stage/package has no run at all, keeps the display estimate: that
+ * is the only clock a workspace created before history has.
+ */
+// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+function executionOrderTime(event, runMap, displayDate, initialT) {
+  if (event.kind === 'run' || event.timeSource === 'history') return event.evidenceT;
+  const key = `${event.stage}\u0000${event.packageId ?? ''}`;
+  const runs = runMap.get(key);
+  if (runs && runs.length > 0) {
+    if (event.evidenceT >= runs[0].t) {
+      let anchor = runs[0].t;
+      for (const run of runs) {
+        if (run.t > event.evidenceT) break;
+        anchor = run.t;
+      }
+      return anchor;
+    }
+    const estimate = displayDate.get(event.stage);
+    if (Number.isFinite(estimate)) return estimate;
+    return Number.isFinite(event.evidenceT) ? event.evidenceT : null;
+  }
+  if (event.timeSource === 'status' && event.evidenceT >= initialT) return event.evidenceT;
+  const estimate = displayDate.get(event.stage);
+  if (Number.isFinite(estimate)) return estimate;
+  return Number.isFinite(event.evidenceT) ? event.evidenceT : null;
+}
+
+/** Build the execution-order timeline: timestamps order the events, stage visits may repeat. */
+// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+function buildExecutionTimeline(stageGroups, decorations, displayDate, model) {
+  const runMap = executionRunMap(model.runs || []);
+  const initialT = Number.isFinite(model.initialT) ? model.initialT : -Infinity;
+  const entries = [];
+  for (const group of stageGroups.values()) {
+    for (const event of group) {
+      const orderT = executionOrderTime(event, runMap, displayDate, initialT);
+      if (Number.isFinite(orderT)) entries.push({ ...event, orderT, displayT: orderT });
+    }
+  }
+  for (const event of decorations) {
+    const orderT = executionOrderTime(event, runMap, displayDate, initialT);
+    if (Number.isFinite(orderT)) entries.push({ ...event, orderT, displayT: orderT });
+  }
+  entries.sort((left, right) =>
+    left.orderT - right.orderT
+    || STAGE_INDEX[left.stage] - STAGE_INDEX[right.stage]
+    || left.evidenceT - right.evidenceT
+    || String(left.packageId ?? '').localeCompare(String(right.packageId ?? ''))
+    || left.seq - right.seq);
+  const timeline = entries.map((entry, index) => ({ ...entry, t: entry.displayT, orderIndex: index }));
+  return { timeline, ...weighTimeline(timeline) };
+}
+
+/** Build the timeline: execution order when history exists, the ordinal estimate otherwise. */
+// [::TICKET::] PX-381, PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-381|PX-391) --for-spec --no-implementation-order`.
 export function buildTimeline(model) {
   const { stageGroups, decorations } = collectStageGroups(model);
   const warnings = [];
   const { displayDate, presentStages } = computeStageDisplayDates(stageGroups, model, warnings);
+  const chronological = (model.runs || []).length > 0;
   if (presentStages.length === 0) {
+    if (chronological) {
+      const built = buildExecutionTimeline(stageGroups, decorations, displayDate, model);
+      return { ...built, displayDate, stageOrder: [], warnings, chronological: true };
+    }
     const timeline = decorations
       .slice()
       .sort((left, right) => left.evidenceT - right.evidenceT || left.seq - right.seq)
-      .map((event, index) => ({ ...event, t: event.evidenceT, orderIndex: index }));
-    const stageCounts = stageIndexesOf(timeline);
-    const weights = timeline.map((event) => computeEventWeight(stageCounts[STAGE_INDEX[event.stage]]));
-    const cumulative = [];
-    const stageStartIndex = new Map();
-    const stageStartWeight = new Map();
-    let totalWeight = 0;
-    for (let index = 0; index < timeline.length; index += 1) {
-      const stage = timeline[index].stage;
-      if (!stageStartIndex.has(stage)) {
-        stageStartIndex.set(stage, index);
-        stageStartWeight.set(stage, totalWeight);
-      }
-      totalWeight += weights[index];
-      cumulative.push(totalWeight);
-    }
-    return { timeline, stageCounts, weights, cumulative, totalWeight, stageStartIndex, stageStartWeight, displayDate, stageOrder: [], warnings };
+      .map((event, index) => ({ ...event, t: event.evidenceT, orderT: event.evidenceT, orderIndex: index }));
+    return { timeline, ...weighTimeline(timeline), displayDate, stageOrder: [], warnings, chronological: false };
   }
-  const built = buildOrdinalTimeline(stageGroups, decorations, displayDate, presentStages);
-  return { ...built, displayDate, stageOrder: presentStages, warnings };
+  const built = chronological
+    ? buildExecutionTimeline(stageGroups, decorations, displayDate, model)
+    : buildOrdinalTimeline(stageGroups, decorations, displayDate, presentStages);
+  return { ...built, displayDate, stageOrder: presentStages, warnings, chronological };
 }
 
 /** Create one fresh frame state over a built timeline. */
@@ -1163,6 +1245,10 @@ export function createFrameState(model, timeline) {
   return {
     model,
     timeline: timeline.timeline,
+    // A chronological timeline lets a run marker move the displayed stage; the
+    // ordinal path keeps the monotonic frontier PX-381 established.
+    // [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+    chronological: timeline.chronological === true,
     packageModels,
     byId,
     lastT: first ? first.t : (model.initialT || 0),
@@ -1180,14 +1266,23 @@ export function createFrameState(model, timeline) {
 }
 
 /**
- * Advance the displayed stage frontier. Only a stage event carries real progress;
- * a run marker records that a command started or failed (a drill BLOCKED_PREREQUISITE
- * is precisely the case where the upstream stages are not done yet), and a growth
- * marker records ticket mass. Letting either move the frontier would show a stage
- * the workspace has not reached.
+ * Advance the displayed stage frontier.
+ *
+ * The ordinal path keeps the PX-381 rule: only a stage event moves the frontier,
+ * monotonically, because a run records an attempt and must not claim a stage the
+ * workspace has not reached. The execution-order path follows the command that
+ * just ran: a stage or run event sets the displayed stage, including a revisit of
+ * an earlier stage. A growth marker never moves the frontier in either path.
  */
-// [::TICKET::] PX-375 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-375 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-375, PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-375|PX-391) --for-spec --no-implementation-order`.
 function advanceStageFrontier(state, event) {
+  if (state.chronological) {
+    if (event.kind === 'stage' || event.kind === 'run') {
+      state.lastStageIndex = STAGE_INDEX[event.stage];
+      state.lastStage = STAGE_ORDER[state.lastStageIndex];
+    }
+    return;
+  }
   if (event.kind !== 'stage') return;
   state.lastStageIndex = Math.max(state.lastStageIndex, STAGE_INDEX[event.stage]);
   state.lastStage = STAGE_ORDER[state.lastStageIndex];
@@ -1291,17 +1386,19 @@ export function frameFromState(state, model, index) {
 }
 
 /**
- * The animation state at one timestamp. Only events whose evidence time is at or
+ * The animation state at one timestamp. Only events whose order time is at or
  * before the stamp may contribute: an ordinal prefix would also sweep in work
  * from an early stage that happened after the stamp, which is exactly the work
- * the previous-render marker must exclude.
+ * the previous-render marker must exclude. The ordinal path carries
+ * orderT === evidenceT, so its prefix is unchanged.
  */
-// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381, PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381|PX-391) --for-spec --no-implementation-order`.
 export function progressAt(model, timestamp) {
   const timeline = buildTimeline(model);
   const state = createFrameState(model, timeline);
   for (const event of timeline.timeline) {
-    if (event.evidenceT > timestamp) continue;
+    const orderTime = Number.isFinite(event.orderT) ? event.orderT : event.evidenceT;
+    if (orderTime > timestamp) continue;
     applyEvent(state, event);
   }
   return frameFromState(state, model, 0).overallProgress;

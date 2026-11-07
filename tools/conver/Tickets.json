@@ -59856,6 +59856,53 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-07"
+        },
+        {
+          "id": 391,
+          "phaseId": -1,
+          "status": "done",
+          "title": "The progress animation replays execution order while the no-history estimate stays unchanged",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-391.md",
+          "background": "### Goal\nThe progress animation replays events in the order they were executed; the displayed stage may revisit an earlier stage. A workspace with no .conver-history.jsonl keeps the existing display-date estimate and the current animation.\n\n### Purpose\nThe ordinal timeline groups every event by STAGE_ORDER and replaces the evidence timestamp with a per-stage display estimate. Gaia went to split and drill and then re-ran grill, but the latest grill is drawn at frame 92 of 200 while drill occupies frames 163-183. Doors' educe/explain alternation and crystal's grill/educe interleaving are hidden for the same reason.\n\n### Motivation\nPX-381 introduced the ordinal clock to survive unreliable artifact mtimes. PX-366 history records now carry command timestamps that can order the actual execution. The no-history estimate must remain for workspaces created before history existed.\n\n### Constraints\nTime is the ordering basis; JSONL line order is not an execution order. History and trusted status times beat artifact mtimes. A stage/package with runs anchors events inside its run coverage to the latest run at or before the event; pre-run and no-run events use computeStageDisplayDates. STAGE_ORDER remains the ladder layout and weight source only. The displayed stage may move backward. A model with no runs keeps the existing frames byte-for-byte. No model events are mutated. The null-package run rendering defect is out of scope.",
+          "default_files": [
+            ".claude/scripts/conver/progress-gif/loop.js",
+            "tests/conver/execution-order.test.mjs",
+            "specs/PX-391.md"
+          ],
+          "acceptanceCriteria": [
+            "C001 a grill run after drill is drawn after drill",
+            "C002 alternating educe/explain runs produce alternating displayed stages",
+            "C003 a stage event for a package with no run uses the display estimate",
+            "C004 a model with no runs keeps the ordinal frames",
+            "C005 chronological orderT is non-decreasing and each run marker appears once",
+            "C006 progressAt uses the same order key as the frames"
+          ],
+          "scope": [
+            ".claude/scripts/conver/progress-gif/loop.js",
+            "tests/conver/execution-order.test.mjs"
+          ],
+          "changes": [
+            {
+              "before": "buildTimeline always grouped events by STAGE_ORDER and replaced every event time with the stage display estimate, so a drill-then-grill rerun was drawn as grill first.",
+              "after": "buildTimeline uses the execution-order timeline when model.runs is non-empty: stage and growth events take an orderT anchored to the latest history run at or before their evidence time, pre-run and no-run events keep computeStageDisplayDates, and events are sorted by orderT rather than STAGE_ORDER.",
+              "description": "Execution-order timeline."
+            },
+            {
+              "before": "advanceStageFrontier used Math.max and ignored run markers, so the displayed stage could only move forward.",
+              "after": "On the chronological path a stage or run event sets the displayed stage, allowing a revisit of an earlier stage; the ordinal path keeps the PX-381 monotonic rule.",
+              "description": "Displayed stage follows the executed command."
+            },
+            {
+              "before": "progressAt applied events whose evidenceT was at or before the render stamp.",
+              "after": "progressAt uses orderT when present, falling back to evidenceT; the ordinal path carries orderT === evidenceT so its prefix is unchanged.",
+              "description": "Previous-progress prefix follows the same order key."
+            },
+            {
+              "before": "tests/conver/stage-order.test.mjs asserted that run markers never advance the displayed stage for a model carrying history.",
+              "after": "The test now asserts growth markers never advance on the ordinal path and a run marker advances the displayed stage on the execution-order path; tests/conver/execution-order.test.mjs covers C001-C006.",
+              "description": "Tests encode both contracts."
+            }
+          ]
         }
       ]
     },

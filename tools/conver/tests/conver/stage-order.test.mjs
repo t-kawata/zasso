@@ -22,7 +22,34 @@ function eventAt(iso, stage, packageId, timeSource) {
   return { ...stageEvent(stage, Date.parse(iso), packageId, 1), timeSource };
 }
 
-test('C001: run and growth markers never advance the displayed stage', () => {
+// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+test('C001: growth markers never advance the displayed stage on the ordinal path', () => {
+  const pkg = packageModel({ id: 'pkg-1' });
+  const model = makeModel({
+    packages: [pkg],
+    events: [stageEvent('educe', INITIAL_TIME, 'pkg-1', 1)],
+    growthEvents: [{
+      t: INITIAL_TIME + 500,
+      stage: 'split',
+      packageId: 'pkg-1',
+      addedTicketKeys: ['T1'],
+      addedMass: 1,
+    }],
+  });
+
+  const timeline = buildTimeline(model);
+  assert.equal(timeline.chronological, false);
+  const state = createFrameState(model, timeline);
+  for (const event of timeline.timeline) applyEvent(state, event);
+  assert.equal(state.lastStageIndex, 0);
+  assert.equal(state.lastStage, 'educe');
+
+  const frames = buildFrames(model, { frames: 20 });
+  assert.ok(frames.every((frame) => frame.stage === 'educe'));
+});
+
+// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+test('C001: a run marker advances the displayed stage on the execution-order path', () => {
   const pkg = packageModel({ id: 'pkg-1' });
   const model = makeModel({
     packages: [pkg],
@@ -46,13 +73,15 @@ test('C001: run and growth markers never advance the displayed stage', () => {
   });
 
   const timeline = buildTimeline(model);
+  assert.equal(timeline.chronological, true);
   const state = createFrameState(model, timeline);
   for (const event of timeline.timeline) applyEvent(state, event);
-  assert.equal(state.lastStageIndex, 0);
-  assert.equal(state.lastStage, 'educe');
+  assert.equal(state.lastStageIndex, STAGE_ORDER.indexOf('drill'));
+  assert.equal(state.lastStage, 'drill');
 
   const frames = buildFrames(model, { frames: 20 });
-  assert.ok(frames.every((frame) => frame.stage === 'educe'));
+  assert.equal(frames.at(-1).stage, 'drill');
+  assert.ok(frames.some((frame) => frame.stage === 'educe'));
 });
 
 test('C002: an artifact-only explain is clamped to the earliest trusted downstream stage', () => {
