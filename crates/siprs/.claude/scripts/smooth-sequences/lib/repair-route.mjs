@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-341 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-341 --for-spec --no-implementation-order`.
@@ -62,6 +63,7 @@ const S8_GRILL_CHECK_IDS = Object.freeze([
   'S8.implementation-design-missing',
   'S8.cross-package-row-missing',
   'S8.formula-invented',
+  'S8.formula-handoff',
 ]);
 
 /** The producer that restores one blocked evidence surface. */
@@ -174,6 +176,7 @@ const S8_PACKAGE_RFC_CHECK_IDS = Object.freeze([
   'S8.segment-coverage',
   'S8.ledger-stale',
   'S8.waiver-refused',
+  'S8.formula-handoff',
 ]);
 
 // [::TICKET::] PX-284 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-284 --for-spec --no-implementation-order`.

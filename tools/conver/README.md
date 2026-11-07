@@ -1,4 +1,4 @@
-# conver — RFC収束型5層ループ開発パイプライン 
+# conver — RFC収束型5層ループ開発パイプライン
 
 conver は、**「正典 RFC へ実装を収束させる」** と同時に、**「正典自体を安全に進化させ続ける」** ことを可能にする、5つの層から成る開発パイプラインです。**適合ループ**（第五層・workspacify）が、続く4つのループ（上流・実装・出荷・進化）を包み込みます。
 
@@ -317,10 +317,10 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 
 ワークスペースルートで、全パッケージの `SEQUENCES.json` / `RFC.md` / `OBLIGATION.json`、ルートの `*-sequences.json`、`WORKSPACIFY-{TREE,ALLOCATE}-MANIFEST.json` を読み、**実装直前の最終受理ゲート**を実行します。スクリプトが判定し、実行する AI が修復します。終端状態は「新しい enforcing run が exit 0 かつ verdict が `pass`」の1つだけです。
 
-- **検査族**: S1 列挙の整合 / S3 操作の封筒 / S4 境界条項と contribution / S5 契約の噛み合い / S6 危険（循環・到達不能・境界効果の漂流）/ S7 成果物・ビュー・RFC の一致。証拠面が無い・分母がゼロ・移行で合成された check は `blocked` として報告され、finding には数えません
+- **検査族**: S1 列挙の整合 / S3 操作の封筒 / S4 境界条項と contribution / S5 契約の噛み合い / S6 危険（循環・到達不能・境界効果の漂流）/ S7 成果物・ビュー・RFC の一致。証拠面が無い・分母がゼロ・移行で合成された check は `blocked` として報告され、finding には数えません。closure mode では S8（数式の完全性）も `check-formula-completeness.js` が測り、不足行を `SPEC-COMPLETENESS-WORKLIST.json` に書きます
 - **修復の4経路**: `in-place`（パッケージ `RFC.md` / `OBLIGATION.json` / view を直して再生成）/ `regeneration`（candidate → staging → verify → commit のトランザクションでのみ仕様・decisions を変更）/ `judgment-required`（所有コマンド `/grill-me-for-rfc` または `/explain-seed` が staging で確定）/ `blocked`（不足した証拠面を producer で復元）
-- **closure mode**: v3 成果物または evidence manifest と両 manifest が揃うと、grill の4つの機械ゲートもここで実行し、厳格な証拠（`held` 判定、blind attack、freshness、effort trace）まで検査します。`COMPLETION-CERTIFICATE.json` が `complete` でなければ `unproven`（exit 4）です
-- **出力**: `smooth-sequences/SMOOTH-SEQUENCES.json` / `.md` / `status.json` / `COMPLETION-CERTIFICATE.json` / `JUDGMENT-WORKLIST.json` / `CALIBRATION.json` と `archive/`（世代を削除しない）。`--audit` は判定を変えずに `wouldExit` を報告します
+- **closure mode**: v3 成果物または evidence manifest と両 manifest が揃うと、grill の6つの機械ゲート（obligation coverage / contribution completeness / distribution completeness / defect report / formula completeness（S8） / API consistency）もここで実行し、厳格な証拠（`held` 判定、blind attack、freshness、effort trace）まで検査します。`COMPLETION-CERTIFICATE.json` が `complete` でなければ `unproven`（exit 4）です
+- **出力**: `smooth-sequences/SMOOTH-SEQUENCES.json` / `.md` / `status.json` / `COMPLETION-CERTIFICATE.json` / `JUDGMENT-WORKLIST.json` / `CALIBRATION.json` / `SPEC-COMPLETENESS-WORKLIST.json` と `archive/`（世代を削除しない）。`--audit` は判定を変えずに `wouldExit` を報告します
 - **位置づけ**: `/graphify-rfc` はこの合格を `SMOOTH-VERDICT.json` として固定します。合格が無い・古い・不合格なら graphify は停止します（後述の「受理ゲート」）
 - **進化ループとの関係**: `/drill-rfc-down` は自前の staging / commit と6チェック検証を持ち、`/graphify-rfc` コマンドの Step 0 ゲートを通りません。進化が台帳・view を変えた場合は、次の前進 graphify の前に `/smooth-sequences` を再実行してください
 
@@ -331,7 +331,7 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - **入力は固定**: 引数は取りません。カレントディレクトリの `./RFC.md` を唯一の入力とし、`./RFC.md` が無い場合は `MISSING_RFC` で停止します（レガシー名へのフォールバックはしません）
 
 - **Step 0〜5 進行制御**: 見出し重複排除（Step 0）→ ノード分割（Step 1、4軸: セクション階層 / 単一 kind / 外部依存の有無 / 言語割当）→ エッジ付与（Step 2、12種 + 契約 annotation）→ 機械検証（Step 3、未カバー行・孤立ノード）→ 自己検証と 5% 抜き打ち品質検査（Step 4、headingRefs 解決性）→ 最終品質検証（Step 5、全グラフ要約）
-- **Step 0 の受理ゲート**: `verify-smooth-verdict.mjs` が `smooth-sequences/status.json`・closure certificate・凍結した設計スナップショットを検証し、ワークスペース直下に `SMOOTH-VERDICT.json` を書きます。`MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` は停止です。ワークスペース外では `skipped:outside-workspace` になります
+- **Step 0 の受理ゲート**: `verify-smooth-verdict.mjs` が `smooth-sequences/status.json`・closure certificate・凍結した設計スナップショットを検証し、ワークスペース直下に `SMOOTH-VERDICT.json` を書きます。`MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `SMOOTH_FORMULA_INCOMPLETE` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` は停止です。receipt は viewDigests・mapDigests・formulaDigests・worklistDigest・formulaCompleteness を束縛します。ワークスペース外では `skipped:outside-workspace` になります
 - **分布の受入**: Step 1 の前に `attach-unit-ids.js --admit` が `SEQUENCES.json` / 配布マップ / allocate manifest を digest 束縛のサイドカーとして読み、`STALE_DISTRIBUTION_MAP` / `UNIT_SET_MISMATCH` / `SEQUENCE_STEPS_UNDISTRIBUTED` / `MISSING_BOUNDARY_CONTRACT` で停止します。**グラフは単位IDを発明せず、受領したものだけを運びます**
 - **常にチケット粒度より細かく分割（発散）** する。後段 `/split-to-tickets` / `/boundify-graph` が粗い粒度で抽出・束ねる
 - 生成されたグラフは `/boundify-graph` の入力となり、`/split-to-tickets` は同じディレクトリの `RFC-GRAPH.json` と `RFC-Dirs-Tree.json` を導出して読む。`/make-ticket` 〜 `/review-ticket` でも設計参照に利用される
@@ -360,6 +360,7 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - **機械的フェーズ設計**: `phasify-graph-and-dirs-files-tree.js` が GRAPH と Dirs-Tree を入力に、重み付きトポロジカルソート + SCC 縮約で全ノードを実装フェーズへグループ化
 - **1チケット・1不変条件**: ノード群を安全な I/O 境界でチケットに束ね、各チケットに `nodeIds` / `contracts` / `default_files` を付与。`add-tickets-for-phase.js` はノードが運ぶ `unitIds` をチケットの `nodeIds` へ追記し、`distribution`（自パッケージの単位・共有ステップの owner・参照先）を機械的に書きます
 - **契約の配布**: `merge-contracts-to-tickets.js` が `RFC-STEP-CONTRACTS.json` を読み、各ステップの型付き契約（`pre` / `post` / `invariants` / `consumes` / `produces` / `errors` / `crosses`）を、その操作を実装するチケットへ入れます。境界契約 `ctr-<boundary_id>` は `ctr` ユニットを持つチケットと、**局所ステップがその境界を `crosses` する全チケット**へ同じ条項で投影されます。片側だけの所有を許しません
+- **数式の配布**: `merge-formulas-to-tickets.js` が `RFC-FORMULAS.json` を読み、各数式を実装チケットの `formulaObligations` へ投影します。実装チケットの重複・`RFC.md` origin・欠落シンボル・欠落テストは拒否されます（チケット側の digest 不一致は `verify-chain` が `FORMULA_DIGEST_MISMATCH` で検出します）
 - **実装順の証明**: `verify-implementation-order.mjs --package` がグラフの硬い辺と成果物の `consumes` / `produces` / `crosses` からチケットの前提を導出し、`IMPLEMENTATION-ORDER.json` を `Tickets.json` の隣に書きます。`--workspace` は全パッケージの union を `WORKSPACIFY-IMPLEMENTATION-ORDER.json` に書きます。`PREREQUISITE_SET_MISMATCH` / `PREREQUISITE_NOT_BEFORE` / `PREREQUISITE_PACKAGE_UNSPLIT` / `PREREQUISITE_PACKAGE_BEFORE` / `IMPLEMENTATION_ORDER_CYCLE` は fail-closed です
 - **前提のチケットへの記録**: 導出した前提は各チケットの `prerequisites` に書かれ、実装ループの冒頭ゲートがそれを再検査します。**依存先が `done` / `reviewed` になる前に make → plan → start → review へ入ることはできません**
 - **ワークスペース全体の保証**: 最終 `verify-chain --require-tickets` が、全グラフ単位がいずれかのチケットへ届き、所有シーケンスの各ステップがちょうど1チケットに届き、操作の実装チケットが全体で1つであることを確認します。フェーズ単位ではなくワークスペース全体に対する保証です
@@ -644,6 +645,10 @@ Tickets.json
 │       │                                 implementerTicketKey?, boundaryContracts[]?,
 │       │                                 relation?, subject?, direction?, counterpart?, coverage? },
 │       │                   obligationDigest, specRefs[] }
+│       ├── formulaObligations[]: { id, digest, body,
+│       │                          origin{path,line,segment,quote},
+│       │                          implementation{path,symbol,kind},
+│       │                          design, theory, tests[] }
 │       ├── prerequisites: { ticket?, package?, kind, source, boundary? }[]
 │       ├── default_files: string[]
 │       ├── background, scope[], testUnit[], testIntegration[], testExceptions[]
@@ -654,7 +659,7 @@ Tickets.json
 │       └── relatedTicketIds
 ```
 
-`distribution` と `prerequisites` は、パッケージが `SEQUENCES.json` を持つ場合だけ付きます。持たないチケットにはフィールド自体が無く、`/make-ticket` の分布節・前提節・納品ゲートは発火しません。`contracts` のステップ契約と境界契約は `/split-to-tickets` が `merge-contracts-to-tickets.js` で機械投影したもので、手で短縮・再導出してはいけません。
+`distribution` と `prerequisites` は、パッケージが `SEQUENCES.json` を持つ場合だけ付きます。持たないチケットにはフィールド自体が無く、`/make-ticket` の分布節・前提節・納品ゲートは発火しません。`contracts` のステップ契約と境界契約は `/split-to-tickets` が `merge-contracts-to-tickets.js` で機械投影したもので、手で短縮・再導出してはいけません。`formulaObligations` は数式を持つパッケージで、`merge-formulas-to-tickets.js` が `RFC-FORMULAS.json` から投影したときに付きます（実装チケットがちょうど1つに定まる数式だけ）。
 
 ### OMISSIONS（`/find-omissions` の成果物）
 
@@ -735,8 +740,8 @@ CRYSTALIZE-Status.json
 - 入力は、ルートの `*-sequences.json`、各パッケージの `SEQUENCES.json` / `RFC.md` / `OBLIGATION.json`、2つの manifest、任意の waiver です
 - S1（列挙）/ S3（操作の封筒）/ S4（境界条項と contribution）/ S5（契約の噛み合い）/ S6（危険）/ S7（成果物・ビュー・RFC の一致）を検査します。**証拠面が無い check は「合格」ではなく `blocked`** として報告されます
 - 修復は4経路です。`in-place` は authored な RFC / OBLIGATION / view を直して再生成、`regeneration` は candidate → staging → verify → commit のトランザクションでのみ仕様・decisions を変更、`judgment-required` は `/grill-me-for-rfc` または `/explain-seed` が staging で確定、`blocked` は不足した証拠面を producer で復元します
-- **closure mode** では、grill の4つの機械ゲート（obligation coverage / contribution completeness / distribution completeness / defect report）もここで実行し、`held` 判定・blind attack・freshness・effort trace まで検査します。`COMPLETION-CERTIFICATE.json` が `complete` でなければ `unproven`（exit 4）です
-- 合格は `/graphify-rfc` の Step 0 が `SMOOTH-VERDICT.json` として固定します。**前進経路の `/graphify-rfc` / `/boundify-graph` / `/split-to-tickets` は、合格が無い・古い・不合格のままでは進みません**（進化経路は `/drill-rfc-down` の自前の検証を持ちます）
+- **closure mode** では、grill の6つの機械ゲート（obligation coverage / contribution completeness / distribution completeness / defect report / formula completeness（S8） / API consistency）もここで実行し、`held` 判定・blind attack・freshness・effort trace まで検査します。formula completeness は仕様数式の所有・ledger・theory・実装・テストの完全性を測ります。`COMPLETION-CERTIFICATE.json` が `complete` でなければ `unproven`（exit 4）です
+- 合格は `/graphify-rfc` の Step 0 が `SMOOTH-VERDICT.json` として固定します。**前進経路の `/graphify-rfc` / `/boundify-graph` / `/split-to-tickets` は、合格が無い・古い・不合格のままでは進みません**（進化経路は `/drill-rfc-down` の自前の検証を持ちます）。receipt は `formulaCompleteness` と `worklistDigest` も束縛し、formula summary が `pass` でない場合は `SMOOTH_FORMULA_INCOMPLETE`、worklist が動いた場合は `STALE_SMOOTH_VERDICT` で下流が停止します
 
 #### 要求台帳の配布と波及 — 単位IDが4ループをどう通るか
 
@@ -876,7 +881,8 @@ regeneration/（ワークスペース直下・smooth の修復トランザクシ
 └── archive/<id>/（staging とコミット証跡）
 
 SMOOTH-VERDICT.json（ワークスペース直下・/graphify-rfc Step 0 が書く）
-└── smooth の合格・viewDigests・設計スナップショットを固定する受理証明
+├── smooth の合格・viewDigests・mapDigests・formulaDigests・設計スナップショット
+└── worklistDigest / formulaCompleteness（数式完全性）を固定する受理証明
 
 IMPLEMENTATION-ORDER.json（各パッケージ・/split-to-tickets が書く）
 └── チケットの実装前提と順序。Ticket.json の隣に置く
@@ -924,7 +930,7 @@ EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
 
 ### 受理ゲート（`.claude/scripts/smooth-sequences/`）
 
-`smooth-sequences/run.mjs`（S1 / S3〜S7 の検査族をまとめて実行し、`SMOOTH-SEQUENCES.json` / `.md` / `status.json` を書く。exit 0 = pass、1 = findings、2 = misuse/refusal、3 = educe への handoff、4 = unproven）/ `calibrate.mjs`（検査族ごとの seed 欠陥を実検出器で検出し `CALIBRATION.json` を書く）/ `migrate-v3.mjs`（v3 の証拠面を annotations から復元する）/ `re-evidence.mjs`（証拠の再生成）/ `lib/`（検査族・証明書・判定）。仕様変更は `regeneration/run.mjs` のトランザクション（`open` / `status` / `continue` / `derive` / `verify` / `commit` / `abort` / `recover`）でのみ行います。
+`smooth-sequences/run.mjs`（S1 / S3〜S7 の検査族をまとめて実行し、`SMOOTH-SEQUENCES.json` / `.md` / `status.json` を書く。exit 0 = pass、1 = findings、2 = misuse/refusal、3 = educe への handoff、4 = unproven）/ `check-formula-completeness.js`（closure mode の S8 を測り、`SPEC-COMPLETENESS-WORKLIST.json` を書く）/ `calibrate.mjs`（検査族ごとの seed 欠陥を実検出器で検出し `CALIBRATION.json` を書く）/ `migrate-v3.mjs`（v3 の証拠面を annotations から復元する）/ `re-evidence.mjs`（証拠の再生成）/ `spec-formula/`（数式の抽出・ledger・sidecar・ownership・handoff）/ `lib/`（検査族・証明書・判定）。仕様変更は `regeneration/run.mjs` のトランザクション（`open` / `status` / `continue` / `derive` / `verify` / `commit` / `abort` / `recover`）でのみ行います。
 
 ### 配布・実装順（`.claude/scripts/sequences-slice/`、`shared-obligations/`、`workspacify-order/`）
 
@@ -935,8 +941,8 @@ EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
 | カテゴリ | スクリプト |
 |----------|-----------|
 | グラフ CRUD（唯一の書き込み経路） | `crud.js` |
-| graphify | `deduplicate-headings.js` / `resolve-by-heading.js` / `verify.js` / `validate-slug.js` / `query.js` / `test-query-all.js` / `query-fix-hints.js` / `analyze-source-structure.js` / `show-graph-summary-markdown.js` / `update-step-status.js` / `verify-smooth-verdict.mjs`（Step 0 の受理ゲート） / `attach-unit-ids.js`（分布の受入） |
-| boundify | `boundify-graph-to-dirs.js` / `validate-dirs-tree-schema.js` / `verify-graph-integrity.js` / `generate-all-dir-templates.js` / `generate-dir-template.js` / `verify-unit-file-coverage.js` / `update-boundify-step-status.js` |
+| graphify | `deduplicate-headings.js` / `resolve-by-heading.js` / `verify.js` / `validate-slug.js` / `query.js` / `test-query-all.js` / `query-fix-hints.js` / `analyze-source-structure.js` / `show-graph-summary-markdown.js` / `update-step-status.js` / `verify-smooth-verdict.mjs`（Step 0 の受理ゲート） / `attach-unit-ids.js`（分布の受入） / `attach-formula-ids.js`（数式IDの付与） |
+| boundify | `boundify-graph-to-dirs.js` / `validate-dirs-tree-schema.js` / `verify-graph-integrity.js` / `generate-all-dir-templates.js` / `generate-dir-template.js` / `verify-unit-file-coverage.js` / `verify-formula-file-coverage.js`（数式→ノード→ファイルの被覆） / `update-boundify-step-status.js` |
 | split | `phasify-graph-and-dirs-files-tree.js` / `show-phase-nodes.js` / `show-dirs-files-tree.js` / `show-all-nodes-title-summary.js` / `write-phase-name-summary.js` / `check-phase-names-summaries.js` / `consolidate-phase-tickets.js` / `project-step-contracts.js` / `update-split-step-status.js` |
 
 graphify の見出し抽出と Step 0 の重複解消は、コードフェンス（3連バッククォートまたは `~~~`）の内側を本文として扱い、見出しとして数えません。未閉鎖のフェンスは Step 0 が `UNCLOSED_FENCE` で停止し、ソースを書き換えません。
@@ -951,7 +957,7 @@ graphify の見出し抽出と Step 0 の重複解消は、コードフェンス
 | 表示・検索 | `list-phases-and-tickets.js` / `all-tickets.js` / `search-tickets.js` / `get-ticket-as-markdown.js` |
 | フェーズ管理 | `add-phase.js` / `add-px-phase.js` / `write-tickets-json-template.js` / `rename-phases.js` |
 | make/plan/start/review | `show-ticket-context.js` / `ensure-ticket.js` / `insert-field-template.js` / `list-remaining-stubs.js` / `check-ticket-status.js` / `check-ticket-prerequisites.js`（4コマンド共通の前提ゲート） / `verify-make-contracts.js` / `verify-make-distribution.js`（Step 9.5） / `verify-plan-contracts.js` / `verify-red-coverage.js` / `verify-final-contracts.js` / `validate-ticket-targets.js` / `enumerate-ticket-targets.js` / `annotate-ticket-context-by-git-diff.js` / `resolve-ambiguous-markers.js` |
-| split・配布 | `add-tickets-for-phase.js`（単位と distribution の付与） / `split-evolve.js`（既存 Tickets の進化。差分・同一性・配置・retire・CAS 昇格） / `update-phase.js`（フェーズ所有権の追加・挿入。再採番なし） / `merge-contracts-to-tickets.js`（ステップ・境界契約の投影） / `verify-ticket-closure.js` / `verify-all-ticket-coverage.js` / `show-phase-distribution.js` / `show-ticket-distribution.js` |
+| split・配布 | `add-tickets-for-phase.js`（単位と distribution の付与） / `split-evolve.js`（既存 Tickets の進化。差分・同一性・配置・retire・CAS 昇格） / `update-phase.js`（フェーズ所有権の追加・挿入。再採番なし） / `merge-contracts-to-tickets.js`（ステップ・境界契約の投影） / `merge-formulas-to-tickets.js`（数式義務の Tickets 投影） / `verify-ticket-closure.js` / `verify-all-ticket-coverage.js` / `show-phase-distribution.js` / `show-ticket-distribution.js` |
 | consolidate | `batch-update-stub.js` / `batch-create-resolving-tickets.js` / `consolidate-stubs-gate.sh` / `require-consolidated-manifest.js` / `preflight-stub-cleanup.js` / `validate-no-external-excuses.js` / `clean-consolidation-artifacts.js` |
 | find | `get-next-check-target-ticket.js` / `add-omission-ticket.js` / `create-tmp-omissions.js` / `validate-graph-arg.js` / `phasify-omissions.js` |
 | 犯罪・スタブ | `scan-crimes.sh` / `malfeasance-create.js` / `malfeasance-update.js` / `insert-stub.js` / `scan-incomplete-implementations.js` / `ensure-malfeasance.js` |

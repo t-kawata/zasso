@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-359 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-359 --for-spec --no-implementation-order`.
 /**
  * The one formula vocabulary every stage imports.
@@ -30,3 +31,14 @@ export {
   resolveWorkspaceRoot,
   verifySourceIdentity,
 } from './identity.mjs';
+export { ownedFormulasForPackage } from './ownership.mjs';
+export {
+  HANDOFF_CLASS,
+  HANDOFF_CODE,
+  JUDGMENT_CLASSES,
+  MECHANICAL_CLASSES,
+  applyFormulaHandoff,
+  inspectFormulaHandoff,
+  resolveSectionHeading,
+  sectionMatchesHeading,
+} from './handoff.mjs';

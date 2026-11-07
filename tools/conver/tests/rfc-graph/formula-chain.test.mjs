@@ -272,3 +272,99 @@ test('C001 boundary: a notation-only formula may have no runtime file but still 
   const findings = verifyFormulaFileCoverage({ graph, dirsTree, sidecar: fixture.sidecar, root: fixture.root });
   assert.equal(findings.some((finding) => finding.code === 'FORMULA_WITHOUT_SYMBOL'), true);
 });
+
+// PX-390 @verifies C003
+/** Write the seed and tree manifest that decide which formulas this package owns. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function writeFormulaOwnership(fixture, { sourceSegments = ['seg-1'], segments = [{ id: 'seg-1', line_start: 1, line_end: 10 }] } = {}) {
+  const seedPath = join(fixture.root, 'RFC-SEED.md');
+  writeFileSync(seedPath, [
+    '# RFC Seed',
+    '',
+    '```json',
+    JSON.stringify({
+      package: { id: 'pkg-fixture', name: 'fixture', path: '.' },
+      source_spec: { path: 'spec.md', sha256: sha256Hex(Buffer.from(SPEC_TEXT, 'utf8')) },
+      source_segments: sourceSegments,
+    }, null, 2),
+    '```',
+    '',
+  ].join('\n'), 'utf8');
+  const treeManifestPath = join(fixture.root, 'WORKSPACIFY-TREE-MANIFEST.json');
+  writeFileSync(treeManifestPath, JSON.stringify({
+    workspace: { packages: [{ id: 'pkg-fixture', path: '.' }] },
+    structure: { segments },
+  }), 'utf8');
+  return { seedPath, treeManifestPath };
+}
+
+test('PX-390 C003 boundary: a package that owns no formula skips without a sidecar', async () => {
+  const fixture = buildFixture();
+  const ownership = writeFormulaOwnership(fixture, { sourceSegments: [], segments: [] });
+  const result = await attachFormulaIds({
+    ...fixture,
+    sidecarPath: join(fixture.root, 'missing-RFC-FORMULAS.json'),
+    specPath: fixture.specPath,
+    ...ownership,
+    write: true,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+  assert.equal(result.skipped, 'no-formulas');
+});
+
+test('PX-390 C003 boundary: a package that owns formulas without a sidecar is named, never ENOENT', async () => {
+  const fixture = buildFixture();
+  const ownership = writeFormulaOwnership(fixture);
+  const before = readFileSync(fixture.graphPath, 'utf8');
+  const result = await attachFormulaIds({
+    ...fixture,
+    sidecarPath: join(fixture.root, 'missing-RFC-FORMULAS.json'),
+    specPath: fixture.specPath,
+    ...ownership,
+    write: true,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((finding) => finding.code === 'MISSING_FORMULA_SIDECAR'), true, JSON.stringify(result.findings));
+  assert.equal(JSON.stringify(result.findings).includes('ENOENT'), false);
+  assert.notEqual(result.skipped, 'no-formulas');
+  assert.equal(readFileSync(fixture.graphPath, 'utf8'), before);
+});
+
+test('PX-390 C003 normal: a section number resolves a full heading and reports it', async () => {
+  const fixture = buildFixture();
+  const sidecar = JSON.parse(readFileSync(fixture.sidecarPath, 'utf8'));
+  sidecar.formulas[0].rfcLocation.section = '14.1';
+  delete sidecar.formulas[0].implementation.rfcSection;
+  sidecar.formulas[1].rfcLocation.section = '14.2';
+  delete sidecar.formulas[1].implementation.rfcSection;
+  writeFileSync(fixture.sidecarPath, JSON.stringify(sidecar, null, 2));
+  const graph = JSON.parse(readFileSync(fixture.graphPath, 'utf8'));
+  graph.nodes[0].title = '14.1 Symbol Model';
+  graph.nodes[0].headingRefs[0].texts = ['14.1 Symbol Model'];
+  graph.nodes[1].title = '14.2 Encoding';
+  graph.nodes[1].headingRefs[0].texts = ['14.2 Encoding'];
+  writeFileSync(fixture.graphPath, JSON.stringify(graph, null, 2));
+
+  const result = await attachFormulaIds({ ...fixture, write: false });
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+  assert.equal(result.resolvedSections.some((entry) => entry.formulaId === fixture.formulas[0].id && entry.heading === '14.1 Symbol Model'), true);
+});
+
+test('PX-390 C003 boundary: section 14.1 does not match heading 14.10', async () => {
+  const fixture = buildFixture();
+  const sidecar = JSON.parse(readFileSync(fixture.sidecarPath, 'utf8'));
+  sidecar.formulas[0].rfcLocation.section = '14.1';
+  delete sidecar.formulas[0].implementation.rfcSection;
+  writeFileSync(fixture.sidecarPath, JSON.stringify(sidecar, null, 2));
+  const graph = JSON.parse(readFileSync(fixture.graphPath, 'utf8'));
+  graph.nodes[0].title = '14.10 Symbol Model';
+  graph.nodes[0].headingRefs[0].texts = ['14.10 Symbol Model'];
+  writeFileSync(fixture.graphPath, JSON.stringify(graph, null, 2));
+
+  const result = await attachFormulaIds({ ...fixture, write: false });
+
+  assert.equal(result.findings.some((finding) => finding.code === 'MISSING_NODE' && finding.subject === sidecar.formulas[0].id), true, JSON.stringify(result.findings));
+});

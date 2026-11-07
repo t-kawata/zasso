@@ -10,8 +10,13 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFile
 import { join, resolve } from 'node:path';
 
 import {
+  FORMULA_SIDECAR_FILENAME,
+  HANDOFF_CLASS,
+  applyFormulaHandoff,
   computeRfcDigest,
   extractFormulas,
+  inspectFormulaHandoff,
+  ownedFormulasForPackage,
   parseSeedIdentity,
   readFormulaLedger,
   uniqueFormulas,
@@ -52,7 +57,7 @@ const TREE_DECISIONS_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/s
 const DETECTOR_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/smooth-sequences/run.mjs"';
 
 /** One S8 finding, always carrying package, formula and spec line when they exist. */
-// [::TICKET::] PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-360|PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-360, PX-361, PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-360|PX-361|PX-390) --for-spec --no-implementation-order`.
 function finding(checkId, details) {
   const {
     packageId = null,
@@ -64,6 +69,7 @@ function finding(checkId, details) {
     producer,
     rerun,
     repairClass,
+    handoff = null,
   } = details;
 
   return {
@@ -80,19 +86,18 @@ function finding(checkId, details) {
     producer,
     rerun,
     repairClass,
+    ...(handoff === null ? {} : { handoff }),
   };
 }
 
 /** The formula a package owns from its seed's segment claims. */
-// [::TICKET::] PX-360, PX-361 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-360|PX-361) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-360, PX-361, PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-360|PX-361|PX-390) --for-spec --no-implementation-order`.
 function ownedFormulas(seed, treeManifest, specFormulas) {
-  const segmentIds = seed.sourceSegments ?? [];
-  const segments = treeManifest?.structure?.segments ?? [];
-  const byId = new Map(segments.map((segment) => [segment.id, segment]));
-  const ranges = segmentIds.map((id) => byId.get(id)).filter((segment) => segment !== undefined);
-  return specFormulas.filter((formula) => ranges.some((range) => (
-    formula.lineStart <= range.line_end && formula.lineEnd >= range.line_start
-  )));
+  return ownedFormulasForPackage({
+    seed,
+    specFormulas,
+    treeManifest,
+  }).owned;
 }
 
 /** Whether a ledger row carries the theory and verification the gate requires. */
@@ -121,6 +126,176 @@ function implementationDefects(row) {
 function readPackageRfc(packagePath) {
   const rfcPath = join(packagePath, 'RFC.md');
   return existsSync(rfcPath) ? readFileSync(rfcPath, 'utf8') : null;
+}
+
+/** Read one package's formula sidecar, keeping an unreadable file distinguishable from absence. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function readPackageSidecar(packagePath) {
+  const sidecarPath = join(packagePath, FORMULA_SIDECAR_FILENAME);
+  if (!existsSync(sidecarPath)) return { sidecar: null, path: sidecarPath, error: null };
+  try {
+    return { sidecar: JSON.parse(readFileSync(sidecarPath, 'utf8')), path: sidecarPath, error: null };
+  } catch (error) {
+    return { sidecar: null, path: sidecarPath, error };
+  }
+}
+
+/** The reason line the worklist and report show for one handoff class. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function handoffReason(handoff) {
+  if (handoff.class === HANDOFF_CLASS.SIDECAR_ONLY_CONTENT) {
+    return `sidecar rows are absent from the ledger: ${handoff.sidecarOnly.join(', ')}`;
+  }
+  if (handoff.class === HANDOFF_CLASS.FIELD_CONFLICT) {
+    return `sidecar fields differ from the ledger: ${handoff.fieldConflicts.map((entry) => `${entry.formulaId}:${entry.field ?? entry.code}`).join(', ')}`;
+  }
+  if (handoff.class === HANDOFF_CLASS.SECTION_UNRESOLVED) {
+    return `the recorded section matches no RFC heading for ${handoff.sections.unresolved.join(', ')}`;
+  }
+  if (handoff.class === HANDOFF_CLASS.SECTION_AMBIGUOUS) {
+    return `the recorded section matches more than one RFC heading for ${handoff.sections.ambiguous.map((entry) => entry.formulaId).join(', ')}`;
+  }
+  if (handoff.class === HANDOFF_CLASS.MISSING_LEDGER) {
+    return 'the package owns formulas and carries no Formula ledger';
+  }
+  if (handoff.class === HANDOFF_CLASS.LEDGER_INVALID) {
+    return 'the Formula ledger is not a valid transcription';
+  }
+  if (handoff.class === HANDOFF_CLASS.MISSING_SIDECAR) {
+    return 'the ledger is valid and the sidecar is missing';
+  }
+  return `the sidecar lacks ledger rows: ${handoff.ledgerOnly.join(', ')}`;
+}
+
+/** The S8 record one handoff gap produces. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function handoffFinding(pkg, handoff) {
+  const judgment = handoff.class !== HANDOFF_CLASS.STALE_MIRROR && handoff.class !== HANDOFF_CLASS.MISSING_SIDECAR;
+  const formulaId = handoff.ledgerOnly[0]
+    ?? handoff.sidecarOnly[0]
+    ?? handoff.sections?.unresolved?.[0]
+    ?? handoff.sections?.ambiguous?.[0]?.formulaId
+    ?? null;
+  return finding('S8.formula-handoff', {
+    packageId: pkg.id,
+    packagePath: pkg.path,
+    formulaId,
+    missingField: FORMULA_SIDECAR_FILENAME,
+    reason: handoffReason(handoff),
+    producer: grillCommand(pkg.path),
+    rerun: perPackageRerun(pkg.path),
+    repairClass: judgment ? 'judgment-required' : 'in-place',
+    handoff: {
+      class: handoff.class,
+      ledgerRows: handoff.ledgerRows,
+      sidecarRows: handoff.sidecarRows,
+      ledgerOnly: handoff.ledgerOnly,
+      sidecarOnly: handoff.sidecarOnly,
+      fieldConflicts: handoff.fieldConflicts,
+      unresolved: handoff.sections?.unresolved ?? [],
+      ambiguous: (handoff.sections?.ambiguous ?? []).map((entry) => ({
+        formulaId: entry.formulaId,
+        candidates: entry.candidates.map((candidate) => candidate.title),
+      })),
+    },
+  });
+}
+
+/** The S8 record an unreadable sidecar produces; it is never treated as absent. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function unreadableSidecarFinding(pkg, sidecarPath, error) {
+  return finding('S8.formula-handoff', {
+    packageId: pkg.id,
+    packagePath: pkg.path,
+    missingField: FORMULA_SIDECAR_FILENAME,
+    reason: `the sidecar is unreadable (${sidecarPath}): ${error.message}`,
+    producer: grillCommand(pkg.path),
+    rerun: perPackageRerun(pkg.path),
+    repairClass: 'judgment-required',
+    handoff: { class: 'unreadable-sidecar', sidecarPath },
+  });
+}
+
+/**
+ * Repair the mechanical handoff classes before the S8 gate measures the packages.
+ *
+ * A stale or missing mirror is derived from the ledger, so it is written here. A
+ * semantic conflict is never written: it becomes an S8 finding and the smooth AI
+ * decides in the same run, using the diff this record carries.
+ */
+export function repairFormulaHandoffs({ root, artifact = null, treeManifest = null }) {
+  const resolvedArtifact = artifact ?? rootArtifact(root);
+  const resolvedTree = treeManifest ?? readTreeManifest(root);
+  const specRelative = resolvedArtifact?.spec?.path;
+  if (typeof specRelative !== 'string' || specRelative.length === 0) {
+    return { ok: true, repaired: [], findings: [] };
+  }
+  const specPath = resolve(root, specRelative);
+  if (!existsSync(specPath)) {
+    return { ok: true, repaired: [], findings: [] };
+  }
+  const specText = readFileSync(specPath, 'utf8');
+  // A repair writes the sidecar, so it must not run against a denominator the gate
+  // will refuse. runSpecCompleteness reports the mismatch; this pass stays read-only.
+  const specDigest = sha256Hex(readFileSync(specPath));
+  if (typeof resolvedArtifact.spec.sha256 === 'string' && resolvedArtifact.spec.sha256 !== specDigest) {
+    return { ok: true, repaired: [], findings: [] };
+  }
+  const repaired = [];
+  const findings = [];
+  for (const pkg of resolvedTree?.workspace?.packages ?? []) {
+    try {
+      const packagePath = join(root, pkg.path);
+      const seedPath = join(packagePath, 'RFC-SEED.md');
+      if (!existsSync(seedPath)) continue;
+      const seedText = readFileSync(seedPath, 'utf8');
+      const rfcText = readPackageRfc(packagePath);
+      const ledger = rfcText === null ? null : readFormulaLedger(rfcText);
+      const sidecarState = readPackageSidecar(packagePath);
+      if (sidecarState.error !== null) {
+        findings.push(unreadableSidecarFinding(pkg, sidecarState.path, sidecarState.error));
+        continue;
+      }
+      const handoff = inspectFormulaHandoff({
+        rfcText: rfcText ?? '',
+        seedText,
+        specText,
+        treeManifest: resolvedTree,
+        ledger,
+        sidecar: sidecarState.sidecar,
+      });
+      if (handoff.class === HANDOFF_CLASS.CURRENT || handoff.class === HANDOFF_CLASS.NO_OWNED_FORMULAS) continue;
+      if (handoff.class === HANDOFF_CLASS.STALE_MIRROR || handoff.class === HANDOFF_CLASS.MISSING_SIDECAR) {
+        const applied = applyFormulaHandoff({
+          targetPath: sidecarState.path,
+          report: handoff,
+          mode: 'mirror-ledger',
+          seedText,
+          specText,
+          rfcText: rfcText ?? '',
+        });
+        if (applied.ok) {
+          repaired.push({ packageId: pkg.id, class: handoff.class, rowCount: applied.writtenRowCount });
+        } else {
+          findings.push(handoffFinding(pkg, { ...handoff, findings: applied.findings }));
+        }
+        continue;
+      }
+      findings.push(handoffFinding(pkg, handoff));
+    } catch (error) {
+      findings.push(finding('S8.formula-handoff', {
+        packageId: pkg.id,
+        packagePath: pkg.path,
+        missingField: 'RFC-SEED.md',
+        reason: `the formula handoff could not be measured: ${error.message}`,
+        producer: grillCommand(pkg.path),
+        rerun: perPackageRerun(pkg.path),
+        repairClass: 'judgment-required',
+        handoff: { class: 'unreadable-handoff' },
+      }));
+    }
+  }
+  return { ok: findings.length === 0, repaired, findings };
 }
 
 /** The waivers a reader wrote, or none. */
@@ -242,7 +417,8 @@ export function runSpecCompleteness({ root, artifact = null, treeManifest = null
     };
   }
 
-  const specFormulas = uniqueFormulas(extractFormulas(specBytes.toString('utf8')));
+  const specText = specBytes.toString('utf8');
+  const specFormulas = uniqueFormulas(extractFormulas(specText));
   const specIds = new Set(specFormulas.map((formula) => formula.id));
   const formulaById = new Map(specFormulas.map((formula) => [formula.id, formula]));
   const packages = resolvedTree?.workspace?.packages ?? [];
@@ -287,6 +463,22 @@ export function runSpecCompleteness({ root, artifact = null, treeManifest = null
 
     const rfcText = readPackageRfc(packagePath);
     const ledger = rfcText === null ? null : readFormulaLedger(rfcText);
+    const sidecarState = readPackageSidecar(packagePath);
+    if (sidecarState.error !== null) {
+      findings.push(unreadableSidecarFinding(pkg, sidecarState.path, sidecarState.error));
+    } else if (rfcText !== null) {
+      const handoff = inspectFormulaHandoff({
+        rfcText,
+        seedText: readFileSync(seedPath, 'utf8'),
+        specText,
+        treeManifest: resolvedTree,
+        ledger,
+        sidecar: sidecarState.sidecar,
+      });
+      if (handoff.class !== HANDOFF_CLASS.CURRENT && handoff.class !== HANDOFF_CLASS.NO_OWNED_FORMULAS) {
+        findings.push(handoffFinding(pkg, handoff));
+      }
+    }
     if (ledger === null) {
       for (const formula of owned) {
         findings.push(finding('S8.formula-missing', {

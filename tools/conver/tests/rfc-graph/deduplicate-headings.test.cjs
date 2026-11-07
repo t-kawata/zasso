@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
 /**
  * deduplicate-headings.test.cjs — deduplicateHeadings unit tests
@@ -155,5 +156,50 @@ describe('deduplicateHeadings — fenced code blocks', () => {
 
     assert.equal(result.unclosedFence, false);
     assert.equal(result.modified, false);
+  });
+});
+
+// PX-390 @verifies C001
+describe('PX-390 formula digest refresh', () => {
+  it('a renamed heading refreshes the ledger and sidecar rfcDigest', async () => {
+    const { computeRfcDigest, readFormulaLedger } = await import('../../.claude/scripts/spec-formula/index.mjs');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'px390-dedup-'));
+    try {
+      const rfcPath = path.join(root, 'RFC.md');
+      fs.writeFileSync(rfcPath, [
+        '# Package',
+        '',
+        '## Same',
+        '',
+        'first',
+        '',
+        '## Same',
+        '',
+        'second',
+        '',
+        '## Formula ledger',
+        '',
+        `- specDigest: \`${'a'.repeat(64)}\``,
+        `- rfcDigest: \`${'b'.repeat(64)}\``,
+        '',
+        '| Formula | Spec location | RFC location | Theory | Class | Implemented by | Implementation design | Verification |',
+        '|---|---|---|---|---|---|---|---|',
+        '',
+      ].join('\n'), 'utf8');
+      fs.writeFileSync(path.join(root, 'RFC-FORMULAS.json'), JSON.stringify({ rfcDigest: 'b'.repeat(64), formulas: [] }));
+
+      const run = spawnSync(process.execPath, [DEDUPLICATE_SCRIPT, rfcPath], { encoding: 'utf8' });
+      assert.equal(run.status, 0, run.stderr);
+
+      const text = fs.readFileSync(rfcPath, 'utf8');
+      const ledger = readFormulaLedger(text);
+      assert.equal(ledger.rfcDigest, computeRfcDigest(text));
+      assert.notEqual(ledger.rfcDigest, 'b'.repeat(64));
+      const sidecar = JSON.parse(fs.readFileSync(path.join(root, 'RFC-FORMULAS.json'), 'utf8'));
+      assert.equal(sidecar.rfcDigest, ledger.rfcDigest);
+      assert.match(text, /## Same A/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });

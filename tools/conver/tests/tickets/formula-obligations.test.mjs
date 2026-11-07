@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -194,4 +194,122 @@ test('C001 postcondition: show-ticket-context renders the formula obligation', (
   assert.match(rendered, /spec\.md:L3/);
   assert.match(rendered, /src\/symbol\.rs#WIDTH/);
   assert.match(rendered, /tests\/symbol\.rs::width/);
+});
+
+// PX-390 @verifies C003
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function writeLedgerRfc(root) {
+  writeFileSync(join(root, 'RFC.md'), [
+    '# Package',
+    '',
+    '## Formula ledger',
+    '',
+    `- specDigest: \`${sha256Hex(Buffer.from(SPEC_TEXT, 'utf8'))}\``,
+    `- rfcDigest: \`${'b'.repeat(64)}\``,
+    '',
+    '| Formula | Spec location | RFC location | Theory | Class | Implemented by | Implementation design | Verification |',
+    '|---|---|---|---|---|---|---|---|',
+    '',
+  ].join('\n'), 'utf8');
+}
+
+test('PX-390 C003 a package with a ledger but no sidecar is named before any read throws', () => {
+  const fixture = buildFixture();
+  rmSync(fixture.sidecarPath);
+  writeLedgerRfc(fixture.root);
+  const result = mergeFormulasToTickets({
+    ticketsPath: fixture.ticketsPath,
+    dirsTreePath: fixture.dirsTreePath,
+    sidecarPath: join(fixture.root, 'missing-RFC-FORMULAS.json'),
+    specPath: fixture.specPath,
+    cwd: fixture.root,
+    write: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((finding) => finding.code === 'MISSING_FORMULA_SIDECAR'), true, JSON.stringify(result.findings));
+  assert.equal(JSON.stringify(result.findings).includes('ENOENT'), false);
+});
+
+test('PX-390 C003 a package with no ledger and no formula index skips', () => {
+  const fixture = buildFixture();
+  rmSync(fixture.sidecarPath);
+  const emptyDirsTreePath = join(fixture.root, 'Empty-Dirs-Tree.json');
+  writeFileSync(emptyDirsTreePath, JSON.stringify({ distribution: { formulas: {} } }), 'utf8');
+  writeFileSync(join(fixture.root, 'RFC.md'), '# Package\n\nNo formulas.\n', 'utf8');
+  const result = mergeFormulasToTickets({
+    ticketsPath: fixture.ticketsPath,
+    dirsTreePath: emptyDirsTreePath,
+    sidecarPath: join(fixture.root, 'missing-RFC-FORMULAS.json'),
+    specPath: fixture.specPath,
+    cwd: fixture.root,
+    write: false,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+  assert.equal(result.skipped, 'no-formulas');
+  assert.deepEqual(result.findings, []);
+});
+
+test('PX-390 C003 empty arguments derive the canonical files from the workspace', () => {
+  const fixture = buildFixture();
+  writeFileSync(join(fixture.root, 'RFC-Dirs-Tree.json'), readFileSync(fixture.dirsTreePath));
+  writeFileSync(join(fixture.root, 'RFC-FORMULAS.json'), readFileSync(fixture.sidecarPath));
+  writeFileSync(join(fixture.root, 'RFC-SEED.md'), [
+    '```json',
+    JSON.stringify({ source_spec: { path: 'spec.md', sha256: sha256Hex(Buffer.from(SPEC_TEXT, 'utf8')) } }),
+    '```',
+  ].join('\n'), 'utf8');
+  writeFileSync(join(fixture.root, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({ structure: { segments: [] } }));
+  writeFileSync(join(fixture.root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), JSON.stringify({}));
+
+  const result = mergeFormulasToTickets({
+    ticketsPath: fixture.ticketsPath,
+    dirsTreePath: '',
+    sidecarPath: '',
+    specPath: '',
+    cwd: fixture.root,
+    write: false,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+  assert.equal(result.obligations.length, fixture.formulas.length);
+});
+
+test('PX-390 C003 a sidecar whose formulas the Dirs-Tree does not index is refused', () => {
+  const fixture = buildFixture();
+  const emptyDirsTreePath = join(fixture.root, 'Empty-Dirs-Tree.json');
+  writeFileSync(emptyDirsTreePath, JSON.stringify({ distribution: { formulas: {} } }), 'utf8');
+
+  const result = mergeFormulasToTickets({
+    ticketsPath: fixture.ticketsPath,
+    dirsTreePath: emptyDirsTreePath,
+    sidecarPath: fixture.sidecarPath,
+    specPath: fixture.specPath,
+    cwd: fixture.root,
+    write: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((finding) => finding.code === 'FORMULA_INDEX_MISSING'), true, JSON.stringify(result.findings));
+});
+
+// PX-390 review @verifies C003
+test('PX-390 review: a malformed tree manifest is a named finding, not an exception', () => {
+  const fixture = buildFixture();
+  const treePath = join(fixture.root, 'Broken-Tree.json');
+  writeFileSync(treePath, '{not json', 'utf8');
+
+  const result = mergeFormulasToTickets({
+    ticketsPath: fixture.ticketsPath,
+    dirsTreePath: fixture.dirsTreePath,
+    sidecarPath: fixture.sidecarPath,
+    specPath: fixture.specPath,
+    treeManifestPath: treePath,
+    cwd: fixture.root,
+    write: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((finding) => finding.code === 'UNREADABLE_TREE_MANIFEST'), true, JSON.stringify(result.findings));
 });

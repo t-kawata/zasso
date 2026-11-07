@@ -195,7 +195,7 @@ switch (operation) {
       : chainArgument.slice("--chain=".length).split(",").map((entry) => entry.trim()).filter(Boolean);
     const rfcPath = path.join(path.resolve(rfcDir), RFC_FILE_NAME);
     if (!fs.existsSync(rfcPath)) {
-      console.error(`Cannot record rederive: ${rfcPath} does not exist`);
+      console.error(`Cannot record rederive: ${toHomeRelative(rfcPath)} does not exist`);
       process.exit(1);
     }
     const sourceDigest = createHash("sha256").update(fs.readFileSync(rfcPath)).digest("hex");

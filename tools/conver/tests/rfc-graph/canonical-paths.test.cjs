@@ -21,6 +21,7 @@ const BOUNDIFY_STATUS = path.join(SCRIPTS, 'rfc-graph/update-boundify-step-statu
 const ANALYZE_SOURCE = path.join(SCRIPTS, 'rfc-graph/analyze-source-structure.js');
 const SHOW_DIRS = path.join(SCRIPTS, 'rfc-graph/show-dirs-files-tree.js');
 const WRITE_PHASE = path.join(SCRIPTS, 'rfc-graph/write-phase-name-summary.js');
+const VERIFY_FORMULA = path.join(SCRIPTS, 'rfc-graph/verify-formula-file-coverage.js');
 
 /** The resolver functions this ticket adds. */
 const {
@@ -144,6 +145,14 @@ test('C004 the step-status script resolves its canonical status file', () => {
   const result = run(BOUNDIFY_STATUS, ['start-step', '0'], { cwd });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.existsSync(path.join(cwd, 'RFC-BOUNDIFY-Status.json')), true);
+});
+
+test('C004 the formula coverage gate runs bare and resolves both layers', () => {
+  const cwd = makeCanonicalPackage();
+  const result = run(VERIFY_FORMULA, [], { cwd });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /resolved graph: .*RFC-GRAPH\.json/);
+  assert.match(result.stderr, /resolved dirs-tree: .*RFC-Dirs-Tree\.json/);
 });
 
 test('C004 source and tree scripts run bare', () => {

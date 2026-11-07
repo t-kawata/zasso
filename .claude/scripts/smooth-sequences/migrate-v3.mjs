@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
+import { toHomeRelative } from '../lib/path-utils.js';
 import { SmoothSequencesError } from './lib/errors.mjs';
 import { migrateArtifactToV3, renderArtifact, SCHEMA_V3, suggestAnnotations } from './lib/migrate-v3.mjs';
 import { assertWorkspaceRoot, loadWorkspace, startDirectoryFor } from './lib/workspace.mjs';
@@ -88,7 +89,7 @@ export function main(argv) {
         const candidatePath = resolve(root, 'regeneration/candidates/suggested-ANNOTATIONS.json');
         mkdirSync(dirname(candidatePath), { recursive: true });
         writeFileSync(candidatePath, `${JSON.stringify(annotations, null, 2)}\n`);
-        process.stderr.write(`suggest-annotations: wrote ${candidatePath}\n`);
+        process.stderr.write(`suggest-annotations: wrote ${toHomeRelative(candidatePath)}\n`);
       }
       return EXIT_OK;
     }

@@ -54,17 +54,22 @@ const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'archive', 'WORKSPACIFY-4-PATTERN
  * table exists to make fail. The document was corrected beside the table, because a
  * pointer that resolves to the right line while the prose still prints the old number is
  * the same defect one reader further on.
+ *
+ * Five more were re-measured on 2026-11-07, after later edits moved the lines they
+ * name: two by a single line below the citation, one onto the return its claim quotes,
+ * and two by the growth above a definition. The document was corrected beside the
+ * table for the same reason.
  */
 const ANCHORED_CITATIONS = Object.freeze([
 // [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
-  { asWritten: 'allocate-manifest.mjs:43', path: '.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs', line: 43, token: 'SEED_FILE_NAME' },
+  { asWritten: 'allocate-manifest.mjs:44', path: '.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs', line: 44, token: 'SEED_FILE_NAME' },
   { asWritten: 'workspacify-allocate/lib/reverse-mode.mjs:212', path: '.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs', line: 212, token: 'seed-bearing package(s) holds exactly one' },
   { asWritten: 'seed-render.mjs:76', path: '.claude/scripts/workspacify-allocate/lib/seed-render.mjs', line: 76, token: 'SEED_TITLE_PREFIX}${pkg.name}' },
   { asWritten: '.claude/commands/split-to-tickets.md:84', path: '.claude/commands/split-to-tickets.md', line: 94, token: 'docs/Tickets.json' },
   { asWritten: "`ROOT_PACKAGE_PATH = '.'` (line 69)", path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 69, token: "ROOT_PACKAGE_PATH = '.'" },
   { asWritten: 'lines 126-131', path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 131, token: 'ROOT_PACKAGE_PATH : relativeDir' },
   { asWritten: 'line 172', path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 172, token: 'function packageOwnsPath' },
-  { asWritten: 'drill-rfc-down/boundify-step.js:66', path: '.claude/scripts/drill-rfc-down/boundify-step.js', line: 66, token: '.delta.json' },
+  { asWritten: 'drill-rfc-down/boundify-step.js:67', path: '.claude/scripts/drill-rfc-down/boundify-step.js', line: 67, token: '.delta.json' },
   { asWritten: 'command-file-digest.mjs:50', path: '.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs', line: 50, token: 'COMMAND_FILE_NAMES' },
   { asWritten: 'command.test.mjs:145', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 145, token: 'a creation, not an edit' },
   { asWritten: 'command-file.mjs:270', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 270, token: 'function assertCommandFileStructure' },
@@ -77,7 +82,7 @@ const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'scope.mjs:1994', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1995, token: 'replacePublishedDocuments(out, documents)' },
   { asWritten: 'scope.mjs:1833-1838', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1834, token: 'the analysis modified its target' },
   { asWritten: 'seed-local-checks.mjs:36', path: '.claude/scripts/workspacify-allocate/lib/seed-local-checks.mjs', line: 36, token: 'SEED_REQUIRED_SECTIONS.length' },
-  { asWritten: 'run.mjs:383-387', path: '.claude/scripts/workspacify-reverse/run.mjs', line: 387, token: 'action: second, root: process.cwd()' },
+  { asWritten: 'run.mjs:383-388', path: '.claude/scripts/workspacify-reverse/run.mjs', line: 388, token: 'action: second, root: process.cwd()' },
 ]);
 
 /**
@@ -226,7 +231,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // when the ruling vocabulary and the check's source grew above it, once when that change's own
   // annotation was written, and once when the review read the same vocabulary out of the two
   // selections that still stated it: 704 -> 724.
-  { asWritten: 'engine.mjs:885', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 885, token: 'export const CHECKS' },
+  { asWritten: 'engine.mjs:934', path: '.claude/scripts/educe-sequences/rail/engine.mjs', line: 934, token: 'export const CHECKS' },
   // Re-measured for PX-267, which changed the reader's vocabulary above it: 405 -> 414.
   // Re-measured by PX-294, which added the v3 preservation and reader-generation checks to
   // artifact.mjs and readings.mjs: the definitions moved with their files. The gates.mjs and
@@ -247,7 +252,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'run-state.mjs:194', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 194, token: 'export function openRun' },
   // Re-measured for PX-267, whose vocabulary change and annotation both added a line above it:
   // 303 -> 309.
-  { asWritten: 'readings.mjs:502', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 502, token: 'export function readReadingsFile' },
+  { asWritten: 'readings.mjs:507', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 507, token: 'export function readReadingsFile' },
   { asWritten: 'adhoc.mjs:148', path: '.claude/scripts/educe-sequences/rail/adhoc.mjs', line: 148, token: 'export function scaffoldCheck' },
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.

@@ -20,10 +20,12 @@
  * opposite of the defect this guards, and the paragraph's existence is asserted so the
  * permission cannot outlive the record it was granted for.
  *
- * A tracked file the scan cannot read as text is reported rather than passed over in
+ * A tracked file the scan cannot read at all is reported rather than passed over in
  * silence. The instrument's own rule is that a missing search must never read as a
  * search that found nothing, and a scan that quietly skipped a file would be that same
- * mistake in a different place.
+ * mistake in a different place. A binary asset is read as bytes and searched for a
+ * distinctive spelling; the bare two-letter name is not searched there, because it is a
+ * weak signal that only means something on a line a person could have written.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -130,9 +132,18 @@ const FROZEN_RECORDS = Object.freeze([
  *
  * The measurement is why the cap exists: this repository tracks 526 MB, most of it
  * archives and shared libraries, and reading those to search for a word would cost the
- * whole run without adding a surface that can tell anyone to do anything.
+ * whole run without adding a surface that can tell anyone to do anything. A file past
+ * this cap is still searched for a distinctive spelling under the binary cap below.
  */
 const MAX_SCANNED_BYTES = 2 * 1024 * 1024;
+
+/**
+ * A binary asset larger than this is not scanned even for a distinctive spelling.
+ *
+ * The cap bounds the read, not the claim: the tracked binaries this repository carries
+ * are the progress-GIF fonts, and they sit well below it.
+ */
+const MAX_BINARY_SCANNED_BYTES = 64 * 1024 * 1024;
 
 /**
  * Whether a line names the tool.
@@ -147,8 +158,9 @@ const MAX_SCANNED_BYTES = 2 * 1024 * 1024;
  * @returns {boolean}
  */
 // [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
-function namesTheTool(line, path) {
+function namesTheTool(line, path, { binary = false } = {}) {
   if (DISTINCTIVE_IDENTIFIERS.some((pattern) => pattern.test(line))) return true;
+  if (binary) return false;
   if (isGeneratedBundle(path)) return false;
   if (THIRD_PARTY_TREE.test(path)) return false;
   return BARE_NAME.test(line);
@@ -156,10 +168,10 @@ function namesTheTool(line, path) {
 
 /** The line numbers in `text` that name the tool, given where the file sits. */
 // [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
-function findIdentifiers(text, path = '') {
+function findIdentifiers(text, path = '', { binary = false } = {}) {
   const found = [];
   text.split('\n').forEach((line, index) => {
-    if (namesTheTool(line, path)) found.push(index + 1);
+    if (namesTheTool(line, path, { binary })) found.push(index + 1);
   });
   return found;
 }
@@ -217,16 +229,22 @@ function removalRecordLines(text) {
  * `.bin` holding prose are both possible, and the question the scan asks is whether a
  * reader could be told anything by what the file holds.
  *
+ * A binary asset is read rather than skipped, because a distinctive spelling embedded
+ * in one still reaches whoever opens it. The bare two-letter name is not searched there:
+ * it is a weak signal that only means something on a line a person could have written,
+ * and arbitrary bytes contain it by coincidence. Only a file too large to read at all is
+ * reported as unreadable.
+ *
  * A path the working tree does not hold as a file — an entry the index carries and the
  * disk does not, or a path that is a directory — is not a surface anyone can be told to
  * open, so it is skipped. The source trees below are the exception to skipping, and the
  * reason is stated where they are declared.
  *
  * @param {string} absolutePath
- * @returns {{ readable: true, text: string } | { readable: false, reason: string }}
+ * @returns {{ readable: true, binary: boolean, text: string } | { readable: false, reason: string }}
  */
 // [::TICKET::] P25-7 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P25-7 --for-spec --no-implementation-order`.
-function readIfText(absolutePath) {
+function readForScan(absolutePath) {
   let stats;
   try {
     stats = statSync(absolutePath);
@@ -234,15 +252,23 @@ function readIfText(absolutePath) {
     return { readable: false, reason: 'is not in the working tree' };
   }
   if (!stats.isFile()) return { readable: false, reason: 'is not a file' };
-  if (stats.size > MAX_SCANNED_BYTES) {
-    return { readable: false, reason: `is larger than ${MAX_SCANNED_BYTES} bytes` };
+  const limit = stats.size > MAX_SCANNED_BYTES ? MAX_BINARY_SCANNED_BYTES : MAX_SCANNED_BYTES;
+  if (stats.size > limit) {
+    return { readable: false, reason: `is larger than ${limit} bytes` };
   }
   const bytes = readFileSync(absolutePath);
-  if (bytes.includes(0)) return { readable: false, reason: 'carries a NUL byte' };
+  const text = decodeText(bytes);
+  if (text !== null) return { readable: true, binary: false, text };
+  return { readable: true, binary: true, text: bytes.toString('latin1') };
+}
+
+/** The file's text, or null when its bytes are not a UTF-8 document. */
+function decodeText(bytes) {
+  if (bytes.includes(0)) return null;
   try {
-    return { readable: true, text: new TextDecoder('utf-8', { fatal: true }).decode(bytes) };
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    return { readable: false, reason: 'is not UTF-8' };
+    return null;
   }
 }
 
@@ -257,12 +283,12 @@ test('no live surface still names the removed tool', () => {
 
   for (const path of trackedPaths(REPOSITORY_ROOT)) {
     if (path === SELF_PATH || path === STAND_IN_PATH || isFrozen(path)) continue;
-    const read = readIfText(join(REPOSITORY_ROOT, path));
+    const read = readForScan(join(REPOSITORY_ROOT, path));
     if (!read.readable) {
       if (isInstrumentSource(path)) unreadable.push(`${path} (${read.reason})`);
       continue;
     }
-    for (const line of findIdentifiers(read.text, path)) {
+    for (const line of findIdentifiers(read.text, path, { binary: read.binary })) {
       if (path === DESIGN_PATH && designLines.includes(line)) continue;
       offending.push(`${path}:${line}`);
     }
