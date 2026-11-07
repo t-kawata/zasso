@@ -18,10 +18,16 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
+const { pathToFileURL } = require('node:url');
 const {
   findFencedBlocks,
   extractHeadingsOutsideFences,
 } = require('./lib/markdown-headings.js');
+
+const FORMULA_LIBRARY = pathToFileURL(path.join(__dirname, '..', 'spec-formula', 'index.mjs')).href;
+const FORMULA_LEDGER_HEADING = /^(#{1,6})\s+Formula ledger\s*$/m;
+const RFC_DIGEST_LINE = /^(\s*-\s*rfcDigest:\s*`)[0-9a-f]{64}(`\s*)$/m;
 
 /** Maximum number of A-Z suffixes after the first occurrence. */
 const MAX_DUPLICATES = 26;
@@ -113,8 +119,49 @@ function writeAtomically(filePath, content) {
   }
 }
 
-// [::TICKET::] PX-335 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-335 --for-spec --no-implementation-order`.
-function main() {
+/**
+ * Refresh the formula body digest after a heading rename.
+ *
+ * The ledger's rfcDigest is the body above the appendix. Renaming a duplicate heading
+ * is a mechanical change to that body, so the metadata must follow it before graphify
+ * reads the formula sidecar; otherwise Step 2 refuses a sidecar Step 0 invalidated.
+ * No formula row is changed.
+ *
+ * @param {string} filePath
+ * @returns {Promise<{refreshed: boolean, digest: string|null}>}
+ */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+async function refreshFormulaDigests(filePath) {
+  const { FORMULA_SIDECAR_FILENAME, computeRfcDigest, readFormulaLedger } = await import(FORMULA_LIBRARY);
+  const text = fs.readFileSync(filePath, 'utf8');
+  if (readFormulaLedger(text) === null) return { refreshed: false, digest: null };
+  if (!FORMULA_LEDGER_HEADING.test(text)) return { refreshed: false, digest: null };
+
+  const digest = computeRfcDigest(text);
+  const heading = FORMULA_LEDGER_HEADING.exec(text);
+  const before = text.slice(0, heading.index);
+  const after = text.slice(heading.index);
+  const refreshedAfter = after.replace(RFC_DIGEST_LINE, `$1${digest}$2`);
+  let refreshed = false;
+  if (refreshedAfter !== after) {
+    writeAtomically(filePath, before + refreshedAfter);
+    refreshed = true;
+  }
+
+  const sidecarPath = path.join(path.dirname(filePath), FORMULA_SIDECAR_FILENAME);
+  if (fs.existsSync(sidecarPath)) {
+    const sidecar = JSON.parse(fs.readFileSync(sidecarPath, 'utf8'));
+    if (sidecar.rfcDigest !== digest) {
+      sidecar.rfcDigest = digest;
+      writeAtomically(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
+      refreshed = true;
+    }
+  }
+  return { refreshed, digest };
+}
+
+// [::TICKET::] PX-335, PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-335|PX-390) --for-spec --no-implementation-order`.
+async function main() {
   const args = process.argv.slice(2);
   if (args.length !== 1 || args[0] === '--help' || args[0] === '-h') {
     process.stdout.write('Usage: deduplicate-headings.js <source-path>\n');
@@ -135,6 +182,7 @@ function main() {
 
   if (modified) {
     writeAtomically(args[0], result.join('\n'));
+    await refreshFormulaDigests(args[0]);
     process.stdout.write(`[Modified] Suffix added to ${changes.length} duplicate heading(s).\n`);
     for (const change of changes) {
       process.stdout.write(`  ${change}\n`);
@@ -144,6 +192,13 @@ function main() {
   }
 }
 
-module.exports = { deduplicateHeadings, readLines, writeAtomically };
+module.exports = { deduplicateHeadings, readLines, refreshFormulaDigests, writeAtomically };
 
-if (require.main === module) main();
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`[ERROR] DEDUPLICATE_FAILED: ${error.message}`);
+    console.error('Cause: the heading pass or the formula digest refresh could not complete');
+    console.error('Action: repair the file named above and re-run deduplicate-headings.js');
+    process.exit(1);
+  });
+}

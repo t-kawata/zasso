@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
@@ -29,6 +30,7 @@ import { join, resolve } from 'node:path';
 import { CHECK_FAMILY_COUNT, evaluateCheckRegistry } from './lib/check-registry.mjs';
 import { runClosureGates } from './lib/closure-gates.mjs';
 import {
+  repairFormulaHandoffs,
   runSpecCompleteness,
   writeSpecCompletenessWorklist,
 } from './lib/checks-spec-completeness.mjs';
@@ -521,6 +523,15 @@ export function runCommand(argv, io = {}) {
     const closure = closureMode
       ? (io.runClosureGates ?? runClosureGates)({ root })
       : { ok: true, gates: [] };
+    // The mechanical mirror is repaired before the S8 gate measures the packages. A
+    // judgment class is never written here; it stays in the findings for the run's AI.
+    const handoffRepair = closureMode
+      ? (io.repairFormulaHandoffs ?? repairFormulaHandoffs)({
+        root,
+        artifact: loaded.artifact,
+        treeManifest: loaded.treeManifest,
+      })
+      : { ok: true, repaired: [], findings: [] };
     const specCompleteness = closureMode
       ? (io.runSpecCompleteness ?? runSpecCompleteness)({
         root,
@@ -554,6 +565,12 @@ export function runCommand(argv, io = {}) {
       }]
       : [];
 // [::TICKET::] PX-295, PX-296 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-295, PX-296 --for-spec --no-implementation-order`.
+    // The S8 pass inspects the same handoff, so a judgment finding can be produced by
+    // both the repair pass and the gate. Identity is the check and subject, and the
+    // gate's record is the one kept: it carries the same diff after the repair attempt.
+    const handoffBlocked = handoffRepair.findings.filter((entry) => !specCompleteness.findings.some(
+      (existing) => existing.checkId === entry.checkId && existing.subject === entry.subject,
+    ));
     const blocked = [
       ...evaluation.blocked.map((entry) => ({
         ...entry,
@@ -561,6 +578,7 @@ export function runCommand(argv, io = {}) {
         repairClass: 'regeneration',
       })),
       ...specCompleteness.findings,
+      ...handoffBlocked,
       ...closureBlocked,
       ...calibrationBlocked,
     ];
@@ -824,6 +842,7 @@ export function runCommand(argv, io = {}) {
       specDigest: specCompleteness.specDigest,
       ...specCompleteness.summary,
       findings: specCompleteness.findings.length,
+      sidecarsRepaired: handoffRepair.repaired.length,
     };
     report.calibration = {
       digest: calibration?.digest ?? null,

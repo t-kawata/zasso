@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 /**
  * The smooth verdict gate the graph stage sits behind.
@@ -141,6 +142,27 @@ export function collectMapDigests(root) {
   return digests;
 }
 
+/**
+ * The digest of each package's formula sidecar.
+ *
+ * The ledger is certified inside RFC.md, but graphify and split consume RFC-FORMULAS.json.
+ * Binding the sidecar in the receipt is what makes the artifact they read the artifact
+ * smooth accepted, rather than a second record that can drift while every gate stays green.
+ *
+ * @param {string} root
+ * @returns {Record<string, string|null>}
+ */
+export function collectFormulaSidecarDigests(root) {
+  const tree = readJsonOrNull(join(root, TREE_MANIFEST_FILE_NAME));
+  const digests = {};
+  for (const pkg of tree?.workspace?.packages ?? []) {
+    if (typeof pkg?.id !== 'string' || typeof pkg?.path !== 'string') continue;
+    const sidecarPath = join(root, pkg.path, 'RFC-FORMULAS.json');
+    digests[pkg.id] = existsSync(sidecarPath) ? sha256File(sidecarPath) : null;
+  }
+  return digests;
+}
+
 /** The workspace root that owns the package, or null outside a workspacify workspace. */
 // [::TICKET::] PX-316 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-316 --for-spec --no-implementation-order`.
 export function findWorkspaceRoot(packageDir) {
@@ -227,6 +249,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
   const statusDigest = sha256File(statusPath);
   const viewDigests = collectViewDigests(workspaceRoot);
   const mapDigests = collectMapDigests(workspaceRoot);
+  const formulaDigests = collectFormulaSidecarDigests(workspaceRoot);
 
   const existing = readSmoothReceipt(workspaceRoot);
   if (existing !== null
@@ -235,6 +258,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
       && existing.artifactDigest === artifactDigest
       && JSON.stringify(existing.viewDigests) === JSON.stringify(viewDigests)
       && JSON.stringify(existing.mapDigests) === JSON.stringify(mapDigests)
+      && JSON.stringify(existing.formulaDigests) === JSON.stringify(formulaDigests)
       && existing.worklistDigest === worklistDigest
       && existing.formulaCompleteness?.status === 'pass'
       && existing.verdictPass === true) {
@@ -276,6 +300,7 @@ export function verifySmoothVerdict({ packageDir, writeReceipt = false }) {
     artifactDigest,
     viewDigests,
     mapDigests,
+    formulaDigests,
     worklistDigest,
     formulaCompleteness: status.formulaCompleteness,
     certificateStatus: certificate?.status ?? null,
@@ -310,6 +335,9 @@ export function verifySmoothReceipt(packageDir) {
   const findings = [];
   if (receipt.mapDigests === undefined || receipt.mapDigests === null) {
     findings.push(finding(SMOOTH_VERDICT_CODES.MISSING_SMOOTH_RECEIPT, receiptPath, 'the receipt does not bind the distribution-map blocks; rerun graphify Step 0'));
+  }
+  if (receipt.formulaDigests === undefined || receipt.formulaDigests === null) {
+    findings.push(finding(SMOOTH_VERDICT_CODES.MISSING_SMOOTH_RECEIPT, receiptPath, 'the receipt predates formula-sidecar binding; rerun graphify Step 0'));
   }
   if (receipt.verdictPass !== true) {
     findings.push(finding(SMOOTH_VERDICT_CODES.SMOOTH_VERDICT_NOT_PASS, receiptPath, 'the receipt does not record a pass verdict'));
@@ -358,6 +386,17 @@ export function verifySmoothReceipt(packageDir) {
   ])) {
     if (recordedMapDigests[packageId] !== liveMapDigests[packageId]) {
       findings.push(finding(SMOOTH_VERDICT_CODES.STALE_SMOOTH_VERDICT, packageId, 'the package distribution map changed after the receipt'));
+    }
+  }
+
+  const liveFormulaDigests = collectFormulaSidecarDigests(workspaceRoot);
+  const recordedFormulaDigests = receipt.formulaDigests ?? {};
+  for (const packageId of new Set([
+    ...Object.keys(recordedFormulaDigests),
+    ...Object.keys(liveFormulaDigests),
+  ])) {
+    if (recordedFormulaDigests[packageId] !== liveFormulaDigests[packageId]) {
+      findings.push(finding(SMOOTH_VERDICT_CODES.STALE_SMOOTH_VERDICT, packageId, 'the package formula sidecar changed after the receipt'));
     }
   }
   return findings;

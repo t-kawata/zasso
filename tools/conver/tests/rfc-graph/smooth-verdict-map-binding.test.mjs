@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // PX-321 @verifies C007
 // The smooth receipt must bind the distribution-map block, not only the view and artifact.
 // A map edit after the receipt is stale; a prose-only RFC edit is not.
@@ -65,6 +66,41 @@ test('C007 a receipt without mapDigests is refused', () => {
     const receiptPath = join(workspace.root, 'SMOOTH-VERDICT.json');
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     delete receipt.mapDigests;
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+    assert.ok(verifySmoothReceipt(workspace.packageDir).some((finding) => finding.code === 'MISSING_SMOOTH_RECEIPT'));
+  } finally {
+    rmSync(workspace.root, { recursive: true, force: true });
+  }
+});
+
+// PX-390 @verifies C003
+import { sha256File } from '../../.claude/scripts/sequences-slice/lib/smooth-verdict.mjs';
+import { VIEW_PACKAGE } from '../sequences-slice/helpers/multi-package-fixture.mjs';
+
+test('PX-390 C003 the receipt binds every formula sidecar digest', () => {
+  const workspace = createWorkspace();
+  try {
+    const sidecarPath = join(workspace.packageDir, 'RFC-FORMULAS.json');
+    writeFileSync(sidecarPath, JSON.stringify({ formulas: [] }), 'utf8');
+    const verified = verifySmoothVerdict({ packageDir: workspace.packageDir, writeReceipt: true });
+
+    assert.deepEqual(verified.findings, []);
+    assert.equal(verified.receipt.formulaDigests[VIEW_PACKAGE], sha256File(sidecarPath));
+
+    writeFileSync(sidecarPath, JSON.stringify({ formulas: [], changed: true }), 'utf8');
+    assert.ok(verifySmoothReceipt(workspace.packageDir).some((finding) => finding.code === 'STALE_SMOOTH_VERDICT'));
+  } finally {
+    rmSync(workspace.root, { recursive: true, force: true });
+  }
+});
+
+test('PX-390 C003 a receipt without formulaDigests predates the binding and is refused', () => {
+  const workspace = createWorkspace();
+  try {
+    assert.deepEqual(verifySmoothVerdict({ packageDir: workspace.packageDir, writeReceipt: true }).findings, []);
+    const receiptPath = join(workspace.root, 'SMOOTH-VERDICT.json');
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    delete receipt.formulaDigests;
     writeFileSync(receiptPath, JSON.stringify(receipt));
     assert.ok(verifySmoothReceipt(workspace.packageDir).some((finding) => finding.code === 'MISSING_SMOOTH_RECEIPT'));
   } finally {

@@ -30,6 +30,86 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+/** Whether a path is a readable file, not a directory or an absent path. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function isFile(filePath) {
+  if (typeof filePath !== 'string' || filePath.length === 0) return false;
+  if (!fs.existsSync(filePath)) return false;
+  return fs.statSync(filePath).isFile();
+}
+
+/** The nearest ancestor holding both workspace manifests, or null. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function findWorkspaceRoot(startDirectory) {
+  let directory = path.resolve(startDirectory);
+  for (;;) {
+    if (isFile(path.join(directory, 'WORKSPACIFY-TREE-MANIFEST.json'))
+      && isFile(path.join(directory, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'))) {
+      return directory;
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) return null;
+    directory = parent;
+  }
+}
+
+/** The source_spec.path a seed records, or null. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function seedSourceSpecPath(seedPath) {
+  if (!isFile(seedPath)) return null;
+  const text = fs.readFileSync(seedPath, 'utf8');
+  const fence = /```json\r?\n([\s\S]*?)```/g;
+  let match;
+  while ((match = fence.exec(text)) !== null) {
+    try {
+      const block = JSON.parse(match[1]);
+      if (typeof block?.source_spec?.path === 'string' && block.source_spec.path.length > 0) {
+        return block.source_spec.path;
+      }
+    } catch {
+      // A non-identity JSON fence is not the seed identity; keep looking.
+    }
+  }
+  return null;
+}
+
+/** Resolve one input: the explicit readable file wins, otherwise the canonical path. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function resolveInput(requested, canonical, field, substitutions) {
+  if (isFile(requested)) return requested;
+  if (isFile(canonical)) {
+    if (typeof requested === 'string' && requested.length > 0 && path.resolve(requested) !== path.resolve(canonical)) {
+      substitutions.push({ field, requested, used: canonical });
+    }
+    return canonical;
+  }
+  if (typeof requested === 'string' && requested.length > 0) {
+    substitutions.push({ field, requested, used: null });
+  }
+  return null;
+}
+
+/** The five input paths, filled from the invocation directory when a caller omits them. */
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
+function resolveMergeInputs(input) {
+  const cwd = path.resolve(input.cwd ?? process.cwd());
+  const workspaceRoot = findWorkspaceRoot(cwd) ?? cwd;
+  const substitutions = [];
+  const ticketsPath = resolveInput(input.ticketsPath, path.join(cwd, 'Tickets.json'), 'tickets', substitutions);
+  const dirsTreePath = resolveInput(input.dirsTreePath, path.join(cwd, 'RFC-Dirs-Tree.json'), 'dirsTree', substitutions);
+  const sidecarPath = resolveInput(input.sidecarPath, path.join(cwd, 'RFC-FORMULAS.json'), 'sidecar', substitutions);
+  const seedSpecPath = seedSourceSpecPath(path.join(cwd, 'RFC-SEED.md'));
+  const canonicalSpec = seedSpecPath === null ? null : path.resolve(workspaceRoot, seedSpecPath);
+  const specPath = resolveInput(input.specPath, canonicalSpec, 'spec', substitutions);
+  const treeManifestPath = resolveInput(
+    input.treeManifestPath,
+    path.join(workspaceRoot, 'WORKSPACIFY-TREE-MANIFEST.json'),
+    'treeManifest',
+    substitutions,
+  );
+  return { cwd, workspaceRoot, ticketsPath, dirsTreePath, sidecarPath, specPath, treeManifestPath, substitutions };
+}
+
 // [::TICKET::] PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362) --for-spec --no-implementation-order`.
 function allTickets(tickets) {
   return (tickets?.phases ?? []).flatMap((phase) => phase?.tickets ?? []);
@@ -153,22 +233,85 @@ function buildObligation({ formula, entry, specText, specRelative, treeManifest 
  *   treeManifestPath?: string|null, write?: boolean}} input
  * @returns {{ok: boolean, findings: Array<object>, obligations: Array<object>}}
  */
-// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-362, PX-365, PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365|PX-390) --for-spec --no-implementation-order`.
 function mergeFormulasToTickets(input) {
-  const { ticketsPath, dirsTreePath, sidecarPath, specPath, treeManifestPath = null, write = false, ticketsDocument = null } = input;
-  const tickets = ticketsDocument ?? readJson(ticketsPath);
-  const dirsTree = readJson(dirsTreePath);
-  const sidecar = readJson(sidecarPath);
-  const specBytes = fs.readFileSync(specPath);
-  const specText = specBytes.toString('utf8');
-  const treeManifest = treeManifestPath === null ? null : readJson(treeManifestPath);
+  const { write = false, ticketsDocument = null } = input;
+  const resolved = resolveMergeInputs(input);
+  const { cwd, ticketsPath, dirsTreePath, sidecarPath, specPath, treeManifestPath, substitutions } = resolved;
   const findings = [];
   const advisories = [];
+  const done = (result) => ({ ...result, substitutions });
+
+  if (dirsTreePath === null) {
+    return done({ ok: false, findings: [finding('MISSING_DIRS_TREE', 'dirsTree', 'RFC-Dirs-Tree.json is missing')], advisories, obligations: [] });
+  }
+  let dirsTree;
+  try {
+    dirsTree = readJson(dirsTreePath);
+  } catch (error) {
+    return done({ ok: false, findings: [finding('UNREADABLE_DIRS_TREE', dirsTreePath, error.message)], advisories, obligations: [] });
+  }
+
+  const rfcPath = path.join(cwd, 'RFC.md');
+  const rfcText = isFile(rfcPath) ? fs.readFileSync(rfcPath, 'utf8') : '';
+  const hasLedger = /^#{1,6}\s+Formula ledger\s*$/m.test(rfcText);
+  const formulaIndex = dirsTree?.distribution?.formulas ?? {};
+  const indexedFormulaCount = Object.keys(formulaIndex).length;
+
+  if (sidecarPath === null) {
+    if (hasLedger || indexedFormulaCount > 0) {
+      return done({
+        ok: false,
+        findings: [finding('MISSING_FORMULA_SIDECAR', 'RFC-FORMULAS.json', 'the package carries a Formula ledger or a formula index and no sidecar')],
+        advisories,
+        obligations: [],
+      });
+    }
+    return done({ ok: true, skipped: 'no-formulas', findings: [], advisories, obligations: [] });
+  }
+
+  let sidecar;
+  try {
+    sidecar = readJson(sidecarPath);
+  } catch (error) {
+    return done({ ok: false, findings: [finding('SIDECAR_UNREADABLE', sidecarPath, error.message)], advisories, obligations: [] });
+  }
+  if (indexedFormulaCount === 0 && (sidecar.formulas ?? []).length > 0) {
+    return done({ ok: false, findings: [finding('FORMULA_INDEX_MISSING', sidecarPath, 'the sidecar carries formulas the Dirs-Tree does not index')], advisories, obligations: [] });
+  }
+
+  let tickets;
+  try {
+    tickets = ticketsDocument ?? readJson(ticketsPath);
+  } catch (error) {
+    return done({ ok: false, findings: [finding('MISSING_TICKETS', ticketsPath ?? '(none)', error.message)], advisories, obligations: [] });
+  }
+  if (tickets === null) {
+    return done({ ok: false, findings: [finding('MISSING_TICKETS', ticketsPath ?? '(none)', 'Tickets.json is missing')], advisories, obligations: [] });
+  }
+  if (specPath === null) {
+    return done({ ok: false, findings: [finding('MISSING_SPECIFICATION', 'spec', 'the seed source_spec.path cannot be resolved')], advisories, obligations: [] });
+  }
+  let specBytes;
+  try {
+    specBytes = fs.readFileSync(specPath);
+  } catch (error) {
+    return done({ ok: false, findings: [finding('UNREADABLE_SPECIFICATION', specPath, error.message)], advisories, obligations: [] });
+  }
+  const specText = specBytes.toString('utf8');
+  let treeManifest = null;
+  if (treeManifestPath !== null) {
+    try {
+      treeManifest = readJson(treeManifestPath);
+    } catch (error) {
+      return done({ ok: false, findings: [finding('UNREADABLE_TREE_MANIFEST', treeManifestPath, error.message)], advisories, obligations: [] });
+    }
+  }
 
   if (sidecar.specDigest !== sha256(specBytes)) {
     findings.push(finding('STALE_SIDECAR', 'specDigest', 'the sidecar does not bind the original specification'));
   }
-  if (findings.length > 0) return { ok: false, findings, advisories, obligations: [] };
+  if (findings.length > 0) return done({ ok: false, findings, advisories, obligations: [] });
 
   const sidecarIds = new Set((sidecar.formulas ?? []).map((formula) => formula.id));
   for (const ticket of allTickets(tickets)) {
@@ -212,7 +355,7 @@ function mergeFormulasToTickets(input) {
     }
   }
 
-  if (findings.length > 0) return { ok: false, findings, advisories, obligations: obligations.map((entry) => entry.obligation) };
+  if (findings.length > 0) return done({ ok: false, findings, advisories, obligations: obligations.map((entry) => entry.obligation) });
 
   const byTicket = new Map();
   for (const entry of obligations) {
@@ -226,31 +369,41 @@ function mergeFormulasToTickets(input) {
   }
   if (write) fs.writeFileSync(ticketsPath, `${JSON.stringify(tickets, null, 2)}\n`);
 
-  return { ok: true, findings: [], advisories, obligations: obligations.map((entry) => entry.obligation) };
+  return done({ ok: true, findings: [], advisories, obligations: obligations.map((entry) => entry.obligation) });
 }
 
-// [::TICKET::] PX-362, PX-365 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-362, PX-365, PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-362|PX-365|PX-390) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
-  const ticketsPath = argumentFor(argv, 'tickets');
-  const dirsTreePath = argumentFor(argv, 'dirs-tree');
-  const sidecarPath = argumentFor(argv, 'sidecar');
-  const specPath = argumentFor(argv, 'spec');
-  if ([ticketsPath, dirsTreePath, sidecarPath, specPath].some((value) => value === null)) {
-    console.error('[ERROR] --tickets --dirs-tree --sidecar --spec are required');
+  try {
+    const result = mergeFormulasToTickets({
+      ticketsPath: argumentFor(argv, 'tickets'),
+      dirsTreePath: argumentFor(argv, 'dirs-tree'),
+      sidecarPath: argumentFor(argv, 'sidecar'),
+      specPath: argumentFor(argv, 'spec'),
+      treeManifestPath: argumentFor(argv, 'tree-manifest'),
+      cwd: process.cwd(),
+      write: argv.includes('--write'),
+    });
+    for (const entry of result.substitutions ?? []) {
+      console.error(`[derived] ${entry.field}: ${entry.requested || '(empty)'} -> ${entry.used ?? '(none)'}`);
+    }
+    for (const entry of result.findings) console.error(`${entry.code}: ${entry.subject} ${entry.message}`);
+    for (const entry of result.advisories) console.error(`advisory: ${entry.code}: ${entry.subject} ${entry.message}`);
+    process.stdout.write(`${JSON.stringify({
+      ok: result.ok,
+      skipped: result.skipped ?? null,
+      obligations: result.obligations.length,
+      findings: result.findings,
+      advisories: result.advisories,
+      substitutions: result.substitutions ?? [],
+    })}\n`);
+    return result.ok ? 0 : 1;
+  } catch (error) {
+    console.error(`[ERROR] MERGE_FORMULAS_FAILED: ${error.message}`);
+    console.error('Cause: an input path could not be read while merging formula obligations');
+    console.error('Action: repair the file named above and re-run merge-formulas-to-tickets.js');
     return 1;
   }
-  const result = mergeFormulasToTickets({
-    ticketsPath: path.resolve(ticketsPath),
-    dirsTreePath: path.resolve(dirsTreePath),
-    sidecarPath: path.resolve(sidecarPath),
-    specPath: path.resolve(specPath),
-    treeManifestPath: argumentFor(argv, 'tree-manifest') === null ? null : path.resolve(argumentFor(argv, 'tree-manifest')),
-    write: argv.includes('--write'),
-  });
-  for (const entry of result.findings) console.error(`${entry.code}: ${entry.subject} ${entry.message}`);
-  for (const entry of result.advisories) console.error(`advisory: ${entry.code}: ${entry.subject} ${entry.message}`);
-  process.stdout.write(`${JSON.stringify({ ok: result.ok, obligations: result.obligations.length, findings: result.findings, advisories: result.advisories })}\n`);
-  return result.ok ? 0 : 1;
 }
 
 if (require.main === module) process.exit(main());

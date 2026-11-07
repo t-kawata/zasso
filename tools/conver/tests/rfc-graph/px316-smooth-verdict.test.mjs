@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 // PX-316 smooth verdict contracts: the workspace receipt, its freshness and the gate.
 // @verifies C001
@@ -144,7 +145,7 @@ test('C004 the accepted verdict is frozen in a workspace-level receipt', () => {
     assert.equal(existsSync(receiptPath), true);
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     assert.deepEqual(Object.keys(receipt).sort(), [
-      'artifactDigest', 'certificateStatus', 'checkedAt', 'formulaCompleteness', 'generation',
+      'artifactDigest', 'certificateStatus', 'checkedAt', 'formulaCompleteness', 'formulaDigests', 'generation',
       'inputDigest', 'legacy', 'mapDigests', 'reportDigest', 'schemaVersion', 'statusDigest',
       'verdictPass', 'viewDigests', 'worklistDigest', 'workspaceRoot',
     ]);

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-377 --for-spec --no-implementation-order`.
 /**
  * Draft the Formula ledger from the specification the package owns.
@@ -13,12 +14,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
-import {
-  computeRfcDigest,
-  extractFormulas,
-  parseSeedIdentity,
-  uniqueFormulas,
-} from './index.mjs';
+import { extractFormulas, uniqueFormulas } from './extract.mjs';
+import { parseSeedIdentity } from './identity.mjs';
+import { computeRfcDigest } from './ledger.mjs';
+import { ownedFormulasForPackage } from './ownership.mjs';
 import { sha256Hex } from '../workspacify-tree/lib/hash.mjs';
 import distributionIndex from '../rfc-graph/lib/distribution-index.js';
 
@@ -87,16 +86,7 @@ function readSectionText(markdown, heading) {
 
 /** The formulas this package owns, filtered by the seed's source segments. */
 export function collectOwnedFormulas({ seedText, specText, treeManifest }) {
-  const seed = parseSeedIdentity(seedText);
-  const segments = treeManifest?.structure?.segments ?? [];
-  const byId = new Map(segments.map((segment) => [segment.id, segment]));
-  const ranges = (seed.sourceSegments ?? []).map((id) => byId.get(id)).filter(Boolean);
-  const unresolvedSegments = (seed.sourceSegments ?? []).filter((id) => !byId.has(id));
-  const all = uniqueFormulas(extractFormulas(specText));
-  const owned = all.filter((formula) => ranges.some((range) => (
-    formula.lineStart <= range.line_end && formula.lineEnd >= range.line_start
-  )));
-  return { seed, ranges, owned, all, unresolvedSegments };
+  return ownedFormulasForPackage({ seedText, specText, treeManifest });
 }
 
 /** The one graph node whose section realizes a formula, or a finding. */

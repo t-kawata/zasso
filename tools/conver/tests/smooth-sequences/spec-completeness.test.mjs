@@ -1,3 +1,4 @@
+// [::TICKET::] PX-390 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-390 --for-spec --no-implementation-order`.
 // PX-360 @verifies C001
 // [::TICKET::] PX-360 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-360 --for-spec --no-implementation-order`.
 /**
@@ -139,4 +140,92 @@ test('PX-389 C001: an unowned formula names tree-decision regeneration', () => {
   assert.equal(unowned.length > 0, true, JSON.stringify(result.findings));
   assert.equal(unowned.every((finding) => /--tree-decisions/.test(finding.producer)), true, unowned[0].producer);
   assert.equal(unowned.every((finding) => !/--allocate-decisions/.test(finding.producer)), true);
+});
+
+// PX-390 @verifies C001 C002
+import { existsSync, rmSync } from 'node:fs';
+import { repairFormulaHandoffs } from '../../.claude/scripts/smooth-sequences/lib/checks-spec-completeness.mjs';
+import { readFormulaLedger, validateFormulaSidecar } from '../../.claude/scripts/spec-formula/index.mjs';
+
+test('PX-390 C001 missing sidecar is created from the certified ledger', () => {
+  const workspace = buildWorkspace();
+  const sidecarPath = join(workspace.root, 'pkg-a', 'RFC-FORMULAS.json');
+  const rfcText = readFileSync(join(workspace.root, 'pkg-a', 'RFC.md'), 'utf8');
+  rmSync(sidecarPath);
+
+  const result = repairFormulaHandoffs({ root: workspace.root });
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+  assert.equal(result.repaired.some((entry) => entry.packageId === 'pkg-a'), true);
+  const written = readJson(sidecarPath);
+  assert.deepEqual(validateFormulaSidecar(written, readFormulaLedger(rfcText)), []);
+});
+
+test('PX-390 C001 a partial sidecar is refreshed to the full ledger', () => {
+  const workspace = buildWorkspace();
+  const sidecarPath = join(workspace.root, 'pkg-a', 'RFC-FORMULAS.json');
+  const sidecar = readJson(sidecarPath);
+  sidecar.formulas = [];
+  writeFileSync(sidecarPath, JSON.stringify(sidecar));
+
+  const result = repairFormulaHandoffs({ root: workspace.root });
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings));
+  const written = readJson(sidecarPath);
+  assert.equal(written.formulas.length, 1);
+  assert.equal(written.formulas[0].id, workspace.first.id);
+});
+
+test('PX-390 C002 a sidecar-only row is a judgment finding and the file is untouched', () => {
+  const workspace = buildWorkspace();
+  const sidecarPath = join(workspace.root, 'pkg-a', 'RFC-FORMULAS.json');
+  const sidecar = readJson(sidecarPath);
+  sidecar.formulas.push({ ...sidecar.formulas[0], id: 'fx-ffffffffffff' });
+  writeFileSync(sidecarPath, JSON.stringify(sidecar));
+  const before = readFileSync(sidecarPath, 'utf8');
+
+  const result = repairFormulaHandoffs({ root: workspace.root });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((finding) => finding.checkId === 'S8.formula-handoff' && finding.repairClass === 'judgment-required'), true, JSON.stringify(result.findings));
+  assert.equal(readFileSync(sidecarPath, 'utf8'), before);
+});
+
+test('PX-390 C003 a package that owns no formula is left without a sidecar', () => {
+  const workspace = buildWorkspace({ packageB: { segments: [], formulas: [], sidecar: false } });
+  const sidecarPath = join(workspace.root, 'pkg-b', 'RFC-FORMULAS.json');
+
+  const result = repairFormulaHandoffs({ root: workspace.root });
+
+  assert.equal(result.repaired.some((entry) => entry.packageId === 'pkg-b'), false);
+  assert.equal(existsSync(sidecarPath), false);
+});
+
+// PX-390 review @verifies C001 C003
+test('PX-390 review: a malformed seed is a finding, not a crash', () => {
+  const workspace = buildWorkspace();
+  const sidecarPath = join(workspace.root, 'pkg-a', 'RFC-FORMULAS.json');
+  rmSync(sidecarPath);
+  writeFileSync(join(workspace.root, 'pkg-a', 'RFC-SEED.md'), '# Seed without identity\n');
+
+  const result = repairFormulaHandoffs({ root: workspace.root });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.repaired.length, 0);
+  assert.equal(result.findings.some((finding) => finding.checkId === 'S8.formula-handoff'), true, JSON.stringify(result.findings));
+  assert.equal(existsSync(sidecarPath), false);
+});
+
+test('PX-390 review: a specification hash mismatch writes no sidecar', () => {
+  const workspace = buildWorkspace();
+  const sidecarPath = join(workspace.root, 'pkg-a', 'RFC-FORMULAS.json');
+  rmSync(sidecarPath);
+  const artifact = readJson(join(workspace.root, 'workspace-sequences.json'));
+  artifact.spec.sha256 = '0'.repeat(64);
+  writeFileSync(join(workspace.root, 'workspace-sequences.json'), JSON.stringify(artifact));
+
+  const result = repairFormulaHandoffs({ root: workspace.root });
+
+  assert.equal(result.repaired.length, 0);
+  assert.equal(existsSync(sidecarPath), false);
 });
