@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * consolidate-phase-tickets.js — Step 5-3: Phase consolidation by ticket count
  *
@@ -8,6 +7,11 @@
  * than 3 tickets into adjacent phases and reassigns phase IDs and ticket IDs in bulk.
  * The last phase has no following target, so a small last phase merges backward into
  * the previous phase. Tickets are never split to satisfy the floor.
+ *
+ * Phase consolidation changes adjacency but does not reason about the work budget.
+ * The caller therefore runs `condense-tickets.js --apply` immediately after this
+ * script; that step owns the partition minimum and keeps every survivor key, so it
+ * runs in fresh and evolve modes alike.
  *
  * Usage:
  *   node consolidate-phase-tickets.js \
@@ -100,6 +104,7 @@ const EXIT_FILE_NOT_FOUND = 3;
  * @returns {{ shouldSkip: boolean, phaseCount: number }}
  */
 // [::TICKET::] PX-342 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-342 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
 function guardPhaseCount(phases) {
   const phaseCount = (phases || []).length;
   return {

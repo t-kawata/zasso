@@ -450,7 +450,7 @@ function ticketKeyOf(ticket) {
  * module. It returns findings instead of exiting so the caller keeps one failure
  * path and one place that decides when Tickets.json may be written.
  */
-// [::TICKET::] PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-342|PX-347) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-342, PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-342|PX-347|PX-394) --for-spec --no-implementation-order`.
 function evaluateWorkBudget(phase, { graphData, dirsTreeData, view, nodeToFileMap, budgetPath }) {
   const budgetRead = readWorkBudgetDocument(budgetPath);
   if (budgetRead.error === 'missing') {
@@ -489,6 +489,7 @@ function evaluateWorkBudget(phase, { graphData, dirsTreeData, view, nodeToFileMa
   const analysis = analyzeTicketWorkload(phase, parsedBudget.budget, context, {
     mode: parsedBudget.mode,
     components: parsedBudget.components,
+    policy: parsedBudget.policy,
   });
   return {
     findings: analysis.fatalFindings,

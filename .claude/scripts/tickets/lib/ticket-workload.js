@@ -40,6 +40,7 @@ const LEGACY_WORKLOAD_COMPONENTS = Object.freeze([
 
 /** The only reasons a multi-ticket phase may use to justify a split. */
 const SPLIT_REASONS = Object.freeze([
+  'budget',
   'tdd-order',
   'disjoint-io',
   'release-boundary',
@@ -63,6 +64,8 @@ const WORKLOAD_CODES = Object.freeze({
   SPLIT_REASON_GRAPH_MISMATCH: 'SPLIT_REASON_GRAPH_MISMATCH',
   EMPTY_DEFAULT_FILES: 'EMPTY_DEFAULT_FILES',
   ACCEPTED_IRREDUCIBLE_OVERAGE: 'ACCEPTED_IRREDUCIBLE_OVERAGE',
+  TICKET_COUNT_ABOVE_PARTITION_MINIMUM: 'TICKET_COUNT_ABOVE_PARTITION_MINIMUM',
+  SPLIT_REASON_NOT_PROVEN: 'SPLIT_REASON_NOT_PROVEN',
 });
 
 const GRAPH_NODE_ID_PATTERN = /^N[0-9]{4}$/;
@@ -526,15 +529,16 @@ function feasibilityOf(phase, budget, context = {}, options = {}) {
  * Version 1 keeps the five legacy components. Version 2 uses the seven
  * implementation-work components. Any other version is invalid.
  */
-// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-394) --for-spec --no-implementation-order`.
 function parseWorkBudget(document) {
   if (document === null || typeof document !== 'object' || Array.isArray(document)) {
     return { valid: false, errors: ['budget document must be an object'], budget: null, mode: null, components: null, excluded: [] };
   }
   const errors = [];
   const version = document.version;
-  if (version !== 1 && version !== 2) errors.push('version must be 1 or 2');
-  const mode = version === 2 ? 'v2' : 'v1';
+  if (version !== 1 && version !== 2 && version !== 3) errors.push('version must be 1, 2 or 3');
+  const mode = version === 1 ? 'v1' : 'v2';
+  const policy = version === 3 ? 'contiguous-minimum' : (version === 2 ? 'merge-evidence' : 'legacy');
   const components = mode === 'v1' ? LEGACY_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS;
 
   const declared = Array.isArray(document.components) ? document.components : [];
@@ -562,12 +566,19 @@ function parseWorkBudget(document) {
     }
   }
 
+  if (version === 3 && document.splitReasons !== undefined) {
+    if (!Array.isArray(document.splitReasons) || document.splitReasons.some((entry) => !SPLIT_REASONS.includes(entry))) {
+      errors.push(`splitReasons must be a subset of ${SPLIT_REASONS.join(', ')}`);
+    }
+  }
+
   const excluded = Array.isArray(document.excluded) ? document.excluded : [];
   return {
     valid: errors.length === 0,
     errors,
     budget: errors.length === 0 ? budget : null,
     mode,
+    policy,
     components,
     excluded,
   };
@@ -774,6 +785,82 @@ function hasExternalIoSurface(ticket, context) {
   return false;
 }
 
+/**
+ * The partition findings a version-3 phase must satisfy.
+ *
+ * The minimum is the contiguous partition, not a per-pair refusal. A non-locked
+ * boundary is accepted only when its splitReason is `budget` and the adjacent merge
+ * actually exceeds a ceiling, or when `ownership-boundary` is proven by foreign
+ * ownership. Versions 1 and 2 never call this function.
+ */
+// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+function collectPartitionFindings(phase, budget, context = {}, options = {}) {
+  const components = options.components ?? WORKLOAD_COMPONENTS;
+  const tickets = Array.isArray(phase?.tickets) ? phase.tickets : [];
+  if (tickets.length <= 1) return [];
+  const partition = options.partition ?? require('./ticket-partition.js').minimumContiguousPartition(
+    tickets,
+    context,
+    budget,
+    { components, preserveCompleted: options.preserveCompleted !== false },
+  );
+  const findings = [];
+  if (tickets.length > partition.count) {
+    findings.push({
+      code: WORKLOAD_CODES.TICKET_COUNT_ABOVE_PARTITION_MINIMUM,
+      phaseKey: phaseKeyOf(phase),
+      actual: tickets.length,
+      minimum: partition.count,
+      message: `${phaseKeyOf(phase)} proposes ${tickets.length} ticket(s); the contiguous partition minimum is ${partition.count}`,
+    });
+  }
+  for (let index = 1; index < partition.groups.length; index += 1) {
+    const group = partition.groups[index];
+    if (group.locked) continue;
+    const ticket = tickets[group.start];
+    const ticketKey = ticketKeyOf(ticket);
+    const boundary = partition.forcedBoundaries[index - 1];
+    const reason = ticket?.splitReason;
+    if (typeof reason !== 'string' || reason.length === 0) {
+      findings.push({
+        code: WORKLOAD_CODES.SPLIT_REASON_MISSING,
+        ticketKey,
+        message: `${ticketKey} is one of several tickets but carries no splitReason`,
+      });
+      continue;
+    }
+    if (reason === 'budget') {
+      if (boundary?.reason !== 'budget') {
+        findings.push({
+          code: WORKLOAD_CODES.SPLIT_REASON_NOT_PROVEN,
+          ticketKey,
+          trigger: reason,
+          message: `${ticketKey} uses budget but the adjacent merge stays within every ceiling`,
+        });
+      }
+      continue;
+    }
+    if (reason === 'ownership-boundary') {
+      if (!hasForeignOwnership(ticket, context)) {
+        findings.push({
+          code: WORKLOAD_CODES.SPLIT_REASON_NOT_PROVEN,
+          ticketKey,
+          trigger: reason,
+          message: `${ticketKey} uses ownership-boundary but carries no foreign-owned unit`,
+        });
+      }
+      continue;
+    }
+    findings.push({
+      code: WORKLOAD_CODES.SPLIT_REASON_NOT_PROVEN,
+      ticketKey,
+      trigger: reason,
+      message: `${ticketKey} uses ${reason}; a version-3 phase accepts only budget or a proven ownership boundary`,
+    });
+  }
+  return findings;
+}
+
 /** The split-reason findings for a phase. */
 // [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
 function collectReasonFindings(phase, context = {}, options = {}) {
@@ -865,7 +952,7 @@ function isRecordTicket(ticket, context) {
 }
 
 /** The findings that are not merge evidence. */
-// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-394) --for-spec --no-implementation-order`.
 function collectWorkloadFindings(phase, budget, context = {}, options = {}) {
   const mode = options.mode === 'v1' ? 'v1' : 'v2';
   const components = options.components
@@ -897,7 +984,7 @@ function collectWorkloadFindings(phase, budget, context = {}, options = {}) {
       });
     }
 
-    if (tickets.length > 1) {
+    if (tickets.length > 1 && options.policy !== 'contiguous-minimum') {
       if (typeof ticket.splitReason !== 'string' || ticket.splitReason.length === 0) {
         findings.push({
           code: WORKLOAD_CODES.SPLIT_REASON_MISSING,
@@ -940,26 +1027,39 @@ function collectWorkloadFindings(phase, budget, context = {}, options = {}) {
 /**
  * Analyze one phase: all findings, accepted overages and the budget report.
  */
-// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-394) --for-spec --no-implementation-order`.
 function analyzeTicketWorkload(phase, budget, context = {}, options = {}) {
   const mode = options.mode === 'v1' ? 'v1' : 'v2';
   const components = options.components
     ?? (mode === 'v1' ? LEGACY_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS);
   const tickets = Array.isArray(phase?.tickets) ? phase.tickets : [];
   const workloadFindings = collectWorkloadFindings(phase, budget, context, { mode, components });
-  const merge = mode === 'v2'
+  const merge = mode === 'v2' && options.policy !== 'contiguous-minimum'
     ? collectMergeFindings(phase, budget, context, { mode, components })
     : { findings: [], acceptedRefusals: [], forcedPairs: [], attempts: [] };
-  const reasonFindings = mode === 'v2'
+  const reasonFindings = mode === 'v2' && options.policy !== 'contiguous-minimum'
     ? collectReasonFindings(phase, context, { mode, components, forcedPairs: merge.forcedPairs })
     : [];
-  const findings = [...workloadFindings, ...merge.findings, ...reasonFindings];
+  const partition = mode === 'v2' && options.policy === 'contiguous-minimum'
+    ? require('./ticket-partition.js').minimumContiguousPartition(tickets, context, budget, {
+      components,
+      preserveCompleted: options.preserveCompleted !== false,
+    })
+    : null;
+  const partitionFindings = partition === null
+    ? []
+    : collectPartitionFindings(phase, budget, context, {
+      components,
+      preserveCompleted: options.preserveCompleted !== false,
+      partition,
+    });
+  const findings = [...workloadFindings, ...merge.findings, ...reasonFindings, ...partitionFindings];
 
   const phaseWorkload = workloadOfPhase(phase, context, { mode, components });
   const minimumWorkTickets = minimumTicketCount(phaseWorkload, budget, components);
   const upperBoundTickets = maximumTicketCount(minimumWorkTickets, merge.acceptedRefusals);
   const workloadOf = mode === 'v1' ? legacyWorkloadOfTicket : workloadOfTicket;
-  if (mode === 'v2' && tickets.length > upperBoundTickets) {
+  if (mode === 'v2' && options.policy !== 'contiguous-minimum' && tickets.length > upperBoundTickets) {
     findings.push({
       code: WORKLOAD_CODES.TICKET_COUNT_ABOVE_MERGE_EVIDENCE,
       phaseKey: phaseKeyOf(phase),
@@ -992,6 +1092,7 @@ function analyzeTicketWorkload(phase, budget, context = {}, options = {}) {
       acceptedRefusals: merge.acceptedRefusals,
       forcedPairs: merge.forcedPairs,
       mergeAttempts: merge.attempts,
+      partition,
       tickets: tickets.map((ticket) => ({
         ticketKey: ticketKeyOf(ticket),
         workload: workloadOf(ticket, context),
@@ -1043,6 +1144,8 @@ module.exports = {
   analyzeTicketWorkload,
   collectMergeFindings,
   collectReasonFindings,
+  collectPartitionFindings,
+  hasForeignOwnership,
   collectWorkloadFindings,
   partitionFindings,
   moduleNamesOf,

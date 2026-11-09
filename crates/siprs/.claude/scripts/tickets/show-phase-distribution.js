@@ -85,8 +85,8 @@ function phaseNodes(phase, graph) {
  * @param {{ phase: object, view: object, graph: object, dirsTree?: object, registry?: Array<object>, artifact?: object|null }} input
  * @returns {string}
  */
-// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322, PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322|PX-342|PX-347) --for-spec --no-implementation-order`.
-function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null, budget = null, budgetSource = null, budgetMode = 'v2', budgetComponents = budgetMode === 'v1' ? LEGACY_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS, budgetExcluded = [] } = {}) {
+// [::TICKET::] PX-312, PX-313, PX-315, PX-321, PX-322, PX-342, PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-315|PX-321|PX-322|PX-342|PX-347|PX-394) --for-spec --no-implementation-order`.
+function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry = [], artifact = null, budget = null, budgetSource = null, budgetMode = 'v2', budgetPolicy = 'merge-evidence', budgetComponents = budgetMode === 'v1' ? LEGACY_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS, budgetExcluded = [] } = {}) {
   const lines = [];
   const phaseLabel = phase?.id === undefined ? 'PX' : `P${phase.id}`;
   lines.push(`# Phase ${phaseLabel}: ${phase?.name ?? ''}`.trim());
@@ -152,7 +152,7 @@ function renderPhaseDistribution({ phase, view, graph, dirsTree = null, registry
   const nodes = phaseNodes(phase, graph);
   const analysis = budget === null || budgetMode !== 'v2'
     ? null
-    : analyzeTicketWorkload(phase, budget, workloadContext, { mode: budgetMode, components: budgetComponents });
+    : analyzeTicketWorkload(phase, budget, workloadContext, { mode: budgetMode, components: budgetComponents, policy: budgetPolicy });
 
   lines.push('', '## Workload');
   for (const component of budgetComponents) {
@@ -232,7 +232,7 @@ function findPhase(tickets, phaseArg) {
   return match ?? null;
 }
 
-// [::TICKET::] PX-312, PX-313, PX-334, PX-342, PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334|PX-342|PX-347) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-312, PX-313, PX-334, PX-342, PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-334|PX-342|PX-347|PX-394) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   let ticketsPath = argumentFor(argv, 'tickets');
   const phaseArg = argumentFor(argv, 'phase');
@@ -276,6 +276,7 @@ function main(argv = process.argv.slice(2)) {
     budget: parsedBudget.valid ? parsedBudget.budget : null,
     budgetSource: parsedBudget.valid ? budgetPath : null,
     budgetMode: parsedBudget.valid ? parsedBudget.mode : 'v2',
+    budgetPolicy: parsedBudget.valid ? parsedBudget.policy : 'merge-evidence',
     budgetComponents: parsedBudget.valid ? parsedBudget.components : WORKLOAD_COMPONENTS,
     budgetExcluded: parsedBudget.valid ? parsedBudget.excluded : [],
   }));

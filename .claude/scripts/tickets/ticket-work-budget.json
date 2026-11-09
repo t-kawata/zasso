@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "components": [
     "operations",
     "sequenceSteps",
@@ -23,5 +23,10 @@
     "kinds",
     "graphNodes"
   ],
-  "provenance": "Initial v2 calibration for PX-347 from reviewed PX-342..PX-346 tickets; replace with the measured P75 and date after the first reviewed v2 tickets."
+  "partitionPolicy": "contiguous-minimum",
+  "splitReasons": [
+    "budget",
+    "ownership-boundary"
+  ],
+  "provenance": "Initial v3 calibration keeps the v2 ceilings and replaces assertion-based merge refusals with the contiguous partition minimum. Replace the ceilings with the measured P75 after the first reviewed v3 tickets."
 }

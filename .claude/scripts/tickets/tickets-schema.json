@@ -244,13 +244,34 @@
         "splitReason": {
           "type": "string",
           "enum": [
+            "budget",
             "tdd-order",
             "disjoint-io",
             "release-boundary",
             "ownership-boundary",
             "cohesion"
           ],
-          "description": "Why this ticket is separate from the other tickets in the same phase. Required by add-tickets-for-phase.js when the phase carries more than one ticket."
+          "description": "Why this ticket is separate from the other tickets in the same phase. Version-3 budgets accept budget (the adjacent merge exceeds a ceiling) and a proven ownership-boundary; the legacy values remain readable."
+        },
+        "condensedFrom": {
+          "type": "object",
+          "properties": {
+            "planDigest": { "type": ["string", "null"] },
+            "condensedAt": { "type": "string" },
+            "tickets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "id": { "type": "integer" },
+                  "status": { "type": "string" },
+                  "title": { "type": "string" }
+                }
+              }
+            }
+          },
+          "description": "The absorbed tickets a condensation merged into this survivor. The partition digest and absorbed keys are the audit trail; the survivor key is unchanged."
         },
         "mergeAttempts": {
           "type": "array",

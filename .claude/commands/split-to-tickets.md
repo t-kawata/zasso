@@ -131,7 +131,7 @@ node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --carry-status --previous=Tic
 
 Retire deletes `distribution`/`contracts`/`formulaObligations`/`prerequisites` (empty `contracts` rejected by `validate-tickets.js`; empty distribution = empty unit set in `verify-chain`); previous values → `retiredFrom`.
 
-`consolidate-phase-tickets.js` skipped in evolve mode: renumbering invalidates every key/status/external reference; implementation order = phase-array order, not numeric id.
+`consolidate-phase-tickets.js` skipped in evolve mode: renumbering invalidates every key/status/external reference. Condensation still runs in both modes because it keeps each survivor key and only removes absorbed keys.
 
 ## List of Scripts Used
 
@@ -151,6 +151,7 @@ Root: `.claude/scripts/tickets/`; each script derives the fixed artifact paths o
 | `delete-ticket.js <Tickets.json> P{phaseID}-{ticketID}` | one deletion |
 | `bulk-delete-tickets.js <Tickets.json>` | stdin deletion-key list |
 | `list-phases-and-tickets.js <Tickets.json>` | checklist output |
+| `condense-tickets.js --apply --tickets=<Tickets.json>` | deterministic contiguous partition minimum; merges surplus tickets, recomputes derived fields, archives and runs the package gates |
 | `update-split-step-status.js [--status=<path>] <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | SPLIT status; source invocations below literal |
 | `sequences-slice/verify-implementation-order.mjs --package=<dir> [--write] \| --workspace=<root> [--write]` | proves the ticket and package implementation order; writes `IMPLEMENTATION-ORDER.json` / `WORKSPACIFY-IMPLEMENTATION-ORDER.json` |
 
@@ -385,7 +386,7 @@ Read phase node ID/title/kind/summary/implementation path and the printed distri
 3. Independent release, rollback or ownership boundary, including another package.
 4. Cohesion — merging would mix unrelated observable behaviours and destroy translatability.
 
-Ticket size is measured by v2 implementation work: `operations`, `sequenceSteps`, `ownedContracts`, `files`, `testUnit`, `testIntegration`, `modules`. Provider boundary units (`ctr-boundary-*`), node kinds and graph nodes are excluded metadata; the report prints them but they never size a ticket. `files` is the distinct `default_files` set; `modules` is the distinct top-level `src/<module>` set. Apply the `/suggest-min-tickets` policy: consolidate maximally; split only for unavoidable risk. `minimumWorkTickets = max(1, component-wise ceil(phaseWorkload / budget))` is a floor, not a target. `add-tickets-for-phase.js` enforces the floor and the evidence-backed upper bound `minimumWorkTickets + acceptedDiscretionaryRefusals`. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
+Ticket size is measured by v2 implementation work: `operations`, `sequenceSteps`, `ownedContracts`, `files`, `testUnit`, `testIntegration`, `modules`. Provider boundary units (`ctr-boundary-*`), node kinds and graph nodes are excluded metadata; the report prints them but they never size a ticket. `files` is the distinct `default_files` set; `modules` is the distinct top-level `src/<module>` set. Apply the `/suggest-min-tickets` policy: consolidate maximally; split only for unavoidable risk. With a version-3 budget the target is the deterministic contiguous partition minimum over the implementation-ordered tickets; `splitReason: budget` is accepted only when merging the adjacent group would exceed a ceiling. `minimumWorkTickets = max(1, component-wise ceil(phaseWorkload / budget))` remains a lower bound, not a target. The printed distribution is the first constraint: a sequence step stays with the ticket implementing its operation; a ctr unit keeps its registry contract; order is not re-authored.
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "5-1"
@@ -500,6 +501,9 @@ if [ "$SPLIT_MODE" != "evolve" ]; then
 else
   echo "[evolve] consolidate-phase-tickets.js is skipped in evolve mode: renumbering would destroy every existing ticket key and status."
 fi
+# Condensation is the same script the standalone command calls. It is not skipped in
+# evolve mode: it keeps each survivor key and only removes absorbed keys.
+node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json
 node "$CLAUDE_DIR/scripts/rfc-graph/project-step-contracts.js" --mode=verify
 node "$CLAUDE_DIR/scripts/sequences-slice/verify-chain.mjs" --stage=split --package="." --artifact="$ARTIFACT_PATH" --require-tickets
 node "$CLAUDE_DIR/scripts/sequences-slice/verify-implementation-order.mjs" --package="." --write

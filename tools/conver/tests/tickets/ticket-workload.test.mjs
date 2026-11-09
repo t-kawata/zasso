@@ -23,9 +23,11 @@ import {
   analyzeTicketWorkload,
   collectMergeFindings,
   partitionFindings,
+  collectPartitionFindings,
 } from '../../.claude/scripts/tickets/lib/ticket-workload.js';
 
 // [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
 function fixtureContext() {
   const graph = {
     nodes: [
@@ -397,7 +399,7 @@ test('C004 an unknown split reason is invalid', () => {
   const findings = validateTicketWorkload(phase, looseBudget(), context);
   assert.ok(findings.some((finding) => finding.code === 'SPLIT_REASON_INVALID'));
   assert.deepEqual(SPLIT_REASONS, [
-    'tdd-order', 'disjoint-io', 'release-boundary', 'ownership-boundary', 'cohesion',
+    'budget', 'tdd-order', 'disjoint-io', 'release-boundary', 'ownership-boundary', 'cohesion',
   ]);
 });
 
@@ -480,7 +482,9 @@ test('parseWorkBudget accepts v1 and v2 and rejects an unknown version', () => {
   assert.equal(parsedV2.mode, 'v2');
   assert.deepEqual(parsedV2.components, [...WORKLOAD_COMPONENTS]);
 
-  assert.equal(parseWorkBudget({ ...v2, version: 3 }).valid, false);
+  const v3 = { ...v2, version: 3, partitionPolicy: 'contiguous-minimum', splitReasons: ['budget', 'ownership-boundary'] };
+  assert.equal(parseWorkBudget(v3).valid, true);
+  assert.equal(parseWorkBudget(v3).policy, 'contiguous-minimum');
   assert.equal(parseWorkBudget({ ...v2, components: ['operations'] }).valid, false);
   assert.equal(parseWorkBudget({ ...v2, budget: { ...v2.budget, files: 0 } }).valid, false);
   assert.equal(parseWorkBudget({ ...v2, provenance: '' }).valid, false);
@@ -507,4 +511,41 @@ test('collectMergeFindings reports a forced pair without an attempt', () => {
   const merge = collectMergeFindings(phase, tightOperationsBudget(), context);
   assert.equal(merge.forcedPairs.length, 1);
   assert.equal(merge.acceptedRefusals.length, 0);
+});
+
+test('collectPartitionFindings requires the partition minimum under v3', () => {
+  const { phase, context } = phaseWithTickets({
+    nodeIds: ['N0001', 'N0002'],
+    tickets: [
+      { nodeIds: ['N0001'], default_files: ['src/a.js'], splitReason: 'cohesion' },
+      { nodeIds: ['N0002'], default_files: ['src/b.js'], splitReason: 'cohesion' },
+    ],
+  });
+  const findings = collectPartitionFindings(phase, looseBudget(), context, { preserveCompleted: false });
+  assert.ok(findings.some((finding) => finding.code === 'TICKET_COUNT_ABOVE_PARTITION_MINIMUM'));
+});
+
+test('collectPartitionFindings accepts a budget-forced boundary at the minimum', () => {
+  const { phase, context } = phaseWithTickets({
+    nodeIds: ['N0001', 'N0002'],
+    tickets: [
+      { nodeIds: ['N0001'], splitReason: 'budget' },
+      { nodeIds: ['N0002'], splitReason: 'budget' },
+    ],
+  });
+  const findings = collectPartitionFindings(phase, tightOperationsBudget(), context, { preserveCompleted: false });
+  assert.equal(findings.some((finding) => finding.code === 'TICKET_COUNT_ABOVE_PARTITION_MINIMUM'), false);
+  assert.equal(findings.some((finding) => finding.code === 'SPLIT_REASON_NOT_PROVEN'), false);
+});
+
+test('collectPartitionFindings rejects a legacy reason at a budget-forced boundary', () => {
+  const { phase, context } = phaseWithTickets({
+    nodeIds: ['N0001', 'N0002'],
+    tickets: [
+      { nodeIds: ['N0001'], splitReason: 'cohesion' },
+      { nodeIds: ['N0002'], splitReason: 'cohesion' },
+    ],
+  });
+  const findings = collectPartitionFindings(phase, tightOperationsBudget(), context, { preserveCompleted: false });
+  assert.ok(findings.some((finding) => finding.code === 'SPLIT_REASON_NOT_PROVEN'));
 });
