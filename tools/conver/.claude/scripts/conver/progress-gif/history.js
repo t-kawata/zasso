@@ -122,16 +122,17 @@ export function appendHistoryRecord(targetDir, record) {
   return { ok: true, appended: true };
 }
 
-/** The marker one run contributes to the animation. It carries no progress. */
+/**
+ * The marker one COMPLETE run contributes to the animation. A start-only or
+ * failed attempt is not a completion, so it is never drawn and never moves the
+ * displayed stage.
+ */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 export function historyRunMarkers(packageId, records) {
-  const finishedRuns = new Set(
-    (records ?? []).filter((record) => record.event === 'finish').map((record) => record.runId),
-  );
   const markers = [];
   for (const record of records ?? []) {
-    if (record.event === 'start' && finishedRuns.has(record.runId)) continue;
-    const status = record.event === 'finish' ? record.status : 'STARTED';
+    if (record.event !== 'finish' || record.status !== 'COMPLETE') continue;
     const timestamp = Date.parse(record.at);
     if (!Number.isFinite(timestamp)) continue;
     markers.push({
@@ -139,7 +140,7 @@ export function historyRunMarkers(packageId, records) {
       prec: 'ms',
       stage: record.stage,
       packageId: packageId ?? null,
-      status,
+      status: record.status,
       runId: record.runId,
       command: record.command,
       evidence: 'history',

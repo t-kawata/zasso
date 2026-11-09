@@ -635,7 +635,37 @@ function collectActiveStages(frame, packageIndex) {
   return stages;
 }
 
-// [::TICKET::] PX-350, PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351) --for-spec --no-implementation-order`.
+// The package bar mirrors the right-column ladder: one neutral track and one
+// group-coloured fill, both drawn with fillRect and the same six-pixel height.
+const PACKAGE_BAR_TRACK_COLOUR = '#28303c';
+
+/** Draw the reviewed-ticket share of one package between its circle and label. */
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
+function drawPackageProgressBar(ctx, layout, cell, progress, model) {
+  const pkg = model && model.packages ? model.packages[cell.packageIndex] : null;
+  const tickets = pkg && pkg.tickets ? pkg.tickets : null;
+  const total = tickets ? Math.max(0, Number(tickets.total) || 0) : 0;
+  const reviewed = tickets ? Math.max(0, Number(tickets.reviewed) || 0) : 0;
+  const ratio = total > 0 ? clampUnit(reviewed / total) : 0;
+  fillRect(ctx, {
+    x: cell.barX,
+    y: cell.barY,
+    width: cell.barWidth,
+    height: cell.barHeight,
+    colour: PACKAGE_BAR_TRACK_COLOUR,
+  });
+  if (ratio > 0) {
+    fillRect(ctx, {
+      x: cell.barX,
+      y: cell.barY,
+      width: cell.barWidth * ratio,
+      height: cell.barHeight,
+      colour: groupColor(findTopStage(progress)),
+    });
+  }
+}
+
+// [::TICKET::] PX-350, PX-351, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-401) --for-spec --no-implementation-order`.
 function drawCell(ctx, layout, cell, frame, model) {
   const scale = layout.scale;
   const view = frame.packages[cell.packageIndex];
@@ -707,6 +737,7 @@ function drawCell(ctx, layout, cell, frame, model) {
   if (flashStages.size > 0) {
     strokeRing(ctx, { centre, radius: radius * 1.16, colour: '#ffffff', lineWidth: 1.5 * scale, alpha: 0.55 + 0.4 * pulse });
   }
+  drawPackageProgressBar(ctx, layout, cell, progress, model);
   cell.labelLines.forEach((line, lineIndex) => {
     drawText(ctx, {
       text: line,

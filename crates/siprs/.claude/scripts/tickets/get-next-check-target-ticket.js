@@ -210,17 +210,29 @@ function removeCmdsFile() {
 }
 
 /**
+ * Local-time 14-digit stamp used by the OMISSIONS filename. parseStamp reads
+ * these digits as local time, so the fallback must not come from toISOString.
+ */
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
+function formatLocalTimestamp() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
+    + `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+/**
  * Copy _tmp-omissions-*.json to OMISSIONS-<timestamp>.json, then remove the tmp file.
  * The OMISSIONS file is the deliverable of /find-omissions.
  */
-// [::TICKET::] PX-101, PX-102, PX-103, PX-105 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-101|PX-102|PX-103|PX-105) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103, PX-105, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-101|PX-102|PX-103|PX-105|PX-401) --for-spec --no-implementation-order`.
 function removeOmitsFile() {
   const omissions = findLatestTmpOmissions();
   if (!omissions) return;
   // Extract timestamp from _tmp-omissions-<YYYYMMDDhhmmss>.json
   const basename = path.basename(omissions);
   const match = basename.match(/^_tmp-omissions-(\d{14})\.json$/);
-  const timestamp = match ? match[1] : new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  const timestamp = match ? match[1] : formatLocalTimestamp();
   // Copy to OMISSIONS-<timestamp>.json before deleting
   const omitsPath = path.resolve('OMISSIONS-' + timestamp + '.json');
   try {

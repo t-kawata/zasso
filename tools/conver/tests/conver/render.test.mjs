@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { computeLayout, formatDate, formatPercent, groupColor, STAGE_CAPTIONS, stageCaption, MIN_DESCRIPTION_SIZE } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { buildFrames, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { drawFrame, makePalette, LADDER_LABEL_SIZE, HEADER_STAGE_SIZE, HEADER_NAME_SIZE, HEADER_DESCRIPTION_SIZE, HEADER_DATE_COLOUR } from '../../.claude/scripts/conver/progress-gif/engine.js';
-import { eventsForEveryStage, makeModel, withPackageCount } from './models.mjs';
+import { eventsForEveryStage, makeModel, packageModel, withPackageCount } from './models.mjs';
 
 /** A Canvas 2D stand-in that records every drawing call the renderer makes. */
 // [::TICKET::] PX-350, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380) --for-spec --no-implementation-order`.
@@ -51,7 +51,7 @@ function createRecordingContext(measure = (text) => String(text).length * 6) {
     measureText(text) { return { width: measure(text, ctx.font) }; },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     setLineDash(values) { calls.push(['dash', ...values]); },
-// [::TICKET::] PX-350, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-380, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380|PX-401) --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
 // [::TICKET::] PX-350, PX-351, PX-354, PX-380, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-354|PX-380|PX-381) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
@@ -323,4 +323,37 @@ test('no caption crosses the percent block for any stage on the narrow board', (
       assert.ok(descriptionRight <= layout.width - 12);
     }
   }
+});
+
+test('C007: each package draws a ladder-styled ticket progress bar', () => {
+  const pkg = { ...packageModel({ id: 'pkg-1' }), tickets: { total: 8, reviewed: 3, remanded: 0 } };
+  const model = makeModel({ packages: [pkg] });
+  model.events = eventsForEveryStage([pkg]);
+  const layout = computeLayout(model, { measureText: (text) => String(text).length * 6 });
+  const frames = buildFrames(model, { frames: 20 });
+  const { ctx, calls } = createRecordingContext();
+  drawFrame(ctx, layout, frames.at(-1), model, { title: 'PROGRESS: demo' });
+  const cell = layout.cells[0];
+  const bars = calls.filter((call) => call[0] === 'fillRect'
+    && call[1] === cell.barX && call[2] === cell.barY);
+  assert.equal(bars.length, 2);
+  assert.equal(bars[0][3], cell.barWidth);
+  assert.equal(bars[0][4], cell.barHeight);
+  assert.equal(bars[1][3], cell.barWidth * 3 / 8);
+  assert.equal(bars[1][4], cell.barHeight);
+});
+
+test('C007: a package without Tickets.json draws an empty track', () => {
+  const pkg = packageModel({ id: 'pkg-1' });
+  const model = makeModel({ packages: [pkg] });
+  model.events = eventsForEveryStage([pkg]);
+  const layout = computeLayout(model, { measureText: (text) => String(text).length * 6 });
+  const frames = buildFrames(model, { frames: 20 });
+  const { ctx, calls } = createRecordingContext();
+  drawFrame(ctx, layout, frames.at(-1), model, { title: 'PROGRESS: demo' });
+  const cell = layout.cells[0];
+  const bars = calls.filter((call) => call[0] === 'fillRect'
+    && call[1] === cell.barX && call[2] === cell.barY);
+  assert.equal(bars.length, 1);
+  assert.equal(bars[0][3], cell.barWidth);
 });

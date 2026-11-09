@@ -23,6 +23,10 @@ import {
   MIN_CELL,
   MAX_CELL,
   MAX_CELL_RADIUS,
+  PACKAGE_BAR_HEIGHT,
+  PACKAGE_BAR_MARGIN_X,
+  PACKAGE_BAR_TOP_OFFSET,
+  PACKAGE_LABEL_TOP_OFFSET,
   DEFAULT_COLUMNS,
   MIN_COLUMNS,
   MAX_COLUMNS,
@@ -39,6 +43,7 @@ const LAB_WHITE_Z = 1.08883;
 const ADJACENT_COLOUR_DISTANCE_MIN = 40;
 
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 function linearizeChannel(raw) {
   const normalized = raw / 255;
   return normalized <= SRGB_LINEAR_THRESHOLD
@@ -103,16 +108,16 @@ test('vertical growth changes rows and height only, never width or columns', () 
   assert.equal(short.grid.columns, DEFAULT_COLUMNS);
   assert.equal(tall.grid.columns, DEFAULT_COLUMNS);
   assert.equal(tall.grid.rows, 5);
-  assert.equal(tall.height, 530);
+  assert.equal(tall.height, 570);
   assert.ok(tall.height > short.height);
   assert.ok(tall.cells.every((cell) => cell.cellWidth >= MIN_CELL));
   assert.ok(tall.cells.every((cell) => cell.cellWidth <= MAX_CELL));
 });
 
-test('a 29-package workspace uses four rows at 796x440', () => {
+test('a 29-package workspace uses four rows at 796x472', () => {
   const layout = computeLayout(withPackageCount(29), { measureText: measure });
   assert.equal(layout.grid.rows, 4);
-  assert.equal(layout.height, 440);
+  assert.equal(layout.height, 472);
   assert.equal(layout.width, 796);
 });
 
@@ -126,11 +131,11 @@ test('the column count controls rows and can widen the board', () => {
   assert.equal(narrow.grid.columns, 5);
   assert.equal(narrow.grid.rows, 6);
   assert.equal(narrow.width, 724);
-  assert.equal(narrow.height, 620);
+  assert.equal(narrow.height, 668);
   const tighter = computeLayout(withPackageCount(29), { measureText: measure, columns: 4 });
   assert.equal(tighter.grid.rows, 8);
   assert.equal(tighter.width, 724);
-  assert.equal(tighter.height, 800);
+  assert.equal(tighter.height, 864);
 });
 
 test('clampColumns keeps the control inside its range with a default of eight', () => {
@@ -284,6 +289,22 @@ test('the header exposes a full-width bar below the title with breathing room', 
   assert.ok(layout.header.dateY - (layout.header.barY + layout.header.barHeight) >= 14);
   assert.ok(layout.header.barY + layout.header.barHeight <= layout.grid.y);
   assert.ok(layout.header.barY + layout.header.barHeight <= layout.ladder.y);
+});
+
+test('every package cell carries one shared bar between the circle and the label', () => {
+  const layout = computeLayout(withPackageCount(3), { measureText: measure });
+  const widths = new Set(layout.cells.map((cell) => cell.barWidth));
+  assert.equal(widths.size, 1);
+  assert.equal(layout.cells[0].barHeight, PACKAGE_BAR_HEIGHT);
+  for (const cell of layout.cells) {
+    assert.equal(cell.barX, cell.left + PACKAGE_BAR_MARGIN_X);
+    assert.equal(cell.barY, cell.top + cell.cellWidth + PACKAGE_BAR_TOP_OFFSET);
+    assert.equal(cell.barWidth, cell.cellWidth - PACKAGE_BAR_MARGIN_X * 2);
+    assert.equal(cell.labelY, cell.top + cell.cellWidth + PACKAGE_LABEL_TOP_OFFSET);
+    assert.ok(cell.barY > cell.centerY + MAX_CELL_RADIUS * 1.16);
+    assert.ok(cell.barY + cell.barHeight <= cell.labelY - 4);
+    assert.ok(cell.barX + cell.barWidth <= cell.left + cell.cellWidth);
+  }
 });
 
 test('formatters keep the denominator and render a clamped percentage', () => {

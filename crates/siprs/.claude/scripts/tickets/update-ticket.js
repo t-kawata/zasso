@@ -31,6 +31,18 @@ const COMPLETION_RUN = {
 };
 
 /**
+ * The precise completion field each terminal pipeline status owns. A status
+ * change stamps exactly one field; a repeated status is a no-op so a re-run
+ * never moves the instant that a later animation reads.
+ */
+const STAGE_TIMESTAMP_FIELD = Object.freeze({
+  made: 'made_at',
+  planned: 'planned_at',
+  done: 'done_at',
+  reviewed: 'reviewed_at',
+});
+
+/**
  * The reverse-only ticket fields an update would put on a ticket that has not
  * declared a reverse origin, or null when the update is legitimate.
  *
@@ -46,7 +58,7 @@ function firstReverseFieldOnForwardTicket(ticket, updates) {
   }
   return reverseModeOf({ ...ticket, ...updates }) === MODE.REVERSE ? null : leaked;
 }
-// [::TICKET::] P22-10, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-10|PX-366) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-10, PX-366, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-10|PX-366|PX-401) --for-spec --no-implementation-order`.
 function main() {
   const pendingWarnings = [];
   const args = process.argv.slice(2);
@@ -112,6 +124,7 @@ function main() {
           }));
           process.exit(1);
         }
+        const previousStatus = p.tickets[i].status;
         if (appendFlag) {
           // PX-91: Reject --append for idempotent fields (targetStubs, targetCrimes).
           // These must always be replaced (not appended) to prevent unbounded accumulation.
@@ -147,6 +160,11 @@ function main() {
             }
           }
           p.tickets[i] = { ...p.tickets[i], ...safe };
+        }
+        const nextStatus = p.tickets[i].status;
+        const timestampField = STAGE_TIMESTAMP_FIELD[nextStatus];
+        if (timestampField && nextStatus !== previousStatus && !p.tickets[i][timestampField]) {
+          p.tickets[i][timestampField] = new Date().toISOString();
         }
         found = p.tickets[i];
         break;

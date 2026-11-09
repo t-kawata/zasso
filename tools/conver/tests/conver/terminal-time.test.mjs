@@ -14,6 +14,7 @@ import { INITIAL_TIME, makeModel, packageModel, stageEvent } from './models.mjs'
 const DAY = 24 * 60 * 60 * 1000;
 
 /** A cumulative usage series with one bucket per day. */
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 function usageSeries(days) {
   return days.map(({ date, costUsd, miss = costUsd * 1e6, hit = costUsd * 2e6, out = costUsd * 3e6 }) => ({
     date,
@@ -65,8 +66,8 @@ test('the final title carries the token and cost total of the analysis day', () 
 
   const frames = buildFrames(model, { frames: 60 });
 
-  assert.equal(frames.at(-1).title, formatUsageTitle('gaia', usage.at(-1).cumulative));
-  assert.notEqual(frames.at(-1).title, formatUsageTitle('gaia', usage[0].cumulative));
+  assert.equal(frames.at(-1).title, formatUsageTitle('gaia', usage.at(-1).cumulative, 'CONTRACTS: 0/?'));
+  assert.notEqual(frames.at(-1).title, formatUsageTitle('gaia', usage[0].cumulative, 'CONTRACTS: 0/?'));
 });
 
 test('a late event before analysisTime is fully applied and dated today', () => {

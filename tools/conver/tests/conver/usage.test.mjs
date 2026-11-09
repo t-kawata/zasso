@@ -18,6 +18,8 @@ import {
   usageAtDate,
   formatUsageTitle,
   usageTitleSegments,
+  contractsAt,
+  formatContractsTitle,
   ZERO_USAGE,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { formatDate } from '../../.claude/scripts/conver/progress-gif/layout.js';
@@ -83,6 +85,7 @@ function usageGroup(date, { miss = 0, hit = 0, out = 0, model = 'deepseek-flash'
 }
 
 // [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 function minimalModel({ usage, titleName }) {
   const first = Date.parse('2026-10-05T00:00:00.000Z');
   const second = Date.parse('2026-10-09T00:00:00.000Z');
@@ -196,6 +199,19 @@ test('usageTitleSegments rounds up and returns the left name and the four-value 
   assert.equal(formatUsageTitle('demo', cumulative), usageTitleSegments('demo', cumulative).text);
 });
 
+test('CONTRACTS counts unique made and reviewed ticket contracts per package', () => {
+  const model = minimalModel({ usage: [], titleName: 'demo' });
+  model.packages[0].contractLog = [
+    { madeAt: Date.parse('2026-11-01T00:00:00Z'), reviewedAt: null, contractIds: ['C1', 'C2'] },
+    { madeAt: Date.parse('2026-11-02T00:00:00Z'), reviewedAt: Date.parse('2026-11-03T00:00:00Z'), contractIds: ['C2', 'C3'] },
+  ];
+
+  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-10-31T00:00:00Z'))), 'CONTRACTS: 0/?');
+  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-11-01T12:00:00Z'))), 'CONTRACTS: 0/2');
+  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-11-03T12:00:00Z'))), 'CONTRACTS: 2/3');
+  assert.equal(usageTitleSegments('demo', ZERO_USAGE, 'CONTRACTS: 2/3').right, 'CONTRACTS: 2/3 , I/C/O/D = 0M / 0M / 0M / $0');
+});
+
 test('aggregateUsage returns an empty series and a warning when logs are unavailable', async () => {
   const result = await aggregateUsage({
     directory: '/nonexistent/work',
@@ -224,10 +240,10 @@ test('buildFrames shows zero usage when logs are available but empty and hides i
   const availableFrames = buildFrames(available, { frames: 20 });
   assert.deepEqual(availableFrames[0].titleParts, {
     left: 'PROGRESS: demo',
-    right: 'I/C/O/D = 0M / 0M / 0M / $0',
+    right: 'CONTRACTS: 0/? , I/C/O/D = 0M / 0M / 0M / $0',
   });
-  assert.equal(availableFrames[0].title, 'PROGRESS: demo | I/C/O/D = 0M / 0M / 0M / $0');
-  assert.equal(availableFrames.at(-1).titleParts.right, 'I/C/O/D = 0M / 0M / 0M / $0');
+  assert.equal(availableFrames[0].title, 'PROGRESS: demo | CONTRACTS: 0/? , I/C/O/D = 0M / 0M / 0M / $0');
+  assert.equal(availableFrames.at(-1).titleParts.right, 'CONTRACTS: 0/? , I/C/O/D = 0M / 0M / 0M / $0');
 
   const unavailable = minimalModel({ usage: [], titleName: 'demo' });
   unavailable.usageAvailable = false;
@@ -281,11 +297,11 @@ test('buildFrames changes the cumulative title only at date boundaries', () => {
   const model = minimalModel({ usage: series, titleName: 'demo' });
   const frames = buildFrames(model, { frames: 200 });
 
-  assert.equal(frames[0].title, formatUsageTitle('demo', series[0].cumulative));
-  assert.equal(frames.at(-1).title, formatUsageTitle('demo', series.at(-1).cumulative));
+  assert.equal(frames[0].title, formatUsageTitle('demo', series[0].cumulative, 'CONTRACTS: 0/?'));
+  assert.equal(frames.at(-1).title, formatUsageTitle('demo', series.at(-1).cumulative, 'CONTRACTS: 0/?'));
   assert.deepEqual(frames[0].titleParts, {
     left: 'PROGRESS: demo',
-    right: usageTitleSegments('demo', series[0].cumulative).right,
+    right: usageTitleSegments('demo', series[0].cumulative, 'CONTRACTS: 0/?').right,
   });
   const changes = frames.filter((frame, index) => (
     index > 0 && frame.title !== frames[index - 1].title

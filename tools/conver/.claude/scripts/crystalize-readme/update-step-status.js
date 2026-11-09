@@ -598,7 +598,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * main — parse arguments, dispatch subcommand, write atomically.
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156|PX-401) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -691,6 +691,15 @@ function main() {
     }
   } catch (execError) {
     exitWithError(`Subcommand execution failed: ${execError.message}`, 'Subcommand arguments are invalid.', 'Check the error message and re-run.');
+  }
+
+  // Every mutating subcommand refreshes updated_at; the last end-step is the
+  // stage completion instant that the progress renderer consumes.
+  status.updated_at = new Date().toISOString();
+  if (parsed.subcommand === 'end-step' && parsed.stepNumber === MAX_STEP) {
+    status.completed_at = new Date().toISOString();
+  } else if (parsed.subcommand === 'start-step' || parsed.subcommand === 'fail-step' || parsed.subcommand === 'reset-to-step') {
+    delete status.completed_at;
   }
 
   try {

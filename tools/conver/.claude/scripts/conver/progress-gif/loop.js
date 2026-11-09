@@ -32,6 +32,15 @@ const TRUSTED_TIME_SOURCES = new Set(['history', 'status']);
 const MAX_FUTURE_SKEW_MS = 24 * 60 * 60 * 1000;
 
 const EDuce_PHASES = 18;
+// The exact completion instant each implementation stage owns. A stage with no
+// explicit field is not drawn; no mtime, origin or detected_at substitute is used.
+const STAGE_TIMESTAMP_FIELDS = Object.freeze({
+  make: 'made_at',
+  plan: 'planned_at',
+  start: 'done_at',
+  review: 'reviewed_at',
+});
+const EXPLICIT_COMPLETION_STAGES = new Set(['make', 'plan', 'start', 'review', 'resolve']);
 // Phase 1 of the drill has twelve sub-steps (1-1..1-12). Steps 2-1..5-1 are the
 // graphify / boundify / split / verify gates that follow it.
 const DRILL_PHASE1_STEPS = 12;
@@ -78,9 +87,6 @@ export function usageAtDate(series, dateKey) {
   return found ? { ...found.cumulative } : { ...ZERO_USAGE };
 }
 
-const USAGE_TITLE_PREFIX = 'PROGRESS: ';
-const USAGE_TITLE_LABEL = 'I/C/O/D = ';
-
 /** Round a token count up to whole millions; display rounding only. */
 // [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
 function formatMillions(value) {
@@ -92,6 +98,47 @@ function formatDollars(value) {
   return Math.ceil(Number(value) || 0);
 }
 
+const USAGE_TITLE_PREFIX = 'PROGRESS: ';
+const USAGE_TITLE_LABEL = 'I/C/O/D = ';
+const CONTRACTS_LABEL = 'CONTRACTS: ';
+const CONTRACTS_UNKNOWN_DENOMINATOR = '?';
+const TITLE_SEGMENT_SEPARATOR = ' , ';
+
+/**
+ * Project the workspace contract progress at one frame instant. The denominator
+ * counts contracts on tickets that already carry a made_at; the numerator counts
+ * the reviewed subset. A package contributes each contract id once, and every
+ * package is summed because a boundary contract is owed by both sides.
+ */
+export function contractsAt(model, timestamp) {
+  let numerator = 0;
+  let denominator = 0;
+  let known = false;
+  for (const pkg of model.packages || []) {
+    const made = new Set();
+    const reviewed = new Set();
+    for (const entry of pkg.contractLog || []) {
+      if (!Number.isFinite(entry.madeAt) || entry.madeAt > timestamp) continue;
+      known = true;
+      for (const id of entry.contractIds || []) made.add(id);
+      if (Number.isFinite(entry.reviewedAt) && entry.reviewedAt <= timestamp) {
+        for (const id of entry.contractIds || []) reviewed.add(id);
+      }
+    }
+    denominator += made.size;
+    numerator += reviewed.size;
+  }
+  return { numerator, denominator, unknown: !known };
+}
+
+/** Render the title segment; a workspace without a made ticket has no denominator. */
+export function formatContractsTitle(contracts) {
+  if (!contracts || contracts.unknown) {
+    return `${CONTRACTS_LABEL}0/${CONTRACTS_UNKNOWN_DENOMINATOR}`;
+  }
+  return `${CONTRACTS_LABEL}${contracts.numerator}/${contracts.denominator}`;
+}
+
 /**
  * Split the usage title into a left name and a right-aligned metric block.
  *
@@ -99,18 +146,19 @@ function formatDollars(value) {
  * must stay a separate string; `text` is only the plain-text fallback.
  */
 // [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
-export function usageTitleSegments(name, cumulative) {
+export function usageTitleSegments(name, cumulative, contracts = '') {
   const left = `${USAGE_TITLE_PREFIX}${name || 'PROGRESS'}`;
-  const right = `${USAGE_TITLE_LABEL}${formatMillions(cumulative.cacheMissInputTokens)}M / `
+  const metrics = `${USAGE_TITLE_LABEL}${formatMillions(cumulative.cacheMissInputTokens)}M / `
     + `${formatMillions(cumulative.cacheHitInputTokens)}M / `
     + `${formatMillions(cumulative.outputTokens)}M / `
     + `$${formatDollars(cumulative.costUsd)}`;
+  const right = contracts ? `${contracts}${TITLE_SEGMENT_SEPARATOR}${metrics}` : metrics;
   return { left, right, text: `${left} | ${right}` };
 }
 
 // [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
-export function formatUsageTitle(name, cumulative) {
-  return usageTitleSegments(name, cumulative).text;
+export function formatUsageTitle(name, cumulative, contracts = '') {
+  return usageTitleSegments(name, cumulative, contracts).text;
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -164,6 +212,13 @@ export function countFactSectionsIn(text) {
 function parseInstant(value) {
   const parsed = parseTimestamp(value);
   return parsed && parsed.prec !== DAY_PRECISION ? parsed : null;
+}
+
+/** The stage's explicit completion instant, or null when the field is absent. */
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
+function readTicketStageInstant(ticket, stage) {
+  const field = STAGE_TIMESTAMP_FIELDS[stage];
+  return field ? parseInstant(ticket[field]) : null;
 }
 
 /** The earliest COMPLETE finish for one stage, or null when history has none. */
@@ -708,33 +763,32 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
   }
 
   if (artifacts.tickets) {
-    const ticketsMtime = resolveArtifactTime(artifacts.ticketsPath, initialT);
     const tickets = ticketList(artifacts);
     const count = tickets.length || 1;
     for (const ticket of tickets) {
-      const createdAt = parseInstant(ticket.created_at);
-      const updatedAt = parseInstant(ticket.updated_at);
-      const startedAt = parseInstant(ticket.startedAt);
-      const completedAt = parseInstant(ticket.completedAt);
-      const created = createdAt || ticketsMtime || { t: initialT, prec: 'ms' };
-      const createdSource = createdAt ? 'status' : ticketsMtime ? 'artifact' : 'initial';
-      const updated = updatedAt || created;
-      const updatedSource = updatedAt ? 'status' : createdSource;
-      const started = startedAt || created;
-      const startedSource = startedAt ? 'status' : createdSource;
-      const completed = completedAt || updated;
-      const completedSource = completedAt ? 'status' : updatedSource;
-      if (ticket.status && ticket.status !== 'todo') {
-        addEvent(events, { t: created.t, prec: created.prec, stage: 'make', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: createdSource });
+      const status = ticket.status;
+      const isMade = Boolean(status) && status !== 'todo';
+      const isPlanned = ['planned', 'claimed', 'started', 'done', 'reviewed'].includes(status);
+      const isStarted = ['started', 'done', 'reviewed'].includes(status);
+      const isReviewed = status === 'reviewed' || isReviewedStatus(status);
+      const madeAt = isMade ? readTicketStageInstant(ticket, 'make') : null;
+      const plannedAt = isPlanned ? readTicketStageInstant(ticket, 'plan') : null;
+      const startedAt = isStarted ? readTicketStageInstant(ticket, 'start') : null;
+      const reviewedAt = isReviewed ? readTicketStageInstant(ticket, 'review') : null;
+      if (isReviewed && !reviewedAt) {
+        warnOnce(warnings, `[evidence] review ${pkg.id}: ${ticketKeyOf(ticket)} has no reviewed_at; review not credited`);
       }
-      if (['planned', 'claimed', 'started', 'done', 'reviewed'].includes(ticket.status)) {
-        addEvent(events, { t: updated.t, prec: updated.prec, stage: 'plan', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: updatedSource });
+      if (madeAt) {
+        addEvent(events, { t: madeAt.t, prec: madeAt.prec, stage: 'make', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: 'status' });
       }
-      if (['started', 'done', 'reviewed'].includes(ticket.status)) {
-        addEvent(events, { t: started.t, prec: started.prec, stage: 'start', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: startedSource });
+      if (plannedAt) {
+        addEvent(events, { t: plannedAt.t, prec: plannedAt.prec, stage: 'plan', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: 'status' });
       }
-      if (ticket.status === 'reviewed' || isReviewedStatus(ticket.status)) {
-        addEvent(events, { t: completed.t, prec: completed.prec, stage: 'review', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: completedSource });
+      if (startedAt) {
+        addEvent(events, { t: startedAt.t, prec: startedAt.prec, stage: 'start', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: 'status' });
+      }
+      if (reviewedAt) {
+        addEvent(events, { t: reviewedAt.t, prec: reviewedAt.prec, stage: 'review', packageId: pkg.id, inc: 1 / count, evidence: ticketKeyOf(ticket), timeSource: 'status' });
       }
     }
   }
@@ -743,15 +797,19 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
   if (records.length > 0) {
     for (const record of records) {
       if (record.status !== 'resolved' && record.status !== 'false_positive') continue;
-      const at = parseInstant(record.resolved_at) || parseInstant(record.detected_at);
+      const at = parseInstant(record.resolved_at);
+      if (!at) {
+        warnOnce(warnings, `[evidence] resolve ${pkg.id}: Malfeasance#${record.id} has no resolved_at; resolve not credited`);
+        continue;
+      }
       addEvent(events, {
-        t: at ? at.t : initialT,
-        prec: at ? at.prec : 'ms',
+        t: at.t,
+        prec: at.prec,
         stage: 'resolve',
         packageId: pkg.id,
         inc: 1 / (records.length + (Number(artifacts.unresolvedStubs) || 0)),
         evidence: `Malfeasance#${record.id}`,
-        timeSource: at ? 'status' : 'initial',
+        timeSource: 'status',
       });
     }
   }
@@ -1352,8 +1410,9 @@ export function frameFromState(state, model, index) {
   const cumulativeUsage = usageAvailable
     ? usageAtDate(model.usage, displayDateKey(state.lastT, state.lastPrec))
     : null;
+  const contractsTitle = formatContractsTitle(contractsAt(model, state.lastT));
   const usageTitle = cumulativeUsage && model.titleName
-    ? usageTitleSegments(model.titleName, cumulativeUsage)
+    ? usageTitleSegments(model.titleName, cumulativeUsage, contractsTitle)
     : null;
   const frame = {
     index,
@@ -1471,10 +1530,17 @@ export function derivePackageState(pkg, artifacts, workspaceArtifacts, registry,
   const events = stageEventsOf(pkg, artifacts, workspaceArtifacts, warnings);
   for (const stage of STAGE_ORDER) {
     if (stages[stage] <= 0) continue;
+    // An implementation stage is drawn only from its explicit completion field.
+    if (EXPLICIT_COMPLETION_STAGES.has(stage)) continue;
     if (!isStageCoveredFor(events, stage, pkg.id)) {
       events.push({ t: workspaceArtifacts.initialT || 0, prec: 'ms', stage, packageId: pkg.id, inc: stages[stage], evidence: 'artifact-presence' });
     }
   }
+  const contractLog = (artifacts.tickets ? ticketsOf(artifacts.tickets) : []).map((ticket) => ({
+    madeAt: parseInstant(ticket.made_at)?.t ?? null,
+    reviewedAt: parseInstant(ticket.reviewed_at)?.t ?? null,
+    contractIds: [...countTicketContracts([ticket])],
+  }));
   return {
     packageModel: {
       id: pkg.id,
@@ -1483,6 +1549,7 @@ export function derivePackageState(pkg, artifacts, workspaceArtifacts, registry,
       obligations: computed.obligations,
       tickets: computed.tickets,
       stages,
+      contractLog,
     },
     events,
     artifacts,

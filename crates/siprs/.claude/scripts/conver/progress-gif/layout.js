@@ -129,7 +129,11 @@ export const MIN_COLUMNS = 4;
 export const MAX_COLUMNS = 10;
 export const MIN_CELL = 64;
 export const MAX_CELL = 72;
-export const LABEL_HEIGHT = 26;
+export const LABEL_HEIGHT = 34;
+export const PACKAGE_BAR_HEIGHT = 6;
+export const PACKAGE_BAR_MARGIN_X = 4;
+export const PACKAGE_BAR_TOP_OFFSET = 1;
+export const PACKAGE_LABEL_TOP_OFFSET = 16;
 export const LADDER_X = 528;
 export const LADDER_Y = 72;
 export const LADDER_ROW_HEIGHT = 18;
@@ -220,6 +224,7 @@ export function wrapLabel(measureText, text, maxWidth, maxLines = 2) {
 
 const PREFIX_SEPARATORS = Object.freeze(['-', '_', '.', '/']);
 
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 function findLongestCommonPrefix(names) {
   let commonPrefix = names[0];
   for (const name of names.slice(1)) {
@@ -363,7 +368,11 @@ export function computeLayout(model, options = {}) {
       radius: radiusForArea(widths[index], minTotal, maxTotal, minRadius, maxRadius) * scale,
       labelLines: wrapLabel(measureText, stripped.names[index], cell - 4, 2),
       labelX: centerX * scale,
-      labelY: (top + cell + 12) * scale,
+      labelY: (top + cell + PACKAGE_LABEL_TOP_OFFSET) * scale,
+      barX: (left + PACKAGE_BAR_MARGIN_X) * scale,
+      barY: (top + cell + PACKAGE_BAR_TOP_OFFSET) * scale,
+      barWidth: (cell - PACKAGE_BAR_MARGIN_X * 2) * scale,
+      barHeight: PACKAGE_BAR_HEIGHT * scale,
       dots: dotField.dots,
     };
   });

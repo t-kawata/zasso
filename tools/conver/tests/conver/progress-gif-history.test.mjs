@@ -15,6 +15,7 @@ const DRILL_INDEX = STAGE_ORDER.indexOf('drill');
 
 /** A finish record for the one package in the fixture. */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 function finish(runId, at, status = 'COMPLETE', addedTicketKeys = []) {
   return {
     v: 1,
@@ -93,7 +94,7 @@ test('C004: two COMPLETE runs emit two markers and never exceed progress 1', () 
   assert.ok(frames.every((frame) => frame.pi.every((stages) => stages[DRILL_INDEX] <= 1)));
 });
 
-test('C004: a BLOCKED_PREREQUISITE run emits a marker and adds no progress', () => {
+test('C005: a BLOCKED_PREREQUISITE run is not drawn and adds no progress', () => {
   const root = historyWorkspace({
     drillStatus: { state: 'DONE', currentStep: '1-12', updatedAt: '2026-11-05T00:00:00.000Z' },
     records: [finish('run-1', '2026-11-04T12:00:00.000Z', 'BLOCKED_PREREQUISITE')],
@@ -103,12 +104,11 @@ test('C004: a BLOCKED_PREREQUISITE run emits a marker and adds no progress', () 
   const frames = buildFrames(model, { frames: 40 });
   const markers = frames.flatMap((frame) => frame.runs || []).filter((run) => run.stage === 'drill');
 
-  assert.equal(markers.length, 1);
-  assert.equal(markers[0].status, 'BLOCKED_PREREQUISITE');
+  assert.equal(markers.length, 0);
   assert.ok(frames.every((frame) => frame.pi.every((stages) => stages[DRILL_INDEX] <= 1)));
 });
 
-test('C004: a start-only run is a STARTED marker with no progress and no growth', () => {
+test('C005: a start-only run is not drawn and adds no progress and no growth', () => {
   const root = historyWorkspace({
     drillStatus: { state: 'DONE', currentStep: '1-12', updatedAt: '2026-11-05T00:00:00.000Z' },
     records: [start('run-1', '2026-11-04T12:00:00.000Z')],
@@ -118,9 +118,22 @@ test('C004: a start-only run is a STARTED marker with no progress and no growth'
   const frames = buildFrames(model, { frames: 40 });
   const markers = frames.flatMap((frame) => frame.runs || []).filter((run) => run.stage === 'drill');
 
-  assert.equal(markers.length, 1);
-  assert.equal(markers[0].status, 'STARTED');
+  assert.equal(markers.length, 0);
   assert.equal(model.growthEvents.filter((event) => event.stage === 'drill').length, 0);
+});
+
+test('C005: a BLOCKED make run cannot advance the displayed stage to MAKE', () => {
+  const root = historyWorkspace({
+    records: [
+      { v: 1, runId: 'run-1', event: 'finish', command: 'make-ticket', stage: 'make', packageId: 'pkg-1', at: '2026-11-09T01:32:30.357Z', status: 'BLOCKED_PREREQUISITE', addedTicketKeys: [] },
+      { v: 1, runId: 'run-2', event: 'finish', command: 'split-to-tickets', stage: 'split', packageId: 'pkg-1', at: '2026-11-09T02:00:00.000Z', status: 'COMPLETE', addedTicketKeys: [] },
+    ],
+  });
+
+  const model = analyzeWorkspace(root, { sourceScan: false });
+  const frames = buildFrames(model, { frames: 40 });
+  const stages = frames.map((frame) => frame.stage);
+  assert.equal(stages.includes('make'), false);
 });
 
 test('C005: a history ticket key appears once at the history time', () => {

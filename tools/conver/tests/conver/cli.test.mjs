@@ -21,6 +21,7 @@ fs.mkdirSync(path.join(EMPTY_CONFIG_DIR, 'projects'), { recursive: true });
 
 // [::TICKET::] PX-349, PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-352) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-376 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-376 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 function run(args) {
   return spawnSync(process.execPath, [CLI, ...args], {
     encoding: 'utf8',
@@ -122,7 +123,7 @@ test('a manifests-only workspace exits zero and writes HTML and a snapshot', () 
   assert.equal(hashTree(root), before);
 });
 
-test('a 29-package workspace renders four rows at 796x440', () => {
+test('a 29-package workspace renders four rows at 796x472', () => {
   const packages = Array.from({ length: 29 }, (_, index) => ({
     id: `pkg-${index + 1}`,
     name: `pkg-${index + 1}`,
@@ -134,7 +135,7 @@ test('a 29-package workspace renders four rows at 796x440', () => {
   const root = writeWorkspace({ packages });
   const result = run(['-t', root, '--no-open', '--dry-run', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /canvas: 796x440/);
+  assert.match(result.stdout, /canvas: 796x472/);
   assert.match(result.stdout, /overall progress: \d+%/);
 });
 

@@ -23,6 +23,7 @@ import { writeWorkspace } from './fixtures.mjs';
 
 /** A workspace with exactly one package. */
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
 function onePackage(files = {}) {
   return writeWorkspace({
     packages: [{ id: 'pkg-1', name: 'pkg-1', path: 'pkg-1' }],
@@ -247,12 +248,12 @@ test('C009: grill resolved questions require grill status or history', () => {
   assert.ok(credited.packages[0].stages.grill > 0);
 });
 
-test('C002: a day-precision generatedAt is never an event instant; Tickets.json mtime is used', () => {
+test('C006: a reviewed ticket without made_at emits no make event; Tickets.json mtime is not used', () => {
   const tickets = {
     metadata: { generatedAt: '2026-11-05' },
     phases: [{
       id: 0,
-      tickets: [{ id: 1, phaseId: 0, status: 'reviewed', title: 't', contracts: [{ id: 'C1' }] }],
+      tickets: [{ id: 1, phaseId: 0, status: 'reviewed', title: 't', contracts: [{ id: 'C001' }] }],
     }],
   };
   const root = onePackage({ 'pkg-1/Tickets.json': tickets });
@@ -263,9 +264,7 @@ test('C002: a day-precision generatedAt is never an event instant; Tickets.json 
   const model = analyzeWorkspace(root, { sourceScan: false });
   const make = model.events.find((event) => event.stage === 'make' && event.packageId === 'pkg-1');
 
-  assert.equal(make.t, mtime);
-  assert.equal(make.timeSource, 'artifact');
-  assert.notEqual(make.t, Date.parse('2026-11-05T00:00:00.000Z'));
+  assert.equal(make, undefined);
 });
 
 test('C008: explain measures file text and a path is not text', () => {
