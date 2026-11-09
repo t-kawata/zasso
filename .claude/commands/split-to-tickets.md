@@ -574,3 +574,7 @@ node "$CLAUDE_DIR/scripts/workspacify-reverse/run.mjs" oracle compare --stage ma
 ```
 
 The comparison lists disagreements by name in both directions, and never a score or a verdict. Classifying each is a human's work.
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

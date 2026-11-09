@@ -522,3 +522,6 @@ Prohibition: never resolve a G4 failure by moving a question into the pre-decide
 
 Done: both documents exist, published; facts printed once; G4 passed; G5 passed (every question answered, ledger unsettled = 0 — no point left `open` or `bound`); report written after loop exit, naming every G3-caught-but-unfixed item.
 Done is a state of the material read so far, not the end of the conversation: a viewpoint the human brings afterwards is recorded by Step 4b and the loop runs again, so the command's last act is the report it re-issues, never a refusal to continue.
+
+**Amendment route (gate only):** amend through `design-amendment.js`; run `verify-amendment.js --report`; findings feed the repair loop.
+absent artifact = skip, exit 0, never a block.

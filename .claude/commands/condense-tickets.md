@@ -92,3 +92,7 @@ fi
 - plan printed before write; apply passes or the archive is restored.
 - second run `NO_CHANGE`.
 - no command argument consumed; no gate relaxed.
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

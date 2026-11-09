@@ -256,3 +256,7 @@ Prohibitions:
 - Never add field to `*-GRAPH.json` or `*-Dirs-Tree.json`; provenance belongs manifest only
 - Never treat measured DAG as logical architecture
 - Never treat mismatch record as repair
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

@@ -427,3 +427,7 @@ A6 folds into A3: provider-packet obligation supplies implementations of package
 - reverse provenance: read manifest `reverse_provenance` sidecar hash/count; populate §1 reverse index/sidecar reference; absent → A4 fail; never invent.
 - causes: extra/missing directory A1; non-allow-listed write/renamed top-level A2; missing owed excerpt A3; missing/mismatched reverse index A4; broken Allocation Index A5.
 - heading contract: exact match against declared `SEED_FORMATS` section list; absent/unknown version parsed against current read format. Older pattern-2/3 format gap → report, not refuse; publish reconciliation in `SEED-COMPATIBILITY.md` beside report. Never accept fifteenth heading/transposed title. Reverse index extends §1; never §15. Forward cannot observe reverse-only behavior.
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

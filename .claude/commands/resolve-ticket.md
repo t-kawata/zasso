@@ -244,3 +244,13 @@ G-reverify: rerun 9d per changed ticket; refresh certificate. reviewed + digest 
 ```bash
 node "$CLAUDE_DIR/scripts/conver/run-history.js" finish --command=resolve-ticket --stage=resolve --status=COMPLETE
 ```
+
+## Design Amendment Rule (never stop)
+
+SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json, Tickets.json = pre-implementation design,
+not proof. omission / contradiction / deficiency / danger found during implementation →
+resolve now, never defer, never hand-edit.
+
+route: `design-amendment.js` (dry-run first, then `--apply`) → owner rederive → `verify-amendment.js`.
+absent artifact → `skipped:absent`, exit 0; never a block. unreadable / ambiguous → accurate error.
+fixes[] = amendment instruction. rerun until new-finding count 0 twice, same digest. hand edit = defect.

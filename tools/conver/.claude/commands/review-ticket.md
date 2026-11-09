@@ -319,3 +319,13 @@ verify: `git log -1 --oneline`
 - zero open crimes; zero unclassified `[::STUB::]`; zero `[::AMBIGUOUS::]`
 - compile + tests clean, zero warnings/errors
 - exactly one commit created; NOT pushed
+
+## Design Amendment Rule (never stop)
+
+SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json, Tickets.json = pre-implementation design,
+not proof. omission / contradiction / deficiency / danger found during implementation →
+resolve now, never defer, never hand-edit.
+
+route: `design-amendment.js` (dry-run first, then `--apply`) → owner rederive → `verify-amendment.js`.
+absent artifact → `skipped:absent`, exit 0; never a block. unreadable / ambiguous → accurate error.
+fixes[] = amendment instruction. rerun until new-finding count 0 twice, same digest. hand edit = defect.

@@ -101,3 +101,7 @@ workspace summary: applied=A noChange=C failed=F skipped=S unlisted=U
 - every target attempted; failures listed; exit 1 iff any failure.
 - crystal root `10 → 9`; second run all `NO_CHANGE`.
 - no command argument consumed; no gate relaxed.
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

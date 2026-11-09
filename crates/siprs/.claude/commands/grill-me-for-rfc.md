@@ -911,3 +911,7 @@ Prohibitions:
 - never record a person as the authority; never leave `normative_authority` empty
 - never promote a default to a norm because no answer arrived — the default keeps analysis moving, it does not decide the design
 - never drop a question for a claim/residual the machine couldn't ask about — report it and say why
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

@@ -493,3 +493,13 @@ echo '{"status":"done"}' | node "$CLAUDE_DIR/scripts/tickets/update-ticket.js" "
 ```
 
 If there are quality issues, fix them before transitioning to `done`.
+
+## Design Amendment Rule (never stop)
+
+SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json, Tickets.json = pre-implementation design,
+not proof. omission / contradiction / deficiency / danger found during implementation →
+resolve now, never defer, never hand-edit.
+
+route: `design-amendment.js` (dry-run first, then `--apply`) → owner rederive → `verify-amendment.js`.
+absent artifact → `skipped:absent`, exit 0; never a block. unreadable / ambiguous → accurate error.
+fixes[] = amendment instruction. rerun until new-finding count 0 twice, same digest. hand edit = defect.

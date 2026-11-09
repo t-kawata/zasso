@@ -512,3 +512,6 @@ node "$CLAUDE_DIR/scripts/smooth-sequences/run.mjs"
 # generation: 2 (verification; no new generation)
 # next: none. verdict: pass.
 ```
+
+**Amendment route (gate only):** amend through `design-amendment.js`; run `verify-amendment.js --report`; findings feed the repair loop.
+absent artifact = skip, exit 0, never a block.

@@ -496,3 +496,7 @@ Why the gates exist: `node.schema.json` carries no file field and `additionalPro
 - Never classify a difference by guessing intent; an unclassifiable one is recorded `unclassified` and carried to the grill.
 
 **Report additions**: GF1 status and every unresolvable node identifier; GF2 difference count split by direction with the recorded candidates; and on zero, the sentence saying a zero result is to be scrutinised rather than trusted.
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

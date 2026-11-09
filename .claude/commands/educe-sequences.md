@@ -517,3 +517,6 @@ Then print artifact path and its digest; state plainly whether run is **complete
 Run `/educe-sequences <spec-file>` again at any time to verify the artifact; it needs
 nothing but the specification.
 ```
+
+**Amendment route (gate only):** amend through `design-amendment.js`; run `verify-amendment.js --report`; findings feed the repair loop.
+absent artifact = skip, exit 0, never a block.

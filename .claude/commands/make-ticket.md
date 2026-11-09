@@ -404,3 +404,6 @@ node "$CLAUDE_DIR/scripts/tickets/verify-make-distribution.js" \
 ```bash
 echo '{"status":"made"}' | node "$CLAUDE_DIR/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
+
+**Amendment route (gate only):** amend through `design-amendment.js`; run `verify-amendment.js --report`; findings feed the repair loop.
+absent artifact = skip, exit 0, never a block.

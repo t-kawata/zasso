@@ -347,3 +347,7 @@ Loop ends when both origin files exist in reserved destination and `gate` 0 over
 The loop does not end before the origin spec is published. A report that reverse engineering could not be carried out is not this command's outcome at all.
 
 Success is both: (1) complete analysis—R8 reached; origin spec/sidecar published; Markdown round-trips; gate records six decisions—and (2) forward rotation untouched—frozen fixtures still reproduce; gate remains `proved`. Neither optional; stopped analysis is not smaller success; cannot-complete report is not outcome. Only origin spec at destination closes work.
+
+**Amendment route (never stop):** every amendment to SPEC, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json or
+Tickets.json goes through `design-amendment.js`; preserve `## Design Amendments` on every re-render.
+absent artifact = skip, exit 0, never a block.

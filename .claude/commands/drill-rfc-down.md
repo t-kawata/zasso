@@ -723,3 +723,6 @@ node "$CLAUDE_DIR/scripts/workspacify-reverse/lib/staleness.mjs" \
 `STALENESS-INDEX.json` is written beside it as the record of what was found. A claim whose `staleness_ref` points here is the one this command's grill must re-examine.
 
 **Forward guarantee.** The forward output of this command is byte-identical to its pre-change form: no required field is added and no existing step is altered. The P22-1 regression gate's command-file digest is run before and after every edit to this file.
+
+**Amendment route (gate only):** amend through `design-amendment.js`; run `verify-amendment.js --report`; findings feed the repair loop.
+absent artifact = skip, exit 0, never a block.

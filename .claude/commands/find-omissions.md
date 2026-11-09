@@ -351,3 +351,6 @@ exit: `return-refs.js` exits 0 regardless of resolution — the report is the ou
 Invariants:
 - forward output byte-identical to its pre-change form — no required field added; a consumer unaware of `affected_claim_ids`/`origin_residual_ids` continues to work unchanged
 - P22-1 regression gate's command-file digest runs before and after every edit to this file
+
+**Amendment route (gate only):** amend through `design-amendment.js`; run `verify-amendment.js --report`; findings feed the repair loop.
+absent artifact = skip, exit 0, never a block.

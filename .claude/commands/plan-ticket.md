@@ -317,3 +317,6 @@ Reply with the full Step 4 plan in Markdown. Conclude exactly:
 ```
 Planning is complete. You can start the implementation by running: `/start-ticket $ARGUMENTS`
 ```
+
+**Amendment route (gate only):** amend through `design-amendment.js`; run `verify-amendment.js --report`; findings feed the repair loop.
+absent artifact = skip, exit 0, never a block.
