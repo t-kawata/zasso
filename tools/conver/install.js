@@ -29,6 +29,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const SOURCE_DIR_NAME = '.claude';
+const PROJECT_INSTRUCTIONS_FILE_NAME = 'CLAUDE.md';
 /**
  * Paths the mirror never reads or removes.
  *
@@ -119,6 +120,24 @@ function mirrorTree(sourceDir, targetDir) {
   if (result.status !== 0) {
     throw new Error(`rsync exited with status ${result.status}: ${(result.stderr || '').trim()}`);
   }
+}
+
+/**
+ * Publish the installed project instructions beside the target tree.
+ *
+ * Claude Code reads the project instructions from the project root, while this
+ * installer owns them inside `.claude`. Copying the installed copy upward keeps
+ * one authority: a re-run refreshes both, and a hand-edited root copy cannot
+ * drift from the tree that shipped it.
+ *
+ * @param {string} targetDir
+ */
+function publishProjectInstructions(targetDir) {
+  const installed = path.join(targetDir, PROJECT_INSTRUCTIONS_FILE_NAME);
+  if (!fs.existsSync(installed)) return;
+  const published = path.join(path.dirname(targetDir), PROJECT_INSTRUCTIONS_FILE_NAME);
+  fs.copyFileSync(installed, published);
+  print(`published project instructions into ${published}`);
 }
 
 /**
@@ -228,6 +247,7 @@ async function main() {
 
   try {
     mirrorTree(sourceClaudeDir, targetDir);
+    publishProjectInstructions(targetDir);
   } catch (error) {
     printError(`error: ${error.message}`);
     process.exit(1);

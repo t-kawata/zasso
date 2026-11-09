@@ -428,6 +428,29 @@ material（0個以上のファイル/ディレクトリ）をもとに、RFC 設
 - 最終契約充足検証（`verify-final-contracts.js` / `validate-ticket-targets.js`）通過後に status `reviewed` + `completedAt` 記録
 - **Step 12: コミットするが、決して push しない**（push はユーザーの明示的操作）
 
+#### `/condense-tickets`
+
+現在のパッケージの `Tickets.json` を、version-3 の**連続区間分割の最小数**まで凝縮します。再分割はしません。
+
+- **引数はありません。** 対象は**カレントディレクトリの `./Tickets.json`**、モードもコマンド側で固定されます。`--plan` / `--apply` / `--gate` / `--workspace` はスクリプトの内部フラグであり、コマンド引数ではありません
+- **凝縮の単位**: 契約・前提・実装順が連続している隣接チケットを1つに統合します。生存チケットはキーと id を保持し、吸収されたキーは `condensedFrom` に記録されます。**キーの振り直しは行いません**
+- **散文は保持**: 吸収されたチケットの本文は `background` / `notes` / `invariants` / `scope` 配下へ `### From <key>: <title>` として移されます。AI が要約・再執筆することはありません
+- **派生フィールドは再導出**: 契約・数式・前提・related id は吸収キーを remap して再計算されます。被覆・閉包・チェーン・実装順のゲートが失敗した場合、アーカイブから復元して exit 1。ゲートを緩めることはありません
+- **手順**: `--plan` で書き込み前の計画を表示 → `--apply` でアーカイブ → 統合 → 再計算 → 原子的書き込み → ゲート → 再実行で `NO_CHANGE`
+- ワークスペース内のパッケージであれば、適用後にワークスペースの実装順を1回だけ再生成します。ワークスペース全体を対象にする場合は `/condense-workspace`
+
+#### `/condense-workspace`
+
+`WORKSPACIFY-TREE-MANIFEST.json` が宣言する**すべてのパッケージ**を1回で凝縮します。`path: "."` のワークスペースルートパッケージも含みます。
+
+- **引数はありません。** 対象はカレントディレクトリの manifest。manifest が無ければ `MISSING_TREE_MANIFEST` で、書き込み前に停止します
+- **対象の決定**: `workspace.packages[].path` が唯一の権威です。行は解決パスで重複排除し、manifest の順序を保ちます。tree manifest が無い場合に限り、ファイルシステム走査（`Tickets.json` + `*-GRAPH.json` + `*-Dirs-Tree.json`）へフォールバックします
+- **3つの非対象**: `Tickets.json` を持たないパッケージは `skipped:unsplit`、ディレクトリが存在しない行は `skipped:missing-directory`、manifest が名指ししない `Tickets.json` は `unlisted` として**報告のみ**。いずれも凝縮も作成もしません（graph と Dirs-Tree を持たないルート集約 `Tickets.json` は unlisted ではありません）
+- **失敗しても継続**: 1パッケージの失敗はそのアーカイブを復元し、残りのターゲットを最後まで試行します。全試行後に exit 1
+- **実装順**: ループ後にワークスペース実装順を**ちょうど1回**書き込みます。変更が1パッケージも無ければ書きません
+- **手順**: `--plan --workspace="$PWD"` → `--apply --workspace="$PWD"` → 再実行で全パッケージ `NO_CHANGE`
+- 単一パッケージだけを対象にする場合は `/condense-tickets`
+
 #### `/resolve-ticket [P{phaseID}-{ticketID}]`
 
 指定ディレクトリ配下の警告・エラー・スタブ・犯罪を一括解決します。**チケットの status は一切変更しません。**
@@ -1066,6 +1089,8 @@ install.js -t /path/to/target/.claude
 | `.DS_Store` | Finder のメタデータ |
 
 `install.js` はスクリプト自身の位置（`__dirname`）から相対的に `.claude` ディレクトリを特定するため、どのカレントディレクトリから実行しても正しく動作します。
+
+ミラー完了後、インストール先の `.claude/CLAUDE.md` は **`.claude` の親ディレクトリ**（プロジェクトルート）へ `CLAUDE.md` としてコピーされます。Claude Code がプロジェクト指示をルートから読む一方、指示の権威はインストールされた `.claude` 側に一本化されるため、再インストールで両方が更新され、ルート側の手編集が配布ツリーから乖離しません。
 
 ---
 

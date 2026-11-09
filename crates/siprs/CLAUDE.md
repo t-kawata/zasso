@@ -225,13 +225,13 @@ fn placeholder() -> Result<()> { Ok(()) }
 ```
 
 Sweep (every phase — make / plan / start / review):
-scan: `.claude/scripts/tickets/scan-crimes.sh` (auto-initializes on first run) against `.claude/commands/Malfeasance.json`
+scan: `"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/scan-crimes.sh"` (auto-initializes on first run) against `.claude/commands/Malfeasance.json`
 found unmarked incomplete impl →
   add `[::STUB::]` marker now
-  record: `node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>" "[note]"`
+  record: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/malfeasance-create.js" "<file>" <line> "<description>" "[note]"`
   resolve now if possible
-    resolved → `node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"`
+    resolved → `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/malfeasance-update.js" "<id>" "status" "resolved"`
     not resolvable → record the reason in the crime's `note`; leave `status` unchanged
 none found → next
 
-List all stubs: `node .claude/scripts/tickets/review/find-all-stubs.js src`
+List all stubs: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/review/find-all-stubs.js" src`

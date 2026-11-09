@@ -171,6 +171,42 @@ describe('install.js mirrors the .claude tree into the target', () => {
   });
 });
 
+describe('install.js publishes the installed CLAUDE.md to the project root', () => {
+  it('copies the installed .claude/CLAUDE.md beside the .claude directory', () => {
+    withTemporaryRoot('install-claude-md-', (root) => {
+      const target = path.join(root, '.claude');
+
+      const result = installInto(target);
+
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.deepEqual(
+        fs.readFileSync(path.join(root, 'CLAUDE.md')),
+        fs.readFileSync(path.join(SOURCE_TREE, 'CLAUDE.md')),
+        'the project root must carry the same instructions the installed tree carries',
+      );
+    });
+  });
+
+  it('overwrites a stale project-root CLAUDE.md and stays byte-identical on a second run', () => {
+    withTemporaryRoot('install-claude-md-stale-', (root) => {
+      const target = path.join(root, '.claude');
+      const projectInstructions = path.join(root, 'CLAUDE.md');
+      fs.writeFileSync(projectInstructions, '# stale instructions\n');
+
+      assert.equal(installInto(target).status, 0);
+      const published = fs.readFileSync(projectInstructions);
+      assert.deepEqual(
+        published,
+        fs.readFileSync(path.join(SOURCE_TREE, 'CLAUDE.md')),
+        'the installed copy is the only authority for the project root',
+      );
+
+      assert.equal(installInto(target).status, 0);
+      assert.deepEqual(fs.readFileSync(projectInstructions), published, 'a second run must not rewrite the project root');
+    });
+  });
+});
+
 describe('install.js without -t resolves the target from the current directory', () => {
   it('installs into ./.claude and completes with stdin closed', () => {
     withTemporaryRoot('install-cwd-', (root) => {
