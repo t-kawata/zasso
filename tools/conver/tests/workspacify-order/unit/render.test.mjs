@@ -58,7 +58,7 @@ function fixture(t) {
   return workspace;
 }
 
-test('C004 postcondition: the plan renders the level blocks, the width row and the chain row', (t) => {
+test('C004 postcondition: the plan renders the level blocks and the chain row', (t) => {
   const workspace = fixture(t);
   const text = renderPlan(twoLevelModel(workspace));
 
@@ -69,17 +69,14 @@ test('C004 postcondition: the plan renders the level blocks, the width row and t
       // hash marker, and both are asserted here so a heading that loses either is caught.
       '',
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
-      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
-      'level  0    alone     1 dir',
+      '<level 0>',
       `  ${CRITICAL_MARKER} crates/protocol/package-1`,
       '',
-      'level  1    parallel  2 dirs',
+      '<level 1>',
       `  ${CRITICAL_MARKER} crates/protocol/package-2`,
-      '    crates/protocol/package-3',
       '',
-      'parallel width   level   0  1',
-      '                 dirs    1  2',
+      '    crates/protocol/package-3',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -143,7 +140,7 @@ test('C004 boundary: a workspace with a single package renders one alone level a
 
   const text = renderPlan(twoLevelModel(workspace));
 
-  assert.match(text, /level  0 {4}alone {5}1 dir/);
+  assert.match(text, /^<level 0>$/m);
   assert.match(text, /critical chain {3}package-1\n/);
 });
 
@@ -261,22 +258,19 @@ function explainedFixture(t) {
 }
 
 /** The plan of that fixture, line by line, written out rather than rebuilt from the renderer. */
-// [::TICKET::] PX-228, PX-282, PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-228|PX-282|PX-323) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228, PX-282, PX-323, PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-228|PX-282|PX-323|PX-393) --for-spec --no-implementation-order`.
 function explainedPlanLines(workspace) {
   return [
     '',
     `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
-      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
     '',
-    'level  0    alone     1 dir',
+    '<level 0>',
     '  * crates/protocol/package-1 🔴 EXP',
     '',
-    'level  1    parallel  2 dirs',
+    '<level 1>',
     '  * crates/protocol/package-2',
-    '    crates/protocol/package-3 🔴 EXP',
     '',
-    'parallel width   level   0  1',
-    '                 dirs    1  2',
+    '    crates/protocol/package-3 🔴 EXP',
     '',
     'critical chain   package-1 → package-2',
     '',
@@ -429,8 +423,8 @@ test('C004 boundary: the heading is a blank line followed by the hash-marked H1'
   assert.deepEqual(lines.slice(0, 4), [
     '',
     `# ${name} build order — 3 dirs / 2 levels / 2 dependencies`,
-    'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
     '',
+    '<level 0>',
   ]);
   // The stale expectation this file carried started at the name, with neither the blank line
   // nor the marker, so the two expectations cannot be confused for one another.
@@ -474,17 +468,14 @@ test('C002 postcondition: each mark follows its own document, so one line may ca
     [
       '',
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
-      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
-      'level  0    alone     1 dir',
+      '<level 0>',
       '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:?',
       '',
-      'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2 🟠 GRI:?',
-      '    crates/protocol/package-3 🔴 EXP',
+      '<level 1>',
+      '  * crates/protocol/package-2        🟠 GRI:?',
       '',
-      'parallel width   level   0  1',
-      '                 dirs    1  2',
+      '    crates/protocol/package-3 🔴 EXP',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -637,17 +628,14 @@ test('C001 postcondition: the marks follow the pipeline order, and a package the
     [
       '',
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
-      'order source: build order (stage-1 dependency DAG); implementation order not yet derivable',
       '',
-      'level  0    alone     1 dir',
+      '<level 0>',
       '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:? 🟡 SEQ:?',
       '',
-      'level  1    parallel  2 dirs',
-      '  * crates/protocol/package-2 🟠 GRI:? 🟡 SEQ:?',
-      '    crates/protocol/package-3 🔴 EXP',
+      '<level 1>',
+      '  * crates/protocol/package-2        🟠 GRI:? 🟡 SEQ:?',
       '',
-      'parallel width   level   0  1',
-      '                 dirs    1  2',
+      '    crates/protocol/package-3 🔴 EXP',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -769,8 +757,9 @@ test('C003 boundary: a view carrying a unit its own ledger omits prints the fail
   });
 
   const text = renderPlan(twoLevelModel(workspace));
-  assert.ok(text.includes('  * crates/protocol/package-2 🟠 GRI:? ❌ SEQ:?\n'));
-  assert.equal(text.includes('package-2 🟠 GRI:? 🟡 SEQ:?'), false);
+  const packageLine = text.split('\n').find((line) => line.includes('crates/protocol/package-2'));
+  assert.match(packageLine, /🟠 GRI:\? ❌ SEQ:\?$/);
+  assert.doesNotMatch(packageLine, /🟡 SEQ:/);
 });
 
 test('C004 boundary: a package whose directory is absent stays unmarked instead of failing the plan', (t) => {
@@ -875,12 +864,20 @@ function countedFixture(t) {
 test('C004 postcondition: the five fields render in pipeline order with the full-width glyphs', (t) => {
   const workspace = countedFixture(t);
   const model = twoLevelModel(workspace);
-  const line = renderPlan(model).split('\n').find((entry) => entry.includes(PACKAGE_PATH));
+  const lines = renderPlan(model).split('\n');
+  const pathIndex = lines.findIndex((entry) => entry.includes(PACKAGE_PATH));
+  const row1 = lines[pathIndex];
+  const row2 = lines[pathIndex + 1];
 
-  assert.equal(line, '  * crates/protocol/package-1 🟤 EDU:10 🔴 EXP 🟠 GRI:3 🟡 SEQ:3 🟢 SMO:2');
+  assert.equal(row1, '  * crates/protocol/package-1 🟤 EDU:10 🔴 EXP 🟠 GRI:3 🟡 SEQ:3');
+  assert.match(row2, /^ {30}🟢 SMO:2$/);
   assert.deepEqual(
-    [...line].filter((character) => FIRST_MARK.test(character)).map((character) => character.codePointAt(0)),
-    [0x1F7E4, 0x1F534, 0x1F7E0, 0x1F7E1, 0x1F7E2],
+    [...row1].filter((character) => FIRST_MARK.test(character)).map((character) => character.codePointAt(0)),
+    [0x1F7E4, 0x1F534, 0x1F7E0, 0x1F7E1],
+  );
+  assert.deepEqual(
+    [...row2].filter((character) => FIRST_MARK.test(character)).map((character) => character.codePointAt(0)),
+    [0x1F7E2],
   );
 });
 
@@ -908,7 +905,7 @@ test('C005 postcondition: every first mark starts at the exact model column', (t
   const marked = text.split('\n').filter((line) => FIRST_MARK.test(line));
 
   assert.equal(text.includes('\t'), false, text);
-  assert.equal(marked.length, 3);
+  assert.equal(marked.length, 6);
   for (const line of marked) {
     assert.equal(columnOf(line, line.match(FIRST_MARK)[0]), 48, line);
   }
@@ -1103,12 +1100,14 @@ test('C004 invariant: a failed SEQ followed by SMO keeps SMO in the same column'
   t.after(() => workspace.remove());
   writeFileSync(workspace.viewPathOf('pkg-0002'), '');
   const text = renderPlan(twoLevelModel(workspace));
-  const lines = text.split('\n').filter((line) => line.includes('crates/'));
+  const lines = text.split('\n');
   const complete = lines.find((line) => line.includes('🟡 SEQ:3'));
   const failed = lines.find((line) => line.includes('❌ SEQ:3'));
+  const smoothLines = lines.filter((line) => line.includes('🟢'));
 
   assert.equal(text.includes('\t'), false, text);
   assert.notEqual(complete, undefined);
   assert.notEqual(failed, undefined);
-  assert.equal(columnOf(complete, '🟢'), columnOf(failed, '🟢'));
+  assert.equal(smoothLines.length, 2);
+  assert.equal(columnOf(smoothLines[0], '🟢'), columnOf(smoothLines[1], '🟢'));
 });

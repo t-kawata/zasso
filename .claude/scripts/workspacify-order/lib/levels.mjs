@@ -27,8 +27,12 @@ import {
   loadImplementationOrder,
   IMPLEMENTATION_ORDER_FILE_NAME,
   SEED_FILE_NAME,
-  TICKETS_FILE_NAME,
 } from './workspace.mjs';
+import {
+  flattenTickets,
+  loadTicketsDocument,
+  readTicketLedger,
+} from './tickets.mjs';
 import {
   activeOperationIdsOf,
   derivePackagePrecedence,
@@ -304,19 +308,9 @@ function deriveArtifactImplementationOrder({ root, packages, treeManifest, alloc
 }
 
 /** The tickets of one package, flattened in phase order. */
-// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325, PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-325|PX-393) --for-spec --no-implementation-order`.
 function flattenPackageTickets(root, packagePath) {
-  const path = join(root, packagePath, TICKETS_FILE_NAME);
-  if (!existsSync(path)) return [];
-  try {
-    const document = JSON.parse(readFileSync(path, 'utf8'));
-    return (document?.phases ?? []).flatMap((phase) => (phase?.tickets ?? []).map((ticket) => ({
-      ...ticket,
-      phaseId: ticket.phaseId ?? phase.id,
-    })));
-  } catch {
-    return [];
-  }
+  return flattenTickets(loadTicketsDocument({ root, packagePath }));
 }
 
 /** The digest of a value, or null when the value is absent. */
@@ -608,6 +602,14 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     join(root, pkg.path),
     artifactStem({ root, packagePath: pkg.path }),
   )]));
+  // The ledger is read once here, beside the other per-directory documents, so the
+  // renderer never reaches the filesystem and an unreadable ledger is absent rather
+  // than a zero count the directory never stated.
+  const ticketLedgers = new Map(
+    packages
+      .map((pkg) => [pkg.id, readTicketLedger(loadTicketsDocument({ root, packagePath: pkg.path }))])
+      .filter(([, ledger]) => ledger !== null),
+  );
   const pathWidth = Math.max(...packages.map((pkg) => displayWidth(pkg.path)));
 
   return {
@@ -622,6 +624,7 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     graphifiedIds,
     boundifiedIds,
     splitIds,
+    ticketLedgers,
     graphGenerations,
     boundifyGenerations,
     splitGenerations,

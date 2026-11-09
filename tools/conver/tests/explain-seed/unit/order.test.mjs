@@ -38,14 +38,11 @@ const FOCUS_CAPTURE = [
   '',
   '# explain-seed-fixture implementation order — 2 dirs / 2 levels / 1 dependencies',
   '',
-  'level  0    alone     1 dir',
+  '<level 0>',
   '  * crates/protocol/alpha',
   '',
-  'level  1    alone     1 dir',
+  '<level 1>',
   '  * crates/protocol/beta',
-  '',
-  'parallel width   level   0  1',
-  '                 dirs    1  1',
   '',
   'critical chain   alpha → beta',
   RULE,
@@ -62,6 +59,7 @@ const FOCUS_CAPTURE = [
 
 /** The order facts for one package of a fixture, with the packages they are resolved against. */
 // [::TICKET::] PX-224 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-224 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
 function orderOf(workspace, packageId) {
   return loadOrderFacts({
     root: workspace.root,
@@ -280,7 +278,7 @@ test('C004 precondition: the focus block of a recorded run parses to the facts i
 
 test('C004 invariant: truncated focus output raises rather than yielding empty lists', () => {
   const truncated = [
-    'level  0    alone     1 dir',
+    '<level 0>',
     '  * crates/protocol/alpha',
     '',
     '  waits for (0)',

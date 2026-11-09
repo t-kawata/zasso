@@ -16,8 +16,6 @@ import {
 import { displayWidth } from './levels.mjs';
 
 export const LEVEL_LABEL = 'level';
-export const ALONE_LABEL = 'alone';
-export const PARALLEL_LABEL = 'parallel';
 export const FOCUS_MARKER = '▶';
 export const CRITICAL_MARKER = '*';
 
@@ -31,6 +29,10 @@ export const SMOOTH_GLYPH = '🟢';
 export const GRAPH_GLYPH = '🔵';
 export const BOUNDIFY_GLYPH = '🟣';
 export const SPLIT_GLYPH = '⚫️';
+
+/** The ticket row's mark and label; the ledger sits to the right of them. */
+export const TICKETS_GLYPH = '⚪️';
+export const TICKETS_TEXT = 'TICKETS:';
 
 /** The word the explanation field carries: a document mark, not a count. */
 export const EXPLANATION_TEXT = 'EXP';
@@ -49,6 +51,9 @@ export const UNKNOWN_COUNT = '?';
 
 /** The field order is the pipeline order, so a line reads left to right as the work happened. */
 export const FIELD_SEQUENCE = Object.freeze(['edu', 'exp', 'gri', 'seq', 'smo', 'gra', 'bou', 'spl']);
+/** Four columns, two rows; the paired rows share every column's width. */
+export const FIELD_COLUMNS = 4;
+export const FIELD_ROWS = FIELD_SEQUENCE.length / FIELD_COLUMNS;
 /** Emoji presentation occupies two terminal columns. */
 export const EMOJI_COLUMNS = 2;
 
@@ -57,13 +62,9 @@ export const CHAIN_ARROW = ` ${CHAIN_ARROW_GLYPH} `;
 export const RULE_CHARACTER = '─';
 
 /** Widths are named because they are the contract the alignment rests on. */
-export const LEVEL_NUMBER_WIDTH = 2;
-export const LEVEL_WORD_WIDTH = 10;
 export const FOOTER_LABEL_WIDTH = 17;
-export const FOOTER_KIND_WIDTH = 7;
 export const RULE_WIDTH = 66;
 export const CHAIN_WRAP_WIDTH = 96;
-export const MINIMUM_COLUMN_WIDTH = 2;
 
 const ITEM_INDENT = '  ';
 const LIST_INDENT = '    ';
@@ -102,11 +103,9 @@ function padToDisplayWidth(text, width) {
 }
 
 // [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
-function renderLevelHeader(index, memberCount) {
-  const number = String(index).padStart(LEVEL_NUMBER_WIDTH);
-  const word = (memberCount === 1 ? ALONE_LABEL : PARALLEL_LABEL).padEnd(LEVEL_WORD_WIDTH);
-  const count = memberCount === 1 ? '1 dir' : `${memberCount} dirs`;
-  return `${LEVEL_LABEL} ${number}    ${word}${count}`;
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
+function renderLevelHeader(index) {
+  return `<${LEVEL_LABEL} ${index}>`;
 }
 
 /**
@@ -187,43 +186,67 @@ function cellFor(model, id, key) {
  * everywhere is omitted rather than reserving three blank columns for a glyph no line owns.
  */
 // [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
-export function buildFieldLayout(model) {
-  const widths = new Map();
-  for (const id of model.levels.flat()) {
-    for (const key of FIELD_SEQUENCE) {
-      const cell = cellFor(model, id, key);
-      if (cell === null) continue;
-      widths.set(key, Math.max(widths.get(key) ?? 0, displayWidth(cell.text)));
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
+export function buildPlanLayout(model) {
+  const packages = model.levels.flat();
+  const columns = [];
+  for (let column = 0; column < FIELD_COLUMNS; column += 1) {
+    const keys = Array.from(
+      { length: FIELD_ROWS },
+      (_, row) => FIELD_SEQUENCE[row * FIELD_COLUMNS + column],
+    );
+    let width = 0;
+    for (const id of packages) {
+      for (const key of keys) {
+        const cell = cellFor(model, id, key);
+        if (cell !== null) width = Math.max(width, displayWidth(cell.text));
+      }
     }
+    if (width > 0) columns.push({ keys, width });
   }
-  return { widths };
+  const ticketBracketWidth = Math.max(
+    0,
+    ...[...model.ticketLedgers.values()].map((ledger) => displayWidth(renderTicketBracket(ledger.tokens))),
+  );
+  return { columns, ticketBracketWidth };
+}
+
+/** One package's bracketed ticket strip, with one token per ticket. */
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
+export function renderTicketBracket(tokens) {
+  return tokens.length === 0 ? '[ ]' : `[ ${tokens.join(' ')} ]`;
 }
 
 /**
- * The fields of one package line, or an empty string when the line carries none.
+ * The fields of one grid row, or null when this package has no cell in that row.
  *
- * Leading and trailing absent fields are trimmed so the first visible mark starts at the
- * common column; an absent field between two present ones is written as a blank cell of
- * its own width. The final `trimEnd` in renderPackageLine removes the last cell's padding,
- * preserving the no-trailing-whitespace contract.
+ * A column's width is shared by its two rows, so a count that grows in one row keeps the
+ * other row's glyph in the same display column. An absent cell is drawn as a blank of the
+ * column's width; the final trim removes padding that belongs to no later cell.
  */
-// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
-function renderFields(model, id, layout) {
-  const active = FIELD_SEQUENCE.filter((key) => layout.widths.has(key));
-  const cells = active.map((key) => ({ key, cell: cellFor(model, id, key), width: layout.widths.get(key) }));
-  const first = cells.findIndex((entry) => entry.cell !== null);
-  if (first === -1) return '';
-  const last = cells.length - 1 - [...cells].reverse().findIndex((entry) => entry.cell !== null);
-  const parts = [];
-  for (let index = first; index <= last; index += 1) {
-    const { cell, width } = cells[index];
-    parts.push(
-      cell === null
-        ? ' '.repeat(EMOJI_COLUMNS + 1 + width)
-        : `${cell.glyph} ${cell.text.padEnd(width)}`,
-    );
-  }
-  return parts.join(' ');
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
+function renderFieldRow(model, id, layout, rowIndex) {
+  const cells = layout.columns.map((column) => cellFor(model, id, column.keys[rowIndex]));
+  if (cells.every((cell) => cell === null)) return null;
+  return layout.columns
+    .map((column, index) => {
+      const cell = cells[index];
+      return cell === null
+        ? ' '.repeat(EMOJI_COLUMNS + 1 + column.width)
+        : `${cell.glyph} ${cell.text.padEnd(column.width)}`;
+    })
+    .join(' ')
+    .trimEnd();
+}
+
+/** The TICKETS row, or null when the directory carries no readable ledger. */
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
+function renderTicketRow(model, id, layout) {
+  const ledger = model.ticketLedgers.get(id);
+  if (ledger === undefined) return null;
+  const bracket = renderTicketBracket(ledger.tokens);
+  const padding = ' '.repeat(layout.ticketBracketWidth - displayWidth(bracket) + 1);
+  return `${TICKETS_GLYPH} ${TICKETS_TEXT} ${bracket}${padding}${ledger.reviewed}/${ledger.total}`;
 }
 
 /**
@@ -233,28 +256,26 @@ function renderFields(model, id, layout) {
  * with no counters byte-identical to the output before this field existed.
  */
 // [::TICKET::] PX-223, PX-228, PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-223|PX-228|PX-282) --for-spec --no-implementation-order`.
-function renderPackageLine(model, id, layout) {
+/**
+ * One package block: the path line carries row 1, then row 2 and the ticket row start at
+ * the common field column. A package with no fields and no ledger is the path line alone.
+ */
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
+function renderPackageBlock(model, id, layout) {
   const marker = model.criticalChain.includes(id) ? CRITICAL_MARKER : ' ';
-  const prefix = `${ITEM_INDENT}${marker} `;
-  const fields = renderFields(model, id, layout);
-  const linePrefix = `${prefix}${model.pathOf.get(id)}`;
-  if (fields.length === 0) return linePrefix;
-  const padding = ' '.repeat(model.markColumn - displayWidth(linePrefix));
-  return `${linePrefix}${padding}${fields}`.trimEnd();
-}
-
-// [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
-function renderWidthRow(model) {
-  const counts = model.levels.map((level) => level.length);
-  const columnWidth = Math.max(MINIMUM_COLUMN_WIDTH, String(Math.max(...counts)).length);
-  const numbers = model.levels.map((_, index) => String(index).padStart(columnWidth)).join(' ');
-  const columns = counts.map((count) => String(count).padStart(columnWidth)).join(' ');
-  const label = LEVEL_LABEL.padEnd(FOOTER_KIND_WIDTH);
-  const blank = ''.padEnd(FOOTER_LABEL_WIDTH);
-  return [
-    `${'parallel width'.padEnd(FOOTER_LABEL_WIDTH)}${label}${numbers}`,
-    `${blank}${'dirs'.padEnd(FOOTER_KIND_WIDTH)}${columns}`,
-  ].join('\n');
+  const linePrefix = `${ITEM_INDENT}${marker} ${model.pathOf.get(id)}`;
+  const row1 = renderFieldRow(model, id, layout, 0);
+  const row2 = renderFieldRow(model, id, layout, 1);
+  const ticketRow = renderTicketRow(model, id, layout);
+  const lines = [
+    row1 === null
+      ? linePrefix
+      : `${linePrefix}${' '.repeat(model.markColumn - displayWidth(linePrefix))}${row1}`.trimEnd(),
+  ];
+  const indent = ' '.repeat(model.markColumn);
+  if (row2 !== null) lines.push(`${indent}${row2}`.trimEnd());
+  if (ticketRow !== null) lines.push(`${indent}${ticketRow}`.trimEnd());
+  return lines;
 }
 
 // [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
@@ -278,46 +299,27 @@ function renderChainRow(model) {
   return lines.join('\n');
 }
 
-/**
- * The order source and the build order, printed under the title.
- *
- * The stage-1 DAG order is always the build order. Calling it the implementation order was
- * the defect this line exists to prevent: the two are equal only when the artifact states no
- * prerequisite the DAG does not already contain.
- */
-// [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
-export function renderOrderSource(model) {
-  if (model.orderSource !== 'implementation') {
-    return 'order source: build order (stage-1 dependency DAG); implementation order not yet derivable';
-  }
-  const identical = JSON.stringify(model.buildSerial) === JSON.stringify(model.implementationSerial);
-  const origin = model.orderSourceDetail === 'derived'
-    ? ' (derived from the artifact; the sidecar is not written yet)'
-    : '';
-  return identical
-    ? `order source: implementation order${origin}; build order is identical`
-    : `order source: implementation order${origin}; build order preserved separately: ${model.buildSerial.join(' → ')}`;
-}
-
-/** The whole picture: every level, then the width row and the chain row. */
+/** The whole picture: every level, then the chain row. */
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
 export function renderPlan(model) {
-  const layout = buildFieldLayout(model);
+  const layout = buildPlanLayout(model);
   const label = model.orderSource === 'implementation' ? 'implementation order' : 'build order';
-  const blocks = [
-    `\n# ${model.workspaceName} ${label} — ${model.packages.length} dirs / ${model.levels.length} levels / ${model.edgeCount} dependencies`,
-    renderOrderSource(model),
+  const lines = [
+    '',
+    `# ${model.workspaceName} ${label} — ${model.packages.length} dirs / ${model.levels.length} levels / ${model.edgeCount} dependencies`,
   ];
   model.levels.forEach((level, index) => {
-    blocks.push('');
-    blocks.push(renderLevelHeader(index, level.length));
-    for (const id of level) blocks.push(renderPackageLine(model, id, layout));
+    lines.push('');
+    lines.push(renderLevelHeader(index));
+    level.forEach((id, position) => {
+      if (position > 0) lines.push('');
+      lines.push(...renderPackageBlock(model, id, layout));
+    });
   });
-  blocks.push('');
-  blocks.push(renderWidthRow(model));
-  blocks.push('');
-  blocks.push(renderChainRow(model));
-  blocks.push('');
-  return blocks.join('\n');
+  lines.push('');
+  lines.push(renderChainRow(model));
+  lines.push('');
+  return lines.join('\n');
 }
 
 // [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.

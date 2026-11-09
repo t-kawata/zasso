@@ -13,6 +13,7 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 const RUN = join(PROJECT_ROOT, '.claude/scripts/workspacify-order/run.mjs');
 
 // [::TICKET::] PX-309, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
 function workspace(t, { artifacts }) {
   const materialized = materializeOrderWorkspace({
     packages: ['pkg-0001'],
@@ -42,12 +43,14 @@ function workspace(t, { artifacts }) {
 test('C006 run.mjs prints both generations and the three downstream marks', (t) => {
   const materialized = workspace(t, { artifacts: true });
   const output = execFileSync(process.execPath, [RUN], { cwd: materialized.root, encoding: 'utf8' });
-  assert.match(output, /🟤 EDU:3 🔴 EXP 🟠 GRI:2 🟡 SEQ:2 🟢 SMO:4 🔵 GRA:3 🟣 BOU:2 ⚫️ SPL:1/);
+  assert.match(output, /🟤 EDU:3 🔴 EXP +🟠 GRI:2 🟡 SEQ:2/);
+  assert.match(output, /🟢 SMO:4 🔵 GRA:3 🟣 BOU:2 ⚫️ SPL:1/);
 });
 
 test('C006 run.mjs omits the downstream marks when the artifacts are absent', (t) => {
   const materialized = workspace(t, { artifacts: false });
   const output = execFileSync(process.execPath, [RUN], { cwd: materialized.root, encoding: 'utf8' });
   assert.doesNotMatch(output, /GRA|BOU|SPL/);
-  assert.match(output, /🟠 GRI:2 🟡 SEQ:2 🟢 SMO:4/);
+  assert.match(output, /🟠 GRI:2 🟡 SEQ:2/);
+  assert.match(output, /🟢 SMO:4/);
 });

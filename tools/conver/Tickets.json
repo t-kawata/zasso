@@ -59860,7 +59860,7 @@
         {
           "id": 391,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "The progress animation replays execution order while the no-history estimate stays unchanged",
           "specPath": "~/shyme/zasso/tools/conver/specs/PX-391.md",
           "background": "### Goal\nThe progress animation replays events in the order they were executed; the displayed stage may revisit an earlier stage. A workspace with no .conver-history.jsonl keeps the existing display-date estimate and the current animation.\n\n### Purpose\nThe ordinal timeline groups every event by STAGE_ORDER and replaces the evidence timestamp with a per-stage display estimate. Gaia went to split and drill and then re-ran grill, but the latest grill is drawn at frame 92 of 200 while drill occupies frames 163-183. Doors' educe/explain alternation and crystal's grill/educe interleaving are hidden for the same reason.\n\n### Motivation\nPX-381 introduced the ordinal clock to survive unreliable artifact mtimes. PX-366 history records now carry command timestamps that can order the actual execution. The no-history estimate must remain for workspaces created before history existed.\n\n### Constraints\nTime is the ordering basis; JSONL line order is not an execution order. History and trusted status times beat artifact mtimes. A stage/package with runs anchors events inside its run coverage to the latest run at or before the event; pre-run and no-run events use computeStageDisplayDates. STAGE_ORDER remains the ladder layout and weight source only. The displayed stage may move backward. A model with no runs keeps the existing frames byte-for-byte. No model events are mutated. The null-package run rendering defect is out of scope.",
@@ -59902,12 +59902,16 @@
               "after": "The test now asserts growth markers never advance on the ordinal path and a run marker advances the displayed stage on the execution-order path; tests/conver/execution-order.test.mjs covers C001-C006.",
               "description": "Tests encode both contracts."
             }
-          ]
+          ],
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 118 progress-gif impact tests passed",
+          "rfcDiscrepancies": [],
+          "notes": "Review report (2026-11-09):\n- Static quality check: passed (0 issues)\n- Translatability: no issues; function names are verb phrases or domain nouns, no debug output, no TODO/FIXME\n- Dependencies: execution-order, ordinal-order, stage-order, previous-progress, evidence-time, history, terminal-time, evidence-gating, loop and render suites pass\n- Implementation verified: buildTimeline selects the execution timeline when model.runs is non-empty; advanceStageFrontier lets a chronological run revisit an earlier stage; progressAt uses orderT with an evidenceT fallback\n- Issues found and fixes applied: none",
+          "completedAt": "2026-11-09"
         },
         {
           "id": 392,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "A status event with no run coverage is ordered by the display estimate",
           "specPath": "~/shyme/zasso/tools/conver/specs/PX-392.md",
           "background": "## Goal\n\nA stage event whose source is a status file and whose stage/package has no history\nrun is ordered by the `computeStageDisplayDates` estimate, not by the raw status\ntimestamp. A stage whose status was written by an older run is therefore never\ndrawn before a later pipeline stage that has command evidence.\n\n## Purpose\n\nPX-391's constraint says every event with no run coverage uses the display\nestimate. `executionOrderTime` instead returns the raw status `evidenceT` for\nstatus events, so gaia's eight split status files (runIds from 2026-11-02..04)\nare placed in the middle of the 2026-11-05..08 grill stream. The render\n`20261108214520.html` shows the displayed stage order\n`educe -> explain -> grill -> split -> drill -> boundify -> smooth -> graphify`\ninstead of the recorded execution order\n`drill -> grill -> graphify -> boundify -> smooth -> split`.\n\n## Motivation\n\nRepeated ordering fixes have not closed the chronological path. The status\nbranch is the one path that escapes the no-run-coverage rule: a stage with no\nrun in the event's package falls back to the status file's own runId epoch, which\nmay belong to an earlier execution of that stage. The stage estimate already\nfolds every trusted status time into the pipeline order through\n`computeStageDisplayDates`, so discarding the stale per-event timestamp loses no\nevidence.\n\n## Constraints\n\n- Only the chronological path changes. A model with no history runs keeps the\n  ordinal timeline and frames byte-for-byte.\n- An event with a matching stage/package run keeps the latest-run-at-or-before\n  anchor.\n- An event before the first run of its stage/package keeps the display estimate.\n- An event with no run coverage uses the display estimate for every time source,\n  including `status`.\n- `STAGE_ORDER` remains the ladder layout and the event-weight source; it is not\n  the timeline order.\n- `buildTimeline` and `progressAt` do not mutate the model.\n- The gaia, crystal and doors workspaces are not modified.\n- The three script trees carry byte-identical progress-gif sources.\n\n## Scope\n\n- `.claude/scripts/conver/progress-gif/loop.js` and its root/siprs mirrors\n- `tests/conver/execution-order.test.mjs`\n\n## Acceptance Criteria\n\n- C001: a status event for a stage/package with no matching run takes its order\n  key from `displayDate`.\n- C002: a status event with a matching run still anchors to the latest run at or\n  before its evidence time.\n- C003: a stale split status is not displayed before a later boundify event in\n  the frames.\n- C004: a model with no runs keeps `chronological === false` and the ordinal\n  frames.\n\n## Invariants\n\n- Every event keeps its original `evidenceT`.\n- The chronological `orderT` sequence is non-decreasing.\n- Each run marker is emitted once.\n- The no-history golden is unchanged.\n\n## Test plan\n\n- Unit: C001-C003 in `tests/conver/execution-order.test.mjs`.\n- Compatibility: C004 and `tests/conver/progress-gif-history.test.mjs`.\n- Regression: execution-order, ordinal-order, stage-order, previous-progress,\n  progress-gif-evidence-time, progress-gif-history, terminal-time,\n  evidence-gating, loop, render.\n\n## Implementation order\n\n1. Red: add C001-C003 and confirm they fail because the status branch returns\n   `evidenceT`.\n2. Green: delete the status branch and the now-unused `initialT` parameter.\n3. Refactor: sync the three script trees and run the impact set with\n   `node --test`.",
@@ -59946,7 +59950,184 @@
               "after": "The root .claude/scripts/conver and crates/siprs/.claude/scripts/conver mirrors carry the same bytes, satisfying the three-tree invariant.",
               "description": "Sync the three script trees."
             }
-          ]
+          ],
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 118 progress-gif impact tests passed; three loop.js trees byte-identical",
+          "rfcDiscrepancies": [],
+          "notes": "Review report (2026-11-09):\n- Static quality check: passed (0 issues)\n- Translatability: no issues; no debug output, no TODO/FIXME\n- Implementation verified: executionOrderTime has no status branch; a status event with no run coverage uses displayDate; a matching run anchors at or before the evidence time\n- Three-tree invariant verified: .claude, tools/conver/.claude and crates/siprs/.claude loop.js share sha256 39ed39c15f1294392e02d9ec92e584efa9b52dd5\n- Issues found and fixes applied: none",
+          "completedAt": "2026-11-09"
+        },
+        {
+          "id": 393,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Show the ticket ledger and align the pipeline field grid in the workspacify order view",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-393.md",
+          "background": "### Goal\nShow, for every package directory that holds a readable Tickets.json, one aligned TICKETS row that renders each ticket's status and the reviewed/total progress, and wrap the eight pipeline fields into a two-row, four-column grid so every glyph keeps a stable vertical column as counts change.\n\n### Purpose\nThe plan currently answers which pipeline stage reached each directory, but not how much of that directory's ticket ledger is reviewed. The ticket ledger is the source of truth for completion, so the order view must display it beside the pipeline fields instead of leaving the operator to open each Tickets.json.\n\n### Motivation\nThe doors workspace has eight packages whose pipeline fields are nearly identical; the plan cannot distinguish a package with all tickets reviewed from one with none. Reading the ledger by hand is the only current option, and the values change on every review round.\n\n### Constraints\nRead-only: the command must never rewrite Tickets.json or reorder its PX phase, because list-phases-and-tickets.js already owns that write. Alignment is computed from terminal display width, not code-unit length, and no column width may be hardcoded. The TICKETS row appears only when the package directory holds Tickets.json. Status symbols follow list-phases-and-tickets.js except todo, which renders as a dot so it is visible. The focus block, the Markdown title, the critical chain and the explain-seed parser contract stay unchanged. No trailing whitespace and no tab may appear in any line.",
+          "scope": [
+            "**Scope of changes:**\n- `.claude/scripts/workspacify-order/lib/render.mjs`: replace `renderLevelHeader(index, memberCount)` with a plain `<level N>` header; remove `renderWidthRow` and `renderOrderSource` from the plan; replace `buildFieldLayout`, `renderFields` and `renderPackageLine` with a two-row four-column grid and a `renderPackageBlock` that returns the path line, row 1, row 2 and the TICKETS row. Add `TICKETS_GLYPH = '⚪️'`, `TICKETS_TEXT = 'TICKETS:'`, `TICKET_MARKS`, `NEXT_ROUND_MARK = '→'` and `FIELD_COLUMNS = 4`.\n- `.claude/scripts/workspacify-order/lib/levels.mjs`: add `ticketLedgers` to the model and read each package's `Tickets.json` once, exposing `{ tokens, reviewed, total }`; reuse or extract `flattenPackageTickets` so role derivation and display share one parse.\n- `.claude/scripts/workspacify-order/lib/workspace.mjs`: keep `TICKETS_FILE_NAME` and `holdsSplitArtifact` as the presence rule; add the ledger loader beside them if the extraction lands there.\n- `.claude/scripts/workspacify-order/run.mjs`: no CLI change expected; stdout remains the only output and errors stay one line on stderr.\n- Behavior change: the plan prints row 1 on the path line, row 2 and the TICKETS row on continuation lines indented to `markColumn`, one blank line between package blocks, and no `parallel width` table or `order source` line.\n- API/schema/config/dependency: none; no new dependency, no Tickets.json shape change, no output format other than stdout.",
+            "**Out of scope:**\n- Reordering or persisting the PX phase in Tickets.json: owned by `list-phases-and-tickets.js`; duplicating it would add a second writer.\n- Changing `renderFocus` or the explain-seed parser: both read the unchanged title, focus block and critical chain.\n- Rendering phase-level rows or ticket titles: the TICKETS row is one token per ticket, not a replacement for `list-phases-and-tickets.js`.\n- Wrapping a very long ticket ledger: this ticket renders every token on one line and does not invent a truncation rule.",
+            "**Affected areas:**\n- `tests/workspacify-order/**` exact-output tests and fixtures; `tests/explain-seed/unit/order.test.mjs` FOCUS_CAPTURE recording; the root `.claude` copy and the `crates/siprs/.claude` copy must be synchronized after the package-local edit.\n- No security, performance or data-format surface changes; the command remains a read-only terminal view."
+          ],
+          "testUnit": [
+            "UT: [Normal] A package with a readable Tickets.json prints exactly one TICKETS row; the token count equals the flattened ticket count and the tokens follow the Tickets.json phase and ticket order (C001).",
+            "UT: [Normal] A package without Tickets.json prints no TICKETS row (C001).",
+            "UT: [Normal] Base status tokens render todo '.', made '_', planned '|', done '/', reviewed 'x' and remanded '!', matching the inner character of list-phases-and-tickets.js (C002).",
+            "UT: [Normal] Round-aware status R2 renders as token 'R2' and forNextRound true renders as '→' (C002).",
+            "UT: [Normal] The progress fraction prints the reviewed count over the total ticket count, and the bracket holds exactly total tokens (C003).",
+            "UT: [Normal] Row 1 fields edu, exp, gri and seq are appended to the path line and row 2 fields smo, gra, bou and spl start at markColumn (C004).",
+            "UT: [Normal] For a plan with one or more levels, each level starts with '<level N>'; the plan prints no 'parallel width' row and no 'order source' line (C008).",
+            "UT: [Error] A malformed Tickets.json prints no TICKETS row and does not fabricate a count.",
+            "UT: [Error] A package whose directory is absent prints no TICKETS row and the plan still renders.",
+            "UT: [Boundary] A ledger with zero tickets prints '[ ] 0/0'.",
+            "UT: [Boundary] A ledger with 12 tickets, the first three reviewed, prints '[ x x x _ _ _ _ _ _ _ _ _ ] 3/12'; the numerator never exceeds the denominator (C003).",
+            "UT: [Boundary] Multi-digit counts GRI:3 vs GRI:12 and SMO:2 vs SMO:20 keep the paired fields in the same column (C004).",
+            "UT: [Boundary] A missing middle field keeps a blank cell of the column width so the later column stays aligned (C004).",
+            "UT: [Boundary] Ticket ledgers of 12, 11 and 7 tickets align their fractions one display column after the widest bracket (C005).",
+            "UT: [Boundary] A ticket list with a multi-character R2 token still aligns the fraction with single-character tokens (C005).",
+            "UT: [Invariant] Every glyph of a column starts at the same display column on every package and row for which that column is active (C004).",
+            "UT: [Invariant] With wide characters and variation selectors in paths and tokens, no rendered line carries trailing whitespace or a tab, and the white circle ⚪️ measures two terminal columns (C007).",
+            "UT: [Invariant] A run leaves every Tickets.json byte-identical, including a file whose PX phase is not first (C006)."
+          ],
+          "testIntegration": [
+            "IT: run.mjs on a materialized workspace prints the two field rows and the TICKETS row, exits 0, and writes nothing (C004, C006).",
+            "IT: The existing workspacify-order integration fixtures print row 1 on the path line and row 2 plus TICKETS on continuation lines (C004).",
+            "IT: explain-seed loadOrderFacts spawns the order view and still parses the Markdown title, critical chain and focus block (C008).",
+            "IT: A workspace whose Tickets.json has three reviewed tickets prints 3/<total>, and a workspace with all made tickets prints 0/<total> (C003).",
+            "IT: A failing SEQ verdict and a complete SEQ verdict keep SMO in the same display column (C004).",
+            "IT: The command is read-only across the whole workspace: digestTree is unchanged, every Tickets.json keeps its bytes, and no PX phase is reordered (C006)."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/workspacify-order/lib/render.mjs",
+            ".claude/scripts/workspacify-order/lib/levels.mjs",
+            ".claude/scripts/workspacify-order/lib/workspace.mjs",
+            ".claude/scripts/workspacify-order/run.mjs",
+            "tests/workspacify-order/unit/render.test.mjs",
+            "tests/workspacify-order/unit/render-generations.test.mjs",
+            "tests/workspacify-order/unit/render-pipeline-counts.test.mjs",
+            "tests/workspacify-order/integration/run.test.mjs",
+            "tests/workspacify-order/integration/stage-marks.test.mjs",
+            "tests/workspacify-order/implementation-order-display.test.mjs",
+            "tests/workspacify-order/helpers/order-workspace.mjs",
+            "tests/explain-seed/unit/order.test.mjs",
+            "specs/PX-393.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] A doors-sized workspace prints the two-row field grid, one TICKETS row per package with a readable ledger, and fractions aligned; the reviewed count equals the number of x tokens.",
+            "[Error case] A package with a malformed Tickets.json prints no TICKETS row, the rest of the plan still renders, and the command exits 0 without writing any file.",
+            "[Edge case] A 12-ticket ledger, an 11-ticket ledger and a 7-ticket ledger align their fractions at the same display column, and a package without Tickets.json has no TICKETS line."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "package directory -> plan TICKETS row (Tickets.json presence)",
+              "precondition": "The package directory holds a readable Tickets.json whose phases[].tickets[] list flattens to a ledger.",
+              "postcondition": "The package block prints exactly one TICKETS row; the token count equals the flattened ticket count and the tokens follow the Tickets.json phase and ticket order.",
+              "invariant": "A package without Tickets.json prints no TICKETS row."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Tickets.json status value -> rendered ticket token",
+              "precondition": "Each ticket carries status todo, made, planned, done, reviewed or remanded, a round-aware status R<n>, or forNextRound true.",
+              "postcondition": "The token is '.', '_', '|', '/', 'x', '!', 'R<n>' or '→' respectively.",
+              "invariant": "todo renders as '.' and every other base status uses the same inner character as list-phases-and-tickets.js."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "flattened ticket ledger -> progress fraction",
+              "precondition": "A readable ticket ledger is flattened and each ticket status is classified.",
+              "postcondition": "The progress fraction prints the reviewed count over the total ticket count, and the bracket holds exactly total tokens.",
+              "invariant": "The numerator never exceeds the denominator."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "eight pipeline fields -> two-row four-column grid",
+              "precondition": "The model carries the eight pipeline fields for every package in the levels.",
+              "postcondition": "Row 1 fields edu, exp, gri and seq are appended to the path line; row 2 fields smo, gra, bou and spl start at markColumn; each column width is two glyph columns plus one space plus the maximum cell text width over the paired fields across all packages.",
+              "invariant": "Every glyph of a column starts at the same display column on every package and row for which that column is active."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "bracketed ticket list -> aligned progress fraction",
+              "precondition": "At least one package prints a TICKETS row with a bracketed token list.",
+              "postcondition": "The progress fraction starts one display column after the widest bracket in the plan.",
+              "invariant": "All progress fractions start at the same display column."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "read-only ledger command -> unchanged Tickets.json bytes",
+              "precondition": "Tickets.json exists, possibly with the PX phase not first.",
+              "postcondition": "The command prints the plan and exits 0 without modifying Tickets.json.",
+              "invariant": "The bytes of every Tickets.json are unchanged after a run."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "terminal display width -> padded columns and trimmed lines",
+              "precondition": "Paths and ticket tokens may contain wide characters or variation selectors.",
+              "postcondition": "Columns are padded by display width; each rendered line is trimmed of trailing spaces and contains no tab.",
+              "invariant": "The white circle ⚪️ measures two terminal columns."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "plan shape -> level headers and removed footer rows",
+              "precondition": "A plan with one or more levels is rendered.",
+              "postcondition": "Each level starts with '<level N>'; the plan prints no 'parallel width' row and no 'order source' line.",
+              "invariant": "The Markdown title, critical chain and focus block remain unchanged."
+            }
+          ],
+          "notes": "- Implementation steps: 1) add the ledger loader and `ticketLedgers` model map; 2) split FIELD_SEQUENCE into two rows of four; 3) compute shared column widths from paired fields; 4) render the path line + row 1, row 2 and the TICKETS row; 5) align fractions from the widest bracket; 6) remove the old level, width and order-source lines; 7) update tests and the explain-seed recording.\n- Risks: a long ticket ledger can produce a very wide TICKETS row; this ticket renders all tokens and does not wrap. Existing exact-output tests need a coordinated rewrite in the Red phase.\n- Caveats: malformed or zero-ticket Tickets.json is treated as no ledger unless the zero-ticket case is explicitly rendered; the choice is frozen in the tests.\n- Open items: done tickets do not contribute to the numerator (reviewed and R<n> only); very long ledgers are not wrapped in this ticket.\n- Future improvements: a tickets-only mode or a per-phase summary if the token strip becomes too wide for a terminal.\nImplementation summary:\n- Added .claude/scripts/workspacify-order/lib/tickets.mjs: TICKET_MARKS (todo '.', made '_', planned '|', done '/', reviewed 'x', remanded '!'), R<n> as its own token, forNextRound '→', reviewed numerator, and a read-only Tickets.json loader.\n- buildModel now derives ticketLedgers once per build; the renderer never reads the filesystem.\n- renderPlan now prints '<level N>', one blank line between package blocks, row 1 on the path line, row 2 and the TICKETS row at markColumn, and no parallel-width or order-source line.\n- Column widths are the maximum text width over the paired fields (edu/smo, exp/gra, gri/bou, seq/spl) across all packages; absent cells are blank of the column width so later columns stay aligned.\n- Ticket fractions align one display column after the widest bracket; zero tickets print '[ ] 0/0'.\n- Tests: 204 impact-set tests pass (workspacify-order suites, explain-seed order, workspacify-order history), including 14 new ledger/grid tests.\n- Quality checks: 0 issues. Stub scan: 0. Crime scan: 0 open. No files written by the command.\nReview report (2026-11-09):\n- Static quality check: passed (0 issues)\n- Translatability: no issues; the new module and renderer names state responsibility, no debug output, no TODO/FIXME\n- Contracts: 8/8 covered by @verifies annotations; Gate P passed\n- Tests: 204 impact-set tests pass, including 14 new ledger and grid tests\n- Read-only invariant verified: the command does not write Tickets.json\n- Installed copies synchronized across root, tools/conver and crates/siprs\n- Issues found and fixes applied: none",
+          "invariants": "- [Normal establishment] With a readable Tickets.json, the TICKETS row token count equals the flattened ticket count and the reviewed fraction equals the number of reviewed and R<n> tokens.\n- [Error invariant] A missing or malformed Tickets.json never becomes a fabricated count; the row is omitted and the plan still renders.\n- [Internal state invariant] The model's ticketLedgers map is derived once per build and the renderer never reads the filesystem.\n- [Boundary invariant] Every column glyph and every progress fraction starts at a single display column computed by displayWidth, never by code-unit length.",
+          "instrumentation": "- Logging: none added; stdout carries the plan and stderr carries the single error line, matching the existing command contract.\n- Metrics: none; the view is a read-only human surface and records history only with --record.\n- Error tracking: the existing WorkspacifyOrderError path remains the only process failure; a malformed Tickets.json is a display-level absence, not a process failure.\n- Health check: not applicable; the command exits 0 after printing the plan and 1 after a named error.\nStatic quality check: passed\nTranslatability: no issues\nTests: 204 impact-set tests passed",
+          "investigation": "- Current plan flow: run.mjs -> buildModel (levels.mjs:511-645) -> renderPlan (render.mjs:303-321); renderPlan calls buildFieldLayout (render.mjs:190-200), renderLevelHeader (105-110), renderPackageLine (236-244), renderWidthRow (247-258), renderOrderSource (289-300) and renderChainRow (261-279).\n- Current field cells: cellFor (render.mjs:168-180) maps edu/exp/gri/seq/smo/gra/bou/spl; generationCell (122-126) and artifactCell (129-132) build the text. buildFieldLayout computes one width per field; renderFields (211-227) trims leading and trailing absent fields and joins with one space.\n- Ticket data: levels.mjs:308-320 flattenPackageTickets already reads join(root, packagePath, 'Tickets.json') and flattens phases[].tickets[]; workspace.mjs:131 declares TICKETS_FILE_NAME and 185-189 holdsSplitArtifact uses existsSync on the same path. buildModel already computes splitIds at levels.mjs:596-598.\n- Status rules: .claude/scripts/tickets/list-phases-and-tickets.js:3-10 maps todo/made/planned/done/reviewed/remanded; 24-26 maps R<n> to [R<n>]; 36-53 renders forNextRound as [→] and treats reviewed or R<n> as complete; 82-88 persists the PX-first reorder, a write this ticket must not repeat.\n- Tests pinning the old shape: tests/workspacify-order/unit/render.test.mjs:61-88, 140-148, 875-885, 959-979, 981-1000, 1021-1028, 1091-1114; unit/render-generations.test.mjs:50-58; unit/render-pipeline-counts.test.mjs:36-63; integration/run.test.mjs:45-67; integration/stage-marks.test.mjs:42-53; tests/explain-seed/unit/order.test.mjs:37-68 holds FOCUS_CAPTURE, a recorded stdout.\n- Cross-consumer: .claude/scripts/explain-seed/lib/order.mjs:58-61 defines the title regex and 149-196 parses the title, critical chain and focus block; it does not read level lines. The parser is unaffected by the grid, but the FOCUS_CAPTURE recording must be regenerated.\n- Installed copies: .claude/scripts/workspacify-order, tools/conver/.claude/scripts/workspacify-order and crates/siprs/.claude/scripts/workspacify-order are byte-identical today, so the change must be synchronized after the package-local edit.\n- Doors-sized verification: max path 23 gives markColumn 28; paired text widths [6,5,5,5] give cell widths [9,8,8,8] and column starts 0,10,19,28; a 12-token bracket is 27 wide, so the fraction starts one display column after it. This reproduces the requested spacing: 2 spaces after EDU:3, 3 after EXP, 1 after GRI:1.",
+          "boyScoutPlan": "- Extract the ledger loader and status mapping from levels.mjs into one named paragraph (lib/tickets.mjs or workspace.mjs) so role derivation and display share one parse, and make the absent/malformed distinction explicit instead of relying on a silent catch.\n- Rename buildFieldLayout to buildPlanLayout because it now owns both the field grid and the ticket bracket width; rename renderFields to renderFieldRow(model, id, layout, rowIndex) and renderPackageLine to renderPackageBlock so each name states one responsibility.\n- Extract TICKETS_GLYPH, TICKETS_TEXT, TICKET_MARKS, NEXT_ROUND_MARK and FIELD_COLUMNS; remove LEVEL_NUMBER_WIDTH, LEVEL_WORD_WIDTH, ALONE_LABEL, PARALLEL_LABEL, MINIMUM_COLUMN_WIDTH and FOOTER_KIND_WIDTH when their only caller is deleted.\n- Rewrite the stale comments in render.mjs:72-121 and 182-235 that describe one line per package and leading/trailing trimming.\n- Keep error handling explicit: an absent ledger is null, a malformed ledger is a documented absence, and no error is swallowed without a stated reason.",
+          "created_at": "2026-11-09",
+          "updated_at": "2026-11-09",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] TICKETS row exists only with a readable Tickets.json and follows phase/ticket order (C001)\n```js\nconst withLedger = materializeOrderWorkspace({ packages: ['pkg-0001'] });\nwriteFileSync(join(withLedger.directoryOf('pkg-0001'), 'Tickets.json'), JSON.stringify({\n  phases: [\n    { id: 0, tickets: [{ id: 1, status: 'made' }, { id: 2, status: 'reviewed' }] },\n    { id: -1, tickets: [{ id: 3, status: 'todo' }] },\n  ],\n}));\nconst ticketLine = renderPlan(modelOf(withLedger)).split('\\n').find((line) => line.includes('TICKETS:'));\nassert.match(ticketLine, /\\[ _ x \\.\\] 1\\/3$/);\nconst withoutLedger = materializeOrderWorkspace({ packages: ['pkg-0001'] });\nassert.doesNotMatch(renderPlan(modelOf(withoutLedger)), /TICKETS:/);\n```",
+            "UT: [Normal] status tokens match list-phases-and-tickets except todo (C002)\n```js\nconst baseDocument = { phases: [{ id: 0, tickets: [\n  { id: 1, status: 'todo' }, { id: 2, status: 'made' }, { id: 3, status: 'planned' },\n  { id: 4, status: 'done' }, { id: 5, status: 'reviewed' }, { id: 6, status: 'remanded' },\n] }] };\nassert.deepEqual(readTicketLedger(baseDocument).tokens, ['.', '_', '|', '/', 'x', '!']);\nassert.deepEqual(readTicketLedger({ phases: [{ id: 0, tickets: [\n  { id: 7, status: 'R2' }, { id: 8, status: 'todo', forNextRound: true },\n] }] }).tokens, ['R2', '→']);\n```",
+            "UT: [Boundary] reviewed count over total, bracket length equals total (C003)\n```js\nconst twelveTickets = { phases: [{ id: 0, tickets: Array.from({ length: 12 }, (_, index) => ({\n  id: index + 1, status: index < 3 ? 'reviewed' : 'made',\n})) }] };\nconst ledger = readTicketLedger(twelveTickets);\nassert.equal(ledger.reviewed, 3);\nassert.equal(ledger.total, 12);\nassert.equal(renderTicketBracket(ledger.tokens), '[ x x x _ _ _ _ _ _ _ _ _ ]');\nassert.ok(ledger.reviewed <= ledger.total);\n```",
+            "UT: [Normal] paired columns share the widest text width (C004)\n```js\nconst layout = buildPlanLayout(model);\nassert.deepEqual(layout.columns.map((column) => column.keys), [\n  ['edu', 'smo'], ['exp', 'gra'], ['gri', 'bou'], ['seq', 'spl'],\n]);\nassert.equal(layout.columns[0].width, 6); // SMO:20 is wider than EDU:3\nassert.equal(layout.columns[1].width, 5); // GRA:1 is wider than EXP\nconst startOfSecondColumn = layout.columns[0].width + 4; // glyph 2 + space 1 + separator 1\nassert.equal(startOfSecondColumn, 10);\n```",
+            "UT: [Normal] row 1 is on the path line and row 2 starts at markColumn (C004)\n```js\nconst lines = renderPlan(model).split('\\n');\nconst pathIndex = lines.findIndex((line) => line.includes('package-1'));\nassert.match(lines[pathIndex], /🟤 EDU:3 .*🔴 EXP .*🟠 GRI:2 .*🟡 SEQ:2/);\nassert.equal(columnOf(lines[pathIndex + 1], '🟢'), model.markColumn);\n```",
+            "UT: [Boundary] a missing middle field keeps a blank cell of the column width (C004)\n```js\nconst pathLine = renderPlan(model).split('\\n').find((entry) => entry.includes('package-2'));\nassert.match(pathLine, /🟤 EDU:10 {8}🟠 GRI:\\?/);\nassert.equal(columnOf(pathLine, '🟡'), columnOf(otherPathLine, '🟡'));\n```",
+            "UT: [Boundary] 12-, 11- and 7-ticket ledgers align their fractions (C005)\n```js\nconst ticketLines = renderPlan(model).split('\\n').filter((line) => line.includes('TICKETS:'));\nconst fractionStarts = ticketLines.map((line) => columnOf(line, line.match(/\\d+\\/\\d+/)[0]));\nassert.equal(new Set(fractionStarts).size, 1);\n```",
+            "UT: [Invariant] Tickets.json bytes are unchanged, including a PX-later ledger (C006)\n```js\nconst ticketsPath = join(workspace.directoryOf('pkg-0001'), 'Tickets.json');\nwriteFileSync(ticketsPath, JSON.stringify({ phases: [\n  { id: 0, tickets: [{ id: 1, status: 'made' }] },\n  { id: -1, tickets: [] },\n] }, null, 2));\nconst before = readFileSync(ticketsPath);\nconst run = spawnSync(process.execPath, [RUN], { cwd: workspace.root, encoding: 'utf8' });\nassert.equal(run.status, 0);\nassert.deepEqual(readFileSync(ticketsPath), before);\n```",
+            "UT: [Invariant] no trailing whitespace or tab; white circle is two columns (C007)\n```js\nassert.equal(displayWidth('⚪️'), 2);\nfor (const line of renderPlan(model).split('\\n')) {\n  assert.equal(line, line.trimEnd());\n  assert.equal(line.includes('\\t'), false);\n}\n```",
+            "UT: [Normal] level header and removed footer rows (C008)\n```js\nconst text = renderPlan(model);\nassert.match(text, /^<level 0>$/m);\nassert.doesNotMatch(text, /parallel width/);\nassert.doesNotMatch(text, /order source:/);\nassert.match(text, /^critical chain {3}/m);\n```",
+            "IT: [Integration] explain-seed still parses the title, chain and focus block (C008)\n```js\nconst facts = loadOrderFacts({\n  root: workspace.root,\n  seedPath: workspace.seedPathOf('pkg-0001'),\n  packages: workspace.treeManifest.workspace.packages,\n});\nassert.equal(typeof facts.plan.directories, 'number');\nassert.ok(facts.plan.criticalChainLength >= 1);\nassert.equal(facts.level, 0);\n```",
+            "IT: [Integration] a run prints 3/<total> for three reviewed tickets (C003)\n```js\nconst run = spawnSync(process.execPath, [RUN], { cwd: workspace.root, encoding: 'utf8' });\nassert.match(run.stdout, /⚪️ TICKETS: \\[ x x x _ _ _ _ _ _ _ _ _ \\] 3\\/12/);\nassert.equal(run.status, 0);\n```"
+          ],
+          "startedAt": "2026-11-09",
+          "changes": [
+            {
+              "before": "The plan printed all eight pipeline fields on one line per package and no ticket progress.",
+              "after": "Row 1 (edu, exp, gri, seq) rides on the path line; row 2 (smo, gra, bou, spl) and the TICKETS row start at markColumn.",
+              "description": "render.mjs: two-row four-column grid with paired column widths and a per-package block renderer."
+            },
+            {
+              "before": "No package line carried its ticket ledger.",
+              "after": "A package whose directory holds Tickets.json prints one token per ticket and reviewed/total, aligned after the widest bracket.",
+              "description": "tickets.mjs + levels.mjs: loadTicketLedger, status token map, model ticketLedgers map."
+            },
+            {
+              "before": "Level headers printed 'level  N    alone/parallel  N dirs'; the plan ended with a parallel-width table and an order-source line.",
+              "after": "Each level starts with '<level N>'; the width table and order-source line are removed; the title still names build versus implementation order.",
+              "description": "render.mjs: renderLevelHeader simplified, renderWidthRow and renderOrderSource removed."
+            },
+            {
+              "before": "Exact-output tests pinned the one-line field layout.",
+              "after": "The tests assert row 1, row 2 and the TICKETS row separately, including fraction alignment and no trailing whitespace.",
+              "description": "Updated render, generation, pipeline-count, integration, stage-mark, implementation-order-display and explain-seed tests; added ticket-ledger and render-grid suites."
+            },
+            {
+              "before": "Only the package-local workspacify-order copy carried the change.",
+              "after": "The root .claude and crates/siprs/.claude copies are byte-identical to the package-local copy.",
+              "description": "Synchronized lib/tickets.mjs, lib/render.mjs and lib/levels.mjs into both installed copies."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-09"
         }
       ]
     },

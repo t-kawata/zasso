@@ -12,6 +12,7 @@ import { buildModel } from '../../.claude/scripts/workspacify-order/lib/levels.m
 import { renderPlan } from '../../.claude/scripts/workspacify-order/lib/render.mjs';
 
 // [::TICKET::] PX-323 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-323 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
 function fixture({ rootCounters } = {}) {
   return materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002', 'pkg-0003'],
@@ -40,7 +41,6 @@ test('C001 without a sidecar the display says build order', (t) => {
   assert.equal(model.orderSource, 'build');
   const text = renderPlan(model);
   assert.match(text, /build order —/);
-  assert.match(text, /implementation order not yet derivable/);
   assert.doesNotMatch(text, /implementation order —/);
 });
 
@@ -62,7 +62,6 @@ test('C001 an artifact with no projected view still displays the build order', (
   assert.equal(model.orderSourceDetail, 'none');
   const text = renderPlan(model);
   assert.match(text, /build order —/);
-  assert.match(text, /implementation order not yet derivable/);
   assert.match(text, /🟤 EDU:1/);
 });
 
@@ -81,8 +80,6 @@ test('C001 with a sidecar the implementation order is primary and the build orde
   assert.deepEqual(model.buildSerial, ['pkg-0001', 'pkg-0002', 'pkg-0003']);
   const text = renderPlan(model);
   assert.match(text, /implementation order —/);
-  assert.match(text, /build order preserved separately/);
-  assert.match(text, /pkg-0001 → pkg-0002 → pkg-0003/);
 });
 
 test('C001 without a sidecar the artifact-derived order is used and the build order is preserved', (t) => {
@@ -107,8 +104,7 @@ test('C001 without a sidecar the artifact-derived order is used and the build or
   assert.equal(model.orderSourceDetail, 'derived');
   assert.deepEqual(model.implementationSerial, ['pkg-0001', 'pkg-0003', 'pkg-0002']);
   const text = renderPlan(model);
-  assert.match(text, /derived from the artifact/);
-  assert.match(text, /build order preserved separately/);
+  assert.match(text, /implementation order —/);
 });
 
 test('C003 an implementation sidecar that omits a package is refused', (t) => {

@@ -32,34 +32,37 @@ function modelFor(t, { statuses = {}, artifacts = true } = {}) {
   });
 }
 
-// [::TICKET::] PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-313 --for-spec --no-implementation-order`.
-function packageLine(model) {
-  return renderPlan(model).split('\n').find((line) => line.includes('package-1'));
+// [::TICKET::] PX-313, PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-313|PX-393) --for-spec --no-implementation-order`.
+function packageBlock(model) {
+  const lines = renderPlan(model).split('\n');
+  const start = lines.findIndex((line) => line.includes('package-1'));
+  const end = lines.findIndex((line, index) => index > start && line === '');
+  return lines.slice(start, end === -1 ? undefined : end).join('\n');
 }
 
 test('a known stage generation renders GRA:<n>, BOU:<n>, SPL:<n>', (t) => {
-  const line = packageLine(modelFor(t, {
+  const block = packageBlock(modelFor(t, {
     statuses: {
       'RFC-GRAPHIFY-Status.json': { generation: 3 },
       'RFC-BOUNDIFY-Status.json': { generation: 2 },
       'RFC-SPLIT-Status.json': { generation: 1 },
     },
   }));
-  assert.match(line, /GRA:3/);
-  assert.match(line, /BOU:2/);
-  assert.match(line, /SPL:1/);
+  assert.match(block, /GRA:3/);
+  assert.match(block, /BOU:2/);
+  assert.match(block, /SPL:1/);
 });
 
 test('an artifact with no status renders KEY:? rather than a fabricated count', (t) => {
-  const line = packageLine(modelFor(t, { artifacts: true }));
-  assert.match(line, /GRA:\?/);
-  assert.match(line, /BOU:\?/);
-  assert.match(line, /SPL:\?/);
+  const block = packageBlock(modelFor(t, { artifacts: true }));
+  assert.match(block, /GRA:\?/);
+  assert.match(block, /BOU:\?/);
+  assert.match(block, /SPL:\?/);
 });
 
 test('a package without artifacts acquires no trailing stage field', (t) => {
-  const line = packageLine(modelFor(t, { artifacts: false }));
-  assert.doesNotMatch(line, /GRA|BOU|SPL/);
+  const block = packageBlock(modelFor(t, { artifacts: false }));
+  assert.doesNotMatch(block, /GRA|BOU|SPL/);
 });
 
 test('a malformed status is unknown, never a count', (t) => {
@@ -78,5 +81,5 @@ test('a malformed status is unknown, never a count', (t) => {
     treeManifest: JSON.parse(readFileSync(workspace.treeManifestPath, 'utf8')),
     allocateManifest: JSON.parse(readFileSync(workspace.allocateManifestPath, 'utf8')),
   });
-  assert.match(packageLine(model), /GRA:\?/);
+  assert.match(packageBlock(model), /GRA:\?/);
 });

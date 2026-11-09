@@ -42,26 +42,32 @@ function modelFor(t, { artifacts = false, status } = {}) {
   });
 }
 
-// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function packageLine(model) {
-  return renderPlan(model).split('\n').find((line) => line.includes('package-1'));
+// [::TICKET::] PX-309, PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-393) --for-spec --no-implementation-order`.
+function packageBlock(model) {
+  const lines = renderPlan(model).split('\n');
+  const start = lines.findIndex((line) => line.includes('package-1'));
+  const end = lines.findIndex((line, index) => index > start && line === '');
+  return lines.slice(start, end === -1 ? undefined : end);
 }
 
-test('C006 the eight fields render in pipeline order with both generations and all three marks', (t) => {
-  const line = packageLine(modelFor(t, { artifacts: true }));
-  assert.equal(line, '  * crates/protocol/package-1 🟤 EDU:3 🔴 EXP 🟠 GRI:2 🟡 SEQ:2 🟢 SMO:4 🔵 GRA:3 🟣 BOU:2 ⚫️ SPL:1');
+test('C006 the eight fields render in pipeline order across the two grid rows', (t) => {
+  const block = packageBlock(modelFor(t, { artifacts: true }));
+  assert.equal(block[0], '  * crates/protocol/package-1 🟤 EDU:3 🔴 EXP   🟠 GRI:2 🟡 SEQ:2');
+  assert.match(block[1], /^ {30}🟢 SMO:4 🔵 GRA:3 🟣 BOU:2 ⚫️ SPL:1$/);
+  assert.match(block[2], /^ {30}⚪️ TICKETS: \[ \] 0\/0$/);
 });
 
 test('C006 a package without downstream artifacts acquires no trailing marks', (t) => {
-  const line = packageLine(modelFor(t, { artifacts: false }));
-  assert.equal(line, '  * crates/protocol/package-1 🟤 EDU:3 🔴 EXP 🟠 GRI:2 🟡 SEQ:2 🟢 SMO:4');
+  const block = packageBlock(modelFor(t, { artifacts: false }));
+  assert.equal(block[0], '  * crates/protocol/package-1 🟤 EDU:3 🔴 EXP 🟠 GRI:2 🟡 SEQ:2');
+  assert.match(block[1], /^ {30}🟢 SMO:4$/);
 });
 
 test('C006 an absent generation falls back to the documented lower bounds', (t) => {
   const model = modelFor(t, { status: { state: 'DONE', completedSessions: 3 } });
-  const line = packageLine(model);
-  assert.match(line, /🟠 GRI:3/);
-  assert.match(line, /🟡 SEQ:1/);
+  const block = packageBlock(model).join('\n');
+  assert.match(block, /🟠 GRI:3/);
+  assert.match(block, /🟡 SEQ:1/);
 });
 
 test('C006 the black circle measures two columns like every other glyph', () => {
@@ -71,5 +77,5 @@ test('C006 the black circle measures two columns like every other glyph', () => 
 test('C006 the rendered plan stays inside its own computed width', (t) => {
   const text = renderPlan(modelFor(t, { artifacts: true }));
   const limit = maxLineWidth(text);
-  for (const line of text.split('\n')) assert.ok(line.length <= limit, `line exceeds ${limit}: ${line}`);
+  for (const line of text.split('\n')) assert.ok(displayWidth(line) <= limit, `line exceeds ${limit}: ${line}`);
 });
