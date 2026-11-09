@@ -59903,6 +59903,50 @@
               "description": "Tests encode both contracts."
             }
           ]
+        },
+        {
+          "id": 392,
+          "phaseId": -1,
+          "status": "done",
+          "title": "A status event with no run coverage is ordered by the display estimate",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-392.md",
+          "background": "## Goal\n\nA stage event whose source is a status file and whose stage/package has no history\nrun is ordered by the `computeStageDisplayDates` estimate, not by the raw status\ntimestamp. A stage whose status was written by an older run is therefore never\ndrawn before a later pipeline stage that has command evidence.\n\n## Purpose\n\nPX-391's constraint says every event with no run coverage uses the display\nestimate. `executionOrderTime` instead returns the raw status `evidenceT` for\nstatus events, so gaia's eight split status files (runIds from 2026-11-02..04)\nare placed in the middle of the 2026-11-05..08 grill stream. The render\n`20261108214520.html` shows the displayed stage order\n`educe -> explain -> grill -> split -> drill -> boundify -> smooth -> graphify`\ninstead of the recorded execution order\n`drill -> grill -> graphify -> boundify -> smooth -> split`.\n\n## Motivation\n\nRepeated ordering fixes have not closed the chronological path. The status\nbranch is the one path that escapes the no-run-coverage rule: a stage with no\nrun in the event's package falls back to the status file's own runId epoch, which\nmay belong to an earlier execution of that stage. The stage estimate already\nfolds every trusted status time into the pipeline order through\n`computeStageDisplayDates`, so discarding the stale per-event timestamp loses no\nevidence.\n\n## Constraints\n\n- Only the chronological path changes. A model with no history runs keeps the\n  ordinal timeline and frames byte-for-byte.\n- An event with a matching stage/package run keeps the latest-run-at-or-before\n  anchor.\n- An event before the first run of its stage/package keeps the display estimate.\n- An event with no run coverage uses the display estimate for every time source,\n  including `status`.\n- `STAGE_ORDER` remains the ladder layout and the event-weight source; it is not\n  the timeline order.\n- `buildTimeline` and `progressAt` do not mutate the model.\n- The gaia, crystal and doors workspaces are not modified.\n- The three script trees carry byte-identical progress-gif sources.\n\n## Scope\n\n- `.claude/scripts/conver/progress-gif/loop.js` and its root/siprs mirrors\n- `tests/conver/execution-order.test.mjs`\n\n## Acceptance Criteria\n\n- C001: a status event for a stage/package with no matching run takes its order\n  key from `displayDate`.\n- C002: a status event with a matching run still anchors to the latest run at or\n  before its evidence time.\n- C003: a stale split status is not displayed before a later boundify event in\n  the frames.\n- C004: a model with no runs keeps `chronological === false` and the ordinal\n  frames.\n\n## Invariants\n\n- Every event keeps its original `evidenceT`.\n- The chronological `orderT` sequence is non-decreasing.\n- Each run marker is emitted once.\n- The no-history golden is unchanged.\n\n## Test plan\n\n- Unit: C001-C003 in `tests/conver/execution-order.test.mjs`.\n- Compatibility: C004 and `tests/conver/progress-gif-history.test.mjs`.\n- Regression: execution-order, ordinal-order, stage-order, previous-progress,\n  progress-gif-evidence-time, progress-gif-history, terminal-time,\n  evidence-gating, loop, render.\n\n## Implementation order\n\n1. Red: add C001-C003 and confirm they fail because the status branch returns\n   `evidenceT`.\n2. Green: delete the status branch and the now-unused `initialT` parameter.\n3. Refactor: sync the three script trees and run the impact set with\n   `node --test`.",
+          "default_files": [
+            ".claude/scripts/conver/progress-gif/loop.js",
+            "tests/conver/execution-order.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "C001: a status event for a stage/package with no matching run takes its order key from displayDate.",
+            "C002: a status event with a matching run still anchors to the latest run at or before its evidence time.",
+            "C003: a stale split status is not displayed before a later boundify event in the frames.",
+            "C004: a model with no runs keeps chronological === false and the ordinal frames."
+          ],
+          "scope": [
+            ".claude/scripts/conver/progress-gif/loop.js",
+            "tests/conver/execution-order.test.mjs"
+          ],
+          "changes": [
+            {
+              "before": "executionOrderTime returned the raw status evidenceT for a status event whose stage/package had no history run, so gaia's eight split status files (runIds 2026-11-02..04) were ordered before the 2026-11-06..08 graphify/boundify/smooth work.",
+              "after": "A status event with no run coverage falls through to the computeStageDisplayDates estimate, as PX-391's no-run-coverage constraint requires; events with a matching run keep the latest-run-at-or-before anchor.",
+              "description": "Status events with no run coverage use the display estimate."
+            },
+            {
+              "before": "executionOrderTime took an initialT parameter that only the removed status branch used.",
+              "after": "The parameter and buildExecutionTimeline's initialT local are gone; the function reads only the run map and the display estimate.",
+              "description": "Drop the unused initialT parameter."
+            },
+            {
+              "before": "No test distinguished a status event from an artifact event without run coverage.",
+              "after": "execution-order.test.mjs adds C001 (status no-run uses the estimate), C002 (run coverage still anchors), and C003 (a stale split status is displayed after a later boundify event).",
+              "description": "Tests encode the no-run-coverage rule for status."
+            },
+            {
+              "before": "Only tools/conver's loop.js carried the fix.",
+              "after": "The root .claude/scripts/conver and crates/siprs/.claude/scripts/conver mirrors carry the same bytes, satisfying the three-tree invariant.",
+              "description": "Sync the three script trees."
+            }
+          ]
         }
       ]
     },

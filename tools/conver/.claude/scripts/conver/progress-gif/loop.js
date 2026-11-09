@@ -1163,8 +1163,8 @@ function executionRunMap(runs) {
  * or one whose stage/package has no run at all, keeps the display estimate: that
  * is the only clock a workspace created before history has.
  */
-// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
-function executionOrderTime(event, runMap, displayDate, initialT) {
+// [::TICKET::] PX-391, PX-392 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-391|PX-392) --for-spec --no-implementation-order`.
+function executionOrderTime(event, runMap, displayDate) {
   if (event.kind === 'run' || event.timeSource === 'history') return event.evidenceT;
   const key = `${event.stage}\u0000${event.packageId ?? ''}`;
   const runs = runMap.get(key);
@@ -1181,26 +1181,24 @@ function executionOrderTime(event, runMap, displayDate, initialT) {
     if (Number.isFinite(estimate)) return estimate;
     return Number.isFinite(event.evidenceT) ? event.evidenceT : null;
   }
-  if (event.timeSource === 'status' && event.evidenceT >= initialT) return event.evidenceT;
   const estimate = displayDate.get(event.stage);
   if (Number.isFinite(estimate)) return estimate;
   return Number.isFinite(event.evidenceT) ? event.evidenceT : null;
 }
 
 /** Build the execution-order timeline: timestamps order the events, stage visits may repeat. */
-// [::TICKET::] PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-391 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-391, PX-392 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-391|PX-392) --for-spec --no-implementation-order`.
 function buildExecutionTimeline(stageGroups, decorations, displayDate, model) {
   const runMap = executionRunMap(model.runs || []);
-  const initialT = Number.isFinite(model.initialT) ? model.initialT : -Infinity;
   const entries = [];
   for (const group of stageGroups.values()) {
     for (const event of group) {
-      const orderT = executionOrderTime(event, runMap, displayDate, initialT);
+      const orderT = executionOrderTime(event, runMap, displayDate);
       if (Number.isFinite(orderT)) entries.push({ ...event, orderT, displayT: orderT });
     }
   }
   for (const event of decorations) {
-    const orderT = executionOrderTime(event, runMap, displayDate, initialT);
+    const orderT = executionOrderTime(event, runMap, displayDate);
     if (Number.isFinite(orderT)) entries.push({ ...event, orderT, displayT: orderT });
   }
   entries.sort((left, right) =>

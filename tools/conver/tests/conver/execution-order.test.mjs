@@ -186,3 +186,82 @@ test('C006: progressAt uses the order key on the chronological path', () => {
     'the grill event anchored to the 1000 run is included at 1500',
   );
 });
+
+// The stage estimate is the pipeline-ordered clock: a status timestamp older
+// than a later stage's work must not pull its stage forward. A run that does
+// cover the event is still the stronger anchor.
+// [::TICKET::] PX-392 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-392 --for-spec --no-implementation-order`.
+function staleStatusModel() {
+  const pkg1 = packageModel({ id: 'pkg-1' });
+  const pkg2 = packageModel({ id: 'pkg-2' });
+  return makeModel({
+    packages: [pkg1, pkg2],
+    events: [
+      timedEvent('grill', INITIAL_TIME + 1000, pkg1.id),
+      timedEvent('boundify', INITIAL_TIME + 5000, pkg1.id),
+      timedEvent('split', INITIAL_TIME + 2000, pkg2.id),
+    ],
+    runs: [
+      historyRun('grill', INITIAL_TIME + 1000, pkg1.id, 'grill-run'),
+      historyRun('boundify', INITIAL_TIME + 5000, pkg1.id, 'boundify-run'),
+    ],
+  });
+}
+
+// [::TICKET::] PX-392 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-392 --for-spec --no-implementation-order`.
+test('C001: a status event with no run coverage uses the display estimate', () => {
+  const model = staleStatusModel();
+  const built = buildTimeline(model);
+  const splitEvent = built.timeline.find(
+    (event) => event.kind === 'stage' && event.stage === 'split',
+  );
+  const boundifyEvent = built.timeline.find(
+    (event) => event.kind === 'stage' && event.stage === 'boundify',
+  );
+
+  assert.equal(built.chronological, true);
+  assert.ok(splitEvent, 'the split event is in the timeline');
+  assert.equal(
+    built.displayDate.get('split'),
+    INITIAL_TIME + 5000,
+    'the estimate follows the later boundify stage',
+  );
+  assert.equal(
+    splitEvent.orderT,
+    built.displayDate.get('split'),
+    'the split event is ordered by the display estimate',
+  );
+  assert.ok(
+    splitEvent.orderT >= boundifyEvent.orderT,
+    'split is not ordered before boundify',
+  );
+});
+
+// [::TICKET::] PX-392 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-392 --for-spec --no-implementation-order`.
+test('C002: a status event with a matching run anchors to that run', () => {
+  const pkg = packageModel({ id: 'pkg-1' });
+  const model = makeModel({
+    packages: [pkg],
+    events: [timedEvent('split', INITIAL_TIME + 9000, pkg.id)],
+    runs: [historyRun('split', INITIAL_TIME + 3000, pkg.id, 'split-run')],
+  });
+
+  const built = buildTimeline(model);
+  const splitEvent = built.timeline.find(
+    (event) => event.kind === 'stage' && event.stage === 'split',
+  );
+
+  assert.ok(splitEvent, 'the split event is in the timeline');
+  assert.equal(splitEvent.orderT, INITIAL_TIME + 3000, 'the run at or before the event wins');
+});
+
+// [::TICKET::] PX-392 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-392 --for-spec --no-implementation-order`.
+test('C003: a stale split status is displayed after a later boundify event', () => {
+  const frames = buildFrames(staleStatusModel(), { frames: 120 });
+  const boundifyFrame = firstFrameOf(frames, 'boundify');
+  const splitFrame = firstFrameOf(frames, 'split');
+
+  assert.ok(boundifyFrame >= 0, 'the boundify stage is displayed');
+  assert.ok(splitFrame >= 0, 'the split stage is displayed');
+  assert.ok(splitFrame > boundifyFrame, 'the split display follows boundify');
+});
