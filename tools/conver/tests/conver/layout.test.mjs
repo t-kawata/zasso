@@ -108,16 +108,16 @@ test('vertical growth changes rows and height only, never width or columns', () 
   assert.equal(short.grid.columns, DEFAULT_COLUMNS);
   assert.equal(tall.grid.columns, DEFAULT_COLUMNS);
   assert.equal(tall.grid.rows, 5);
-  assert.equal(tall.height, 570);
+  assert.equal(tall.height, 600);
   assert.ok(tall.height > short.height);
   assert.ok(tall.cells.every((cell) => cell.cellWidth >= MIN_CELL));
   assert.ok(tall.cells.every((cell) => cell.cellWidth <= MAX_CELL));
 });
 
-test('a 29-package workspace uses four rows at 796x472', () => {
+test('a 29-package workspace uses four rows at 796x496', () => {
   const layout = computeLayout(withPackageCount(29), { measureText: measure });
   assert.equal(layout.grid.rows, 4);
-  assert.equal(layout.height, 472);
+  assert.equal(layout.height, 496);
   assert.equal(layout.width, 796);
 });
 
@@ -126,16 +126,16 @@ test('the column count controls rows and can widen the board', () => {
   assert.equal(wide.grid.columns, 10);
   assert.equal(wide.grid.rows, 3);
   assert.equal(wide.width, 940);
-  assert.equal(wide.height, 384);
+  assert.equal(wide.height, 392);
   const narrow = computeLayout(withPackageCount(29), { measureText: measure, columns: 5 });
   assert.equal(narrow.grid.columns, 5);
   assert.equal(narrow.grid.rows, 6);
   assert.equal(narrow.width, 724);
-  assert.equal(narrow.height, 668);
+  assert.equal(narrow.height, 704);
   const tighter = computeLayout(withPackageCount(29), { measureText: measure, columns: 4 });
   assert.equal(tighter.grid.rows, 8);
   assert.equal(tighter.width, 724);
-  assert.equal(tighter.height, 864);
+  assert.equal(tighter.height, 912);
 });
 
 test('clampColumns keeps the control inside its range with a default of eight', () => {
@@ -302,7 +302,9 @@ test('every package cell carries one shared bar between the circle and the label
     assert.equal(cell.barWidth, cell.cellWidth - PACKAGE_BAR_MARGIN_X * 2);
     assert.equal(cell.labelY, cell.top + cell.cellWidth + PACKAGE_LABEL_TOP_OFFSET);
     assert.ok(cell.barY > cell.centerY + MAX_CELL_RADIUS * 1.16);
-    assert.ok(cell.barY + cell.barHeight <= cell.labelY - 4);
+    // The label's glyphs start above the baseline, so a 14px baseline gap keeps
+    // the package name clear of the bar instead of touching its bottom edge.
+    assert.ok(cell.labelY - (cell.barY + cell.barHeight) >= 14);
     assert.ok(cell.barX + cell.barWidth <= cell.left + cell.cellWidth);
   }
 });

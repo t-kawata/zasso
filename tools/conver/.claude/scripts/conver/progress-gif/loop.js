@@ -100,43 +100,66 @@ function formatDollars(value) {
 
 const USAGE_TITLE_PREFIX = 'PROGRESS: ';
 const USAGE_TITLE_LABEL = 'I/C/O/D = ';
-const CONTRACTS_LABEL = 'CONTRACTS: ';
-const CONTRACTS_UNKNOWN_DENOMINATOR = '?';
-const TITLE_SEGMENT_SEPARATOR = ' , ';
+const CONTRACTS_LABEL = 'CONTRACTS = ';
+const TICKETS_LABEL = 'TICKETS = ';
+const UNKNOWN_DENOMINATOR = '?';
+// The three ideographic spaces keep the right-aligned metrics visually separate;
+// commas read as one sentence where these are three independent measurements.
+const TITLE_SEGMENT_SEPARATOR = '\u3000\u3000\u3000';
 
 /**
- * Project the workspace contract progress at one frame instant. The denominator
- * counts contracts on tickets that already carry a made_at; the numerator counts
- * the reviewed subset. A package contributes each contract id once, and every
- * package is summed because a boundary contract is owed by both sides.
+ * Project the workspace contract progress at one frame instant. A ticket's
+ * contracts enter the denominator from the split instant that wrote Tickets.json,
+ * not from its make instant, so a workspace that has split but not implemented
+ * still reports the contracts it owes. A contract id is a workspace-wide identity
+ * even when many tickets reference it, so the headline counts it once. The
+ * numerator counts the reviewed subset.
  */
 export function contractsAt(model, timestamp) {
-  let numerator = 0;
-  let denominator = 0;
+  const present = new Set();
+  const reviewed = new Set();
   let known = false;
   for (const pkg of model.packages || []) {
-    const made = new Set();
-    const reviewed = new Set();
     for (const entry of pkg.contractLog || []) {
-      if (!Number.isFinite(entry.madeAt) || entry.madeAt > timestamp) continue;
+      if (!Number.isFinite(entry.presentAt) || entry.presentAt > timestamp) continue;
       known = true;
-      for (const id of entry.contractIds || []) made.add(id);
+      for (const id of entry.contractIds || []) present.add(id);
       if (Number.isFinite(entry.reviewedAt) && entry.reviewedAt <= timestamp) {
         for (const id of entry.contractIds || []) reviewed.add(id);
       }
     }
-    denominator += made.size;
-    numerator += reviewed.size;
   }
-  return { numerator, denominator, unknown: !known };
+  return { numerator: reviewed.size, denominator: present.size, unknown: !known };
 }
 
-/** Render the title segment; a workspace without a made ticket has no denominator. */
+/** Project reviewed tickets over the tickets that already exist at the instant. */
+export function ticketsAt(model, timestamp) {
+  let numerator = 0;
+  let denominator = 0;
+  for (const pkg of model.packages || []) {
+    for (const entry of pkg.contractLog || []) {
+      if (!Number.isFinite(entry.presentAt) || entry.presentAt > timestamp) continue;
+      denominator += 1;
+      if (Number.isFinite(entry.reviewedAt) && entry.reviewedAt <= timestamp) numerator += 1;
+    }
+  }
+  return { numerator, denominator, unknown: denominator === 0 };
+}
+
+/** Render the contract segment; no split yet means no denominator to state. */
 export function formatContractsTitle(contracts) {
   if (!contracts || contracts.unknown) {
-    return `${CONTRACTS_LABEL}0/${CONTRACTS_UNKNOWN_DENOMINATOR}`;
+    return `${CONTRACTS_LABEL}0/${UNKNOWN_DENOMINATOR}`;
   }
   return `${CONTRACTS_LABEL}${contracts.numerator}/${contracts.denominator}`;
+}
+
+/** Render the ticket segment; no split yet means no denominator to state. */
+export function formatTicketsTitle(tickets) {
+  if (!tickets || tickets.unknown) {
+    return `${TICKETS_LABEL}0/${UNKNOWN_DENOMINATOR}`;
+  }
+  return `${TICKETS_LABEL}${tickets.numerator}/${tickets.denominator}`;
 }
 
 /**
@@ -146,19 +169,21 @@ export function formatContractsTitle(contracts) {
  * must stay a separate string; `text` is only the plain-text fallback.
  */
 // [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
-export function usageTitleSegments(name, cumulative, contracts = '') {
+export function usageTitleSegments(name, cumulative, contracts = '', tickets = '') {
   const left = `${USAGE_TITLE_PREFIX}${name || 'PROGRESS'}`;
   const metrics = `${USAGE_TITLE_LABEL}${formatMillions(cumulative.cacheMissInputTokens)}M / `
     + `${formatMillions(cumulative.cacheHitInputTokens)}M / `
     + `${formatMillions(cumulative.outputTokens)}M / `
     + `$${formatDollars(cumulative.costUsd)}`;
-  const right = contracts ? `${contracts}${TITLE_SEGMENT_SEPARATOR}${metrics}` : metrics;
+  const right = [tickets, contracts, metrics]
+    .filter((segment) => segment !== '')
+    .join(TITLE_SEGMENT_SEPARATOR);
   return { left, right, text: `${left} | ${right}` };
 }
 
 // [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
-export function formatUsageTitle(name, cumulative, contracts = '') {
-  return usageTitleSegments(name, cumulative, contracts).text;
+export function formatUsageTitle(name, cumulative, contracts = '', tickets = '') {
+  return usageTitleSegments(name, cumulative, contracts, tickets).text;
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -1411,8 +1436,9 @@ export function frameFromState(state, model, index) {
     ? usageAtDate(model.usage, displayDateKey(state.lastT, state.lastPrec))
     : null;
   const contractsTitle = formatContractsTitle(contractsAt(model, state.lastT));
+  const ticketsTitle = formatTicketsTitle(ticketsAt(model, state.lastT));
   const usageTitle = cumulativeUsage && model.titleName
-    ? usageTitleSegments(model.titleName, cumulativeUsage, contractsTitle)
+    ? usageTitleSegments(model.titleName, cumulativeUsage, contractsTitle, ticketsTitle)
     : null;
   const frame = {
     index,
@@ -1522,6 +1548,16 @@ function isStageCoveredFor(events, stage, packageId) {
     && (event.packageId === packageId || event.packageId === null || event.packageId === undefined));
 }
 
+/** The earliest instant this package's events place a stage at. */
+function earliestStageTime(events, stage) {
+  let earliest = null;
+  for (const event of events) {
+    if (event.stage !== stage || !Number.isFinite(event.t)) continue;
+    if (earliest === null || event.t < earliest) earliest = event.t;
+  }
+  return earliest;
+}
+
 /** Derive one package's obligations, stage fractions and events. */
 export function derivePackageState(pkg, artifacts, workspaceArtifacts, registry, warnings) {
   const computed = computePackageObligations(pkg, artifacts, registry);
@@ -1536,8 +1572,14 @@ export function derivePackageState(pkg, artifacts, workspaceArtifacts, registry,
       events.push({ t: workspaceArtifacts.initialT || 0, prec: 'ms', stage, packageId: pkg.id, inc: stages[stage], evidence: 'artifact-presence' });
     }
   }
+  // The split instant is when Tickets.json appeared, so every ticket it lists is
+  // owed from then on. An honest artifact time is the fallback when the split
+  // status is missing; without either, presence stays unknown.
+  const ticketsPresentAt = earliestStageTime(events, 'split')
+    ?? parseStampFromMtime(artifacts.ticketsPath)?.t
+    ?? null;
   const contractLog = (artifacts.tickets ? ticketsOf(artifacts.tickets) : []).map((ticket) => ({
-    madeAt: parseInstant(ticket.made_at)?.t ?? null,
+    presentAt: ticketsPresentAt,
     reviewedAt: parseInstant(ticket.reviewed_at)?.t ?? null,
     contractIds: [...countTicketContracts([ticket])],
   }));

@@ -123,7 +123,7 @@ test('a manifests-only workspace exits zero and writes HTML and a snapshot', () 
   assert.equal(hashTree(root), before);
 });
 
-test('a 29-package workspace renders four rows at 796x472', () => {
+test('a 29-package workspace renders four rows at 796x496', () => {
   const packages = Array.from({ length: 29 }, (_, index) => ({
     id: `pkg-${index + 1}`,
     name: `pkg-${index + 1}`,
@@ -135,7 +135,7 @@ test('a 29-package workspace renders four rows at 796x472', () => {
   const root = writeWorkspace({ packages });
   const result = run(['-t', root, '--no-open', '--dry-run', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /canvas: 796x472/);
+  assert.match(result.stdout, /canvas: 796x496/);
   assert.match(result.stdout, /overall progress: \d+%/);
 });
 

@@ -129,11 +129,13 @@ export const MIN_COLUMNS = 4;
 export const MAX_COLUMNS = 10;
 export const MIN_CELL = 64;
 export const MAX_CELL = 72;
-export const LABEL_HEIGHT = 34;
+export const LABEL_HEIGHT = 40;
 export const PACKAGE_BAR_HEIGHT = 6;
 export const PACKAGE_BAR_MARGIN_X = 4;
-export const PACKAGE_BAR_TOP_OFFSET = 1;
-export const PACKAGE_LABEL_TOP_OFFSET = 16;
+export const PACKAGE_BAR_TOP_OFFSET = 2;
+// The label baseline sits 24px below the cell edge: the bar ends at 8px, so the
+// name keeps clear of it instead of touching the track.
+export const PACKAGE_LABEL_TOP_OFFSET = 24;
 export const LADDER_X = 528;
 export const LADDER_Y = 72;
 export const LADDER_ROW_HEIGHT = 18;

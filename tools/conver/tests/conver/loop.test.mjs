@@ -226,6 +226,27 @@ test('a workspace-level smooth event covers every package without a zero-time fa
   assert.ok(smoothEvents.every((event) => event.t === Date.parse(measuredAt)));
 });
 
+test('C011: every ticket is present from the split completion instant', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  const splitAt = Date.parse('2026-11-05T12:00:00.000Z');
+  const splitSteps = Object.fromEntries([
+    '0-1', '0-2', '1', '2', '3', '4-1', '4-2', '5-1', '5-2', '5-3', '6',
+  ].map((step) => [step, 'done']));
+  const artifacts = {
+    splitStatus: { steps: splitSteps, updatedAt: new Date(splitAt).toISOString() },
+    ticketsPath: '/tmp/Tickets.json',
+    tickets: {
+      phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: 'todo', contracts: [{ id: 'C1' }] }] }],
+    },
+  };
+
+  const state = derivePackageState(pkg, artifacts, { initialT: INITIAL_TIME }, [], []);
+
+  assert.equal(state.packageModel.contractLog.length, 1);
+  assert.equal(state.packageModel.contractLog[0].presentAt, splitAt);
+  assert.equal(state.packageModel.contractLog[0].reviewedAt, null);
+});
+
 test('the header names smooth while smooth is the running stage', () => {
   const pkg = packageModel({ id: 'pkg-1', total: 10 });
   const events = [

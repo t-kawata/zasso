@@ -19,7 +19,9 @@ import {
   formatUsageTitle,
   usageTitleSegments,
   contractsAt,
+  ticketsAt,
   formatContractsTitle,
+  formatTicketsTitle,
   ZERO_USAGE,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { formatDate } from '../../.claude/scripts/conver/progress-gif/layout.js';
@@ -197,19 +199,42 @@ test('usageTitleSegments rounds up and returns the left name and the four-value 
   assert.equal(usageTitleSegments('demo', cumulative).right.split(' / ').length, 4);
   assert.doesNotMatch(usageTitleSegments('demo', cumulative).right, /NaN|-1/);
   assert.equal(formatUsageTitle('demo', cumulative), usageTitleSegments('demo', cumulative).text);
+  assert.equal(
+    usageTitleSegments('demo', ZERO_USAGE, 'CONTRACTS = 2/3', 'TICKETS = 1/2').right,
+    'TICKETS = 1/2　　　CONTRACTS = 2/3　　　I/C/O/D = 0M / 0M / 0M / $0',
+  );
 });
 
-test('CONTRACTS counts unique made and reviewed ticket contracts per package', () => {
+test('C011: ticket and contract totals become known when the split writes Tickets.json', () => {
   const model = minimalModel({ usage: [], titleName: 'demo' });
+  const presentAt = Date.parse('2026-11-01T00:00:00Z');
   model.packages[0].contractLog = [
-    { madeAt: Date.parse('2026-11-01T00:00:00Z'), reviewedAt: null, contractIds: ['C1', 'C2'] },
-    { madeAt: Date.parse('2026-11-02T00:00:00Z'), reviewedAt: Date.parse('2026-11-03T00:00:00Z'), contractIds: ['C2', 'C3'] },
+    { presentAt, reviewedAt: null, contractIds: ['C1', 'C2'] },
+    { presentAt, reviewedAt: Date.parse('2026-11-03T00:00:00Z'), contractIds: ['C2', 'C3'] },
   ];
 
-  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-10-31T00:00:00Z'))), 'CONTRACTS: 0/?');
-  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-11-01T12:00:00Z'))), 'CONTRACTS: 0/2');
-  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-11-03T12:00:00Z'))), 'CONTRACTS: 2/3');
-  assert.equal(usageTitleSegments('demo', ZERO_USAGE, 'CONTRACTS: 2/3').right, 'CONTRACTS: 2/3 , I/C/O/D = 0M / 0M / 0M / $0');
+  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-10-31T00:00:00Z'))), 'CONTRACTS = 0/?');
+  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-11-01T12:00:00Z'))), 'CONTRACTS = 0/3');
+  assert.equal(formatContractsTitle(contractsAt(model, Date.parse('2026-11-03T12:00:00Z'))), 'CONTRACTS = 2/3');
+  assert.equal(formatTicketsTitle(ticketsAt(model, Date.parse('2026-10-31T00:00:00Z'))), 'TICKETS = 0/?');
+  assert.equal(formatTicketsTitle(ticketsAt(model, Date.parse('2026-11-01T12:00:00Z'))), 'TICKETS = 0/2');
+  assert.equal(formatTicketsTitle(ticketsAt(model, Date.parse('2026-11-03T12:00:00Z'))), 'TICKETS = 1/2');
+});
+
+test('C011: a contract shared by several packages is one workspace contract', () => {
+  const model = minimalModel({ usage: [], titleName: 'demo' });
+  const presentAt = Date.parse('2026-11-01T00:00:00Z');
+  model.packages.push({
+    id: 'p2',
+    name: 'p2',
+    path: 'p2',
+    obligations: { total: 1, reviewed: 0 },
+    tickets: { total: 1 },
+  });
+  model.packages[0].contractLog = [{ presentAt, reviewedAt: null, contractIds: ['C1', 'C2'] }];
+  model.packages[1].contractLog = [{ presentAt, reviewedAt: null, contractIds: ['C2', 'C3'] }];
+
+  assert.equal(formatContractsTitle(contractsAt(model, presentAt)), 'CONTRACTS = 0/3');
 });
 
 test('aggregateUsage returns an empty series and a warning when logs are unavailable', async () => {
@@ -240,10 +265,10 @@ test('buildFrames shows zero usage when logs are available but empty and hides i
   const availableFrames = buildFrames(available, { frames: 20 });
   assert.deepEqual(availableFrames[0].titleParts, {
     left: 'PROGRESS: demo',
-    right: 'CONTRACTS: 0/? , I/C/O/D = 0M / 0M / 0M / $0',
+    right: 'TICKETS = 0/?　　　CONTRACTS = 0/?　　　I/C/O/D = 0M / 0M / 0M / $0',
   });
-  assert.equal(availableFrames[0].title, 'PROGRESS: demo | CONTRACTS: 0/? , I/C/O/D = 0M / 0M / 0M / $0');
-  assert.equal(availableFrames.at(-1).titleParts.right, 'CONTRACTS: 0/? , I/C/O/D = 0M / 0M / 0M / $0');
+  assert.equal(availableFrames[0].title, 'PROGRESS: demo | TICKETS = 0/?　　　CONTRACTS = 0/?　　　I/C/O/D = 0M / 0M / 0M / $0');
+  assert.equal(availableFrames.at(-1).titleParts.right, 'TICKETS = 0/?　　　CONTRACTS = 0/?　　　I/C/O/D = 0M / 0M / 0M / $0');
 
   const unavailable = minimalModel({ usage: [], titleName: 'demo' });
   unavailable.usageAvailable = false;
@@ -297,11 +322,11 @@ test('buildFrames changes the cumulative title only at date boundaries', () => {
   const model = minimalModel({ usage: series, titleName: 'demo' });
   const frames = buildFrames(model, { frames: 200 });
 
-  assert.equal(frames[0].title, formatUsageTitle('demo', series[0].cumulative, 'CONTRACTS: 0/?'));
-  assert.equal(frames.at(-1).title, formatUsageTitle('demo', series.at(-1).cumulative, 'CONTRACTS: 0/?'));
+  assert.equal(frames[0].title, formatUsageTitle('demo', series[0].cumulative, 'CONTRACTS = 0/?', 'TICKETS = 0/?'));
+  assert.equal(frames.at(-1).title, formatUsageTitle('demo', series.at(-1).cumulative, 'CONTRACTS = 0/?', 'TICKETS = 0/?'));
   assert.deepEqual(frames[0].titleParts, {
     left: 'PROGRESS: demo',
-    right: usageTitleSegments('demo', series[0].cumulative, 'CONTRACTS: 0/?').right,
+    right: usageTitleSegments('demo', series[0].cumulative, 'CONTRACTS = 0/?', 'TICKETS = 0/?').right,
   });
   const changes = frames.filter((frame, index) => (
     index > 0 && frame.title !== frames[index - 1].title
