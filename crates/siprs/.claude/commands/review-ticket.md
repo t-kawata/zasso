@@ -98,7 +98,7 @@ G1 existence: `node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticke
 - output starts `# {ticketKey}: Not Found` → stop; out: "The ticket does not exist, so /review-ticket is interrupted."
 - else → Markdown design info + related-info exploration methods = context → G2
 
-When the ticket carries `condensedFrom`, the `## Condensed From` records are part of the reviewed design. Step 7 completeness covers every absorbed record, not only the survivor's own sections. A ticket without `condensedFrom` is unchanged.
+`condensedFrom` → `## Condensed From` records = reviewed design. Step 7 completeness covers every absorbed record, not only survivor sections. no `condensedFrom` → unchanged.
 
 ### Step 2 (common, no formal gate)
 cmd, per Node-ID in "Related RFC graph NODE-IDs to check":
@@ -264,11 +264,15 @@ either exits 1 → fix reported violations (resolve remaining stubs, update stat
 both pass → Step 11
 rule: loop until both G7 and G7b pass before proceeding
 
+**Step 10b-report:** `node "$CLAUDE_DIR/scripts/tickets/reverify-ticket.js" --ticket-key="$ARGUMENTS" --tickets="Tickets.json"` → plan. apply `fixes[]`; rerun until count 0 twice, same digest; `--write-certificate --run-count=2`. G7/G7b first.
+
 ### Step 10c
 G7c formula obligations: re-run the merge dry-run against the current graph and Dirs-Tree:
 `node "$CLAUDE_DIR/scripts/tickets/merge-formulas-to-tickets.js" --tickets=Tickets.json --dirs-tree="<Dirs-Tree>" --sidecar="<RFC-FORMULAS.json>" --spec="<artifact.spec.path>"`
 exit 1 → a missing ticket, duplicate implementer, changed digest, `RFC.md` origin, missing symbol or missing test is reported by formula id; fix and re-run. No `--write` at review: the check proves the existing record, it does not repair it.
 both G7 and G7b pass and G7c exits 0 → Step 11
+
+**Step 10c-report:** 10b-report formula = report view of this dry-run; keep dry-run as final check.
 
 ### Step 11
 publish:

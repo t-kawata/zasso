@@ -917,25 +917,37 @@ const CONDENSED_STANDARD_FIELDS = Object.freeze([
   'contracts', 'acceptanceCriteria', 'changes',
 ]);
 
-/** Whether a value carries information for the generic record renderer. */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
-function hasCondensedValue(value) {
+/** Whether a value carries information for the generic renderer. */
+// [::TICKET::] PX-396, PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-398) --for-spec --no-implementation-order`.
+function hasRenderableValue(value) {
   if (value === undefined || value === null) return false;
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === 'string') return value.trim().length > 0;
   return true;
 }
 
-/** Render a field the standard order does not name. */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
-function appendCondensedValue(lines, field, value) {
-  if (!hasCondensedValue(value)) return;
-  const heading = field
+/** Turn a field name into a Title Case heading. */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function titleCaseField(field) {
+  return field
     .replace(/_/g, ' ')
     .replace(/([A-Z])/g, ' $1')
     .trim()
     .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
-  lines.push(`#### ${heading}`);
+}
+
+/**
+ * Render one generic field at the given heading level.
+ *
+ * @param {string[]} lines
+ * @param {string} field
+ * @param {*} value
+ * @param {number} level — heading depth
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function appendGenericValue(lines, field, value, level) {
+  if (!hasRenderableValue(value)) return;
+  lines.push(`${'#'.repeat(level)} ${titleCaseField(field)}`);
   lines.push('');
   if (typeof value === 'string') {
     lines.push(demoteMarkdownHeadings(value));
@@ -947,6 +959,47 @@ function appendCondensedValue(lines, field, value) {
     lines.push('```');
   }
   lines.push('');
+}
+
+/**
+ * Top-level ticket fields the standard section set already renders.
+ *
+ * A field outside this list has no home in the standard Markdown, so it is
+ * rendered under "## Additional Fields" rather than staying invisible.
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+const RENDERED_TOP_LEVEL_FIELDS = Object.freeze([
+  'id', 'phaseId', 'status', 'title', 'specPath', 'nodeIds',
+  'referenceSection', 'background', 'scope', 'default_files', 'sourcePaths',
+  'targetStubs', 'targetCrimes', 'foundOmissions',
+  'investigation', 'acceptanceCriteria', 'invariants', 'contracts', 'boyScoutPlan',
+  'testUnit', 'testIntegration', 'testExceptions', 'planTestCode',
+  'relatedTicketIds', 'changes', 'referenceUrls', 'rfcDiscrepancies', 'notes',
+  'distribution', 'formulaObligations', 'prerequisites', 'condensedFrom',
+]);
+
+/**
+ * Render every non-empty top-level field the standard sections do not name.
+ *
+ * @param {string[]} lines
+ * @param {object} ticket
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function appendAdditionalTopLevelFields(lines, ticket) {
+  const additional = Object.entries(ticket || {}).filter(([field, value]) => (
+    !RENDERED_TOP_LEVEL_FIELDS.includes(field) && hasRenderableValue(value)
+  ));
+  if (additional.length === 0) return;
+
+  lines.push('## Additional Fields');
+  lines.push('');
+  for (const [field, value] of additional) appendGenericValue(lines, field, value, 3);
+}
+
+/** Render a field the absorbed-record standard order does not name. */
+// [::TICKET::] PX-396, PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-398) --for-spec --no-implementation-order`.
+function appendCondensedValue(lines, field, value) {
+  appendGenericValue(lines, field, value, 4);
 }
 
 /**
@@ -986,7 +1039,7 @@ function renderCondensedFrom(ticket) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-321, PX-322, PX-324, PX-341, PX-362, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341|PX-362|PX-396) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322, PX-324, PX-341, PX-362, PX-396, PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341|PX-362|PX-396|PX-398) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, options = {}) {
   const lines = [];
 
@@ -1409,6 +1462,8 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
+  appendAdditionalTopLevelFields(lines, ticket);
+
   // Pipeline Context (not output in --for-spec mode)
   if (!forSpec) {
     lines.push('## Pipeline Context');
@@ -1528,5 +1583,9 @@ module.exports = {
   renderContractAxis,
   EXTRA_CONTRACT_AXES,
   OPERATION_OBLIGATION_FIELDS,
+  RENDERED_TOP_LEVEL_FIELDS,
+  titleCaseField,
+  appendGenericValue,
+  appendAdditionalTopLevelFields,
   main,
 };

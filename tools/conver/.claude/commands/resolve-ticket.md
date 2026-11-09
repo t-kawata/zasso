@@ -188,6 +188,12 @@ node "$CLAUDE_DIR/scripts/tickets/review/find-all-stubs.js" .
 node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 
+Step 9d (no `$ARGUMENTS` required):
+```bash
+node "$CLAUDE_DIR/scripts/tickets/discover-changed-tickets.js" --tickets="Tickets.json"
+```
+per key: `node "$CLAUDE_DIR/scripts/tickets/reverify-ticket.js" --ticket-key=<key> --tickets="Tickets.json"` → apply `fixes[]`; rerun until count 0 twice, same digest; `--write-certificate --run-count=2`. `$ARGUMENTS` → include even if undetected.
+
 Deferral policy: forbidden by default — resolve every blocker on the spot. permitted only as an extremely exceptional measure when continuing poses a clear, demonstrated danger (e.g. unrecoverable state corruption, pipeline-wide deadlock with no safe recovery). every deferral is later human-audited; a deferral judged as shirking (avoidable postponement) incurs penalty. when in doubt, resolve — do not defer.
 
 Escape hatch (no-excuse conditional deferral; use only when the Deferral policy's clear-danger condition is met AND `$ARGUMENTS` is set):
@@ -207,7 +213,7 @@ Batch-write ticket (post-deferral rewrite):
   preserve (append-only, never overwrite): nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies, condensedFrom
 ```
 
-`condensedFrom` is provenance: a clone keeps it unchanged, and its `originKey` marks the ledger as inherited rather than produced by the new ticket.
+`condensedFrom` = provenance: clone keeps it; `originKey` = inherited ledger, not produced by the new ticket.
 3. rewrite the marker key to the new ticket.
 4. re-run Step 9a/9b (with `$ARGUMENTS` set) + Step 9c validator — Check C (active key) must pass.
 5. record deferred STUBs + new ticket keys in the implementation summary.
@@ -222,6 +228,8 @@ G-final: re-run compilation + tests (Step 1 fallback rule) + no-excuse validator
 node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
 ```
 pass (compile+test clean AND validator exit0) → out: summary of resolved items → report to user.
+
+G-reverify: rerun 9d per changed ticket; refresh certificate. reviewed + digest diff → REVIEWED_TICKET_STALE until fresh pass. resolve never changes status; certificate = fresh evidence.
 
 ## Done
 - zero unresolved warnings/errors (Step 1/2/10)

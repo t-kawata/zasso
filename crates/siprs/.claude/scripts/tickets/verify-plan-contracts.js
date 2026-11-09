@@ -17,6 +17,16 @@
 
 const fs = require('fs');
 const path = require('path');
+const { mentions } = require('./lib/asset-coverage.js');
+const {
+  reportMode,
+  gateRerun,
+  gateFinding,
+  emitGateReport,
+  patchRoute,
+} = require('./lib/gate-report.js');
+
+const GATE_NAME = 'verify-plan-contracts';
 
 // Patterns that unambiguously indicate concrete test code (not prose)
 const CODE_PATTERNS = [
@@ -142,7 +152,75 @@ function verifyPlanContracts(ticket) {
   return errors;
 }
 
-// [::TICKET::] PX-74, PX-84, PX-85, PX-86, PX-87, PX-89 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-74|PX-84|PX-85|PX-86|PX-87|PX-89) --for-spec --no-implementation-order`.
+/**
+ * The contract ids no planTestCode entry names with concrete code.
+ *
+ * The existing check evaluates the code patterns over the whole field, so one
+ * code block satisfies every contract. Report mode requires the contract id and
+ * the code to be in the same entry.
+ *
+ * @param {object} ticket
+ * @param {string} ticketKey
+ * @param {string} ticketsPath
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function findPlanTestCodeGaps(ticket, ticketKey, ticketsPath) {
+  const entries = Array.isArray(ticket.planTestCode) ? ticket.planTestCode : [];
+  const rerun = gateRerun(GATE_NAME, ticketKey, ticketsPath);
+
+  return (ticket.contracts || [])
+    .filter((contract) => !entries.some((entry) => mentions(entry, contract.id) && hasConcreteCode(entry)))
+    .map((contract) => {
+      const asset = ticketKey + '/' + contract.id;
+      return gateFinding({
+        code: 'CONTRACT_TEST_MISSING',
+        asset,
+        problem: 'contract ' + contract.id + ' has no planTestCode entry that names it and contains code',
+        rerun,
+        fix: patchRoute({
+          ticketsPath,
+          ticketKey,
+          field: 'planTestCode',
+          asset,
+          instruction: 'Add a planTestCode entry for ' + contract.id + ' that names the contract and contains the concrete test code',
+        }),
+      });
+    });
+}
+
+/**
+ * The existing coarse Gate P errors as report findings.
+ *
+ * @param {object} ticket
+ * @param {string} ticketKey
+ * @param {string} ticketsPath
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function findPlanContractElementGaps(ticket, ticketKey, ticketsPath) {
+  const rerun = gateRerun(GATE_NAME, ticketKey, ticketsPath);
+
+  return verifyPlanContracts(ticket).map((error) => {
+    const contractId = error.contract ?? 'planTestCode';
+    const asset = ticketKey + '/' + contractId + '/' + (error.element ?? 'planTestCode');
+    return gateFinding({
+      code: 'CONTRACT_ELEMENT_UNTRANSLATED',
+      asset,
+      problem: error.detail,
+      rerun,
+      fix: patchRoute({
+        ticketsPath,
+        ticketKey,
+        field: 'planTestCode',
+        asset,
+        instruction: 'Translate the reported contract element into concrete test code in planTestCode',
+      }),
+    });
+  });
+}
+
+// [::TICKET::] PX-74, PX-84, PX-85, PX-86, PX-87, PX-89, PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-74|PX-84|PX-85|PX-86|PX-87|PX-89|PX-398) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 
@@ -186,6 +264,18 @@ function main() {
     process.exit(1);
   }
 
+  if (reportMode()) {
+    emitGateReport({
+      gate: GATE_NAME,
+      ticketKey,
+      findings: [
+        ...findPlanTestCodeGaps(targetTicket, ticketKey, ticketsPath),
+        ...findPlanContractElementGaps(targetTicket, ticketKey, ticketsPath),
+      ],
+    });
+    process.exit(0);
+  }
+
   const errors = verifyPlanContracts(targetTicket);
   if (errors.length > 0) {
     for (const err of errors) {
@@ -207,4 +297,8 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyPlanContracts };
+module.exports = {
+  verifyPlanContracts,
+  findPlanTestCodeGaps,
+  findPlanContractElementGaps,
+};

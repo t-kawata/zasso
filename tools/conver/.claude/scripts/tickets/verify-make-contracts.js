@@ -18,6 +18,16 @@
 
 const fs = require('fs');
 const path = require('path');
+const { mentions } = require('./lib/asset-coverage.js');
+const {
+  reportMode,
+  gateRerun,
+  gateFinding,
+  emitGateReport,
+  patchRoute,
+} = require('./lib/gate-report.js');
+
+const GATE_NAME = 'verify-make-contracts';
 
 // [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArgs() {
@@ -128,7 +138,74 @@ function buildTestExceptionErrorLines(err) {
   ];
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-84, PX-85, PX-86, PX-87, PX-89, PX-123, PX-124, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71|PX-84|PX-85|PX-86|PX-87|PX-89|PX-123|PX-124|PX-127) --for-spec --no-implementation-order`.
+/**
+ * The contract ids absent from the test plan.
+ *
+ * The existing check is a keyword overlap: one shared word passes a contract.
+ * Report mode requires the contract id itself in testUnit or testIntegration.
+ *
+ * @param {object} ticket
+ * @param {string} ticketKey
+ * @param {string} ticketsPath
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function findMakeContractIdGaps(ticket, ticketKey, ticketsPath) {
+  const testText = [...(ticket.testUnit || []), ...(ticket.testIntegration || [])].join('\n');
+  const rerun = gateRerun(GATE_NAME, ticketKey, ticketsPath);
+
+  return (ticket.contracts || [])
+    .filter((contract) => !mentions(testText, contract.id))
+    .map((contract) => {
+      const asset = ticketKey + '/' + contract.id;
+      return gateFinding({
+        code: 'CONTRACT_TEST_MISSING',
+        asset,
+        problem: 'contract ' + contract.id + ' is absent from testUnit and testIntegration',
+        rerun,
+        fix: patchRoute({
+          ticketsPath,
+          ticketKey,
+          field: 'testUnit',
+          asset,
+          instruction: 'Add a testUnit or testIntegration entry that names ' + contract.id,
+        }),
+      });
+    });
+}
+
+/**
+ * The existing keyword-check errors as report findings.
+ *
+ * @param {object} ticket
+ * @param {string} ticketKey
+ * @param {string} ticketsPath
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function findMakeContractElementGaps(ticket, ticketKey, ticketsPath) {
+  const rerun = gateRerun(GATE_NAME, ticketKey, ticketsPath);
+
+  return verifyMakeContracts(ticket).map((error) => {
+    const contractId = error.contract ?? 'contracts';
+    const asset = ticketKey + '/' + contractId;
+    return gateFinding({
+      code: 'CONTRACT_ELEMENT_UNTRANSLATED',
+      asset,
+      problem: error.detail,
+      rerun,
+      fix: patchRoute({
+        ticketsPath,
+        ticketKey,
+        field: 'testUnit',
+        asset,
+        instruction: 'Add a test-plan entry that names the contract clause reported above',
+      }),
+    });
+  });
+}
+
+// [::TICKET::] PX-69, PX-70, PX-71, PX-84, PX-85, PX-86, PX-87, PX-89, PX-123, PX-124, PX-127, PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-69|PX-70|PX-71|PX-84|PX-85|PX-86|PX-87|PX-89|PX-123|PX-124|PX-127|PX-398) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 
@@ -172,6 +249,18 @@ function main() {
     process.exit(1);
   }
 
+  if (reportMode()) {
+    emitGateReport({
+      gate: GATE_NAME,
+      ticketKey,
+      findings: [
+        ...findMakeContractIdGaps(targetTicket, ticketKey, ticketsPath),
+        ...findMakeContractElementGaps(targetTicket, ticketKey, ticketsPath),
+      ],
+    });
+    process.exit(0);
+  }
+
   const errors = verifyMakeContracts(targetTicket);
   if (errors.length > 0) {
     for (const err of errors) {
@@ -202,4 +291,9 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyMakeContracts, buildTestExceptionErrorLines };
+module.exports = {
+  verifyMakeContracts,
+  buildTestExceptionErrorLines,
+  findMakeContractIdGaps,
+  findMakeContractElementGaps,
+};

@@ -98,13 +98,13 @@ If `/plan-ticket` was NOT executed immediately before in the same session, respo
 
 ### Step 1.5: Read the condensation ledger (conditional)
 
-Run only when the ticket carries `condensedFrom`:
+`condensedFrom` only:
 
 ```bash
 node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --no-implementation-order
 ```
 
-Read `## Condensed From` before implementing. Its absorbed records are part of the design contract. A ticket without `condensedFrom` has no such section and skips this step, so Case B and numeric-phase tickets keep their existing flow.
+`## Condensed From` = design contract; read before implementing. no `condensedFrom` → skip; Case B + numeric-phase unchanged.
 
 ### Step 2: Record implementation start date
 
@@ -314,6 +314,15 @@ node "$CLAUDE_DIR/scripts/tickets/verify-red-coverage.js" --ticket-key="$ARGUMEN
 
 If BLOCKed: return to Step 5 (Red) and add missing @verifies annotations, then re-run.
 
+**Step 5b-report (never stop):**
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/reverify-ticket.js" \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+plan = worklist. apply each `fixes[]`: `requiresAuthoredValue` → author value, then run named tool. rerun until count 0 twice, same digest; then `--write-certificate --run-count=2`. finding = repair instruction, not stop.
+
 ### Step 5c: Validate target resolution (mandatory)
 
 After all crimes and stubs are resolved in Steps 3-5, validate that targetStubs/targetCrimes are clean and all contracts pass. This gate ensures the crime-first principle is enforced before proceeding to active implementation.
@@ -328,6 +337,8 @@ node "$CLAUDE_DIR/scripts/tickets/validate-ticket-targets.js" \
 ```
 
 **Convergence loop**: If Step 5c-2 exits 1, fix the reported violations (resolve remaining crimes/stubs, update contracts), then re-run the Gate. **Loop until it passes before proceeding to Step 6.**
+
+**Step 5c-3**: 5b-report covers target+annotation+clause; certificate = proof. no Step removed/renumbered/optional.
 
 > **Deferral policy — forbidden in principle, punishable if shirking**: Deferral is
 > **forbidden as a principle** — resolve every blocker on the spot. Deferral is

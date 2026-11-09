@@ -19,6 +19,16 @@
 const fs = require('fs');
 const path = require('path');
 const { findTicket, ticketExists } = require('../lib/find-ticket');
+const {
+  reportMode,
+  gateRerun,
+  gateFinding,
+  emitGateReport,
+  rewriteRoute,
+  inputRoute,
+} = require('./lib/gate-report');
+
+const GATE_NAME = 'validate-ticket-targets';
 
 const VALID_STATUSES = new Set(['pending', 'resolved', 'false_positive']);
 
@@ -397,6 +407,78 @@ function checkDagCycles(stubId, allTargetStubs, allItems) {
 }
 
 
+/** The durable key of a ticket object. */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function ticketKeyOf(ticket) {
+  return ticket.phaseId === -1 ? 'PX-' + ticket.id : 'P' + ticket.phaseId + '-' + ticket.id;
+}
+
+/** The clone keys this ticket defers work to. */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function deferredCloneKeys(ticket) {
+  const items = [
+    ...(Array.isArray(ticket.targetStubs) ? ticket.targetStubs : []),
+    ...(Array.isArray(ticket.targetCrimes) ? ticket.targetCrimes : []),
+  ];
+  return [...new Set(items
+    .map((item) => item?.deferredTo)
+    .filter((key) => typeof key === 'string' && key.length > 0))];
+}
+
+/**
+ * Find deferral clones that still carry the source's prose.
+ *
+ * A deferral clone is created by deep copy, so an unchanged title, background
+ * and scope mean the clone was never rewritten into the new work item.
+ *
+ * @param {object} ticket — the source ticket
+ * @param {object} ticketsData — the whole package
+ * @returns {Array<{ code: string, cloneKey: string, sourceKey: string, message: string }>}
+ */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function checkStaleCloneContent(ticket, ticketsData) {
+  const sourceKey = ticketKeyOf(ticket);
+  const findings = [];
+
+  for (const cloneKey of deferredCloneKeys(ticket)) {
+    if (cloneKey === sourceKey) continue;
+    const clone = findTicket(ticketsData, cloneKey);
+    if (!clone) continue;
+    const sameTitle = clone.title === ticket.title;
+    const sameBackground = clone.background === ticket.background;
+    const sameScope = JSON.stringify(clone.scope ?? []) === JSON.stringify(ticket.scope ?? []);
+    if (!sameTitle || !sameBackground || !sameScope) continue;
+    findings.push({
+      code: 'STALE_CLONE_CONTENT',
+      cloneKey,
+      sourceKey,
+      message: 'deferral clone ' + cloneKey + ' still equals its source ' + sourceKey,
+    });
+  }
+
+  return findings;
+}
+
+/** The stale-clone report findings for one source ticket. */
+// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
+function staleCloneFindings(ticket, ticketsData, ticketsPath) {
+  const sourceKey = ticketKeyOf(ticket);
+  const rerun = gateRerun(GATE_NAME, sourceKey, ticketsPath);
+
+  return checkStaleCloneContent(ticket, ticketsData).map((entry) => gateFinding({
+    code: entry.code,
+    asset: entry.cloneKey,
+    problem: entry.message,
+    rerun,
+    fix: rewriteRoute({
+      ticketsPath,
+      ticketKey: entry.cloneKey,
+      asset: entry.cloneKey,
+      instruction: 'Rewrite title, background and scope from the new work item, then re-run the target gate',
+    }),
+  }));
+}
+
 /**
  * Main validate function: runs all 8 checks on targetStubs/targetCrimes.
  * @param {object} ticketsData — Parsed Tickets.json
@@ -508,7 +590,7 @@ function validateTargets(ticketsData, ticketKey) {
   };
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81, PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81|PX-398) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketKey, ticketsPath;
@@ -533,6 +615,35 @@ function main() {
   }
 
   const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+
+  if (reportMode(args)) {
+    const ticket = findTicket(ticketsData, ticketKey);
+    if (!ticket) {
+      emitGateReport({
+        gate: GATE_NAME,
+        ticketKey,
+        findings: [gateFinding({
+          code: 'TICKET_NOT_FOUND',
+          asset: ticketKey,
+          problem: 'ticket ' + ticketKey + ' is not present in ' + ticketsPath,
+          rerun: gateRerun(GATE_NAME, ticketKey, ticketsPath),
+          fix: inputRoute({
+            asset: ticketKey,
+            instruction: 'Run the gate against an existing ticket key or repair the Tickets.json path',
+          }),
+        })],
+      });
+      process.exit(0);
+    }
+
+    emitGateReport({
+      gate: GATE_NAME,
+      ticketKey,
+      findings: staleCloneFindings(ticket, ticketsData, ticketsPath),
+    });
+    process.exit(0);
+  }
+
   const result = validateTargets(ticketsData, ticketKey);
 
   if (!result.valid) {
@@ -567,5 +678,9 @@ module.exports = {
   checkOrphanTicketRefNotFp,
   checkCompletedTicketStaleNotFp,
   checkFalsePositiveNoteIsNotGhostTicket,
+  checkStaleCloneContent,
+  deferredCloneKeys,
+  staleCloneFindings,
+  ticketKeyOf,
   findTicket
 };

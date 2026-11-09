@@ -124,7 +124,7 @@ node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMEN
 - output starts `# {ticketKey}: Not Found` → follow output; reply exactly: `The ticket does not exist, so /plan-ticket is interrupted.`; stop
 - otherwise: retain emitted design information and related-information exploration methods as context; Step 2
 
-When the ticket carries `condensedFrom`, read `## Condensed From` before Step 2. Its absorbed records are design context for the plan, and Step 3.5 `planTestCode` must cover every merged contract. A ticket without `condensedFrom` follows the existing path unchanged.
+`condensedFrom` → read `## Condensed From` before Step 2. absorbed records = plan design context; Step 3.5 `planTestCode` covers every merged contract. no `condensedFrom` → unchanged.
 
 ### Step 2: Explore and understand design information, related design information, related ticket information, and source code
 

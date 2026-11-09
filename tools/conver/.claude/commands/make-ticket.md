@@ -135,7 +135,7 @@ Output: every nonempty ticket field:
 
 Missing ticket → Not Found.
 
-When the ticket carries `condensedFrom`, the `## Condensed From` section holds the full records of the absorbed tickets in original implementation order. Read them as design context before Step 5; they are part of this ticket's design, not background noise. A ticket without `condensedFrom` has no such section, so Case B is unchanged. Step 6 must never rewrite `condensedFrom`; it is provenance.
+`condensedFrom` → `## Condensed From` = absorbed records in original order; read as design context before Step 5, not background. no `condensedFrom` → Case B unchanged. Step 6 never rewrites it: provenance.
 
 ### Step 1.5: Distribution brief (conditional)
 
