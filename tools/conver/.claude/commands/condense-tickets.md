@@ -1,23 +1,56 @@
 ---
-description: Condense the Tickets.json in the current package to the deterministic contiguous partition minimum.
+description: Condense the current package's Tickets.json to the deterministic contiguous partition minimum.
 disable-model-invocation: true
 ---
 
+# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
+
+MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
+
+Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+
 # /condense-tickets
 
-Role: reduce the `Tickets.json` in the current package to the minimum contiguous partition of its implementation-ordered tickets under the version-3 work budget, without re-running `/split-to-tickets`.
+Role: condense `./Tickets.json` to the version-3 contiguous partition minimum; no re-split.
+Scope: one package = current directory. Workspace-wide → `/condense-workspace`.
 
-This command takes no argument. The package is the current directory; the mode is fixed by this document. The script's `--plan`, `--apply`, `--gate` and `--workspace` flags are internal implementation details, not user-facing command arguments.
+Invariants:
+- argument: none. Non-empty `$ARGUMENTS` → refuse before any write. `--plan` / `--apply` / `--gate` / `--workspace` are script flags, never command arguments.
+- target: current directory; requires `./Tickets.json`.
+- prose: preserved, not authored. Absorbed ticket → `### From <key>: <title>` under `background` / `notes` / `invariants` / `scope`.
+- identity: survivor keeps key and id; absorbed keys → `condensedFrom`; no renumbering.
+- distribution: merged from split-time per-ticket records, never re-derived from a newer view; only absorbed keys remapped.
+- boundary: only `budget`-proven or proven `ownership-boundary` survives in a v3 phase; legacy `cohesion` / `tdd-order` replaced by the partition.
+- derived fields: never copied without remap; package gates prove the result.
+- judgment: none. Failing gate → restore archive. Pre-existing structural defect → fix separately; never relax a gate.
 
-## Path anchor
+**Path anchor (mandatory — resolve once).**
+
+Run this once at the start of the command:
 
 ```bash
 printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
 ```
 
-Use the printed absolute path as `CLAUDE_DIR` in every later block.
+Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use that literal path: substitute it into `node "$CLAUDE_DIR/scripts/..."`, or assign `CLAUDE_DIR="<the printed path>"` at the top of the block. Do not run `git rev-parse` again, and do not assume the current directory is the repository root.
 
-## Preflight
+## Language Protocol
+
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
+
+## Arguments
+
+In:
+- none. The package is the current directory; the mode is fixed by this document.
+- a non-empty argument list is refused, because the command derives both its target and its mode internally.
+
+Preflight (runs before any write):
 
 ```bash
 if [ -n "$ARGUMENTS" ]; then
@@ -37,29 +70,25 @@ fi
 
 ## Procedure
 
-1. Print the read-only plan so the merge is visible before any write:
+1. Plan read-only; visible before any write:
    ```bash
    node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --plan --tickets=Tickets.json
    ```
-2. Apply the same plan. The script archives `Tickets.pre-condense-<stamp>.json`, merges contiguous groups, remaps absorbed ticket keys, recomputes contracts, formulas, prerequisites and related ids, writes atomically, and runs coverage, closure, chain and implementation-order gates. A failing gate restores the archive and exits 1.
+2. Apply the same plan: archive → merge contiguous groups → remap absorbed keys → recompute contracts / formulas / prerequisites / related ids → atomic write → coverage, closure, chain, implementation-order gates. Failing gate restores the archive; exit 1.
    ```bash
    node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json
    ```
-3. When the package belongs to a workspacify workspace, regenerate the workspace implementation order once:
+3. Package in a workspacify workspace → regenerate the workspace order once:
    ```bash
    WORKSPACE_ROOT="$(node -e "const p=require('$CLAUDE_DIR/scripts/lib/package-artifacts').findAllocateManifest(process.argv[1]);process.stdout.write(p?require('path').dirname(p):'')" "$PWD")"
    if [ -n "$WORKSPACE_ROOT" ]; then
      node "$CLAUDE_DIR/scripts/sequences-slice/verify-implementation-order.mjs" --workspace="$WORKSPACE_ROOT" --write
    fi
    ```
-4. A second run prints `NO_CHANGE` and writes no bytes.
+4. Re-run → `NO_CHANGE`; zero bytes written.
 
-## Invariants
+## Done
 
-- The command accepts no argument. A non-empty `$ARGUMENTS` is refused before any write; the script's flags are never exposed as command arguments.
-- Prose is preserved, not authored: each absorbed ticket's `background`, `notes`, `invariants` and `scope` remain under `### From <key>: <title>`.
-- The survivor keeps its key and id; absorbed keys are recorded in `condensedFrom`. No ticket is renumbered.
-- Distribution records are merged from the split-time per-ticket records, not re-derived from a possibly newer sequence view. Only absorbed ticket keys are remapped.
-- Only a `budget`-proven boundary or a proven `ownership-boundary` may remain in a version-3 phase. Legacy `cohesion`/`tdd-order` reasons are replaced by the partition.
-- No derived field is copied from an absorbed ticket without remapping; the package gates prove the result.
-- The command performs no AI judgment. A failing gate restores the archive. A pre-existing structural defect outside condensation must be fixed separately, never by relaxing a gate.
+- plan printed before write; apply passes or the archive is restored.
+- second run `NO_CHANGE`.
+- no command argument consumed; no gate relaxed.

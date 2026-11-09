@@ -60295,6 +60295,160 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-09"
+        },
+        {
+          "id": 395,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Condense every manifest package and add /condense-workspace",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-395.md",
+          "invariants": "- [Normal establishment] Every target in a manifest workspace is a `workspace.packages[].path` entry whose directory holds a readable `Tickets.json`; the target list is deterministic and contains no duplicate directory.\n- [Error invariant] A package failure restores that package's archive and does not abort the remaining packages; the workspace runner exits 1 only after every target has been attempted and every failure has been reported.\n- [Internal state invariant] The workspace order is regenerated exactly once after the loop, and only when at least one package changed.\n- [Boundary invariant] A manifest entry with `path: \".\"` is resolved relative to the workspace root and is treated as a package; a `Tickets.json` absent from the manifest is reported, never condensed.",
+          "background": "### Goal\nCondense every package the workspace manifests declare, including the workspace-root package whose path is `.`, and add a no-argument `/condense-workspace` command that runs the same mechanical script over the full manifest-derived target set.\n\n### Purpose\nPX-394 added deterministic condensation and a package-level `/condense-tickets`. Its workspace mode discovered targets by walking the filesystem for directories that hold `Tickets.json`, `RFC-GRAPH.json` and `RFC-Dirs-Tree.json`. That rule missed a real package and could pick up working copies.\n\n### Motivation\nThe crystal workspace's `WORKSPACIFY-TREE-MANIFEST.json` declares `pkg-crystal` at `path: \".\"`. The filesystem walk excluded the workspace root, so the crystal facade package was never condensed: it still holds 10 tickets where the version-3 partition needs 9. The same walk also discovered a temporary copy (`.condense-trial/gaia-commerce`) during the PX-394 rollout. The manifest is the authoritative package list; it names every package, including `.`, and never names a working copy. The gaia manifest declares 29 packages while only 19 hold tickets; the other 10 must be reported as unsplit rather than silently absent.\n\n### Constraints\n- The command takes no argument. `--workspace` remains a script flag, never a command argument.\n- Manifest discovery is the default when `WORKSPACIFY-TREE-MANIFEST.json` exists; a workspace without it keeps the existing filesystem fallback.\n- A manifest package without `Tickets.json` is `skipped:unsplit`, not an error. A manifest package with `Tickets.json` is a target even when the graph or Dirs-Tree is absent; that package reports `skipped:no-distribution` from the package script.\n- `path: \".\"` is a package. It is not confused with a workspace aggregate: the tree manifest decides membership, not the path depth.\n- A `Tickets.json` outside the manifest is reported as `UNLISTED_PACKAGE`; the command does not silently condense it.\n- Per-package apply keeps its archive and fail-closed gates. The workspace runner continues after a package failure, reports every failure, and exits 1 if any package failed.\n- The workspace implementation order is regenerated once after the package loop, not once per package.\n- PX-394's package-level behavior, its no-argument command, and every existing verifier remain unchanged.",
+          "scope": [
+            "**Scope of changes:**\n- [File] `.claude/scripts/tickets/condense-tickets.js`: add `discoverManifestPackages(root)`, `discoverFilesystemPackages(root)` (the existing walk), and `discoverWorkspacePackages(root)` returning `{ targets, skipped, unlisted, source }`.\n- [Action] Replace the workspace target derivation with manifest-first discovery while keeping the filesystem walk as the fallback when the tree manifest is absent.\n- [Detail] A manifest row resolves `path.join(root, row.path)`; `path: \".\"` resolves to the root. A row is a target when `Tickets.json` exists and is `skipped:unsplit` otherwise. A `Tickets.json` outside the manifest is `unlisted` unless it is the root aggregate without `RFC-GRAPH.json` and `RFC-Dirs-Tree.json`.\n- [Before -> After] Before, workspace discovery required `Tickets.json` + `RFC-GRAPH.json` + `RFC-Dirs-Tree.json` and skipped the root. After, the manifest names every package, including `.`, and missing artifacts are reported per package.\n- [API] `discoverWorkspacePackages(root) -> { source: 'manifest'|'filesystem', targets: string[], skipped: [{path, reason}], unlisted: string[] }`; `runWorkspace(options)` returns a summary `{ applied, noChange, failed, skipped, unlisted }`.\n- [Command] `.claude/commands/condense-workspace.md` (new): no argument; preflight requires `$ARGUMENTS` empty and the current directory to hold `WORKSPACIFY-TREE-MANIFEST.json`; runs `--plan` then `--apply` internally.\n- [Schema] None. `Tickets.json` shape is unchanged.\n- [Config] None. `ticket-work-budget.json` is reused unchanged.\n- [Dependency] None.\n- [Non-change] `/condense-tickets` remains package-scoped and argument-free; `--gate`, `--plan`, `--apply` and `--workspace` remain script flags.\n- [Impact] Workspace condensation runs, the crystal root package, the workspace order sidecars, and the new command's installed copies.\n- [Response] After the change, `discoverWorkspacePackages('~/shyme/crystal')` returns 23 targets including `.`; `/condense-workspace` condenses the crystal root 10 -> 9 and leaves the other 22 packages NO_CHANGE; a second run is NO_CHANGE.",
+            "**Out of scope:**\n- Changing the package-level partition, merge semantics, distribution merge or archive format from PX-394.\n- Re-splitting unsplit packages or creating `Tickets.json` for them: `skipped:unsplit` is a report, not a split.\n- Treating the gaia or doors root `Tickets.json` as a package: the manifest does not list it, and it lacks the graph and Dirs-Tree.\n- A general workspace autodiscovery outside workspacify: the filesystem fallback remains only for a workspace without a tree manifest.\n- Committing changes in the gaia, crystal or doors repositories; this ticket commits the conver repository only.",
+            "**Affected areas:**\n- [Component] `condense-tickets.js`, the new workspace command, the command-document tests and the installed copies under `.claude`, `crates/siprs/.claude` and the three workspaces.\n- [Nature] Workspace target derivation, per-package failure reporting and one workspace-order write; no runtime performance or security surface.\n- [Response] Synthetic manifest-workspace fixture; tests for `.`, unsplit, unlisted and failure-continuation; a real crystal-root apply after the package tests pass."
+          ],
+          "testUnit": [
+            "UT: [Normal] A tree manifest with three package rows and one `path: \".\"` row yields exactly the three directories that hold Tickets.json, including the root package (C001).",
+            "UT: [Normal] A manifest package without Tickets.json is returned in `skipped` with reason `unsplit` and is not a target (C002).",
+            "UT: [Normal] A `Tickets.json` outside the manifest is returned in `unlisted`; it is not silently added to the target list (C003).",
+            "UT: [Boundary] `path: \".\"` resolves to the workspace root and is a target when the root holds Tickets.json; the root aggregate without graph and Dirs-Tree is not reported as unlisted (C004).",
+            "UT: [Boundary] A workspace without WORKSPACIFY-TREE-MANIFEST.json falls back to the filesystem walk and reports `source: 'filesystem'` (C001).",
+            "UT: [Error] One failing package does not stop the loop: the summary reports the failure, the remaining packages are attempted, and the workspace result exits 1 (C005).",
+            "UT: [Normal] A workspace run that changes at least one package invokes the workspace implementation-order writer exactly once after the loop (C006).",
+            "UT: [Normal] A workspace run with no changes reports all packages NO_CHANGE and invokes no workspace-order write (C006).",
+            "UT: [Invariant] The target list is deduplicated and ordered by manifest row order, independent of filesystem enumeration order (C001).",
+            "UT: [Boundary] A manifest row whose directory does not exist is reported as `missing-directory` and does not abort the run (C002).",
+            "UT: [Normal] `/condense-workspace` refuses non-empty `$ARGUMENTS` before any script runs (C004).",
+            "UT: [Boundary] `/condense-tickets` remains package-scoped: it still requires `./Tickets.json` and does not gain a workspace mode (C004)."
+          ],
+          "testIntegration": [
+            "IT: The synthetic manifest workspace with one split package, one unsplit package, a root `.` package and one unlisted package produces the expected targets, skipped and unlisted lists (C001, C002, C003, C004).",
+            "IT: A workspace apply with one deliberately failing package continues through the remaining targets, reports the failure, and exits 1; every applied package keeps its own archive (C005).",
+            "IT: After a successful workspace apply, `verify-implementation-order.mjs --workspace --write` is invoked once and its finding set is empty (C006).",
+            "IT: The crystal workspace's manifest discovers 23 targets including `.`; applying condenses the root 10 -> 9 and reports the other 22 NO_CHANGE (C001, C004).",
+            "IT: The gaia workspace's manifest reports its 10 unsplit packages as `skipped:unsplit` and targets its 19 split packages (C002).",
+            "IT: A second `/condense-workspace` run on crystal reports every package NO_CHANGE and writes no bytes (C006)."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Logging: one line per package in `--apply` (`condense <path>: before -> after` or `FAILED <code>`) and a final summary (`targets, applied, noChange, failed, skipped, unlisted`).\n- Metrics: none; the command is a build-time migration.\n- Error tracking: named codes `CONDENSE_REQUIRED`, `CONDENSE_GATE_FAILED`, `UNLISTED_PACKAGE`, `MISSING_TREE_MANIFEST`, `UNEXPECTED_ARGUMENT`.\n- Health check: `--plan` prints the manifest source and the target/skipped/unlisted counts; a second apply prints NO_CHANGE for every package.\nStatic quality check: passed (0 issues)\nTranslatability: no generic variables, no debug output; new functions are verb phrases\nTests: all 115 tests passed in the impact set\nReal workspaces: crystal 23 targets, root 10 -> 9, second run NO_CHANGE; gaia 19 targets, 10 skipped:unsplit; doors 8 targets",
+          "notes": "- Implementation steps:\n  1. Refactor the current filesystem walk into `discoverFilesystemPackages(root)` without changing its selection rule.\n  2. Add `discoverManifestPackages(root)` reading `WORKSPACIFY-TREE-MANIFEST.json`: resolve each `workspace.packages[].path`, classify each row as target / skipped:unsplit / missing-directory, and scan for unlisted `Tickets.json` outside the manifest. A root aggregate without graph and Dirs-Tree is not unlisted.\n  3. Add `discoverWorkspacePackages(root)` choosing manifest first and filesystem fallback, returning `{ source, targets, skipped, unlisted }`.\n  4. Change `runWorkspace` to use the new discovery, continue after per-package failure, collect a summary, and call the workspace order writer once when any package changed.\n  5. Add `.claude/commands/condense-workspace.md` with no `argument-hint`, a preflight that refuses `$ARGUMENTS` and requires the tree manifest, and the internal `--plan` then `--apply` calls.\n  6. Keep `/condense-tickets` package-scoped and argument-free; only its documentation gains a cross-reference to the workspace command.\n  7. Add the manifest-workspace fixture and the Red tests before implementation.\n  8. Run the manifest discovery read-only on gaia/crystal/doors; verify 23 crystal targets including `.` and 10 gaia unsplit packages; apply on crystal; regenerate the crystal workspace order; run the second run as NO_CHANGE.\n\n- Risks:\n  - A manifest may lag behind a newly added package. The unlisted report makes the drift visible instead of silently condensing or skipping it.\n  - Continuing after a package failure can leave a partially condensed workspace. Each package is independently archived and the final report names every failure, so the next run converges.\n  - A root package with `path: '.'` shares the directory with workspace manifests; the target check is Tickets.json presence, not directory depth.\n\n- Caveats:\n  - Unsplit packages are not created here; this ticket only reports them.\n  - The gaia/doors root `Tickets.json` without graph and Dirs-Tree remains out of scope as a workspace aggregate.\n  - PX-394 is reviewed; this ticket records the corrected totals rather than editing the reviewed ticket.\n\n- Open items:\n  - Whether a later ticket should make `UNLISTED_PACKAGE` fatal by default instead of a warning.\n\n- Future improvements:\n  - A workspace-level `--plan` report that groups packages by expected reduction.\n  - Manifest-based discovery for other bulk ticket commands that currently walk the filesystem.\nImplementation summary:\n- Changed files: .claude/scripts/tickets/condense-tickets.js, .claude/scripts/lib/package-artifacts.js, .claude/commands/condense-workspace.md, .claude/commands/condense-tickets.md, tests/tickets/condense-workspace.test.cjs, tests/tickets/fixtures/manifest-workspace.cjs, specs/PX-395.md\n- Red: 13 new tests failed first (missing exports and missing command document); the package-scoped regression guard also failed until the cross-reference existed.\n- Green: manifest discovery, failure continuation, single workspace-order write, no-argument workspace command.\n- Refactor: shared walkDirectories; resolveCanonicalFile now takes one options object; static quality report is clean.\n- Tests: 93 tests passed across the impact set (13 workspace, 68 core, 25 conventions overlap counted once).\n- Real workspaces: crystal 23 targets, root 10 -> 9, 22 NO_CHANGE, second run all 23 NO_CHANGE; gaia 19 targets, 10 skipped:unsplit; doors 8 targets; unlisted 0 because the temporary .condense-trial copy no longer exists.\n- Installed copies synchronized with make install-to-projects.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no generic variables, no debug output; new functions are verb phrases\n- Dependencies: manifest-first discovery; installed copies synchronized in zasso, siprs, gaia, conver, crystal and doors\n- Tests: 115/115 passed (workspace 13, core 68, conventions and command surface 34)\n- Issues found and fixed: missing PX-395 annotation on the resolveCanonicalFile signature -> merged with PX-334; resolveCanonicalFile 10-parameter finding -> single options object; command documents rewritten to the house telegraphic style\n- Annotation verify: 8 changed source files, 0 missing, 0 ambiguous\n- Formula obligations: none (no RFC-FORMULAS.json, 0 formulaObligations)",
+          "acceptanceCriteria": [
+            "[Happy path] `discoverWorkspacePackages` on crystal returns 23 manifest targets including `.`; `/condense-workspace` condenses the root 10 -> 9 and reports the other 22 packages NO_CHANGE; all package and workspace gates pass.",
+            "[Error case] One failing package does not abort the workspace run: the failure is reported, the remaining packages are attempted, each package's archive is preserved, and the command exits 1.",
+            "[Edge case] A manifest package without Tickets.json is `skipped:unsplit`; a Tickets.json outside the manifest is `UNLISTED_PACKAGE`; a workspace without a tree manifest falls back to the filesystem walk.",
+            "[Command] `/condense-workspace` takes no argument and refuses non-empty `$ARGUMENTS` before any write; `/condense-tickets` remains package-scoped.",
+            "[Correction] The PX-394 totals are corrected from 473 to 472 (gaia 226, crystal 212, doors 34) after the crystal root is condensed."
+          ],
+          "investigation": "- `WORKSPACIFY-TREE-MANIFEST.json.workspace.packages` is the authoritative package list. gaia has 29 rows, crystal 23 and doors 8.\n- crystal's first row is `pkg-crystal` with `path: \".\"`. The current `discoverPackages` skips `path.relative(root, root) === ''`, so the crystal facade package was never condensed; its `Tickets.json` holds 10 tickets and plans 10 -> 9.\n- gaia's manifest has 29 rows but only 19 directories hold `Tickets.json`; the remaining 10 are unsplit and currently invisible.\n- The current filesystem walk discovered `~/shyme/gaia/.condense-trial/gaia-commerce` during the PX-394 trial, proving that a working copy can enter the target list.\n- `Tickets.json` at the gaia and doors workspace roots exists without `RFC-GRAPH.json` and `RFC-Dirs-Tree.json`; it is a workspace aggregate, not a manifest package.\n- `condense-tickets.js` already accepts `--workspace=<root>`; the gap is target derivation and a no-argument command, not the per-package apply.\n- `verify-implementation-order.mjs --workspace=<root> --write` is the single workspace sidecar writer; PX-394 ran it once after the workspace apply.\n- Test harness: `tests/tickets/condense-tickets.test.cjs` uses node:test and a temporary package directory; the new workspace test uses the same pattern with a synthetic tree manifest and allocate manifest.",
+          "boyScoutPlan": "- Replace the single `discoverPackages` function with three named responsibilities: manifest discovery, filesystem fallback and the chooser. Each returns the same `{ source, targets, skipped, unlisted }` shape, so `runWorkspace` reads as prose.\n- Extract the per-package result formatting and the workspace summary into named functions; no inline ternaries in the loop.\n- Use named constants for the manifest file names and the skip reasons (`unsplit`, `missing-directory`).\n- Do not swallow a package failure: carry the error into the summary and exit 1.\n- Add tests for every new function and for the fallback path.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "WORKSPACIFY-TREE-MANIFEST.json workspace.packages -> target directories",
+              "precondition": "The workspace root holds a readable tree manifest whose workspace.packages array carries a path for every package.",
+              "postcondition": "Each distinct manifest path that holds Tickets.json becomes one target, including path '.', in manifest order.",
+              "invariant": "The target list contains no duplicate directory and no directory absent from the manifest."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "manifest package without Tickets.json -> skipped report",
+              "precondition": "A manifest row resolves to a directory that does not hold a readable Tickets.json.",
+              "postcondition": "The package appears in skipped with reason unsplit or missing-directory and is not passed to applyPlan.",
+              "invariant": "A skipped package never produces a write and never aborts the remaining targets."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Tickets.json outside the manifest -> unlisted report",
+              "precondition": "A directory below the workspace root holds Tickets.json but no manifest row names it.",
+              "postcondition": "The directory appears in unlisted and is not condensed by the workspace run.",
+              "invariant": "A working copy or an unlisted package can never enter the target list silently."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "path '.' and command arguments -> package identity and no-argument command",
+              "precondition": "The manifest may name the workspace root as a package path, and /condense-workspace may receive ARGUMENTS.",
+              "postcondition": "Path '.' is a package target when the root holds Tickets.json; non-empty ARGUMENTS is refused before any script runs.",
+              "invariant": "The command exposes no user-facing flag and the root package is not confused with a workspace aggregate."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "one package failure -> remaining targets",
+              "precondition": "The workspace run applies packages sequentially and one package gate fails.",
+              "postcondition": "The failed package restores its archive, the remaining targets are attempted, and the run exits 1 with every failure listed.",
+              "invariant": "No package failure leaves a partial Tickets.json and no failure suppresses a later package's independent archive."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "workspace package loop -> workspace implementation order",
+              "precondition": "The workspace run has completed its package loop.",
+              "postcondition": "When at least one package changed, the workspace implementation-order writer runs exactly once after the loop; when none changed, it is not invoked.",
+              "invariant": "The workspace sidecar is written once per run and never per package."
+            }
+          ],
+          "created_at": "2026-11-09",
+          "updated_at": "2026-11-09",
+          "default_files": [
+            ".claude/scripts/tickets/condense-tickets.js",
+            ".claude/commands/condense-workspace.md",
+            ".claude/commands/condense-tickets.md",
+            "tests/tickets/condense-workspace.test.cjs",
+            "tests/tickets/fixtures/manifest-workspace.cjs",
+            "tests/tickets/condense-tickets.test.cjs",
+            "specs/PX-395.md"
+          ],
+          "relatedTicketIds": "PX-394 introduced condensation, the package-level /condense-tickets and the filesystem workspace walk this ticket replaces. PX-373 owns evolve-in-place semantics. PX-343 made the split gates sound.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] manifest order, dedup and target selection (C001)\n  ```js\n  const root = createWorkspace('manifest-order', {\n    packages: [\n      { id: 'pkg-root', path: '.' },\n      { id: 'pkg-alpha', path: 'crates/alpha' },\n      { id: 'pkg-alpha-again', path: 'crates/alpha' },\n      { id: 'pkg-unsplit', path: 'crates/unsplit' },\n    ],\n  });\n  writePackage(root, [ticket(1), ticket(2)]);\n  writePackage(path.join(root, 'crates/alpha'), [ticket(1)]);\n  const found = discoverWorkspacePackages(root);\n  assert.equal(found.source, 'manifest');\n  assert.deepEqual(found.targets, [root, path.join(root, 'crates/alpha')]);\n  assert.equal(new Set(found.targets).size, found.targets.length);\n  assert.equal(found.targets.includes(path.join(root, 'crates/unsplit')), false);\n  ```",
+            "UT: [Error] unsplit and missing-directory are reported, never applied (C002)\n  ```js\n  const found = discoverWorkspacePackages(root);\n  assert.deepEqual(\n    found.skipped.map((entry) => entry.reason).sort(),\n    ['missing-directory', 'unsplit'],\n  );\n  assert.equal(found.targets.includes(path.join(root, 'crates/unsplit')), false);\n  assert.equal(found.targets.includes(path.join(root, 'crates/absent')), false);\n  ```",
+            "UT: [Invariant] a Tickets.json outside the manifest is unlisted, never a target (C003)\n  ```js\n  writePackage(path.join(root, 'crates/stray'), [ticket(1)]);\n  const found = discoverWorkspacePackages(root);\n  assert.ok(found.unlisted.includes(path.join(root, 'crates/stray')));\n  assert.equal(found.targets.includes(path.join(root, 'crates/stray')), false);\n  ```",
+            "UT: [Boundary] path '.' is the root package; a root aggregate is not unlisted; ARGUMENTS is refused (C004)\n  ```js\n  assert.ok(found.targets.includes(root));\n  writeJson(path.join(root, 'Tickets.json'), ticketDocument([ticket(1)]));\n  const aggregate = discoverWorkspacePackages(root);\n  assert.equal(aggregate.unlisted.includes(root), false);\n  const command = fs.readFileSync(COMMAND_PATH, 'utf8');\n  assert.match(command, /\\[ -n \"\\$ARGUMENTS\" \\]/);\n  assert.ok(command.indexOf('UNEXPECTED_ARGUMENT') < command.indexOf('condense-tickets.js'));\n  assert.doesNotMatch(command, /argument-hint/);\n  ```",
+            "UT: [Error] one failing package continues the loop and the summary carries the failure (C005)\n  ```js\n  const summary = await runWorkspace({\n    workspace: root,\n    apply: true,\n    verify: ({ artifacts }) => {\n      if (artifacts.directory.endsWith('crates/beta')) throw new Error('gate');\n      return { ok: true };\n    },\n    writeWorkspaceOrder: () => ({ ok: true }),\n  });\n  assert.equal(summary.failed.length, 1);\n  assert.equal(summary.failed[0].directory, path.join(root, 'crates/beta'));\n  assert.equal(summary.applied, 2);\n  assert.equal(fs.readFileSync(path.join(root, 'crates/beta', 'Tickets.json'), 'utf8'), betaBefore);\n  ```",
+            "UT: [Internal state] the workspace order writer runs once only after a change (C006)\n  ```js\n  let calls = 0;\n  const changed = await runWorkspace({\n    workspace: root, apply: true,\n    verify: () => ({ ok: true }),\n    writeWorkspaceOrder: (workspaceRoot) => { calls += 1; assert.equal(workspaceRoot, root); return { ok: true }; },\n  });\n  assert.equal(changed.applied, 3);\n  assert.equal(calls, 1);\n  const unchanged = await runWorkspace({\n    workspace: root, apply: true,\n    verify: () => ({ ok: true }),\n    writeWorkspaceOrder: () => { calls += 1; return { ok: true }; },\n  });\n  assert.equal(unchanged.noChange, 3);\n  assert.equal(calls, 1);\n  ```"
+          ],
+          "startedAt": "2026-11-09",
+          "changes": [
+            {
+              "before": "workspace discovery walked the filesystem for Tickets.json + RFC-GRAPH.json + RFC-Dirs-Tree.json and skipped the workspace root",
+              "after": "manifest-first discovery reads workspace.packages[].path, resolves path '.', deduplicates rows and preserves manifest order; the filesystem walk is the fallback only when no tree manifest exists",
+              "description": "condense-tickets.js: add discoverWorkspacePackages, discoverManifestPackages, discoverFilesystemPackages and a shared walkDirectories; keep discoverPackages as the compatibility name"
+            },
+            {
+              "before": "runWorkspace threw on the first failing package and returned a raw result array",
+              "after": "runWorkspace carries each package failure into a summary, continues through every target, reports skipped and unlisted rows, and exits 1 only after the loop",
+              "description": "condense-tickets.js: runPackageAction, renderWorkspaceEntry, renderWorkspaceReport and the summary shape"
+            },
+            {
+              "before": "the workspace implementation order was never regenerated by the workspace runner",
+              "after": "verify-implementation-order.mjs --workspace --write runs exactly once after the loop and only when at least one package changed; the writer is injectable for tests",
+              "description": "condense-tickets.js: runWorkspaceOrderWriter and the post-loop write"
+            },
+            {
+              "before": "no command ran condensation across a manifest workspace",
+              "after": "/condense-workspace takes no argument, refuses $ARGUMENTS before any write, requires WORKSPACIFY-TREE-MANIFEST.json and runs --plan then --apply internally",
+              "description": ".claude/commands/condense-workspace.md added"
+            },
+            {
+              "before": "the package command did not mention a workspace-wide run",
+              "after": "condense-tickets.md points at /condense-workspace without changing its own no-argument, package-scoped procedure",
+              "description": ".claude/commands/condense-tickets.md cross-reference"
+            },
+            {
+              "before": "package-artifacts.js kept TREE_MANIFEST_NAME private",
+              "after": "package-artifacts.js exports TREE_MANIFEST_NAME and resolveCanonicalFile reads one options object, so the new discovery does not duplicate the manifest filename",
+              "description": ".claude/scripts/lib/package-artifacts.js export and quality-check refactor"
+            },
+            {
+              "before": "crystal root package held 10 tickets and was never condensed",
+              "after": "crystal root holds 9 tickets; the other 22 packages are NO_CHANGE; gaia reports 19 targets and 10 skipped:unsplit; doors reports 8 targets; totals are gaia 226, crystal 212, doors 34 = 472",
+              "description": "real workspace verification after installing the new command into every project"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-09"
         }
       ]
     },

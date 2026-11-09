@@ -37,7 +37,11 @@ const { generateRelatedTicketIds } = require('./generate-related-ticket-ids.js')
 const { remapTicketKeyReferences } = require('./consolidate-phase-tickets.js');
 const { validateTickets } = require('../lib/validate-tickets.js');
 const { buildNodeToFileMap } = require('../rfc-graph/validate-phasify.js');
-const { findAllocateManifest, findSingleSiblingPath } = require('../lib/package-artifacts.js');
+const {
+  findAllocateManifest,
+  findSingleSiblingPath,
+  TREE_MANIFEST_NAME,
+} = require('../lib/package-artifacts.js');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -45,6 +49,8 @@ const EXIT_ARG_ERROR = 2;
 const DEFAULT_BUDGET_PATH = path.join(__dirname, 'ticket-work-budget.json');
 const ARCHIVE_PREFIX = 'Tickets.pre-condense-';
 const EXCLUDED_SEGMENTS = new Set(['node_modules', '.git']);
+const SKIP_UNSPLIT = 'unsplit';
+const SKIP_MISSING_DIRECTORY = 'missing-directory';
 
 // [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
 function readJson(filePath) {
@@ -65,20 +71,33 @@ function isExcludedRelative(relativePath) {
     || relativePath.startsWith(`tests${path.sep}fixtures${path.sep}`);
 }
 
-/** Package directories that hold Tickets.json, RFC-GRAPH.json and RFC-Dirs-Tree.json. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
-function discoverPackages(root) {
+/** Package in a workspace with a readable ledger but no distribution artifacts. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function readableTicketsDocument(directory) {
+  try {
+    return readJson(path.join(directory, 'Tickets.json'));
+  } catch {
+    return null;
+  }
+}
+
+/** Root ledger that aggregates a workspace instead of naming one package. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function isRootAggregate(root) {
+  const hasLedger = fs.existsSync(path.join(root, 'Tickets.json'));
+  const hasDistribution = fs.existsSync(path.join(root, 'RFC-GRAPH.json'))
+    && fs.existsSync(path.join(root, 'RFC-Dirs-Tree.json'));
+  return hasLedger && !hasDistribution;
+}
+
+/** Depth-first walk of the directories below a root, skipping excluded trees. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function walkDirectories(root, visit) {
   const resolvedRoot = path.resolve(root);
-  const found = [];
   const walk = (directory) => {
     const relative = path.relative(resolvedRoot, directory);
     if (relative.length > 0 && isExcludedRelative(relative)) return;
-    const hasTickets = fs.existsSync(path.join(directory, 'Tickets.json'));
-    if (hasTickets && relative.length > 0
-      && fs.existsSync(path.join(directory, 'RFC-GRAPH.json'))
-      && fs.existsSync(path.join(directory, 'RFC-Dirs-Tree.json'))) {
-      found.push(directory);
-    }
+    visit(directory, relative);
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       if (EXCLUDED_SEGMENTS.has(entry.name)) continue;
@@ -86,8 +105,96 @@ function discoverPackages(root) {
     }
   };
   walk(resolvedRoot);
+}
+
+/** Ledgers below the root that no manifest row names. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function collectUnlistedPackages(root, manifestDirectories) {
+  const unlisted = [];
+  walkDirectories(root, (directory, relative) => {
+    const ledgerPresent = fs.existsSync(path.join(directory, 'Tickets.json'));
+    const isManifestPackage = manifestDirectories.has(path.resolve(directory));
+    const isWorkspaceAggregate = relative.length === 0 && isRootAggregate(root);
+    if (ledgerPresent && !isManifestPackage && !isWorkspaceAggregate) unlisted.push(directory);
+  });
+  return unlisted.sort();
+}
+
+/** Package directories that hold Tickets.json, RFC-GRAPH.json and RFC-Dirs-Tree.json. */
+// [::TICKET::] PX-394, PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-395) --for-spec --no-implementation-order`.
+function discoverFilesystemPackages(root) {
+  const found = [];
+  walkDirectories(root, (directory, relative) => {
+    if (relative.length === 0) return;
+    if (!fs.existsSync(path.join(directory, 'Tickets.json'))) return;
+    if (!fs.existsSync(path.join(directory, 'RFC-GRAPH.json'))) return;
+    if (!fs.existsSync(path.join(directory, 'RFC-Dirs-Tree.json'))) return;
+    found.push(directory);
+  });
   return found.sort();
 }
+
+/** The package list a manifest workspace declares, with its skipped and unlisted rows. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function discoverManifestPackages(root) {
+  const resolvedRoot = path.resolve(root);
+  const manifestPath = path.join(resolvedRoot, TREE_MANIFEST_NAME);
+  let manifest = null;
+  try {
+    manifest = readJson(manifestPath);
+  } catch {
+    manifest = null;
+  }
+  if (manifest === null || !Array.isArray(manifest?.workspace?.packages)) {
+    const error = new Error(`tree manifest is unreadable: ${manifestPath}`);
+    error.code = 'MISSING_TREE_MANIFEST';
+    throw error;
+  }
+  const targets = [];
+  const skipped = [];
+  const manifestDirectories = new Set();
+  for (const row of manifest.workspace.packages) {
+    if (typeof row?.path !== 'string') continue;
+    const directory = path.resolve(resolvedRoot, row.path);
+    if (manifestDirectories.has(directory)) continue;
+    manifestDirectories.add(directory);
+    if (!fs.existsSync(directory)) {
+      skipped.push({ path: directory, reason: SKIP_MISSING_DIRECTORY });
+      continue;
+    }
+    if (readableTicketsDocument(directory) === null) {
+      skipped.push({ path: directory, reason: SKIP_UNSPLIT });
+      continue;
+    }
+    targets.push(directory);
+  }
+  return {
+    targets,
+    skipped,
+    unlisted: collectUnlistedPackages(resolvedRoot, manifestDirectories),
+  };
+}
+
+/**
+ * The workspace target set: manifest rows when the workspace declares them,
+ * the legacy artifact walk otherwise.
+ */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function discoverWorkspacePackages(root) {
+  const resolvedRoot = path.resolve(root);
+  if (fs.existsSync(path.join(resolvedRoot, TREE_MANIFEST_NAME))) {
+    return { source: 'manifest', ...discoverManifestPackages(resolvedRoot) };
+  }
+  return {
+    source: 'filesystem',
+    targets: discoverFilesystemPackages(resolvedRoot),
+    skipped: [],
+    unlisted: [],
+  };
+}
+
+/** PX-394 name for the filesystem walk; kept so existing callers cannot drift. */
+const discoverPackages = discoverFilesystemPackages;
 
 /** The budget document supplied as an option, a path, or the shipped default. */
 // [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
@@ -530,48 +637,123 @@ function parseArgs(argv) {
   return options;
 }
 
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
-async function runWorkspace(options) {
-  const packages = discoverPackages(options.workspace);
-  const results = [];
-  for (const directory of packages) {
-    const packageOptions = { ...options, ticketsPath: path.join(directory, 'Tickets.json') };
-    if (options.plan) {
-      const artifacts = await loadArtifacts(packageOptions);
-      const plan = buildPlan(artifacts, { merge: false });
-      process.stdout.write(renderPlan(plan, directory));
-      results.push({ directory, plan });
-      continue;
-    }
-    if (options.gate) {
-      const result = await gateTickets(packageOptions);
-      if (!result.ok) throw Object.assign(new Error(result.findings.join('; ')), { code: result.code });
-      results.push({ directory, result });
-      continue;
-    }
-    const result = await applyPlan(packageOptions);
-    if (!result.ok) throw Object.assign(new Error(result.error ?? result.code), { code: result.code });
-    results.push({ directory, result });
+/** Run one package action and return a typed result entry. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+async function runPackageAction(packageOptions, directory) {
+  if (packageOptions.plan) {
+    const artifacts = await loadArtifacts(packageOptions);
+    return { kind: 'plan', directory, plan: buildPlan(artifacts, { merge: false }) };
   }
-  return results;
+  if (packageOptions.gate) {
+    const result = await gateTickets(packageOptions);
+    if (!result.ok) throw Object.assign(new Error(result.findings.join('; ')), { code: result.code });
+    return { kind: 'gate', directory, result };
+  }
+  const result = await applyPlan(packageOptions);
+  if (!result.ok) throw Object.assign(new Error(result.error ?? result.code), { code: result.code });
+  return { kind: 'apply', directory, result };
 }
 
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+/** Regenerate the workspace implementation order once. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function runWorkspaceOrderWriter(workspaceRoot) {
+  const script = path.join(__dirname, '..', 'sequences-slice', 'verify-implementation-order.mjs');
+  const result = spawnSync(process.execPath, [script, `--workspace=${workspaceRoot}`, '--write'], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      code: 'WORKSPACE_ORDER_FAILED',
+      message: (result.stderr || result.stdout || '').trim(),
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Run every manifest package.
+ *
+ * A package failure is carried into the summary instead of throwing, so one broken
+ * package never suppresses the remaining targets or their independent archives.
+ */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+async function runWorkspace(options) {
+  const workspaceRoot = path.resolve(options.workspace);
+  const discovery = discoverWorkspacePackages(workspaceRoot);
+  const summary = {
+    source: discovery.source,
+    targetCount: discovery.targets.length,
+    applied: 0,
+    noChange: 0,
+    failed: [],
+    skipped: discovery.skipped,
+    unlisted: discovery.unlisted,
+    results: [],
+    orderWritten: false,
+  };
+  for (const directory of discovery.targets) {
+    const packageOptions = { ...options, ticketsPath: path.join(directory, 'Tickets.json') };
+    try {
+      const entry = await runPackageAction(packageOptions, directory);
+      summary.results.push(entry);
+      if (entry.kind === 'apply') {
+        if (entry.result.noChange) summary.noChange += 1;
+        else summary.applied += 1;
+      }
+    } catch (error) {
+      summary.failed.push({
+        directory,
+        code: error.code ?? 'CONDENSE_FAILED',
+        error: error.message,
+      });
+    }
+  }
+  if (options.apply && summary.applied > 0) {
+    const writeWorkspaceOrder = options.writeWorkspaceOrder ?? runWorkspaceOrderWriter;
+    const verdict = writeWorkspaceOrder(workspaceRoot);
+    if (verdict.ok === false) {
+      summary.failed.push({
+        directory: workspaceRoot,
+        code: verdict.code ?? 'WORKSPACE_ORDER_FAILED',
+        error: verdict.message ?? '',
+      });
+    } else {
+      summary.orderWritten = true;
+    }
+  }
+  return summary;
+}
+
+/** One Markdown block per package result. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function renderWorkspaceEntry(entry) {
+  if (entry.kind === 'plan') return renderPlan(entry.plan, entry.directory).trimEnd();
+  if (entry.kind === 'gate') return `gate ${entry.directory}: GATE_OK`;
+  const result = entry.result;
+  const suffix = result.noChange ? ' NO_CHANGE' : '';
+  return `condense ${entry.directory}: ${result.before} -> ${result.after}${suffix}`;
+}
+
+/** The workspace report: discovery counts, package results, skips, unlisted, failures. */
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+function renderWorkspaceReport(summary, workspaceRoot) {
+  const lines = [
+    `workspace ${workspaceRoot}: source=${summary.source} targets=${summary.targetCount} skipped=${summary.skipped.length} unlisted=${summary.unlisted.length}`,
+  ];
+  for (const entry of summary.results) lines.push(renderWorkspaceEntry(entry));
+  for (const entry of summary.skipped) lines.push(`skipped ${entry.path}: ${entry.reason}`);
+  for (const directory of summary.unlisted) lines.push(`unlisted ${directory}`);
+  for (const failure of summary.failed) lines.push(`FAILED ${failure.directory} ${failure.code}: ${failure.error}`);
+  lines.push(`workspace summary: applied=${summary.applied} noChange=${summary.noChange} failed=${summary.failed.length} skipped=${summary.skipped.length} unlisted=${summary.unlisted.length}`);
+  return `${lines.join('\n')}\n`;
+}
+
+// [::TICKET::] PX-394, PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-395) --for-spec --no-implementation-order`.
 async function main(argv = process.argv) {
   const options = parseArgs(argv);
   if (options.workspace !== null) {
-    const results = await runWorkspace(options);
-    for (const entry of results) {
-      if (entry.result !== undefined) {
-        if (entry.result.plan !== undefined) {
-          const plan = entry.result.plan;
-          process.stdout.write(`condense ${entry.directory}: ${plan.totalBefore} -> ${plan.totalAfter} GATE_${entry.result.ok ? 'OK' : 'REQUIRED'}\n`);
-          continue;
-        }
-        process.stdout.write(`condense ${entry.directory}: ${entry.result.before} -> ${entry.result.after}${entry.result.noChange ? ' NO_CHANGE' : ''}\n`);
-      }
-    }
-    return EXIT_SUCCESS;
+    const summary = await runWorkspace(options);
+    process.stdout.write(renderWorkspaceReport(summary, path.resolve(options.workspace)));
+    return summary.failed.length > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
   }
   const packageOptions = { ...options };
   if (options.plan) {
@@ -612,11 +794,17 @@ if (require.main === module) {
 
 module.exports = {
   discoverPackages,
+  discoverFilesystemPackages,
+  discoverManifestPackages,
+  discoverWorkspacePackages,
   loadArtifacts,
   buildPlan,
   applyPlan,
   gateTickets,
   renderPlan,
+  renderWorkspaceReport,
   runGates,
+  runWorkspace,
+  runWorkspaceOrderWriter,
   parseArgs,
 };

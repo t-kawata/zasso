@@ -31,6 +31,7 @@ const TICKETS_FILE_NAME = 'Tickets.json';
 
 /** Manifest that marks a workspace root together with the allocate manifest. */
 const TREE_MANIFEST_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
 
 /** Manifest that records the contract registry and the implementation order. */
 const ALLOCATE_MANIFEST_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
@@ -80,18 +81,19 @@ function resolveBaseDirectory(cwd) {
  * a default never guesses. `allowMissing` returns the derived path for creation
  * flows such as a status file that begin-run is about to write.
  */
-// [::TICKET::] PX-334 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-334 --for-spec --no-implementation-order`.
-function resolveCanonicalFile({
-  cwd,
-  override = null,
-  canonicalName,
-  suffix,
-  kind,
-  missingCode,
-  ambiguousCode,
-  allowMissing = false,
-  remedy,
-}) {
+// [::TICKET::] PX-334, PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-334|PX-395) --for-spec --no-implementation-order`.
+function resolveCanonicalFile(options) {
+  const {
+    cwd,
+    override = null,
+    canonicalName,
+    suffix,
+    kind,
+    missingCode,
+    ambiguousCode,
+    allowMissing = false,
+    remedy,
+  } = options;
   const directory = resolveBaseDirectory(cwd);
   if (override) {
     const explicit = path.resolve(directory, override);
@@ -372,6 +374,7 @@ module.exports = {
   DIRS_TREE_SUFFIX,
   SPLIT_STATUS_SUFFIX,
   TICKETS_FILE_NAME,
+  TREE_MANIFEST_NAME,
   CANONICAL_FILE_NAMES,
   STAGE_STATUS_SUFFIXES,
   canonicalPathError,
