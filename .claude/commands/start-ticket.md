@@ -96,6 +96,16 @@ node "$CLAUDE_DIR/scripts/tickets/check-ticket-prerequisites.js" --ticket-key="$
 
 If `/plan-ticket` was NOT executed immediately before in the same session, respond with "Prior execution of /plan-ticket is required. Interrupting." and abort.
 
+### Step 1.5: Read the condensation ledger (conditional)
+
+Run only when the ticket carries `condensedFrom`:
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --no-implementation-order
+```
+
+Read `## Condensed From` before implementing. Its absorbed records are part of the design contract. A ticket without `condensedFrom` has no such section and skips this step, so Case B and numeric-phase tickets keep their existing flow.
+
 ### Step 2: Record implementation start date
 
 Record the implementation start date in the `startedAt` field:

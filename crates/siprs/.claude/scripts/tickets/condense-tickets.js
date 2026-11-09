@@ -23,6 +23,7 @@ const {
   condensePlan,
   partitionDigest,
   ticketKeyOf,
+  LEDGER_RECORD_FIELD,
 } = require('./lib/ticket-partition.js');
 const {
   attachPrerequisites,
@@ -398,8 +399,113 @@ function buildKeyMap(plan) {
   return keyMap;
 }
 
+/** Every absorbed contract id paired with the survivor that absorbed it. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function collectLedgerContractIds(document) {
+  const entries = [];
+  for (const entry of collectLedgerTickets(document)) {
+    for (const contract of entry[LEDGER_RECORD_FIELD]?.contracts ?? []) {
+      entries.push({ contractId: contract.id, ownerKey: entry.originKey });
+    }
+  }
+  return entries;
+}
+
+/** Every ledger record carried by the document. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function collectLedgerTickets(document) {
+  const entries = [];
+  for (const phase of document.phases ?? []) {
+    for (const ticket of phase.tickets ?? []) {
+      for (const entry of ticket.condensedFrom?.tickets ?? []) entries.push(entry);
+    }
+  }
+  return entries;
+}
+
+/** How many absorbed records the document carries. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function countLedgerRecords(document) {
+  return collectLedgerTickets(document).length;
+}
+
+/**
+ * Audit contract ownership across the package.
+ *
+ * A contract absent from the survivor is not a loss when another ticket in the
+ * same package owns it. Only an id owned nowhere is `CONTRACT_NOT_REBUILT`.
+ */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function auditContractOwnership(tickets, absorbedContractIds) {
+  const owned = new Set();
+  for (const ticket of tickets) {
+    for (const contract of ticket.contracts ?? []) owned.add(contract.id);
+  }
+  return absorbedContractIds
+    .map((entry) => (typeof entry === 'string' ? { contractId: entry, ownerKey: null } : entry))
+    .filter((entry) => !owned.has(entry.contractId))
+    .map((entry) => ({ code: 'CONTRACT_NOT_REBUILT', contractId: entry.contractId, ownerKey: entry.ownerKey }));
+}
+
+/**
+ * Re-attach a missing contract from the absorbed ticket's ledger record.
+ *
+ * The graph and sidecar remain the authority for derived contracts. This repair
+ * only restores a clause the merge dropped; the package gates still prove the
+ * reconstructed document before it is written.
+ */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function repairContractsFromLedger(tickets, findings, ledgerTickets) {
+  const contractById = new Map();
+  const ownerByContractId = new Map();
+  for (const entry of ledgerTickets) {
+    for (const contract of entry[LEDGER_RECORD_FIELD]?.contracts ?? []) {
+      if (!contractById.has(contract.id)) contractById.set(contract.id, contract);
+      if (!ownerByContractId.has(contract.id)) ownerByContractId.set(contract.id, entry.originKey);
+    }
+  }
+  const ticketByKey = new Map(tickets.map((ticket) => [ticketKeyOf(ticket), ticket]));
+  const remaining = [];
+  for (const finding of findings) {
+    const contract = contractById.get(finding.contractId);
+    const ownerKey = finding.ownerKey ?? ownerByContractId.get(finding.contractId);
+    const owner = ownerKey === null || ownerKey === undefined ? undefined : ticketByKey.get(ownerKey);
+    if (contract === undefined || owner === undefined) {
+      remaining.push(finding);
+      continue;
+    }
+    owner.contracts = owner.contracts ?? [];
+    if (!owner.contracts.some((entry) => entry.id === contract.id)) {
+      owner.contracts.push(JSON.parse(JSON.stringify(contract)));
+    }
+  }
+  return remaining;
+}
+
+/** Prove every survivor carries a complete ledger record. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function auditLedgerCompleteness(document) {
+  const findings = [];
+  for (const phase of document.phases ?? []) {
+    for (const ticket of phase.tickets ?? []) {
+      const condensed = ticket.condensedFrom;
+      if (condensed === undefined || condensed === null) continue;
+      const ticketKey = ticketKeyOf(ticket);
+      if (typeof condensed.originKey !== 'string' || condensed.originKey.length === 0) {
+        findings.push({ code: 'CONDENSE_LEDGER_INVALID', ticketKey, detail: 'originKey is missing' });
+      }
+      for (const entry of condensed.tickets ?? []) {
+        if (entry[LEDGER_RECORD_FIELD] === undefined || entry[LEDGER_RECORD_FIELD] === null) {
+          findings.push({ code: 'CONDENSE_LEDGER_INVALID', ticketKey, detail: `${entry.key} has no record` });
+        }
+      }
+    }
+  }
+  return findings;
+}
+
 /** Recompute every derived field after the partition changed. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
 async function rehydrate(artifacts, document, decisions = {}) {
   const hasDistribution = artifacts.graph !== null && artifacts.dirsTree !== null && artifacts.view !== null;
   if ((decisions.keyMap ?? new Map()).size > 0) {
@@ -419,8 +525,11 @@ async function rehydrate(artifacts, document, decisions = {}) {
       if (related) ticket.relatedTicketIds = related;
       else delete ticket.relatedTicketIds;
       const reference = resolveReferenceSection(ticket.nodeIds, artifacts.graph.nodes ?? [], artifacts.graph.sourceFile ?? 'RFC.md');
-      if (reference.length > 0) ticket.referenceSection = reference;
-      else delete ticket.referenceSection;
+      // referenceSection is authored evidence. The graph may fill an absent field,
+      // but it never overwrites or deletes a value a ticket already carries.
+      const hasAuthoredReference = typeof ticket.referenceSection === 'string' && ticket.referenceSection.trim().length > 0;
+      if (!hasAuthoredReference && reference.length > 0) ticket.referenceSection = reference;
+      else if (!hasAuthoredReference) delete ticket.referenceSection;
     }
   }
 
@@ -514,13 +623,22 @@ function restoreArchive(archivePath, ticketsPath) {
  * @param {object} options — { ticketsPath, cwd, budget, verify, preserveCompleted, ...artifact overrides }
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
 async function applyPlan(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
   const plan = buildPlan(artifacts, { merge: true, rebuildContracts: artifacts.graph !== null });
   if (plan.totalBefore === plan.totalAfter) {
-    return { ok: true, noChange: true, before: plan.totalBefore, after: plan.totalAfter, digest: plan.digest, skipped: plan.skipped };
+    return {
+      ok: true,
+      noChange: true,
+      before: plan.totalBefore,
+      after: plan.totalAfter,
+      digest: plan.digest,
+      skipped: plan.skipped,
+      ledgerRecords: countLedgerRecords(artifacts.ticketsDocument),
+      repaired: 0,
+    };
   }
 
   const originalBytes = fs.readFileSync(artifacts.ticketsPath, 'utf8');
@@ -540,6 +658,21 @@ async function applyPlan(options = {}) {
     await rehydrate(artifacts, document, { keyMap });
   } catch (error) {
     return { ok: false, code: error.code ?? 'CONDENSE_REHYDRATE_FAILED', error: error.message };
+  }
+
+  const allTickets = [];
+  for (const phase of document.phases ?? []) {
+    for (const ticket of phase.tickets ?? []) {
+      ticket.phaseId = phase.id;
+      allTickets.push(ticket);
+    }
+  }
+  const ledgerTickets = collectLedgerTickets(document);
+  const absorbedContracts = collectLedgerContractIds(document);
+  const contractFindings = auditContractOwnership(allTickets, absorbedContracts);
+  const remainingFindings = repairContractsFromLedger(allTickets, contractFindings, ledgerTickets);
+  if (remainingFindings.length > 0) {
+    return { ok: false, code: 'CONTRACT_NOT_REBUILT', findings: remainingFindings };
   }
 
   const validation = validateTickets(document);
@@ -574,11 +707,13 @@ async function applyPlan(options = {}) {
     digest: plan.digest,
     archivePath,
     skipped: plan.skipped,
+    ledgerRecords: ledgerTickets.length,
+    repaired: contractFindings.length - remainingFindings.length,
   };
 }
 
 /** The read-only gate used by the split final step. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
 async function gateTickets(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
@@ -595,6 +730,26 @@ async function gateTickets(options = {}) {
       ok: false,
       code: 'CONDENSE_REQUIRED',
       findings: partitionFindings.map((entry) => `${entry.code}: ${entry.message}`),
+      plan,
+    };
+  }
+  const ledgerFindings = auditLedgerCompleteness(artifacts.ticketsDocument);
+  if (ledgerFindings.length > 0) {
+    return {
+      ok: false,
+      code: 'CONDENSE_LEDGER_INVALID',
+      findings: ledgerFindings.map((entry) => `${entry.code}: ${entry.ticketKey} ${entry.detail}`),
+      plan,
+    };
+  }
+  const allTickets = (artifacts.ticketsDocument.phases ?? [])
+    .flatMap((phase) => (phase.tickets ?? []));
+  const contractFindings = auditContractOwnership(allTickets, collectLedgerContractIds(artifacts.ticketsDocument));
+  if (contractFindings.length > 0) {
+    return {
+      ok: false,
+      code: 'CONTRACT_NOT_REBUILT',
+      findings: contractFindings.map((entry) => `${entry.code}: ${entry.contractId}`),
       plan,
     };
   }
@@ -675,7 +830,7 @@ function runWorkspaceOrderWriter(workspaceRoot) {
  * A package failure is carried into the summary instead of throwing, so one broken
  * package never suppresses the remaining targets or their independent archives.
  */
-// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-395, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-395|PX-396) --for-spec --no-implementation-order`.
 async function runWorkspace(options) {
   const workspaceRoot = path.resolve(options.workspace);
   const discovery = discoverWorkspacePackages(workspaceRoot);
@@ -684,6 +839,8 @@ async function runWorkspace(options) {
     targetCount: discovery.targets.length,
     applied: 0,
     noChange: 0,
+    repaired: 0,
+    ledgerRecords: 0,
     failed: [],
     skipped: discovery.skipped,
     unlisted: discovery.unlisted,
@@ -698,6 +855,8 @@ async function runWorkspace(options) {
       if (entry.kind === 'apply') {
         if (entry.result.noChange) summary.noChange += 1;
         else summary.applied += 1;
+        summary.repaired += entry.result.repaired ?? 0;
+        summary.ledgerRecords += entry.result.ledgerRecords ?? 0;
       }
     } catch (error) {
       summary.failed.push({
@@ -734,7 +893,7 @@ function renderWorkspaceEntry(entry) {
 }
 
 /** The workspace report: discovery counts, package results, skips, unlisted, failures. */
-// [::TICKET::] PX-395 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-395 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-395, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-395|PX-396) --for-spec --no-implementation-order`.
 function renderWorkspaceReport(summary, workspaceRoot) {
   const lines = [
     `workspace ${workspaceRoot}: source=${summary.source} targets=${summary.targetCount} skipped=${summary.skipped.length} unlisted=${summary.unlisted.length}`,
@@ -743,7 +902,7 @@ function renderWorkspaceReport(summary, workspaceRoot) {
   for (const entry of summary.skipped) lines.push(`skipped ${entry.path}: ${entry.reason}`);
   for (const directory of summary.unlisted) lines.push(`unlisted ${directory}`);
   for (const failure of summary.failed) lines.push(`FAILED ${failure.directory} ${failure.code}: ${failure.error}`);
-  lines.push(`workspace summary: applied=${summary.applied} noChange=${summary.noChange} failed=${summary.failed.length} skipped=${summary.skipped.length} unlisted=${summary.unlisted.length}`);
+  lines.push(`workspace summary: applied=${summary.applied} noChange=${summary.noChange} repaired=${summary.repaired} ledgerRecords=${summary.ledgerRecords} failed=${summary.failed.length} skipped=${summary.skipped.length} unlisted=${summary.unlisted.length}`);
   return `${lines.join('\n')}\n`;
 }
 
@@ -801,6 +960,13 @@ module.exports = {
   buildPlan,
   applyPlan,
   gateTickets,
+  rehydrate,
+  auditContractOwnership,
+  repairContractsFromLedger,
+  auditLedgerCompleteness,
+  collectLedgerTickets,
+  collectLedgerContractIds,
+  countLedgerRecords,
   renderPlan,
   renderWorkspaceReport,
   runGates,

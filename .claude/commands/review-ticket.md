@@ -98,6 +98,8 @@ G1 existence: `node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticke
 - output starts `# {ticketKey}: Not Found` → stop; out: "The ticket does not exist, so /review-ticket is interrupted."
 - else → Markdown design info + related-info exploration methods = context → G2
 
+When the ticket carries `condensedFrom`, the `## Condensed From` records are part of the reviewed design. Step 7 completeness covers every absorbed record, not only the survivor's own sections. A ticket without `condensedFrom` is unchanged.
+
 ### Step 2 (common, no formal gate)
 cmd, per Node-ID in "Related RFC graph NODE-IDs to check":
 `node "$CLAUDE_DIR/scripts/rfc-graph/query.js" --graph=<GRAPH.json> --source=<RFC-?.md> --dirs-tree=<Dirs-Tree.json> --id=Nxxxx --hops=<N>` (hops: 1=direct edges, 2+=grandchildren+)

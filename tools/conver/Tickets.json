@@ -60449,6 +60449,464 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-09"
+        },
+        {
+          "id": 396,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Preserve every ticket field through condensation and present absorbed records in deterministic order",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-396.md",
+          "background": "### Goal\nCondensation must be information-preserving. A merged survivor must carry every field of every absorbed ticket, and every downstream command must read the merged ticket exactly as it reads an uncondensed ticket.\n\n### Purpose\nPX-394 introduced condensation and PX-395 extended it to every manifest package. The current merge keeps only a subset of fields. Absorbed prose is appended to the survivor, authored referenceSection values are overwritten or deleted by rehydrate, and planTestCode, sourcePaths, referenceUrls, rfcDiscrepancies, targetStubs, targetCrimes, foundOmissions, investigation, boyScoutPlan, instrumentation, unlistedFileReason, specPath and stubs are dropped from absorbed tickets. An audit of gaia, crystal and doors found losses in referenceSection, rfcDiscrepancies and unlistedFileReason. The pre-condense archives allowed a complete restoration.\n\n### Motivation\nThe ticket pipeline reads Tickets.json through two paths: show-ticket-context for make, plan and review, and direct top-level fields for start, resolve and split. A merge that drops a field silently removes a design, boundary, contract, obligation, sequence, operation, theory or formula statement before implementation. That is a pipeline-wide correctness defect, not a cosmetic one.\n\n### Constraints\nNo human decision may be requested. A repairable loss must be repaired, not reported as a stop. A genuine contradiction or unreadable input may still refuse. Case B instant ticket creation and numeric-phase tickets produced by split must keep their exact behavior. Existing command Markdown may change only additively and only when condensedFrom is present. Upstream commands and new slash commands are out of scope. The gaia, crystal and doors working trees are verification targets and are not committed by this ticket.",
+          "scope": [
+            ".claude/scripts/tickets/lib/ticket-partition.js: add a conservation ledger at condensedFrom.tickets[].record. The ledger stores originKey plus every non-derived field of the absorbed ticket verbatim. Machine fields are unioned in ticket order and remapped through keyMap. Survivor prose fields are not modified.",
+            ".claude/scripts/tickets/condense-tickets.js: rehydrate must not delete an authored referenceSection. It fills the field only when absent. Contract ownership is audited package-wide, not survivor-only. A field loss is repaired from the ledger before CONDENSE_FIELD_LOSS or CONTRACT_NOT_REBUILT is returned.",
+            ".claude/scripts/tickets/show-ticket-context.js: render a one-line condensation banner after the H1 and a Condensed From section immediately before Pipeline Context. Each absorbed record renders in original implementation order and uses the same internal section order as a normal ticket. Existing sections and their boundaries do not move.",
+            ".claude/scripts/tickets/restore-condensed-tickets.js: add a deterministic dry-run and apply command that selects the earliest Tickets.pre-condense archive containing every absorbed key, validates untouched tickets against post-condense edits, restores atomically and never deletes an archive.",
+            ".claude/commands/make-ticket.md, .claude/commands/plan-ticket.md, .claude/commands/start-ticket.md, .claude/commands/review-ticket.md, .claude/commands/resolve-ticket.md: add condensed-only guidance. make, plan and review name Condensed From as design context. start reads it conditionally before implementation. resolve preserves condensedFrom in its clone and batch-write paths. Case B and numeric-phase flows are unchanged.",
+            "tests/tickets: add fixtures and tests for ledger preservation, unknown-field preservation, machine-field union and remap, referenceSection non-destruction, package-wide contract ownership, repair-first apply, presentation order, clone label, Case B byte identity, second-run NO_CHANGE, restore dry-run and apply, and split Step 5-3 integration.",
+            "gaia, crystal and doors: after install, run /condense-workspace plan then apply, audit preservation and a second NO_CHANGE run. Do not commit these repositories; report their changed files."
+          ],
+          "testUnit": [
+            "UT: [Normal] condense-preservation builds a fixture of three contiguous tickets, applies mergeTicketGroup, and asserts every non-derived field of each absorbed ticket deep-equals condensedFrom.tickets[].record. Derived fields contracts, formulaObligations, distribution, prerequisites and mergeAttempts are excluded by name from the record.",
+            "UT: [Normal] condense-preservation adds a customFutureField to an absorbed fixture ticket and asserts it appears verbatim in the ledger without any production-code branch. The field name is not listed in the union table, proving the ledger is field-name agnostic.",
+            "UT: [Normal] condense-preservation asserts survivor background, scope, invariants and notes deep-equal their pre-merge values, so absorbed prose is never appended to the survivor.",
+            "UT: [Error] condense-preservation injects a missing ledger record and asserts apply returns a named CONDENSE_FIELD_LOSS only when reconstruction from the original tickets is impossible. A repairable loss returns ok true and records repairedFields.",
+            "UT: [Boundary] condense-preservation merges exactly two tickets and exactly the phase boundary (first and last) and asserts ledger order equals implementation order.",
+            "UT: [Invariant] condense-preservation asserts every unioned machine field keeps first-seen order and every ticket reference inside targetStubs, targetCrimes and relatedTicketIds is remapped through keyMap.",
+            "UT: [Normal] condense-preservation writes an authored referenceSection on an untouched ticket, runs rehydrate with a graph whose resolveReferenceSection returns an empty string, and asserts the authored value survives.",
+            "UT: [Normal] condense-preservation places an absorbed contract id on another ticket in the same package, runs the package-wide audit, and asserts no CONTRACT_NOT_REBUILT finding. Removing the id from every ticket produces the finding.",
+            "UT: [Normal] condense-presentation renders a condensed fixture and asserts the banner appears after the H1, the survivor sections keep their existing order, Condensed From appears immediately before Pipeline Context, and absorbed records follow original implementation order.",
+            "UT: [Normal] condense-presentation asserts each absorbed record renders background, scope, invariants, notes, investigation and boy scout plan in the same order as a normal ticket.",
+            "UT: [Normal] condense-presentation renders a clone whose ticket key differs from condensedFrom.originKey and asserts the inherited-ledger label instead of the condensed-from label.",
+            "UT: [Invariant] condense-presentation renders a ticket without condensedFrom and asserts the output is byte-identical to the stored pre-change golden file, proving Case B and numeric-phase rendering are unchanged.",
+            "UT: [Normal] condense-idempotency runs apply twice on the same fixture and asserts the second run returns NO_CHANGE and the Tickets.json digest is unchanged.",
+            "UT: [Normal] restore-condensed creates a package with one archive and two absorbed keys, runs dry-run and asserts zero writes, then apply and asserts ticket counts and key sets match the archive while the archive still exists.",
+            "UT: [Error] restore-condensed removes a needed archive and asserts a named refusal with no write."
+          ],
+          "testIntegration": [
+            "IT: make-ticket runs show-ticket-context --for-spec on a condensed fixture and asserts the spec contains Condensed From, merged contracts, distribution obligations and merged targetStubs. Case B fixture produces no Condensed From and the same sections as before.",
+            "IT: plan-ticket Gate P runs verify-plan-contracts on a condensed fixture whose planTestCode covers every merged contract and asserts exit 0; removing one contract entry makes Gate P exit 1.",
+            "IT: start-ticket Step 5b runs verify-red-coverage on merged contracts and Step 5c runs validate-ticket-targets on remapped targetStubs and targetCrimes, both exit 0.",
+            "IT: review-ticket Step 10 appends one rfcDiscrepancies entry and asserts all absorbed entries remain; Step 10b verify-final-contracts and validate-ticket-targets both exit 0.",
+            "IT: resolve-ticket clones a condensed survivor through create-deferral-ticket and asserts referenceSection, sourcePaths, referenceUrls, rfcDiscrepancies, nodeIds and condensedFrom are preserved in the clone.",
+            "IT: split-to-tickets Step 5-3 runs condense-tickets --apply on a numeric-phase fixture, then project-step-contracts --mode=verify, verify-chain and verify-implementation-order --package, and asserts all exit 0 and every numeric-phase key is unchanged."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/lib/ticket-partition.js",
+            ".claude/scripts/tickets/condense-tickets.js",
+            ".claude/scripts/tickets/show-ticket-context.js",
+            ".claude/scripts/tickets/restore-condensed-tickets.js",
+            ".claude/commands/make-ticket.md",
+            ".claude/commands/plan-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/resolve-ticket.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a condensed survivor carries every non-derived field of every absorbed ticket, renders the banner and a Condensed From section in original order, and a second apply returns NO_CHANGE.",
+            "Error case: a loss that the ledger cannot repair fails with a named code and the archive restores the pre-apply document; a repairable loss is repaired and the run completes.",
+            "Edge case: a Case B ticket and a numeric-phase ticket produce the same rendered output and the same Tickets.json fields as the pre-change baseline."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "condense merge -> conservation ledger",
+              "precondition": "a contiguous merge group of tickets in one phase",
+              "postcondition": "every non-derived field of every absorbed ticket is present in condensedFrom.tickets[].record",
+              "invariant": "the survivor own prose fields are byte-identical to their pre-merge values"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "condensed ticket -> show-ticket-context",
+              "precondition": "a ticket carrying condensedFrom with at least one absorbed record",
+              "postcondition": "the output has a banner after the title and a Condensed From section before Pipeline Context",
+              "invariant": "a ticket without condensedFrom renders byte-identically to the baseline"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "derived contract recomputation -> package audit",
+              "precondition": "contracts are rebuilt from graph and sidecar after a merge",
+              "postcondition": "every absorbed contract id is owned by some ticket in the package after remap",
+              "invariant": "a missing contract is repaired from the ledger before apply fails"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "condensed feature -> Case B and numeric-phase compatibility",
+              "precondition": "a ticket that does not carry condensedFrom is processed by make-ticket, plan-ticket, start-ticket, review-ticket or resolve-ticket",
+              "postcondition": "the command reads and writes the same fields it handled before this change",
+              "invariant": "the rendered Markdown and the Tickets.json fields remain byte-identical to the pre-change baseline"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "split Step 5-3 -> condense -> chain verification",
+              "precondition": "split-to-tickets Step 5-3 invokes condense-tickets apply on a numeric-phase Tickets.json",
+              "postcondition": "project-step-contracts verify, verify-chain and verify-implementation-order pass after the merge",
+              "invariant": "every numeric-phase ticket keeps its key and no absorbed ticket key is renumbered"
+            }
+          ],
+          "notes": "- [Implementation steps]\n  1. Red: add tests/tickets/condense-preservation.test.cjs, condense-presentation.test.cjs, condense-idempotency.test.cjs, restore-condensed.test.cjs and fixtures. Confirm every new test fails for the missing behavior.\n  2. lib/ticket-partition.js: introduce DERIVED_FIELDS and MACHINE_FIELDS constants, collectPreservedRecord(ticket), unionMachineFields(members, keyMap) and remapTicketReferences(ticket, keyMap). mergeTicketGroup writes one ledger record per absorbed ticket with originKey and record. Remove prose appending.\n  3. condense-tickets.js: rehydrate fills referenceSection only when absent. The package-wide contract audit compares the union of absorbed contract ids with the owners across all tickets after keyMap remap. Repairable losses are fixed from the ledger before any refusal.\n  4. show-ticket-context.js: add renderCondensationBanner(ticket, ticketKey) and renderCondensedFrom(ticket). Call them after the H1 and immediately before Pipeline Context. Do not move an existing section.\n  5. restore-condensed-tickets.js: implement archive discovery, dry-run report and atomic apply with the validation already exercised on the 48-package restoration.\n  6. Commands: add condensed-only guidance to make, plan, start, review and resolve. Keep every existing step and every Case B path unchanged.\n  7. Install with make install-to-projects.\n  8. Re-condense gaia, crystal and doors with /condense-workspace plan then apply.\n  9. Audit with --gate, render every survivor once, and run a second apply for NO_CHANGE.\n  10. Record the audit result in the ticket notes; do not commit the three external repositories.\n- [Risks] Tickets.json grows by the ledger records. The largest absorbed count is 94 in one workspace; each record is a small JSON object, so the increase is bounded. The renderer output grows by the Condensed From section; it is printed only for condensed tickets. A regression in split Step 5-3 would block every future split, so that integration test runs first in the impact set.\n- [Caveats] The pre-condense archives are the recovery source and are never deleted or rewritten. Restoration is already complete for gaia, crystal and doors; this ticket must not restore again. External repositories are verification targets and stay uncommitted.\n- [Open items] None. The archive selection rule is deterministic: earliest archive containing every absorbed key, with a post-condense-edit check on every untouched ticket.\n- [Future improvements] If another derived artifact is added, add its field name to DERIVED_FIELDS and the package-wide audit; the ledger needs no change because it stores every non-derived field by construction.\nImplementation summary:\n- Changed files: .claude/scripts/tickets/lib/ticket-partition.js, .claude/scripts/tickets/condense-tickets.js, .claude/scripts/tickets/show-ticket-context.js, .claude/scripts/tickets/restore-condensed-tickets.js, .claude/commands/{make,plan,start,review,resolve}-ticket.md, tests/tickets/{condense-preservation,condense-presentation,condense-split-step,restore-condensed}.test.cjs, tests/tickets/ticket-partition.test.cjs.\n- Red: 17 new tests failed first for the absent ledger, renderer, audit and restore behaviors.\n- Green: conservation ledger, ordered union and key remap, non-destructive referenceSection, package-wide contract audit with ledger repair, banner and Condensed From rendering, deterministic restore.\n- Refactor: named helpers collectPreservedRecord, unionMachineField, remapTicketReferences, auditContractOwnership, repairContractsFromLedger, auditLedgerCompleteness, renderCondensationBanner, renderCondensedFrom, demoteMarkdownHeadings; no generic data/info/tmp variables.\n- Tests: 104/104 passed in the impact set (condense, presentation, restore, split step, partition, show-ticket-context); node --check passed on all four source files; static quality 0 issues.\n- Real workspaces: gaia applied 17 with 2 NO_CHANGE and 95 records; crystal applied 23 with 85 records; doors applied 8 with 35 records. Total 215 records, 0 mismatch against the pre-condense archives, 158 records carry formerly lost fields. --gate returned GATE_OK for every target; second apply is all NO_CHANGE; a real survivor renders the banner and Condensed From with ##### internal headings.\n- make install-to-projects installed the fixed tree into zasso, siprs, gaia, conver, crystal and doors.\n- External repositories are left uncommitted; the pre-condense archives remain in place.\nPost-summary refinement:\n- The first real render exposed top-level ## headings inside absorbed notes. demoteMarkdownHeadings now demotes every heading in absorbed prose by three levels, so an absorbed record cannot open a section of the survivor document.\n- Every ledger field not named by the standard order is rendered generically, so instrumentation, specPath, default_files, nodeIds, planTestCode and any future field stay visible. Snake_case and camelCase field names render as Title Case.\n- The presentation test now covers the demoted heading, an unknown customFutureField and a default_files list.\n- Final impact set remains 104/104; annotation verify 17 files, 0 missing, 0 ambiguous; quality 0.",
+          "invariants": "- [Normal establishment] A merge group writes one ledger record per absorbed ticket containing every field that is not in the derived set, verbatim.\n- [Error invariant] A field loss that the ledger can repair never aborts apply; the repair is recorded and the run continues.\n- [Internal state invariant] The survivor's own background, scope, invariants and notes are byte-identical before and after the merge.\n- [Boundary invariant] A ticket without condensedFrom renders byte-identically to the pre-change baseline, and a numeric-phase ticket keeps its key across split Step 5-3.",
+          "testExceptions": [],
+          "instrumentation": "- [Logging] condense-tickets writes one stderr line per repair: `condense: repaired <field> on <ticketKey> from condensed ledger`. It writes one line per refusal with the named code and the archive path. Normal output keeps the existing per-package before -> after line and NO_CHANGE marker.\n- [Metrics] The workspace summary gains `repaired` and `ledgerRecords` counters beside applied, noChange, failed, skipped and unlisted. The per-package result gains the same two counters. No other output shape changes.\n- [Error tracking] Every refusal carries a stable code: CONDENSE_FIELD_LOSS, CONTRACT_NOT_REBUILT, CONDENSE_LEDGER_INVALID, RESTORE_ARCHIVE_MISSING, RESTORE_POST_CONDENSE_EDIT. The code and the affected ticket key are printed together.\n- [Health check] condense-tickets --gate runs the ledger and package-ownership audit read-only; restore-condensed-tickets --dry-run reports every package without writing. Both are safe to run on a live workspace.",
+          "investigation": "## Merge path\n- `.claude/scripts/tickets/lib/ticket-partition.js:304-387` mergeTicketGroup copies the survivor, unions nodeIds, default_files, testUnit, testIntegration, testExceptions and acceptanceCriteria, appends absorbed background/notes/invariants through preserveProseSection (216-220), prefixes scope entries, joins relatedTicketIds and concatenates changes. condensedFrom stores only key, id, status and title. Fields planTestCode, sourcePaths, referenceUrls, rfcDiscrepancies, targetStubs, targetCrimes, foundOmissions, investigation, boyScoutPlan, instrumentation, unlistedFileReason, specPath and stubs are not copied.\n- `.claude/scripts/tickets/lib/ticket-partition.js:38-42` RECOMPUTED_FIELDS is distribution, prerequisites and mergeAttempts only. contracts and formulaObligations are handled separately.\n\n## Rehydrate and referenceSection\n- `.claude/scripts/tickets/condense-tickets.js:403-448` rehydrate calls mergeContracts at line 415, regenerates relatedTicketIds, and at lines 421-423 calls resolveReferenceSection then writes or deletes referenceSection for every ticket in the package. An authored referenceSection is overwritten when the graph derives a different value and deleted when it derives an empty value. This produced 7 of the 35 lost fields during the real run.\n- `.claude/scripts/tickets/condense-tickets.js:518-580` applyPlan archives before write and restores the archive when a gate fails. `.claude/scripts/tickets/condense-tickets.js:471-498` runGates invokes the package validators.\n\n## Renderer\n- `.claude/scripts/tickets/show-ticket-context.js:930` emits the H1. Sections run from RFC Reference at 958 through Notes at 1266. Pipeline Context is emitted at 1274 only outside --for-spec. No code renders condensedFrom; a grep for condensedFrom in the file returns no match. Therefore a downstream AI sees the inline prose but not which tickets were absorbed, and the absorbed planning fields are invisible.\n\n## Command consumption\n- make-ticket: Step 1 calls show-ticket-context; Step 1.5 reads Distribution Obligations; Step 6 fills investigation, boyScoutPlan, scope, invariants, background, instrumentation, notes and acceptanceCriteria; Step 9 writes the spec from the renderer. start-ticket does not re-render: Step 5b reads contracts through verify-red-coverage, Step 5c reads targetStubs and targetCrimes, Step 9 appends to notes. review-ticket Step 1 renders, Step 10 appends rfcDiscrepancies, Step 10b runs verify-final-contracts and validate-ticket-targets, Step 10c runs the formula merge dry-run. resolve-ticket does not render: Step 9a and 9b enumerate and validate targetStubs and targetCrimes, and its escape hatch deep-clones the source ticket while preserving nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths and rfcDiscrepancies.\n- split-to-tickets Step 5-3 at lines 506-511 calls condense-tickets --apply, then project-step-contracts --mode=verify, verify-chain and verify-implementation-order. Evolve mode at line 108 preserves authored fields and recomputes derived fields, so condensedFrom and the ledger must be classified as authored provenance.\n- Clone paths that must keep working: find-omissions.md line 108 deep-clones the source ticket; start-ticket.md line 335 creates a crime deferral clone; resolve-ticket.md line 195 creates a deferral clone. A clone of a condensed survivor carries the ledger, so originKey is required to distinguish the original survivor from a clone.\n\n## Real-data evidence\n- The restoration inventory found 48 condensed packages: gaia 17, crystal 23, doors 8. Every package had an archive containing all absorbed keys. Untouched tickets matched the archive after excluding derived fields, the synthetic Condensed changes row and empty materialised fields. 35 authored fields were missing from the live document and were recovered. Final counts are gaia 360, crystal 299, doors 71; condensedFrom survivors are zero; the three workspace order files were regenerated with ok true.",
+          "boyScoutPlan": "- Split mergeTicketGroup into collectPreservedRecord(ticket), unionMachineFields(members, keyMap) and remapTicketReferences(ticket, keyMap). Each name is a verb phrase and one responsibility, so the merge reads as collect, union, remap.\n- Extract renderCondensationBanner(ticket, ticketKey) and renderCondensedFrom(ticket) from the main renderer so the presentation order is a named function rather than another branch in a long function.\n- Replace hardcoded field-name literals with DERIVED_FIELDS and MACHINE_FIELDS frozen sets, plus LEDGER_RECORD_FIELD and LEDGER_ORIGIN_FIELD constants.\n- Rename generic locals such as entry and value inside the new helpers to absorbedTicket, fieldName and recordValue where the domain meaning is otherwise unclear.\n- Keep every touched function under fifty lines and every touched file under the existing size; extract the audit into auditContractOwnership(tickets, absorbedContractIds, keyMap).\n- Add why-comments on the three non-obvious constraints: derived fields are the only fields allowed to disappear, the ledger stores every other field by construction, and referenceSection is authored data even when a graph can derive a candidate.",
+          "created_at": "2026-11-09",
+          "updated_at": "2026-11-09",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 Normal] ledger record equals the absorbed ticket minus derived fields\n```js\nconst group = { start: 0, end: 3 };\nconst merged = mergeTicketGroup([survivor, absorbedA, absorbedB], group).ticket;\nconst record = merged.condensedFrom.tickets[0].record;\nassert.deepStrictEqual(record, omitDerived(absorbedA));\nassert.strictEqual(merged.background, survivor.background);\nassert.strictEqual(merged.scope, survivor.scope);\n```",
+            "UT: [C001 Boundary] unknown field survives without a code branch\n```js\nabsorbedA.customFutureField = { atoms: ['x'] };\nconst merged = mergeTicketGroup([survivor, absorbedA], { start: 0, end: 2 }).ticket;\nassert.deepStrictEqual(merged.condensedFrom.tickets[0].record.customFutureField, { atoms: ['x'] });\n```",
+            "UT: [C002 Normal] banner and Condensed From order\n```js\nconst text = buildTicketMarkdown('P0-1', condensedTicket, document, packageDir, false, true);\nconst h1 = text.indexOf('# Target ticket is');\nconst banner = text.indexOf('Condensed from:');\nconst from = text.indexOf('## Condensed From');\nconst pipeline = text.indexOf('## Pipeline Context');\nassert.ok(h1 < banner && banner < from && from < pipeline);\n```",
+            "UT: [C002 Invariant] a ticket without condensedFrom matches the baseline bytes\n```js\nconst plain = buildTicketMarkdown('PX-1', caseBTicket, document, packageDir, false, true);\nassert.strictEqual(plain, fs.readFileSync('tests/tickets/fixtures/case-b-baseline.md', 'utf8'));\nassert.strictEqual(caseBTicket.condensedFrom, undefined);\n```",
+            "UT: [C003 Normal] a contract owned elsewhere is not a loss\n```js\nconst tickets = [survivorWith('C506'), otherTicketWith('C506')];\nassert.deepStrictEqual(auditContractOwnership(tickets, ['C506'], new Map()), []);\nconst findings = auditContractOwnership([survivorWith('C506')], ['C999'], new Map());\nassert.deepStrictEqual(findings.map((finding) => finding.code), ['CONTRACT_NOT_REBUILT']);\n```",
+            "UT: [C003 Invariant] the ledger repairs a missing field before refusal\n```js\nconst repaired = repairFromLedger({ survivor, ledger: [{ key: 'P0-2', record: { rfcDiscrepancies: ['gap'] } }] });\nassert.deepStrictEqual(repaired.ticket.rfcDiscrepancies, ['gap']);\nassert.deepStrictEqual(repaired.findings, []);\n```",
+            "UT: [C004 Normal] Case B fields are unchanged by every command view\n```js\nconst baseline = readCommandViews('tests/tickets/fixtures/case-b-views.json');\nconst actual = Object.fromEntries(['make', 'plan', 'start', 'review', 'resolve'].map((command) => [command, readTicketFields(caseBTicket, command)]));\nassert.deepStrictEqual(actual, baseline);\n```",
+            "UT: [C005 Normal] numeric-phase keys survive split Step 5-3\n```js\nconst fixture = createNumericPhaseWorkspace();\nconst before = fixture.ticketKeys();\nassert.strictEqual((await applyPlan({ ticketsPath: fixture.ticketsPath })).ok, true);\nassert.strictEqual(runNode('project-step-contracts.js', ['--mode=verify']).status, 0);\nassert.strictEqual(runNode('verify-chain.mjs', ['--stage=split']).status, 0);\nassert.strictEqual(runNode('verify-implementation-order.mjs', ['--package=.']).status, 0);\nassert.deepStrictEqual(fixture.ticketKeys(), before);\n```"
+          ],
+          "startedAt": "2026-11-09",
+          "changes": [
+            {
+              "before": "mergeTicketGroup kept the survivor fields, appended absorbed prose under inline From headings, and stored only key/id/status/title in condensedFrom",
+              "after": "mergeTicketGroup writes one conservation ledger record per absorbed ticket with originKey and every non-derived field verbatim; machine fields are unioned in ticket order and remapped; survivor prose is untouched",
+              "description": "lib/ticket-partition.js: collectPreservedRecord, remapTicketReferences, unionMachineField, unionMachineString, ledger constants"
+            },
+            {
+              "before": "rehydrate overwrote or deleted an authored referenceSection for every ticket and contracts were audited only on the survivor",
+              "after": "rehydrate fills referenceSection only when absent; contract ownership is audited package-wide; a missing contract is repaired from the ledger before CONTRACT_NOT_REBUILT is returned; --gate audits ledger completeness",
+              "description": "condense-tickets.js: auditContractOwnership, repairContractsFromLedger, auditLedgerCompleteness, collectLedgerContractIds"
+            },
+            {
+              "before": "show-ticket-context never read condensedFrom, so provenance and absorbed planning fields were invisible",
+              "after": "a banner follows the title and a Condensed From section renders every absorbed record in implementation order with demoted internal headings; a ticket without condensedFrom is byte-identical to the baseline",
+              "description": "show-ticket-context.js: renderCondensationBanner, renderCondensedFrom, demoteMarkdownHeadings"
+            },
+            {
+              "before": "no deterministic recovery path existed for a package whose condense had dropped fields",
+              "after": "restore-condensed-tickets.js selects the earliest archive containing every absorbed key, refuses post-condense edits, restores atomically and never deletes an archive",
+              "description": "restore-condensed-tickets.js added"
+            },
+            {
+              "before": "make, plan, start, review and resolve had no guidance for a condensed ticket",
+              "after": "each command reads the Condensed From records only when condensedFrom exists; resolve preserves condensedFrom in its clone and batch-write paths; Case B and numeric-phase flows are unchanged",
+              "description": "make-ticket.md, plan-ticket.md, start-ticket.md, review-ticket.md, resolve-ticket.md"
+            },
+            {
+              "before": "gaia, crystal and doors held the restored pre-condense documents and the old merge would drop fields again",
+              "after": "the fixed tool re-condensed 48 packages into 215 ledger records with zero mismatch against the pre-condense archives; 158 records carry the formerly lost referenceSection, rfcDiscrepancies or unlistedFileReason; second apply is all NO_CHANGE",
+              "description": "real workspace verification after make install-to-projects"
+            },
+            {
+              "before": "the Condensed From section rendered only the fields named by the presentation contract and an absorbed note could open a top-level heading",
+              "after": "every remaining ledger field renders generically (instrumentation, specPath, default_files, node ids and future fields), internal headings are demoted to ##### and field headings use Title Case",
+              "description": "show-ticket-context.js: appendCondensedValue, demoteMarkdownHeadings, CONDENSED_STANDARD_FIELDS"
+            }
+          ]
+        },
+        {
+          "id": 397,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "Add machine-readable gate findings and deterministic repair tools",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-397.md",
+          "background": "### Goal\nEvery gate emits an actionable repair worklist instead of stopping the pipeline. The pipeline consumes the worklist, applies the repair, and reruns until the finding set is empty and stable.\n\n### Purpose\nThe implementation pipeline currently mixes verification with judgment and often reports a failure without a mechanical repair route. This ticket builds the common finding schema, the repair plan and loop, the completion certificate, the debt check, and the deterministic tools every later gate will use.\n\n### Motivation\nThe user requires gates that never stop and never ask a human. A gate must tell the AI what is wrong and how to fix it. Without a shared finding schema and repair tools, each command invents its own stop condition.\n\n### Constraints\nNo existing gate or command behavior changes. No command Markdown edit. The new tools are additive. Every tool is atomic and refuses invalid input without writing.",
+          "scope": [
+            ".claude/scripts/tickets/lib/gate-finding.js: define and validate the shared finding shape code, asset, problem, fix list and rerun command. Reject a finding that has no executable fix or no rerun.",
+            ".claude/scripts/tickets/repair-plan.js: aggregate findings from multiple gates, deduplicate by finding identity, and order repairs by dependency: contract, test, annotation, spec, formula.",
+            ".claude/scripts/tickets/repair-loop.js: run the gates, apply each executable fix, rerun, and complete only when findings are zero on two consecutive runs with the same digest.",
+            ".claude/scripts/tickets/completion-certificate.js: record the final gate set, each gate digest, the rerun count and the zero-finding proof.",
+            ".claude/scripts/tickets/gate-debt.js: compare finding identities with the previous run and report DEBT_INCREASED when the new set is not a subset of the old set.",
+            ".claude/scripts/tickets/patch-ticket.js: schema-aware atomic append or overwrite for one ticket field. Reject a wrong type or unknown field shape without writing.",
+            ".claude/scripts/tickets/insert-verifies.js: insert an @verifies annotation at a given file and line with deduplication and format generated by buildAnnotation().",
+            ".claude/scripts/tickets/scaffold-test.js: generate a failing test with @verifies and a [::STUB::] marker. Refuse an empty body or a test that cannot fail.",
+            ".claude/scripts/tickets/rewrite-deferral-ticket.js: replace title, background and scope of a deferral clone from a structured seed in one atomic write.",
+            ".claude/scripts/tickets/record-review.js: write instrumentation, rfcDiscrepancies and notes with schema validation and append semantics.",
+            "tests/tickets: fixtures and tests for every tool and for the repair loop. No existing test is modified or removed."
+          ],
+          "testUnit": [
+            "UT: [Normal] gate-finding accepts a finding with code, asset, problem, a non-empty fix list and a rerun command.",
+            "UT: [Error] gate-finding rejects a finding without a fix or without rerun and returns GATE_FINDING_INCOMPLETE.",
+            "UT: [Normal] repair-plan deduplicates identical findings and orders contract repairs before test repairs before annotation repairs.",
+            "UT: [Normal] repair-loop completes when findings are zero on two consecutive runs with the same digest.",
+            "UT: [Error] repair-loop reports DEBT_INCREASED when the finding identity set grows between runs.",
+            "UT: [Boundary] completion-certificate records gate digests and the zero-finding proof and refuses a certificate with a missing gate digest.",
+            "UT: [Normal] patch-ticket appends a string or array field and overwrites a scalar atomically.",
+            "UT: [Error] patch-ticket rejects a wrong field type and leaves the file byte-identical.",
+            "UT: [Boundary] insert-verifies inserts @verifies at the requested line and does not duplicate an existing annotation.",
+            "UT: [Normal] scaffold-test generates a failing test with @verifies and [::STUB::] and refuses an empty body.",
+            "UT: [Normal] rewrite-deferral-ticket replaces title, background and scope from a seed and keeps unrelated fields.",
+            "UT: [Normal] record-review writes the three review fields with schema validation and append semantics."
+          ],
+          "testIntegration": [
+            "IT: repair-loop runs a synthetic gate that finds a defect, applies patch-ticket and reruns to zero.",
+            "IT: the existing condense, ticket and command test suites pass unchanged.",
+            "IT: existing command Markdown and existing gate output hashes equal the pre-ticket baseline."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/lib/gate-finding.js",
+            ".claude/scripts/tickets/repair-plan.js",
+            ".claude/scripts/tickets/repair-loop.js",
+            ".claude/scripts/tickets/completion-certificate.js",
+            ".claude/scripts/tickets/gate-debt.js",
+            ".claude/scripts/tickets/patch-ticket.js",
+            ".claude/scripts/tickets/insert-verifies.js",
+            ".claude/scripts/tickets/scaffold-test.js",
+            ".claude/scripts/tickets/rewrite-deferral-ticket.js",
+            ".claude/scripts/tickets/record-review.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a finding with a fix is applied by the loop and the rerun is zero.",
+            "Error case: an invalid or unrepairable finding is reported as a gate defect without writing.",
+            "Edge case: two consecutive zero-finding runs with the same digest produce a completion certificate."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "gate detection -> finding",
+              "precondition": "a gate detects a problem",
+              "postcondition": "the finding carries code, asset, problem, fix list and rerun command",
+              "invariant": "a finding without a fix or rerun is rejected"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "repair plan -> repair loop",
+              "precondition": "a repair plan has at least one executable finding",
+              "postcondition": "the loop applies fixes and reruns until findings are zero twice with the same digest",
+              "invariant": "a run that increases finding identities reports DEBT_INCREASED"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "repair tool -> asset file",
+              "precondition": "a ticket field or test file is patched",
+              "postcondition": "the change is written atomically after schema or line validation",
+              "invariant": "an invalid field type or missing target leaves the file unchanged"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "new tools -> existing pipeline",
+              "precondition": "the new tools are added without changing existing gates or commands",
+              "postcondition": "existing command Markdown and gate output hashes equal the baseline",
+              "invariant": "no existing test is modified or removed"
+            }
+          ],
+          "notes": "- [Implementation steps]\n  1. Red: add fixtures and tests for gate-finding, repair-plan, repair-loop, completion-certificate, gate-debt and the five tools.\n  2. Green: implement the schema and the pure functions first, then the atomic writers.\n  3. Refactor: extract the finding identity function and the dependency order into named helpers.\n- [Risks] A repair tool that writes on invalid input would violate the no-stop guarantee. Every writer validates and writes to a temporary file before rename.\n- [Caveats] This ticket does not add a gate. It provides the vocabulary and the tools that PX-398 uses.\n- [Open items] None. The exact finding codes are defined here and consumed by PX-398 and PX-399.\n- [Future improvements] When a new asset class appears, add a dependency rank in repair-plan; the loop needs no change.",
+          "invariants": "- [Normal establishment] Every gate finding carries code, asset, problem, at least one fix and a rerun command.\n- [Error invariant] A finding without a fix or rerun is rejected as a gate defect; no asset is written.\n- [Internal state invariant] patch-ticket, insert-verifies, scaffold-test, rewrite-deferral-ticket and record-review either write completely or leave the target byte-identical.\n- [Boundary invariant] Existing command Markdown and existing gate output hashes equal the pre-ticket baseline.",
+          "testExceptions": [],
+          "instrumentation": "- [Logging] repair-loop writes one line per run: `repair-loop run=<n> findings=<count> digest=<digest>`. Each applied fix writes `repair-loop fix=<code> tool=<tool>`.\n- [Metrics] The completion certificate records runs, fixes, final findings and final digest. gate-debt records previous/current finding counts.\n- [Error tracking] Named codes: GATE_FINDING_INCOMPLETE, DEBT_INCREASED, REPAIR_TOOL_INVALID_INPUT, REPAIR_TARGET_MISSING, CERTIFICATE_INCOMPLETE.\n- [Health check] Every tool supports a dry-run that validates and reports without writing.",
+          "investigation": "## Current gate behavior\n- `.claude/scripts/tickets/verify-plan-contracts.js:57-79` computes `hasConcreteCode(testUnitText)` over the whole planTestCode; `elementIsCovered` ignores the element text. A single code fence passes every contract.\n- `.claude/scripts/tickets/verify-make-contracts.js:75-105` checks `preWords.some(w => utText.includes(w))`; one keyword passes a contract.\n- `.claude/scripts/tickets/verify-red-coverage.js` matches `@verifies` lines only; it does not inspect the test body.\n- `.claude/scripts/tickets/condense-tickets.js:403-448` already demonstrates the repair pattern: audit, repair from the ledger, then re-run gates; `restore-condensed-tickets.js` demonstrates atomic restore.\n\n## Commands today\n- make Step 7, plan Step 4.5, start Step 5b/5c, review Step 10b/10c and resolve Step 9/10 each run their own scripts and treat a non-zero exit as a stop. They do not share a finding schema.\n- resolve Step 9b runs `validate-ticket-targets` only when `$ARGUMENTS` is non-empty; Step 10 runs compile, test and no-excuse only. No contract or formula gate is rerun after resolve edits code.\n\n## Tool inventory\n- `update-ticket.js` accepts arbitrary JSON and overwrites fields; it has no field-level patch mode.\n- `insert-stub.js` and `remove-stub.js` manage markers; there is no `@verifies` insertion tool.\n- `create-deferral-ticket.js` deep-clones the source; there is no atomic rewrite tool for the clone.\n- `review/generate-report.js` renders a quality report; it does not write review fields.\n\n## Design evidence\n- PX-396 showed that a repair loop is feasible: ledger repair and archive restore run without a human. This ticket generalizes that pattern into a shared schema and toolset.",
+          "boyScoutPlan": "- Name the finding identity function `findingIdentity` and the dependency rank `repairRank`, so the plan order is a function of the asset class rather than an inline array.\n- Extract `writeTemporaryThenRename(targetPath, bytes)` into a shared helper used by every tool; no duplicated atomic-write logic.\n- Replace generic locals (`data`, `info`, `tmp`) with `finding`, `repairPlan`, `ticketDocument` and `targetBytes`.\n- Keep each tool under fifty lines and each file under the existing size; split `repair-loop` into `runGateCycle`, `applyFixes` and `isStable`.\n- Add why-comments on the three non-obvious rules: a finding without a fix is a gate defect, the loop needs two stable runs, and an empty test body is a stub.",
+          "created_at": "2026-11-09",
+          "updated_at": "2026-11-09"
+        },
+        {
+          "id": 398,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "Close per-element, obligation, axis, acceptance and skip verification gaps",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-398.md",
+          "background": "### Goal\nEvery design asset class that reaches a ticket has a mechanical gate that names the missing asset and a repair route. The default gate exit codes stay unchanged; a new report mode supplies the worklist.\n\n### Purpose\nThe current gates are coarse. One code block satisfies every contract in planTestCode. One keyword satisfies a contract test. Operation obligations, sequence axes, acceptance criteria, spec fields and skips are not verified at all. This ticket closes those gaps without breaking existing callers.\n\n### Motivation\nThe user requires penetration from split to implementation, verified rather than reviewed. A coarse gate that passes a missing asset is worse than no gate because it creates false confidence.\n\n### Constraints\nExisting gate default exit codes, stdout contracts and command callers must not change. New behavior is exposed through a report mode. New gates are additive. No command Markdown edit in this ticket.",
+          "scope": [
+            ".claude/scripts/tickets/verify-plan-contracts.js: require each contract id to appear in at least one planTestCode entry that also contains a code pattern. Keep the existing whole-text check as a secondary guard.",
+            ".claude/scripts/tickets/verify-make-contracts.js: require each contract id to appear in testUnit or testIntegration in addition to the existing keyword check.",
+            ".claude/scripts/tickets/verify-contract-delivery.js: report CONTRACT_CLAUSE_UNTESTED and BOUNDARY_CLAUSE_UNTESTED when a contract element or boundary clause is not named by a test or a justified exception.",
+            ".claude/scripts/tickets/verify-operation-delivery.js: report OPERATION_OBLIGATION_UNTESTED and SEQUENCE_AXIS_UNTESTED for distribution units and step axes.",
+            ".claude/scripts/tickets/verify-acceptance-coverage.js: report ACCEPTANCE_CRITERIA_UNTESTED for each acceptance criterion not named by a test or a justified exception.",
+            ".claude/scripts/tickets/verify-formula-delivery.js: reuse the existing merge-formulas dry-run and expose its findings in report mode for make and plan.",
+            ".claude/scripts/tickets/show-ticket-context.js: render top-level fields that the standard section set does not name, using the same generic renderer as the absorbed records.",
+            ".claude/scripts/tickets/verify-spec-completeness.js: report SPEC_FIELD_MISSING and SPEC_SECTION_MISSING when the --for-spec output omits a ticket field or a required section.",
+            ".claude/scripts/tickets/verify-skip-classification.js: report UNPROVEN_SKIP and UNGROUNDED_SKIP when a skipped check is neither grounded not-applicable nor backed by a producer.",
+            ".claude/scripts/tickets/validate-ticket-targets.js: report STALE_CLONE_CONTENT when a deferral clone still equals its source content.",
+            ".claude/scripts/tickets/verify-review-record.js: report REVIEW_RECORD_MISSING when instrumentation, rfcDiscrepancies or notes is missing or malformed after review.",
+            "tests/tickets: fixtures for every finding and for the false-pass regressions. No existing test is modified or removed."
+          ],
+          "testUnit": [
+            "UT: [Normal] Gate P fails a ticket with two contracts and one untagged code block.",
+            "UT: [Normal] Gate P passes when each contract id carries its own planTestCode entry with a code pattern.",
+            "UT: [Error] Gate M fails a contract whose id is absent from testUnit and testIntegration even when its words appear elsewhere.",
+            "UT: [Normal] verify-contract-delivery reports CONTRACT_CLAUSE_UNTESTED and BOUNDARY_CLAUSE_UNTESTED with the contract id and clause.",
+            "UT: [Normal] verify-operation-delivery reports OPERATION_OBLIGATION_UNTESTED and SEQUENCE_AXIS_UNTESTED with the unit and axis.",
+            "UT: [Normal] verify-acceptance-coverage reports each acceptance criterion that no test or justified exception names.",
+            "UT: [Normal] the formula report gate reports a missing implementation symbol and a missing test from the existing merge dry-run.",
+            "UT: [Normal] show-ticket-context renders an unknown top-level field in --for-spec and keeps the existing sections in order.",
+            "UT: [Error] verify-spec-completeness reports a field that the renderer omitted.",
+            "UT: [Normal] verify-skip-classification reports UNPROVEN_SKIP and accepts a grounded not-applicable.",
+            "UT: [Normal] validate-ticket-targets reports STALE_CLONE_CONTENT for an unchanged deferral clone.",
+            "UT: [Normal] verify-review-record reports a missing review field and accepts a complete record."
+          ],
+          "testIntegration": [
+            "IT: every new finding has an executable repair route in the report output and the caller can apply it without a human.",
+            "IT: existing ticket gate results are identical in the default mode; the report mode is additive.",
+            "IT: existing command Markdown and the existing test suite are unchanged.",
+            "IT: Case B and numeric-phase tickets produce the same output as before."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/verify-plan-contracts.js",
+            ".claude/scripts/tickets/verify-make-contracts.js",
+            ".claude/scripts/tickets/verify-contract-delivery.js",
+            ".claude/scripts/tickets/verify-operation-delivery.js",
+            ".claude/scripts/tickets/verify-acceptance-coverage.js",
+            ".claude/scripts/tickets/verify-spec-completeness.js",
+            ".claude/scripts/tickets/verify-skip-classification.js",
+            ".claude/scripts/tickets/verify-review-record.js",
+            ".claude/scripts/tickets/validate-ticket-targets.js",
+            ".claude/scripts/tickets/show-ticket-context.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: each new gate names the missing asset and its repair route.",
+            "Error case: the previous false passes now fail in report mode with a named finding.",
+            "Edge case: default-mode output and exit codes remain identical for existing callers."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "contract -> planTestCode",
+              "precondition": "a ticket carries contracts and planTestCode",
+              "postcondition": "each contract id appears in at least one planTestCode entry that contains a code pattern",
+              "invariant": "a code block for another contract cannot satisfy this contract"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "contract -> test plan",
+              "precondition": "a ticket carries contracts and a test plan",
+              "postcondition": "each contract id appears in testUnit or testIntegration",
+              "invariant": "a keyword match elsewhere cannot satisfy the contract"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "operation and sequence -> final test",
+              "precondition": "a ticket carries distribution units and sequence steps",
+              "postcondition": "every non-empty obligation field and every axis is named by a final test or a justified exception",
+              "invariant": "a plan-time mention alone does not satisfy the final gate"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "ticket -> spec and skip report",
+              "precondition": "a ticket is rendered for spec and a gate reports a skip",
+              "postcondition": "every top-level field is rendered and every skip is classified as not-applicable or unproven",
+              "invariant": "an invisible field or ungrounded skip is reported by code"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "new gates -> existing callers",
+              "precondition": "existing gates are extended and new gates are added",
+              "postcondition": "default-mode exit codes and stdout contracts are unchanged",
+              "invariant": "the report mode is additive and no existing test is modified or removed"
+            }
+          ],
+          "notes": "- [Implementation steps]\n  1. Red: add a fixture for each finding code and reproduce the two known false passes: one code block for many contracts, and keyword-only contract matching.\n  2. Green: strengthen verify-plan-contracts and verify-make-contracts; add the six new gates; add top-level generic rendering.\n  3. Refactor: share the asset-to-test matcher across contract, operation, axis and acceptance gates.\n- [Risks] Strengthening an existing gate can invalidate existing tickets. The default mode must keep the old exit code until PX-399 switches callers to report mode; the new strict check is report-only in this ticket.\n- [Caveats] The formula report gate reuses the existing merge dry-run; it does not introduce a second formula implementation.\n- [Open items] None. The report-mode contract is defined by PX-397.\n- [Future improvements] When a new asset class appears, add one matcher and one finding code; the repair plan already orders by asset class.",
+          "invariants": "- [Normal establishment] Each new or strengthened gate maps an asset id to a finding code and a repair route.\n- [Error invariant] A gate in report mode exits zero and never stops the caller; a missing asset is always a finding.\n- [Internal state invariant] The default gate mode keeps the existing exit code and stdout shape; the report mode is additive.\n- [Boundary invariant] A ticket without the relevant asset class produces no finding and keeps its previous output.",
+          "testExceptions": [],
+          "instrumentation": "- [Logging] Each gate writes one line per finding in report mode: `<GATE_CODE> <asset> <repair-tool>`. Default mode keeps the existing output.\n- [Metrics] Report mode records finding count by code and the set of asset ids checked.\n- [Error tracking] Named codes: CONTRACT_ELEMENT_UNTRANSLATED, CONTRACT_TEST_MISSING, CONTRACT_CLAUSE_UNTESTED, BOUNDARY_CLAUSE_UNTESTED, OPERATION_OBLIGATION_UNTESTED, SEQUENCE_AXIS_UNTESTED, ACCEPTANCE_CRITERIA_UNTESTED, SPEC_FIELD_MISSING, UNPROVEN_SKIP, UNGROUNDED_SKIP, STALE_CLONE_CONTENT, REVIEW_RECORD_MISSING.\n- [Health check] Every gate has a report mode that exits zero and never stops the caller.",
+          "investigation": "## False passes in the current gates\n- `.claude/scripts/tickets/verify-plan-contracts.js:57-79`: `hasConcreteCode(testUnitText)` is evaluated over the whole `planTestCode`; `elementIsCovered` ignores the element text. One code fence passes every contract.\n- `.claude/scripts/tickets/verify-make-contracts.js:75-105`: `preWords.some(w => utText.includes(w))`; a single shared word passes a contract.\n- `.claude/scripts/tickets/verify-red-coverage.js`: the regex counts `@verifies` annotations; it never inspects the test body, so a test that asserts nothing still passes.\n- `.claude/scripts/tickets/verify-make-distribution.js`: checks the written spec plan for operation fields and axes; it does not run after implementation, so a test that omits an axis is not detected.\n\n## Missing gates\n- Acceptance criteria: no script reads `ticket.acceptanceCriteria` against the test plan.\n- Contract clauses: `verify-final-contracts` checks contract ids, not each Pre/Post/Invariant clause.\n- Spec completeness: `show-ticket-context.js` renders a fixed section set; an unknown top-level field is invisible.\n- Skips: `skipped:no-distribution` and similar reasons are allowed without distinguishing not-applicable from unproven.\n- Deferral clones: `create-deferral-ticket.js` deep-clones the source; no gate checks that the clone content was rewritten.\n\n## Source and artifact evidence\n- `.claude/scripts/tickets/merge-formulas-to-tickets.js` already emits missing ticket, duplicate implementer, changed digest, RFC.md origin, missing symbol and missing test findings. It can be reused as a report-mode gate.\n- `.claude/scripts/tickets/validate-ticket-targets.js` already walks targetStubs and targetCrimes; adding a clone-content check is a local extension.\n- `.claude/scripts/tickets/show-ticket-context.js` already has a generic absorbed-record renderer from PX-396; the same renderer can cover unknown top-level fields.",
+          "boyScoutPlan": "- Extract `assetIsNamedByTest(assetId, testEntries)` so contract, operation, axis and acceptance gates share one matcher.\n- Name the finding builders by asset class: `contractFinding`, `operationFinding`, `axisFinding`, `acceptanceFinding`, `skipFinding`.\n- Replace hardcoded field-name arrays with frozen constants `OBLIGATION_FIELDS` and `SEQUENCE_AXES`.\n- Keep each gate under fifty lines and each file under the existing size; the shared matcher lives in `lib/asset-coverage.js` only if at least three gates use it.\n- Add why-comments on the two false-pass rules: an asset id must be near its own code, and a plan-time mention is not a final test.",
+          "created_at": "2026-11-09",
+          "updated_at": "2026-11-09"
+        },
+        {
+          "id": 399,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "Wire repair loops into start, review and resolve and prevent reviewed-ticket invalidation",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-399.md",
+          "background": "### Goal\\nstart, review and resolve consume the repair worklists and complete without human intervention. resolve cannot change code and leave a reviewed ticket unverified.\\n\\n### Purpose\\nPX-397 provides the finding schema and tools. PX-398 provides the gates. This ticket connects them to the three implementation commands, adds a reverify path for ticket changes, and makes reviewed status conditional on a fresh verification pass rather than on a past review.\\n\\n### Motivation\\nThe largest remaining hole is post-review mutation. resolve can edit code, remove a stub or change a warning suppression after review and no contract, formula or annotation gate is rerun. The ticket status stays reviewed while the evidence is stale.\\n\\n### Constraints\\nExisting command roles, Steps, arguments and gate semantics must not change. Command Markdown edits are additive and minimal. Case B and numeric-phase tickets keep their exact flow. No human decision is requested; a stale ticket is repaired and reverified in the same run.\n\n### Goal\n[::TEMPLATE-STUB::background-goal::] What specific outcome does this ticket achieve?\n\n### Purpose\n[::TEMPLATE-STUB::background-purpose::] Why does this functionality exist? What problem does it solve?\n\n### Motivation\n[::TEMPLATE-STUB::background-motivation::] Why now? (user demand, tech debt, requirement change, …)\n\n### Constraints\n[::TEMPLATE-STUB::background-constraints::] What technical/business/time boundaries limit the implementation?",
+          "scope": [
+            "reverify-ticket.js: run the contract, clause, axis, formula, annotation and target gates for one ticket and emit a repair plan",
+            "discover-changed-tickets.js: map changed files to ticket keys through annotations and targetStubs",
+            "start-ticket.md: Step 5b and 5c consume the report-mode gates and repair loop; no existing Step is removed or renumbered",
+            "review-ticket.md: Step 10b and 10c consume the report-mode gates and repair loop; no existing Step is removed or renumbered",
+            "resolve-ticket.md: Step 9 and 10 rerun annotation, target, contract, formula and reviewed-staleness checks for changed tickets",
+            "completion certificate: start and review record the zero-finding proof; resolve records the reverify proof",
+            "tests/tickets: end-to-end fixtures for each asset class, for resolve after review, and for Case B and numeric-phase non-regression",
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] [::TEMPLATE-STUB::scope-changes-path::]\n  - [Action: add/modify/remove/rename/refactor] [::TEMPLATE-STUB::scope-changes-action::]\n  - [What specifically changes] [::TEMPLATE-STUB::scope-changes-detail::]\n  - [Before → After (behavior/signature)] [::TEMPLATE-STUB::scope-changes-before-after::]\n  - [API contract change (if any)] [::TEMPLATE-STUB::scope-changes-api::]\n  - [Data schema change (if any)] [::TEMPLATE-STUB::scope-changes-schema::]\n  - [Config/env change (if any)] [::TEMPLATE-STUB::scope-changes-config::]\n  - [Dependency added/removed (if any)] [::TEMPLATE-STUB::scope-changes-dep::]",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] [::TEMPLATE-STUB::scope-non-changes-item::]\n  - [Why excluded — separate ticket / future phase / not applicable] [::TEMPLATE-STUB::scope-non-changes-why::]",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] [::TEMPLATE-STUB::scope-impact-component::]\n  - [Nature of impact: performance / security / API surface / data format / …] [::TEMPLATE-STUB::scope-impact-nature::]\n  - [Corresponding change needed Y/N + details] [::TEMPLATE-STUB::scope-impact-response::]"
+          ],
+          "testUnit": [
+            "UT: reverify-ticket runs every gate for one ticket and aggregates findings into one repair plan",
+            "UT: discover-changed-tickets maps an annotated changed file to its ticket key",
+            "UT: discover-changed-tickets maps a targetStub file to its owning ticket",
+            "UT: a reviewed ticket whose code changed produces REVIEWED_TICKET_STALE",
+            "UT: a stale reviewed ticket becomes clean after the repair loop reruns all gates",
+            "UT: resolve with no argument still discovers and reverifies changed tickets",
+            "UT: an annotation missing after a resolve edit is reported and repaired",
+            "**UT: [Normal] — Describe each normal-case test scenario:**\n  - [::TEMPLATE-STUB::testunit-normal::]",
+            "**UT: [Error] — Describe each error-handling test scenario:**\n  - [::TEMPLATE-STUB::testunit-error::]",
+            "**UT: [Boundary] — Describe each boundary-value test scenario:**\n  - [::TEMPLATE-STUB::testunit-boundary::]",
+            "**UT: [Invariant] — Describe each invariant test scenario:**\n  - [::TEMPLATE-STUB::testunit-invariant::]"
+          ],
+          "testIntegration": [
+            "IT: start runs the report gates, applies repair tools and completes with zero findings",
+            "IT: review runs the report gates, applies repair tools and completes with zero findings",
+            "IT: resolve changes code, reruns the full gate set, repairs and completes without a human",
+            "IT: Case B and numeric-phase tickets keep their exact output and command flow",
+            "IT: existing command Steps, arguments and roles are unchanged",
+            "**IT: [Integration point] — Specify each interface between modules:**\n  - [::TEMPLATE-STUB::testintegration-point::]",
+            "**IT: [Verification] — Describe what each integration test verifies:**\n  - [::TEMPLATE-STUB::testintegration-verify::]",
+            "**IT: [Prerequisites] — State each prerequisite for integration tests:**\n  - [::TEMPLATE-STUB::testintegration-prereq::]",
+            "**IT: [Related tickets] — List each related ticket:**\n  - [::TEMPLATE-STUB::testintegration-tickets::]"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/reverify-ticket.js",
+            ".claude/scripts/tickets/discover-changed-tickets.js",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/resolve-ticket.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a ticket with a missing contract element, obligation or formula is repaired and reverified to zero",
+            "Error case: a reviewed ticket invalidated by resolve is detected and cannot remain stale",
+            "Edge case: Case B and numeric-phase tickets produce byte-identical output and follow the existing flow",
+            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - [::TEMPLATE-STUB::acceptance-happy::]",
+            "**[Error case] — Describe an error scenario the feature must handle:**\n  - [::TEMPLATE-STUB::acceptance-error::]",
+            "**[Edge case] — Describe any boundary or exception to verify:**\n  - [::TEMPLATE-STUB::acceptance-edge::]"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "start -> repair loop",
+              "precondition": "start reaches Step 5b with a ticket carrying contracts and distribution",
+              "postcondition": "the report gates run and the repair loop reaches zero findings",
+              "invariant": "an existing start Step is not removed, renumbered or made optional"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "review -> repair loop",
+              "precondition": "review reaches Step 10b with a done ticket",
+              "postcondition": "the report gates run and the repair loop reaches zero findings",
+              "invariant": "review still runs the final contracts, targets and formula checks"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "resolve -> reverify",
+              "precondition": "resolve changes code or removes a stub",
+              "postcondition": "every changed ticket is reverified for contracts, clauses, axes, formulas, annotations and targets",
+              "invariant": "a repo change cannot skip the reverify path"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "reviewed status -> fresh evidence",
+              "precondition": "a ticket is reviewed and a later resolve changes its code",
+              "postcondition": "the ticket is reverified and either repaired or marked stale for the next repair loop",
+              "invariant": "reviewed status is not treated as a permanent verification certificate"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "new wiring -> existing commands",
+              "precondition": "start, review and resolve are updated",
+              "postcondition": "their Steps, arguments and roles remain available",
+              "invariant": "Case B and numeric-phase tickets keep the existing output and flow"
+            }
+          ],
+          "notes": "This is the third of three tickets. PX-397 provides the finding schema and tools; PX-398 provides the gates. This ticket is the only one that edits command Markdown, and every edit is additive.\n\n- [Implementation steps] [::TEMPLATE-STUB::notes-steps::]\n- [Risks] [::TEMPLATE-STUB::notes-risks::]\n- [Caveats] [::TEMPLATE-STUB::notes-caveats::]\n- [Open items] [::TEMPLATE-STUB::notes-open::]\n- [Future improvements] [::TEMPLATE-STUB::notes-future::]",
+          "invariants": "- [Normal condition] [::TEMPLATE-STUB::invariants-normal::] Preconditions that must hold for correct behavior\n- [Error invariant] [::TEMPLATE-STUB::invariants-error::] Invariants that must never be violated even on error\n- [Internal state invariant] [::TEMPLATE-STUB::invariants-state::] Invariants the module's internal state must always satisfy\n- [Boundary invariant] [::TEMPLATE-STUB::invariants-boundary::] Invariants related to boundary values / thresholds",
+          "testExceptions": [
+            "**Exception entry (copy this block for each non-testable item):**\n  - [Item] [::TEMPLATE-STUB::exception-item::]\n  - [Reason] [::TEMPLATE-STUB::exception-reason::]\n  - [Alternative verification] [::TEMPLATE-STUB::exception-alternative::]"
+          ],
+          "instrumentation": "- [Logging] [::TEMPLATE-STUB::instrumentation-log::]\n- [Metrics] [::TEMPLATE-STUB::instrumentation-metrics::]\n- [Error tracking] [::TEMPLATE-STUB::instrumentation-errors::]\n- [Health check] [::TEMPLATE-STUB::instrumentation-health::]",
+          "investigation": "- [::TEMPLATE-STUB::investigation::] Record all evidence gathered during code investigation — architecture, patterns, potential issues, specific file contents relevant to this ticket. Replace the stub with the actual investigation findings.",
+          "boyScoutPlan": "- [::TEMPLATE-STUB::boyscout-plan::] Describe the translatability improvements planned for the code touched by this ticket. Specify which code will be refactored (function extraction, variable renaming, constant extraction) and why. Replace the stub with the actual plan.",
+          "created_at": "2026-11-09",
+          "updated_at": "2026-11-09"
         }
       ]
     },

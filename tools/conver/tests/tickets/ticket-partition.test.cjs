@@ -110,6 +110,7 @@ test('empty and single-ticket phases are handled (C001)', () => {
   assert.deepEqual(single.forcedBoundaries, []);
 });
 
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
 test('the earliest member survives and prose, nodes and contracts are preserved (C003)', () => {
   const tickets = [
     ticket(1, { nodeIds: ['N0001'] }),
@@ -119,8 +120,9 @@ test('the earliest member survives and prose, nodes and contracts are preserved 
   const merged = mergeTicketGroup(tickets, { start: 0, end: 3 });
   assert.equal(merged.ticket.id, 1);
   assert.deepEqual(merged.ticket.nodeIds, ['N0001', 'N0002', 'N0003']);
-  assert.match(merged.ticket.background, /### From P0-2: Ticket 2/);
-  assert.match(merged.ticket.background, /background 2/);
+  assert.equal(merged.ticket.background, 'background 1');
+  assert.equal(merged.ticket.condensedFrom.tickets[0].record.background, 'background 2');
+  assert.equal(merged.ticket.condensedFrom.tickets[1].record.background, 'background 3');
   assert.deepEqual(merged.absorbed.map((entry) => entry.key), ['P0-2', 'P0-3']);
   assert.equal(merged.ticket.status, 'todo');
   assert.equal(merged.ticket.condensedFrom.tickets.length, 2);

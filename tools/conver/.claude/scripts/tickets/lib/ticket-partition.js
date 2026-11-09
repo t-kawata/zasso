@@ -31,14 +31,59 @@ const STATUS_RANKS = Object.freeze({
 /** Statuses that `--preserve-completed` keeps in their own group. */
 const COMPLETED_STATUSES = Object.freeze(['done', 'reviewed']);
 
-/** The provenance heading written before an absorbed ticket's prose. */
-const ABSORBED_HEADING = '### From';
+const LEDGER_RECORD_FIELD = 'record';
+const LEDGER_ORIGIN_FIELD = 'originKey';
 
-/** Fields that are deleted on the survivor and recomputed by the caller. */
+/** Fields that are recomputed after the partition changes. */
 const RECOMPUTED_FIELDS = Object.freeze([
   'distribution',
   'prerequisites',
   'mergeAttempts',
+]);
+
+/**
+ * Fields the ledger does not copy because another rule owns them.
+ *
+ * Derived fields are recomputed. contracts and formulaObligations are merged by
+ * their own id-keyed rules. condensedFrom is the ledger itself.
+ */
+const LEDGER_EXCLUDED_FIELDS = Object.freeze([
+  ...RECOMPUTED_FIELDS,
+  'contracts',
+  'formulaObligations',
+  'condensedFrom',
+]);
+
+/** Set-valued fields unioned into the survivor. */
+const MACHINE_ARRAY_FIELDS = Object.freeze([
+  'nodeIds',
+  'default_files',
+  'testUnit',
+  'testIntegration',
+  'testExceptions',
+  'acceptanceCriteria',
+  'planTestCode',
+  'sourcePaths',
+  'referenceUrls',
+  'rfcDiscrepancies',
+  'targetStubs',
+  'targetCrimes',
+  'foundOmissions',
+  'stubs',
+]);
+
+/** Array fields whose elements are objects and therefore deduplicated structurally. */
+const OBJECT_MACHINE_FIELDS = Object.freeze([
+  'targetStubs',
+  'targetCrimes',
+  'foundOmissions',
+  'stubs',
+]);
+
+/** String fields unioned into the survivor. */
+const MACHINE_STRING_FIELDS = Object.freeze([
+  'referenceSection',
+  'relatedTicketIds',
 ]);
 
 /** The public key of a ticket, matching the ticket scripts. */
@@ -211,12 +256,108 @@ function mergeTitles(titles) {
   return [...new Set((titles ?? []).filter((title) => typeof title === 'string' && title.length > 0))].join(' / ');
 }
 
-/** Append an absorbed ticket's prose under a provenance heading. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
-function preserveProseSection(current, key, title, text) {
-  if (typeof text !== 'string' || text.trim().length === 0) return current;
-  const heading = `${ABSORBED_HEADING} ${key}: ${title}`;
-  return `${current}\n\n${heading}\n${text}`;
+/** Clone a JSON value without sharing the source object. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function cloneJson(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+/**
+ * The absorbed ticket as the ledger stores it.
+ *
+ * Every field not owned by another merge rule is copied verbatim. The rule is
+ * field-name agnostic on purpose: a field added to tickets later must not need a
+ * new branch here, or it would be silently dropped until someone noticed.
+ */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function collectPreservedRecord(ticket) {
+  const record = {};
+  for (const [field, value] of Object.entries(ticket)) {
+    if (value === undefined) continue;
+    if (LEDGER_EXCLUDED_FIELDS.includes(field)) continue;
+    record[field] = cloneJson(value);
+  }
+  return record;
+}
+
+/** Escape a literal string for use inside a RegExp. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Rewrite absorbed ticket keys to the survivor that now owns them.
+ *
+ * Longer keys are replaced first so P0-10 is never rewritten as the survivor of
+ * P0-1. The lookarounds keep a key from matching inside a longer identifier.
+ */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function remapTicketReferences(value, keyMap) {
+  if (!(keyMap instanceof Map) || keyMap.size === 0) return value;
+  if (typeof value === 'string') {
+    let result = value;
+    const keys = [...keyMap.keys()].sort((left, right) => right.length - left.length);
+    for (const key of keys) {
+      const pattern = new RegExp(`(^|[^A-Za-z0-9-])${escapeRegExp(key)}(?![A-Za-z0-9-])`, 'g');
+      result = result.replace(pattern, (match, prefix) => prefix + keyMap.get(key));
+    }
+    return result;
+  }
+  if (Array.isArray(value)) return value.map((entry) => remapTicketReferences(entry, keyMap));
+  if (value !== null && typeof value === 'object') {
+    const remapped = {};
+    for (const [field, entry] of Object.entries(value)) {
+      remapped[field] = remapTicketReferences(entry, keyMap);
+    }
+    return remapped;
+  }
+  return value;
+}
+
+/** Union arrays of objects by their structural value, preserving first-seen order. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function unionRecords(arrays) {
+  const byValue = new Map();
+  for (const array of arrays) {
+    for (const value of array ?? []) {
+      const key = stableStringify(value);
+      if (byValue.has(key)) continue;
+      byValue.set(key, cloneJson(value));
+    }
+  }
+  return [...byValue.values()];
+}
+
+/** Union one set-valued machine field across the merge members. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function unionMachineField(field, members) {
+  const arrays = members.map((ticket) => ticket[field]).filter(Array.isArray);
+  if (arrays.length === 0) return undefined;
+  return OBJECT_MACHINE_FIELDS.includes(field) ? unionRecords(arrays) : unionValues(...arrays);
+}
+
+/** Union one string-valued machine field across the merge members. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function unionMachineString(field, members) {
+  const values = members
+    .map((ticket) => ticket[field])
+    .filter((value) => typeof value === 'string' && value.length > 0);
+  if (values.length === 0) return undefined;
+  const distinct = unionValues(values);
+  return field === 'relatedTicketIds' ? distinct.join(' ') : distinct.join(' | ');
+}
+
+/** Union the free-form unlisted-file reason without changing its shape. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function unionUnlistedFileReason(members) {
+  const values = members
+    .map((ticket) => ticket.unlistedFileReason)
+    .filter((value) => value !== undefined && value !== null && value !== '');
+  if (values.length === 0) return undefined;
+  const flattened = values.flatMap((value) => (Array.isArray(value) ? value : [value]));
+  const distinct = unionValues(flattened);
+  return values.every((value) => typeof value === 'string') ? distinct.join(' | ') : distinct;
 }
 
 /** Union arrays by value, preserving first-seen order. */
@@ -300,7 +441,7 @@ function mergeFormulaObligations(members) {
 }
 
 /** The survivor ticket of a merged group and the tickets it absorbed. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
 function mergeTicketGroup(tickets, group, options = {}) {
   const start = group?.start ?? 0;
   const end = group?.end ?? tickets.length;
@@ -311,38 +452,31 @@ function mergeTicketGroup(tickets, group, options = {}) {
   const survivor = members[0];
   const absorbed = members.slice(1);
   const survivorKey = ticketKeyOf(survivor);
+  const keyMap = options.keyMap instanceof Map && options.keyMap.size > 0
+    ? options.keyMap
+    : new Map(absorbed.map((ticket) => [ticketKeyOf(ticket), survivorKey]));
 
   const merged = { ...survivor };
   merged.title = mergeTitles(members.map((ticket) => ticket.title));
-  merged.nodeIds = unionValues(...members.map((ticket) => ticket.nodeIds ?? []));
-  merged.default_files = unionValues(...members.map((ticket) => ticket.default_files ?? []));
-  merged.testUnit = unionValues(...members.map((ticket) => ticket.testUnit ?? []));
-  merged.testIntegration = unionValues(...members.map((ticket) => ticket.testIntegration ?? []));
-  merged.testExceptions = unionValues(...members.map((ticket) => ticket.testExceptions ?? []));
-  merged.acceptanceCriteria = unionValues(...members.map((ticket) => ticket.acceptanceCriteria ?? []));
-  merged.contracts = options.rebuildContracts === true ? [] : mergeContractsForGroup(members);
-  merged.formulaObligations = mergeFormulaObligations(members);
 
-  let background = survivor.background ?? '';
-  let notes = survivor.notes ?? '';
-  let invariants = survivor.invariants ?? '';
-  const scope = [...(survivor.scope ?? [])];
-  const related = [survivor.relatedTicketIds ?? ''];
-  for (const ticket of absorbed) {
-    const key = ticketKeyOf(ticket);
-    background = preserveProseSection(background, key, ticket.title, ticket.background);
-    notes = preserveProseSection(notes, key, ticket.title, ticket.notes);
-    invariants = preserveProseSection(invariants, key, ticket.title, ticket.invariants);
-    if ((ticket.scope ?? []).length > 0) {
-      scope.push(`**From ${key}: ${ticket.title}**`, ...ticket.scope);
-    }
-    related.push(ticket.relatedTicketIds ?? '');
+  for (const field of MACHINE_ARRAY_FIELDS) {
+    const value = unionMachineField(field, members);
+    if (value === undefined) delete merged[field];
+    else merged[field] = remapTicketReferences(value, keyMap);
   }
-  merged.background = background;
-  merged.notes = notes;
-  merged.invariants = invariants;
-  merged.scope = scope;
-  merged.relatedTicketIds = related.filter((entry) => entry.length > 0).join(' ');
+  for (const field of MACHINE_STRING_FIELDS) {
+    const value = unionMachineString(field, members);
+    if (value === undefined) delete merged[field];
+    else merged[field] = remapTicketReferences(value, keyMap);
+  }
+  const unlistedFileReason = unionUnlistedFileReason(members);
+  if (unlistedFileReason === undefined) delete merged.unlistedFileReason;
+  else merged.unlistedFileReason = remapTicketReferences(unlistedFileReason, keyMap);
+
+  merged.contracts = options.rebuildContracts === true
+    ? []
+    : remapTicketReferences(mergeContractsForGroup(members), keyMap);
+  merged.formulaObligations = remapTicketReferences(mergeFormulaObligations(members), keyMap);
 
   merged.status = leastAdvancedStatus(members.map((ticket) => ticket.status));
   merged.round = Math.max(...members.map((ticket) => Number(ticket.round) || 0));
@@ -363,6 +497,7 @@ function mergeTicketGroup(tickets, group, options = {}) {
     },
   ];
   merged.condensedFrom = {
+    originKey: survivorKey,
     planDigest: options.planDigest ?? null,
     condensedAt: options.condensedAt ?? new Date().toISOString().slice(0, 10),
     tickets: absorbed.map((ticket) => ({
@@ -370,6 +505,8 @@ function mergeTicketGroup(tickets, group, options = {}) {
       id: ticket.id,
       status: ticket.status,
       title: ticket.title,
+      [LEDGER_ORIGIN_FIELD]: survivorKey,
+      [LEDGER_RECORD_FIELD]: collectPreservedRecord(ticket),
     })),
   };
 
@@ -387,14 +524,18 @@ function mergeTicketGroup(tickets, group, options = {}) {
 }
 
 /** Condense one phase and return the plan, the merged tickets and the digest. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
 function condensePlan(phase, context, budget, options = {}) {
   const tickets = Array.isArray(phase?.tickets) ? phase.tickets : [];
   const partition = minimumContiguousPartition(tickets, context, budget, options);
   const digest = partitionDigest(partition);
+  const keyMap = new Map();
+  for (const group of partition.groups) {
+    for (const member of group.members.slice(1)) keyMap.set(member, group.members[0]);
+  }
   const mergedTickets = options.merge === false
     ? []
-    : partition.groups.map((group) => mergeTicketGroup(tickets, group, { ...options, planDigest: digest }).ticket);
+    : partition.groups.map((group) => mergeTicketGroup(tickets, group, { ...options, planDigest: digest, keyMap }).ticket);
   if (mergedTickets.length === 1) {
     delete mergedTickets[0].splitReason;
   } else {
@@ -419,8 +560,12 @@ function condensePlan(phase, context, budget, options = {}) {
 module.exports = {
   STATUS_RANKS,
   COMPLETED_STATUSES,
-  ABSORBED_HEADING,
   RECOMPUTED_FIELDS,
+  LEDGER_EXCLUDED_FIELDS,
+  MACHINE_ARRAY_FIELDS,
+  MACHINE_STRING_FIELDS,
+  LEDGER_RECORD_FIELD,
+  LEDGER_ORIGIN_FIELD,
   ticketKeyOf,
   addWorkloads,
   measureRangeWorkload,
@@ -430,7 +575,10 @@ module.exports = {
   minimumContiguousPartition,
   leastAdvancedStatus,
   mergeTitles,
-  preserveProseSection,
+  collectPreservedRecord,
+  remapTicketReferences,
+  unionMachineField,
+  unionMachineString,
   stableStringify,
   partitionDigest,
   mergeContractsForGroup,

@@ -128,11 +128,14 @@ Output: every nonempty ticket field:
 | `## Test Plan` | unit/integration/exceptions |
 | `## Related Tickets` | related tickets |
 | `## Notes` | supplementary information |
+| `## Condensed From` | only when the ticket carries `condensedFrom`; the full records of the absorbed tickets in original implementation order |
 | `## Distribution Obligations` / `### Work Share` | only when the ticket carries distribution units; own/shared/foreign step owners, each step's generated contract id, the ctr boundary contracts and every boundary a local step crosses |
 | `## Implementation Prerequisites` | only when the ticket carries prerequisites; each prerequisite ticket or package with its status, source and boundary |
 | `## Pipeline Context` | normal mode only: resource paths/existence status |
 
 Missing ticket → Not Found.
+
+When the ticket carries `condensedFrom`, the `## Condensed From` section holds the full records of the absorbed tickets in original implementation order. Read them as design context before Step 5; they are part of this ticket's design, not background noise. A ticket without `condensedFrom` has no such section, so Case B is unchanged. Step 6 must never rewrite `condensedFrom`; it is provenance.
 
 ### Step 1.5: Distribution brief (conditional)
 

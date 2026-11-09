@@ -204,8 +204,10 @@ echo '{"title":"Vendor and build PJSIP in build.rs","scope":["build.rs","wrapper
 Batch-write ticket (post-deferral rewrite):
   order: title → background → scope → acceptanceCriteria → invariants → testUnit → testIntegration → testExceptions → contracts → investigation → boyScoutPlan → instrumentation → notes
   max-per-call: 3
-  preserve (append-only, never overwrite): nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies
+  preserve (append-only, never overwrite): nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies, condensedFrom
 ```
+
+`condensedFrom` is provenance: a clone keeps it unchanged, and its `originKey` marks the ledger as inherited rather than produced by the new ticket.
 3. rewrite the marker key to the new ticket.
 4. re-run Step 9a/9b (with `$ARGUMENTS` set) + Step 9c validator — Check C (active key) must pass.
 5. record deferred STUBs + new ticket keys in the implementation summary.

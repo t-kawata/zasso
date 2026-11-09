@@ -858,7 +858,135 @@ function renderDistributionObligations(ticket, options = {}) {  const units = Ar
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-321, PX-322, PX-324, PX-341, PX-362 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341|PX-362) --for-spec --no-implementation-order`.
+/** The one-line provenance banner shown below the ticket title. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function renderCondensationBanner(ticket, ticketKey) {
+  const condensed = ticket?.condensedFrom;
+  const absorbed = Array.isArray(condensed?.tickets) ? condensed.tickets : [];
+  if (absorbed.length === 0) return null;
+  const names = absorbed.map((entry) => `${entry.key} "${entry.title}"`).join(', ');
+  if (ticketKey === condensed.originKey) {
+    return `Condensed from: ${names} — full absorbed records follow under "## Condensed From".`;
+  }
+  return `Inherited condensation ledger from ${condensed.originKey}: ${names} — full absorbed records follow under "## Condensed From".`;
+}
+
+/** Demote Markdown headings inside an absorbed record so it cannot open a top-level section. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function demoteMarkdownHeadings(text, levels = 3) {
+  return text.replace(/^(#{1,6})\s/gm, (match, hashes) => `${'#'.repeat(Math.min(6, hashes.length + levels))} `);
+}
+
+/** Append one prose field of an absorbed record. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function appendCondensedProse(lines, heading, value) {
+  if (typeof value !== 'string' || value.trim().length === 0) return;
+  lines.push(`#### ${heading}`);
+  lines.push('');
+  lines.push(demoteMarkdownHeadings(value));
+  lines.push('');
+}
+
+/** Append one list field of an absorbed record. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function appendCondensedList(lines, heading, values) {
+  if (!Array.isArray(values) || values.length === 0) return;
+  lines.push(`#### ${heading}`);
+  lines.push('');
+  for (const value of values) lines.push(`- ${value}`);
+  lines.push('');
+}
+
+/** Append the contracts of an absorbed record. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function appendCondensedContracts(lines, contracts) {
+  if (!Array.isArray(contracts) || contracts.length === 0) return;
+  lines.push('#### Contracts');
+  lines.push('');
+  for (const contract of contracts) {
+    lines.push(`- ${contract.id}: precondition=${contract.precondition}; postcondition=${contract.postcondition}; invariant=${contract.invariant}`);
+  }
+  lines.push('');
+}
+
+/** Fields of an absorbed record already rendered in the standard order. */
+const CONDENSED_STANDARD_FIELDS = Object.freeze([
+  'id', 'phaseId', 'key', 'status', 'title', 'condensedFrom',
+  'background', 'scope', 'invariants', 'notes', 'investigation', 'boyScoutPlan',
+  'referenceSection', 'testUnit', 'testIntegration', 'testExceptions',
+  'contracts', 'acceptanceCriteria', 'changes',
+]);
+
+/** Whether a value carries information for the generic record renderer. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function hasCondensedValue(value) {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'string') return value.trim().length > 0;
+  return true;
+}
+
+/** Render a field the standard order does not name. */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function appendCondensedValue(lines, field, value) {
+  if (!hasCondensedValue(value)) return;
+  const heading = field
+    .replace(/_/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .trim()
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+  lines.push(`#### ${heading}`);
+  lines.push('');
+  if (typeof value === 'string') {
+    lines.push(demoteMarkdownHeadings(value));
+  } else if (Array.isArray(value)) {
+    for (const item of value) lines.push(`- ${typeof item === 'string' ? item : JSON.stringify(item)}`);
+  } else {
+    lines.push('```json');
+    lines.push(JSON.stringify(value, null, 2));
+    lines.push('```');
+  }
+  lines.push('');
+}
+
+/**
+ * The full absorbed records, in the original implementation order.
+ *
+ * Each record repeats the standard field order one heading level deeper, so a
+ * reader can follow one absorbed ticket top to bottom without the survivor's
+ * sections and the absorbed sections being mistaken for each other. A field the
+ * standard order does not name is rendered afterwards, so no information in the
+ * ledger can stay invisible.
+ */
+// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+function renderCondensedFrom(ticket) {
+  const absorbed = ticket?.condensedFrom?.tickets;
+  if (!Array.isArray(absorbed) || absorbed.length === 0) return null;
+  const lines = ['## Condensed From', ''];
+  for (const entry of absorbed) {
+    lines.push(`### ${entry.key}: ${entry.title} [${entry.status || 'todo'}]`);
+    lines.push('');
+    const record = entry.record ?? {};
+    appendCondensedProse(lines, 'Background', record.background);
+    appendCondensedList(lines, 'Scope', record.scope);
+    appendCondensedProse(lines, 'Invariants', record.invariants);
+    appendCondensedProse(lines, 'Notes', record.notes);
+    appendCondensedProse(lines, 'Investigation', record.investigation);
+    appendCondensedProse(lines, 'Boy Scout Rule', record.boyScoutPlan);
+    appendCondensedProse(lines, 'RFC Reference', record.referenceSection);
+    appendCondensedList(lines, 'Test Plan', [...(record.testUnit ?? []), ...(record.testIntegration ?? []), ...(record.testExceptions ?? [])]);
+    appendCondensedContracts(lines, record.contracts);
+    appendCondensedList(lines, 'Acceptance Criteria', record.acceptanceCriteria);
+    appendCondensedList(lines, 'Changes', (record.changes ?? []).map((change) => change.description ?? JSON.stringify(change)));
+    for (const [field, value] of Object.entries(record)) {
+      if (CONDENSED_STANDARD_FIELDS.includes(field)) continue;
+      appendCondensedValue(lines, field, value);
+    }
+  }
+  return lines.join('\n');
+}
+
+// [::TICKET::] PX-321, PX-322, PX-324, PX-341, PX-362, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341|PX-362|PX-396) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, options = {}) {
   const lines = [];
 
@@ -951,6 +1079,12 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
 
     // Visual separator between header and body
     lines.push('---');
+    lines.push('');
+  }
+
+  const condensationBanner = renderCondensationBanner(ticket, ticketKey);
+  if (condensationBanner !== null) {
+    lines.push(condensationBanner);
     lines.push('');
   }
 
@@ -1269,6 +1403,12 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
+  const condensedRecords = renderCondensedFrom(ticket);
+  if (condensedRecords !== null) {
+    lines.push(condensedRecords);
+    lines.push('');
+  }
+
   // Pipeline Context (not output in --for-spec mode)
   if (!forSpec) {
     lines.push('## Pipeline Context');
@@ -1368,6 +1508,8 @@ module.exports = {
   parseArgs,
   buildTicketNotFoundMarkdown,
   buildTicketMarkdown,
+  renderCondensationBanner,
+  renderCondensedFrom,
   parseRelatedTicketIds,
   resolveRfcPaths,
   makeRelative,
