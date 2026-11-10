@@ -1032,7 +1032,7 @@ conver の `.claude` ディレクトリ（スラッシュコマンド群・チ�
 npm install
 ```
 
-ランタイム依存は `@agentclientprotocol/sdk ^1.0.0`、`@agentclientprotocol/claude-agent-acp ^0.52.0`、`node-cron ^4.5.0` です。
+ランタイム依存は `@agentclientprotocol/sdk ^2.5.0`、`@agentclientprotocol/claude-agent-acp ^0.102.0`、`node-cron ^4.5.0` です。
 
 ### ビルド
 

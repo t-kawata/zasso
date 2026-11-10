@@ -15,6 +15,9 @@
     "metadata": {
       "$ref": "#/definitions/metadata"
     },
+    "identity": {
+      "$ref": "#/definitions/identity"
+    },
     "policy": {
       "type": "string"
     },
@@ -38,6 +41,36 @@
     }
   },
   "definitions": {
+    "identity": {
+      "type": "object",
+      "description": "The numbering generation and the aliases that resolve a historical key to the live ticket that owns it.",
+      "properties": {
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aliases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "legacyReferences": {
+          "type": "object",
+          "description": "Migration records for a pre-existing key whose owner was not recoverable. The label is prose, not a live ticket key.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "excludedPhases": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "metadata": {
       "type": "object",
       "required": [
@@ -278,6 +311,7 @@
           "properties": {
             "planDigest": { "type": ["string", "null"] },
             "condensedAt": { "type": "string" },
+            "generation": { "type": "integer", "minimum": 0 },
             "tickets": {
               "type": "array",
               "items": {
@@ -286,12 +320,13 @@
                   "key": { "type": "string" },
                   "id": { "type": "integer" },
                   "status": { "type": "string" },
-                  "title": { "type": "string" }
+                  "title": { "type": "string" },
+                  "generation": { "type": "integer", "minimum": 0 }
                 }
               }
             }
           },
-          "description": "The absorbed tickets a condensation merged into this survivor. The partition digest and absorbed keys are the audit trail; the survivor key is unchanged."
+          "description": "The absorbed tickets a condensation merged into this survivor. The partition digest, absorbed keys and the generation they belong to are the audit trail; a later dense renumber keeps this history and records the alias that resolves it."
         },
         "mergeAttempts": {
           "type": "array",
@@ -363,6 +398,10 @@
               },
               "description": {
                 "type": "string"
+              },
+              "generation": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           }

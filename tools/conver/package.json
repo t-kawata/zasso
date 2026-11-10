@@ -9,8 +9,8 @@
     "test": "node tests/run-all-surfaces.mjs"
   },
   "dependencies": {
-    "@agentclientprotocol/claude-agent-acp": "^0.52.0",
-    "@agentclientprotocol/sdk": "^1.0.0",
+    "@agentclientprotocol/claude-agent-acp": "^0.102.0",
+    "@agentclientprotocol/sdk": "^2.5.0",
     "node-cron": "^4.5.0"
   },
   "devDependencies": {

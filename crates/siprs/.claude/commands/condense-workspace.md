@@ -22,6 +22,7 @@ Invariants:
 - unlisted: `Tickets.json` outside the manifest → report, never condense. Root aggregate without graph + Dirs-Tree is not unlisted.
 - failure: one package failure restores its archive, does not abort remaining targets, exit 1 after every target is attempted.
 - order: workspace implementation order written once after the loop, only when ≥1 package changed.
+- identity: every non-excluded package ends dense `1..N`; history keeps its old keys with a generation and `identity.aliases` resolves them. A package that was already gapped is repaired by the same renumber path, so the workspace is dense after one mechanical run. The PX phase stays excluded.
 - judgment: none. Failing gate → restore that package's archive. Pre-existing structural defect → fix separately; never relax a gate.
 
 **Path anchor (mandatory — resolve once).**

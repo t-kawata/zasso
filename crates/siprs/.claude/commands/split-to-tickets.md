@@ -16,7 +16,7 @@ Downstream: `Tickets.json` is read/updated by `/make-ticket`, `/plan-ticket`, `/
 
 Invariants:
 - In: RFC. GRAPH, Dirs-Tree, `Tickets.json` and the SPLIT status file are derived from it by the pipeline's naming rule. Out: `DOC_DIR/Tickets.json`.
-- existing `Tickets.json` → evolve in place; never renumber a phase/ticket id; fresh rebuild only when absent.
+- existing `Tickets.json` → evolve in place. `split-evolve.js` never renumbers while adding, updating or retiring; the final `condense-tickets.js` renumbers every non-excluded phase densely and records the pre-renumber generation in `identity`. Fresh rebuild only when absent.
 - all ticket scripts schema-validate before write; failure → no save.
 - phase processing: P0 → P1 → …; one phase at a time; never bulk-present/process phases.
 - ticketization: every phase-local node exactly once; no omission, duplication, or cross-phase node.
@@ -105,7 +105,7 @@ if [ -f "Tickets.json" ]; then SPLIT_MODE="evolve"; else SPLIT_MODE="fresh"; fi
 ```
 
 `fresh` — absent. Steps 0 → 6 unchanged; phasify + consolidate remain.
-`evolve` — present. `split-evolve.js`: delta → identity → add/update/retire. Existing status is never written; never renumber a phase/ticket id; `round`, `metadata`, authored fields preserved. Derived fields (`nodeIds`, `default_files`, `distribution`, `contracts`, `formulaObligations`, `prerequisites`) recomputed by existing scripts.
+`evolve` — present. `split-evolve.js`: delta → identity → add/update/retire. Existing status is never written; `split-evolve.js` never renumbers, and `round`, `metadata`, authored fields are preserved. The final `condense-tickets.js` renumbers non-excluded phases densely and keeps the old keys in `condensedFrom`/`changes` under a generation; `identity.aliases` resolves them. `PX` and any phase named in `identity.excludedPhases` stay byte-identical. Derived fields (`nodeIds`, `default_files`, `distribution`, `contracts`, `formulaObligations`, `prerequisites`) recomputed by existing scripts.
 
 Conflict classes; none refuses or stops:
 
@@ -131,7 +131,7 @@ node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --carry-status --previous=Tic
 
 Retire deletes `distribution`/`contracts`/`formulaObligations`/`prerequisites` (empty `contracts` rejected by `validate-tickets.js`; empty distribution = empty unit set in `verify-chain`); previous values → `retiredFrom`.
 
-`consolidate-phase-tickets.js` skipped in evolve mode: renumbering invalidates every key/status/external reference. Condensation still runs in both modes because it keeps each survivor key and only removes absorbed keys.
+`consolidate-phase-tickets.js` is skipped in evolve mode because it moves phase ids before the document has a stable identity. Condensation still runs in both modes: it removes absorbed keys, makes every non-excluded phase dense, and records the pre-renumber keys with a generation so `restore-condensed-tickets.js` and a reader can still resolve them. A non-excluded phase that already carries source annotations must be either updated by the annotation pass or listed in `identity.excludedPhases`.
 
 ## List of Scripts Used
 
@@ -330,7 +330,7 @@ else
 fi
 ```
 
-Weighted topological sorting + SCC condensation; all nodes → `Tickets.json.phase[].nodeIds`. Final `✅` → pass; `⚠️` → report cause; interrupt split. In evolve mode: delta → plan; never renumber; `status` never written.
+Weighted topological sorting + SCC condensation; all nodes → `Tickets.json.phase[].nodeIds`. Final `✅` → pass; `⚠️` → report cause; interrupt split. In evolve mode: delta → plan; `split-evolve.js` never renumbers; `status` never written; the final condense applies dense identity.
 
 ```bash
 node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" end-step "4-1"
@@ -543,7 +543,7 @@ node "$CLAUDE_DIR/scripts/rfc-graph/update-split-step-status.js" reset-to-step "
 
 ## Notes
 
-Existing destination `Tickets.json` → evolve in place; `status`/`round`/`metadata`/authored fields never written; never renumber.
+Existing destination `Tickets.json` → evolve in place; `status`/`round`/`metadata`/authored fields never written by `split-evolve.js`; the final condense applies dense identity and records the pre-renumber generation.
 
 ## Reverse mode (S1 to S6)
 

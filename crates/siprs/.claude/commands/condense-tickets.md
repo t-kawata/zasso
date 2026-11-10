@@ -18,7 +18,8 @@ Invariants:
 - argument: none. Non-empty `$ARGUMENTS` → refuse before any write. `--plan` / `--apply` / `--gate` / `--workspace` are script flags, never command arguments.
 - target: current directory; requires `./Tickets.json`.
 - prose: preserved, not authored. Absorbed ticket → `### From <key>: <title>` under `background` / `notes` / `invariants` / `scope`.
-- identity: survivor keeps key and id; absorbed keys → `condensedFrom`; no renumbering.
+- identity: every non-excluded phase ends dense `1..N` in implementation order. Absorbed keys → `condensedFrom`; history keeps its old keys with the generation they belong to; `identity.aliases` resolves every historical key. `identity.excludedPhases` (default `[-1]`, the PX phase) is byte-identical.
+- repair: an existing gapped package is fixed by `normalize-ticket-ids.js --apply`; it uses the same shared renumber function and never re-condenses.
 - distribution: merged from split-time per-ticket records, never re-derived from a newer view; only absorbed keys remapped.
 - boundary: only `budget`-proven or proven `ownership-boundary` survives in a v3 phase; legacy `cohesion` / `tdd-order` replaced by the partition.
 - derived fields: never copied without remap; package gates prove the result.
@@ -86,6 +87,23 @@ fi
    fi
    ```
 4. Re-run → `NO_CHANGE`; zero bytes written.
+
+## Repairing an existing workspace
+
+A package written before dense identity may still hold gapped ids and live references to
+keys that no longer exist. Repair it with the same renumber rule, without re-condensing:
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/normalize-ticket-ids.js" --check --tickets=Tickets.json
+node "$CLAUDE_DIR/scripts/tickets/normalize-ticket-ids.js" --apply --tickets=Tickets.json
+```
+
+`--workspace=<root>` applies the command to every `Tickets.json` below the root. The apply
+archives the pre-repair bytes as `Tickets.pre-renumber-<stamp>.json`, writes atomically,
+and restores the archive if any package gate fails. A second run prints `NO_CHANGE`.
+`--archives=<dir>` adds old documents whose `nodeIds` resolve a pre-consolidation key.
+The PX phase stays excluded unless `--include-px` is supplied together with an annotation
+update.
 
 ## Done
 

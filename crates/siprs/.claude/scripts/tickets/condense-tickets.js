@@ -36,6 +36,7 @@ const { mergeContracts, registryForPackage } = require('./merge-contracts-to-tic
 const { mergeFormulasToTickets } = require('./merge-formulas-to-tickets.js');
 const { generateRelatedTicketIds } = require('./generate-related-ticket-ids.js');
 const { remapTicketKeyReferences } = require('./consolidate-phase-tickets.js');
+const { renumberDocument, validateIdentity } = require('./lib/ticket-identity-renumber.js');
 const { validateTickets } = require('../lib/validate-tickets.js');
 const { buildNodeToFileMap } = require('../rfc-graph/validate-phasify.js');
 const {
@@ -265,7 +266,7 @@ function buildWorkloadContext(artifacts) {
 }
 
 /** Build the condensation plan without writing anything. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-402) --for-spec --no-implementation-order`.
 function buildPlan(artifacts, options = {}) {
   if (artifacts.ticketsDocument === null || artifacts.ticketsDocument === undefined) {
     const error = new Error('Tickets.json is unreadable');
@@ -282,6 +283,7 @@ function buildPlan(artifacts, options = {}) {
       preserveCompleted: artifacts.preserveCompleted === true,
       merge: options.merge !== false,
       rebuildContracts: options.rebuildContracts === true,
+      generation: options.generation ?? 0,
     })
   ));
   const totalBefore = phases.reduce((total, phase) => total + phase.before, 0);
@@ -400,12 +402,12 @@ function buildKeyMap(plan) {
 }
 
 /** Every absorbed contract id paired with the survivor that absorbed it. */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
 function collectLedgerContractIds(document) {
   const entries = [];
   for (const entry of collectLedgerTickets(document)) {
     for (const contract of entry[LEDGER_RECORD_FIELD]?.contracts ?? []) {
-      entries.push({ contractId: contract.id, ownerKey: entry.originKey });
+      entries.push({ contractId: contract.id, ownerKey: entry.originKey, generation: entry.generation });
     }
   }
   return entries;
@@ -435,16 +437,23 @@ function countLedgerRecords(document) {
  * A contract absent from the survivor is not a loss when another ticket in the
  * same package owns it. Only an id owned nowhere is `CONTRACT_NOT_REBUILT`.
  */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
 function auditContractOwnership(tickets, absorbedContractIds) {
   const owned = new Set();
   for (const ticket of tickets) {
     for (const contract of ticket.contracts ?? []) owned.add(contract.id);
   }
   return absorbedContractIds
-    .map((entry) => (typeof entry === 'string' ? { contractId: entry, ownerKey: null } : entry))
+    .map((entry) => (typeof entry === 'string'
+      ? { contractId: entry, ownerKey: null, generation: null }
+      : entry))
     .filter((entry) => !owned.has(entry.contractId))
-    .map((entry) => ({ code: 'CONTRACT_NOT_REBUILT', contractId: entry.contractId, ownerKey: entry.ownerKey }));
+    .map((entry) => ({
+      code: 'CONTRACT_NOT_REBUILT',
+      contractId: entry.contractId,
+      ownerKey: entry.ownerKey,
+      generation: entry.generation,
+    }));
 }
 
 /**
@@ -454,22 +463,40 @@ function auditContractOwnership(tickets, absorbedContractIds) {
  * only restores a clause the merge dropped; the package gates still prove the
  * reconstructed document before it is written.
  */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
-function repairContractsFromLedger(tickets, findings, ledgerTickets) {
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
+function repairContractsFromLedger(tickets, findings, ledgerTickets, document = null) {
   const contractById = new Map();
   const ownerByContractId = new Map();
+  const aliases = document?.identity?.aliases ?? {};
+  const currentGeneration = document?.identity?.generation ?? 0;
   for (const entry of ledgerTickets) {
     for (const contract of entry[LEDGER_RECORD_FIELD]?.contracts ?? []) {
       if (!contractById.has(contract.id)) contractById.set(contract.id, contract);
-      if (!ownerByContractId.has(contract.id)) ownerByContractId.set(contract.id, entry.originKey);
+      if (!ownerByContractId.has(contract.id)) {
+        ownerByContractId.set(contract.id, {
+          ownerKey: entry.originKey,
+          generation: entry.generation ?? currentGeneration,
+        });
+      }
     }
   }
   const ticketByKey = new Map(tickets.map((ticket) => [ticketKeyOf(ticket), ticket]));
+  const resolveOwner = (ownerKey, generation) => {
+    if (ownerKey === null || ownerKey === undefined) return undefined;
+    if (ticketByKey.has(ownerKey) && (generation === null || generation === undefined || generation === currentGeneration)) {
+      return ownerKey;
+    }
+    const alias = aliases[`${ownerKey}@g${generation ?? currentGeneration}`];
+    return typeof alias === 'string' && ticketByKey.has(alias) ? alias : undefined;
+  };
   const remaining = [];
   for (const finding of findings) {
     const contract = contractById.get(finding.contractId);
-    const ownerKey = finding.ownerKey ?? ownerByContractId.get(finding.contractId);
-    const owner = ownerKey === null || ownerKey === undefined ? undefined : ticketByKey.get(ownerKey);
+    const ownerRef = finding.ownerKey !== null && finding.ownerKey !== undefined
+      ? { ownerKey: finding.ownerKey, generation: finding.generation }
+      : ownerByContractId.get(finding.contractId);
+    const ownerKey = ownerRef === undefined ? undefined : resolveOwner(ownerRef.ownerKey, ownerRef.generation);
+    const owner = ownerKey === undefined ? undefined : ticketByKey.get(ownerKey);
     if (contract === undefined || owner === undefined) {
       remaining.push(finding);
       continue;
@@ -623,15 +650,22 @@ function restoreArchive(archivePath, ticketsPath) {
  * @param {object} options — { ticketsPath, cwd, budget, verify, preserveCompleted, ...artifact overrides }
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
 async function applyPlan(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
-  const plan = buildPlan(artifacts, { merge: true, rebuildContracts: artifacts.graph !== null });
-  if (plan.totalBefore === plan.totalAfter) {
+  const generationBefore = artifacts.ticketsDocument.identity?.generation ?? 0;
+  const plan = buildPlan(artifacts, {
+    merge: true,
+    rebuildContracts: artifacts.graph !== null,
+    generation: generationBefore,
+  });
+  const identityBefore = validateIdentity(artifacts.ticketsDocument, { requireDense: true });
+  if (plan.totalBefore === plan.totalAfter && identityBefore.ok) {
     return {
       ok: true,
       noChange: true,
+      renumbered: false,
       before: plan.totalBefore,
       after: plan.totalAfter,
       digest: plan.digest,
@@ -642,7 +676,7 @@ async function applyPlan(options = {}) {
   }
 
   const originalBytes = fs.readFileSync(artifacts.ticketsPath, 'utf8');
-  const document = JSON.parse(originalBytes);
+  let document = JSON.parse(originalBytes);
   const originalTicketsByKey = new Map();
   for (const phase of artifacts.ticketsDocument.phases ?? []) {
     for (const ticket of phase.tickets ?? []) originalTicketsByKey.set(ticketKeyOf({ ...ticket, phaseId: phase.id }), ticket);
@@ -654,10 +688,23 @@ async function applyPlan(options = {}) {
     return { ...phase, tickets: phasePlan === undefined ? phase.tickets : phasePlan.tickets };
   });
 
+  const renumber = renumberDocument(document, {
+    excludedPhases: document.identity?.excludedPhases,
+  });
+  if (renumber.findings.length > 0) {
+    return { ok: false, code: renumber.findings[0].code, findings: renumber.findings };
+  }
+  document = renumber.document;
+
   try {
-    await rehydrate(artifacts, document, { keyMap });
+    await rehydrate(artifacts, document, { keyMap: new Map() });
   } catch (error) {
     return { ok: false, code: error.code ?? 'CONDENSE_REHYDRATE_FAILED', error: error.message };
+  }
+
+  const identity = validateIdentity(document, { requireDense: true });
+  if (!identity.ok) {
+    return { ok: false, code: identity.findings[0].code, findings: identity.findings };
   }
 
   const allTickets = [];
@@ -670,7 +717,7 @@ async function applyPlan(options = {}) {
   const ledgerTickets = collectLedgerTickets(document);
   const absorbedContracts = collectLedgerContractIds(document);
   const contractFindings = auditContractOwnership(allTickets, absorbedContracts);
-  const remainingFindings = repairContractsFromLedger(allTickets, contractFindings, ledgerTickets);
+  const remainingFindings = repairContractsFromLedger(allTickets, contractFindings, ledgerTickets, document);
   if (remainingFindings.length > 0) {
     return { ok: false, code: 'CONTRACT_NOT_REBUILT', findings: remainingFindings };
   }
@@ -702,6 +749,9 @@ async function applyPlan(options = {}) {
   return {
     ok: true,
     noChange: false,
+    renumbered: renumber.changed,
+    generationBefore: renumber.generationBefore,
+    generationAfter: renumber.generation,
     before: plan.totalBefore,
     after: plan.totalAfter,
     digest: plan.digest,
@@ -713,7 +763,7 @@ async function applyPlan(options = {}) {
 }
 
 /** The read-only gate used by the split final step. */
-// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
 async function gateTickets(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
@@ -723,6 +773,15 @@ async function gateTickets(options = {}) {
       .filter((phase) => phase.before !== phase.after)
       .map((phase) => `P${phase.phaseId}: ${phase.before} -> ${phase.after}`);
     return { ok: false, code: 'CONDENSE_REQUIRED', findings, plan };
+  }
+  const identity = validateIdentity(artifacts.ticketsDocument, { requireDense: true });
+  if (!identity.ok) {
+    return {
+      ok: false,
+      code: identity.findings[0].code,
+      findings: identity.findings,
+      plan,
+    };
   }
   const partitionFindings = partitionFindingsForDocument(artifacts, artifacts.ticketsDocument);
   if (partitionFindings.length > 0) {
