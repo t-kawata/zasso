@@ -23,7 +23,7 @@ const { gateFinding } = require('./lib/gate-report.js');
 const GATE = 'verify-amendment';
 
 /** The finding an unreadable or ambiguous artifact carries. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function stateFinding(ticketKey, state) {
   return gateFinding({
     code: state.code ?? 'UNREADABLE_ARTIFACT',
@@ -40,12 +40,12 @@ function stateFinding(ticketKey, state) {
 /**
  * Run the amendment gate manifest and return the report envelope.
  *
- * @param {{ cwd?: string, ticketKey: string, ticketsPath?: string|null,
- *           report?: boolean, runners?: object }} input
+ * @param {{ cwd?: string, ticketKey: string,
+ *           ticketsPath?: string|null, report?: boolean, runners?: object }} input
  * @returns {{ gate: string, ticketKey: string, findings: object[],
  *             skipped: object[], unverifiable: object[] }}
  */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function verifyAmendment({ cwd = process.cwd(), ticketKey, ticketsPath = null, report = false, runners = {} }) {
   const states = resolveArtifactStates({ cwd });
   const skipped = [];
@@ -75,14 +75,14 @@ function verifyAmendment({ cwd = process.cwd(), ticketKey, ticketsPath = null, r
 }
 
 /** Read `--name=value` from the argument list. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function argumentValue(args, name) {
   const prefix = '--' + name + '=';
   const match = args.find((argument) => argument.startsWith(prefix));
   return match ? match.slice(prefix.length) : undefined;
 }
 
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const ticketKey = argumentValue(args, 'ticket-key');

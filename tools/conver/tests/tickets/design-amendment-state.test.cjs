@@ -10,6 +10,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -23,12 +24,13 @@ const {
   resolvePackageState,
 } = require('../../.claude/scripts/tickets/lib/design-amendment-state.js');
 
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function tempPackage(files = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'px400-state-'));
   for (const [name, content] of Object.entries(files)) {
     fs.writeFileSync(path.join(directory, name), content);
   }
+  execFileSync('git', ['init'], { cwd: directory, stdio: 'ignore' });
   return directory;
 }
 
@@ -73,7 +75,7 @@ test('C001: the workspace SPEC is resolved from the tree manifest input', () => 
   const state = resolveArtifactState({ kind: ARTIFACT_KINDS.SPEC, cwd: directory });
 
   assert.equal(state.state, ARTIFACT_STATES.PRESENT);
-  assert.equal(state.path, path.join(directory, 'DESIGN.md'));
+  assert.equal(state.path, path.join(fs.realpathSync(directory), 'DESIGN.md'));
 });
 
 test('C010: two graph candidates are ambiguous, not guessed', () => {

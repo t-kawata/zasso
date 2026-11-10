@@ -18,6 +18,7 @@ const {
   ARTIFACT_STATES,
   resolveArtifactState,
   resolveArtifactStates,
+  resolveWorkspaceRoot,
 } = require('./lib/design-amendment-state.js');
 const { appendAmendment } = require('./append-design-amendment.js');
 const { rebuildDesignHashes } = require('./rebuild-design-hashes.js');
@@ -27,11 +28,27 @@ const { gateFinding } = require('./lib/gate-report.js');
 
 const AMENDMENT_DIRECTORY = 'amendments';
 const TREE_MANIFEST_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+const ALLOCATE_MANIFEST_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 const STATUS_FILES = Object.freeze([
   'RFC-GRAPHIFY-Status.json',
   'RFC-BOUNDIFY-Status.json',
   'RFC-SPLIT-Status.json',
 ]);
+
+/**
+ * The files each owner may write, relative to the package directory.
+ *
+ * An owner output is snapshotted before the owner runs even when it does not
+ * exist yet, so a failed gate can delete a file the owner created. An owner that
+ * returns an undeclared path is outside this contract; the built-in owner
+ * wrappers use this map.
+ */
+const OWNER_OUTPUTS = Object.freeze({
+  graphify: Object.freeze(['RFC-GRAPH.json']),
+  boundify: Object.freeze(['RFC-Dirs-Tree.json']),
+  split: Object.freeze(['Tickets.json', 'RFC-SPLIT-Status.json']),
+  mutationGate: Object.freeze(['Tickets.json']),
+});
 
 const appendKinds = new Set([ARTIFACT_KINDS.SPEC, ARTIFACT_KINDS.RFC]);
 const ownerForKind = Object.freeze({
@@ -41,13 +58,13 @@ const ownerForKind = Object.freeze({
 });
 
 /** The sha256 of a buffer. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function digestBytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
 /** Write through a temporary file and rename. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function writeAtomically(filePath, bytes) {
   const temporary = filePath + '.amendment-tmp.' + process.pid;
   fs.writeFileSync(temporary, bytes);
@@ -55,7 +72,7 @@ function writeAtomically(filePath, bytes) {
 }
 
 /** The finding an unreadable or ambiguous artifact carries. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function stateFinding(ticketKey, state) {
   return gateFinding({
     code: state.code ?? 'UNREADABLE_ARTIFACT',
@@ -67,7 +84,7 @@ function stateFinding(ticketKey, state) {
 }
 
 /** The finding a rejected claim carries. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function claimFinding(ticketKey, problem) {
   return gateFinding({
     code: 'CLAIM_INVALID',
@@ -79,7 +96,7 @@ function claimFinding(ticketKey, problem) {
 }
 
 /** Validate the machine-checkable claim the amendment must carry. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function validateClaim(claim) {
   if (!claim || typeof claim !== 'object') return 'claim is required';
   if (!claim.target || typeof claim.target.kind !== 'string' || typeof claim.target.id !== 'string') {
@@ -91,55 +108,80 @@ function validateClaim(claim) {
   return null;
 }
 
-/** Find the workspace tree manifest visible from a package directory. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
-function findTreeManifest(directory) {
-  let current = path.resolve(directory);
-  for (;;) {
-    const candidate = path.join(current, TREE_MANIFEST_NAME);
-    if (fs.existsSync(candidate)) return candidate;
-    const parent = path.dirname(current);
-    if (parent === current) return null;
-    current = parent;
-  }
+/** The workspace tree manifest at the git top-level, or null. */
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
+function workspaceManifestPath(workspaceRoot) {
+  if (!workspaceRoot) return null;
+  const candidate = path.join(workspaceRoot, TREE_MANIFEST_NAME);
+  return fs.existsSync(candidate) ? candidate : null;
 }
 
-/** Every file the transaction may touch, with its current bytes. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
-function collectSnapshotPaths(cwd, states) {
+/**
+ * Every file the transaction may touch, with its current bytes.
+ *
+ * The workspace manifests sit at the git top-level; owner outputs and stage
+ * status files sit at the package. A declared owner output is included even when
+ * it does not exist, so rollback can delete a file the owner created.
+ */
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
+function collectSnapshotPaths(cwd, states, { workspaceRoot = null, ownerOutputs = [] } = {}) {
   const paths = new Set(states.filter((state) => state.state === ARTIFACT_STATES.PRESENT).map((state) => state.path));
-  const manifest = findTreeManifest(cwd);
-  if (manifest) paths.add(manifest);
+  const manifest = workspaceManifestPath(workspaceRoot);
+  if (manifest) {
+    paths.add(manifest);
+    paths.add(path.join(path.dirname(manifest), ALLOCATE_MANIFEST_NAME));
+  }
   for (const name of STATUS_FILES) {
     const candidate = path.join(cwd, name);
     if (fs.existsSync(candidate)) paths.add(candidate);
   }
+  for (const name of ownerOutputs) paths.add(path.resolve(cwd, name));
   return [...paths].sort();
 }
 
 /** Snapshot the bytes and digests of every file the transaction may touch. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
-function snapshotArtifacts(cwd, states) {
-  return collectSnapshotPaths(cwd, states).map((filePath) => {
-    const bytes = fs.readFileSync(filePath);
-    return { path: filePath, bytes, digest: digestBytes(bytes) };
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
+function snapshotArtifacts(cwd, states, options = {}) {
+  return collectSnapshotPaths(cwd, states, options).map((filePath) => {
+    const existed = fs.existsSync(filePath);
+    const bytes = existed ? fs.readFileSync(filePath) : null;
+    return {
+      path: filePath,
+      bytes,
+      digest: existed ? digestBytes(bytes) : null,
+      existed,
+    };
   });
 }
 
-/** Restore every snapshot byte for byte. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+/** Restore every snapshot byte for byte; remove a file the transaction created. */
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function restoreArtifacts(snapshots) {
-  for (const snapshot of snapshots) writeAtomically(snapshot.path, snapshot.bytes);
+  for (const snapshot of snapshots) {
+    if (snapshot.existed) {
+      writeAtomically(snapshot.path, snapshot.bytes);
+    } else if (fs.existsSync(snapshot.path)) {
+      fs.unlinkSync(snapshot.path);
+    }
+  }
 }
 
 /** The writes an amendment actually performed. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function changedWrites(snapshots) {
   const writes = [];
   for (const snapshot of snapshots) {
-    if (!fs.existsSync(snapshot.path)) continue;
-    const bytes = fs.readFileSync(snapshot.path);
-    const digest = digestBytes(bytes);
+    const exists = fs.existsSync(snapshot.path);
+    if (!snapshot.existed && !exists) continue;
+    if (!snapshot.existed) {
+      writes.push({ path: snapshot.path, beforeDigest: null, afterDigest: digestBytes(fs.readFileSync(snapshot.path)) });
+      continue;
+    }
+    if (!exists) {
+      writes.push({ path: snapshot.path, beforeDigest: snapshot.digest, afterDigest: null });
+      continue;
+    }
+    const digest = digestBytes(fs.readFileSync(snapshot.path));
     if (digest !== snapshot.digest) {
       writes.push({ path: snapshot.path, beforeDigest: snapshot.digest, afterDigest: digest });
     }
@@ -148,7 +190,7 @@ function changedWrites(snapshots) {
 }
 
 /** Run the injected gate function or the fixed manifest. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter }) {
   if (typeof gateRunner === 'function') {
     const result = gateRunner({ cwd, ticketKey, presentKinds: states.filter((state) => state.state === ARTIFACT_STATES.PRESENT).map((state) => state.kind) });
@@ -161,9 +203,47 @@ function runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter
   return runGateManifest({ cwd, ticketKey, ticketsPath, presentKinds });
 }
 
+/**
+ * The owner outputs the transaction must snapshot for one artifact.
+ *
+ * A caller may pass an explicit map keyed by owner name; otherwise the built-in
+ * map names the files the owner writes.
+ */
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+function declaredOwnerOutputs(artifact, ownerOutputs = null) {
+  const ownerName = ownerForKind[artifact];
+  if (!ownerName) return [];
+  if (ownerOutputs && Array.isArray(ownerOutputs[ownerName])) return ownerOutputs[ownerName];
+  return OWNER_OUTPUTS[ownerName] ?? [];
+}
+
+/** Whether two paths resolve to the same directory on disk. */
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+function sameDirectory(left, right) {
+  try {
+    return fs.realpathSync(left) === fs.realpathSync(right);
+  } catch {
+    return path.resolve(left) === path.resolve(right);
+  }
+}
+
+/**
+ * Whether a SPEC amendment runs at the workspace root without a package context.
+ *
+ * A root-only run cannot prove the package-level chain. Refusing it is the safe
+ * default; `allowUnverifiable` is the explicit diagnostic override.
+ */
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+function refusesRootOnlySpec({ artifact, cwd, workspaceRoot, states, allowUnverifiable }) {
+  if (allowUnverifiable || artifact !== ARTIFACT_KINDS.SPEC) return false;
+  if (!workspaceRoot || !sameDirectory(cwd, workspaceRoot)) return false;
+  const packageKinds = [ARTIFACT_KINDS.RFC, ARTIFACT_KINDS.GRAPH, ARTIFACT_KINDS.DIRS_TREE, ARTIFACT_KINDS.TICKETS];
+  return states.some((state) => packageKinds.includes(state.kind) && state.state === ARTIFACT_STATES.ABSENT);
+}
+
 /** Apply the amendment body through the owner of the artifact. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
-function applyAmendment({ artifact, target, claim, ticketKey, cwd, owners, calls }) {
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
+function applyAmendment({ artifact, target, claim, ticketKey, cwd, workspaceRoot, owners, calls }) {
   if (appendKinds.has(artifact)) {
     return appendAmendment({
       filePath: target.path,
@@ -179,12 +259,12 @@ function applyAmendment({ artifact, target, claim, ticketKey, cwd, owners, calls
     return { ok: false, code: 'OWNER_REQUIRED', owner: ownerName };
   }
   calls.push({ owner: ownerName, artifact, ticketKey });
-  const result = owner({ cwd, artifact, claim, ticketKey });
+  const result = owner({ cwd, workspaceRoot, artifact, claim, ticketKey });
   return result === undefined ? { ok: true } : result;
 }
 
 /** Write the provenance ledger for one promoted amendment. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function writeLedger({ cwd, ticketKey, artifact, target, claim, beforeDigest, afterDigest, gates }) {
   const directory = path.join(cwd, AMENDMENT_DIRECTORY);
   fs.mkdirSync(directory, { recursive: true });
@@ -207,12 +287,14 @@ function writeLedger({ cwd, ticketKey, artifact, target, claim, beforeDigest, af
 /**
  * Run one amendment.
  *
- * @param {{ cwd?: string, ticketKey: string, artifact: string, operation?: string,
- *           claim: object, dryRun?: boolean, gateRunner?: Function,
- *           owners?: object, ticketsPath?: string|null }} input
+ * @param {{ cwd?: string, ticketKey: string,
+ *           artifact: string, operation?: string, claim: object,
+ *           dryRun?: boolean, gateRunner?: Function, owners?: object,
+ *           ownerOutputs?: object|null, ticketsPath?: string|null,
+ *           allowUnverifiable?: boolean }} input
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 async function runAmendment({
   cwd = process.cwd(),
   ticketKey,
@@ -222,9 +304,13 @@ async function runAmendment({
   dryRun = true,
   gateRunner = null,
   owners = {},
+  ownerOutputs = null,
+  overrides = {},
   ticketsPath = null,
+  allowUnverifiable = false,
 }) {
-  const states = resolveArtifactStates({ cwd });
+  const workspaceRoot = resolveWorkspaceRoot(cwd);
+  const states = resolveArtifactStates({ cwd, overrides });
   const target = states.find((state) => state.kind === artifact);
   const empty = { findings: [], unverifiable: [], writes: [], directWrites: [] };
 
@@ -240,10 +326,31 @@ async function runAmendment({
     return { outcome: 'refused', ticketKey, artifact, ...empty, findings: [claimFinding(ticketKey, claimProblem)], skipped: [] };
   }
 
-  const snapshots = snapshotArtifacts(cwd, states);
+  if (refusesRootOnlySpec({ artifact, cwd, workspaceRoot, states, allowUnverifiable })) {
+    return {
+      outcome: 'refused',
+      ticketKey,
+      artifact,
+      ...empty,
+      findings: [gateFinding({
+        code: 'GATE_UNVERIFIABLE',
+        asset: ticketKey + '/' + artifact,
+        problem: 'a SPEC amendment at the workspace root has no package context; run from the package or pass --allow-unverifiable',
+        rerun: 'design-amendment.js --ticket-key=' + ticketKey + ' --artifact=spec --cwd=<package>',
+        fix: { tool: 'design-amendment', input: { ticketKey, artifact, cwd: '<package>' } },
+      })],
+      skipped: [],
+      unverifiable: [{ name: 'package-context', reason: 'missing:package-artifacts' }],
+    };
+  }
+
+  const snapshots = snapshotArtifacts(cwd, states, {
+    workspaceRoot,
+    ownerOutputs: declaredOwnerOutputs(artifact, ownerOutputs),
+  });
   const before = runGates({ gateRunner, cwd, ticketKey, ticketsPath, states });
   const calls = [];
-  const applied = applyAmendment({ artifact, target, claim, ticketKey, cwd, owners, calls });
+  const applied = applyAmendment({ artifact, target, claim, ticketKey, cwd, workspaceRoot, owners, calls });
 
   if (applied.ok === false) {
     restoreArtifacts(snapshots);
@@ -260,7 +367,7 @@ async function runAmendment({
   }
 
   await rebuildDesignHashes({ cwd });
-  const statesAfter = resolveArtifactStates({ cwd });
+  const statesAfter = resolveArtifactStates({ cwd, overrides });
   const after = runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter });
   const newFindings = diffFindings(before.findings, after.findings);
 
@@ -326,22 +433,29 @@ async function runAmendment({
 }
 
 /** Read `--name=value` from the argument list. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function argumentValue(args, name) {
   const prefix = '--' + name + '=';
   const match = args.find((argument) => argument.startsWith(prefix));
   return match ? match.slice(prefix.length) : undefined;
 }
 
+/** Read an optional path argument, resolving it when present. */
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+function optionalPath(args, name) {
+  const value = argumentValue(args, name);
+  return value === undefined ? null : path.resolve(value);
+}
+
 /** Parse the claim from an inline JSON value or an @file path. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function parseClaim(value) {
   if (typeof value !== 'string' || value.length === 0) return null;
   const text = value.startsWith('@') ? fs.readFileSync(value.slice(1), 'utf8') : value;
   return JSON.parse(text);
 }
 
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   const ticketKey = argumentValue(args, 'ticket-key');
@@ -358,6 +472,14 @@ async function main() {
     process.exit(0);
   }
 
+  const overrides = {
+    spec: optionalPath(args, 'override-spec'),
+    rfc: optionalPath(args, 'override-rfc'),
+    graph: optionalPath(args, 'override-graph'),
+    'dirs-tree': optionalPath(args, 'override-dirs-tree'),
+    tickets: optionalPath(args, 'override-tickets'),
+  };
+
   const result = await runAmendment({
     cwd: path.resolve(argumentValue(args, 'cwd') || process.cwd()),
     ticketKey,
@@ -365,7 +487,9 @@ async function main() {
     operation: argumentValue(args, 'operation') || 'append',
     claim: parseClaim(argumentValue(args, 'claim')) ?? {},
     dryRun: !args.includes('--apply'),
+    overrides,
     ticketsPath: argumentValue(args, 'tickets') ?? null,
+    allowUnverifiable: args.includes('--allow-unverifiable'),
   });
   process.stdout.write(JSON.stringify(result) + '\n');
   process.exit(0);

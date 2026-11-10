@@ -62041,6 +62041,318 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-10",
           "reviewed_at": "2026-11-10T05:41:35.644Z"
+        },
+        {
+          "id": 405,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Design amendment transaction: two-level artifact resolution, owner-safe rebuild, and read-only verification",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-405.md",
+          "invariants": "- [Normal condition] Present artifacts resolve from the correct level; absent artifacts are skipped; unreadable or ambiguous artifacts are accurate findings; no hand edit is accepted.\n- [Error invariant] Any failed transaction restores every snapshot byte-for-byte, including owner-generated files; the process exits zero with a report envelope.\n- [Internal state invariant] Stage receipts, tree manifest, allocate manifest, RFC-SEED reference, and formula digest bind the current artifacts; two rebuilds produce the same digest.\n- [Boundary invariant] The workspace root and the package are distinct resolution levels; no artifact is resolved from the wrong level; an unverifiable gate never counts as a pass.",
+          "background": "### Goal\nResolve SPEC at the workspace root and RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json, and Tickets.json at the package level in one design-amendment transaction, from the package working directory; rebuild every dependent digest chain; make verification read-only.\n\n### Purpose\nLet /start-ticket, /review-ticket, and /resolve-ticket resolve design omissions, contradictions, deficiencies, and dangers at the moment they are found, without hand edits and without relying on AI judgment for mechanical safety.\n\n### Motivation\nThe PX-400 audit measured five gaps: (1) readManifestSpecPath only inspects the current directory, so a package reports SPEC absent; (2) one cwd cannot resolve the workspace SPEC and the package artifacts together; (3) the CLI passes no owners, so GRAPH, Dirs-Tree, and Tickets refuse with OWNER_REQUIRED; (4) allocate-manifest and formula-sidecar digests are not rebuilt; (5) verify-amendment writes .conver-history.jsonl. These are implementation defects, not test gaps.\n\n### Constraints\nImplementation target is conver only. Preserve PX-400 behavior and all 34 existing amendment tests. Never loosen a gate. Command Markdown stays telegraphic, compressed, dense, and strict. Do not write to gaia, crystal, or doors. No new dependency crate. Do not break /consolidate-stubs or /find-omissions.",
+          "scope": [
+            "**Scope of changes:**\n- `.claude/scripts/tickets/lib/design-amendment-state.js`: resolve the workspace SPEC by from the git top-level for `WORKSPACIFY-TREE-MANIFEST.json`; keep present, absent, ambiguous, and unreadable states.\n- `.claude/scripts/tickets/design-amendment.js`: accept per-artifact directories (workspace root and package) and owner implementations; snapshot every file an owner may write; preserve dry-run, rollback, and ledger semantics.\n- `.claude/scripts/tickets/rebuild-design-hashes.js`: rebuild stage receipts, tree-manifest source and self hashes, allocate-manifest stage-1 hash, RFC-SEED reference block, and formula-sidecar rfcDigest through their owners; absent artifacts stay absent.\n- `.claude/scripts/tickets/amendment-gate-manifest.js`: add Tickets schema validation, tree entry-parity and hash validation, allocate-manifest hash agreement, and formula-digest agreement.\n- `.claude/scripts/tickets/verify-amendment.js`: make verification read-only; remove the prerequisite history write from the read path.\n- `.claude/commands/start-ticket.md`, `review-ticket.md`, `resolve-ticket.md` and the owner and detector commands: telegraphic route update only; no Step renumbering.\n- `tests/tickets/*`: two-level layout, owner rederive, rollback of generated files, read-only verification, and no false promotion with unverifiable gates.",
+            "**Out of scope:**\n- Changes to gaia, crystal, or doors; they are validation targets only.\n- New runtime dependencies or a new transaction engine.\n- Unrelated PX-400 behavior, command Steps, or gate semantics.",
+            "**Affected areas:**\n- Design amendment safety and traceability; the start/review/resolve design-fix route; the workspace and package boundary.\n- Performance: git-root resolution is one git invocation; no full-suite scan. Security: no path traversal outside cwd or workspace. Data format: no artifact schema change."
+          ],
+          "testUnit": [
+            "UT: [Normal] @verifies C001 — from a package inside a git workspace, resolve the WORKSPACIFY-TREE-MANIFEST.json at the git top-level and return SPEC present at input.spec_path; from a workspace without a manifest, return absent; never guess a sibling SPEC.",
+            "UT: [Normal] @verifies C002 — resolve SPEC from the workspace root and RFC, GRAPH, Dirs-Tree, and Tickets from the package in one transaction; dry-run leaves bytes unchanged.",
+            "UT: [Error] @verifies C003 — a derived artifact without an owner returns OWNER_REQUIRED; with an owner, a forced gate failure restores every touched file byte-for-byte, including generated files.",
+            "UT: [Boundary] @verifies C004 — rebuild stage receipts, tree-manifest source and self hashes, allocate-manifest stage-1 hash, RFC-SEED reference hash, and formula rfcDigest; two rebuilds produce the same digest; absent artifacts stay absent.",
+            "UT: [Invariant] @verifies C005 — verify-amendment changes no file, writes no history entry, and reports unverifiable gates as unverifiable, never as pass.",
+            "UT: [Error] @verifies C001 — unreadable JSON is UNREADABLE_ARTIFACT and two graph candidates are AMBIGUOUS_GRAPH, not absent.",
+            "UT: [Boundary] @verifies C002 — a root-only invocation cannot promote when the package artifacts are absent and the gates are unverifiable.",
+            "UT: @verifies C001 [precondition] cwd is a package inside a git workspace whose git top-level carries WORKSPACIFY-TREE-MANIFEST.json with input.spec_path.",
+            "UT: @verifies C001 [postcondition] resolveArtifactStates returns SPEC present at the manifest input.spec_path; a workspace without the manifest returns absent.",
+            "UT: @verifies C001 [invariant] No sibling SPEC is guessed; the workspace manifest at the git root is the only authority for the SPEC path.",
+            "UT: @verifies C002 [precondition] SPEC exists at the workspace root and RFC, GRAPH, Dirs-Tree, and Tickets exist at the package.",
+            "UT: @verifies C002 [postcondition] one transaction resolves and applies to both levels without a second cwd; dry-run leaves bytes unchanged.",
+            "UT: @verifies C002 [invariant] A root-only invocation cannot report a cross-level pass; unverifiable gates never count as pass.",
+            "UT: @verifies C003 [precondition] the amendment target is GRAPH, DIRS_TREE, or TICKETS.",
+            "UT: @verifies C003 [postcondition] the transaction calls the owner or returns OWNER_REQUIRED; a failed gate restores every touched byte.",
+            "UT: @verifies C003 [invariant] No direct write to a derived artifact; rollback covers every owner-generated file.",
+            "UT: @verifies C004 [precondition] SPEC or RFC is amended.",
+            "UT: @verifies C004 [postcondition] stage receipts, tree manifest source and self hashes, allocate-manifest stage-1 hash, RFC-SEED reference, and formula rfcDigest agree with the current artifacts.",
+            "UT: @verifies C004 [invariant] Two rebuilds over the same input produce the same digest; absent artifacts stay absent.",
+            "UT: @verifies C005 [precondition] verify-amendment runs against a workspace.",
+            "UT: @verifies C005 [postcondition] no file changes; the report contains findings, skipped, and unverifiable.",
+            "UT: @verifies C005 [invariant] Verification writes no history, ledger, or artifact; unverifiable is never reported as pass."
+          ],
+          "testIntegration": [
+            "IT: [Package and workspace] @verifies C001,C002,C003,C004,C005 — create a fixture workspace with a root manifest and a child package; append an amendment to SPEC and to RFC; run owner rederive; run the fixed gates; assert the ledger and the rebuilt digests; assert every byte of the fixture's non-target files is unchanged.",
+            "IT: [Existing regression] — the 34 PX-400 amendment tests remain green.",
+            "IT: [Cross-workspace read-only] — dry-run verify-amendment against gaia, crystal, and doors with zero writes to the workspace.",
+            "IT: [Acceptance 1] [Happy path] From a package, a dry-run then --apply appends the SPEC or RFC amendment, rederives the derived artifacts, rebuilds the digest chain, passes the fixed gates, and writes one provenance ledger entry.",
+            "IT: [Acceptance 2] [Error case] A missing workspace manifest reports SPEC absent; unreadable JSON reports UNREADABLE_ARTIFACT; a derived artifact without an owner reports OWNER_REQUIRED; a gate failure rolls back every touched byte.",
+            "IT: [Acceptance 3] [Edge case] A root-only invocation leaves the package artifacts absent and reports the package gates unverifiable; it never reports a pass. verify-amendment leaves the workspace byte-identical."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] Emit the transaction envelope with outcome, artifact, ticketKey, writes, findings, skipped, unverifiable, and calls.\n- [Metrics] Count gates run, findings, rolled-back writes, and owner calls.\n- [Error tracking] Use named codes: UNREADABLE_ARTIFACT, AMBIGUOUS_GRAPH, OWNER_REQUIRED, TREE_MANIFEST_HASH_MISMATCH, GATE_DEFECT.\n- [Health check] A dry-run reports wouldPromote and the unverifiable gate list without writing.\nReview: static quality check passed (0 issues); translatability no blocking issues; impact tests 101/101 passed.",
+          "notes": "- [Implementation steps] (1) Add git-root workspace resolution to design-amendment-state. (2) Add a resolution context that carries workspaceRoot and packageDir. (3) Wire owner callbacks and snapshot their outputs. (4) Extend rebuildDesignHashes. (5) Add schema, parity, allocate, and formula gates. (6) Make verify-amendment read-only. (7) Add the two-level and read-only tests.\n- [Risks] Owner rederive can write files outside the current snapshot set; every owner output must be enumerated and snapshotted. A root-only run can promote with unverifiable gates; promotion must require the cross-level gate set or an explicit handoff.\n- [Caveats] The workspace SPEC path comes only from the tree manifest; a package outside a git workspace legitimately has no SPEC. Formula sidecars may be absent; absence is a skip, not a failure.\n- [Open items] The CLI owner handoff may need a dedicated facade script; keep OWNER_REQUIRED when no owner is supplied.\n- [Future improvements] Promote the owner rederive sequence to one deterministic command; add an artifact-level digest manifest for faster parity checks.\n\nGlobal constraints: conver only; telegraphic command Markdown; preserve existing quality; do not break /consolidate-stubs or /find-omissions.\nPX-405 implementation summary:\n- Changed files: .claude/scripts/tickets/{design-amendment.js,verify-amendment.js,rebuild-design-hashes.js,amendment-gate-manifest.js,lib/design-amendment-state.js,lib/design-hash-report.mjs}; command Markdown; tests/tickets/*.\n- Key changes: git-root SPEC resolution, git-root workspace resolution plus per-artifact overrides, owner-output snapshot/restore including created files, root-only SPEC refusal, allocate-chain and formula-digest verification, four new fixed gates, read-only prerequisite gate.\n- Validation: 49/49 amendment tests pass; verify-red-coverage 5/5 contracts; reverify-ticket 0 findings twice with the same empty digest and certificate written; quality checks 0 issues; syntax checks pass.\n- Installed copies at the repository root and crates/siprs were synchronized to preserve the existing parity contract.\n- No writes to gaia, crystal or doors.\nReview report (PX-405):\n- Static quality check: passed (0 issues)\n- Translatability: no blocking issues; generic-name grep hits are false positives (tmp suffix / prose).\n- Tests: 101/101 impact tests passed; red coverage 5/5; reverify 0 findings twice with the same digest; certificate refreshed.\n- Annotation: this ticket's owned files carry provenance; the sibling ticket's files and pre-existing unrelated working-tree changes are outside this ticket's provenance.\n- Issues found and fixes applied: stale pre-flight assertion corrected to the actual quoted commands; macOS /private/var realpath guard fixed; workspace-root override noise removed and replaced by git-root resolution.\n- No open crimes, no unclassified [::STUB::], no [::AMBIGUOUS::].",
+          "acceptanceCriteria": [
+            "[Happy path] From a package, a dry-run then --apply appends the SPEC or RFC amendment, rederives the derived artifacts, rebuilds the digest chain, passes the fixed gates, and writes one provenance ledger entry.",
+            "[Error case] A missing workspace manifest reports SPEC absent; unreadable JSON reports UNREADABLE_ARTIFACT; a derived artifact without an owner reports OWNER_REQUIRED; a gate failure rolls back every touched byte.",
+            "[Edge case] A root-only invocation leaves the package artifacts absent and reports the package gates unverifiable; it never reports a pass. verify-amendment leaves the workspace byte-identical."
+          ],
+          "investigation": "- `lib/design-amendment-state.js:74-87`: readManifestSpecPath checks only the current directory for WORKSPACIFY-TREE-MANIFEST.json; a package below the workspace reports spec absent even though the manifest exists at the workspace root. Measured on gaia and doors.\n- `design-amendment.js:227`: resolveArtifactStates with one cwd is used for all five artifacts.\n- `design-amendment.js:361-369`: the CLI passes no owners or per-artifact overrides; --artifact=graph, dirs-tree, or tickets returns OWNER_REQUIRED.\n- `rebuild-design-hashes.js:97-130,182-217`: rebuilds stage receipts and the tree manifest only; the allocate manifest records integrity.manifest_hash and is not rebuilt.\n- `check-ticket-prerequisites.js:210`: a verification run writes a .conver-history.jsonl BLOCKED_PREREQUISITE entry.\n- `tests/tickets/*`: 34 amendment tests pass; the C001 SPEC test uses a same-directory manifest, so it does not cover the two-level layout.",
+          "boyScoutPlan": "- Extract resolveAncestorManifest(directory) and resolveArtifactDirectories(workspaceRoot, packageDir); name the two levels explicitly.\n- Replace the inline STATUS_FILES list and magic strings with named constants.\n- Split runAmendment into resolve, snapshot, apply, rebuild, gate, and promote-or-restore; one responsibility per function.\n- Propagate errors as named findings; never swallow a read or write error.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "SPEC resolution across the workspace and package boundary",
+              "precondition": "cwd is a package inside a git workspace whose git top-level carries WORKSPACIFY-TREE-MANIFEST.json with input.spec_path.",
+              "postcondition": "resolveArtifactStates returns SPEC present at the manifest input.spec_path; a workspace without the manifest returns absent.",
+              "invariant": "No sibling SPEC is guessed; the workspace manifest at the git root is the only authority for the SPEC path."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "single transaction across two artifact levels",
+              "precondition": "SPEC exists at the workspace root and RFC, GRAPH, Dirs-Tree, and Tickets exist at the package.",
+              "postcondition": "one transaction resolves and applies to both levels without a second cwd; dry-run leaves bytes unchanged.",
+              "invariant": "A root-only invocation cannot report a cross-level pass; unverifiable gates never count as pass."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "derived artifacts are written only through their owners",
+              "precondition": "the amendment target is GRAPH, DIRS_TREE, or TICKETS.",
+              "postcondition": "the transaction calls the owner or returns OWNER_REQUIRED; a failed gate restores every touched byte.",
+              "invariant": "No direct write to a derived artifact; rollback covers every owner-generated file."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "digest chain after an amendment",
+              "precondition": "SPEC or RFC is amended.",
+              "postcondition": "stage receipts, tree manifest source and self hashes, allocate-manifest stage-1 hash, RFC-SEED reference, and formula rfcDigest agree with the current artifacts.",
+              "invariant": "Two rebuilds over the same input produce the same digest; absent artifacts stay absent."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "verification is read-only",
+              "precondition": "verify-amendment runs against a workspace.",
+              "postcondition": "no file changes; the report contains findings, skipped, and unverifiable.",
+              "invariant": "Verification writes no history, ledger, or artifact; unverifiable is never reported as pass."
+            }
+          ],
+          "created_at": "2026-11-10",
+          "updated_at": "2026-11-10",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-10T06:15:16.164Z",
+          "planTestCode": [
+            "UT: [Normal] C001 — git-root manifest resolves the workspace SPEC\n```js\nconst workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'px405-c001-'));\nconst pkg = path.join(workspace, 'crates', 'demo');\nfs.mkdirSync(pkg, { recursive: true });\nfs.writeFileSync(path.join(workspace, 'WORKSPACIFY-TREE-MANIFEST.json'), JSON.stringify({ input: { spec_path: 'DESIGN.md' } }));\nfs.writeFileSync(path.join(workspace, 'DESIGN.md'), '# Design\\n');\nconst state = resolveArtifactState({ kind: ARTIFACT_KINDS.SPEC, cwd: pkg });\nassert.equal(state.state, ARTIFACT_STATES.PRESENT);\nassert.equal(state.path, path.join(workspace, 'DESIGN.md'));\nconst absent = resolveArtifactState({ kind: ARTIFACT_KINDS.SPEC, cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'px405-c001-absent-')) });\nassert.equal(absent.state, ARTIFACT_STATES.ABSENT);\n```",
+            "UT: [Normal] C002 — one transaction resolves both levels; a root-only run cannot promote\n```js\nconst states = resolveArtifactStates({ cwd: pkg });\nassert.equal(states.find((s) => s.kind === ARTIFACT_KINDS.SPEC).state, ARTIFACT_STATES.PRESENT);\nassert.equal(states.find((s) => s.kind === ARTIFACT_KINDS.RFC).state, ARTIFACT_STATES.PRESENT);\nconst before = fs.readFileSync(path.join(workspace, 'DESIGN.md'));\nconst dry = await runAmendment({ cwd: pkg, ticketKey: 'PX-405', artifact: 'spec', claim: BASE_CLAIM, dryRun: true, gateRunner: CLEAN_RUNNER });\nassert.equal(dry.outcome, 'dry-run');\nassert.ok(fs.readFileSync(path.join(workspace, 'DESIGN.md')).equals(before));\nconst rootOnly = await runAmendment({ cwd: workspace, ticketKey: 'PX-405', artifact: 'spec', claim: BASE_CLAIM, dryRun: false, gateRunner: () => ({ findings: [], unverifiable: [{ name: 'chain', reason: 'missing:graph,dirs-tree,tickets' }] }) });\nassert.notEqual(rootOnly.outcome, 'promoted');\nassert.equal(rootOnly.findings.some((f) => f.code === 'GATE_UNVERIFIABLE'), true);\n```",
+            "UT: [Error] C003 — owner writes are snapshotted and restored byte-for-byte\n```js\nconst graphPath = path.join(pkg, 'RFC-GRAPH.json');\nfs.writeFileSync(graphPath, '{\"nodes\":[]}\\n');\nconst beforeGraph = fs.readFileSync(graphPath);\nconst owner = ({ cwd }) => { fs.writeFileSync(path.join(cwd, 'RFC-GRAPH.json'), '{\"nodes\":[\"new\"]}\\n'); fs.writeFileSync(path.join(cwd, 'RFC-Dirs-Tree.json'), '{\"trees\":[\"new\"]}\\n'); return { ok: true }; };\nconst result = await runAmendment({ cwd: pkg, ticketKey: 'PX-405', artifact: 'graph', operation: 'mutate', claim: BASE_CLAIM, dryRun: false, owners: { graphify: owner }, gateRunner: passingThenFailingRunner() });\nassert.equal(result.outcome, 'rolled-back');\nassert.ok(fs.readFileSync(graphPath).equals(beforeGraph));\nassert.equal(fs.existsSync(path.join(pkg, 'RFC-Dirs-Tree.json')), false);\nconst refused = await runAmendment({ cwd: pkg, ticketKey: 'PX-405', artifact: 'graph', operation: 'mutate', claim: BASE_CLAIM, dryRun: true, owners: {} });\nassert.equal(refused.outcome, 'refused');\nassert.equal(refused.findings[0].code, 'OWNER_REQUIRED');\n```",
+            "UT: [Boundary] C004 — digest chain rebuild and owner-chain verification\n```js\nconst first = await rebuildDesignHashes({ cwd: pkg });\nconst second = await rebuildDesignHashes({ cwd: pkg });\nassert.equal(first.digest, second.digest);\nconst tree = JSON.parse(fs.readFileSync(path.join(workspace, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));\nassert.equal(tree.integrity.manifest_hash, computeSelfHash(tree));\nconst allocate = JSON.parse(fs.readFileSync(path.join(workspace, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'));\nassert.equal(allocate.input_tree_manifest.hash, tree.integrity.manifest_hash);\nassert.equal(allocate.integrity.manifest_hash, computeAllocateSelfHash(allocate));\nassert.deepEqual(await verifyAllocateChain({ workspaceRoot: workspace }), []);\nconst sidecar = JSON.parse(fs.readFileSync(path.join(pkg, 'RFC-FORMULAS.json'), 'utf8'));\nassert.equal(sidecar.rfcDigest, computeRfcDigest(fs.readFileSync(path.join(pkg, 'RFC.md'), 'utf8')));\nassert.deepEqual(await verifyFormulaDigest({ packageDir: pkg, rfcPath: path.join(pkg, 'RFC.md') }), []);\n```",
+            "UT: [Invariant] C005 — verification is read-only\n```js\nconst before = snapshotTree(workspace);\nconst report = verifyAmendment({ cwd: pkg, ticketKey: 'PX-405', ticketsPath: path.join(pkg, 'Tickets.json'), report: true, runners: CLEAN_TICKET_RUNNERS });\nconst after = snapshotTree(workspace);\nassert.deepEqual(after, before);\nassert.equal(report.findings.some((f) => f.code === 'HISTORY_WRITE'), false);\nassert.equal(fs.existsSync(path.join(workspace, 'certificates')), false);\n```"
+          ],
+          "planned_at": "2026-11-10T06:18:38.900Z",
+          "startedAt": "2026-11-10",
+          "changes": [
+            {
+              "before": "SPEC resolved only from <cwd>/WORKSPACIFY-TREE-MANIFEST.json",
+              "after": "SPEC resolved from the git-root workspace manifest; path relative to the workspace root",
+              "description": "design-amendment-state.js: git-root workspace resolution with present/absent/ambiguous/unreadable states"
+            },
+            {
+              "before": "one cwd for all five artifacts; no owner-output snapshot; root-only SPEC could promote",
+              "after": "git-root workspace resolution plus per-artifact overrides; owner outputs snapshotted with existed=false; root-only SPEC refuses with GATE_UNVERIFIABLE",
+              "description": "design-amendment.js: two-level resolution, rollback that deletes created owner files, cross-level guard"
+            },
+            {
+              "before": "stage receipts and tree manifest rebuilt only",
+              "after": "stage receipts and tree manifest rebuilt; allocate chain and formula digest verified with named repair routes",
+              "description": "rebuild-design-hashes.js: verifyAllocateChain and verifyFormulaDigest"
+            },
+            {
+              "before": "eight gates; prerequisite gate wrote .conver-history.jsonl through the CLI",
+              "after": "twelve versioned gates; prerequisite gate calls the exported run() and writes nothing",
+              "description": "amendment-gate-manifest.js: tickets-schema, formula-digest, tree-entry-parity, allocate-chain; read-only prerequisite path"
+            },
+            {
+              "before": "verify-amendment accepted cwd only",
+              "after": "verify-amendment resolves the workspace from the git root and keeps the report envelope",
+              "description": "verify-amendment.js: two-level state resolution"
+            },
+            {
+              "before": "no ESM bridge for CJS gate runners",
+              "after": "design-hash-report.mjs bridges tree parity, allocate chain and formula digest, read-only",
+              "description": "new lib/design-hash-report.mjs"
+            },
+            {
+              "before": "command route named one cwd",
+              "after": "telegraphic route leaves workspace resolution to the git root; owner repair route for stale allocate/formula chain",
+              "description": "start/review/resolve and owner/detector command Markdown; Step numbers unchanged; installed copies synced"
+            },
+            {
+              "before": "one two-level test file absent",
+              "after": "new two-level, owner-safety and read-only tests; gate list updated; 49 tests pass",
+              "description": "tests/tickets: design-amendment-two-level, design-amendment-owner, verify-amendment-readonly, verify-amendment and command-integration updates"
+            }
+          ],
+          "done_at": "2026-11-10T06:27:48.776Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-10",
+          "reviewed_at": "2026-11-10T06:58:03.691Z"
+        },
+        {
+          "id": 406,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Omission detection, AI judgment ledger, detection coverage, and finite convergence",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-406.md",
+          "invariants": "- [Normal condition] Mechanical checks and gates are mandatory; AI judgment is limited to enumerated judgment obligations; every surface has a recorded verdict.\n- [Error invariant] notMeasured and NOT_VERIFIABLE never pass; a detector failure or unreadable input is a finding, not a clean run.\n- [Internal state invariant] Finding keys are stable; the baseline delta and debt budget do not increase; two consecutive runs produce identical findings and digests.\n- [Boundary invariant] The inspection universe is finite and enumerated from the artifacts; no open-ended improvement search; no normative source means improvement backlog, not omission.",
+          "background": "### Goal\nAdd a deterministic detector layer and an AI judgment ledger to /consolidate-stubs and /find-omissions, prove the detection itself is calibrated, and converge by adjudicating a finite obligation set.\n\n### Purpose\nFind penetration-breaking incomplete implementations, omissions, contradictions, deficiencies, and dangers; turn only normative must-fix findings into tickets; never turn the loop into open-ended nitpicking.\n\n### Motivation\n/find-omissions is AI-only per contract and records only FAIL; /consolidate-stubs sees only [::STUB::] markers; there is no detector registry, no coverage gate, and no convergence predicate. A missing detector is indistinguishable from a clean run.\n\n### Constraints\nImplementation target is conver only. Add Step 0 and new scripts; do not change existing Step numbers, meanings, or gate semantics. Command Markdown stays telegraphic, compressed, dense, and strict. No gaia-specific vocabulary. notMeasured is never a pass. AI judgment stays where it is needed; enumeration and coverage stay mechanical. Do not break /consolidate-stubs or /find-omissions.",
+          "scope": [
+            "**Scope of changes:**\n- New `.claude/scripts/tickets/omission-detectors.json`: versioned registry; each entry has id, surface, applies, runner, finding schema, repair route, and mechanical or judgment.\n- New `.claude/scripts/tickets/omission-gap-scan.js`: invoke existing verify scripts and scan scripts; normalize findings into one envelope with measured, notMeasured, and blocked.\n- New `.claude/scripts/tickets/lib/judgment-ledger.js`: record PASS, FAIL, NOT_APPLICABLE, and NOT_VERIFIABLE with evidence and a normative source.\n- New `.claude/scripts/tickets/omission-detection-gate.js`: enumerate surfaces from artifacts; run positive, negative, and meta calibration; report uncovered surfaces.\n- New `.claude/scripts/tickets/lib/omission-convergence.js`: stable finding key, baseline delta, debt budget, classification, and the converged predicate.\n- `.claude/commands/consolidate-stubs.md`: additive Step 0; enumerate unmarked incomplete implementations; mark or classify each; keep Steps 1-5 and consolidate-stubs-gate.sh unchanged.\n- `.claude/commands/find-omissions.md`: additive Step 0; deterministic ingestion, judgment ledger, stable keys, improvement-backlog separation; keep Steps 1-11 unchanged.\n- Tests and portability checks.",
+            "**Out of scope:**\n- Changes to gaia, crystal, or doors; they are report-only validation targets.\n- New runtime dependencies; a new AI model; a new ticket schema.\n- Weakening or replacing existing gates; open-ended find-more-improvements prompts.",
+            "**Affected areas:**\n- Detection coverage, AI judgment provenance, ticket convergence, debt accounting, and command compatibility.\n- Performance: impact-set scans only; no full-suite run. Security: detectors read artifacts and source; no writes outside the ledger. Data format: additive registry and ledger files."
+          ],
+          "testUnit": [
+            "UT: [Normal] @verifies C001 — registry is versioned and every enumerated surface has a mechanical detector, a judgment obligation, or a machine-readable notApplicable; notMeasured is not pass.",
+            "UT: [Normal] @verifies C002 — the judgment ledger records PASS, FAIL, NOT_APPLICABLE, and NOT_VERIFIABLE with evidence and a normative source; an obligation without a verdict is unrecorded.",
+            "UT: [Error] @verifies C003 — a planted defect per detector family is detected (positive); a clean fixture yields zero findings (negative); removing a detector makes the coverage gate report the uncovered surface (meta).",
+            "UT: [Boundary] @verifies C004 — converged iff every surface is adjudicated, no must-fix finding lacks a ticket, debt does not increase, two runs have identical findings and digests, and no new ticket is created; a stable finding key prevents a duplicate ticket.",
+            "UT: [Invariant] @verifies C005 — Step 0 is additive; existing Steps 1-5 of consolidate-stubs and Steps 1-11 of find-omissions keep their numbers, meanings, and gates.",
+            "UT: [Error] @verifies C004 — a finding without a normative source is classified as improvement backlog, not as an omission ticket.",
+            "UT: [Boundary] @verifies C003 — a blocked or unreadable surface is reported as notMeasured and fails the coverage gate; a zero-finding run still records the detector as measured and calibrated.",
+            "UT: @verifies C001 [precondition] the artifact set is present and the surface enumeration has run.",
+            "UT: @verifies C001 [postcondition] every surface has a mechanical detector, a judgment obligation, or a machine-readable notApplicable; notMeasured is reported.",
+            "UT: @verifies C001 [invariant] notMeasured never counts as pass; an uncovered applicable surface is a finding.",
+            "UT: @verifies C002 [precondition] a surface is classified as a judgment obligation.",
+            "UT: @verifies C002 [postcondition] PASS, FAIL, NOT_APPLICABLE, or NOT_VERIFIABLE is recorded with evidence and a normative source.",
+            "UT: @verifies C002 [invariant] No judgment obligation is left unrecorded; the AI does not self-certify coverage.",
+            "UT: @verifies C003 [precondition] a detector family is registered.",
+            "UT: @verifies C003 [postcondition] positive, negative, and meta controls pass; a removed detector is reported as an uncovered surface.",
+            "UT: @verifies C003 [invariant] A zero-finding run is a measurement only after calibration.",
+            "UT: @verifies C004 [precondition] a scan round has completed.",
+            "UT: @verifies C004 [postcondition] converged iff every surface is adjudicated, no must-fix finding lacks a ticket, debt does not increase, two runs have identical findings and digests, and no new ticket is created.",
+            "UT: @verifies C004 [invariant] Only must-fix findings create tickets; stable keys prevent duplicate tickets.",
+            "UT: @verifies C005 [precondition] the existing consolidate-stubs and find-omissions workflows run.",
+            "UT: @verifies C005 [postcondition] Step 0 is additive; existing Step numbers, meanings, and gates are unchanged.",
+            "UT: @verifies C005 [invariant] The existing tests pass; no behavior regression; no gate is weakened."
+          ],
+          "testIntegration": [
+            "IT: [consolidate-stubs] @verifies C001,C005 — an unmarked todo!() and an unmarked unimplemented!() are enumerated in Step 0, receive a valid key or a recorded classification, and flow into the existing unit grouping; the existing gate still passes.",
+            "IT: [find-omissions] @verifies C002,C004 — Step 0 ingests deterministic findings, records the judgment ledger, deduplicates by stable key, tickets only must-fix findings, and preserves the existing manifest and phasify flow.",
+            "IT: [Calibration] @verifies C003 — run the detection gate on a fixture with one defect per family; every family fires; remove one detector and the meta control reports the uncovered surface.",
+            "IT: [Regression] @verifies C005 — the existing consolidate-stubs and find-omissions tests remain green.",
+            "IT: [Cross-workspace report-only] — run the gap scan against gaia, crystal, and doors and assert zero writes.",
+            "IT: [Acceptance 1] [Happy path] All surfaces are enumerated; mechanical detectors run; the AI judgment ledger records PASS and FAIL for judgment obligations; must-fix findings become tickets; the convergence predicate is true.",
+            "IT: [Acceptance 2] [Error case] A missing detector, an uncovered surface, a notMeasured surface, or a debt increase fails the detection gate with a named finding; a duplicate finding creates no new ticket.",
+            "IT: [Acceptance 3] [Edge case] A workspace with zero stubs and zero findings still records every detector as measured and calibrated; a clean run is not confused with an unmeasured run."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] Emit detector id, surface, status (measured, notMeasured, blocked), finding count, and ticket count.\n- [Metrics] Count surfaces enumerated, surfaces covered, findings by class, must-fix tickets, and debt delta.\n- [Error tracking] Use named codes: DETECTOR_MISSING, SURFACE_UNCOVERED, NOT_MEASURED, CALIBRATION_FAILED, DEBT_INCREASED, NON_NORMATIVE_FINDING.\n- [Health check] A dry-run reports the convergence predicate and the uncovered or unmeasured surfaces without writing.\nReview: static quality check passed (0 issues); translatability no blocking issues; impact tests 101/101 passed.",
+          "notes": "- [Implementation steps] (1) Add the registry with mechanical and judgment entries. (2) Add the gap-scan runner and envelope. (3) Add the judgment ledger. (4) Add the detection gate and calibration. (5) Add the convergence predicate and classification. (6) Add consolidate-stubs Step 0. (7) Add find-omissions Step 0. (8) Add regression and portability tests.\n- [Risks] scan-incomplete-implementations has known false positives; classify high-confidence patterns separately and calibrate precision before blocking. Detector coverage can hide a missing detector unless the meta control is run. AI judgment can become open-ended unless it is bounded to enumerated obligations.\n- [Caveats] Coverage is relative to the enumerated surfaces and calibrated detectors; it is not an absolute proof. Absent artifacts are notMeasured, never pass. Improvement suggestions without a normative source are backlog, not tickets.\n- [Open items] The promotion path from judgment to mechanical may need a per-detector maturity field.\n- [Future improvements] Add more detector families without lowering existing thresholds; add a debt dashboard.\n\nGlobal constraints: conver only; telegraphic command Markdown; preserve existing quality; do not break /consolidate-stubs or /find-omissions.\nPX-406 implementation summary:\n- Changed files: .claude/scripts/tickets/{omission-detectors.json,omission-gap-scan.js,omission-detection-gate.js,lib/omission-detectors.js,lib/judgment-ledger.js,lib/omission-convergence.js}; .claude/commands/{consolidate-stubs.md,find-omissions.md}; tests/tickets/*.\n- Key changes: finite surface enumeration, mechanical/judgment registry, judgment ledger with normative sources, stable finding keys, improvement-backlog separation, debt/fixpoint convergence, positive/negative/meta calibration.\n- Validation: 101/101 impact tests pass; verify-red-coverage 5/5; reverify-ticket 0 findings twice with the same empty digest and certificate written; quality checks 0 issues.\n- The two todo!() scanner hits in omission-detection-gate.js are calibration seed strings, not incomplete implementations; no [::STUB::] marker is appropriate.\n- Installed copies at the repository root and crates/siprs were synchronized so the running commands expose Step 0.\n- No writes to gaia, crystal or doors.\nReview report (PX-406):\n- Static quality check: passed (0 issues)\n- Translatability: no blocking issues; generic-name grep hits are false positives (tmp suffix / prose).\n- Tests: 101/101 impact tests passed; red coverage 5/5; reverify 0 findings twice with the same digest; certificate refreshed.\n- Annotation: this ticket's owned files carry provenance; the sibling ticket's files and pre-existing unrelated working-tree changes are outside this ticket's provenance.\n- Issues found and fixes applied: stale pre-flight assertion corrected to the actual quoted commands; macOS /private/var realpath guard fixed; workspace-root override noise removed and replaced by git-root resolution.\n- No open crimes, no unclassified [::STUB::], no [::AMBIGUOUS::].",
+          "acceptanceCriteria": [
+            "[Happy path] All surfaces are enumerated; mechanical detectors run; the AI judgment ledger records PASS and FAIL for judgment obligations; must-fix findings become tickets; the convergence predicate is true.",
+            "[Error case] A missing detector, an uncovered surface, a notMeasured surface, or a debt increase fails the detection gate with a named finding; a duplicate finding creates no new ticket.",
+            "[Edge case] A workspace with zero stubs and zero findings still records every detector as measured and calibrated; a clean run is not confused with an unmeasured run."
+          ],
+          "investigation": "- `find-omissions.md:156-208`: Step 4-5 is AI source analysis; Step 5 records only passed=false; no PASS ledger exists.\n- `consolidate-stubs.md:54-59`: Step 1 enumerates [::STUB::] markers only; Step 2 is the only non-deterministic step.\n- `scan-incomplete-implementations.js`: detects todo!(), unimplemented!(), panic!(), TODO, FIXME, HACK, XXX, and #[allow]; it is wired only into plan-ticket.\n- `verify-contract-delivery.js`, `verify-operation-delivery.js`, `verify-formula-delivery.js`, `verify-acceptance-coverage.js`, `verify-red-coverage.js`, `verify-ticket-closure.js`, `verify-all-ticket-coverage.js`: existing deterministic penetration checks; not invoked by find-omissions.\n- `smooth-sequences/lib/check-registry.mjs`: blocked surfaces are removed from findings, so unmeasured is not clean.\n- `smooth-sequences/calibrate.mjs` and `tests/smooth-sequences/falsifier.test.mjs`: positive control and falsifier precedent.\n- `gate-finding.js`: DEBT_INCREASED exists; `finding-delta.js`: diffFindings exists; `completion-certificate.js`: runCount 2 exists.\n- `README.md:123,560`: circular recognition risk and the current 3-round limit.",
+          "boyScoutPlan": "- Extract classifyFinding(finding), stableFindingKey(finding), hasNormativeSource(finding), and isConverged(state); one responsibility each.\n- Replace status and class string literals with named constants.\n- Split the gap scanner into collect, normalize, dedupe, and report.\n- Propagate detector errors as named findings; never swallow a scan failure.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "detector registry covers the enumerated surfaces",
+              "precondition": "the artifact set is present and the surface enumeration has run.",
+              "postcondition": "every surface has a mechanical detector, a judgment obligation, or a machine-readable notApplicable; notMeasured is reported.",
+              "invariant": "notMeasured never counts as pass; an uncovered applicable surface is a finding."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "AI judgment obligations are recorded",
+              "precondition": "a surface is classified as a judgment obligation.",
+              "postcondition": "PASS, FAIL, NOT_APPLICABLE, or NOT_VERIFIABLE is recorded with evidence and a normative source.",
+              "invariant": "No judgment obligation is left unrecorded; the AI does not self-certify coverage."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "detection is calibrated",
+              "precondition": "a detector family is registered.",
+              "postcondition": "positive, negative, and meta controls pass; a removed detector is reported as an uncovered surface.",
+              "invariant": "A zero-finding run is a measurement only after calibration."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "the loop converges",
+              "precondition": "a scan round has completed.",
+              "postcondition": "converged iff every surface is adjudicated, no must-fix finding lacks a ticket, debt does not increase, two runs have identical findings and digests, and no new ticket is created.",
+              "invariant": "Only must-fix findings create tickets; stable keys prevent duplicate tickets."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "existing commands remain intact",
+              "precondition": "the existing consolidate-stubs and find-omissions workflows run.",
+              "postcondition": "Step 0 is additive; existing Step numbers, meanings, and gates are unchanged.",
+              "invariant": "The existing tests pass; no behavior regression; no gate is weakened."
+            }
+          ],
+          "created_at": "2026-11-10",
+          "updated_at": "2026-11-10",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-10T06:15:16.433Z",
+          "planTestCode": [
+            "UT: [Normal] @verifies C001 — registry covers the enumerated surfaces; an uncovered applicable surface is a finding\n```js\nconst { loadRegistry, enumerateSurfaces, evaluateCoverage } = require('../../.claude/scripts/tickets/lib/omission-detectors.js');\nconst registry = loadRegistry({ cwd: fixture });\nconst surfaces = enumerateSurfaces({ cwd: fixture, ticketsPath: path.join(fixture, 'Tickets.json') });\nconst coverage = evaluateCoverage({ registry, surfaces });\nassert.equal(coverage.version, 1);\nassert.equal(coverage.notMeasured.length, 0);\nassert.equal(coverage.surfaces.every((s) => ['mechanical', 'judgment', 'notApplicable'].includes(s.coveredBy)), true);\nassert.equal(coverage.findings.some((f) => f.code === 'SURFACE_UNCOVERED'), false);\nconst reduced = { ...registry, detectors: registry.detectors.filter((d) => d.id !== 'contract-delivery') };\nconst missing = evaluateCoverage({ registry: reduced, surfaces });\nassert.equal(missing.findings.some((f) => f.code === 'SURFACE_UNCOVERED' && f.surface === 'contract'), true);\n```",
+            "UT: [Normal] @verifies C002 — every judgment obligation records PASS, FAIL, NOT_APPLICABLE or NOT_VERIFIABLE with evidence and a normative source\n```js\nconst { createLedger, recordJudgment, judgeCoverage, JUDGMENT_STATUS } = require('../../.claude/scripts/tickets/lib/judgment-ledger.js');\nconst ledger = createLedger({ obligations: [{ surface: 'contract', assetId: 'C001', criterion: 'A' }] });\nassert.equal(judgeCoverage(ledger).unrecorded.length, 1);\nconst recorded = recordJudgment(ledger, { surface: 'contract', assetId: 'C001', criterion: 'A', status: JUDGMENT_STATUS.PASS, evidence: [{ file: 'src/a.js', line: 1 }], normativeSource: 'contract:C001' });\nassert.equal(recorded.ok, true);\nassert.deepEqual(judgeCoverage(ledger).unrecorded, []);\nconst unsourced = recordJudgment(ledger, { surface: 'contract', assetId: 'C002', criterion: 'B', status: JUDGMENT_STATUS.PASS, evidence: [], normativeSource: null });\nassert.equal(unsourced.ok, false);\nassert.equal(unsourced.code, 'NORMATIVE_SOURCE_MISSING');\nassert.notEqual(JUDGMENT_STATUS.NOT_VERIFIABLE, JUDGMENT_STATUS.PASS);\n```",
+            "UT: [Error] @verifies C003 — positive, negative and meta calibration; an applicable undetected seed fails, a missing detector is an uncovered surface\n```js\nconst { runCalibration, calibrationVerdict, runNegativeControl, runMetaControl } = require('../../.claude/scripts/tickets/omission-detection-gate.js');\nconst calibration = runCalibration({ fixtureRoot: fixture });\nassert.equal(calibration.seeds.length >= 4, true);\nassert.equal(calibration.seeds.every((seed) => seed.detected === true), true);\nassert.equal(calibrationVerdict(calibration).ok, true);\nassert.deepEqual(calibrationVerdict({ seeds: [{ checkId: 'contract-delivery', applicable: true, detected: false }] }), { ok: false, code: 'CALIBRATION_FAILED' });\nassert.deepEqual(runNegativeControl({ fixtureRoot: cleanFixture }).findings, []);\nconst meta = runMetaControl({ registry, surfaces });\nassert.equal(meta.findings.some((f) => f.code === 'SURFACE_UNCOVERED'), true);\nassert.equal(calibrationVerdict({ seeds: [{ checkId: 'formula-delivery', applicable: false, detected: false }] }).notMeasured.includes('formula-delivery'), true);\n```",
+            "UT: [Boundary] @verifies C004 — stable keys, must-fix-only tickets, non-increasing debt, and a two-run fixpoint define convergence\n```js\nconst { stableFindingKey, classifyFinding, isConverged, FINDING_CLASS } = require('../../.claude/scripts/tickets/lib/omission-convergence.js');\nconst a = { surface: 'contract', assetId: 'C001', criterion: 'B', code: 'CONTRACT_CLAUSE_UNTESTED', line: 10 };\nconst b = { ...a, line: 99 };\nassert.equal(stableFindingKey(a), stableFindingKey(b));\nassert.equal(classifyFinding({ ...a, normativeSource: 'contract:C001', severity: 'high' }), FINDING_CLASS.MUST_FIX);\nassert.equal(classifyFinding({ ...a, normativeSource: null, severity: 'high' }), FINDING_CLASS.IMPROVEMENT_BACKLOG);\nconst state = { unrecorded: [], unticketedMustFix: [], debt: { before: 2, after: 2 }, runs: [{ digest: 'd' }, { digest: 'd' }], newTickets: 0 };\nassert.equal(isConverged(state), true);\nassert.equal(isConverged({ ...state, debt: { before: 2, after: 3 } }), false);\nassert.equal(isConverged({ ...state, unticketedMustFix: [a] }), false);\nassert.equal(isConverged({ ...state, newTickets: 1 }), false);\n```",
+            "UT: [Invariant] @verifies C005 — Step 0 is additive; existing consolidate-stubs and find-omissions Step headings and gates are unchanged\n```js\nconst { readFileSync } = require('node:fs');\nconst { execFileSync } = require('node:child_process');\nconst stepHeadings = (text) => text.split('\\n').filter((line) => /^### Step /.test(line));\nconst beforeConsolidate = execFileSync('git', ['show', 'HEAD:.claude/commands/consolidate-stubs.md'], { encoding: 'utf8' });\nconst afterConsolidate = readFileSync('.claude/commands/consolidate-stubs.md', 'utf8');\nassert.deepEqual(stepHeadings(afterConsolidate).filter((h) => !/Step 0/.test(h)), stepHeadings(beforeConsolidate));\nconst beforeFind = execFileSync('git', ['show', 'HEAD:.claude/commands/find-omissions.md'], { encoding: 'utf8' });\nconst afterFind = readFileSync('.claude/commands/find-omissions.md', 'utf8');\nassert.deepEqual(stepHeadings(afterFind).filter((h) => !/Step 0/.test(h)), stepHeadings(beforeFind));\nassert.equal(afterConsolidate.includes('scan-incomplete-implementations.js'), true);\nassert.equal(afterFind.includes('omission-gap-scan.js'), true);\nexecFileSync(process.execPath, ['--test', 'tests/consolidate-stubs-doc.test.cjs', 'tests/consolidate-stubs-gate.test.cjs', 'tests/require-consolidated-manifest.test.cjs', 'tests/print-manifest-for-find-omissions.test.cjs'], { stdio: 'inherit' });\n```"
+          ],
+          "planned_at": "2026-11-10T06:29:32.520Z",
+          "changes": [
+            {
+              "before": "no detector registry",
+              "after": "versioned registry with 16 surfaces, mechanical and judgment detectors, and per-surface requirements",
+              "description": "new omission-detectors.json"
+            },
+            {
+              "before": "find-omissions was AI-only and consolidate-stubs saw only marked stubs",
+              "after": "surface enumeration from Tickets, graph, Dirs-Tree, SEQUENCES and formulas; coverage is mechanical or judgment; notMeasured never passes",
+              "description": "new lib/omission-detectors.js"
+            },
+            {
+              "before": "PASS judgments were not recorded",
+              "after": "PASS, FAIL, NOT_APPLICABLE and NOT_VERIFIABLE recorded with evidence and a normative source; unrecorded obligations visible",
+              "description": "new lib/judgment-ledger.js"
+            },
+            {
+              "before": "no stable finding identity or convergence predicate",
+              "after": "stable surface|asset|criterion key, improvement-backlog separation, debt non-increase, two-run fixpoint and no-new-ticket convergence",
+              "description": "new lib/omission-convergence.js"
+            },
+            {
+              "before": "no deterministic omission ingestion",
+              "after": "gap scan enumerates surfaces, runs mechanical detectors, normalizes findings and deduplicates by stable key",
+              "description": "new omission-gap-scan.js"
+            },
+            {
+              "before": "a missing detector looked like a clean run",
+              "after": "coverage gate plus positive, negative and meta calibration; a removed detector is an uncovered surface",
+              "description": "new omission-detection-gate.js"
+            },
+            {
+              "before": "consolidate-stubs started at marker enumeration; find-omissions started at re-ticketization",
+              "after": "additive Step 0 in both commands; existing Step numbers, gates and manifest flow unchanged",
+              "description": "command Markdown Step 0 and Step 5 ledger line"
+            },
+            {
+              "before": "no regression tests for the new layer",
+              "after": "5 new test files plus a synthetic fixture; 101/101 impact tests pass; red coverage 5/5; reverify 0 twice with certificate; quality 0",
+              "description": "tests/tickets omission suite and command integration"
+            },
+            {
+              "before": "the pre-flight regression test expected an unquoted command fragment",
+              "after": "the assertion matches the actual quoted validate-graph-arg and require-consolidated-manifest commands",
+              "description": "Boy Scout correction in tests/require-consolidated-manifest.test.cjs"
+            }
+          ],
+          "done_at": "2026-11-10T06:36:50.797Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-10",
+          "reviewed_at": "2026-11-10T06:58:03.975Z"
         }
       ]
     },

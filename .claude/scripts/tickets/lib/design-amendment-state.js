@@ -9,6 +9,7 @@
  * own hard prerequisites and never use this module to relax them.
  */
 
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -62,17 +63,41 @@ const OWNER_REQUIREMENTS = Object.freeze({
 });
 
 /**
+ * The workspace root: the git top-level of the package directory.
+ *
+ * gaia, crystal and doors are one-workspace-per-git-repository projects, so the
+ * git root is the workspace root. A directory outside a repository has no
+ * workspace; absence is a state, never a guessed sibling.
+ *
+ * @param {string} directory
+ * @returns {string|null}
+ */
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+function resolveWorkspaceRoot(directory) {
+  try {
+    return execFileSync('git', ['-C', path.resolve(directory), 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Read the spec path the workspace tree manifest names.
  *
  * The manifest is the only authority for the SPEC path; a missing manifest means
  * the workspace never entered the fifth layer, so the SPEC is absent, not broken.
+ * The path is resolved from the workspace root, not from the package that asked.
  *
- * @param {string} directory
+ * @param {string|null} workspaceRoot
  * @returns {{ specPath: string|null, code?: string, message?: string }}
  */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
-function readManifestSpecPath(directory) {
-  const manifestPath = path.join(directory, TREE_MANIFEST_NAME);
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
+function readManifestSpecPath(workspaceRoot) {
+  if (!workspaceRoot) return { specPath: null };
+  const manifestPath = path.join(workspaceRoot, TREE_MANIFEST_NAME);
   if (!fs.existsSync(manifestPath)) return { specPath: null };
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -80,14 +105,14 @@ function readManifestSpecPath(directory) {
     if (typeof specPath !== 'string' || specPath.trim().length === 0) {
       return { specPath: null };
     }
-    return { specPath: path.resolve(directory, specPath) };
+    return { specPath: path.resolve(workspaceRoot, specPath) };
   } catch (error) {
     return { specPath: null, code: UNREADABLE_CODE, message: error.message };
   }
 }
 
 /** Resolve the Dirs-Tree beside the graph, or the canonical name when no graph exists. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function resolveDirsTreePath({ cwd, override = null }) {
   if (override) return path.resolve(cwd, override);
   const canonical = path.join(cwd, 'RFC-Dirs-Tree.json');
@@ -98,13 +123,14 @@ function resolveDirsTreePath({ cwd, override = null }) {
 }
 
 /** Resolve the path of one artifact without requiring it to exist. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function resolveArtifactPath({ kind, cwd, override = null, specPath = null }) {
   switch (kind) {
     case ARTIFACT_KINDS.SPEC: {
       if (override) return { path: path.resolve(cwd, override) };
       if (specPath) return { path: path.resolve(cwd, specPath) };
-      const manifest = readManifestSpecPath(cwd);
+      const workspaceRoot = resolveWorkspaceRoot(cwd);
+      const manifest = readManifestSpecPath(workspaceRoot);
       if (manifest.code) return { path: null, code: manifest.code, message: manifest.message };
       return { path: manifest.specPath };
     }
@@ -122,7 +148,7 @@ function resolveArtifactPath({ kind, cwd, override = null, specPath = null }) {
 }
 
 /** Build the observable state of one resolved path. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function inspectArtifact({ kind, resolvedPath }) {
   if (!resolvedPath) return { kind, state: ARTIFACT_STATES.ABSENT, path: null };
   if (!fs.existsSync(resolvedPath)) {
@@ -146,10 +172,11 @@ function inspectArtifact({ kind, resolvedPath }) {
 /**
  * Resolve one artifact into present, absent, ambiguous or unreadable.
  *
- * @param {{ kind: string, cwd?: string, override?: string|null, specPath?: string|null }} input
+ * @param {{ kind: string, cwd?: string, override?: string|null,
+ *           specPath?: string|null }} input
  * @returns {{ kind: string, state: string, path: string|null, code?: string, message?: string }}
  */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function resolveArtifactState({ kind, cwd = process.cwd(), override = null, specPath = null }) {
   let resolved;
   try {
@@ -170,8 +197,13 @@ function resolveArtifactState({ kind, cwd = process.cwd(), override = null, spec
   return inspectArtifact({ kind, resolvedPath: resolved.path });
 }
 
-/** Resolve all five artifacts in the fixed pipeline order. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+/**
+ * Resolve all five artifacts in the fixed pipeline order.
+ *
+ * The SPEC is resolved from the git top-level; every other artifact is resolved
+ * from `cwd`, the package.
+ */
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function resolveArtifactStates({ cwd = process.cwd(), overrides = {}, specPath = null } = {}) {
   return ARTIFACT_ORDER.map((kind) => resolveArtifactState({
     kind,
@@ -189,7 +221,7 @@ function resolveArtifactStates({ cwd = process.cwd(), overrides = {}, specPath =
  * @param {string} directory
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 async function resolvePackageState(directory) {
   const module = await import('../../grill-me-for-rfc/canon-state.js');
   return module.classifyCanonState(path.resolve(directory));
@@ -200,7 +232,9 @@ module.exports = {
   ARTIFACT_STATES,
   ARTIFACT_ORDER,
   OWNER_REQUIREMENTS,
+  readManifestSpecPath,
   resolveArtifactState,
   resolveArtifactStates,
   resolvePackageState,
+  resolveWorkspaceRoot,
 };

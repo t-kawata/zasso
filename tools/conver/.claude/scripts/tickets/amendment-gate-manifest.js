@@ -13,28 +13,41 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 
+const { validateTickets } = require('../lib/validate-tickets.js');
+const {
+  ARTIFACT_KINDS,
+  resolveArtifactStates,
+  resolveWorkspaceRoot,
+} = require('./lib/design-amendment-state.js');
+
 const SCRIPTS = path.resolve(__dirname, '..');
-const GATE_MANIFEST_VERSION = 1;
+const GATE_MANIFEST_VERSION = 2;
+const TREE_MANIFEST_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+const ALLOCATE_MANIFEST_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 
 const GATE_ENTRIES = Object.freeze([
   { name: 'chain', requires: ['graph', 'dirs-tree', 'tickets'] },
   { name: 'graph-integrity', requires: ['rfc', 'graph'] },
   { name: 'dirs-tree-schema', requires: ['graph', 'dirs-tree'] },
+  { name: 'tickets-schema', requires: ['tickets'] },
   { name: 'ticket-closure', requires: ['tickets'] },
   { name: 'ticket-prerequisites', requires: ['tickets'] },
   { name: 'formula-file-coverage', requires: ['rfc', 'graph', 'dirs-tree'] },
+  { name: 'formula-digest', requires: ['rfc'] },
+  { name: 'tree-entry-parity', requires: ['spec'] },
+  { name: 'allocate-chain', requires: ['spec'] },
   { name: 'reverify', requires: ['tickets'] },
   { name: 'amendment-integrity', requires: [] },
 ]);
 
 /** The sha256 of a value, used as the per-gate digest. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function digestValue(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 /** Normalise any verifier finding into the PX-397 schema. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function toFinding(entry, fallbackAsset) {
   if (entry && typeof entry.code === 'string' && typeof entry.problem === 'string' && Array.isArray(entry.fixes)) {
     return entry;
@@ -49,7 +62,7 @@ function toFinding(entry, fallbackAsset) {
 }
 
 /** Run one verifier and read its JSON output; a nonzero exit is still readable. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function runVerifier(script, args, cwd) {
   try {
     const stdout = execFileSync(process.execPath, [script].concat(args), {
@@ -64,7 +77,7 @@ function runVerifier(script, args, cwd) {
 }
 
 /** Read JSON from a verifier, or an empty object when the output is not JSON. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function parseJsonOutput(stdout) {
   const trimmed = (stdout || '').trim();
   if (trimmed.length === 0) return {};
@@ -76,15 +89,30 @@ function parseJsonOutput(stdout) {
 }
 
 /** The formula sidecar beside the graph, or null. */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function sidecarFor(cwd) {
   const candidate = path.join(cwd, 'RFC-FORMULAS.json');
   return fs.existsSync(candidate) ? candidate : null;
 }
 
+/** Resolve the five artifact states for a gate runner. */
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+function artifactStates({ cwd }) {
+  return resolveArtifactStates({ cwd });
+}
+
+/** Run the ESM hash bridge and read its findings. */
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+function runHashBridge(args, cwd) {
+  const bridge = path.join(SCRIPTS, 'tickets/lib/design-hash-report.mjs');
+  const result = runVerifier(bridge, args, cwd);
+  const parsed = parseJsonOutput(result.stdout);
+  return parsed.findings ?? [];
+}
+
 /** The default runner of each gate. */
 const DEFAULT_RUNNERS = Object.freeze({
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
   chain({ cwd }) {
     if (!fs.existsSync(path.join(cwd, 'SEQUENCES.json'))) {
       return { findings: [], unverifiable: [{ name: 'chain', reason: 'no-view' }] };
@@ -106,15 +134,46 @@ const DEFAULT_RUNNERS = Object.freeze({
     const errors = parsed.errors ?? [];
     return { findings: errors.map((message) => toFinding({ code: 'DIRS_TREE_SCHEMA_FAILED', asset: 'dirs-tree', problem: String(message) }, 'dirs-tree')), unverifiable: [] };
   },
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+  'tickets-schema'({ cwd }) {
+    try {
+      const document = JSON.parse(fs.readFileSync(path.join(cwd, 'Tickets.json'), 'utf8'));
+      const validation = validateTickets(document);
+      return {
+        findings: (validation.errors ?? []).map((error) => toFinding({
+          code: 'TICKETS_SCHEMA_INVALID',
+          asset: 'tickets',
+          problem: typeof error === 'string' ? error : JSON.stringify(error),
+        }, 'tickets')),
+        unverifiable: [],
+      };
+    } catch (error) {
+      return {
+        findings: [toFinding({ code: 'TICKETS_SCHEMA_INVALID', asset: 'tickets', problem: error.message }, 'tickets')],
+        unverifiable: [],
+      };
+    }
+  },
   'ticket-closure'({ cwd }) {
     const result = runVerifier(path.join(SCRIPTS, 'tickets/verify-ticket-closure.js'), ['--tickets=' + path.join(cwd, 'Tickets.json')], cwd);
     if (result.status === 0) return { findings: [], unverifiable: [] };
     return { findings: [{ code: 'TICKET_CLOSURE_FAILED', asset: 'tickets', problem: (result.stderr || 'ticket closure failed').trim(), fixes: [], rerun: 'verify-ticket-closure.js' }], unverifiable: [] };
   },
   'ticket-prerequisites'({ cwd, ticketKey }) {
-    const result = runVerifier(path.join(SCRIPTS, 'tickets/check-ticket-prerequisites.js'), ['--ticket-key=' + ticketKey, '--tickets=' + path.join(cwd, 'Tickets.json')], cwd);
-    const parsed = parseJsonOutput(result.stdout);
-    return { findings: (parsed.findings ?? []).map((entry) => toFinding(entry, 'tickets')), unverifiable: [] };
+    // The exported function is the read-only path. The CLI entry point records a
+    // BLOCKED_PREREQUISITE history entry on failure, which a verifier must not do.
+    const { run } = require('./check-ticket-prerequisites.js');
+    const result = run(['--ticket-key=' + ticketKey, '--tickets=' + path.join(cwd, 'Tickets.json')]);
+    return {
+      findings: (result.findings ?? []).map((entry) => toFinding({
+        code: entry.code ?? 'PREREQUISITE_FAILED',
+        asset: entry.subject ?? 'tickets',
+        problem: entry.message ?? String(entry),
+        fixes: [],
+        rerun: 'check-ticket-prerequisites.js --ticket-key=' + ticketKey,
+      }, 'tickets')),
+      unverifiable: [],
+    };
   },
   'formula-file-coverage'({ cwd }) {
     const sidecar = sidecarFor(cwd);
@@ -123,7 +182,39 @@ const DEFAULT_RUNNERS = Object.freeze({
     if (result.status === 0) return { findings: [], unverifiable: [] };
     return { findings: [{ code: 'FORMULA_FILE_COVERAGE_FAILED', asset: 'formula', problem: (result.stderr || 'formula coverage failed').trim(), fixes: [], rerun: 'verify-formula-file-coverage.js' }], unverifiable: [] };
   },
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-405 --for-spec --no-implementation-order`.
+  'formula-digest'({ cwd }) {
+    const states = artifactStates({ cwd });
+    const rfc = states.find((state) => state.kind === ARTIFACT_KINDS.RFC && state.state === 'present');
+    if (!rfc) return { findings: [], unverifiable: [] };
+    return {
+      findings: runHashBridge(['--mode=formula', '--package=' + cwd, '--rfc=' + rfc.path], cwd),
+      unverifiable: [],
+    };
+  },
+  'tree-entry-parity'({ cwd }) {
+    const workspaceRoot = resolveWorkspaceRoot(cwd);
+    if (!workspaceRoot) return { findings: [], unverifiable: [] };
+    const manifestPath = path.join(workspaceRoot, TREE_MANIFEST_NAME);
+    if (!fs.existsSync(manifestPath)) return { findings: [], unverifiable: [] };
+    const states = artifactStates({ cwd });
+    const spec = states.find((state) => state.kind === ARTIFACT_KINDS.SPEC && state.state === 'present');
+    if (!spec) return { findings: [], unverifiable: [] };
+    return {
+      findings: runHashBridge(['--mode=tree', '--manifest=' + manifestPath, '--spec=' + spec.path], cwd),
+      unverifiable: [],
+    };
+  },
+  'allocate-chain'({ cwd }) {
+    const workspaceRoot = resolveWorkspaceRoot(cwd);
+    if (!workspaceRoot) return { findings: [], unverifiable: [] };
+    if (!fs.existsSync(path.join(workspaceRoot, ALLOCATE_MANIFEST_NAME))) return { findings: [], unverifiable: [] };
+    return {
+      findings: runHashBridge(['--mode=allocate', '--workspace-root=' + workspaceRoot], cwd),
+      unverifiable: [],
+    };
+  },
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
   reverify({ cwd, ticketKey }) {
     const result = runVerifier(path.join(SCRIPTS, 'tickets/reverify-ticket.js'), ['--ticket-key=' + ticketKey, '--tickets=' + path.join(cwd, 'Tickets.json')], cwd);
     const parsed = parseJsonOutput(result.stdout);
@@ -152,11 +243,12 @@ const DEFAULT_RUNNERS = Object.freeze({
 /**
  * Run the fixed manifest.
  *
- * @param {{ cwd: string, ticketKey: string, ticketsPath?: string|null,
- *           presentKinds: string[], runners?: object }} input
+ * @param {{ cwd: string, ticketKey: string,
+ *           ticketsPath?: string|null, presentKinds: string[],
+ *           runners?: object }} input
  * @returns {{ gates: object[], findings: object[], unverifiable: object[] }}
  */
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function runGateManifest({ cwd, ticketKey, ticketsPath = null, presentKinds = [], runners = {} }) {
   const gates = [];
   const findings = [];

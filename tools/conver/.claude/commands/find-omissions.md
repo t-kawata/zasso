@@ -84,6 +84,23 @@ check for: too-broad assertions (`assert!(result.is_ok())` when field checks are
 
 ## Step-by-Step Inspection Procedure
 
+### Step 0 — Deterministic detection and judgment ledger (mandatory, additive)
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/omission-gap-scan.js" --cwd=. --tickets=Tickets.json --out=OMISSION-GAP-SCAN.json
+```
+
+must-fix findings → `add-omission-ticket.js` with the finding `ticketKey`; stable key dedup.
+judgment obligations → AI adjudicates; record PASS/FAIL/NOT_APPLICABLE/NOT_VERIFIABLE + evidence + normative source in `OMISSION-JUDGMENT-LEDGER.json`.
+unsourced observations → improvement backlog, never a ticket.
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/omission-detection-gate.js" --cwd=. --tickets=Tickets.json --report
+```
+
+converged: all surfaces adjudicated, no unticketed must-fix, debt non-increasing, two identical runs, no new tickets.
+then Step 1 unchanged.
+
 ### Step 1 — Re-ticketize the consolidated units (mandatory)
 
 invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already guarantees a clean marker tree (no orphan keys, no terminal excuses, every marker re-pointed, a complete grouped-unit manifest emitted). Step 1 consumes that manifest via `batch-create-resolving-tickets.js` — one resolving ticket per (sourceKey, unit) group, atomic on-disk marker-key rewrite. auto; never ask the human — this is the AI's work item per the no-external-excuse rule.
@@ -181,6 +198,7 @@ deliverable = verification that each contract is enforced by test code, with sou
 
 For EACH contract, evaluate all 3 criteria (A/B/C).
 rule: record only when `passed=false` for any criterion. record the moment confirmed — no batching, no memory-reliance. never record vague unease/style preferences/off-criteria observations.
+ledger: record every evaluation, including PASS, with evidence and normative source in `OMISSION-JUDGMENT-LEDGER.json`.
 
 judge: evaluate one criterion at a time (never bundle criteria into one block).
 

@@ -23,8 +23,12 @@ const {
 const VERIFY = path.resolve(__dirname, '../../.claude/scripts/tickets/verify-amendment.js');
 
 const CLEAN_TICKET_RUNNERS = {
+  'tickets-schema': () => ({ findings: [], unverifiable: [] }),
   'ticket-closure': () => ({ findings: [], unverifiable: [] }),
   'ticket-prerequisites': () => ({ findings: [], unverifiable: [] }),
+  'formula-digest': () => ({ findings: [], unverifiable: [] }),
+  'tree-entry-parity': () => ({ findings: [], unverifiable: [] }),
+  'allocate-chain': () => ({ findings: [], unverifiable: [] }),
   reverify: () => ({ findings: [], unverifiable: [] }),
 };
 
@@ -70,8 +74,10 @@ test('C008: the gate manifest is enumerated and versioned', () => {
   const names = GATE_ENTRIES.map((entry) => entry.name);
 
   assert.deepEqual(names, [
-    'chain', 'graph-integrity', 'dirs-tree-schema', 'ticket-closure',
-    'ticket-prerequisites', 'formula-file-coverage', 'reverify', 'amendment-integrity',
+    'chain', 'graph-integrity', 'dirs-tree-schema', 'tickets-schema',
+    'ticket-closure', 'ticket-prerequisites', 'formula-file-coverage',
+    'formula-digest', 'tree-entry-parity', 'allocate-chain', 'reverify',
+    'amendment-integrity',
   ]);
   assert.equal(new Set(names).size, names.length);
 });

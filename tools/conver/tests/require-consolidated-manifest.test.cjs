@@ -112,8 +112,8 @@ test("C003/C004 invariant: the gate decision is deterministic for identical tree
 test("C001: the pre-flight block in find-omissions.md carries both gates in order", () => {
   const doc = fs.readFileSync(FIND_OMISSIONS, "utf8");
   const preflight = doc.split("## Pre-flight")[1].split("## Overview")[0] || "";
-  const gate1 = preflight.indexOf('validate-graph-arg.js "$ARGUMENTS" || exit 2');
-  const gate2 = preflight.indexOf("require-consolidated-manifest.js || exit 2");
+  const gate1 = preflight.indexOf('validate-graph-arg.js" "$ARGUMENTS" || exit 2');
+  const gate2 = preflight.indexOf('require-consolidated-manifest.js" || exit 2');
   assert.ok(gate1 !== -1, "validate-graph-arg gate present");
   assert.ok(gate2 !== -1, "require-consolidated-manifest gate present");
   assert.ok(gate1 < gate2, "validate-graph-arg runs before the manifest gate");

@@ -17,12 +17,12 @@ const CONVER = path.resolve(__dirname, '../..');
 const REPO = path.resolve(__dirname, '../../../..');
 const COMMANDS = path.join(CONVER, '.claude/commands');
 
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function readCommand(name) {
   return fs.readFileSync(path.join(COMMANDS, name + '.md'), 'utf8');
 }
 
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function gitHeadCommand(name) {
   return execFileSync('git', ['show', 'HEAD:tools/conver/.claude/commands/' + name + '.md'], {
     cwd: REPO,
@@ -30,7 +30,7 @@ function gitHeadCommand(name) {
   });
 }
 
-// [::TICKET::] PX-400 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-400 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
 function stepHeadings(text) {
   return text.split('\n').filter((line) => /^### Step /.test(line));
 }
@@ -82,6 +82,7 @@ test('C007: the installed copies are byte-identical to the conver source', () =>
     '.claude/scripts/tickets/rebuild-design-hashes.js',
     '.claude/scripts/tickets/amendment-gate-manifest.js',
     '.claude/scripts/tickets/lib/design-amendment-state.js',
+    '.claude/scripts/tickets/lib/design-hash-report.mjs',
     '.claude/commands/start-ticket.md',
     '.claude/commands/review-ticket.md',
     '.claude/commands/resolve-ticket.md',

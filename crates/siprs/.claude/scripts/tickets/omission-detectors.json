@@ -1,0 +1,203 @@
+{
+  "version": 1,
+  "description": "The fixed detector registry for the omission detection gate. A surface is covered only when the registered detector kind matches the surface requirement; a missing detector is visible, never a clean run.",
+  "surfaceRequirements": {
+    "spec": "judgment",
+    "rfc": "judgment",
+    "graph-node": "mechanical",
+    "graph-edge": "mechanical",
+    "dirs-tree": "mechanical",
+    "ticket": "mechanical",
+    "contract": "mechanical",
+    "acceptance": "mechanical",
+    "operation": "mechanical",
+    "sequence-step": "mechanical",
+    "boundary": "mechanical",
+    "unit": "mechanical",
+    "formula": "mechanical",
+    "file": "mechanical",
+    "stub": "mechanical",
+    "danger": "mechanical"
+  },
+  "detectors": [
+    {
+      "id": "contract-delivery",
+      "kind": "mechanical",
+      "surfaces": ["contract"],
+      "applies": { "artifacts": ["tickets"] },
+      "runner": {
+        "script": "tickets/verify-contract-delivery.js",
+        "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
+      },
+      "findingCodes": ["CONTRACT_CLAUSE_UNTESTED"],
+      "repair": "author-and-insert-test"
+    },
+    {
+      "id": "operation-delivery",
+      "kind": "mechanical",
+      "surfaces": ["operation", "sequence-step"],
+      "applies": { "artifacts": ["tickets"] },
+      "runner": {
+        "script": "tickets/verify-operation-delivery.js",
+        "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
+      },
+      "findingCodes": ["OPERATION_OBLIGATION_UNTESTED", "STEP_AXIS_NOT_DELIVERED"],
+      "repair": "author-and-insert-test"
+    },
+    {
+      "id": "acceptance-coverage",
+      "kind": "mechanical",
+      "surfaces": ["acceptance"],
+      "applies": { "artifacts": ["tickets"] },
+      "runner": {
+        "script": "tickets/verify-acceptance-coverage.js",
+        "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
+      },
+      "findingCodes": ["ACCEPTANCE_CRITERIA_UNTESTED"],
+      "repair": "author-and-insert-test"
+    },
+    {
+      "id": "formula-delivery",
+      "kind": "mechanical",
+      "surfaces": ["formula"],
+      "applies": { "artifacts": ["tickets", "formulas"] },
+      "runner": {
+        "script": "tickets/verify-formula-delivery.js",
+        "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
+      },
+      "findingCodes": ["FORMULA_IMPLEMENTATION_MISSING", "FORMULA_TEST_MISSING"],
+      "repair": "implement-formula-and-test"
+    },
+    {
+      "id": "red-coverage",
+      "kind": "mechanical",
+      "surfaces": ["file"],
+      "applies": { "artifacts": ["tickets"] },
+      "runner": {
+        "script": "tickets/verify-red-coverage.js",
+        "args": ["--ticket-key=${ticketKey}"]
+      },
+      "findingCodes": ["RED_CONTRACT_UNCOVERED"],
+      "repair": "add-verifies-annotation"
+    },
+    {
+      "id": "ticket-closure",
+      "kind": "mechanical",
+      "surfaces": ["ticket", "unit", "boundary"],
+      "applies": { "artifacts": ["tickets"] },
+      "runner": {
+        "script": "tickets/verify-ticket-closure.js",
+        "args": ["--tickets=${ticketsPath}"]
+      },
+      "findingCodes": ["CONTRACT_CHAIN_OPEN", "MISSING_UNIT_AT_LAYER", "MISSING_BOUNDARY_CONTRACT"],
+      "repair": "repair-ticket-closure"
+    },
+    {
+      "id": "graph-integrity",
+      "kind": "mechanical",
+      "surfaces": ["graph-node", "graph-edge"],
+      "applies": { "artifacts": ["graph", "rfc"] },
+      "runner": {
+        "script": "rfc-graph/verify-graph-integrity.js",
+        "args": ["--graph-after=${cwd}/RFC-GRAPH.json", "--source=${cwd}/RFC.md"]
+      },
+      "findingCodes": ["GRAPH_INTEGRITY_FAILED"],
+      "repair": "run-graphify"
+    },
+    {
+      "id": "dirs-tree-schema",
+      "kind": "mechanical",
+      "surfaces": ["dirs-tree"],
+      "applies": { "artifacts": ["graph", "dirs-tree"] },
+      "runner": {
+        "script": "rfc-graph/validate-dirs-tree-schema.js",
+        "args": ["--dirs-tree=${cwd}/RFC-Dirs-Tree.json", "--graph=${cwd}/RFC-GRAPH.json"]
+      },
+      "findingCodes": ["DIRS_TREE_SCHEMA_FAILED"],
+      "repair": "run-boundify"
+    },
+    {
+      "id": "chain",
+      "kind": "mechanical",
+      "surfaces": ["sequence-step", "boundary"],
+      "applies": { "artifacts": ["graph", "dirs-tree", "tickets"] },
+      "runner": {
+        "script": "sequences-slice/verify-chain.mjs",
+        "args": ["--stage=split", "--package=${cwd}"]
+      },
+      "findingCodes": ["CONTRACT_CHAIN_OPEN", "SEQUENCE_STEPS_UNDISTRIBUTED"],
+      "repair": "run-split-to-tickets"
+    },
+    {
+      "id": "incomplete-implementation",
+      "kind": "mechanical",
+      "surfaces": ["file", "stub"],
+      "applies": { "artifacts": ["source"] },
+      "runner": {
+        "script": "tickets/scan-incomplete-implementations.js",
+        "args": ["--dir=.", "--mode=stubs"]
+      },
+      "findingCodes": ["INCOMPLETE_IMPLEMENTATION_UNMARKED"],
+      "repair": "insert-stub-or-implement"
+    },
+    {
+      "id": "stub-marker",
+      "kind": "mechanical",
+      "surfaces": ["stub"],
+      "applies": { "artifacts": ["source"] },
+      "runner": {
+        "script": "tickets/review/find-all-stubs.js",
+        "args": ["."]
+      },
+      "findingCodes": ["STUB_KEY_UNRESOLVABLE"],
+      "repair": "repair-stub-key"
+    },
+    {
+      "id": "quality-danger",
+      "kind": "mechanical",
+      "surfaces": ["danger"],
+      "applies": { "artifacts": ["source"] },
+      "runner": {
+        "script": "tickets/review/run-quality-checks.js",
+        "args": ["${files}"]
+      },
+      "findingCodes": ["QUALITY_DANGER"],
+      "repair": "fix-quality-issue"
+    },
+    {
+      "id": "contract-translation",
+      "kind": "judgment",
+      "surfaces": ["contract"],
+      "criterion": "A",
+      "obligation": "translate every precondition, postcondition and invariant into test input and assertion code"
+    },
+    {
+      "id": "violation-detection",
+      "kind": "judgment",
+      "surfaces": ["contract"],
+      "criterion": "B",
+      "obligation": "prove that removing the implementation makes an existing test fail"
+    },
+    {
+      "id": "test-precision",
+      "kind": "judgment",
+      "surfaces": ["contract"],
+      "criterion": "C",
+      "obligation": "prove that each assertion is precise and every boundary is exercised"
+    },
+    {
+      "id": "design-intent",
+      "kind": "judgment",
+      "surfaces": ["rfc", "spec"],
+      "criterion": "design-intent",
+      "obligation": "check that the RFC and SPEC state the intended behavior without contradiction or omission"
+    },
+    {
+      "id": "boundary-semantics",
+      "kind": "judgment",
+      "surfaces": ["boundary"],
+      "criterion": "boundary-semantics",
+      "obligation": "check that both sides of every boundary agree on the shared clauses"
+    }
+  ]
+}

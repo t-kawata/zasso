@@ -501,5 +501,6 @@ not proof. omission / contradiction / deficiency / danger found during implement
 resolve now, never defer, never hand-edit.
 
 route: `design-amendment.js` (dry-run first, then `--apply`) → owner rederive → `verify-amendment.js`.
+stale allocate/formula chain → run owner (`/workspacify-allocate`, `/grill-me-for-rfc`) → re-run `verify-amendment`.
 absent artifact → `skipped:absent`, exit 0; never a block. unreadable / ambiguous → accurate error.
 fixes[] = amendment instruction. rerun until new-finding count 0 twice, same digest. hand edit = defect.

@@ -51,6 +51,18 @@ STUBs fragment into slivers (wiring hooks, accessor exposure, mechanical swaps, 
 
 cwd = Tickets.json root = the current directory = target tree.
 
+### Step 0 — Unmarked incomplete implementations (mandatory, additive)
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/scan-incomplete-implementations.js" --dir=.
+```
+
+classify every finding: `marked` | `unmarked-confirmed` | `needsJudgment` | `falsePositive`.
+`unmarked-confirmed` → `insert-stub.js` with an existing resolve-by-ticket; else record a crime.
+`needsJudgment` → record in `OMISSION-JUDGMENT-LEDGER.json`; no silent drop.
+`falsePositive` → machine-readable reason.
+exit: every finding classified; then Step 1 unchanged.
+
 ### Step 1 — Enumerate
 
 ```bash
