@@ -1,7 +1,11 @@
 {
-  "intervalMinutes": 5,
-  "startTime": "19:30",
-  "endTime": "09:30",
   "timezone": "Asia/Tokyo",
-  "daysOfWeek": [1, 2, 3, 4, 5]
+  "intervalMinutes": 5,
+  "filters": [
+    {
+      "daysOfWeek": [1, 2, 3, 4, 5],
+      "startTime": "19:30",
+      "endTime": "09:30"
+    }
+  ]
 }

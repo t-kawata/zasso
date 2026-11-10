@@ -1,6 +1,10 @@
 {
-  "intervalMinutes": 15,
-  "startTime": "09:00",
-  "endTime": "19:00",
-  "timezone": "Asia/Tokyo"
+  "timezone": "Asia/Tokyo",
+  "intervalMinutes": 5,
+  "filters": [
+    {
+      "startTime": "19:05",
+      "endTime": "09:30"
+    }
+  ]
 }
