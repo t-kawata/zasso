@@ -17,6 +17,9 @@ const path = require('node:path');
 const {
   restoreCondensedTickets,
 } = require('../../.claude/scripts/tickets/restore-condensed-tickets.js');
+const {
+  normalizeTickets,
+} = require('../../.claude/scripts/tickets/normalize-ticket-ids.js');
 
 /** A ticket with a stable shape. */
 // [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
@@ -126,4 +129,30 @@ test('restore refuses when no archive contains every absorbed key', () => {
   assert.equal(result.ok, false);
   assert.equal(result.code, 'RESTORE_ARCHIVE_MISSING');
   assert.equal(JSON.parse(fs.readFileSync(current, 'utf8')).phases[0].tickets.length, 1);
+});
+
+test('restore selects the archive generation after a dense repair', () => {
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+  const directory = freshDirectory('restore-after-renumber');
+  const archived = documentFor([ticket(1), ticket(2), ticket(4)]);
+  const archivePath = path.join(directory, 'Tickets.pre-condense-2026-11-09T00-00-00-000Z.json');
+  fs.writeFileSync(archivePath, `${JSON.stringify(archived, null, 2)}\n`);
+
+  const survivor = ticket(1, {
+    condensedFrom: {
+      originKey: 'P0-1',
+      generation: 0,
+      tickets: [{ key: 'P0-2', id: 2, status: 'todo', title: 'Ticket 2', generation: 0 }],
+    },
+  });
+  const currentPath = path.join(directory, 'Tickets.json');
+  fs.writeFileSync(currentPath, `${JSON.stringify(documentFor([survivor, ticket(4)]), null, 2)}\n`);
+
+  const repaired = normalizeTickets({ ticketsPath: currentPath, apply: true, verify: () => ({ ok: true }) });
+  assert.equal(repaired.ok, true);
+
+  const result = restoreCondensedTickets({ ticketsPath: currentPath, apply: false });
+  assert.equal(result.ok, true);
+  assert.equal(path.basename(result.archivePath), path.basename(archivePath));
+  assert.deepEqual(result.archived, archived);
 });

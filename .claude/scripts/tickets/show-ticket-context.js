@@ -914,7 +914,7 @@ const CONDENSED_STANDARD_FIELDS = Object.freeze([
   'id', 'phaseId', 'key', 'status', 'title', 'condensedFrom',
   'background', 'scope', 'invariants', 'notes', 'investigation', 'boyScoutPlan',
   'referenceSection', 'testUnit', 'testIntegration', 'testExceptions',
-  'contracts', 'acceptanceCriteria', 'changes',
+  'contracts', 'acceptanceCriteria', 'changes', 'generation',
 ]);
 
 /** Whether a value carries information for the generic renderer. */
@@ -1011,15 +1011,42 @@ function appendCondensedValue(lines, field, value) {
  * standard order does not name is rendered afterwards, so no information in the
  * ledger can stay invisible.
  */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
+/** Qualify every historical key token with the generation it belongs to. */
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+function qualifyHistoricalText(text, generation) {
+  if (typeof text !== 'string' || typeof generation !== 'number') return text;
+  const pattern = /(^|[^A-Za-z0-9-])((?:PX|P-?\d+)-(\d+))(?![A-Za-z0-9-])/g;
+  return text.replace(pattern, (match, prefix, key) => `${prefix}${key}@g${generation}`);
+}
+
+/** Qualify every string in a historical record without changing the stored data. */
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+function qualifyHistoricalValue(value, generation) {
+  if (typeof value === 'string') return qualifyHistoricalText(value, generation);
+  if (Array.isArray(value)) return value.map((entry) => qualifyHistoricalValue(entry, generation));
+  if (value !== null && typeof value === 'object') {
+    const qualified = {};
+    for (const [field, entry] of Object.entries(value)) {
+      qualified[field] = qualifyHistoricalValue(entry, generation);
+    }
+    return qualified;
+  }
+  return value;
+}
+
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
 function renderCondensedFrom(ticket) {
   const absorbed = ticket?.condensedFrom?.tickets;
   if (!Array.isArray(absorbed) || absorbed.length === 0) return null;
   const lines = ['## Condensed From', ''];
+  const condensedGeneration = ticket?.condensedFrom?.generation;
   for (const entry of absorbed) {
-    lines.push(`### ${entry.key}: ${entry.title} [${entry.status || 'todo'}]`);
+    const generation = entry.generation ?? condensedGeneration;
+    const historicalKey = typeof generation === 'number' ? `${entry.key}@g${generation}` : entry.key;
+    lines.push(`### ${historicalKey}: ${entry.title} [${entry.status || 'todo'}]`);
     lines.push('');
-    const record = entry.record ?? {};
+    const record = qualifyHistoricalValue(entry.record ?? {}, generation);
     appendCondensedProse(lines, 'Background', record.background);
     appendCondensedList(lines, 'Scope', record.scope);
     appendCondensedProse(lines, 'Invariants', record.invariants);
@@ -1039,7 +1066,7 @@ function renderCondensedFrom(ticket) {
   return lines.join('\n');
 }
 
-// [::TICKET::] PX-321, PX-322, PX-324, PX-341, PX-362, PX-396, PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341|PX-362|PX-396|PX-398) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-321, PX-322, PX-324, PX-341, PX-362, PX-396, PX-398, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-321|PX-322|PX-324|PX-341|PX-362|PX-396|PX-398|PX-402) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder, options = {}) {
   const lines = [];
 
@@ -1419,9 +1446,10 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('| Before | After | Description |');
     lines.push('|--------|-------|-------------|');
     for (const c of ticket.changes) {
-      const before = c.before || '';
-      const after = c.after || '';
-      const desc = c.description || '';
+      const generation = typeof c.generation === 'number' ? c.generation : ticket.condensedFrom?.generation;
+      const before = qualifyHistoricalText(c.before || '', generation);
+      const after = qualifyHistoricalText(c.after || '', generation);
+      const desc = qualifyHistoricalText(c.description || '', generation);
       lines.push(`| ${before} | ${after} | ${desc} |`);
     }
     lines.push('');

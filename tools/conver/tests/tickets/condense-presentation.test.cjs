@@ -159,3 +159,32 @@ test('C004: a ticket without condensedFrom renders exactly as the baseline', () 
   assert.equal(renderCondensedFrom(plain), null);
   assert.equal(buildTicketMarkdown('PX-1', plain, document, '/tmp', true, true), expected);
 });
+
+test('PX-402 historical keys render with the generation they belong to', () => {
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+  const ticket = {
+    id: 1,
+    phaseId: 0,
+    status: 'todo',
+    title: 'Survivor',
+    condensedFrom: {
+      originKey: 'P0-1',
+      generation: 0,
+      tickets: [{
+        key: 'P0-2',
+        id: 2,
+        status: 'todo',
+        title: 'Absorbed',
+        generation: 0,
+        record: {
+          notes: 'the absorbed ticket P0-2 owns the decoder',
+          relatedTicketIds: '[part_of] P0-2 (Part (parent): Absorbed)',
+        },
+      }],
+    },
+  };
+  const rendered = renderCondensedFrom(ticket);
+  assert.match(rendered, /### P0-2@g0: Absorbed/);
+  assert.match(rendered, /P0-2@g0 owns the decoder/);
+  assert.match(rendered, /\[part_of\] P0-2@g0/);
+});

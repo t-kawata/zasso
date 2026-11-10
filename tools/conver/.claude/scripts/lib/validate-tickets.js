@@ -4,6 +4,7 @@
 
 const fs = require('fs'), path = require('path');
 const { isContractId } = require('../tickets/lib/contract-id');
+const { validateIdentity } = require('../tickets/lib/ticket-identity-renumber.js');
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId} or PX-{ticketId}
 const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
@@ -147,7 +148,19 @@ function reportEmptyChangeSets(data) {
       CHANGE_RECORD_FIELD + ' must be a non-empty array');
 }
 
-// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6|PX-402) --for-spec --no-implementation-order`.
+/**
+ * The opt-in identity gate.
+ *
+ * `validateTickets` stays backward compatible so a pre-repair document remains
+ * writable. Condensation, repair and the split final gate call this stricter check.
+ */
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+function validateTicketIdentity(document, options = {}) {
+  return validateIdentity(document, options);
+}
+
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
 function parseTicketKey(key) {
   const match = key.match(KEY_RE);
   if (!match) return null;
@@ -182,4 +195,10 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { validateTickets, validateTicketRecord, reportEmptyChangeSets, parseTicketKey };
+module.exports = {
+  validateTickets,
+  validateTicketRecord,
+  validateTicketIdentity,
+  reportEmptyChangeSets,
+  parseTicketKey,
+};

@@ -40,6 +40,11 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { loadGraphEdgesFromTickets } = require('./generate-related-ticket-ids.js');
 const {
+  remapLiveReferences,
+  remapImplementerIds,
+  remapDocumentWithKeyMap,
+} = require('./lib/ticket-identity-renumber.js');
+const {
   deriveStatusPathFromTickets,
   resolveTicketsPath,
   resolveStageStatusPath,
@@ -373,35 +378,13 @@ function numericIdOfKey(key) {
  * @param {Map<string, string>} mapping — old public key to new public key
  * @returns {object} a remapped copy
  */
-// [::TICKET::] PX-325 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-325 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-325, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-325|PX-402) --for-spec --no-implementation-order`.
 function remapTicketKeyReferences(document, mapping) {
   const remapped = JSON.parse(JSON.stringify(document));
   const keyMapping = mapping instanceof Map ? mapping : new Map(Object.entries(mapping ?? {}));
-  for (const phase of remapped.phases ?? []) {
-    for (const ticket of phase.tickets ?? []) {
-      for (const entry of ticket.prerequisites ?? []) {
-        if (typeof entry.ticket === 'string' && keyMapping.has(entry.ticket)) {
-          entry.ticket = keyMapping.get(entry.ticket);
-        }
-      }
-      for (const unit of ticket.distribution?.units ?? []) {
-        const obligation = unit?.obligation;
-        if (obligation === null || typeof obligation !== 'object') continue;
-        const oldKey = typeof obligation.implementerTicketKey === 'string'
-          ? obligation.implementerTicketKey
-          : (typeof obligation.implementerTicketId === 'number'
-            ? (typeof ticket.__sourcePhaseId === 'number'
-              ? ticketKeyOfPhase(ticket.__sourcePhaseId, obligation.implementerTicketId)
-              : [...keyMapping.keys()].find((key) => numericIdOfKey(key) === obligation.implementerTicketId) ?? null)
-            : null);
-        if (oldKey === null || !keyMapping.has(oldKey)) continue;
-        const newKey = keyMapping.get(oldKey);
-        obligation.implementerTicketKey = newKey;
-        const newId = numericIdOfKey(newKey);
-        if (newId !== null) obligation.implementerTicketId = newId;
-      }
-    }
-  }
+  const findings = [];
+  remapped.phases = remapLiveReferences(remapped.phases ?? [], keyMapping, '$.phases', findings);
+  remapImplementerIds(remapped.phases, keyMapping);
   return remapped;
 }
 
@@ -694,7 +677,7 @@ function parseCliArgs(argv, options = {}) {
  * @param {string} statusPath — absolute path to SPLIT-Status.json
  * @param {boolean} dryRun — suppress file writes in dry-run mode
  */
-// [::TICKET::] PX-315, PX-325, PX-342, PX-356 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-325|PX-342|PX-356) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-315, PX-325, PX-342, PX-356, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-315|PX-325|PX-342|PX-356|PX-402) --for-spec --no-implementation-order`.
 function runConsolidation(ticketsPath, statusPath, dryRun) {
   // Read Tickets.json
   const ticketsData = readTickets(ticketsPath);
@@ -776,7 +759,14 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
       }
     }
   }
-  phases = remapTicketKeyReferences({ phases }, keyMapping).phases;
+  const remapped = remapDocumentWithKeyMap({ ...ticketsData, phases }, keyMapping, {
+    generationBefore: ticketsData.identity?.generation ?? 0,
+    excludedPhases: ticketsData.identity?.excludedPhases ?? [-1],
+    assignIds: false,
+    idsMoved: true,
+  });
+  phases = remapped.document.phases;
+  ticketsData.identity = remapped.document.identity;
   for (const phase of phases) {
     for (const ticket of phase.tickets ?? []) {
       delete ticket.__sourceTicketKey;

@@ -51,14 +51,49 @@ function allTickets(document) {
   return tickets;
 }
 
-/** The keys absorbed by survivors in the current document. */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
-function collectAbsorbedKeys(document) {
-  const keys = [];
+/** The absorbed entries with the generation their keys belong to. */
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+function collectAbsorbedEntries(document) {
+  const entries = [];
   for (const ticket of allTickets(document)) {
-    for (const entry of ticket.condensedFrom?.tickets ?? []) keys.push(entry.key);
+    const generation = ticket.condensedFrom?.generation ?? document?.identity?.generation ?? 0;
+    for (const entry of ticket.condensedFrom?.tickets ?? []) {
+      entries.push({ key: entry.key, generation: entry.generation ?? generation });
+    }
   }
-  return keys;
+  return entries;
+}
+
+/** The keys absorbed by survivors in the current document. */
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
+function collectAbsorbedKeys(document) {
+  return collectAbsorbedEntries(document).map((entry) => entry.key);
+}
+
+/**
+ * Map a current ticket key to the key the archive uses.
+ *
+ * A repair renumbers live tickets but keeps history. The survivor's originKey and the
+ * generation-qualified aliases are the bridge back to the archive's numbering.
+ */
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+function buildCurrentToArchivedKeys(current, archivedByKey, archiveGeneration) {
+  const aliases = current?.identity?.aliases ?? {};
+  const byCurrentKey = new Map();
+  for (const ticket of allTickets(current)) {
+    const currentKey = ticketKeyOf(ticket);
+    const candidates = [];
+    if (typeof ticket.condensedFrom?.originKey === 'string') candidates.push(ticket.condensedFrom.originKey);
+    for (const [aliasKey, target] of Object.entries(aliases)) {
+      if (target !== currentKey) continue;
+      const match = /^(.*)@g(\d+)$/.exec(aliasKey);
+      if (match !== null && Number(match[2]) === archiveGeneration) candidates.push(match[1]);
+    }
+    candidates.push(currentKey);
+    const archivedKey = candidates.find((key) => archivedByKey.has(key));
+    if (archivedKey !== undefined) byCurrentKey.set(currentKey, archivedKey);
+  }
+  return byCurrentKey;
 }
 
 /** The archive files of one package, oldest first. */
@@ -114,17 +149,18 @@ function hasValue(value) {
  *
  * @returns {{ ok: boolean, code?: string, detail?: string, repairedLosses: number }}
  */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
-function validateUntouchedTickets(currentTickets, archivedByKey, absorbedKeys) {
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
+function validateUntouchedTickets(currentTickets, archivedByKey, absorbedKeys, currentToArchived = new Map()) {
   let repairedLosses = 0;
   for (const ticket of currentTickets) {
     const key = ticketKeyOf(ticket);
-    if (absorbedKeys.includes(key)) continue;
+    const archivedKey = currentToArchived.get(key) ?? key;
+    if (absorbedKeys.includes(key) || absorbedKeys.includes(archivedKey)) continue;
     const isSurvivor = (ticket.condensedFrom?.tickets ?? []).length > 0;
     if (isSurvivor) continue;
-    const archived = archivedByKey.get(key);
+    const archived = archivedByKey.get(archivedKey);
     if (archived === undefined) {
-      return { ok: false, code: 'RESTORE_ARCHIVE_INCOMPLETE', detail: `${key} is missing from the archive`, repairedLosses };
+      return { ok: false, code: 'RESTORE_ARCHIVE_INCOMPLETE', detail: `${archivedKey} is missing from the archive`, repairedLosses };
     }
     const before = stripForComparison(archived);
     const after = stripForComparison(ticket);
@@ -151,17 +187,20 @@ function validateUntouchedTickets(currentTickets, archivedByKey, absorbedKeys) {
  * @param {string} ticketsPath
  * @returns {object} a candidate result; ok false carries a named code
  */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
 function findRestoreCandidate(ticketsPath) {
   if (!fs.existsSync(ticketsPath)) return { ok: false, code: 'RESTORE_TICKETS_MISSING', detail: ticketsPath };
   const current = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const currentTickets = allTickets(current);
-  const absorbedKeys = collectAbsorbedKeys(current);
+  const absorbedEntries = collectAbsorbedEntries(current);
+  const absorbedKeys = absorbedEntries.map((entry) => entry.key);
   if (absorbedKeys.length === 0) {
     return { ok: true, skipped: 'no-condensed', before: currentTickets.length, after: currentTickets.length };
   }
+  const targetGeneration = Math.max(...absorbedEntries.map((entry) => entry.generation ?? 0));
 
   const directory = path.dirname(ticketsPath);
+  let fallback = null;
   for (const archivePath of archivePaths(directory)) {
     let archived;
     try {
@@ -169,19 +208,27 @@ function findRestoreCandidate(ticketsPath) {
     } catch {
       continue;
     }
+    const archiveGeneration = archived?.identity?.generation ?? 0;
     const archivedTickets = allTickets(archived);
     const archivedByKey = new Map(archivedTickets.map((ticket) => [ticketKeyOf(ticket), ticket]));
     if (!absorbedKeys.every((key) => archivedByKey.has(key))) continue;
     if (archivedTickets.length !== currentTickets.length + absorbedKeys.length) {
-      return {
-        ok: false,
-        code: 'RESTORE_COUNT_MISMATCH',
-        detail: `${path.basename(archivePath)} has ${archivedTickets.length}, expected ${currentTickets.length + absorbedKeys.length}`,
-      };
+      if (archiveGeneration === targetGeneration) {
+        return {
+          ok: false,
+          code: 'RESTORE_COUNT_MISMATCH',
+          detail: `${path.basename(archivePath)} has ${archivedTickets.length}, expected ${currentTickets.length + absorbedKeys.length}`,
+        };
+      }
+      continue;
     }
-    const validation = validateUntouchedTickets(currentTickets, archivedByKey, absorbedKeys);
-    if (!validation.ok) return validation;
-    return {
+    const currentToArchived = buildCurrentToArchivedKeys(current, archivedByKey, archiveGeneration);
+    const validation = validateUntouchedTickets(currentTickets, archivedByKey, absorbedKeys, currentToArchived);
+    if (!validation.ok) {
+      if (archiveGeneration === targetGeneration) return validation;
+      continue;
+    }
+    const candidate = {
       ok: true,
       archivePath,
       archived,
@@ -189,8 +236,10 @@ function findRestoreCandidate(ticketsPath) {
       after: archivedTickets.length,
       repairedLosses: validation.repairedLosses,
     };
+    if (archiveGeneration === targetGeneration) return candidate;
+    if (fallback === null) fallback = candidate;
   }
-  return { ok: false, code: 'RESTORE_ARCHIVE_MISSING', detail: absorbedKeys.join(', ') };
+  return fallback ?? { ok: false, code: 'RESTORE_ARCHIVE_MISSING', detail: absorbedKeys.join(', ') };
 }
 
 /** Atomically replace the ticket file with the archive bytes. */

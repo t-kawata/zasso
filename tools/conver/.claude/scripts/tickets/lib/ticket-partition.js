@@ -18,6 +18,7 @@
 const { createHash } = require('node:crypto');
 
 const { WORKLOAD_COMPONENTS, workloadOfTicket } = require('./ticket-workload.js');
+const { ticketKeyOf, remapLiveReferences } = require('./ticket-identity-renumber.js');
 
 /** Status ranks from least to most advanced. `remanded` is handled separately. */
 const STATUS_RANKS = Object.freeze({
@@ -85,12 +86,6 @@ const MACHINE_STRING_FIELDS = Object.freeze([
   'referenceSection',
   'relatedTicketIds',
 ]);
-
-/** The public key of a ticket, matching the ticket scripts. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
-function ticketKeyOf(ticket) {
-  return ticket?.phaseId === -1 ? `PX-${ticket?.id}` : `P${ticket?.phaseId}-${ticket?.id}`;
-}
 
 /** The component-wise sum of two workload vectors. */
 // [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
@@ -280,39 +275,16 @@ function collectPreservedRecord(ticket) {
   return record;
 }
 
-/** Escape a literal string for use inside a RegExp. */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
  * Rewrite absorbed ticket keys to the survivor that now owns them.
  *
- * Longer keys are replaced first so P0-10 is never rewritten as the survivor of
- * P0-1. The lookarounds keep a key from matching inside a longer identifier.
+ * The shared replacer is single-pass, so a permutation cannot rewrite a produced key
+ * a second time.
  */
-// [::TICKET::] PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-396 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-396|PX-402) --for-spec --no-implementation-order`.
 function remapTicketReferences(value, keyMap) {
   if (!(keyMap instanceof Map) || keyMap.size === 0) return value;
-  if (typeof value === 'string') {
-    let result = value;
-    const keys = [...keyMap.keys()].sort((left, right) => right.length - left.length);
-    for (const key of keys) {
-      const pattern = new RegExp(`(^|[^A-Za-z0-9-])${escapeRegExp(key)}(?![A-Za-z0-9-])`, 'g');
-      result = result.replace(pattern, (match, prefix) => prefix + keyMap.get(key));
-    }
-    return result;
-  }
-  if (Array.isArray(value)) return value.map((entry) => remapTicketReferences(entry, keyMap));
-  if (value !== null && typeof value === 'object') {
-    const remapped = {};
-    for (const [field, entry] of Object.entries(value)) {
-      remapped[field] = remapTicketReferences(entry, keyMap);
-    }
-    return remapped;
-  }
-  return value;
+  return remapLiveReferences(value, keyMap);
 }
 
 /** Union arrays of objects by their structural value, preserving first-seen order. */
@@ -441,7 +413,7 @@ function mergeFormulaObligations(members) {
 }
 
 /** The survivor ticket of a merged group and the tickets it absorbed. */
-// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
 function mergeTicketGroup(tickets, group, options = {}) {
   const start = group?.start ?? 0;
   const end = group?.end ?? tickets.length;
@@ -487,6 +459,12 @@ function mergeTicketGroup(tickets, group, options = {}) {
     merged.completedAt = members.map((ticket) => ticket.completedAt).filter(Boolean).sort().at(-1);
   }
 
+  const generation = options.generation ?? 0;
+  // The ledger is cumulative. A survivor that already absorbed tickets keeps those
+  // records when it absorbs more, so a later renumber can still resolve every old key.
+  const priorLedgerEntries = Array.isArray(survivor.condensedFrom?.tickets)
+    ? survivor.condensedFrom.tickets
+    : [];
   merged.changes = [
     ...(survivor.changes ?? []),
     ...absorbed.flatMap((ticket) => ticket.changes ?? []),
@@ -494,20 +472,26 @@ function mergeTicketGroup(tickets, group, options = {}) {
       before: members.map(ticketKeyOf).join(', '),
       after: survivorKey,
       description: `Condensed ${members.length} tickets into ${survivorKey}`,
+      generation,
     },
   ];
   merged.condensedFrom = {
     originKey: survivorKey,
+    generation,
     planDigest: options.planDigest ?? null,
     condensedAt: options.condensedAt ?? new Date().toISOString().slice(0, 10),
-    tickets: absorbed.map((ticket) => ({
-      key: ticketKeyOf(ticket),
-      id: ticket.id,
-      status: ticket.status,
-      title: ticket.title,
-      [LEDGER_ORIGIN_FIELD]: survivorKey,
-      [LEDGER_RECORD_FIELD]: collectPreservedRecord(ticket),
-    })),
+    tickets: [
+      ...priorLedgerEntries,
+      ...absorbed.map((ticket) => ({
+        key: ticketKeyOf(ticket),
+        id: ticket.id,
+        status: ticket.status,
+        title: ticket.title,
+        [LEDGER_ORIGIN_FIELD]: survivorKey,
+        [LEDGER_RECORD_FIELD]: collectPreservedRecord(ticket),
+        generation,
+      })),
+    ],
   };
 
   for (const field of RECOMPUTED_FIELDS) delete merged[field];
