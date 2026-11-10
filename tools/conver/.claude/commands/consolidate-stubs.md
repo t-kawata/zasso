@@ -54,14 +54,20 @@ cwd = Tickets.json root = the current directory = target tree.
 ### Step 0 — Unmarked incomplete implementations (mandatory, additive)
 
 ```bash
-node "$CLAUDE_DIR/scripts/tickets/scan-incomplete-implementations.js" --dir=.
+node "$CLAUDE_DIR/scripts/tickets/scan-incomplete-implementations.js" --dir=. --source-set=omission --classify
 ```
 
-classify every finding: `marked` | `unmarked-confirmed` | `needsJudgment` | `falsePositive`.
+classify every finding: `unmarked-confirmed` | `needsJudgment` | `falsePositive`.
 `unmarked-confirmed` → `insert-stub.js` with an existing resolve-by-ticket; else record a crime.
-`needsJudgment` → record in `OMISSION-JUDGMENT-LEDGER.json`; no silent drop.
-`falsePositive` → machine-readable reason.
-exit: every finding classified; then Step 1 unchanged.
+`needsJudgment` → decide, then record in `OMISSION-CLASSIFICATION.json`; no silent drop.
+`falsePositive` → machine-readable reason; never edit source directly.
+
+```bash
+printf '%s\n' '[{"key":"src/a.rs:12:todo!()","classification":"unmarked-confirmed","reason":"unmarked todo"}]' | node "$CLAUDE_DIR/scripts/tickets/scan-incomplete-implementations.js" --dir=. --source-set=omission --record=OMISSION-CLASSIFICATION.json
+node "$CLAUDE_DIR/scripts/tickets/scan-incomplete-implementations.js" --dir=. --source-set=omission --verify-classification=OMISSION-CLASSIFICATION.json
+```
+
+exit≠0 → classification incomplete; do not proceed to Step 1. exit0 → Step 1 unchanged.
 
 ### Step 1 — Enumerate
 

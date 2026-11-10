@@ -21,6 +21,12 @@ const {
 } = require('../../.claude/scripts/tickets/lib/omission-detectors.js');
 const { createSyntheticFixture, removeSyntheticFixture } = require('./helpers/omission-fixture.cjs');
 
+/** Load the registry a fixture carries, or the bundled one. */
+// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+function loadFixtureRegistry(root) {
+  return loadRegistry({ cwd: root });
+}
+
 // @verifies C003
 test('C003: calibration seeds at least four families and detects every seeded defect', () => {
   const root = createSyntheticFixture();
@@ -37,14 +43,12 @@ test('C003: calibration seeds at least four families and detects every seeded de
 
 // @verifies C003
 test('C003: an applicable undetected seed fails the calibration verdict', () => {
-  assert.deepEqual(
-    calibrationVerdict({ seeds: [{ checkId: 'contract-delivery', applicable: true, detected: false }] }),
-    { ok: false, code: 'CALIBRATION_FAILED' },
-  );
+  assert.deepEqual(calibrationVerdict({ seeds: [{ checkId: 'contract-delivery', applicable: true, detected: false }] }).ok, false);
+  assert.equal(calibrationVerdict({ seeds: [{ checkId: 'contract-delivery', applicable: true, detected: false }] }).code, 'CALIBRATION_FAILED');
 });
 
 // @verifies C003
-test('C003: an inapplicable seed is notMeasured, not a failure', () => {
+test('C003: an inapplicable seed is notMeasured and does not pass', () => {
   const verdict = calibrationVerdict({
     seeds: [
       { checkId: 'a', applicable: true, detected: true },
@@ -55,7 +59,8 @@ test('C003: an inapplicable seed is notMeasured, not a failure', () => {
     ],
   });
 
-  assert.equal(verdict.ok, true);
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.code, 'CALIBRATION_NOT_MEASURED');
   assert.deepEqual(verdict.notMeasured, ['formula-delivery']);
 });
 
@@ -73,7 +78,7 @@ test('C003: a clean fixture yields no finding (negative control)', () => {
 test('C003: removing a detector makes the meta control report an uncovered surface', () => {
   const root = createSyntheticFixture();
   try {
-    const registry = loadRegistry({ cwd: root });
+    const registry = loadFixtureRegistry(root);
     const surfaces = enumerateSurfaces({ cwd: root, ticketsPath: path.join(root, 'Tickets.json') });
     const meta = runMetaControl({ registry, surfaces });
 

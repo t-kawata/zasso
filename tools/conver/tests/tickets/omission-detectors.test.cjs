@@ -20,6 +20,7 @@ const {
 const { createSyntheticFixture, removeSyntheticFixture } = require('./helpers/omission-fixture.cjs');
 
 // [::TICKET::] PX-406 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-406 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
 function fixtureContext() {
   const root = createSyntheticFixture();
   const registry = loadRegistry({ cwd: root });
@@ -33,7 +34,7 @@ test('C001: the registry is versioned and every enumerated surface is covered', 
   try {
     const coverage = evaluateCoverage({ registry, surfaces });
 
-    assert.equal(coverage.version, 1);
+    assert.equal(coverage.version, 2);
     assert.equal(coverage.notMeasured.length, 0);
     assert.equal(coverage.surfaces.every((surface) => ['mechanical', 'judgment', 'notApplicable'].includes(surface.coveredBy)), true);
     assert.equal(coverage.findings.some((finding) => finding.code === 'SURFACE_UNCOVERED'), false);

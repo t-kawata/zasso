@@ -87,18 +87,22 @@ check for: too-broad assertions (`assert!(result.is_ok())` when field checks are
 ### Step 0 — Deterministic detection and judgment ledger (mandatory, additive)
 
 ```bash
-node "$CLAUDE_DIR/scripts/tickets/omission-gap-scan.js" --cwd=. --tickets=Tickets.json --out=OMISSION-GAP-SCAN.json
+node "$CLAUDE_DIR/scripts/tickets/omission-gap-scan.js" --cwd=. --tickets=Tickets.json --graph="$ARGUMENTS" --out=OMISSION-GAP-SCAN.json
 ```
 
-must-fix findings → `add-omission-ticket.js` with the finding `ticketKey`; stable key dedup.
-judgment obligations → AI adjudicates; record PASS/FAIL/NOT_APPLICABLE/NOT_VERIFIABLE + evidence + normative source in `OMISSION-JUDGMENT-LEDGER.json`.
-unsourced observations → improvement backlog, never a ticket.
-
+must-fix findings → `apply-omission-findings.js`: one ticket per stable key; unsourced → improvement backlog; design surface → `DESIGN-AMENDMENT-QUEUE.json`.
+judgment obligations → AI adjudicates; record PASS/FAIL/NOT_APPLICABLE/NOT_VERIFIABLE + evidence + normative source through the ledger CLI:
 ```bash
-node "$CLAUDE_DIR/scripts/tickets/omission-detection-gate.js" --cwd=. --tickets=Tickets.json --report
+echo '{"surface":"contract","assetId":"C001","criterion":"A","status":"PASS","evidence":[{"file":"src/a.rs","line":1}],"normativeSource":"contract:C001"}' | node "$CLAUDE_DIR/scripts/tickets/lib/judgment-ledger.js" --cwd=.
+```
+then:
+```bash
+node "$CLAUDE_DIR/scripts/tickets/apply-omission-findings.js" --cwd=. --report=OMISSION-GAP-SCAN.json
+node "$CLAUDE_DIR/scripts/tickets/omission-detection-gate.js" --cwd=. --tickets=Tickets.json --graph="$ARGUMENTS" --require-converged
 ```
 
-converged: all surfaces adjudicated, no unticketed must-fix, debt non-increasing, two identical runs, no new tickets.
+gate exit≠0 → uncovered / notMeasured / blocked / calibration failed / convergence not reached: repair and re-run; do not proceed.
+report-only target (gaia / crystal / doors): pass `--report-only` to both commands; no file is written.
 then Step 1 unchanged.
 
 ### Step 1 — Re-ticketize the consolidated units (mandatory)

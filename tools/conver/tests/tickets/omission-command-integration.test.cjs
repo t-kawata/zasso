@@ -18,15 +18,26 @@ function readCommand(name) {
   return fs.readFileSync(path.join(COMMANDS, name + '.md'), 'utf8');
 }
 
-// [::TICKET::] PX-406 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-406 --for-spec --no-implementation-order`.
-function gitHeadCommand(name) {
-  return execFileSync('git', ['show', 'HEAD:tools/conver/.claude/commands/' + name + '.md'], {
-    cwd: path.resolve(ROOT, '../..'),
-    encoding: 'utf8',
-  });
-}
+const CONSOLIDATE_BASELINE_STEPS = [
+  '### Step 1 — Enumerate',
+  '### Step 2 — Group into units (AI judgment — the only non-deterministic step)',
+  '### Step 3 — Author the units decision file',
+  '### Step 4 — Verify the plan, then apply (batch-update-stub.js)',
+  '### Step 5 — Verify the result (blocking gate)',
+];
 
-// [::TICKET::] PX-406 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-406 --for-spec --no-implementation-order`.
+const FIND_BASELINE_STEPS = [
+  '### Step 1 — Re-ticketize the consolidated units (mandatory)',
+  '### Step 2 — Run the script',
+  '### Step 3 — Understand the ticket',
+  '### Step 4 — Analyze source code (core of the pipeline)',
+  '### Step 5 — Evaluate and record (per-contract, per-criterion, immediately)',
+  '### Step 6 — Record an omission (execute the moment a gap is found)',
+  '### Step 7 — Repeat',
+  '### Step 8 — Clean up',
+];
+
+// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
 function stepHeadings(text) {
   return text.split('\n').filter((line) => /^### Step /.test(line));
 }
@@ -34,20 +45,18 @@ function stepHeadings(text) {
 // @verifies C005
 test('C005: consolidate-stubs gains Step 0 without renumbering the existing Steps', () => {
   const after = readCommand('consolidate-stubs');
-  const before = gitHeadCommand('consolidate-stubs');
 
   assert.equal(stepHeadings(after).some((heading) => /Step 0/.test(heading)), true);
-  assert.deepEqual(stepHeadings(after).filter((heading) => !/Step 0/.test(heading)), stepHeadings(before));
+  assert.deepEqual(stepHeadings(after).filter((heading) => !/Step 0/.test(heading)), CONSOLIDATE_BASELINE_STEPS);
   assert.equal(after.includes('scan-incomplete-implementations.js'), true);
 });
 
 // @verifies C005
 test('C005: find-omissions gains Step 0 without renumbering the existing Steps', () => {
   const after = readCommand('find-omissions');
-  const before = gitHeadCommand('find-omissions');
 
   assert.equal(stepHeadings(after).some((heading) => /Step 0/.test(heading)), true);
-  assert.deepEqual(stepHeadings(after).filter((heading) => !/Step 0/.test(heading)), stepHeadings(before));
+  assert.deepEqual(stepHeadings(after).filter((heading) => !/Step 0/.test(heading)), FIND_BASELINE_STEPS);
   assert.equal(after.includes('omission-gap-scan.js'), true);
   assert.equal(after.includes('omission-detection-gate.js'), true);
 });

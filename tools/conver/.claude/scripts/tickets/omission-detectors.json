@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "The fixed detector registry for the omission detection gate. A surface is covered only when the registered detector kind matches the surface requirement; a missing detector is visible, never a clean run.",
+  "version": 2,
+  "description": "The fixed detector registry for the omission detection gate. A surface is covered only when the registered detector kind matches the surface requirement; a missing detector or artifact is visible, never a clean run.",
   "surfaceRequirements": {
     "spec": "judgment",
     "rfc": "judgment",
@@ -27,6 +27,8 @@
       "applies": { "artifacts": ["tickets"] },
       "runner": {
         "script": "tickets/verify-contract-delivery.js",
+        "scope": "ticket",
+        "output": "gate-report",
         "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
       },
       "findingCodes": ["CONTRACT_CLAUSE_UNTESTED"],
@@ -39,6 +41,8 @@
       "applies": { "artifacts": ["tickets"] },
       "runner": {
         "script": "tickets/verify-operation-delivery.js",
+        "scope": "ticket",
+        "output": "gate-report",
         "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
       },
       "findingCodes": ["OPERATION_OBLIGATION_UNTESTED", "STEP_AXIS_NOT_DELIVERED"],
@@ -51,6 +55,8 @@
       "applies": { "artifacts": ["tickets"] },
       "runner": {
         "script": "tickets/verify-acceptance-coverage.js",
+        "scope": "ticket",
+        "output": "gate-report",
         "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
       },
       "findingCodes": ["ACCEPTANCE_CRITERIA_UNTESTED"],
@@ -63,6 +69,8 @@
       "applies": { "artifacts": ["tickets", "formulas"] },
       "runner": {
         "script": "tickets/verify-formula-delivery.js",
+        "scope": "ticket",
+        "output": "gate-report",
         "args": ["--ticket-key=${ticketKey}", "--tickets=${ticketsPath}"]
       },
       "findingCodes": ["FORMULA_IMPLEMENTATION_MISSING", "FORMULA_TEST_MISSING"],
@@ -75,6 +83,8 @@
       "applies": { "artifacts": ["tickets"] },
       "runner": {
         "script": "tickets/verify-red-coverage.js",
+        "scope": "ticket",
+        "output": "stderr-template",
         "args": ["--ticket-key=${ticketKey}"]
       },
       "findingCodes": ["RED_CONTRACT_UNCOVERED"],
@@ -87,6 +97,8 @@
       "applies": { "artifacts": ["tickets"] },
       "runner": {
         "script": "tickets/verify-ticket-closure.js",
+        "scope": "package",
+        "output": "stderr-template",
         "args": ["--tickets=${ticketsPath}"]
       },
       "findingCodes": ["CONTRACT_CHAIN_OPEN", "MISSING_UNIT_AT_LAYER", "MISSING_BOUNDARY_CONTRACT"],
@@ -99,7 +111,9 @@
       "applies": { "artifacts": ["graph", "rfc"] },
       "runner": {
         "script": "rfc-graph/verify-graph-integrity.js",
-        "args": ["--graph-after=${cwd}/RFC-GRAPH.json", "--source=${cwd}/RFC.md"]
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--graph-after=${graphPath}", "--source=${rfcPath}"]
       },
       "findingCodes": ["GRAPH_INTEGRITY_FAILED"],
       "repair": "run-graphify"
@@ -111,7 +125,9 @@
       "applies": { "artifacts": ["graph", "dirs-tree"] },
       "runner": {
         "script": "rfc-graph/validate-dirs-tree-schema.js",
-        "args": ["--dirs-tree=${cwd}/RFC-Dirs-Tree.json", "--graph=${cwd}/RFC-GRAPH.json"]
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--dirs-tree=${dirsTreePath}", "--graph=${graphPath}"]
       },
       "findingCodes": ["DIRS_TREE_SCHEMA_FAILED"],
       "repair": "run-boundify"
@@ -123,9 +139,17 @@
       "applies": { "artifacts": ["graph", "dirs-tree", "tickets"] },
       "runner": {
         "script": "sequences-slice/verify-chain.mjs",
-        "args": ["--stage=split", "--package=${cwd}"]
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--stage=split", "--package=${cwd}", "--graph=${graphPath}", "--dirs-tree=${dirsTreePath}", "--tickets=${ticketsPath}"]
       },
       "findingCodes": ["CONTRACT_CHAIN_OPEN", "SEQUENCE_STEPS_UNDISTRIBUTED"],
+      "findingSurfaces": {
+        "FORMULA_SET_MISMATCH": "formula",
+        "FORMULA_BODY_MISMATCH": "formula",
+        "FORMULA_DIGEST_MISMATCH": "formula",
+        "UNIT_SET_MISMATCH": "unit"
+      },
       "repair": "run-split-to-tickets"
     },
     {
@@ -135,7 +159,9 @@
       "applies": { "artifacts": ["source"] },
       "runner": {
         "script": "tickets/scan-incomplete-implementations.js",
-        "args": ["--dir=.", "--mode=stubs"]
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--dir=.", "--mode=stubs", "--source-set=omission"]
       },
       "findingCodes": ["INCOMPLETE_IMPLEMENTATION_UNMARKED"],
       "repair": "insert-stub-or-implement"
@@ -147,6 +173,8 @@
       "applies": { "artifacts": ["source"] },
       "runner": {
         "script": "tickets/review/find-all-stubs.js",
+        "scope": "package",
+        "output": "stub-findings",
         "args": ["."]
       },
       "findingCodes": ["STUB_KEY_UNRESOLVABLE"],
@@ -159,6 +187,8 @@
       "applies": { "artifacts": ["source"] },
       "runner": {
         "script": "tickets/review/run-quality-checks.js",
+        "scope": "ticket-files",
+        "output": "quality-report",
         "args": ["${files}"]
       },
       "findingCodes": ["QUALITY_DANGER"],
@@ -199,5 +229,19 @@
       "criterion": "boundary-semantics",
       "obligation": "check that both sides of every boundary agree on the shared clauses"
     }
+  ],
+  "seeds": [
+    { "detectorId": "contract-delivery", "surface": "contract" },
+    { "detectorId": "operation-delivery", "surface": "operation" },
+    { "detectorId": "acceptance-coverage", "surface": "acceptance" },
+    { "detectorId": "formula-delivery", "surface": "formula" },
+    { "detectorId": "red-coverage", "surface": "file" },
+    { "detectorId": "ticket-closure", "surface": "ticket" },
+    { "detectorId": "graph-integrity", "surface": "graph-node" },
+    { "detectorId": "dirs-tree-schema", "surface": "dirs-tree" },
+    { "detectorId": "chain", "surface": "sequence-step" },
+    { "detectorId": "incomplete-implementation", "surface": "file" },
+    { "detectorId": "stub-marker", "surface": "stub" },
+    { "detectorId": "quality-danger", "surface": "danger" }
   ]
 }
