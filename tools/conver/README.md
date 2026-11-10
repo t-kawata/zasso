@@ -1081,13 +1081,16 @@ npm install
 npm run build
 ```
 
-`npm run build` は esbuild で単一ファイルにバンドルし、`dist/conver.js` を生成します。`make build-conver` はさらに `.claude/scripts/conver/conver.js` にも配置します。
+`npm run build` は現在の `VERSION.json` を埋め込んで `dist/conver.js` を生成します（バージョンは進めません）。`make build-conver` は `VERSION.json` を1つ進め、その版を `conver.js` に埋め込み、`.claude/scripts/conver/` と `~/shyme/conver/VERSION.json` に配置します。`make push-all` は先頭で `build-conver` を実行します。
+
+`make push`（`~/shyme/conver`）は `VERSION.json` を書き換えません。`build-conver` が準備した「最新コミット + 1」の版と `node .claude/scripts/conver/conver.js --version` が一致する場合だけコミット・push します。2段以上先の版を検出した場合はインクリメントせず中止します。
 
 | コマンド | 説明 |
 |---------|------|
-| `npm run build` | esbuild で TypeScript を単一ファイルにバンドル |
+| `npm run build` | 現在の `VERSION.json` を埋め込んで esbuild バンドル |
 | `npm run typecheck` | TypeScript の型チェックのみ（`tsc --noEmit`） |
-| `make build-conver` | esbuild バンドル＋`.claude/scripts/conver/` に配置 |
+| `make build-conver` | `VERSION.json` を1つ進めてバンドルし、`VERSION.json` をデプロイ先へコピー |
+| `make push-all` | `build-conver` → 全プロジェクトへ配置 → 各リポジトリを push |
 | `make typecheck` | `npm run typecheck` と同じ |
 | `make test` | リポジトリのテスト（重い計測スイート `tests/workspacify-reverse/integration` は `--exclude` で外す。外した分はレポートに Deferred として明示） |
 | `make test-all` | 除外なしの全テスト（夜間・リリース前） |
@@ -1108,7 +1111,7 @@ npm run build
 | `make stubs` | `[::STUB::]` マーカーを含む全ファイルを検索 |
 | `make crimes` | 全 Malfeasance.json の犯罪レコードを集約表示 |
 
-`.claude/scripts/conver/` に `package.json`（`{"type": "module"}`）が配置されており、ESM として正しく実行されます。
+`.claude/scripts/conver/` に `package.json`（ESM 宣言、`engines.node`、`conver.runtimeDependencies`）が配置されており、ESM として正しく実行されます。
 
 ```bash
 # カレントディレクトリに関わらず正しく動作します
@@ -1132,6 +1135,21 @@ install.js -t /path/to/target/.claude
 `install.js` はスクリプト自身の位置（`__dirname`）から相対的に `.claude` ディレクトリを特定するため、どのカレントディレクトリから実行しても正しく動作します。
 
 ミラー完了後、インストール先の `.claude/CLAUDE.md` は **`.claude` の親ディレクトリ**（プロジェクトルート）へ `CLAUDE.md` としてコピーされます。Claude Code がプロジェクト指示をルートから読む一方、指示の権威はインストールされた `.claude` 側に一本化されるため、再インストールで両方が更新され、ルート側の手編集が配布ツリーから乖離しません。
+
+### 実行時の依存関係チェック
+
+インストール後に `conver.js` を実行すると、起動時に次の2つを検査します。
+
+- `.claude/scripts/conver/package.json` の `conver.runtimeDependencies`（ACP エージェント、任意の画像レンダラ）
+- `.claude/package.json` の `dependencies` / `optionalDependencies`（チケットスクリプト用）
+
+不足がある場合だけ、その依存を解決するコマンドをまとめて stderr に出力します。インストール済みのパッケージや、不足の無いディレクトリの `npm install` は含みません。
+
+- 必須依存（Node.js、ACP エージェント、チケットスクリプトの npm パッケージ）が不足 → コマンドリストを出して `exit 1`
+- 任意依存（`terminal-image`）だけが不足 → コマンドリストを出して処理を継続
+- すべて解決済み → 何も出力しない
+
+`--help` / `--version` では検査しません。`install.js --no-install-deps` を使った場合や、既存の `node_modules` があるために依存解決がスキップされた場合でも、この検査が不足分だけを案内します。
 
 ---
 

@@ -1,1 +1,22 @@
-{"type": "module"}
+{
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "conver": {
+    "runtimeDependencies": {
+      "required": {
+        "@agentclientprotocol/claude-agent-acp": {
+          "version": "^0.102.0",
+          "reason": "ACP agent binary"
+        }
+      },
+      "optional": {
+        "terminal-image": {
+          "version": "^5.0.1",
+          "reason": "inline image rendering"
+        }
+      }
+    }
+  }
+}

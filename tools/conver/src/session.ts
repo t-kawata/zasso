@@ -15,34 +15,26 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import fs from "node:fs";
 import { Writable, Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import * as acp from "@agentclientprotocol/sdk";
 import { CommandTimeoutError } from "./error.js";
 import { MessageLineWriter } from "./line-writer.js";
 import { composePrompt } from "./command-history.js";
+import {
+  MissingRuntimeDependencyError,
+  buildAcpInstallCommands,
+  resolveAcpBinaryForProcess,
+} from "./runtime-dependencies.js";
 
-// claude-agent-acp バイナリの検索
-//
-// 同一ディレクトリの node_modules/.bin/ を優先し、なければ PATH からの
-// 解決にフォールバックする。これにより npm install でローカルインス
-// トールされたバイナリが PATH に追加されていなくても動作する。
+// The installed tree is the resolution root. tsc output leaves DIRNAME at
+// dist/, while the bundle leaves it beside the mirrored package.json; the
+// resolver's parent walk covers both layouts.
 const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
 
-function resolveAcpBinary(): string {
-  // tsc 出力時は DIRNAME = dist/、バンドル時はプロジェクトルート
-  const candidates = [
-    path.join(DIRNAME, "node_modules", ".bin", "claude-agent-acp"),
-    path.join(DIRNAME, "..", "node_modules", ".bin", "claude-agent-acp"),
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return "claude-agent-acp";
+function defaultResolveAcpBinary(): string | null {
+  return resolveAcpBinaryForProcess(DIRNAME);
 }
-
-const ACP_BINARY = resolveAcpBinary();
 
 // Grace period (ms) before a claude-agent-acp child that ignores SIGTERM is
 // force-killed with SIGKILL during session teardown.
@@ -130,8 +122,20 @@ export function spawnAgent(
   config: SessionConfig,
   cwd: string = process.cwd(),
   spawnFn: typeof spawn = spawn,
+  resolveBinary: () => string | null = defaultResolveAcpBinary,
 ): { proc: ChildProcess; stream: acp.Stream } {
-  const proc = spawnFn(ACP_BINARY, [], {
+  const acpBinary = resolveBinary();
+  if (acpBinary === null) {
+    const commands = buildAcpInstallCommands(DIRNAME, process.platform);
+    throw new MissingRuntimeDependencyError(
+      `claude-agent-acp was not found. Run:\n${commands
+        .map((command) => `  ${command}`)
+        .join("\n")}\nThen re-run conver.js.`,
+      commands,
+    );
+  }
+
+  const proc = spawnFn(acpBinary, [], {
     cwd,
     stdio: ["pipe", "pipe", "pipe"],
     // プロセスグループリーダー化する。teardown で claude-code 孫プロセスまで
@@ -146,15 +150,11 @@ export function spawnAgent(
   // 切断エラーでプロセス全体が強制終了するのを防ぐ）。
   proc.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "ENOENT") {
+      const commands = buildAcpInstallCommands(DIRNAME, process.platform);
       console.error("");
-      console.error("エラー: claude-agent-acp が見つかりません。");
-      console.error("conver.js は外部プロセスとして claude-agent-acp を起動する必要があります。");
-      console.error("");
-      console.error("インストール方法:");
-      console.error("  npm install -g @agentclientprotocol/claude-agent-acp");
-      console.error("");
-      console.error("またはカレントディレクトリにインストール:");
-      console.error("  npm install @agentclientprotocol/claude-agent-acp");
+      console.error("error: claude-agent-acp was not found.");
+      console.error("Run:");
+      for (const command of commands) console.error(`  ${command}`);
       console.error("");
       process.exit(1);
     }

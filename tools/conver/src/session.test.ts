@@ -25,6 +25,7 @@ import type { AcpSession, RunCommandOptions, SessionConfig } from "./session.js"
 import * as childProcess from "node:child_process";
 import { CommandTimeoutError } from "./error.js";
 import { CROSS_PACKAGE_DIRECTIVE } from "./command-history.js";
+import { MissingRuntimeDependencyError } from "./runtime-dependencies.js";
 
 // --- モック用ヘルパー ---
 
@@ -703,6 +704,27 @@ describe("spawnAgent", () => {
       baseUrl: "http://localhost:11434",
     });
     assert.strictEqual(env.ANTHROPIC_AUTH_TOKEN, "keyless");
+  });
+
+  it("throws MissingRuntimeDependencyError with the ACP install command when the binary cannot be resolved", () => {
+    const neverSpawn = (() => {
+      throw new Error("spawn must not run when the binary is absent");
+    }) as unknown as typeof childProcess.spawn;
+
+    assert.throws(
+      () =>
+        spawnAgent(
+          { apiKey: "", model: "m", baseUrl: "http://localhost" },
+          process.cwd(),
+          neverSpawn,
+          () => null,
+        ),
+      (error: unknown) =>
+        error instanceof MissingRuntimeDependencyError &&
+        error.commands.some((command) =>
+          command.includes("@agentclientprotocol/claude-agent-acp"),
+        ),
+    );
   });
 
   it("pipes child stderr to the configured sink", async () => {

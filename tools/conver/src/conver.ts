@@ -27,6 +27,7 @@ import { toDisplayEvent } from "./display/events.js";
 import { ProgressDashboard } from "./progress/dashboard.js";
 import { readProgressSnapshot } from "./progress/model.js";
 import { setAgentStderrSink } from "./session.js";
+import { checkRuntimeDependencies } from "./runtime-dependencies.js";
 import type { DisplayHooks } from "./runner.js";
 
 /** Log a fatal error without a raw trace. */
@@ -167,6 +168,17 @@ export async function main(): Promise<void> {
     return;
   }
 
+  // Required packages or a too-old Node stop the run here, before the fixed
+  // header can overwrite the remedy. Optional packages are reported after the
+  // header starts so the command list scrolls into the log instead of being
+  // erased by the first redraw.
+  const runtimeDependencies = checkRuntimeDependencies();
+  if (runtimeDependencies.blocked) {
+    process.stderr.write(runtimeDependencies.message);
+    process.exit(1);
+    return;
+  }
+
   const richDisplay = process.stdout.isTTY === true;
   const dashboardEnabled = richDisplay && !options.noDashboard;
   const renderer = richDisplay
@@ -221,6 +233,9 @@ export async function main(): Promise<void> {
         onPackageStart: (packageName) => dashboard?.follow(packageName),
       };
   dashboard?.start();
+  if (runtimeDependencies.message !== "") {
+    process.stderr.write(runtimeDependencies.message);
+  }
 
   process.stdout.write("conver.js — ワークスペース処理を開始します\n");
   process.stdout.write(`  workspace=${model.name}\n`);

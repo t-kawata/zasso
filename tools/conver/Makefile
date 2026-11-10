@@ -7,7 +7,12 @@
         test-workspacify-reverse test-workspacify test-crystalize-readme \
         test-drill-rfc-down test-stub-resolution test-educe-sequences \
         check-conventions check-bundle-fresh check-path-emission test-coverage \
-        deploy stubs crimes push-all
+        deploy stubs crimes install-to-projects push-all
+
+# The deployment repository that receives the prepared VERSION.json and the
+# verification script. Override CONVER_DEPLOY_DIR to deploy elsewhere.
+CONVER_DEPLOY_DIR ?= $(HOME)/shyme/conver
+export CONVER_DEPLOY_DIR
 
 # list-tickets: チケット一覧を表示する（私用ヘルパー）
 list-tickets:
@@ -19,9 +24,13 @@ list-px-tickets:
 list-active-tickets:
 	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json | grep -v "\[x\]"  | grep -v "\[R\d*\]"
 
-# build-conver: TypeScript ソースを esbuild で単一ファイルにバンドルする
+# build-conver: VERSION.json を1つ進め、その版を埋め込んだ conver.js をビルドする。
+#   進めた VERSION.json はデプロイ先にも上書きコピーする。2段以上先へ進む場合は
+#   scripts/build-conver.mjs が書き込み前に中止する。
 build-conver:
-		npm run build && mkdir -p .claude/scripts/conver && cp dist/conver.js .claude/scripts/conver/conver.js
+		node scripts/build-conver.mjs --increment --outfile=dist/conver.js && \
+		mkdir -p .claude/scripts/conver && \
+		cp dist/conver.js .claude/scripts/conver/conver.js
 
 # typecheck: TypeScript の型チェックのみ
 typecheck:
@@ -33,7 +42,7 @@ run-conver:
 
 # test-conver: 全ユニットテストを実行する（テストファイルは tsc でコンパイル）
 test-conver:
-		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/line-writer.test.js dist/runner.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js dist/workspace.test.js dist/package-selection.test.js dist/next-action.test.js dist/command-history.test.js
+		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/line-writer.test.js dist/runner.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js dist/workspace.test.js dist/package-selection.test.js dist/next-action.test.js dist/command-history.test.js dist/runtime-dependencies.test.js
 
 # test: リポジトリのテストを1コマンドで実行する（3面の合併）
 #   PX-204: 集約器が discovery を行い、面ごとに実行して欠落を照合する。
@@ -160,17 +169,20 @@ install-to-projects:
 	node install.js -y -t ~/shyme/zasso/.claude
 	node install.js -y -t ~/shyme/zasso/crates/siprs/.claude
 	node install.js -y -t ~/shyme/gaia/.claude
-	node install.js -y -t ~/shyme/conver/.claude
+	node install.js -y -t $(CONVER_DEPLOY_DIR)/.claude
 	node install.js -y -t ~/shyme/crystal/.claude
 	node install.js -y -t ~/shyme/doors/.claude
-	cp README.md ~/shyme/conver/README.md
+	cp README.md $(CONVER_DEPLOY_DIR)/README.md
+	cp scripts/version.mjs $(CONVER_DEPLOY_DIR)/version.mjs
+	cp scripts/verify-release.mjs $(CONVER_DEPLOY_DIR)/verify-release.mjs
 
-# push-all: distribute this conver build into every project, then commit and push each
-#   repository in dependency order. Installing first is what makes the consumer commits
-#   meaningful: each push carries the freshly installed .claude tree, not the previous one.
-push-all:
+# push-all: prepare one release, distribute that build into every project, then
+#   commit and push each repository in dependency order. build-conver is a
+#   prerequisite so the deployed conver.js and VERSION.json are always the pair
+#   the deployment's push verifier expects.
+push-all: build-conver
 	$(MAKE) -C ~/shyme/zasso/tools/conver install-to-projects
-	$(MAKE) -C ~/shyme/conver push
+	$(MAKE) -C $(CONVER_DEPLOY_DIR) push
 	$(MAKE) -C ~/shyme/zasso push
 	$(MAKE) -C ~/shyme/gaia push
 	$(MAKE) -C ~/shyme/crystal push

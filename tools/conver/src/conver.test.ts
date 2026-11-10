@@ -43,6 +43,7 @@ const state: {
   schedulerStarted: boolean;
   callback: (() => void) | null;
   exitCalls: number[];
+  runtimeCheck: { blocked: boolean; message: string };
 } = {
   cli: {
     apiKey: "k",
@@ -67,6 +68,7 @@ const state: {
   schedulerStarted: false,
   callback: null,
   exitCalls: [],
+  runtimeCheck: { blocked: false, message: "" },
 };
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -144,6 +146,18 @@ mock.module("./package-selection.js", {
 mock.module("./tickets.js", {
   exports: { pendingTicketsOf: () => [] },
 });
+// The startup check is the only runtime-dependency behaviour these tests
+// exercise. The other exports exist because session.js imports them; keeping
+// the whole-module mock free of the real module's evaluation preserves the
+// mock registry for the other modules in this file.
+mock.module("./runtime-dependencies.js", {
+  exports: {
+    checkRuntimeDependencies: () => state.runtimeCheck,
+    MissingRuntimeDependencyError: class extends Error {},
+    buildAcpInstallCommands: () => [],
+    resolveAcpBinaryForProcess: () => null,
+  },
+});
 
 const { main, reportFatalError, installCrashHandlers } = await import("./conver.js");
 
@@ -153,6 +167,21 @@ function mockExit(): void {
   mock.method(process, "exit", (code?: number) => {
     state.exitCalls.push(code ?? 0);
   });
+}
+
+function captureStream(stream: NodeJS.WriteStream): { chunks: string[]; restore: () => void } {
+  const chunks: string[] = [];
+  const originalWrite = stream.write.bind(stream);
+  stream.write = ((chunk: string | Uint8Array) => {
+    chunks.push(chunk.toString());
+    return true;
+  }) as typeof stream.write;
+  return {
+    chunks,
+    restore: () => {
+      stream.write = originalWrite;
+    },
+  };
 }
 
 beforeEach(() => {
@@ -165,6 +194,7 @@ beforeEach(() => {
   state.callback = null;
   state.cli.watcherConfig = undefined;
   state.cli.packages = [];
+  state.runtimeCheck = { blocked: false, message: "" };
 });
 
 describe("main", () => {
@@ -183,6 +213,36 @@ describe("main", () => {
     await main();
     assert.deepStrictEqual(state.exitCalls, [1]);
     assert.strictEqual(state.runOptions, null);
+  });
+
+  it("exits 1 before the loop when required runtime dependencies are missing", async () => {
+    mockExit();
+    state.runtimeCheck = { blocked: true, message: "missing required\n" };
+    const stderr = captureStream(process.stderr);
+    try {
+      await main();
+    } finally {
+      stderr.restore();
+    }
+
+    assert.deepStrictEqual(state.exitCalls, [1]);
+    assert.strictEqual(state.runOptions, null);
+    assert.ok(stderr.chunks.join("").includes("missing required"));
+  });
+
+  it("reports optional runtime dependencies after starting and still runs the loop", async () => {
+    mockExit();
+    state.runtimeCheck = { blocked: false, message: "missing optional\n" };
+    const stderr = captureStream(process.stderr);
+    try {
+      await main();
+    } finally {
+      stderr.restore();
+    }
+
+    assert.strictEqual(state.exitCalls.length, 0);
+    assert.ok(state.runOptions !== null);
+    assert.ok(stderr.chunks.join("").includes("missing optional"));
   });
 
   it("exits 1 when the workspace loop stops", async () => {

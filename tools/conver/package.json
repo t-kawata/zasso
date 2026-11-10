@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/entry.ts --bundle --platform=node --external:node:* --external:terminal-image --outfile=dist/conver.js --format=esm --minify",
+    "build": "node scripts/build-conver.mjs --outfile=dist/conver.js",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "node tests/run-all-surfaces.mjs"
