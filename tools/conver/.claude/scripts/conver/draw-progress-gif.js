@@ -396,7 +396,7 @@ export async function run(root, options) {
   const outputDir = path.join(root, 'progress-gif');
   fs.mkdirSync(outputDir, { recursive: true });
   const { base, stamp } = uniqueBase(outputDir, new Date());
-  const title = `PROGRESS: ${titleName}`;
+  const title = titleName;
   const usedText = collectUsedText(model, { title });
   const font = loadFontBundle(path.join(MODULE_DIR, 'progress-gif', 'fonts'), usedText);
   model.warnings.push(...font.warnings);

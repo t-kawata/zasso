@@ -23,6 +23,9 @@ const HEADER_TITLE_SIZE = 14;
 const MIN_TITLE_SIZE = 10;
 export const TITLE_SEGMENT_GAP = 12;
 export const TITLE_ELLIPSIS = '…';
+const TITLE_TEXT_COLOUR = '#eef2ff';
+// A bright water blue distinguishes the measured values from their labels.
+export const TITLE_VALUE_COLOUR = '#7DD3FC';
 const HEADER_DATE_SIZE = 20;
 export const HEADER_NAME_SIZE = 18;
 // Compatibility alias: existing importers read HEADER_STAGE_SIZE for the name.
@@ -449,7 +452,7 @@ export function fitTitleLayout(ctx, parts, options) {
     gap = TITLE_SEGMENT_GAP,
   } = options;
   if (!ctx || typeof ctx.measureText !== 'function') {
-    return { size: baseSize, left: parts.left, right: parts.right };
+    return { size: baseSize, left: parts.left, right: parts.right, rightParts: parts.rightParts };
   }
   const measurePair = (size, left, right) => {
     ctx.font = `600 ${size}px ${FONT_FAMILY}`;
@@ -460,17 +463,17 @@ export function fitTitleLayout(ctx, parts, options) {
     size -= 1;
   }
   if (measurePair(size, parts.left, parts.right) <= availableWidth) {
-    return { size, left: parts.left, right: parts.right };
+    return { size, left: parts.left, right: parts.right, rightParts: parts.rightParts };
   }
   let candidate = parts.left;
   while (candidate.length > 1) {
     candidate = candidate.slice(0, -1);
     const truncated = `${candidate}${TITLE_ELLIPSIS}`;
     if (measurePair(size, truncated, parts.right) <= availableWidth) {
-      return { size, left: truncated, right: parts.right };
+      return { size, left: truncated, right: parts.right, rightParts: parts.rightParts };
     }
   }
-  return { size, left: TITLE_ELLIPSIS, right: parts.right };
+  return { size, left: TITLE_ELLIPSIS, right: parts.right, rightParts: parts.rightParts };
 }
 
 // [::TICKET::] PX-380, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-380|PX-381) --for-spec --no-implementation-order`.
@@ -567,6 +570,29 @@ function drawStageCaption(ctx, layout, frame, options) {
   drawCaption(ctx, layout, measureCaption(ctx, layout, frame, options));
 }
 
+/**
+ * Draw the right title block as consecutive runs ending at rightX. Measuring each
+ * run separately lets the bracketed values carry their own colour while the label
+ * runs stay plain; a legacy title without runs falls back to one plain run.
+ */
+// [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
+function drawRightAlignedRuns(ctx, runs, rightX, y, font) {
+  ctx.font = font;
+  const widths = runs.map((run) => ctx.measureText(run.text).width);
+  let cursorX = rightX - widths.reduce((sum, width) => sum + width, 0);
+  runs.forEach((run, index) => {
+    drawText(ctx, {
+      text: run.text,
+      x: cursorX,
+      y,
+      font,
+      colour: run.tone === 'value' ? TITLE_VALUE_COLOUR : TITLE_TEXT_COLOUR,
+      align: 'left',
+    });
+    cursorX += widths[index];
+  });
+}
+
 // [::TICKET::] PX-351, PX-352, PX-354, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-351|PX-352|PX-354|PX-380) --for-spec --no-implementation-order`.
 function drawHeader(ctx, layout, frame, options) {
   const scale = layout.scale;
@@ -582,15 +608,11 @@ function drawHeader(ctx, layout, frame, options) {
       gap: TITLE_SEGMENT_GAP * scale,
     });
     const font = `600 ${fitted.size}px ${FONT_FAMILY}`;
-    drawText(ctx, { text: fitted.left, x: header.titleX, y: header.titleY, font, colour: '#eef2ff' });
-    drawText(ctx, {
-      text: fitted.right,
-      x: layout.width - header.titleX,
-      y: header.titleY,
-      font,
-      colour: '#eef2ff',
-      align: 'right',
-    });
+    drawText(ctx, { text: fitted.left, x: header.titleX, y: header.titleY, font, colour: TITLE_TEXT_COLOUR });
+    const runs = fitted.rightParts && fitted.rightParts.length > 0
+      ? fitted.rightParts
+      : [{ text: fitted.right, tone: 'label' }];
+    drawRightAlignedRuns(ctx, runs, layout.width - header.titleX, header.titleY, font);
   } else {
     // Legacy titles keep the original single-string rendering.
     const title = selectTitle(frame, options, header);
@@ -602,7 +624,7 @@ function drawHeader(ctx, layout, frame, options) {
       x: header.titleX,
       y: header.titleY,
       font: `600 ${titleSize}px ${FONT_FAMILY}`,
-      colour: '#eef2ff',
+      colour: TITLE_TEXT_COLOUR,
     });
   }
   drawProgressBar(ctx, layout, frame);

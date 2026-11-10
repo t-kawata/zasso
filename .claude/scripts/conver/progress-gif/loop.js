@@ -98,28 +98,30 @@ function formatDollars(value) {
   return Math.ceil(Number(value) || 0);
 }
 
-const USAGE_TITLE_PREFIX = 'PROGRESS: ';
-const USAGE_TITLE_LABEL = 'I/C/O/D = ';
-const CONTRACTS_LABEL = 'CONTRACTS = ';
-const TICKETS_LABEL = 'TICKETS = ';
 const UNKNOWN_DENOMINATOR = '?';
-// The three ideographic spaces keep the right-aligned metrics visually separate;
-// commas read as one sentence where these are three independent measurements.
-const TITLE_SEGMENT_SEPARATOR = '\u3000\u3000\u3000';
+// One ideographic space separates the four measurements; a single full-width gap
+// keeps them distinct without spending the width of the old three-space run.
+const TITLE_SEGMENT_SEPARATOR = '\u3000';
+const TITLE_LABEL_TONE = 'label';
+const TITLE_VALUE_TONE = 'value';
 
 /**
  * Project the workspace contract progress at one frame instant. A ticket's
  * contracts enter the denominator from the split instant that wrote Tickets.json,
  * not from its make instant, so a workspace that has split but not implemented
- * still reports the contracts it owes. A contract id is a workspace-wide identity
- * even when many tickets reference it, so the headline counts it once. The
- * numerator counts the reviewed subset.
+ * still reports the contracts it owes. The count is the sum of per-package
+ * obligations: a contract id is counted once inside a package, and once more for
+ * every other package that owes the same boundary contract, because each side
+ * carries its own implementation responsibility. The numerator counts the
+ * reviewed subset the same way.
  */
 export function contractsAt(model, timestamp) {
-  const present = new Set();
-  const reviewed = new Set();
+  let numerator = 0;
+  let denominator = 0;
   let known = false;
   for (const pkg of model.packages || []) {
+    const present = new Set();
+    const reviewed = new Set();
     for (const entry of pkg.contractLog || []) {
       if (!Number.isFinite(entry.presentAt) || entry.presentAt > timestamp) continue;
       known = true;
@@ -128,8 +130,10 @@ export function contractsAt(model, timestamp) {
         for (const id of entry.contractIds || []) reviewed.add(id);
       }
     }
+    denominator += present.size;
+    numerator += reviewed.size;
   }
-  return { numerator: reviewed.size, denominator: present.size, unknown: !known };
+  return { numerator, denominator, unknown: !known };
 }
 
 /** Project reviewed tickets over the tickets that already exist at the instant. */
@@ -146,44 +150,80 @@ export function ticketsAt(model, timestamp) {
   return { numerator, denominator, unknown: denominator === 0 };
 }
 
-/** Render the contract segment; no split yet means no denominator to state. */
-export function formatContractsTitle(contracts) {
-  if (!contracts || contracts.unknown) {
-    return `${CONTRACTS_LABEL}0/${UNKNOWN_DENOMINATOR}`;
-  }
-  return `${CONTRACTS_LABEL}${contracts.numerator}/${contracts.denominator}`;
+/** The contract value shown inside the CONTRACTS brackets; no split means unknown. */
+export function contractsValue(contracts) {
+  if (!contracts || contracts.unknown) return `0/${UNKNOWN_DENOMINATOR}`;
+  return `${contracts.numerator}/${contracts.denominator}`;
 }
 
-/** Render the ticket segment; no split yet means no denominator to state. */
-export function formatTicketsTitle(tickets) {
-  if (!tickets || tickets.unknown) {
-    return `${TICKETS_LABEL}0/${UNKNOWN_DENOMINATOR}`;
-  }
-  return `${TICKETS_LABEL}${tickets.numerator}/${tickets.denominator}`;
+/** The ticket value shown inside the TICKETS brackets; no split means unknown. */
+export function ticketsValue(tickets) {
+  if (!tickets || tickets.unknown) return `0/${UNKNOWN_DENOMINATOR}`;
+  return `${tickets.numerator}/${tickets.denominator}`;
+}
+
+/**
+ * Cost per contract: the ICOD dollar integer divided by the contract denominator,
+ * rounded up at the first significant decimal place. 1/250 = 0.004, 1/300 = 0.004,
+ * and 100/8 = 12.5 rounds up to 20 because the first significant digit is tens.
+ * An unknown or zero denominator cannot yield a cost, so it renders as `$?`.
+ */
+export function costPerContractValue(costUsd, contracts) {
+  if (!contracts || contracts.unknown || !(contracts.denominator > 0)) return '$?';
+  const dollars = formatDollars(costUsd);
+  const quotient = dollars / contracts.denominator;
+  if (!(quotient > 0)) return '$0';
+  const exponent = Math.floor(Math.log10(quotient));
+  const scale = 10 ** exponent;
+  // Subtract a relative epsilon so an exact multiple of the scale is not pushed
+  // to the next step by floating-point noise.
+  const rounded = Math.ceil(quotient / scale - 1e-9) * scale;
+  const text = exponent < 0
+    ? rounded.toFixed(Math.min(100, -exponent))
+    : String(Math.round(rounded));
+  return `$${text}`;
+}
+
+/** One `LABEL [value]` pair: the label stays plain, the value is toned. */
+function titleMetricRuns(label, value) {
+  return [
+    { text: `${label} `, tone: TITLE_LABEL_TONE },
+    { text: `[${value}]`, tone: TITLE_VALUE_TONE },
+  ];
 }
 
 /**
  * Split the usage title into a left name and a right-aligned metric block.
  *
  * The renderer places `right` against the title bar's right edge, so the block
- * must stay a separate string; `text` is only the plain-text fallback.
+ * must stay a separate string; `rightParts` carries the label/value tone split
+ * the renderer uses to colour the bracketed values; `text` is the plain fallback.
  */
 // [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
-export function usageTitleSegments(name, cumulative, contracts = '', tickets = '') {
-  const left = `${USAGE_TITLE_PREFIX}${name || 'PROGRESS'}`;
-  const metrics = `${USAGE_TITLE_LABEL}${formatMillions(cumulative.cacheMissInputTokens)}M / `
+export function usageTitleSegments(name, cumulative, contracts = '0/?', tickets = '0/?', cpc = '$?') {
+  const left = name || 'PROGRESS';
+  const metrics = `${formatMillions(cumulative.cacheMissInputTokens)}M / `
     + `${formatMillions(cumulative.cacheHitInputTokens)}M / `
     + `${formatMillions(cumulative.outputTokens)}M / `
     + `$${formatDollars(cumulative.costUsd)}`;
-  const right = [tickets, contracts, metrics]
-    .filter((segment) => segment !== '')
-    .join(TITLE_SEGMENT_SEPARATOR);
-  return { left, right, text: `${left} | ${right}` };
+  const sections = [
+    titleMetricRuns('TICKETS', tickets),
+    titleMetricRuns('CONTRACTS', contracts),
+    titleMetricRuns('CPC', cpc),
+    titleMetricRuns('ICOD', metrics),
+  ];
+  const rightParts = [];
+  sections.forEach((runs, index) => {
+    if (index > 0) rightParts.push({ text: TITLE_SEGMENT_SEPARATOR, tone: TITLE_LABEL_TONE });
+    rightParts.push(...runs);
+  });
+  const right = rightParts.map((run) => run.text).join('');
+  return { left, right, rightParts, text: `${left} | ${right}` };
 }
 
 // [::TICKET::] PX-352, PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-352|PX-354) --for-spec --no-implementation-order`.
-export function formatUsageTitle(name, cumulative, contracts = '', tickets = '') {
-  return usageTitleSegments(name, cumulative, contracts, tickets).text;
+export function formatUsageTitle(name, cumulative, contracts = '0/?', tickets = '0/?', cpc = '$?') {
+  return usageTitleSegments(name, cumulative, contracts, tickets, cpc).text;
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -1435,10 +1475,15 @@ export function frameFromState(state, model, index) {
   const cumulativeUsage = usageAvailable
     ? usageAtDate(model.usage, displayDateKey(state.lastT, state.lastPrec))
     : null;
-  const contractsTitle = formatContractsTitle(contractsAt(model, state.lastT));
-  const ticketsTitle = formatTicketsTitle(ticketsAt(model, state.lastT));
+  const contractProgress = contractsAt(model, state.lastT);
   const usageTitle = cumulativeUsage && model.titleName
-    ? usageTitleSegments(model.titleName, cumulativeUsage, contractsTitle, ticketsTitle)
+    ? usageTitleSegments(
+      model.titleName,
+      cumulativeUsage,
+      contractsValue(contractProgress),
+      ticketsValue(ticketsAt(model, state.lastT)),
+      costPerContractValue(cumulativeUsage.costUsd, contractProgress),
+    )
     : null;
   const frame = {
     index,
@@ -1454,7 +1499,9 @@ export function frameFromState(state, model, index) {
     rootPulse: state.rootPulse,
     growth: state.growthThisFrame.slice(),
     title: usageTitle ? usageTitle.text : undefined,
-    titleParts: usageTitle ? { left: usageTitle.left, right: usageTitle.right } : undefined,
+    titleParts: usageTitle
+      ? { left: usageTitle.left, right: usageTitle.right, rightParts: usageTitle.rightParts }
+      : undefined,
     density: packageFrames.length > 0
       ? packageFrames.reduce((sum, pkg) => sum + pkg.density, 0) / packageFrames.length
       : 0,

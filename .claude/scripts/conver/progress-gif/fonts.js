@@ -8,7 +8,9 @@ import { STAGE_CAPTIONS } from './layout.js';
 export function collectUsedText(model, options = {}) {
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
-  const parts = [options.title || 'PROGRESS', 'PROGRESS 0123456789/:.-%'];
+  // The fixed padding covers every glyph the title can draw, including the
+  // bracketed metric values, even when no frame title is present.
+  const parts = [options.title || 'PROGRESS', 'TICKETS CONTRACTS CPC ICOD []$? 0123456789/:.-%'];
   for (const stage of STAGE_ORDER) parts.push(stage);
   // The language switch draws either column at runtime, so both must be covered.
   for (const table of Object.values(STAGE_CAPTIONS)) {

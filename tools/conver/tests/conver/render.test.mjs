@@ -175,25 +175,45 @@ test('a zero-package board still draws its header and ladder', () => {
 });
 
 // [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.
-test('a usage title draws the name left and the I/C/O/D block right-aligned', () => {
+test('C012: a usage title draws the bare name left and bracketed values right-aligned', () => {
   const { ctx, calls } = createRecordingContext();
   const { model, layout, frame } = prepared({ packages: withPackageCount(2).packages });
-  const parts = { left: 'PROGRESS: demo', right: 'I/C/O/D = 1M / 2M / 0M / $1' };
+  const rightParts = [
+    { text: 'TICKETS ', tone: 'label' },
+    { text: '[1/2]', tone: 'value' },
+    { text: '　', tone: 'label' },
+    { text: 'CONTRACTS ', tone: 'label' },
+    { text: '[2/3]', tone: 'value' },
+    { text: '　', tone: 'label' },
+    { text: 'CPC ', tone: 'label' },
+    { text: '[$0.004]', tone: 'value' },
+    { text: '　', tone: 'label' },
+    { text: 'ICOD ', tone: 'label' },
+    { text: '[1M / 2M / 0M / $1]', tone: 'value' },
+  ];
+  const right = rightParts.map((run) => run.text).join('');
+  const parts = { left: 'demo v1.0.0', right, rightParts };
   drawFrame(
     ctx,
     layout,
     { ...frame, title: `${parts.left} | ${parts.right}`, titleParts: parts },
     model,
-    { title: 'PROGRESS: demo' }
+    { title: 'demo' }
   );
 
   const left = calls.find((call) => call[0] === 'fillText' && call[1] === parts.left);
-  const right = calls.find((call) => call[0] === 'fillText' && call[1] === parts.right);
   assert.equal(left[5], 'left');
   assert.equal(left[2], 12);
-  assert.equal(right[5], 'right');
-  assert.equal(right[2], layout.width - 12);
-  assert.equal(left[3], right[3]);
+
+  const valueTexts = rightParts.filter((run) => run.tone === 'value').map((run) => run.text);
+  const valueRuns = calls.filter((call) => call[0] === 'fillText' && valueTexts.includes(call[1]));
+  assert.equal(valueRuns.length, 4);
+  assert.ok(valueRuns.every((call) => call[6] === '#7DD3FC'), 'bracketed values are light blue');
+  assert.ok(valueRuns.every((call) => call[5] === 'left'));
+
+  const last = calls.filter((call) => call[0] === 'fillText' && call[1] === '[1M / 2M / 0M / $1]').at(-1);
+  assert.equal(last[2] + last[1].length * 6, layout.width - 12);
+  assert.equal(left[3], last[3]);
 });
 
 // [::TICKET::] PX-354 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-354 --for-spec --no-implementation-order`.

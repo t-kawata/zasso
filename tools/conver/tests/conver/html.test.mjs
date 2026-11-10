@@ -151,6 +151,7 @@ test('collectUsedText includes title, package names, stage names and the percent
   assert.match(text, /PROGRESS: one/);
   assert.match(text, /one/);
   assert.match(text, /%/);
+  assert.match(text, /TICKETS CONTRACTS CPC ICOD \[\]\$\?/);
   assert.doesNotMatch(text, /REVIEWED/);
   assert.doesNotMatch(text, /SPLIT/);
   for (const stage of STAGE_ORDER) assert.match(text, new RegExp(stage));

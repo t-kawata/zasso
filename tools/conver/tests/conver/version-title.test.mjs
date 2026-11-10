@@ -111,7 +111,7 @@ test('run carries the version into the rendered title and the model title name',
   }
 
   const html = fs.readFileSync(result.output.html, 'utf8');
-  const title = `PROGRESS: ${path.basename(workspace)} v1.2.3`;
+  const title = `${path.basename(workspace)} v1.2.3`;
   // The serialized model drives the per-frame usage titles, so the version must
   // live in titleName and not only in the static <title> element.
   assert.ok(html.includes(`"titleName":"${path.basename(workspace)} v1.2.3"`));

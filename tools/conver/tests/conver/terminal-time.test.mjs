@@ -66,8 +66,8 @@ test('the final title carries the token and cost total of the analysis day', () 
 
   const frames = buildFrames(model, { frames: 60 });
 
-  assert.equal(frames.at(-1).title, formatUsageTitle('gaia', usage.at(-1).cumulative, 'CONTRACTS = 0/?', 'TICKETS = 0/?'));
-  assert.notEqual(frames.at(-1).title, formatUsageTitle('gaia', usage[0].cumulative, 'CONTRACTS = 0/?', 'TICKETS = 0/?'));
+  assert.equal(frames.at(-1).title, formatUsageTitle('gaia', usage.at(-1).cumulative, '0/?', '0/?', '$?'));
+  assert.notEqual(frames.at(-1).title, formatUsageTitle('gaia', usage[0].cumulative, '0/?', '0/?', '$?'));
 });
 
 test('a late event before analysisTime is fully applied and dated today', () => {
