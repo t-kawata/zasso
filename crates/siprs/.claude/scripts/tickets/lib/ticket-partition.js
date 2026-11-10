@@ -448,6 +448,9 @@ function mergeTicketGroup(tickets, group, options = {}) {
   merged.contracts = options.rebuildContracts === true
     ? []
     : remapTicketReferences(mergeContractsForGroup(members), keyMap);
+  // `contracts` is optional but, when present, the schema rejects an empty array.
+  // A merge that leaves no clause must remove the field, not write [].
+  if (Array.isArray(merged.contracts) && merged.contracts.length === 0) delete merged.contracts;
   merged.formulaObligations = remapTicketReferences(mergeFormulaObligations(members), keyMap);
 
   merged.status = leastAdvancedStatus(members.map((ticket) => ticket.status));
@@ -517,9 +520,16 @@ function condensePlan(phase, context, budget, options = {}) {
   for (const group of partition.groups) {
     for (const member of group.members.slice(1)) keyMap.set(member, group.members[0]);
   }
+  // A one-member group is not a merge. Rebuilding it would advance its
+  // condensedFrom generation and rewrite history on every no-op run; the
+  // original ticket already carries the correct record.
   const mergedTickets = options.merge === false
     ? []
-    : partition.groups.map((group) => mergeTicketGroup(tickets, group, { ...options, planDigest: digest, keyMap }).ticket);
+    : partition.groups.map((group) => {
+      const members = tickets.slice(group.start, group.end);
+      if (members.length === 1) return JSON.parse(JSON.stringify(members[0]));
+      return mergeTicketGroup(tickets, group, { ...options, planDigest: digest, keyMap }).ticket;
+    });
   if (mergedTickets.length === 1) {
     delete mergedTickets[0].splitReason;
   } else {

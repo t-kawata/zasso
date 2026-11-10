@@ -5,8 +5,10 @@
  *
  * The command is a thin entry point; the split final gate calls the same functions in
  * this module, so the two paths cannot diverge. The apply path is mechanical:
- * partition, merge, recompute derived fields, archive, write atomically, verify, and
- * restore the archive on any failure. A second identical apply writes nothing.
+ * partition, merge, merge phases that fell below the ticket floor, recompute derived
+ * fields, archive, write atomically, verify, and restore the archive on any failure.
+ * A phase merge is re-condensed in the same apply, so a second identical apply writes
+ * nothing.
  */
 
 const fs = require('node:fs');
@@ -36,7 +38,17 @@ const { mergeContracts, registryForPackage } = require('./merge-contracts-to-tic
 const { mergeFormulasToTickets } = require('./merge-formulas-to-tickets.js');
 const { generateRelatedTicketIds } = require('./generate-related-ticket-ids.js');
 const { remapTicketKeyReferences } = require('./consolidate-phase-tickets.js');
-const { renumberDocument, validateIdentity } = require('./lib/ticket-identity-renumber.js');
+const {
+  remapDocumentWithKeyMap,
+  renumberDocument,
+  validateIdentity,
+} = require('./lib/ticket-identity-renumber.js');
+const {
+  MIN_TICKETS_PER_PHASE,
+  mergeSmallPhases,
+  planPhaseMerges,
+  collectPhaseFloorFindings,
+} = require('./lib/phase-consolidation.js');
 const { validateTickets } = require('../lib/validate-tickets.js');
 const { buildNodeToFileMap } = require('../rfc-graph/validate-phasify.js');
 const {
@@ -291,7 +303,14 @@ function buildPlan(artifacts, options = {}) {
   const digest = createHash('sha256')
     .update(phases.map((phase) => phase.digest).join(':'))
     .digest('hex');
-  return { phases, totalBefore, totalAfter, digest, skipped };
+  // Condensation is per phase; the floor is decided on its output. Preview the
+  // merge here so --plan and --apply report the same phase count.
+  const phaseConsolidation = planPhaseMerges(
+    phases.map((phase) => ({ id: phase.phaseId, name: '', summary: '', nodeIds: [], tickets: [] })),
+    phases.map((phase) => phase.after),
+    { excludedPhases: artifacts.ticketsDocument?.identity?.excludedPhases },
+  );
+  return { phases, totalBefore, totalAfter, digest, skipped, phaseConsolidation };
 }
 
 /** A sequence unit carries an ordered step subset. */
@@ -611,6 +630,14 @@ function runGates(artifacts, document) {
     error.code = 'CONDENSE_GATE_FAILED';
     throw error;
   }
+  const floorFindings = collectPhaseFloorFindings(document, {
+    excludedPhases: document.identity?.excludedPhases,
+  });
+  if (floorFindings.length > 0) {
+    const error = new Error(floorFindings.map((entry) => `${entry.code}: ${entry.message}`).join('; '));
+    error.code = 'CONDENSE_GATE_FAILED';
+    throw error;
+  }
   const scripts = [
     ['tickets/verify-all-ticket-coverage.js', [artifacts.ticketsPath]],
     ['tickets/verify-ticket-closure.js', [`--tickets=${artifacts.ticketsPath}`]],
@@ -650,18 +677,150 @@ function restoreArchive(archivePath, ticketsPath) {
  * @param {object} options — { ticketsPath, cwd, budget, verify, preserveCompleted, ...artifact overrides }
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
+/**
+ * Condense and merge phases in memory until the document is stable.
+ *
+ * One pass condenses each phase, renumbers its tickets, and merges every phase
+ * that fell below the floor. A merge changes the phase's ticket set, so the next
+ * pass condenses that set; the loop stops when a pass merges nothing. Phase
+ * count never grows, so the pass bound is the starting phase count plus one.
+ */
+// [::TICKET::] PX-394, PX-396, PX-402, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402|PX-407) --for-spec --no-implementation-order`.
+function condenseToFixedPoint(artifacts, startDocument) {
+  let current = JSON.parse(JSON.stringify(startDocument));
+  let changed = false;
+  let renumbered = false;
+  let lastMergeCount = 0;
+  let firstPlan = null;
+  const maxPasses = Math.max(1, (startDocument.phases ?? []).length + 1);
+
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    const plan = buildPlan({ ...artifacts, ticketsDocument: current }, {
+      merge: true,
+      rebuildContracts: artifacts.graph !== null,
+      generation: current.identity?.generation ?? 0,
+    });
+    if (firstPlan === null) firstPlan = plan;
+
+    const planByPhase = new Map(plan.phases.map((phase) => [phase.phaseId, phase]));
+    const originalTicketsByKey = new Map();
+    for (const phase of current.phases ?? []) {
+      for (const ticket of phase.tickets ?? []) {
+        originalTicketsByKey.set(ticketKeyOf({ ...ticket, phaseId: phase.id }), ticket);
+      }
+    }
+    applyGroupDistributions(plan, originalTicketsByKey);
+
+    const next = JSON.parse(JSON.stringify(current));
+    next.phases = (next.phases ?? []).map((phase) => {
+      const phasePlan = planByPhase.get(phase.id);
+      return { ...phase, tickets: phasePlan === undefined ? phase.tickets : phasePlan.tickets };
+    });
+
+    // New condensedFrom records are stamped with this generation. Preserved
+    // records still carry keys from older generations, and validation reads
+    // every key inside a record at that record's generation, so copy the
+    // existing labels forward and compose their targets through this plan.
+    const planGeneration = current.identity?.generation ?? 0;
+    const planKeyMap = buildKeyMap(plan);
+    if (next.identity?.aliases !== undefined) {
+      const aliases = next.identity.aliases;
+      for (const [aliasKey, target] of Object.entries(aliases)) {
+        const historicalKey = aliasKey.replace(/@g\d+$/, '');
+        aliases[`${historicalKey}@g${planGeneration}`] = planKeyMap.get(target) ?? target;
+      }
+    }
+    if (next.identity?.legacyReferences !== undefined) {
+      const legacyReferences = next.identity.legacyReferences;
+      for (const [legacyKey, label] of Object.entries(legacyReferences)) {
+        const historicalKey = legacyKey.replace(/@g\d+$/, '');
+        legacyReferences[`${historicalKey}@g${planGeneration}`] = label;
+      }
+    }
+
+    const renumber = renumberDocument(next, {
+      excludedPhases: next.identity?.excludedPhases,
+    });
+    if (renumber.findings.length > 0) {
+      return { ok: false, code: renumber.findings[0].code, findings: renumber.findings };
+    }
+    let condensed = renumber.document;
+
+    const merge = mergeSmallPhases(condensed.phases, {
+      excludedPhases: condensed.identity?.excludedPhases,
+    });
+    if (merge.changed) {
+      const remapped = remapDocumentWithKeyMap(
+        { ...condensed, phases: merge.phases },
+        merge.keyMap,
+        {
+          generationBefore: condensed.identity?.generation ?? 0,
+          excludedPhases: condensed.identity?.excludedPhases,
+          assignIds: false,
+          idsMoved: true,
+        },
+      );
+      if (remapped.findings.length > 0) {
+        return { ok: false, code: remapped.findings[0].code, findings: remapped.findings };
+      }
+      condensed = remapped.document;
+      // A later condensation flattens every nested record under one generation.
+      // Every historical key must therefore resolve at the generation the merge
+      // produced, not only the keys this merge moved: preserved records carry
+      // keys from earlier generations, and validateIdentity reads them at the
+      // generation of the record that holds them.
+      const mergedGeneration = condensed.identity?.generation;
+      if (mergedGeneration !== undefined) {
+        const aliases = condensed.identity.aliases;
+        for (const [aliasKey, target] of Object.entries(aliases)) {
+          const historicalKey = aliasKey.replace(/@g\d+$/, '');
+          aliases[`${historicalKey}@g${mergedGeneration}`] = target;
+        }
+        for (const [oldKey, newKey] of merge.keyMap) {
+          aliases[`${oldKey}@g${mergedGeneration}`] = newKey;
+        }
+        const legacyReferences = condensed.identity.legacyReferences ?? {};
+        for (const [legacyKey, label] of Object.entries(legacyReferences)) {
+          const historicalKey = legacyKey.replace(/@g\d+$/, '');
+          legacyReferences[`${historicalKey}@g${mergedGeneration}`] = label;
+        }
+        if (Object.keys(legacyReferences).length > 0) {
+          condensed.identity.legacyReferences = legacyReferences;
+        }
+      }
+    }
+
+    const passChanged = plan.totalBefore !== plan.totalAfter
+      || renumber.changed
+      || merge.changed;
+    changed = changed || passChanged;
+    renumbered = renumbered || renumber.changed || merge.changed;
+    lastMergeCount = merge.mergedCount;
+    current = condensed;
+    if (merge.mergedCount === 0) break;
+  }
+
+  if (lastMergeCount > 0) {
+    return {
+      ok: false,
+      code: 'PHASE_CONSOLIDATION_NOT_CONVERGENT',
+      error: `phases still need merging after ${maxPasses} passes`,
+    };
+  }
+  return { ok: true, document: current, changed, renumbered, firstPlan };
+}
+
+// [::TICKET::] PX-394, PX-396, PX-402, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402|PX-407) --for-spec --no-implementation-order`.
 async function applyPlan(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
   const generationBefore = artifacts.ticketsDocument.identity?.generation ?? 0;
-  const plan = buildPlan(artifacts, {
-    merge: true,
-    rebuildContracts: artifacts.graph !== null,
-    generation: generationBefore,
-  });
   const identityBefore = validateIdentity(artifacts.ticketsDocument, { requireDense: true });
-  if (plan.totalBefore === plan.totalAfter && identityBefore.ok) {
+
+  const fixedPoint = condenseToFixedPoint(artifacts, artifacts.ticketsDocument);
+  if (!fixedPoint.ok) return fixedPoint;
+  const plan = fixedPoint.firstPlan;
+  if (!fixedPoint.changed && identityBefore.ok) {
     return {
       ok: true,
       noChange: true,
@@ -675,26 +834,7 @@ async function applyPlan(options = {}) {
     };
   }
 
-  const originalBytes = fs.readFileSync(artifacts.ticketsPath, 'utf8');
-  let document = JSON.parse(originalBytes);
-  const originalTicketsByKey = new Map();
-  for (const phase of artifacts.ticketsDocument.phases ?? []) {
-    for (const ticket of phase.tickets ?? []) originalTicketsByKey.set(ticketKeyOf({ ...ticket, phaseId: phase.id }), ticket);
-  }
-  const keyMap = buildKeyMap(plan);
-  applyGroupDistributions(plan, originalTicketsByKey);
-  document.phases = (document.phases ?? []).map((phase) => {
-    const phasePlan = plan.phases.find((candidate) => candidate.phaseId === phase.id);
-    return { ...phase, tickets: phasePlan === undefined ? phase.tickets : phasePlan.tickets };
-  });
-
-  const renumber = renumberDocument(document, {
-    excludedPhases: document.identity?.excludedPhases,
-  });
-  if (renumber.findings.length > 0) {
-    return { ok: false, code: renumber.findings[0].code, findings: renumber.findings };
-  }
-  document = renumber.document;
+  let document = fixedPoint.document;
 
   try {
     await rehydrate(artifacts, document, { keyMap: new Map() });
@@ -746,14 +886,16 @@ async function applyPlan(options = {}) {
     return { ok: false, code: error.code ?? 'CONDENSE_GATE_FAILED', error: error.message };
   }
 
+  const finalTicketCount = (document.phases ?? [])
+    .reduce((total, phase) => total + (phase.tickets ?? []).length, 0);
   return {
     ok: true,
     noChange: false,
-    renumbered: renumber.changed,
-    generationBefore: renumber.generationBefore,
-    generationAfter: renumber.generation,
+    renumbered: fixedPoint.renumbered,
+    generationBefore,
+    generationAfter: document.identity?.generation ?? generationBefore,
     before: plan.totalBefore,
-    after: plan.totalAfter,
+    after: finalTicketCount,
     digest: plan.digest,
     archivePath,
     skipped: plan.skipped,
@@ -792,6 +934,17 @@ async function gateTickets(options = {}) {
       plan,
     };
   }
+  const floorFindings = collectPhaseFloorFindings(artifacts.ticketsDocument, {
+    excludedPhases: artifacts.ticketsDocument.identity?.excludedPhases,
+  });
+  if (floorFindings.length > 0) {
+    return {
+      ok: false,
+      code: 'PHASE_BELOW_MIN_TICKETS',
+      findings: floorFindings.map((entry) => entry.message),
+      plan,
+    };
+  }
   const ledgerFindings = auditLedgerCompleteness(artifacts.ticketsDocument);
   if (ledgerFindings.length > 0) {
     return {
@@ -818,7 +971,14 @@ async function gateTickets(options = {}) {
 /** Render a plan as Markdown. */
 // [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
 function renderPlan(plan, label) {
-  const lines = [`# Condense plan: ${label}`, '', `Tickets: ${plan.totalBefore} -> ${plan.totalAfter}`, ''];
+  const lines = [`# Condense plan: ${label}`, '', `Tickets: ${plan.totalBefore} -> ${plan.totalAfter}`];
+  if (plan.phaseConsolidation?.changed) {
+    lines.push(
+      `Phases: ${plan.phaseConsolidation.beforeCounts.length} -> ${plan.phaseConsolidation.afterCounts.length}` +
+      ` (floor ${MIN_TICKETS_PER_PHASE})`,
+    );
+  }
+  lines.push('');
   for (const phase of plan.phases) {
     lines.push(`## P${phase.phaseId}: ${phase.before} -> ${phase.after}`);
     for (const group of phase.groups) {

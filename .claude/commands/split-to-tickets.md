@@ -131,7 +131,7 @@ node "$CLAUDE_DIR/scripts/tickets/split-evolve.js" --carry-status --previous=Tic
 
 Retire deletes `distribution`/`contracts`/`formulaObligations`/`prerequisites` (empty `contracts` rejected by `validate-tickets.js`; empty distribution = empty unit set in `verify-chain`); previous values → `retiredFrom`.
 
-`consolidate-phase-tickets.js` is skipped in evolve mode because it moves phase ids before the document has a stable identity. Condensation still runs in both modes: it removes absorbed keys, makes every non-excluded phase dense, and records the pre-renumber keys with a generation so `restore-condensed-tickets.js` and a reader can still resolve them. A non-excluded phase that already carries source annotations must be either updated by the annotation pass or listed in `identity.excludedPhases`.
+`consolidate-phase-tickets.js` is skipped in evolve mode because it moves phase ids before the document has a stable identity. Condensation still runs in both modes: it removes absorbed keys, makes every non-excluded phase dense, and records the pre-renumber keys with a generation so `restore-condensed-tickets.js` and a reader can still resolve them. The same `condense-tickets.js --apply` also enforces the phase floor after condensation: a non-excluded phase below three tickets merges with its neighbour, a sole phase is exempt, and every moved key is recorded in `identity.aliases`. Evolve-mode packages therefore receive the same phase normalization through condensation; `consolidate-phase-tickets.js` is no longer the only path. A non-excluded phase that already carries source annotations must be either updated by the annotation pass or listed in `identity.excludedPhases`.
 
 ## List of Scripts Used
 

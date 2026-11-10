@@ -75,7 +75,7 @@ fi
    ```bash
    node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --plan --workspace="$PWD"
    ```
-2. Apply the same plan to every package: per-package archive → merge → remap → recompute → atomic write → gates. Failing package restores its archive; remaining packages still run; every failure reported; exit 1. After the loop, workspace implementation order regenerated once when ≥1 package changed.
+2. Apply the same plan to every package: per-package archive → merge → phase-floor merge → remap → recompute → atomic write → gates. The phase-floor merge is the same pass `/condense-tickets` runs; it repairs an existing package whose split left one-ticket phases, in evolve mode too. Failing package restores its archive; remaining packages still run; every failure reported; exit 1. After the loop, workspace implementation order regenerated once when ≥1 package changed.
    ```bash
    node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --workspace="$PWD"
    ```

@@ -21,6 +21,7 @@ Invariants:
 - identity: every non-excluded phase ends dense `1..N` in implementation order. Absorbed keys → `condensedFrom`; history keeps its old keys with the generation they belong to; `identity.aliases` resolves every historical key. `identity.excludedPhases` (default `[-1]`, the PX phase) is byte-identical.
 - repair: an existing gapped package is fixed by `normalize-ticket-ids.js --apply`; it uses the same shared renumber function and never re-condenses.
 - distribution: merged from split-time per-ticket records, never re-derived from a newer view; only absorbed keys remapped.
+- phase floor: condensation is per phase, so it can leave a phase below three tickets. After the partition, every non-excluded phase below `MIN_TICKETS_PER_PHASE` merges with its neighbour (the following phase; the last merges backward), and a sole phase is exempt. The merge moves whole tickets, preserves status and authored fields, and records every moved key in `identity.aliases`. This runs in fresh and evolve mode, so an existing package is repaired by the same command.
 - boundary: only `budget`-proven or proven `ownership-boundary` survives in a v3 phase; legacy `cohesion` / `tdd-order` replaced by the partition.
 - derived fields: never copied without remap; package gates prove the result.
 - judgment: none. Failing gate → restore archive. Pre-existing structural defect → fix separately; never relax a gate.
@@ -75,7 +76,7 @@ fi
    ```bash
    node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --plan --tickets=Tickets.json
    ```
-2. Apply the same plan: archive → merge contiguous groups → remap absorbed keys → recompute contracts / formulas / prerequisites / related ids → atomic write → coverage, closure, chain, implementation-order gates. Failing gate restores the archive; exit 1.
+2. Apply the same plan: archive → merge contiguous groups → merge phases below the floor → remap absorbed and moved keys → recompute contracts / formulas / prerequisites / related ids → atomic write → coverage, closure, chain, implementation-order gates. Failing gate restores the archive; exit 1. A phase merge is re-condensed in the same apply, so one run reaches the fixed point and the second run reports `NO_CHANGE`.
    ```bash
    node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json
    ```

@@ -67,6 +67,7 @@ function excludedPhasesOf(document, options = {}) {
 // [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
 function buildDenseRenumberMap(phases, options = {}) {
   const excluded = new Set(options.excludedPhases ?? DEFAULT_EXCLUDED_PHASES);
+  const currentGeneration = options.currentGeneration ?? 0;
   const keyMap = new Map();
   const idMap = new Map();
   const phasePlans = [];
@@ -98,6 +99,13 @@ function buildDenseRenumberMap(phases, options = {}) {
         if (owner !== undefined && owner !== newKey) {
           throw Object.assign(new Error(`ticket key ${absorbedKey} is owned by ${owner} and ${newKey}`), { code: 'IDENTITY_DUPLICATE_KEY' });
         }
+        // An absorbed key created in this operation is new history even when
+        // the survivor keeps its numeric id; without this the alias table is
+        // not rewritten and a later pass reads a dangling key. Records older
+        // than the current generation are already resolved and must not make
+        // an otherwise unchanged document look changed.
+        const historyGeneration = ticket?.condensedFrom?.generation ?? 0;
+        if (absorbedKey !== newKey && historyGeneration >= currentGeneration) changed = true;
         keyMap.set(absorbedKey, newKey);
         idMap.set(absorbedKey, newId);
       }
@@ -489,10 +497,18 @@ function remapDocumentWithKeyMap(document, keyMap, options = {}) {
   if (options.assignIds === true) assignDenseIds(clone.phases, excluded);
   const changed = stats.rewritten > 0 || implementerChanges > 0 || options.assignIds === true || options.idsMoved === true;
   const generation = changed ? generationBefore + 1 : generationBefore;
+  // Legacy labels describe history whose owner is already gone. A key remap
+  // must carry them forward; dropping them turns a known legacy key into an
+  // unresolved one on the next validation.
+  const legacyReferences = {
+    ...(document?.identity?.legacyReferences ?? {}),
+    ...(options.legacyReferences ?? {}),
+  };
   clone.identity = {
     generation,
     aliases: buildAliasTable(document, keyMap, generationBefore),
     excludedPhases: [...excluded],
+    ...(Object.keys(legacyReferences).length > 0 ? { legacyReferences } : {}),
   };
   return { document: clone, keyMap, generationBefore, generation, changed, findings, stats };
 }
@@ -502,7 +518,10 @@ function remapDocumentWithKeyMap(document, keyMap, options = {}) {
 function renumberDocument(document, options = {}) {
   const excluded = excludedPhasesOf(document, options);
   const generationBefore = document?.identity?.[GENERATION_FIELD] ?? 0;
-  const plan = buildDenseRenumberMap(document?.phases ?? [], { excludedPhases: [...excluded] });
+  const plan = buildDenseRenumberMap(document?.phases ?? [], {
+    excludedPhases: [...excluded],
+    currentGeneration: generationBefore,
+  });
   const archiveAliasMap = options.archiveAliasMap instanceof Map ? options.archiveAliasMap : new Map();
   for (const [oldKey, target] of archiveAliasMap) {
     if (plan.keyMap.has(oldKey)) continue;
