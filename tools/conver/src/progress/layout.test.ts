@@ -10,6 +10,13 @@ function stripAnsi(value: string): string {
   return value.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
+function todoTickets(count: number): Array<{ id: number; status: string }> {
+  return Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    status: "todo",
+  }));
+}
+
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 function snapshot(): ProgressSnapshot {
   return {
@@ -49,7 +56,7 @@ describe("renderHeader", () => {
     assert.ok(lines.every((line) => line.length <= 80));
   });
 
-  it("keeps one fixed column per phase id across packages", () => {
+  it("keeps the percent column aligned while each package shows its own phases", () => {
     const lines = renderHeader(
       {
         packages: [
@@ -100,5 +107,153 @@ describe("renderHeader", () => {
   it("truncates to the terminal width without throwing", () => {
     const lines = renderHeader(snapshot(), { terminalWidth: 20, color: false });
     assert.ok(lines.every((line) => line.length <= 20));
+  });
+
+  it("separates phase blocks of one package with exactly one space", () => {
+    const lines = renderHeader(
+      {
+        packages: [
+          {
+            name: "operation",
+            path: ".",
+            phases: [
+              { id: 0, tickets: todoTickets(4) },
+              { id: 1, tickets: todoTickets(3) },
+              { id: 2, tickets: todoTickets(3) },
+            ],
+          },
+          {
+            name: "civic",
+            path: ".",
+            phases: [{ id: 0, tickets: todoTickets(17) }],
+          },
+        ],
+      },
+      { terminalWidth: 200, color: false },
+    );
+    assert.match(lines[0] ?? "", /P0 \[ 1 2 3 4 \] P1 \[ 1 2 3 \] P2 \[ 1 2 3 \]/);
+    assert.doesNotMatch(lines[0] ?? "", /\] {2,}P1/);
+  });
+
+  it("does not pad a phase block to the widest sibling package", () => {
+    const lines = renderHeader(
+      {
+        packages: [
+          {
+            name: "a",
+            path: ".",
+            phases: [
+              { id: 0, tickets: todoTickets(1) },
+              { id: 1, tickets: todoTickets(1) },
+            ],
+          },
+          {
+            name: "b",
+            path: ".",
+            phases: [{ id: 0, tickets: todoTickets(17) }],
+          },
+        ],
+      },
+      { terminalWidth: 200, color: false },
+    );
+    assert.ok(lines[0]?.includes("P0 [ 1 ] P1 [ 1 ]"));
+  });
+
+  it("renders a package's phases in ascending id order", () => {
+    const lines = renderHeader(
+      {
+        packages: [
+          {
+            name: "p",
+            path: ".",
+            phases: [
+              { id: 2, tickets: todoTickets(1) },
+              { id: 0, tickets: todoTickets(1) },
+              { id: 1, tickets: todoTickets(1) },
+            ],
+          },
+        ],
+      },
+      { terminalWidth: 100, color: false },
+    );
+    assert.match(lines[0] ?? "", /P0 .* P1 .* P2/);
+  });
+
+  it("keeps the percent column when the phase blocks overflow", () => {
+    const lines = renderHeader(
+      {
+        packages: [{ name: "p", path: ".", phases: [{ id: 0, tickets: todoTickets(20) }] }],
+      },
+      { terminalWidth: 40, color: false },
+    );
+    assert.strictEqual(lines[0]?.length, 40);
+    assert.ok(lines[0]?.includes("…"));
+    assert.ok(lines[0]?.endsWith("0%"));
+  });
+
+  it("attaches the omission marker rather than dropping a visible phase", () => {
+    const lines = renderHeader(
+      {
+        packages: [
+          {
+            name: "p",
+            path: ".",
+            phases: [
+              { id: 0, tickets: todoTickets(11) },
+              { id: 1, tickets: todoTickets(1) },
+            ],
+          },
+        ],
+      },
+      { terminalWidth: 40, color: false },
+    );
+    assert.strictEqual(lines[0]?.length, 40);
+    assert.ok(lines[0]?.includes("P0 [ 1 2 3 4 5 6 7 8 9 10 11 ]…"));
+    assert.ok(lines[0]?.endsWith("0%"));
+  });
+
+  it("keeps phase colors when the row is truncated", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 3;
+    try {
+      const lines = renderHeader(
+        {
+          packages: [
+            {
+              name: "p",
+              path: ".",
+              phases: [
+                { id: 0, tickets: [{ id: 1, status: "made" }] },
+                { id: 1, tickets: todoTickets(20) },
+              ],
+            },
+          ],
+        },
+        { terminalWidth: 40, color: true },
+      );
+      const line = lines[0] ?? "";
+      assert.ok(line.includes("\x1b[38;2;245;230;168m"));
+      assert.ok(line.includes("\x1b[36m"));
+      const plain = stripAnsi(line);
+      assert.ok(plain.includes("P0 [ _ ]"));
+      assert.ok(plain.includes("…"));
+      assert.ok(plain.endsWith("0%"));
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("keeps colors when the line exactly fills the terminal", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 3;
+    try {
+      const lines = renderHeader(
+        { packages: [{ name: "p", path: ".", phases: [{ id: 0, tickets: todoTickets(1) }] }] },
+        { terminalWidth: 17, color: true },
+      );
+      assert.ok((lines[0] ?? "").includes("\x1b[38;2;245;230;168m"));
+    } finally {
+      chalk.level = previousLevel;
+    }
   });
 });

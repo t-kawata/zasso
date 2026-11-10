@@ -572,7 +572,7 @@ TTY で実行すると、ACP の全イベントを1つのコンソールに連�
 
 - **イベント表示**: agent message（Markdown）、thought、tool call と diff/terminal、plan、notice、usage、subagent、session message、子プロセスの stderr。未知の更新も `update <kind>` として表示し、黙って捨てません。
 - **ヘッダー**: パッケージを実装順に1行ずつ表示。`todo` はチケット番号、`made=_`、`planned=|`、`done=/`、`reviewed=x`。記号は cyan、番号は white、フェーズIDは薄黄。`%` はディレクトリ単位の `floor(reviewed / total * 100)`。
-- **複数フェーズ**: フェーズIDごとの固定列で横に並べ、行をまたいで縦位置を揃えます。
+- **複数フェーズ**: 各パッケージ自身のフェーズをID昇順で横に並べ、フェーズ間は半角スペース1つにします。行をまたいで揃えるのはパーセント列だけです。端末幅に収まらない場合はフェーズ単位で省略し、`…` をパーセントの前に置くため、`%` と表示済みフェーズの色は失われません。
 - **ポーリング**: 既定5秒。`--dashboard-interval` で1〜60秒に変更できます。
 - **スクロール**: パッケージ数が表示行を超えると `↑ N more` / `↓ N more` の窓になります。`↑`/`↓`、PageUp/PageDown、Home/End で移動し、`f` で実行中パッケージの自動追従に戻ります。
 - **フォールバック**: 非TTY・CI・cron では DECSTBM もカーソル移動も出力せず、通常のログ表示になります。`--no-dashboard` でヘッダーだけを無効化できます。
