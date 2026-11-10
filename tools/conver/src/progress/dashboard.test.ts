@@ -87,6 +87,29 @@ function build(options: {
 
 let rawMode = false;
 
+// A dashboard whose terminal geometry can change between redraws. The header
+// paint is width- and row-sensitive, so the tests need to resize the same
+// instance instead of rebuilding it.
+function buildDynamic(options: {
+  timer: Timer;
+  writes: string[];
+  count: number;
+  size: { columns: number; rows: number };
+}) {
+  return new ProgressDashboard({
+    workspace: workspace(options.count),
+    intervalMs: 5000,
+    isTty: true,
+    write: (chunk) => options.writes.push(chunk),
+    readSnapshot: () => snapshot(options.count),
+    terminalSize: () => ({ ...options.size }),
+    now: () => 0,
+    setInterval: options.timer.setInterval,
+    clearInterval: options.timer.clearInterval,
+    setRawMode: () => {},
+  });
+}
+
 describe("ProgressDashboard", () => {
   it("C004 writes nothing when stdout is not a TTY", () => {
     const timer = fakeTimer();
@@ -169,6 +192,86 @@ describe("ProgressDashboard", () => {
     writes.length = 0;
     dashboard.handleKeypress("f", false);
     assert.ok(writes.length > 0);
+    dashboard.stop();
+  });
+
+  it("clears the inherited screen before the first header paint", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildDynamic({ timer, writes, count: 10, size: { columns: 80, rows: 40 } });
+    dashboard.start();
+    const output = writes.join("");
+    const clearIndex = output.indexOf("\x1b[2J");
+    const headerIndex = output.indexOf("P0 [");
+    assert.ok(clearIndex >= 0, "the first redraw must clear the inherited screen");
+    assert.ok(headerIndex > clearIndex, "the clear must precede the first header line");
+    dashboard.stop();
+  });
+
+  it("erases every header row before writing it", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildDynamic({ timer, writes, count: 10, size: { columns: 80, rows: 40 } });
+    dashboard.start();
+    const output = writes.join("");
+    for (let row = 1; row <= 10; row += 1) {
+      assert.ok(
+        output.includes(`\x1b[${row};1H\x1b[2K`),
+        `row ${row} must be erased before its content is painted`,
+      );
+    }
+    dashboard.stop();
+  });
+
+  it("reissues the scroll region when the height changes without changing the row count", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const size = { columns: 80, rows: 40 };
+    const dashboard = buildDynamic({ timer, writes, count: 10, size });
+    dashboard.start();
+    assert.ok(writes.join("").includes("\x1b[11;40r"));
+    writes.length = 0;
+    size.rows = 34;
+    dashboard.handleResize();
+    assert.ok(
+      writes.join("").includes("\x1b[11;34r"),
+      "a height change must reissue DECSTBM even when the header line count is stable",
+    );
+    dashboard.stop();
+  });
+
+  it("leaves the cursor at the top of the log region after a redraw", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildDynamic({ timer, writes, count: 10, size: { columns: 80, rows: 40 } });
+    dashboard.start();
+    const output = writes.join("");
+    // Header lines = 10, so the log region starts at row 11. The save must
+    // happen there and the restore must return there.
+    assert.ok(output.includes("\x1b[11;1H\x1b7"));
+    assert.ok(output.endsWith("\x1b8"));
+    dashboard.stop();
+  });
+
+  it("erases rows that leave the header when the window shrinks", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const size = { columns: 80, rows: 40 };
+    const dashboard = buildDynamic({ timer, writes, count: 29, size });
+    dashboard.start();
+    assert.strictEqual(size.rows, 40);
+    writes.length = 0;
+    size.rows = 24;
+    dashboard.handleResize();
+    const output = writes.join("");
+    // 29 header rows fit at 40 rows; at 24 rows only 20 header lines remain.
+    // Rows 21..24 were header and must be erased before they receive logs.
+    for (let row = 21; row <= 24; row += 1) {
+      assert.ok(
+        output.includes(`\x1b[${row};1H\x1b[2K`),
+        `stale header row ${row} must be erased`,
+      );
+    }
     dashboard.stop();
   });
 });

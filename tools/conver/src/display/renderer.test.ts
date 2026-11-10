@@ -117,4 +117,46 @@ describe("DisplayRenderer", () => {
     renderer.flush();
     assert.ok(lines.every((line) => line.length <= 20));
   });
+
+  it("strips cursor control from tool output so it cannot enter the header", () => {
+    const { renderer, lines } = capture();
+    renderer.handle({
+      kind: "tool_call",
+      toolCallId: "t1",
+      title: "run",
+      status: "completed",
+      content: [{ type: "text", text: "one\x1b[1Atwo\x1b[2Kthree\rfour" }],
+    } as never);
+    const output = lines.join("\n");
+    assert.ok(!output.includes("\x1b[1A"));
+    assert.ok(!output.includes("\x1b[2K"));
+    assert.ok(!output.includes("\r"));
+    assert.ok(output.includes("onetwothreefour"));
+  });
+
+  it("strips cursor control from child stderr", () => {
+    const { renderer, lines } = capture();
+    renderer.writeStderr("a\x1b[1Ab\x1b[2K\n");
+    const output = lines.join("\n");
+    assert.ok(!output.includes("\x1b[1A"));
+    assert.ok(!output.includes("\x1b[2K"));
+    assert.ok(output.includes("ab"));
+  });
+
+  it("keeps SGR colors in tool output", () => {
+    const lines: string[] = [];
+    const renderer = new DisplayRenderer({
+      width: 80,
+      color: true,
+      write: (chunk) => lines.push(...chunk.split("\n")),
+    });
+    renderer.handle({
+      kind: "tool_call",
+      toolCallId: "t1",
+      title: "run",
+      status: "completed",
+      content: [{ type: "text", text: "\x1b[31mred\x1b[0m" }],
+    } as never);
+    assert.ok(lines.join("\n").includes("\x1b[31mred\x1b[0m"));
+  });
 });

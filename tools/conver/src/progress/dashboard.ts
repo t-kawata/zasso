@@ -2,8 +2,8 @@
 //
 // The header uses DECSTBM: rows 1..N are fixed, the log scrolls below. Writes
 // are composed into one string per redraw so a timer tick cannot interleave
-// with a log line. Non-TTY output is untouched, and the caller can scroll the
-// window manually or return to auto-follow.
+// with a log line. Non-TTY output is untouched; scrolling and automatic follow
+// are caller-controlled.
 import type { WorkspaceModel } from "../workspace.js";
 import type { ProgressSnapshot } from "./model.js";
 import chalk from "chalk";
@@ -29,6 +29,8 @@ const SAVE_CURSOR = "\x1b7";
 const RESTORE_CURSOR = "\x1b8";
 const RESET_SCROLL_REGION = "\x1b[r";
 const SHOW_CURSOR = "\x1b[?25h";
+const CLEAR_SCREEN = "\x1b[1;1H\x1b[2J";
+const ERASE_LINE = "\x1b[2K";
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -55,6 +57,9 @@ export class ProgressDashboard {
   #windowOffset = 0;
   #manual = false;
   #headerRows = 0;
+  #regionRows = 0;
+  #regionColumns = 0;
+  #cleared = false;
   #lastVisibleCount = 1;
   #running = false;
 
@@ -85,6 +90,9 @@ export class ProgressDashboard {
     this.#options.setRawMode?.(false);
     this.#options.write(`${RESET_SCROLL_REGION}${SHOW_CURSOR}`);
     this.#headerRows = 0;
+    this.#regionRows = 0;
+    this.#regionColumns = 0;
+    this.#cleared = false;
   }
 
   /** Recompute after a terminal resize. */
@@ -192,14 +200,40 @@ export class ProgressDashboard {
     if (lines.length === 0) return;
 
     let chunk = "";
-    if (lines.length !== this.#headerRows) {
+    // The dashboard is painted over whatever the shell left on screen. Clearing
+    // once drops the terminal's inherited soft-wrap state; otherwise two header
+    // rows can remain one logical line (iTerm2) and stdout appears on the header.
+    if (!this.#cleared) {
+      chunk += CLEAR_SCREEN;
+      this.#cleared = true;
+    }
+
+    const previousHeaderRows = this.#headerRows;
+    const geometryChanged =
+      lines.length !== this.#headerRows ||
+      rows !== this.#regionRows ||
+      columns !== this.#regionColumns;
+    if (geometryChanged) {
       chunk += `\x1b[${lines.length + 1};${rows}r`;
       chunk += `\x1b[${lines.length + 1};1H`;
       this.#headerRows = lines.length;
+      this.#regionRows = rows;
+      this.#regionColumns = columns;
     }
+
+    // Save the cursor inside the log region before any absolute painting, so
+    // the restore below leaves the next stdout write below the header.
     chunk += SAVE_CURSOR;
+    if (geometryChanged) {
+      // Rows that used to hold header lines are now log rows. Erase them so a
+      // shrunken header cannot leave navy remnants behind the stream.
+      const staleLast = Math.min(previousHeaderRows, rows);
+      for (let row = lines.length + 1; row <= staleLast; row += 1) {
+        chunk += `\x1b[${row};1H${ERASE_LINE}`;
+      }
+    }
     lines.forEach((line, index) => {
-      chunk += `\x1b[${index + 1};1H${padTo(columns, line)}`;
+      chunk += `\x1b[${index + 1};1H${ERASE_LINE}${padTo(columns, line)}`;
     });
     chunk += RESTORE_CURSOR;
     this.#options.write(chunk);

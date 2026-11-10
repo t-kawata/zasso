@@ -9,6 +9,7 @@ import { markedTerminal } from "marked-terminal";
 import wrapAnsi from "wrap-ansi";
 import chalk from "chalk";
 import type { DisplayEvent, ToolContentSummary } from "./events.js";
+import { sanitizeTerminalText } from "./terminal-text.js";
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 export interface RendererOptions {
@@ -164,7 +165,9 @@ export class DisplayRenderer {
 
   #writeLines(lines: string[]): void {
     for (const line of lines) {
-      this.#options.write(`${line}\n`);
+      // Tool results and child stderr are untrusted; strip anything that can
+      // move the cursor above the fixed header before it reaches the screen.
+      this.#options.write(`${sanitizeTerminalText(line)}\n`);
     }
   }
 }

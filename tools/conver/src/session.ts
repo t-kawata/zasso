@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import * as acp from "@agentclientprotocol/sdk";
 import { CommandTimeoutError } from "./error.js";
 import { MessageLineWriter } from "./line-writer.js";
+import { sanitizeTerminalText } from "./display/terminal-text.js";
 import { composePrompt } from "./command-history.js";
 import {
   MissingRuntimeDependencyError,
@@ -334,7 +335,7 @@ export async function runCommand(
   acpSession.proc.once("exit", onChildExit);
 
   // verbose 出力の行組み立て。finally の flush で端数を必ず改行して閉じる。
-  const messageWriter = new MessageLineWriter((line) => process.stdout.write(line));
+  const messageWriter = new MessageLineWriter((line) => process.stdout.write(sanitizeTerminalText(line)));
   let rendererFlushed = false;
   const flushRendererOnce = (): void => {
     if (rendererFlushed) return;
