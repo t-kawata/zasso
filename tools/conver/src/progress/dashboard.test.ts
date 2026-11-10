@@ -139,6 +139,19 @@ describe("ProgressDashboard", () => {
     assert.strictEqual(rawMode, false);
   });
 
+  it("preserves the cursor across the scroll-region reset on stop", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = build({ isTty: true, timer, writes });
+    dashboard.start();
+    writes.length = 0;
+    dashboard.stop();
+    // DECSTBM reset homes the cursor. Saving before the reset and restoring
+    // after it keeps the shell prompt where the last log line ended instead of
+    // at the top-left corner (and keeps a late write off the header rows).
+    assert.strictEqual(writes.join(""), "\x1b7\x1b[r\x1b8\x1b[?25h");
+  });
+
   it("keeps the previous snapshot when the reader throws", () => {
     const timer = fakeTimer();
     const writes: string[] = [];

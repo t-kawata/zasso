@@ -88,7 +88,12 @@ export class ProgressDashboard {
       this.#timer = null;
     }
     this.#options.setRawMode?.(false);
-    this.#options.write(`${RESET_SCROLL_REGION}${SHOW_CURSOR}`);
+    // A DECSTBM reset homes the cursor, which would leave the shell prompt at
+    // the top-left corner and let the next write land on a header row. Save the
+    // cursor around the reset so the last log position survives teardown.
+    this.#options.write(
+      `${SAVE_CURSOR}${RESET_SCROLL_REGION}${RESTORE_CURSOR}${SHOW_CURSOR}`,
+    );
     this.#headerRows = 0;
     this.#regionRows = 0;
     this.#regionColumns = 0;

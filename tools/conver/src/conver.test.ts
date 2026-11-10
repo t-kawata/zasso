@@ -32,6 +32,20 @@ interface MockWorkspace {
   }>;
 }
 
+interface Deferred {
+  promise: Promise<void>;
+  resolve: () => void;
+}
+
+/** A promise the test resolves when it wants the watcher to shut down. */
+function createDeferred(): Deferred {
+  let resolve: () => void = () => {};
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
 const state: {
   cli: MockCli;
   workspace: MockWorkspace;
@@ -41,6 +55,8 @@ const state: {
   watcherError: Error | null;
   withinWindow: boolean;
   schedulerStarted: boolean;
+  schedulerStopped: boolean;
+  termination: Deferred;
   callback: (() => void) | null;
   exitCalls: number[];
   runtimeCheck: { blocked: boolean; message: string };
@@ -66,6 +82,8 @@ const state: {
   watcherError: null,
   withinWindow: true,
   schedulerStarted: false,
+  schedulerStopped: false,
+  termination: createDeferred(),
   callback: null,
   exitCalls: [],
   runtimeCheck: { blocked: false, message: "" },
@@ -133,8 +151,15 @@ mock.module("./cron-scheduler.js", {
         state.schedulerStarted = true;
         state.callback = callback;
       }
-      stop(): void {}
+      stop(): void {
+        state.schedulerStopped = true;
+      }
     },
+  },
+});
+mock.module("./termination.js", {
+  exports: {
+    waitForTerminationSignal: () => state.termination.promise,
   },
 });
 mock.module("./package-selection.js", {
@@ -191,6 +216,8 @@ beforeEach(() => {
   state.watcherError = null;
   state.withinWindow = true;
   state.schedulerStarted = false;
+  state.schedulerStopped = false;
+  state.termination = createDeferred();
   state.callback = null;
   state.cli.watcherConfig = undefined;
   state.cli.packages = [];
@@ -252,14 +279,29 @@ describe("main", () => {
     assert.deepStrictEqual(state.exitCalls, [1]);
   });
 
-  it("starts the scheduler in watcher mode and runs the loop on a firing", async () => {
+  it("keeps the watcher running until a termination signal and then stops the scheduler", async () => {
     mockExit();
     state.cli.watcherConfig = "/tmp/watcher.json";
-    await main();
+    let settled = false;
+    const running = main().then(() => {
+      settled = true;
+    });
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.strictEqual(state.schedulerStarted, true);
+    assert.strictEqual(
+      settled,
+      false,
+      "watcher mode must not return while cron can still fire; returning stops the dashboard",
+    );
     assert.ok(state.callback !== null);
     state.callback?.();
     assert.ok(state.runOptions !== null);
+
+    state.termination.resolve();
+    await running;
+    assert.strictEqual(state.schedulerStopped, true);
+    assert.deepStrictEqual(state.exitCalls, [0]);
   });
 
   it("exits 1 when the watcher config cannot be loaded", async () => {

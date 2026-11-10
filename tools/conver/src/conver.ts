@@ -7,6 +7,7 @@ import { loadWatcherConfig } from "./watcher.js";
 import type { WatcherConfig } from "./watcher.js";
 import { isWithinTimeWindow } from "./step-timer.js";
 import { CronScheduler } from "./cron-scheduler.js";
+import { waitForTerminationSignal } from "./termination.js";
 import {
   readWorkspace,
   resolveWorkspaceRoot,
@@ -71,11 +72,13 @@ async function runNormalMode(
 }
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+type WatcherModeResult = "terminated" | "config-error";
+
 async function runWatcherMode(
   cli: CliOptions,
   model: WorkspaceModel,
   display?: DisplayHooks,
-): Promise<void> {
+): Promise<WatcherModeResult> {
   let config: WatcherConfig;
   try {
     config = loadWatcherConfig(cli.watcherConfig!);
@@ -85,7 +88,7 @@ async function runWatcherMode(
       err instanceof Error ? err.message : err,
     );
     process.exit(1);
-    return;
+    return "config-error";
   }
 
   // Validate the selection before the first firing so an ambiguous or
@@ -129,13 +132,6 @@ async function runWatcherMode(
       });
   });
 
-  function cleanup(): void {
-    scheduler.stop();
-    process.exit(0);
-  }
-  process.on("SIGINT", cleanup);
-  process.on("SIGTERM", cleanup);
-
   const windows = config.filters
     .map((filter) => `${filter.startTime}-${filter.endTime}`)
     .join(", ");
@@ -143,6 +139,14 @@ async function runWatcherMode(
     `Watcher mode started: interval=${config.intervalMinutes}min, ` +
       `filters=${windows}, tz=${config.timezone}\n`,
   );
+
+  // Watcher mode owns the process until a termination signal arrives. Returning
+  // here would run main()'s finally and stop the dashboard while cron keeps
+  // firing, so the header would freeze and the next stdout write would land on
+  // row 1 instead of below the log.
+  await waitForTerminationSignal();
+  scheduler.stop();
+  return "terminated";
 }
 
 export async function main(): Promise<void> {
@@ -251,7 +255,12 @@ export async function main(): Promise<void> {
 
   try {
     if (options.watcherConfig) {
-      await runWatcherMode(options, model, display);
+      const result = await runWatcherMode(options, model, display);
+      // The scheduler and dashboard have already been released; exit through
+      // the shared shutdown path so stdin listeners do not keep the process up.
+      // A config error already exited with 1 and must not be re-exited as 0
+      // when process.exit is replaced by a test double.
+      if (result === "terminated") shutdown(0);
     } else {
       await runNormalMode(options, model, display);
     }
