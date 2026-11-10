@@ -499,66 +499,85 @@ RFC グラフを入力に「使い方 README」をセクション単位で検証
 
 ## conver.js — ACP ベースのチケット処理パイプライン
 
-`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御し、`Tickets.json` に定義されたチケットに対して make → plan → start → review → resolve → consolidate-stubs → find の一連の工程を自動実行します。
+`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御し、**ワークスペースルート**からパッケージディレクトリを安全な実装順に移動しながら、各 `Tickets.json` のチケットを make → plan → start → review → resolve → consolidate-stubs → find の順で自動実行します。
 
 ### 使用方法
 
+conver は **ワークスペースルート**（`WORKSPACIFY-TREE-MANIFEST.json`、`WORKSPACIFY-ALLOCATE-MANIFEST.json`、`WORKSPACIFY-IMPLEMENTATION-ORDER.json` があるディレクトリ）で実行します。パッケージディレクトリ内からは実行できません。4層ループの単一ディレクトリ実行はサポートしません。
+
 ```bash
-node dist/conver.js -k <DeepSeek_API_Key> -s <Slack_Webhook_URL> [options]
-# .claude/scripts/conver/ に配置されたバンドルからも実行可能
-node "$(git rev-parse --show-toplevel)/.claude/scripts/conver/conver.js" -k <api_key> -s <slack_url>
+cd ~/shyme/doors
+node "$(git rev-parse --show-toplevel)/.claude/scripts/conver/conver.js" -k <api_key> -s <slack_url> [options]
+# 対象パッケージを絞る（繰り返し／カンマ区切り、部分一致・一意解決）
+node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 ```
+
+起動時に次を検証し、失敗した場合はセッションを開始せずに終了します。
+
+- 3つのルートマニフェストの存在と `COMPLETE`
+- `workspacify-order/run.mjs` が実装順を受理すること（`--record` なし）
+- 全パッケージに `Tickets.json` が存在すること
+- パッケージ指定が一意に解決できること
+- 指定が未完了の先行パッケージを飛ばさないこと
 
 ### CLI オプション
 
 | フラグ | 説明 | デフォルト |
 |--------|------|-----------|
-| `-k`, `--api-key` | DeepSeek API Key（必須） | — |
+| `-k`, `--api-key` | API Key（任意。keyless プロバイダーでは省略可） | — |
 | `-s`, `--slack-url` | Slack Incoming Webhook URL（必須） | — |
-| `-t`, `--tickets` | Tickets.json のパス | `./Tickets.json` |
-| `-c`, `--count` | 最大処理チケット数 | `999999` |
-| `-r`, `--resolve-every` | Nチケット完了ごとに resolve | `3` |
-| `-p`, `--push` | resolve 毎に jpush-branch 実行（0/1） | `1` |
+| `-P`, `--package` | 対象パッケージ名。繰り返し／カンマ区切り。部分一致は一意な場合のみ | 全パッケージ |
+| `-c`, `--count` | ワークスペース全体で処理するチケット数の上限 | `999999` |
+| `-r`, `--resolve-every` | パッケージごとに N チケット完了ごとに resolve | `3` |
+| `-p`, `--push` | resolve 後に `/epush-branch` を実行（0/1） | `1` |
 | `-m`, `--model` | 使用モデル | `deepseek-flash` |
 | `-v`, `--verbose` | 詳細表示（0/1） | `1` |
 | `--timeout` | 各コマンドのタイムアウト（秒） | `1800` |
-| `-b`, `--bind-review-in-one-session` | review を同一セッションに結合（0/1） | `1` |
+| `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
 | `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動） | — |
-| `-n`, `--no-find` | 全 reviewed 後の find-omissions をスキップ（0/1） | `0` |
+| `-n`, `--no-find` | 全 reviewed 後の consolidate/find をスキップ（0/1） | `0` |
+| `--no-dashboard` | 固定進捗ヘッダーを無効化 | 無効（ヘッダー表示） |
+| `--dashboard-interval` | ヘッダーのポーリング間隔（秒） | `5` |
 | `-h`, `--help` | ヘルプ表示 | — |
 | `--version` | バージョン表示 | — |
 
-### セッションアーキテクチャ
+`-t/--tickets` と `-x/--max-retries` は廃止しました。チケットはパッケージごとに導出し、再送は3回のエスカレーションに固定されています。
 
-チケットの処理フロー:
+### 実行アーキテクチャ — 5層・厳格順序
 
-```mermaid
-sequenceDiagram
-    participant CV as conver.js
-    participant SA as Session A
-    participant SB as Session B
-    participant SC as Session C
-    participant SD as Session D
+conver は次の順序を機械的に守ります。
 
-    CV->>SA: /make-ticket → /plan-ticket → /start-ticket
-    opt -b 1（デフォルト）
-        CV->>SA: /review-ticket（同一セッション）
-    end
-    Note over SA: dispose
-    opt -b 0
-        CV->>SB: /review-ticket（別セッション）
-        Note over SB: dispose
-    end
-    Note over CV: review 完了後: reviewedCount % resolveEvery === 0
-    CV->>SC: /resolve-ticket →（任意）/jpush-branch
-    Note over CV: 全チケット reviewed
-    CV->>SD: /find-omissions RFC-GRAPH.json
-    Note over CV: 次のチケットへ
-```
+1. **ワークスペース** — ルートの3マニフェストを検証し、`workspacify-order` が受理した実装順を取得する。
+2. **パッケージ** — 実装順の先頭から処理する。未完了のパッケージを飛ばして後ろへ進まない。
+3. **チケット** — 各パッケージの `Tickets.json` を配列順に読み、**最初の非終端チケットだけ**を対象にする。前のチケットが `reviewed`/`R<n>` になるまで次へ進まない。
+4. **工程** — 実行直前に `Tickets.json` を読み直し、status から次コマンドを一対一で導出する。
+   - `todo` → `/make-ticket`
+   - `made` → `/plan-ticket`
+   - `planned` → `/start-ticket`
+   - `done` → `/review-ticket`
+   - `reviewed` / `R<n>` → 終端
+   - `remanded` / 未知 → 停止
+5. **パッケージ境界** — 全チケットが終端になった後だけ `/consolidate-stubs` → `/find-omissions` を実行する。find が新チケットを追加した場合は**同一パッケージ内**で 3 へ戻る（最大3ラウンド）。
 
-- `-b 0` を指定すると review が別セッションで独立実行されます
-- `-p 1`（デフォルト）では resolve 後に `/jpush-branch` で日本語コミット＋プッシュします（`/epush-branch` は英語コミット版）
-- 全チケットが reviewed になったことを検知すると `/find-omissions` を自動実行します（`-n 1` でスキップ）。`/find-omissions` は実行前に `/consolidate-stubs` の完了（マニフェスト生成）が必須です
+- すべてのコマンドは **パッケージディレクトリを cwd** として実行します。make/plan/start/review だけでなく resolve/epush/consolidate/find も同じです。
+- `-b 1`（デフォルト）では make/plan/start/review を同一セッションに結合します。各コマンドの直前には必ず `Tickets.json` を読み直します。
+- `-r` の resolve はパッケージ単位で数え、次のチケットへ進む前に実行します（`-p 1` なら `/epush-branch` も）。
+- `/find-omissions` は引数なしで呼びます。グラフはパッケージ直下の `RFC-GRAPH.json` からコマンド側が導出します（コマンド側の変更は手作業で配布）。
+- 直近10件のコマンド実行を FIFO で保持し、同じチケット・同じコマンドの繰り返しを検知します。3回は英語の指示を強めて再送し、それでも status が進まなければ Slack に停止事由を通知して conver を終了します。
+- Slack は**フェーズ単位**です。フェーズ内の全チケットが reviewed になった時点で、ワークスペース／パッケージ／フェーズ／`n/N`／最後のチケット／パッケージ完了フラグを1行で送ります。進捗一覧や find の統合詳細は送りません。
+
+### コンソール表示と進捗ヘッダー
+
+TTY で実行すると、ACP の全イベントを1つのコンソールに連続表示し、可視領域の先頭に濃紺の進捗ヘッダーを固定します。
+
+- **イベント表示**: agent message（Markdown）、thought、tool call と diff/terminal、plan、notice、usage、subagent、session message、子プロセスの stderr。未知の更新も `update <kind>` として表示し、黙って捨てません。
+- **ヘッダー**: パッケージを実装順に1行ずつ表示。`todo` はチケット番号、`made=_`、`planned=|`、`done=/`、`reviewed=x`。記号は cyan、番号は white、フェーズIDは薄黄。`%` はディレクトリ単位の `floor(reviewed / total * 100)`。
+- **複数フェーズ**: フェーズIDごとの固定列で横に並べ、行をまたいで縦位置を揃えます。
+- **ポーリング**: 既定5秒。`--dashboard-interval` で1〜60秒に変更できます。
+- **スクロール**: パッケージ数が表示行を超えると `↑ N more` / `↓ N more` の窓になります。`↑`/`↓`、PageUp/PageDown、Home/End で移動し、`f` で実行中パッケージの自動追従に戻ります。
+- **フォールバック**: 非TTY・CI・cron では DECSTBM もカーソル移動も出力せず、通常のログ表示になります。`--no-dashboard` でヘッダーだけを無効化できます。
+- **終了時**: タイマーを止め、スクロール領域・カーソル・raw mode を復元します。
+- **依存**: `marked` / `marked-terminal` / `chalk` / `wrap-ansi` を使用します。`terminal-kit` は単一ESMバンドルで termconfig の動的 require が失敗するため採用していません。
 
 ### チケットのステータス遷移
 
@@ -589,25 +608,47 @@ stateDiagram-v2
 
 ### Watcher モード — 定期実行による半自律運用
 
-`-w <config.json>` を指定すると、通常の 1 回実行ではなく **Watcher モード** で起動します。node-cron を用いて一定間隔で `runLoop` を自動再実行し、時間枠内でのみ動作します。
+`-w <config.json>` を指定すると、通常の 1 回実行ではなく **Watcher モード** で起動します。node-cron を用いて一定間隔で `runWorkspaceLoop` を自動再実行し、いずれかのフィルターにマッチしたときだけ動作します。
 
 ```json
 {
-  "intervalMinutes": 60,
-  "startTime": "09:00",
-  "endTime": "19:00",
   "timezone": "Asia/Tokyo",
-  "daysOfWeek": [1, 2, 3, 4, 5]
+  "intervalMinutes": 5,
+  "packages": ["doors-core", "doors-operation"],
+  "filters": [
+    {
+      "days": ["2026-11-10", "2026-11-11"],
+      "startTime": "09:00",
+      "endTime": "18:00"
+    },
+    {
+      "daysOfWeek": [1, 2, 3, 4, 5],
+      "startTime": "19:30",
+      "endTime": "09:30"
+    },
+    {
+      "startTime": "00:00",
+      "endTime": "23:59"
+    }
+  ]
 }
 ```
 
 | フィールド | 説明 | 制約 |
 |-----------|------|------|
-| `intervalMinutes` | ループ実行間隔（分） | 1 以上、525,600（1年）以下、整数 |
-| `startTime` | 稼働開始時刻（HH:mm、24時間表記） | 例: `"09:00"` |
-| `endTime` | 稼働終了時刻（HH:mm、24時間表記） | 例: `"19:00"` |
 | `timezone` | IANA タイムゾーン名 | 例: `"Asia/Tokyo"`, `"America/New_York"` |
-| `daysOfWeek` | 実行を許可する曜日（0=日〜6=土） | 任意。未指定は毎日。例: `[1,2,3,4,5]`（平日のみ） |
+| `intervalMinutes` | **トップレベルに1つだけ**。cron の発火間隔（分） | 1 以上、525,600（1年）以下、整数 |
+| `packages` | 対象パッケージ名（任意）。CLI `-P` と同じ解決規則 | 空配列不可、重複不可 |
+| `filters` | 優先順に評価するフィルター配列。**低いindexが優先** | 非空 |
+| `filters[].days` | 実行を許可する日付（`YYYY-MM-DD`） | 実在日付のみ、重複不可、空配列不可 |
+| `filters[].daysOfWeek` | 実行を許可する曜日（0=日〜6=土） | 0..6、重複不可、空配列不可 |
+| `filters[].startTime` | 稼働開始時刻（HH:mm、24時間表記） | 例: `"09:00"` |
+| `filters[].endTime` | 稼働終了時刻（HH:mm、24時間表記） | 例: `"19:00"` |
+
+- フィルターは先頭から評価し、**最初にマッチしたフィルターだけ**を見ます。どれにもマッチしなければその発火は待機します。
+- `days` と `daysOfWeek` は AND です。日跨ぎ窓では `days` も `daysOfWeek` と同じく**窓の開始日**で判定します。
+- 旧形式（トップレベルの `intervalMinutes` + `startTime` + `endTime` + `daysOfWeek`）は1要素の `filters` に正規化して受け入れます。既存ワークスペースの設定を編集する必要はありません。
+- `intervalMinutes` はフィルター単位には設定できません。時間帯ごとに異なる間隔が必要になった場合は別チケットで拡張します。
 
 **動作フロー**:
 
@@ -616,19 +657,19 @@ flowchart TD
     START(["-w config.json で起動"]) --> WATCH["runWatcherMode"]
     WATCH --> VALIDATE["設定ファイルを読み込み<br/>全フィールドをバリデーション"]
     VALIDATE -->|不正値| ERROR(["エラー終了"])
-    VALIDATE --> WINDOW{"現在時刻が時間枠内<br/>かつ曜日が一致するか"}
-    WINDOW -->|枠外・曜日不一致| WAIT["waitForWindow<br/>プロセスは生存したまま<br/>60秒間隔で再判定"]
+    VALIDATE --> WINDOW{"優先順にフィルターを評価し<br/>最初にマッチしたか"}
+    WINDOW -->|どのフィルターにも不一致| WAIT["waitForWindow<br/>プロセスは生存したまま<br/>60秒間隔で再判定"]
     WAIT --> WINDOW
-    WINDOW -->|枠内| CRON["CronScheduler を起動<br/>intervalMinutes 間隔で runLoop を定期実行<br/>発火時刻・曜日は timezone 基準"]
+    WINDOW -->|枠内| CRON["CronScheduler を起動<br/>intervalMinutes 間隔で runWorkspaceLoop を定期実行<br/>フィルターは timezone 基準"]
     CRON --> CHECK{"チケット境界・各フェーズの直前<br/>（make/plan/start/review/resolve/find）<br/>時間枠内か"}
     CHECK -->|枠外| WAIT_PHASE["waitForWindow<br/>枠内に戻るまで待機"]
     WAIT_PHASE --> CHECK
-    CHECK -->|枠内| RUN["フェーズを実行<br/>直前に Tickets.json の status を再読込<br/>完了済みフェーズはスキップ"]
+    CHECK -->|枠内| RUN["status から次コマンドを導出して実行<br/>直前に Tickets.json を再読込"]
     RUN --> CRON
     CRON -.->|SIGINT/SIGTERM（任意の時点）| STOP(["グレースフルシャットダウン"])
 ```
 
-> 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）で `daysOfWeek` を指定した場合、曜日は**窓の開始日**で判定されます（例: 月22:00〜火06:00 + `daysOfWeek: [1]` は月曜夜〜火曜未明が連続して稼働）。
+> 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）では、`days` と `daysOfWeek` の両方を**窓の開始日**で判定します（例: 月22:00〜火06:00 + `daysOfWeek: [1]` は月曜夜〜火曜未明が連続して稼働）。
 
 ---
 

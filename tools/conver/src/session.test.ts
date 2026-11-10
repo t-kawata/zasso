@@ -19,10 +19,12 @@ import {
   runSession,
   buildSpawnEnv,
   spawnAgent,
+  setAgentStderrSink,
 } from "./session.js";
 import type { AcpSession, RunCommandOptions, SessionConfig } from "./session.js";
 import * as childProcess from "node:child_process";
 import { CommandTimeoutError } from "./error.js";
+import { CROSS_PACKAGE_DIRECTIVE } from "./command-history.js";
 
 // --- モック用ヘルパー ---
 
@@ -120,18 +122,56 @@ describe("buildClientApp", () => {
 describe("runCommand", () => {
   const baseOptions: RunCommandOptions = { timeoutMs: 5000, verbose: false };
 
-  it("prompt → nextUpdate stop で fullResponse を返す", async () => {
+  it("C002 accumulates agent_message_chunk text and returns it on stop", async () => {
     let promptArg = "";
     const session = mockSession({
       session: mockSessionWithUpdates(
-        [{ kind: "stop", response: "result-ok" }],
+        [
+          {
+            kind: "session_update",
+            update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "result-" } },
+          },
+          {
+            kind: "session_update",
+            update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "ok" } },
+          },
+          { kind: "stop", response: { stopReason: "end_turn" } },
+        ],
         (cmd: string) => { promptArg = cmd as any; },
       ) as any,
     });
 
     const result = await runCommand(session, "/test-cmd", baseOptions);
     assert.strictEqual(result, "result-ok");
-    assert.strictEqual(promptArg, "/test-cmd");
+    assert.ok(promptArg.startsWith("/test-cmd\n\n"));
+    assert.ok(promptArg.includes(CROSS_PACKAGE_DIRECTIVE));
+  });
+
+  it("C001 forwards every update to onUpdate and calls onFlush at stop", async () => {
+    const updates: string[] = [];
+    let flushed = 0;
+    const session = mockSession({
+      session: mockSessionWithUpdates([
+        {
+          kind: "session_update",
+          update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "hi" } },
+        },
+        {
+          kind: "session_update",
+          update: { sessionUpdate: "tool_call", toolCallId: "t1", title: "read", status: "pending", kind: "read" },
+        },
+        { kind: "stop", response: { stopReason: "end_turn" } },
+      ]) as any,
+    });
+
+    await runCommand(session, "/test", {
+      timeoutMs: 5000,
+      verbose: false,
+      onUpdate: (update) => updates.push(update.sessionUpdate),
+      onFlush: () => { flushed++; },
+    });
+    assert.deepStrictEqual(updates, ["agent_message_chunk", "tool_call"]);
+    assert.strictEqual(flushed, 1);
   });
 
   it("タイムアウト時に CommandTimeoutError を throw", async () => {
@@ -295,10 +335,10 @@ describe("runCommand", () => {
       proc: mockProc({ exitCode: 3 }),
       session: {
         sessionId: "s",
-// [::TICKET::] PX-149, PX-150, PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150, PX-151, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150|PX-151|PX-404) --for-spec --no-implementation-order`.
         prompt() { promptCalled = true; },
         nextUpdate: () => new Promise(() => {}),
-// [::TICKET::] PX-149, PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150|PX-404) --for-spec --no-implementation-order`.
         dispose() {},
       } as any,
     });
@@ -317,7 +357,13 @@ describe("runCommand", () => {
     const proc = mockProc();
     const session = mockSession({
       proc,
-      session: mockSessionWithUpdates([{ kind: "stop", response: "ok" }]) as any,
+      session: mockSessionWithUpdates([
+        {
+          kind: "session_update",
+          update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "ok" } },
+        },
+        { kind: "stop", response: { stopReason: "end_turn" } },
+      ]) as any,
     });
 
     const result = await runCommand(session, "/test", { timeoutMs: 1000, verbose: false });
@@ -607,15 +653,17 @@ describe("buildSpawnEnv", () => {
 });
 
 describe("spawnAgent", () => {
-// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
-  function captureSpawnEnv(config: SessionConfig): NodeJS.ProcessEnv {
+// [::TICKET::] PX-151, PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-151|PX-403|PX-404) --for-spec --no-implementation-order`.
+  function captureSpawnEnv(config: SessionConfig, cwd: string = process.cwd()): NodeJS.ProcessEnv {
     let captured: NodeJS.ProcessEnv = {};
+    let capturedCwd: string | undefined;
     const mockSpawn = ((
       _cmd: string,
       _args: string[],
-      opts: { env?: NodeJS.ProcessEnv },
+      opts: { env?: NodeJS.ProcessEnv; cwd?: string },
     ) => {
       captured = opts.env ?? {};
+      capturedCwd = opts.cwd;
       // spawnAgent は Writable.toWeb / Readable.toWeb で ndjson ストリームを
       // 構築するため、モック proc に実ストリームを渡す。
       const stdin = new Writable({
@@ -630,7 +678,8 @@ describe("spawnAgent", () => {
       proc.stdout = stdout;
       return proc;
     }) as unknown as typeof childProcess.spawn;
-    spawnAgent(config, mockSpawn);
+    spawnAgent(config, cwd, mockSpawn);
+    assert.strictEqual(capturedCwd, cwd);
     return captured;
   }
 
@@ -654,5 +703,29 @@ describe("spawnAgent", () => {
       baseUrl: "http://localhost:11434",
     });
     assert.strictEqual(env.ANTHROPIC_AUTH_TOKEN, "keyless");
+  });
+
+  it("pipes child stderr to the configured sink", async () => {
+    const received: string[] = [];
+    setAgentStderrSink((text) => received.push(text));
+    let proc: any;
+    const mockSpawn = (() => {
+      const stdin = new Writable({ write(_chunk: unknown, _enc: unknown, cb: () => void) { cb(); } });
+      const stdout = new Readable({ read() {} });
+      const stderr = new Readable({ read() {} });
+      proc = new EventEmitter() as any;
+      proc.exitCode = null;
+      proc.signalCode = null;
+      proc.kill = () => {};
+      proc.stdin = stdin;
+      proc.stdout = stdout;
+      proc.stderr = stderr;
+      return proc;
+    }) as unknown as typeof childProcess.spawn;
+    spawnAgent({ apiKey: "", model: "m", baseUrl: "http://localhost" }, process.cwd(), mockSpawn);
+    (proc.stderr as Readable).push("child log\n");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(received, ["child log\n"]);
+    setAgentStderrSink((text) => process.stderr.write(text));
   });
 });

@@ -87,28 +87,51 @@ export function isInTimeWindow(
   return isWithinCrossDayWindow(currentMinutes, startMinutes, endMinutes);
 }
 
+/** The wall-clock fields of an instant in a configured timezone. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+export interface LocalizedDateTimeParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  weekday: number;
+}
+
 /**
- * 設定タイムゾーンの壁時計で、時・分・曜日（0=日曜〜6=土曜）を返す。
- * Intl.DateTimeFormat.formatToParts を1回呼ぶだけで3情報を得る。
+ * 設定タイムゾーンの壁時計で年・月・日・時・分・曜日を返す。
+ * Intl.DateTimeFormat.formatToParts を1回呼ぶだけで全情報を得る。
  */
 // [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
-function getLocalizedDateTimeParts(
+export function getLocalizedDateTimeParts(
   now: Date,
   timezone: string,
-): { hour: number; minute: number; weekday: number } {
+): LocalizedDateTimeParts {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "numeric",
     minute: "numeric",
     weekday: "short",
     hour12: false,
   }).formatToParts(now);
 
+  let year = 0;
+  let month = 0;
+  let day = 0;
   let hour = 0;
   let minute = 0;
   let weekday = 0;
   for (const part of parts) {
-    if (part.type === "hour") {
+    if (part.type === "year") {
+      year = parseInt(part.value, 10);
+    } else if (part.type === "month") {
+      month = parseInt(part.value, 10);
+    } else if (part.type === "day") {
+      day = parseInt(part.value, 10);
+    } else if (part.type === "hour") {
       hour = parseInt(part.value, 10);
     } else if (part.type === "minute") {
       minute = parseInt(part.value, 10);
@@ -116,7 +139,51 @@ function getLocalizedDateTimeParts(
       weekday = WEEKDAY_INDEX[part.value] ?? 0;
     }
   }
-  return { hour, minute, weekday };
+  return { year, month, day, hour, minute, weekday };
+}
+
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function toIsoDate(parts: Pick<LocalizedDateTimeParts, "year" | "month" | "day">): string {
+  return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
+}
+
+/** Shift an ISO calendar date by whole days without DST arithmetic. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function shiftIsoDate(isoDate: string, deltaDays: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + deltaDays));
+  return toIsoDate({
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  });
+}
+
+/**
+ * The calendar date on which the current window instance started, in the
+ * configured timezone. A cross-midnight window viewed after midnight belongs
+ * to the previous day, which is the date `days` filters must match.
+ */
+export function getWindowStartIsoDate(
+  now: Date,
+  startTime: string,
+  endTime: string,
+  timezone: string,
+): string {
+  const startMinutes = parseTimeToMinutes(startTime);
+  const endMinutes = parseTimeToMinutes(endTime);
+  const parts = getLocalizedDateTimeParts(now, timezone);
+  const currentMinutes = parts.hour * 60 + parts.minute;
+  const isoDate = toIsoDate(parts);
+  if (startMinutes > endMinutes && currentMinutes <= endMinutes) {
+    return shiftIsoDate(isoDate, -1);
+  }
+  return isoDate;
 }
 
 /**

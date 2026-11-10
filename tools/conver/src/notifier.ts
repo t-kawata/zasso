@@ -13,6 +13,7 @@ import { execSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 
 /** エラー通知に必要なコンテキスト情報 */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 export interface ErrorContext {
   /** エラーが発生したチケットID（例: "P2-1"） */
   ticketId: string;
@@ -22,6 +23,10 @@ export interface ErrorContext {
   error: Error;
   /** Tickets.json のパス（絶対パス解決に使用） */
   ticketsPath: string;
+  /** Workspace name, when the error belongs to a workspace run. */
+  workspace?: string;
+  /** Package name, when the error belongs to a package. */
+  packageName?: string;
 }
 
 /**
@@ -71,13 +76,19 @@ function classifyError(error: Error): string {
  * 戻り値の形式:
  *   { username: "conver", icon_emoji: ":x:", text: "■ conver エラー報告\n..." }
  */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 function buildSlackMessage(context: ErrorContext): object {
   const absolutePath = getAbsolutePath(context.ticketsPath);
   const username = getUsername();
   const errorType = classifyError(context.error);
 
+  const location = [
+    context.workspace ? `workspace ${context.workspace}` : null,
+    context.packageName ? `package ${context.packageName}` : null,
+  ].filter((part): part is string => part !== null);
   const text = [
     "■ conver エラー報告",
+    ...(location.length === 0 ? [] : [`• 位置: ${location.join(" / ")}`]),
     `• Tickets.json: \`${absolutePath}\``,
     `• ユーザー: \`${username}\``,
     `• チケット: ${context.ticketId}`,
@@ -186,85 +197,67 @@ export async function sendSlackError(
   await sendSlackWithRetry(webhookUrl, payload);
 }
 
-/** 完了通知の引数 */
-export interface SuccessContext {
-  /** 今回処理したチケット数 */
-  count: number;
-  /** 今回処理したチケットの一覧（"P0-1: title" 形式） */
-  processed: string[];
-  /** 全チケットの進捗一覧（Markdown 形式） */
-  progress: string;
+/** Phase-completion notification context. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+export interface PhaseCompleteContext {
+  workspace: string;
+  packageName: string;
+  phaseId: number;
+  reviewed: number;
+  total: number;
+  lastTicketKey: string;
+  packageComplete: boolean;
+}
+
+/** Fail-stop notification context, including the reason conver stopped. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+export interface StopContext {
+  workspace: string;
+  packageName: string;
+  phaseId: number | null;
+  ticketKey: string | null;
+  command: string | null;
+  reason: string;
 }
 
 /**
- * 完了通知を Slack に送信する。
- * エラー通知と同様に sendSlackWithRetry を使用する。
- * @param webhookUrl Slack Incoming Webhook URL
- * @param context 完了通知の内容
+ * Notify Slack that one phase reached reviewed for every ticket in it.
+ * This is the only success notification; progress lists and find details are
+ * deliberately absent so the message stays one line.
  */
-export async function sendSlackSuccess(
+export async function sendSlackPhaseComplete(
   webhookUrl: string,
-  context: SuccessContext,
+  context: PhaseCompleteContext,
 ): Promise<void> {
-  const text = [
-    `---\n${context.count}件のチケットの実装が完了しました。`,
-    "```",
-    context.processed.join("\n"),
-    "```",
-    "現在の進捗状況は以下のとおりです。",
-    "```",
-    context.progress,
-    "```",
-  ].join("\n");
-
-  const payload = {
+  const label = context.phaseId === -1 ? "PX" : `P${context.phaseId}`;
+  const suffix = context.packageComplete ? " — package complete" : "";
+  const text =
+    `[${context.workspace}] ${context.packageName} ${label} ` +
+    `${context.reviewed}/${context.total} reviewed (last: ${context.lastTicketKey})${suffix}`;
+  await sendSlackWithRetry(webhookUrl, {
     username: "conver",
-    icon_emoji: ":tada:",
+    icon_emoji: ":white_check_mark:",
     text,
-  };
-
-  await sendSlackWithRetry(webhookUrl, payload);
+  });
 }
 
-/** find 完了後通知の引数 */
-// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
-export interface FindOutcomeContext {
-  /** list-phases-and-tickets.js の出力（find 後・統合後の進捗一覧） */
-  progress: string;
-  /** Tickets.json への統合が発生したか（フェーズ/チケット数の増加で判定） */
-  integrationSucceeded: boolean;
-  /** 統合で増加したフェーズ数 */
-  mergedPhases: number;
-  /** 統合で増加したチケット数 */
-  mergedTickets: number;
-}
-
-/**
- * find 完了後の Slack 通知を送信する。
- * 進捗一覧（list-phases-and-tickets.js の出力）と、Tickets.json への統合成否を送る。
- * @param webhookUrl Slack Incoming Webhook URL
- * @param context find 完了後の状態
- */
-export async function sendFindOutcomeNotification(
+/** Notify Slack that conver is stopping, with the location and reason. */
+export async function sendSlackStop(
   webhookUrl: string,
-  context: FindOutcomeContext,
+  context: StopContext,
 ): Promise<void> {
-  const status = context.integrationSucceeded
-    ? `✅ find 完了: Tickets.json への統合成功（+${context.mergedPhases} フェーズ / +${context.mergedTickets} チケット）`
-    : "⚠️ find 完了: Tickets.json への統合は発生しませんでした（omissions なし または 統合失敗）";
-  const text = [
-    `---\n${status}`,
-    "現在の進捗状況は以下のとおりです。",
-    "```",
-    context.progress,
-    "```",
-  ].join("\n");
-
-  const payload = {
+  const location = [
+    context.packageName,
+    context.phaseId === null ? null : context.phaseId === -1 ? "PX" : `P${context.phaseId}`,
+    context.ticketKey,
+    context.command,
+  ].filter((part): part is string => part !== null && part !== "");
+  const text =
+    `[${context.workspace}] stopped: ${context.reason}` +
+    (location.length === 0 ? "" : ` (${location.join(" ")})`);
+  await sendSlackWithRetry(webhookUrl, {
     username: "conver",
-    icon_emoji: ":mag:",
+    icon_emoji: ":octagonal_sign:",
     text,
-  };
-
-  await sendSlackWithRetry(webhookUrl, payload);
+  });
 }

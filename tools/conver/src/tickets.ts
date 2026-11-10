@@ -10,6 +10,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { isTerminalStatus, ticketKeyOf } from "./ticket-status.js";
 
 /** 単一チケットの情報 */
 // [::TICKET::] PX-145, PX-146, PX-211 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-211) --for-spec --no-implementation-order`.
@@ -69,24 +70,25 @@ export interface TicketsJson {
  * @param ticketsPath Tickets.json のファイルパス
  * @returns 未処理チケットの配列（空の場合は空配列）
  */
-/**
- * Round-aware status (e.g. "R1", "R2") — records the completion round.
- * Round numbers are integers >= 1 with no leading zeros.
- */
-const isRoundStatus = (status: string): boolean => /^R[1-9]\d*$/.test(status);
-
 export function loadPendingTickets(ticketsPath: string): Ticket[] {
   const raw = readFileSync(ticketsPath, "utf-8");
-  const data: TicketsJson = JSON.parse(raw);
-  return data.phases
+  const ticketsData: TicketsJson = JSON.parse(raw);
+  return pendingTicketsOf(ticketsData);
+}
+
+/**
+ * Pending tickets in Tickets.json array order: phase order first, then ticket
+ * order. The strict loop must not sort by id; the array order is the declared
+ * implementation order.
+ */
+export function pendingTicketsOf(ticketsData: TicketsJson): Ticket[] {
+  return ticketsData.phases
     .flatMap((phase) =>
-      phase.tickets.map((t) => ({ ...t, phaseId: phase.id })),
+      phase.tickets.map((ticket) => ({ ...ticket, phaseId: phase.id })),
     )
     .filter(
-      (t) =>
-        t.status !== "reviewed" &&
-        !isRoundStatus(t.status) &&
-        t.forNextRound !== true,
+      (ticket) =>
+        !isTerminalStatus(ticket.status) && ticket.forNextRound !== true,
     );
 }
 
@@ -98,22 +100,63 @@ export function loadPendingTickets(ticketsPath: string): Ticket[] {
  */
 export function checkAllReviewed(ticketsPath: string): boolean {
   const raw = readFileSync(ticketsPath, "utf-8");
-  const data: TicketsJson = JSON.parse(raw);
+  const ticketsData: TicketsJson = JSON.parse(raw);
 
-  for (const phase of data.phases) {
+  for (const phase of ticketsData.phases) {
     for (const ticket of phase.tickets) {
       // forNextRound チケットは次ラウンドの作業なので「今ラウンドの完了判定」をブロックしない（PX-145）。
-      if (
-        ticket.status !== "reviewed" &&
-        !isRoundStatus(ticket.status) &&
-        ticket.forNextRound !== true
-      ) {
+      if (!isTerminalStatus(ticket.status) && ticket.forNextRound !== true) {
         return false;
       }
     }
   }
 
   return true;
+}
+
+/** Progress of one phase, used by the phase-level Slack message. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+export interface PhaseProgress {
+  phaseId: number;
+  total: number;
+  reviewed: number;
+  lastTicketKey: string;
+  complete: boolean;
+}
+
+/** Progress of one package, used to decide the package boundary. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+export interface PackageProgressSummary {
+  total: number;
+  reviewed: number;
+  allTerminal: boolean;
+}
+
+export function phaseProgress(ticketsData: TicketsJson, phaseId: number): PhaseProgress {
+  const phase = ticketsData.phases.find((candidate) => candidate.id === phaseId);
+  if (phase === undefined) {
+    return { phaseId, total: 0, reviewed: 0, lastTicketKey: "", complete: false };
+  }
+  const reviewed = phase.tickets.filter((ticket) => isTerminalStatus(ticket.status)).length;
+  const lastTicket = phase.tickets[phase.tickets.length - 1];
+  return {
+    phaseId,
+    total: phase.tickets.length,
+    reviewed,
+    lastTicketKey:
+      lastTicket === undefined ? "" : ticketKeyOf(phase.id, lastTicket.id),
+    complete: phase.tickets.length > 0 && reviewed === phase.tickets.length,
+  };
+}
+
+export function packageProgress(ticketsData: TicketsJson): PackageProgressSummary {
+  let total = 0;
+  let reviewed = 0;
+  for (const phase of ticketsData.phases) {
+    total += phase.tickets.length;
+    reviewed += phase.tickets.filter((ticket) => isTerminalStatus(ticket.status)).length;
+  }
+  return { total, reviewed, allTerminal: total === reviewed };
 }
 
 /**
@@ -123,14 +166,14 @@ export function checkAllReviewed(ticketsPath: string): boolean {
  * @param ticketsPath Tickets.json のファイルパス
  */
 export function clearForNextRound(ticketsPath: string): void {
-  const data: TicketsJson = JSON.parse(readFileSync(ticketsPath, "utf-8"));
-  for (const phase of data.phases) {
+  const ticketsData: TicketsJson = JSON.parse(readFileSync(ticketsPath, "utf-8"));
+  for (const phase of ticketsData.phases) {
     for (const ticket of phase.tickets) {
       delete ticket.forNextRound;
     }
   }
   // The file is committed, so every home path in it is stored in the portable form.
-  writeFileSync(ticketsPath, JSON.stringify(toHomeRelativeDeep(data), null, 2) + "\n", "utf-8");
+  writeFileSync(ticketsPath, JSON.stringify(toHomeRelativeDeep(ticketsData), null, 2) + "\n", "utf-8");
 }
 
 /**
@@ -208,10 +251,10 @@ function deriveGraphPath(source?: string): string | undefined {
  */
 export function getGraphPathFromTickets(ticketsPath: string): string {
   const raw = readFileSync(ticketsPath, "utf-8");
-  const data: TicketsJson = JSON.parse(raw);
+  const ticketsData: TicketsJson = JSON.parse(raw);
   const graphPath =
-    data.metadata?.resolvedPaths?.graphPath ??
-    deriveGraphPath(data.metadata?.source);
+    ticketsData.metadata?.resolvedPaths?.graphPath ??
+    deriveGraphPath(ticketsData.metadata?.source);
   return path.resolve(expandTilde(graphPath ?? ticketsPath));
 }
 
@@ -226,10 +269,10 @@ export function countPhasesAndTickets(
   ticketsPath: string,
 ): { phaseCount: number; ticketCount: number } {
   const raw = readFileSync(ticketsPath, "utf-8");
-  const data: TicketsJson = JSON.parse(raw);
+  const ticketsData: TicketsJson = JSON.parse(raw);
   return {
-    phaseCount: data.phases.length,
-    ticketCount: data.phases.reduce(
+    phaseCount: ticketsData.phases.length,
+    ticketCount: ticketsData.phases.reduce(
       (total, phase) => total + (phase.tickets?.length ?? 0),
       0,
     ),

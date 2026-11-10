@@ -14,6 +14,9 @@ import {
   getGraphPathFromTickets,
   countPhasesAndTickets,
   clearForNextRound,
+  pendingTicketsOf,
+  phaseProgress,
+  packageProgress,
 } from "./tickets.js";
 
 /** テスト用に一時ディレクトリに Tickets.json を書き込み、そのパスを返す */
@@ -564,5 +567,74 @@ describe("clearForNextRound", () => {
     assert.strictEqual(data.round, 2);
     assert.strictEqual(data.phases[0].tickets[0].title, "a");
     assert.strictEqual(data.phases[0].tickets[0].status, "todo");
+  });
+});
+
+describe("pendingTicketsOf — array order", () => {
+// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-403 --for-spec --no-implementation-order`.
+  it("preserves phase array order and ticket array order without sorting by id", () => {
+    const data = {
+      round: 1,
+      phases: [
+        { id: 1, name: "P1", tickets: [
+          { id: 9, phaseId: 1, status: "todo", title: "nine" },
+          { id: 2, phaseId: 1, status: "made", title: "two" },
+        ] },
+        { id: 0, name: "P0", tickets: [
+          { id: 7, phaseId: 0, status: "done", title: "seven" },
+        ] },
+      ],
+    };
+    const pending = pendingTicketsOf(data as never);
+    assert.deepStrictEqual(pending.map((ticket) => `${ticket.phaseId}:${ticket.id}`), [
+      "1:9",
+      "1:2",
+      "0:7",
+    ]);
+  });
+});
+
+describe("phaseProgress and packageProgress", () => {
+  const data = {
+    round: 1,
+    phases: [
+      { id: 0, name: "P0", tickets: [
+        { id: 1, phaseId: 0, status: "reviewed", title: "a" },
+        { id: 2, phaseId: 0, status: "R1", title: "b" },
+        { id: 3, phaseId: 0, status: "done", title: "c" },
+      ] },
+      { id: 1, name: "P1", tickets: [
+        { id: 1, phaseId: 1, status: "reviewed", title: "d" },
+      ] },
+    ],
+  };
+
+  it("reports phase completion, counts and the last ticket key", () => {
+    const progress = phaseProgress(data as never, 0);
+    assert.deepStrictEqual(progress, {
+      phaseId: 0,
+      total: 3,
+      reviewed: 2,
+      lastTicketKey: "P0-3",
+      complete: false,
+    });
+    assert.strictEqual(phaseProgress(data as never, 1).complete, true);
+  });
+
+  it("reports package completion only when every ticket is terminal", () => {
+    assert.deepStrictEqual(packageProgress(data as never), {
+      total: 4,
+      reviewed: 3,
+      allTerminal: false,
+    });
+  });
+
+  it("treats an empty package as complete with zero tickets", () => {
+    assert.deepStrictEqual(packageProgress({ round: 1, phases: [] } as never), {
+      total: 0,
+      reviewed: 0,
+      allTerminal: true,
+    });
   });
 });

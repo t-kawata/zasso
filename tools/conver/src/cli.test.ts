@@ -5,12 +5,13 @@
 // process.exit(1) / exit(0) を含むテスト（--help 表示、必須フラグ欠如など）は
 // test.sh の統合テストで検証する。本ファイルでは全フラグ指定時の正常系と
 // デフォルト値・型変換の確認に集中する。
-import path from "node:path";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseCliOptions, normalizeBaseUrl } from "./cli.js";
 
 describe("parseCliOptions", () => {
+// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-403 --for-spec --no-implementation-order`.
   it("全フラグ指定時のパース結果が期待値と一致する", () => {
     const argv = [
       "node",
@@ -19,8 +20,6 @@ describe("parseCliOptions", () => {
       "sk-test-key",
       "-s",
       "https://hooks.slack.com/test",
-      "-t",
-      "/path/to/Tickets.json",
       "-c",
       "5",
       "-r",
@@ -39,7 +38,7 @@ describe("parseCliOptions", () => {
     const options = parseCliOptions(argv);
     assert.strictEqual(options.apiKey, "sk-test-key");
     assert.strictEqual(options.slackWebhookUrl, "https://hooks.slack.com/test");
-    assert.strictEqual(options.ticketsPath, "/path/to/Tickets.json");
+    assert.deepStrictEqual(options.packages, []);
     assert.strictEqual(options.maxCount, 5);
     assert.strictEqual(options.resolveEvery, 1);
     assert.strictEqual(options.pushEnabled, false);
@@ -54,7 +53,7 @@ describe("parseCliOptions", () => {
     const options = parseCliOptions(argv);
     assert.strictEqual(options.model, "deepseek-flash");
     assert.strictEqual(options.baseUrl, "https://api.deepseek.com/anthropic");
-    assert.strictEqual(options.ticketsPath, path.resolve("./Tickets.json"));
+    assert.deepStrictEqual(options.packages, []);
     assert.strictEqual(options.maxCount, 999999);
     assert.strictEqual(options.resolveEvery, 3);
     assert.strictEqual(options.pushEnabled, true);
@@ -81,7 +80,8 @@ describe("parseCliOptions", () => {
       "node", "conver.js",
       "-k", "sk-test-key",
       "-s", "https://hooks.slack.com/test",
-      "-t", "/path/to/Tickets.json",
+      "-P", "doors-core",
+      "-P", "doors-operation",
       "-c", "5",
       "-r", "1",
       "-p", "0",
@@ -93,7 +93,7 @@ describe("parseCliOptions", () => {
     const options = parseCliOptions(argv);
     assert.strictEqual(options.apiKey, "sk-test-key");
     assert.strictEqual(options.slackWebhookUrl, "https://hooks.slack.com/test");
-    assert.strictEqual(options.ticketsPath, "/path/to/Tickets.json");
+    assert.deepStrictEqual(options.packages, ["doors-core", "doors-operation"]);
     assert.strictEqual(options.maxCount, 5);
     assert.strictEqual(options.resolveEvery, 1);
     assert.strictEqual(options.pushEnabled, false);
@@ -142,27 +142,33 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.resolveEvery, 1);
   });
 
-  // @verifies C005
-  // [::TICKET::] PX-145 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-145 --for-spec --no-implementation-order`.
-  it("-x 5 で maxRetries=5 になる（短縮フラグ）", () => {
-    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-x", "5"];
+  it("-P を繰り返すと package 配列になり、カンマ区切りも分割される", () => {
+    const argv = [
+      "node", "conver.js", "-k", "k", "-s", "s",
+      "-P", "doors-core,doors-operation", "-P", "pjsip-prebuilt",
+    ];
     const options = parseCliOptions(argv);
-    assert.strictEqual(options.maxRetries, 5);
+    assert.deepStrictEqual(options.packages, [
+      "doors-core",
+      "doors-operation",
+      "pjsip-prebuilt",
+    ]);
   });
 
-  // @verifies C005
-  it("--max-retries 省略でデフォルト 3 になる", () => {
-    const argv = ["node", "conver.js", "-k", "k", "-s", "s"];
+  it("--package のロングオプションも同じ配列になる", () => {
+    const argv = [
+      "node", "conver.js", "-k", "k", "-s", "s",
+      "--package", "doors-core", "--package", "doors-cli",
+    ];
     const options = parseCliOptions(argv);
-    assert.strictEqual(options.maxRetries, 3);
+    assert.deepStrictEqual(options.packages, ["doors-core", "doors-cli"]);
   });
 
-  // @verifies C005
-  it("-r 1 -x 7 が共存し resolveEvery/maxRetries 両方が正しい（-r 衝突なし）", () => {
-    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-r", "1", "-x", "7"];
+  it("-r と -P が共存し resolveEvery と packages が正しい", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-r", "1", "-P", "doors-core"];
     const options = parseCliOptions(argv);
     assert.strictEqual(options.resolveEvery, 1);
-    assert.strictEqual(options.maxRetries, 7);
+    assert.deepStrictEqual(options.packages, ["doors-core"]);
   });
 
   // @verifies C001
@@ -207,5 +213,27 @@ describe("parseCliOptions", () => {
     assert.strictEqual(normalizeBaseUrl("https://x/"), "https://x");
     assert.strictEqual(normalizeBaseUrl("https://x//"), "https://x");
     assert.strictEqual(normalizeBaseUrl("localhost:11434"), "localhost:11434");
+  });
+});
+
+describe("dashboard flags", () => {
+  it("--no-dashboard disables the fixed header", () => {
+    const options = parseCliOptions(["node", "conver.js", "-k", "k", "-s", "s", "--no-dashboard"]);
+    assert.strictEqual(options.noDashboard, true);
+  });
+
+  it("--dashboard-interval accepts a value in range and clamps out-of-range values", () => {
+    assert.strictEqual(
+      parseCliOptions(["node", "conver.js", "-k", "k", "-s", "s", "--dashboard-interval", "10"]).dashboardIntervalSeconds,
+      10,
+    );
+    assert.strictEqual(
+      parseCliOptions(["node", "conver.js", "-k", "k", "-s", "s", "--dashboard-interval", "0"]).dashboardIntervalSeconds,
+      1,
+    );
+    assert.strictEqual(
+      parseCliOptions(["node", "conver.js", "-k", "k", "-s", "s", "--dashboard-interval", "999"]).dashboardIntervalSeconds,
+      60,
+    );
   });
 });

@@ -10,6 +10,7 @@ import { describe, it, mock, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 // CronScheduler 型の参照のみ（動的 import で取得）
 import type { CronScheduler as CronSchedulerType } from "./cron-scheduler.js";
+import type { WatcherConfig } from "./watcher.js";
 
 /** node-cron のモックが生成する CronTask の型 */
 interface MockCronTask {
@@ -100,18 +101,20 @@ before(async () => {
 // ============================================================
 describe("CronScheduler", () => {
   /** テスト用の有効な WatcherConfig */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
   function validConfig(overrides?: Partial<{
     intervalMinutes: number;
     startTime: string;
     endTime: string;
     timezone: string;
-  }>) {
+  }>): WatcherConfig {
     return {
-      intervalMinutes: 30,
-      startTime: "09:00",
-      endTime: "17:30",
-      timezone: "Asia/Tokyo",
-      ...overrides,
+      intervalMinutes: overrides?.intervalMinutes ?? 30,
+      timezone: overrides?.timezone ?? "Asia/Tokyo",
+      filters: [{
+        startTime: overrides?.startTime ?? "09:00",
+        endTime: overrides?.endTime ?? "17:30",
+      }],
     };
   }
 

@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import * as acp from "@agentclientprotocol/sdk";
 import { CommandTimeoutError } from "./error.js";
 import { MessageLineWriter } from "./line-writer.js";
+import { composePrompt } from "./command-history.js";
 
 // claude-agent-acp バイナリの検索
 //
@@ -63,9 +64,23 @@ export interface AcpSession {
 }
 
 // runCommand のオプション
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 export interface RunCommandOptions {
   timeoutMs: number;
   verbose: boolean;
+  /** Repetition escalation level appended to the prompt (0 = none). */
+  escalationLevel?: number;
+  /** Receives every session/update notification before it is interpreted. */
+  onUpdate?: (update: acp.SessionUpdate) => void;
+  /** Called when the prompt turn ends, so a renderer can flush buffered text. */
+  onFlush?: () => void;
+}
+
+let agentStderrSink: (text: string) => void = (text) => process.stderr.write(text);
+
+/** Route child stderr through the display layer; tests can replace it. */
+export function setAgentStderrSink(sink: (text: string) => void): void {
+  agentStderrSink = sink;
 }
 
 // プロバイダー接続設定。claude-agent-acp（Claude Code）の ANTHROPIC_* env 契約に
@@ -113,10 +128,12 @@ export function buildSpawnEnv(config: SessionConfig): NodeJS.ProcessEnv {
 // （デフォルトは実 spawn）。既定動作を変えずに env の検証を可能にする。
 export function spawnAgent(
   config: SessionConfig,
+  cwd: string = process.cwd(),
   spawnFn: typeof spawn = spawn,
 ): { proc: ChildProcess; stream: acp.Stream } {
   const proc = spawnFn(ACP_BINARY, [], {
-    stdio: ["pipe", "pipe", "inherit"],
+    cwd,
+    stdio: ["pipe", "pipe", "pipe"],
     // プロセスグループリーダー化する。teardown で claude-code 孫プロセスまで
     // process.kill(-pid, sig) で確実に終了できるようにするため（PX-150 C004）。
     detached: true,
@@ -150,6 +167,10 @@ export function spawnAgent(
   // 発生しても確実に捕捉する。
   proc.stdin?.on("error", () => {});
   proc.stdout?.on("error", () => {});
+  proc.stderr?.on("error", () => {});
+  proc.stderr?.on("data", (chunk: Buffer | string) => {
+    agentStderrSink(chunk.toString());
+  });
 
   // Node.js Stream → Web Stream 変換 → ACP ndjson Stream
   // Writable.toWeb / Readable.toWeb は Node.js 26 の型では any を返すため、
@@ -198,7 +219,7 @@ export async function withSession<T>(
   config: SessionConfig,
   fn: (session: AcpSession) => Promise<T>,
 ): Promise<T> {
-  const { proc, stream } = spawnAgent(config);
+  const { proc, stream } = spawnAgent(config, cwd);
   const app = buildClientApp();
   return runSession(app, stream, proc, cwd, fn);
 }
@@ -269,6 +290,16 @@ export async function runSession<T>(
   });
 }
 
+/** Text payload of a content block, or an empty string for non-text blocks. */
+// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+function textOfContent(content: unknown): string {
+  if (content !== null && typeof content === "object" && "text" in content) {
+    const value = (content as { text?: unknown }).text;
+    return typeof value === "string" ? value : "";
+  }
+  return "";
+}
+
 // ACP セッションでコマンドを実行する
 //
 // prompt でコマンドを送信後、nextUpdate でストリーミング更新を読み取る。
@@ -304,6 +335,12 @@ export async function runCommand(
 
   // verbose 出力の行組み立て。finally の flush で端数を必ず改行して閉じる。
   const messageWriter = new MessageLineWriter((line) => process.stdout.write(line));
+  let rendererFlushed = false;
+  const flushRendererOnce = (): void => {
+    if (rendererFlushed) return;
+    rendererFlushed = true;
+    options.onFlush?.();
+  };
 
   try {
     // prompt() は非同期で開始し、nextUpdate() でストリーミング更新を
@@ -312,12 +349,14 @@ export async function runCommand(
     // 未処理 rejection の発生だけを防ぐ（PX-150 C001）。
     // Promise.resolve で包むのは、テストのモック prompt が非 Promise を
     // 返す場合にも .catch を安全に呼べるようにするため。
-    void Promise.resolve(acpSession.session.prompt(command)).catch(() => {
+    void Promise.resolve(
+      acpSession.session.prompt(composePrompt(command, options.escalationLevel ?? 0)),
+    ).catch(() => {
       // エラーは nextUpdate() 経由で拾われるためここでは握りつぶさない。
     });
 
     const startTime = Date.now();
-    let fullResponse = "";
+    let responseText = "";
 
     for (;;) {
       if (Date.now() - startTime >= options.timeoutMs) {
@@ -336,25 +375,27 @@ export async function runCommand(
       }
 
       if (msg.kind === "stop") {
+        flushRendererOnce();
         messageWriter.flush();
-        fullResponse = msg.response?.toString() ?? "";
         break;
       }
 
-      // verbose モード: agent_message_chunk（トークン単位の差分）を行単位で出力
-      if (
-        options.verbose &&
-        msg.kind === "session_update" &&
-        msg.update?.sessionUpdate === "agent_message_chunk"
-      ) {
-        const text = (msg.update.content as { text?: string })?.text ?? "";
-        messageWriter.push(text);
+      if (msg.kind === "session_update") {
+        options.onUpdate?.(msg.update);
+        if (msg.update.sessionUpdate === "agent_message_chunk") {
+          responseText += textOfContent(msg.update.content);
+          // The legacy verbose path remains for callers without a renderer.
+          if (options.onUpdate === undefined && options.verbose) {
+            messageWriter.push(textOfContent(msg.update.content));
+          }
+        }
       }
     }
 
-    return fullResponse;
+    return responseText;
   } finally {
     // タイムアウトや子プロセス終了で抜けた場合も、保留中の行を改行して閉じる。
+    flushRendererOnce();
     messageWriter.flush();
     // Always remove the exit listener so a teardown-time exit cannot reject an
     // already-settled promise or leak listeners across runCommand calls.

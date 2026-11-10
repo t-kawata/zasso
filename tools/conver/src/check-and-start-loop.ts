@@ -1,44 +1,17 @@
-// check-and-start-loop.ts — 定期点検ロジック
+// check-and-start-loop.ts — reentrancy-guarded workspace loop trigger.
 //
-// 責務:
-//   CronScheduler の定期コールバックとして動作し、Tickets.json に
-//   未reviewedチケットが存在する場合に runLoop を起動する。
-//   再入防止フラグにより、ループ実行中は別の定期点検をスキップする。
-//
-// 依存: P1-1 (tickets.ts — loadPendingTickets)
-//        P4-1 (runner.ts — runLoop, LoopOptions)
-// 依存出力: P8-3 (Watcher 起動パス — コールバック登録)
-//
-// 出力チャネル: 診断メッセージは stderr（console.error / console.warn）へ出す。
-//   本番コードでの console.log（stdout）は .claude/rules/typescript/coding-style.md
-//   で禁止され、run-quality-checks.js の debug_output チェックが major で検出する。
-//   再入スキップは警告なので、step-timer.ts のスキップ警告と同じ console.warn を使う。
-import { loadPendingTickets } from "./tickets.js";
-import { runLoop } from "./runner.js";
-import type { LoopOptions } from "./runner.js";
+// Retained for the watcher-style callers that want the guard separated from
+// the scheduler. The workspace loop itself resolves the package selection.
+import { runWorkspaceLoop } from "./runner.js";
+import type { WorkspaceLoopOptions } from "./runner.js";
 
-/** ループ実行中フラグ。CronScheduler のコールバックからの再入を防止する。 */
 let isLoopRunning = false;
 
-/**
- * CronScheduler の定期コールバックとして動作し、未reviewedチケットが
- * 存在する場合にループを開始する。
- *
- * 処理フロー:
- * 1. 既にループ実行中ならスキップ（再入防止）
- * 2. Tickets.json から未reviewedチケットを取得
- * 3. 件数が 0 なら何もせず return
- * 4. 件数が 1 以上なら runLoop を呼び出し
- * 5. 完了後に終了。エラー時も finally でフラグを確実にリセット
- *
- * @param ticketsPath Tickets.json のファイルパス
- * @param loopOptions runLoop に渡すオプション
- * @returns ループ完了時に解決。ループ不要時は即時解決。
- * @throws Tickets.json 読み込みエラー時、または runLoop 内部エラー時
- */
+/** Run the workspace loop unless a previous invocation is still active. */
 export async function checkAndStartLoop(
-  ticketsPath: string,
-  loopOptions: LoopOptions,
+// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-403 --for-spec --no-implementation-order`.
+  loopOptions: WorkspaceLoopOptions,
 ): Promise<void> {
   if (isLoopRunning) {
     console.warn("[Watcher] ループ実行中のためスキップします。");
@@ -47,17 +20,7 @@ export async function checkAndStartLoop(
 
   isLoopRunning = true;
   try {
-    const pendingTickets = loadPendingTickets(ticketsPath);
-    if (pendingTickets.length === 0) {
-      console.error("[Watcher] 未reviewedチケットはありません。");
-      return;
-    }
-
-    console.error(
-      `[Watcher] ${pendingTickets.length} 件の未reviewedチケットを検出しました。ループを開始します。`,
-    );
-    await runLoop(loopOptions);
-    console.error("[Watcher] ループが完了しました。");
+    await runWorkspaceLoop(loopOptions);
   } finally {
     isLoopRunning = false;
   }

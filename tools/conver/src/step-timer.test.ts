@@ -1,272 +1,113 @@
-// step-timer.test.ts — step-timer.ts のユニットテスト
-//
-// テスト対象: isWithinTimeWindow(), checkStepDeadline()
-// テスト戦略:
-//   - null/undefined の後方互換テスト: モック不要、純粋ロジック
-//   - 時間枠判定テスト: mock.module で isInTimeWindow を制御
-//   - エラー伝播テスト: mock で throw させて伝播確認
-import { describe, it, mock } from "node:test";
+// step-timer.test.ts — time-window delegation, deadline checks and waiting.
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { checkStepDeadline, isWithinTimeWindow, waitForWindow } from "./step-timer.js";
 import type { WatcherConfig } from "./watcher.js";
 
-// isInTimeWindow をモック化。テストごとに mockImplementation で制御する
-// 第5引数（daysOfWeek）は伝播検証のために捕捉する。
-// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
-const mockIsInTimeWindow = mock.fn(
-  (
-    _now: Date,
-    _start: string,
-    _end: string,
-    _tz: string,
-    _daysOfWeek?: number[],
-  ): boolean => true,
-);
-
-mock.module("./time-window.js", {
-  namedExports: {
-    isInTimeWindow: mockIsInTimeWindow,
-  },
-});
-
-// モック適用後に動的 import で step-timer を読み込む
-const { isWithinTimeWindow, checkStepDeadline, waitForWindow } = await import(
-  "./step-timer.js"
-);
-
-// テスト用の WatcherConfig
-const TEST_CONFIG: WatcherConfig = {
-  intervalMinutes: 60,
-  startTime: "09:00",
-  endTime: "17:00",
+const CONFIG: WatcherConfig = {
   timezone: "UTC",
+  intervalMinutes: 60,
+  filters: [{ startTime: "09:00", endTime: "17:00" }],
 };
 
-// ============================================================
-// isWithinTimeWindow のテスト
-// ============================================================
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function at(iso: string): Date {
+  return new Date(iso);
+}
+
 describe("isWithinTimeWindow", () => {
-  // afterEach 相当の処理を各テストの先頭で行う（型定義の制約による代替）
-
-  // --- 後方互換性 ---
-
-  it("config=null → true（後方互換）", () => {
+  it("returns true when no watcher config is present", () => {
     assert.strictEqual(isWithinTimeWindow(null), true);
-    // null の場合は isInTimeWindow が呼ばれない
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 0);
-  });
-
-  it("config=undefined → true（後方互換）", () => {
     assert.strictEqual(isWithinTimeWindow(undefined), true);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 0);
   });
 
-  // --- 時間枠内 ---
-
-  it("時間枠内（isInTimeWindow=true）→ true", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => true);
-    assert.strictEqual(isWithinTimeWindow(TEST_CONFIG), true);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
+  it("returns true inside a matching filter", () => {
+    assert.strictEqual(isWithinTimeWindow(CONFIG, () => at("2026-11-10T12:00:00Z")), true);
   });
 
-  // --- 時間枠外 ---
-
-  it("時間枠外開始前（isInTimeWindow=false）→ false", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => false);
-    assert.strictEqual(isWithinTimeWindow(TEST_CONFIG), false);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
+  it("returns false outside every filter", () => {
+    assert.strictEqual(isWithinTimeWindow(CONFIG, () => at("2026-11-10T20:00:00Z")), false);
   });
 
-  it("時間枠外終了後（isInTimeWindow=false）→ false", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => false);
-    assert.strictEqual(isWithinTimeWindow(TEST_CONFIG), false);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
-  });
-
-  // --- 日跨ぎ ---
-
-  it("日跨ぎ時間枠内（isInTimeWindow=true）→ true", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => true);
-    const crossDayConfig: WatcherConfig = {
-      intervalMinutes: 60,
-      startTime: "22:00",
-      endTime: "06:00",
-      timezone: "UTC",
+  it("returns true when any later filter matches", () => {
+    const config: WatcherConfig = {
+      ...CONFIG,
+      filters: [
+        { startTime: "20:00", endTime: "22:00" },
+        { startTime: "09:00", endTime: "18:00" },
+      ],
     };
-    assert.strictEqual(isWithinTimeWindow(crossDayConfig), true);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
-  });
-
-  it("日跨ぎ時間枠外（isInTimeWindow=false）→ false", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => false);
-    const crossDayConfig: WatcherConfig = {
-      intervalMinutes: 60,
-      startTime: "22:00",
-      endTime: "06:00",
-      timezone: "UTC",
-    };
-    assert.strictEqual(isWithinTimeWindow(crossDayConfig), false);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
-  });
-
-  // --- 引数伝播確認 ---
-
-  it("isInTimeWindow に正しい引数が渡される", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => true);
-    isWithinTimeWindow(TEST_CONFIG);
-    const call = mockIsInTimeWindow.mock.calls[0];
-    assert.ok(call.arguments[0] instanceof Date); // 第一引数は Date
-    assert.strictEqual(call.arguments[1], "09:00"); // startTime
-    assert.strictEqual(call.arguments[2], "17:00"); // endTime
-    assert.strictEqual(call.arguments[3], "UTC"); // timezone
-  });
-
-  // @verifies C003
-  it("isWithinTimeWindow が config.daysOfWeek を第5引数として isInTimeWindow に渡す", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => true);
-    const configWithDays: WatcherConfig = { ...TEST_CONFIG, daysOfWeek: [1, 2, 3] };
-
-    assert.strictEqual(isWithinTimeWindow(configWithDays), true);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
-    assert.deepStrictEqual(mockIsInTimeWindow.mock.calls[0].arguments[4], [1, 2, 3]);
+    assert.strictEqual(isWithinTimeWindow(config, () => at("2026-11-10T12:00:00Z")), true);
   });
 });
 
-// ============================================================
-// checkStepDeadline のテスト
-// ============================================================
 describe("checkStepDeadline", () => {
-  // afterEach 相当の処理を各テストの先頭で行う（型定義の制約による代替）
-
-  // --- 後方互換性 ---
-
-  it("config=null → true（常に通過）", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    assert.strictEqual(checkStepDeadline("make-ticket", null), true);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 0);
+  it("passes when no watcher config is present", () => {
+    assert.strictEqual(checkStepDeadline("make", null), true);
   });
 
-  it("config=undefined → true（常に通過）", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    assert.strictEqual(checkStepDeadline("make-ticket", undefined), true);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 0);
+  it("passes inside the window", () => {
+    assert.strictEqual(
+      checkStepDeadline("make", CONFIG, () => at("2026-11-10T12:00:00Z")),
+      true,
+    );
   });
 
-  // --- 時間枠内 ---
-
-  it("時間枠内 → true（実行可）", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => true);
-    assert.strictEqual(checkStepDeadline("start-ticket", TEST_CONFIG), true);
-    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
-  });
-
-  // --- 時間枠外（console.warn） ---
-
-  it("時間枠外 → false + console.warn 発行", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => false);
-
-    // console.warn を spy する
-    const warnCalls: string[] = [];
+  it("returns false and warns outside the window", () => {
+    const warnings: string[] = [];
     const originalWarn = console.warn;
-    console.warn = (...args: unknown[]) => {
-      warnCalls.push(args.map(String).join(" "));
-    };
-
+    console.warn = (message: string) => warnings.push(message);
     try {
-      const result = checkStepDeadline("review-ticket", TEST_CONFIG);
-
-      assert.strictEqual(result, false);
-      assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
-      assert.ok(warnCalls.length >= 1);
-      assert.ok(warnCalls[0].includes("review-ticket"));
-      assert.ok(warnCalls[0].includes("17:00")); // endTime
+      assert.strictEqual(
+        checkStepDeadline("make", CONFIG, () => at("2026-11-10T20:00:00Z")),
+        false,
+      );
     } finally {
       console.warn = originalWarn;
     }
-  });
-
-  // --- エラー伝播 ---
-
-  it("不正な config で isInTimeWindow が throw → エラー伝播", () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => {
-      throw new Error("無効な時刻形式");
-    });
-
-    const badConfig = { ...TEST_CONFIG, startTime: "invalid" };
-    assert.throws(
-      () => checkStepDeadline("make-ticket", badConfig),
-      /無効な時刻形式/,
-    );
+    assert.strictEqual(warnings.length, 1);
   });
 });
 
-// ============================================================
-// waitForWindow のテスト
-// @verifies C001
-// ============================================================
-// [::TICKET::] PX-174 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-174 --for-spec --no-implementation-order`.
 describe("waitForWindow", () => {
-  const config: WatcherConfig = {
-    intervalMinutes: 15,
-    startTime: "19:30",
-    endTime: "09:30",
-    timezone: "UTC",
-    daysOfWeek: [1],
-  };
-
-  it("枠内時刻 → sleep を呼ばず即 return", async () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    mockIsInTimeWindow.mock.mockImplementation(() => true);
-    const sleepSpy = mock.fn(async (_ms: number) => {});
-    await waitForWindow(config, 1, () => new Date(), sleepSpy);
-    assert.strictEqual(sleepSpy.mock.callCount(), 0);
+  it("returns immediately when inside the window", async () => {
+    let sleeps = 0;
+    await waitForWindow(
+      CONFIG,
+      1000,
+      () => at("2026-11-10T12:00:00Z"),
+      async () => {
+        sleeps++;
+      },
+    );
+    assert.strictEqual(sleeps, 0);
   });
 
-  it("枠外時刻 → sleep を1回呼び、枠内に進めたら return（sleep 引数 = sleepMs）", async () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    let inWindow = false;
-    mockIsInTimeWindow.mock.mockImplementation(() => inWindow);
-    const sleepAdvance = mock.fn(async (_ms: number) => {
-      inWindow = true;
+  it("sleeps until the clock enters the window", async () => {
+    const times = [
+      at("2026-11-10T20:00:00Z"),
+      at("2026-11-10T20:30:00Z"),
+      at("2026-11-10T21:00:00Z"),
+      at("2026-11-10T12:00:00Z"),
+    ];
+    let index = 0;
+    let sleeps = 0;
+    await waitForWindow(
+      CONFIG,
+      1000,
+      () => times[Math.min(index++, times.length - 1)]!,
+      async () => {
+        sleeps++;
+      },
+    );
+    assert.strictEqual(sleeps, 2);
+  });
+
+  it("is a no-op without a watcher config", async () => {
+    let sleeps = 0;
+    await waitForWindow(null, 1000, () => at("2026-11-10T20:00:00Z"), async () => {
+      sleeps++;
     });
-    await waitForWindow(config, 1, () => new Date(), sleepAdvance);
-    assert.strictEqual(sleepAdvance.mock.callCount(), 1);
-    assert.strictEqual(sleepAdvance.mock.calls[0].arguments[0], 1);
-  });
-
-  it("枠外継続 → sleep を複数回呼び、枠内で return（sleep 回数 = 枠外判定回数）", async () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    let inWindow = false;
-    let sleepCount = 0;
-    mockIsInTimeWindow.mock.mockImplementation(() => inWindow);
-    const sleepSeq = mock.fn(async (_ms: number) => {
-      sleepCount++;
-      if (sleepCount >= 2) inWindow = true;
-    });
-    await waitForWindow(config, 1, () => new Date(), sleepSeq);
-    assert.strictEqual(sleepSeq.mock.callCount(), 2);
-  });
-
-  it("config=null（非 Watcher）→ 即 return（no-op、sleep 未呼出）", async () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    const nullSleep = mock.fn(async (_ms: number) => {});
-    await waitForWindow(null, 1, () => new Date(), nullSleep);
-    assert.strictEqual(nullSleep.mock.callCount(), 0);
-  });
-
-  it("config=undefined（非 Watcher）→ 即 return（no-op、sleep 未呼出）", async () => {
-    mockIsInTimeWindow.mock.resetCalls();
-    const undefSleep = mock.fn(async (_ms: number) => {});
-    await waitForWindow(undefined, 1, () => new Date(), undefSleep);
-    assert.strictEqual(undefSleep.mock.callCount(), 0);
+    assert.strictEqual(sleeps, 0);
   });
 });

@@ -1,28 +1,40 @@
+// conver.ts — process entry: the 5-layer workspace gate, watcher and loop.
 import { parseCliOptions } from "./cli.js";
 import type { CliOptions } from "./cli.js";
-import { runLoop } from "./runner.js";
-import type { LoopOptions } from "./runner.js";
+import { runWorkspaceLoop } from "./runner.js";
+import type { WorkspaceLoopOptions } from "./runner.js";
 import { loadWatcherConfig } from "./watcher.js";
 import type { WatcherConfig } from "./watcher.js";
 import { isWithinTimeWindow } from "./step-timer.js";
 import { CronScheduler } from "./cron-scheduler.js";
+import {
+  readWorkspace,
+  resolveWorkspaceRoot,
+  validateImplementationOrder,
+  WorkspaceGateError,
+} from "./workspace.js";
+import type { WorkspaceModel } from "./workspace.js";
+import {
+  resolvePackageSelection,
+  PackageSelectionError,
+} from "./package-selection.js";
+import { LoopStoppedError } from "./runner.js";
+import { pendingTicketsOf } from "./tickets.js";
+import { readFileSync } from "node:fs";
+import readline from "node:readline";
+import { DisplayRenderer } from "./display/renderer.js";
+import { toDisplayEvent } from "./display/events.js";
+import { ProgressDashboard } from "./progress/dashboard.js";
+import { readProgressSnapshot } from "./progress/model.js";
+import { setAgentStderrSink } from "./session.js";
+import type { DisplayHooks } from "./runner.js";
 
-/**
- * Log a fatal error and continue. Used by the process-level crash handlers so
- * conver never dies with a raw unhandled-error trace and, crucially, never
- * exits mid-run: the night loop must only terminate at a defined completion
- * point (PX-150). The message is prefixed for greppability.
- */
-// [::TICKET::] PX-149, PX-150 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
+/** Log a fatal error without a raw trace. */
 export function reportFatalError(prefix: string, err: unknown): void {
   console.error(`${prefix}:`, err instanceof Error ? err.message : String(err));
 }
 
-/**
- * Install process-level crash handlers (uncaughtException / unhandledRejection)
- * that log and continue. Command-level errors are handled by runLoop's catch;
- * these handlers are a last-resort guard for anything outside that path.
- */
+/** Install process-level crash handlers that log and continue. */
 export function installCrashHandlers(): void {
   process.on("uncaughtException", (err) => {
     reportFatalError("致命的エラー (uncaughtException)", err);
@@ -32,31 +44,37 @@ export function installCrashHandlers(): void {
   });
 }
 
-/**
- * CliOptions を LoopOptions に変換する。
- * watcherConfig（string | undefined）は除外し、呼び出し側が設定する。
- */
-function buildLoopOptions(cli: CliOptions): LoopOptions {
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function hasPendingTickets(ticketsPath: string): boolean {
+  return pendingTicketsOf(JSON.parse(readFileSync(ticketsPath, "utf-8"))).length > 0;
+}
+
+/** Convert CLI options plus the validated model into loop options. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function buildLoopOptions(
+  cli: CliOptions,
+  model: WorkspaceModel,
+  display?: DisplayHooks,
+): WorkspaceLoopOptions {
   const { watcherConfig: _ignored, ...loop } = cli;
-  return loop;
+  return { ...loop, workspace: model, ...(display === undefined ? {} : { display }) };
 }
 
-/**
- * 通常モード: runLoop を1回実行して終了する。
- * watcherConfig が未指定の場合の起動パス。
- */
-async function runNormalMode(cli: CliOptions): Promise<void> {
-  await runLoop(buildLoopOptions(cli));
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+async function runNormalMode(
+  cli: CliOptions,
+  model: WorkspaceModel,
+  display?: DisplayHooks,
+): Promise<void> {
+  await runWorkspaceLoop(buildLoopOptions(cli, model, display));
 }
 
-/**
- * Watcher モード: 設定ファイルを読み込み、時間枠内でのみ
- * CronScheduler で定期的に runLoop を実行する。
- * SIGINT/SIGTERM でグレースフルシャットダウンする。
- */
-// [::TICKET::] PX-149, PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-149|PX-173) --for-spec --no-implementation-order`.
-async function runWatcherMode(cli: CliOptions): Promise<void> {
-  // Step 1: 設定ファイルの読み込みと検証
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+async function runWatcherMode(
+  cli: CliOptions,
+  model: WorkspaceModel,
+  display?: DisplayHooks,
+): Promise<void> {
   let config: WatcherConfig;
   try {
     config = loadWatcherConfig(cli.watcherConfig!);
@@ -69,43 +87,47 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
     return;
   }
 
-  // Step 2: 初回時間枠チェック — 枠外でもプロセスは生存し、初回 runLoop の waitForWindow が待機する
+  // Validate the selection before the first firing so an ambiguous or
+  // order-crossing choice fails at startup, not hours later.
+  resolvePackageSelection({
+    packages: model.packages,
+    requested: cli.packages.length > 0 ? cli.packages : config.packages ?? [],
+    hasPending: (pkg) => hasPendingTickets(pkg.ticketsPath),
+  });
+
   if (!isWithinTimeWindow(config)) {
     process.stdout.write(
       "Watcher mode: 現在時刻は時間枠外です。枠内に戻るまで待機します（cron 発火時に waitForWindow が再判定）\n",
     );
   }
 
-  // Step 3: ループオプションを構築し、CronScheduler を起動
-  const loopOptions = buildLoopOptions(cli);
+  const loopOptions = buildLoopOptions(cli, model, display);
   loopOptions.watcherConfig = config;
-
-  // 実行中フラグ — 前回の runLoop 完了前に次の発火が来た場合はスキップする
   let isLoopRunning = false;
 
   const scheduler = new CronScheduler(config);
   scheduler.start(() => {
     if (isLoopRunning) {
-      console.warn(
-        "Watcher mode: 前回の runLoop が未完了のためスキップします",
-      );
+      console.warn("Watcher mode: 前回の runLoop が未完了のためスキップします");
       return;
     }
-
     isLoopRunning = true;
-    runLoop(loopOptions)
+    runWorkspaceLoop(loopOptions)
       .catch((err) => {
         console.error(
           "Watcher runLoop error:",
           err instanceof Error ? err.message : err,
         );
+        if (err instanceof LoopStoppedError) {
+          scheduler.stop();
+          process.exit(1);
+        }
       })
       .finally(() => {
         isLoopRunning = false;
       });
   });
 
-  // Step 4: SIGINT/SIGTERM でグレースフルシャットダウン
   function cleanup(): void {
     scheduler.stop();
     process.exit(0);
@@ -113,28 +135,98 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
 
+  const windows = config.filters
+    .map((filter) => `${filter.startTime}-${filter.endTime}`)
+    .join(", ");
   process.stdout.write(
     `Watcher mode started: interval=${config.intervalMinutes}min, ` +
-      `window=${config.startTime}-${config.endTime}, ` +
-      `days=${config.daysOfWeek?.join("-") ?? "all"}, tz=${config.timezone}\n`,
+      `filters=${windows}, tz=${config.timezone}\n`,
   );
 }
 
 export async function main(): Promise<void> {
-// [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
   const options = parseCliOptions(process.argv);
 
-  // -k 省略時は keyless モードの旨を警告する（認証必須プロバイダーでは上流エラーになる）
   if (options.apiKey === "") {
     process.stderr.write(
       "警告: -k/--api-key が未指定です（keyless プロバイダー向け）。認証が必要なプロバイダーでは指定してください。\n",
     );
   }
 
-  process.stdout.write("conver.js — チケット処理を開始します\n");
+  let model: WorkspaceModel;
+  try {
+    const root = resolveWorkspaceRoot(process.cwd());
+    validateImplementationOrder(root);
+    model = readWorkspace(root);
+  } catch (error) {
+    if (!(error instanceof WorkspaceGateError)) {
+      throw error;
+    }
+    process.stderr.write(`conver.js — workspace gate failed: ${error.message}\n`);
+    process.exit(1);
+    return;
+  }
+
+  const richDisplay = process.stdout.isTTY === true;
+  const dashboardEnabled = richDisplay && !options.noDashboard;
+  const renderer = richDisplay
+    ? new DisplayRenderer({
+        width: process.stdout.columns ?? 120,
+        color: true,
+        write: (chunk) => process.stdout.write(chunk),
+      })
+    : null;
+  const dashboard = dashboardEnabled && renderer !== null
+    ? new ProgressDashboard({
+        workspace: model,
+        intervalMs: options.dashboardIntervalSeconds * 1000,
+        isTty: true,
+        write: (chunk) => process.stdout.write(chunk),
+        readSnapshot: () => readProgressSnapshot(model),
+        terminalSize: () => ({
+          columns: process.stdout.columns ?? 120,
+          rows: process.stdout.rows ?? 24,
+        }),
+        now: Date.now,
+        setRawMode: (enabled) => process.stdin.setRawMode?.(enabled),
+      })
+    : null;
+  if (renderer !== null) setAgentStderrSink((text) => renderer.writeStderr(text));
+
+  let keypressHandler: ((text: string, key: readline.Key) => void) | null = null;
+  const onResize = (): void => dashboard?.handleResize();
+// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+  function shutdown(code: number): never {
+    dashboard?.stop();
+    if (keypressHandler !== null) process.stdin.off("keypress", keypressHandler);
+    process.removeListener("SIGWINCH", onResize);
+    process.exit(code);
+  }
+  if (dashboard !== null && process.stdin.isTTY === true) {
+    readline.emitKeypressEvents(process.stdin);
+    keypressHandler = (_text, key) => {
+      dashboard.handleKeypress(key?.name ?? "", key?.ctrl === true);
+      if (key?.ctrl === true && key.name === "c") shutdown(0);
+    };
+    process.stdin.on("keypress", keypressHandler);
+    process.on("SIGWINCH", onResize);
+  }
+  process.once("exit", () => dashboard?.stop());
+
+  const display: DisplayHooks | undefined = renderer === null
+    ? undefined
+    : {
+        onUpdate: (update) => renderer.handle(toDisplayEvent(update)),
+        onFlush: () => renderer.flush(),
+        onPackageStart: (packageName) => dashboard?.follow(packageName),
+      };
+  dashboard?.start();
+
+  process.stdout.write("conver.js — ワークスペース処理を開始します\n");
+  process.stdout.write(`  workspace=${model.name}\n`);
+  process.stdout.write(`  packages=${model.packages.length}\n`);
   process.stdout.write(`  model=${options.model}\n`);
   process.stdout.write(`  baseUrl=${options.baseUrl}\n`);
-  process.stdout.write(`  ticketsPath=${options.ticketsPath}\n`);
   process.stdout.write(`  maxCount=${options.maxCount}\n`);
   process.stdout.write(`  resolveEvery=${options.resolveEvery}\n`);
   process.stdout.write(`  pushEnabled=${options.pushEnabled}\n`);
@@ -142,10 +234,32 @@ export async function main(): Promise<void> {
   process.stdout.write(`  noFind=${options.noFind}\n`);
   process.stdout.write(`  watcherConfig=${options.watcherConfig}\n`);
 
-  if (options.watcherConfig) {
-    await runWatcherMode(options);
-  } else {
-    await runNormalMode(options);
+  try {
+    if (options.watcherConfig) {
+      await runWatcherMode(options, model, display);
+    } else {
+      await runNormalMode(options, model, display);
+    }
+  } catch (error) {
+    if (error instanceof LoopStoppedError) {
+      process.stderr.write(`conver.js — stopped: ${error.context.reason}\n`);
+      shutdown(1);
+    } else if (error instanceof PackageSelectionError) {
+      process.stderr.write(
+        `conver.js — package selection failed: ${error.message}` +
+          (error.candidates.length === 0 ? "\n" : ` (candidates: ${error.candidates.join(", ")})\n`),
+      );
+      shutdown(1);
+    } else {
+      process.stderr.write(
+        `conver.js — fatal: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      shutdown(1);
+    }
+  } finally {
+    // Normal completion must release the poll timer; watcher mode exits via
+    // shutdown(), whose exit handler also stops the dashboard.
+    dashboard?.stop();
   }
 }
 

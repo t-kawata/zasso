@@ -1,196 +1,269 @@
-// watcher.ts — Watcher 設定ファイルの型定義・バリデーション・読み込み
+// watcher.ts — prioritized watcher filters, validation and config loading.
 //
-// 責務:
-// - WatcherConfig インターフェースの定義（intervalMinutes, startTime, endTime, timezone）
-// - ValidationResult インターフェースの定義
-// - validateWatcherConfig: 純粋関数による全フィールド検証
-// - loadWatcherConfig: ファイル読み込み + JSONパース + バリデーションの一貫実行
-//
-// Layer 0/1 純粋ロジック（loadWatcherConfig のみファイルI/Oを含む）
+// A watcher config holds one top-level interval and an ordered list of
+// filters. Filters are evaluated low index first; the first match decides
+// whether the firing runs, and no match means the firing waits. The legacy
+// single-window shape is normalized to a one-element filter list so existing
+// workspace configs keep working without being edited.
 import { readFileSync } from "node:fs";
+import { getWindowStartIsoDate, isInTimeWindow } from "./time-window.js";
 
-/** "HH:mm" 形式（24時間表記）の検証用正規表現 */
 const TIME_FORMAT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-/** intervalMinutes の最小値（分） */
+const DATE_FORMAT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const INTERVAL_MIN_MINUTES = 1;
-
-/** intervalMinutes の最大値（分）= 365日 × 24時間 × 60分 */
 const INTERVAL_MAX_MINUTES = 525_600;
 
-/**
- * Watcher 設定ファイルの型定義。
- * -w/--watcher フラグで指定されるJSON設定ファイルの内容に対応する。
- */
-// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
-export interface WatcherConfig {
-  /** 定期実行間隔（分）。1以上、525600（1年分）以下。 */
-  intervalMinutes: number;
-  /** 開始時刻 "HH:mm" 形式（24時間表記）。例: "09:00" */
-  startTime: string;
-  /** 終了時刻 "HH:mm" 形式（24時間表記）。例: "17:30" */
-  endTime: string;
-  /** IANA タイムゾーン名。例: "Asia/Tokyo", "America/New_York" */
-  timezone: string;
-  /** 実行を許可する曜日（0=日曜〜6=土曜）。未指定は全曜日。 */
+/** One prioritized execution filter. All present conditions must hold. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+export interface WatcherFilter {
+  /** Exact calendar dates (YYYY-MM-DD) on which the filter may match. */
+  days?: string[];
+  /** Allowed weekdays (0=Sunday..6=Saturday). */
   daysOfWeek?: number[];
+  /** Window start "HH:mm". */
+  startTime: string;
+  /** Window end "HH:mm". */
+  endTime: string;
 }
 
-/**
- * バリデーション結果。
- * valid が false の場合、errors に検証エラーメッセージが格納される。
- */
+/** The watcher configuration consumed by conver. */
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+export interface WatcherConfig {
+  /** IANA timezone name. */
+  timezone: string;
+  /** The single execution interval, in minutes, shared by every filter. */
+  intervalMinutes: number;
+  /** Optional package selection; empty or absent means every package. */
+  packages?: string[];
+  /** Ordered filters; lower index has higher priority. */
+  filters: WatcherFilter[];
+}
+
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
 }
 
-/**
- * 設定オブジェクトが正しい WatcherConfig か検証する純粋関数。
- * ファイルI/Oは行わず、与えられたオブジェクトの各フィールドを型・値範囲・
- * フォーマットの観点で検証する。
- * @param config 検証対象のオブジェクト（unknown として受け取り安全に狭める）
- * @returns 検証結果
- */
-export function validateWatcherConfig(config: unknown): ValidationResult {
-  const errors: string[] = [];
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
 
-  if (config === null || config === undefined || typeof config !== "object") {
-    errors.push("設定が null、undefined、またはオブジェクトではありません");
-    return { valid: false, errors };
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function isValidTimezone(timezone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
   }
+}
 
-  const candidate = config as Record<string, unknown>;
-
-  // intervalMinutes の検証
-  if (candidate.intervalMinutes === undefined || candidate.intervalMinutes === null) {
-    errors.push("intervalMinutes が設定されていません");
-  } else if (typeof candidate.intervalMinutes !== "number") {
-    errors.push("intervalMinutes は数値である必要があります");
-  } else if (!Number.isInteger(candidate.intervalMinutes)) {
-    errors.push("intervalMinutes は整数である必要があります");
-  } else if (
-    candidate.intervalMinutes < INTERVAL_MIN_MINUTES ||
-    candidate.intervalMinutes > INTERVAL_MAX_MINUTES
-  ) {
-    errors.push(
-      `intervalMinutes は ${INTERVAL_MIN_MINUTES} 以上 ${INTERVAL_MAX_MINUTES} 以下である必要があります`,
-    );
-  }
-
-  // startTime の検証
-  if (candidate.startTime === undefined || candidate.startTime === null) {
-    errors.push("startTime が設定されていません");
-  } else if (typeof candidate.startTime !== "string") {
-    errors.push("startTime は文字列である必要があります");
-  } else if (!TIME_FORMAT_PATTERN.test(candidate.startTime)) {
-    errors.push(
-      `startTime の形式が不正です（"HH:mm" 形式、例: "09:00"）: ${candidate.startTime}`,
-    );
-  }
-
-  // endTime の検証
-  if (candidate.endTime === undefined || candidate.endTime === null) {
-    errors.push("endTime が設定されていません");
-  } else if (typeof candidate.endTime !== "string") {
-    errors.push("endTime は文字列である必要があります");
-  } else if (!TIME_FORMAT_PATTERN.test(candidate.endTime)) {
-    errors.push(
-      `endTime の形式が不正です（"HH:mm" 形式、例: "17:30"）: ${candidate.endTime}`,
-    );
-  }
-
-  // timezone の検証
-  if (candidate.timezone === undefined || candidate.timezone === null) {
-    errors.push("timezone が設定されていません");
-  } else if (typeof candidate.timezone !== "string") {
-    errors.push("timezone は文字列である必要があります");
-  } else if (candidate.timezone.trim() === "") {
-    errors.push("timezone が空文字です");
-  } else if (!isValidTimezone(candidate.timezone)) {
-    errors.push(
-      `timezone が有効なIANAタイムゾーン名ではありません: ${candidate.timezone}`,
-    );
-  }
-
-  // daysOfWeek の検証（オプショナル — 未指定は全曜日）
-  validateDaysOfWeek(candidate.daysOfWeek, errors);
-
-  return { valid: errors.length === 0, errors };
+/** True only for a real calendar date in YYYY-MM-DD form. */
+export function isRealIsoDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = DATE_FORMAT_PATTERN.exec(value);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }
 
 /**
- * daysOfWeek を検証する。undefined / null は許容（全曜日 = 後方互換）。
- * @param value 検証対象の値（WatcherConfig.daysOfWeek）
- * @param errors 検証エラーを追記する配列
+ * Convert the legacy single-window shape into the filter array. The new shape
+ * is returned unchanged (a defensive copy is not needed because the loader
+ * validates before use and conver only reads the result).
  */
-// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
-function validateDaysOfWeek(value: unknown, errors: string[]): void {
-  if (value === undefined || value === null) {
-    return;
+export function normalizeWatcherConfig(raw: unknown): WatcherConfig {
+  const record = isRecord(raw) ? raw : {};
+  let filters: WatcherFilter[];
+  if (Array.isArray(record.filters)) {
+    filters = record.filters as WatcherFilter[];
+  } else if (typeof record.startTime === "string" && typeof record.endTime === "string") {
+    filters = [{
+      startTime: record.startTime,
+      endTime: record.endTime,
+      ...(Array.isArray(record.daysOfWeek) ? { daysOfWeek: record.daysOfWeek as number[] } : {}),
+    }];
+  } else {
+    filters = [];
   }
+  return {
+    timezone: typeof record.timezone === "string" ? record.timezone : "",
+    intervalMinutes: typeof record.intervalMinutes === "number" ? record.intervalMinutes : NaN,
+    ...(Array.isArray(record.packages) ? { packages: record.packages as string[] } : {}),
+    filters,
+  };
+}
+
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function validateDaysOfWeek(value: unknown, errors: string[], label: string): void {
+  if (value === undefined || value === null) return;
   if (!Array.isArray(value)) {
-    errors.push("daysOfWeek は配列である必要があります");
+    errors.push(`${label} must be an array`);
     return;
   }
   if (value.length === 0) {
-    errors.push("daysOfWeek は空配列にできません（未指定なら省略してください）");
+    errors.push(`${label} must not be empty (omit it for every day)`);
     return;
   }
   const seen = new Set<number>();
   for (const item of value) {
     if (typeof item !== "number" || !Number.isInteger(item)) {
-      errors.push(`daysOfWeek の要素は整数である必要があります: ${item}`);
+      errors.push(`${label} entries must be integers: ${String(item)}`);
     } else if (item < 0 || item > 6) {
-      errors.push(
-        `daysOfWeek の要素は 0(日)〜6(土) の範囲である必要があります: ${item}`,
-      );
+      errors.push(`${label} entries must be 0..6: ${item}`);
     } else if (seen.has(item)) {
-      errors.push(`daysOfWeek に重複した値があります: ${item}`);
+      errors.push(`${label} has a duplicate: ${item}`);
     } else {
       seen.add(item);
     }
   }
 }
 
-/**
- * 文字列が有効な IANA タイムゾーン名か検証する。
- * Node.js の Intl.supportedValuesOf("timeZone") で判定する。
- * @param tz 検証対象のタイムゾーン名
- * @returns 有効なタイムゾーンなら true
- */
-// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
-function isValidTimezone(tz: string): boolean {
-  try {
-    // Intl.supportedValuesOf("timeZone") は有効な IANA 名の一部（例: "UTC"）を
-    // 返さないことがあるため、実際に Intl.DateTimeFormat が構築できるかで判定する。
-    new Intl.DateTimeFormat("en-US", { timeZone: tz });
-    return true;
-  } catch {
-    // 不正なタイムゾーン名は RangeError になり false を返す
-    return false;
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function validateDays(value: unknown, errors: string[], label: string): void {
+  if (value === undefined || value === null) return;
+  if (!Array.isArray(value)) {
+    errors.push(`${label} must be an array`);
+    return;
+  }
+  if (value.length === 0) {
+    errors.push(`${label} must not be empty (omit it for every date)`);
+    return;
+  }
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (!isRealIsoDate(item)) {
+      errors.push(`${label} entry is not a real YYYY-MM-DD date: ${String(item)}`);
+    } else if (seen.has(item)) {
+      errors.push(`${label} has a duplicate: ${item}`);
+    } else {
+      seen.add(item);
+    }
   }
 }
 
-/**
- * JSON 設定ファイルを読み込み、パース・バリデーションして WatcherConfig を返す。
- * ファイルが存在しない、JSON として不正、またはバリデーションに失敗した場合は
- * Error を throw する。
- * @param configPath 設定ファイルのパス
- * @returns 検証済みの WatcherConfig
- * @throws ファイル不在時は ENOENT、JSONパースエラー時は SyntaxError、
- *         バリデーション失敗時は Error（メッセージに詳細を含む）
- */
-export function loadWatcherConfig(configPath: string): WatcherConfig {
-  const raw = readFileSync(configPath, "utf-8");
-  const parsed: unknown = JSON.parse(raw);
-  const validation = validateWatcherConfig(parsed);
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function validateFilter(filter: unknown, index: number, errors: string[]): void {
+  const label = `filters[${index}]`;
+  if (!isRecord(filter)) {
+    errors.push(`${label} must be an object`);
+    return;
+  }
+  if (typeof filter.startTime !== "string" || !TIME_FORMAT_PATTERN.test(filter.startTime)) {
+    errors.push(`${label}.startTime must be "HH:mm": ${String(filter.startTime)}`);
+  }
+  if (typeof filter.endTime !== "string" || !TIME_FORMAT_PATTERN.test(filter.endTime)) {
+    errors.push(`${label}.endTime must be "HH:mm": ${String(filter.endTime)}`);
+  }
+  validateDaysOfWeek(filter.daysOfWeek, errors, `${label}.daysOfWeek`);
+  validateDays(filter.days, errors, `${label}.days`);
+}
 
-  if (!validation.valid) {
-    throw new Error(
-      `Watcher 設定ファイルのバリデーションに失敗しました: ${validation.errors.join("; ")}`,
-    );
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function validatePackages(value: unknown, errors: string[]): void {
+  if (value === undefined || value === null) return;
+  if (!Array.isArray(value)) {
+    errors.push("packages must be an array");
+    return;
+  }
+  if (value.length === 0) {
+    errors.push("packages must not be empty (omit it for every package)");
+    return;
+  }
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string" || item.trim() === "") {
+      errors.push(`packages entries must be non-empty strings: ${String(item)}`);
+    } else if (seen.has(item)) {
+      errors.push(`packages has a duplicate: ${item}`);
+    } else {
+      seen.add(item);
+    }
+  }
+}
+
+/** Validate either the new filter shape or the legacy single-window shape. */
+export function validateWatcherConfig(config: unknown): ValidationResult {
+  const errors: string[] = [];
+  if (!isRecord(config)) {
+    return { valid: false, errors: ["config must be an object"] };
   }
 
-  return parsed as WatcherConfig;
+  const normalized = normalizeWatcherConfig(config);
+  if (
+    typeof normalized.intervalMinutes !== "number" ||
+    !Number.isInteger(normalized.intervalMinutes) ||
+    normalized.intervalMinutes < INTERVAL_MIN_MINUTES ||
+    normalized.intervalMinutes > INTERVAL_MAX_MINUTES
+  ) {
+    errors.push(
+      `intervalMinutes must be an integer ${INTERVAL_MIN_MINUTES}..${INTERVAL_MAX_MINUTES}`,
+    );
+  }
+  if (typeof config.timezone !== "string" || config.timezone.trim() === "") {
+    errors.push("timezone must be a non-empty string");
+  } else if (!isValidTimezone(config.timezone)) {
+    errors.push(`timezone is not a valid IANA timezone: ${config.timezone}`);
+  }
+  if (!Array.isArray(config.filters) && !(typeof config.startTime === "string" && typeof config.endTime === "string")) {
+    errors.push("filters must be a non-empty array (or provide the legacy startTime/endTime)");
+  }
+  if (Array.isArray(config.filters) && config.filters.length === 0) {
+    errors.push("filters must not be empty");
+  }
+  normalized.filters.forEach((filter, index) => validateFilter(filter, index, errors));
+  validatePackages(config.packages, errors);
+
+  return { valid: errors.length === 0, errors };
+}
+
+/** Load, validate and normalize a watcher config file. */
+export function loadWatcherConfig(configPath: string): WatcherConfig {
+  const raw: unknown = JSON.parse(readFileSync(configPath, "utf-8"));
+  const validation = validateWatcherConfig(raw);
+  if (!validation.valid) {
+    throw new Error(
+      `Watcher config validation failed: ${validation.errors.join("; ")}`,
+    );
+  }
+  return normalizeWatcherConfig(raw);
+}
+
+/**
+ * True when the instant matches at least one filter. Filters are evaluated in
+ * order and the first match wins; no match means the firing waits.
+ */
+export function isWithinAnyFilter(config: WatcherConfig, now: Date): boolean {
+  for (const filter of config.filters) {
+    if (filter.days !== undefined) {
+      const startDate = getWindowStartIsoDate(
+        now,
+        filter.startTime,
+        filter.endTime,
+        config.timezone,
+      );
+      if (!filter.days.includes(startDate)) continue;
+    }
+    if (
+      !isInTimeWindow(
+        now,
+        filter.startTime,
+        filter.endTime,
+        config.timezone,
+        filter.daysOfWeek,
+      )
+    ) {
+      continue;
+    }
+    return true;
+  }
+  return false;
 }

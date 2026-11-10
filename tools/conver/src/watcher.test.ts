@@ -1,295 +1,230 @@
-// watcher.test.ts — watcher.ts のユニットテスト
-// ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
-//
-// loadWatcherConfig のファイルI/Oテストは一時ファイルを作成して行う。
+// watcher.test.ts — prioritized filters, days and legacy config normalization.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync, mkdtempSync } from "node:fs";
-import { join } from "node:path";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
-  WatcherConfig,
-  ValidationResult,
-  validateWatcherConfig,
+  isWithinAnyFilter,
   loadWatcherConfig,
+  normalizeWatcherConfig,
+  validateWatcherConfig,
 } from "./watcher.js";
+import type { WatcherConfig } from "./watcher.js";
 
-/** 完全に有効な WatcherConfig オブジェクト */
-function validConfig(): WatcherConfig {
+// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+function config(overrides: Partial<WatcherConfig> = {}): WatcherConfig {
   return {
-    intervalMinutes: 30,
-    startTime: "09:00",
-    endTime: "17:30",
     timezone: "Asia/Tokyo",
+    intervalMinutes: 5,
+    filters: [{ startTime: "09:00", endTime: "18:00" }],
+    ...overrides,
   };
 }
 
-/** テスト用に一時ディレクトリに JSON 設定ファイルを書き込み、そのパスを返す */
-function writeTempConfig(data: unknown): string {
-  const dir = mkdtempSync(join(tmpdir(), "wc-"));
-  const path = join(dir, "watcher-config.json");
-  writeFileSync(path, JSON.stringify(data), "utf-8");
-  return path;
-}
+/** 2026-11-10T03:00:00Z = 2026-11-10 12:00 Asia/Tokyo */
+const NOON_TOKYO = new Date("2026-11-10T03:00:00Z");
+/** 2026-11-10T14:00:00Z = 2026-11-10 23:00 Asia/Tokyo */
+const LATE_TOKYO = new Date("2026-11-10T14:00:00Z");
+/** 2026-11-10T17:00:00Z = 2026-11-11 02:00 Asia/Tokyo */
+const AFTER_MIDNIGHT_TOKYO = new Date("2026-11-10T17:00:00Z");
 
-// ============================================================
-// validateWatcherConfig のテスト
-// ============================================================
 describe("validateWatcherConfig", () => {
-  // --- 正常系 ---
-  it("全フィールドが正しい有効値 → valid: true, errors: []", () => {
-    const result = validateWatcherConfig(validConfig());
-    assert.strictEqual(result.valid, true);
-    assert.deepStrictEqual(result.errors, []);
+  it("accepts the new filter shape", () => {
+    const result = validateWatcherConfig(config());
+    assert.deepStrictEqual(result, { valid: true, errors: [] });
   });
 
-  it("intervalMinutes=1（最小値）→ valid: true", () => {
-    const config = { ...validConfig(), intervalMinutes: 1 };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, true);
-  });
-
-  it("intervalMinutes=525600（最大値）→ valid: true", () => {
-    const config = { ...validConfig(), intervalMinutes: 525_600 };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, true);
-  });
-
-  it("startTime=00:00（境界値）→ valid: true", () => {
-    const config = { ...validConfig(), startTime: "00:00" };
-    const result = validateWatcherConfig(config);
+  it("accepts days and daysOfWeek together", () => {
+    const result = validateWatcherConfig(
+      config({
+        filters: [
+          {
+            days: ["2026-11-10", "2026-11-11"],
+            daysOfWeek: [1, 2, 3],
+            startTime: "09:00",
+            endTime: "18:00",
+          },
+        ],
+      }),
+    );
     assert.strictEqual(result.valid, true);
   });
 
-  it("endTime=23:59（境界値）→ valid: true", () => {
-    const config = { ...validConfig(), endTime: "23:59" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, true);
+  it("rejects a missing or invalid intervalMinutes", () => {
+    for (const intervalMinutes of [undefined, 0, 1.5, "5", 525_601]) {
+      const result = validateWatcherConfig({ ...config(), intervalMinutes });
+      assert.strictEqual(result.valid, false);
+    }
   });
 
-  // --- 異常系: 型・構造エラー ---
-  it("null 入力 → errors に欠落エラー", () => {
-    const result = validateWatcherConfig(null);
+  it("rejects an empty filters array", () => {
+    const result = validateWatcherConfig(config({ filters: [] }));
     assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.length > 0);
+    assert.ok(result.errors.some((error) => error.includes("filters")));
   });
 
-  it("undefined 入力 → errors に欠落エラー", () => {
-    const result = validateWatcherConfig(undefined);
+  it("rejects an invalid time in a filter", () => {
+    const result = validateWatcherConfig(
+      config({ filters: [{ startTime: "25:00", endTime: "18:00" }] }),
+    );
     assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.length > 0);
   });
 
-  it("{} 空オブジェクト → errors に全4フィールド欠落", () => {
-    const result = validateWatcherConfig({});
-    assert.strictEqual(result.valid, false);
-    assert.strictEqual(result.errors.length, 4);
+  it("rejects invalid days: bad format, impossible date, duplicate, empty", () => {
+    const invalidDays = [
+      ["2026/11/10"],
+      ["2026-02-30"],
+      ["2026-11-10", "2026-11-10"],
+      [],
+    ];
+    for (const days of invalidDays) {
+      const result = validateWatcherConfig(
+        config({ filters: [{ days, startTime: "09:00", endTime: "18:00" }] }),
+      );
+      assert.strictEqual(result.valid, false, JSON.stringify(days));
+    }
   });
 
-  // --- 異常系: intervalMinutes ---
-  it("intervalMinutes=0 → errors に範囲エラー", () => {
-    const config = { ...validConfig(), intervalMinutes: 0 };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("intervalMinutes")));
+  it("rejects a duplicated or invalid daysOfWeek", () => {
+    for (const daysOfWeek of [[7], [1, 1], [1.5], []]) {
+      const result = validateWatcherConfig(
+        config({ filters: [{ daysOfWeek, startTime: "09:00", endTime: "18:00" }] }),
+      );
+      assert.strictEqual(result.valid, false, JSON.stringify(daysOfWeek));
+    }
   });
 
-  it("intervalMinutes=-1 → errors に範囲エラー", () => {
-    const config = { ...validConfig(), intervalMinutes: -1 };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("intervalMinutes")));
-  });
-
-  it("intervalMinutes=1.5（小数）→ errors に整数チェックエラー", () => {
-    const config = { ...validConfig(), intervalMinutes: 1.5 };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("整数")));
-  });
-
-  it('intervalMinutes="abc"（非数値）→ errors に型エラー', () => {
-    const config = { ...validConfig(), intervalMinutes: "abc" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("数値")));
-  });
-
-  // --- 異常系: startTime ---
-  it('startTime="25:00"（時が範囲外）→ errors にフォーマットエラー', () => {
-    const config = { ...validConfig(), startTime: "25:00" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("startTime")));
-  });
-
-  it('startTime="09:60"（分が範囲外）→ errors にフォーマットエラー', () => {
-    const config = { ...validConfig(), startTime: "09:60" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("startTime")));
-  });
-
-  it('startTime=""（空文字）→ errors にフォーマットエラー', () => {
-    const config = { ...validConfig(), startTime: "" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("startTime")));
-  });
-
-  // --- 異常系: endTime ---
-  it('endTime="abc" → errors にフォーマットエラー', () => {
-    const config = { ...validConfig(), endTime: "abc" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("endTime")));
-  });
-
-  // --- 異常系: timezone ---
-  it('timezone=""（空文字）→ errors にタイムゾーンエラー', () => {
-    const config = { ...validConfig(), timezone: "" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("timezone")));
-  });
-
-  it('timezone="Invalid/Zone"（不正IANA名）→ errors にタイムゾーンエラー', () => {
-    const config = { ...validConfig(), timezone: "Invalid/Zone" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("timezone")));
-  });
-
-  it('timezone="UTC"（Intl.supportedValuesOf に無いが有効なIANA名）→ valid: true', () => {
-    const config = { ...validConfig(), timezone: "UTC" };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, true);
-  });
-
-  // --- 複合エラー ---
-  it("intervalMinutes=0 + 不正startTime + 空timezone → 3件のエラー", () => {
-    const config = {
-      intervalMinutes: 0,
-      startTime: "99:99",
-      endTime: "17:30",
-      timezone: "",
-    };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.strictEqual(result.errors.length, 3);
+  it("rejects packages that are not an array of non-empty strings", () => {
+    for (const packages of [[], "", ["a", "a"], [1]]) {
+      const result = validateWatcherConfig({ ...config(), packages });
+      assert.strictEqual(result.valid, false, JSON.stringify(packages));
+    }
   });
 });
 
-// ============================================================
-// loadWatcherConfig のテスト（ファイルI/O結合テスト）
-// ============================================================
+describe("normalizeWatcherConfig", () => {
+  it("normalizes the legacy single-window shape to one filter", () => {
+    const normalized = normalizeWatcherConfig({
+      intervalMinutes: 60,
+      startTime: "09:00",
+      endTime: "19:00",
+      timezone: "Asia/Tokyo",
+      daysOfWeek: [1, 2, 3, 4, 5],
+    });
+    assert.strictEqual(normalized.filters.length, 1);
+    assert.deepStrictEqual(normalized.filters[0], {
+      startTime: "09:00",
+      endTime: "19:00",
+      daysOfWeek: [1, 2, 3, 4, 5],
+    });
+  });
+
+  it("keeps the new filter shape unchanged", () => {
+    const normalized = normalizeWatcherConfig(config());
+    assert.deepStrictEqual(normalized.filters, config().filters);
+  });
+});
+
 describe("loadWatcherConfig", () => {
-  it("有効なJSON設定ファイル → パース成功、正しいWatcherConfig返却", () => {
-    const config: WatcherConfig = {
-      intervalMinutes: 15,
-      startTime: "08:00",
-      endTime: "22:00",
-      timezone: "America/New_York",
-    };
-    const path = writeTempConfig(config);
-    const loaded = loadWatcherConfig(path);
-    assert.strictEqual(loaded.intervalMinutes, 15);
-    assert.strictEqual(loaded.startTime, "08:00");
-    assert.strictEqual(loaded.endTime, "22:00");
-    assert.strictEqual(loaded.timezone, "America/New_York");
+  it("loads and normalizes a legacy config file", () => {
+    const directory = mkdtempSync(join(tmpdir(), "watcher-"));
+    const file = join(directory, "watcher.json");
+    writeFileSync(
+      file,
+      JSON.stringify({
+        intervalMinutes: 5,
+        startTime: "19:30",
+        endTime: "09:30",
+        timezone: "Asia/Tokyo",
+        daysOfWeek: [1, 2, 3, 4, 5],
+      }),
+    );
+    const loaded = loadWatcherConfig(file);
+    assert.strictEqual(loaded.filters.length, 1);
+    assert.strictEqual(loaded.filters[0]?.startTime, "19:30");
   });
 
-  it("存在しないファイルパス → ENOENT を throw", () => {
-    assert.throws(
-      () => loadWatcherConfig("/nonexistent/watcher-config.json"),
-      { code: "ENOENT" },
-    );
-  });
-
-  it("不正なJSONファイル → SyntaxError を throw", () => {
-    const dir = mkdtempSync(join(tmpdir(), "wc-"));
-    const path = join(dir, "bad.json");
-    writeFileSync(path, "{invalid json}", "utf-8");
-    assert.throws(
-      () => loadWatcherConfig(path),
-      SyntaxError,
-    );
-  });
-
-  it("必須フィールド欠落のJSON → Error（バリデーションメッセージ含む）を throw", () => {
-    const path = writeTempConfig({ intervalMinutes: 30 });
-    assert.throws(
-      () => loadWatcherConfig(path),
-      (err: unknown) =>
-        err instanceof Error &&
-        err.message.includes("バリデーション"),
-    );
+  it("throws when the file is missing or invalid", () => {
+    assert.throws(() => loadWatcherConfig("/no/such/watcher.json"), /ENOENT/);
   });
 });
 
-// ============================================================
-// validateWatcherConfig の daysOfWeek 検証
-// @verifies C001
-// ============================================================
-// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
-describe("validateWatcherConfig — daysOfWeek", () => {
-  it("daysOfWeek 未指定（undefined）→ valid: true（後方互換）", () => {
-    const result = validateWatcherConfig(validConfig());
-    assert.strictEqual(result.valid, true);
+describe("isWithinAnyFilter", () => {
+  it("returns true when the first filter matches", () => {
+    assert.strictEqual(isWithinAnyFilter(config(), NOON_TOKYO), true);
   });
 
-  it("daysOfWeek=[0,1,2,3,4,5,6]（全曜日明示）→ valid: true", () => {
-    const config = { ...validConfig(), daysOfWeek: [0, 1, 2, 3, 4, 5, 6] };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, true);
+  it("returns false when no filter matches", () => {
+    assert.strictEqual(
+      isWithinAnyFilter(config({ filters: [{ startTime: "20:00", endTime: "22:00" }] }), NOON_TOKYO),
+      false,
+    );
   });
 
-  it('daysOfWeek=[7]（範囲外）→ errors に範囲エラー', () => {
-    const config = { ...validConfig(), daysOfWeek: [7] };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
+  it("uses the first matching filter and ignores later ones", () => {
+    const firstOnly = config({
+      filters: [
+        { startTime: "09:00", endTime: "18:00" },
+        { startTime: "12:00", endTime: "13:00" },
+      ],
+    });
+    assert.strictEqual(isWithinAnyFilter(firstOnly, NOON_TOKYO), true);
   });
 
-  it('daysOfWeek=[-1]（負値）→ errors に範囲エラー', () => {
-    const config = { ...validConfig(), daysOfWeek: [-1] };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
+  it("ANDs days with daysOfWeek", () => {
+    const filtered = config({
+      filters: [
+        {
+          days: ["2026-11-10"],
+          daysOfWeek: [2],
+          startTime: "09:00",
+          endTime: "18:00",
+        },
+      ],
+    });
+    assert.strictEqual(isWithinAnyFilter(filtered, NOON_TOKYO), true);
+    const wrongWeekday = config({
+      filters: [
+        {
+          days: ["2026-11-10"],
+          daysOfWeek: [1],
+          startTime: "09:00",
+          endTime: "18:00",
+        },
+      ],
+    });
+    assert.strictEqual(isWithinAnyFilter(wrongWeekday, NOON_TOKYO), false);
   });
 
-  it('daysOfWeek=[1.5]（小数）→ errors に整数エラー', () => {
-    const config = { ...validConfig(), daysOfWeek: [1.5] };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("整数")));
+  it("attributes a cross-midnight window to its start date for days", () => {
+    const crossMidnight = config({
+      filters: [
+        {
+          days: ["2026-11-10"],
+          startTime: "22:00",
+          endTime: "06:00",
+        },
+      ],
+    });
+    assert.strictEqual(isWithinAnyFilter(crossMidnight, LATE_TOKYO), true);
+    assert.strictEqual(isWithinAnyFilter(crossMidnight, AFTER_MIDNIGHT_TOKYO), true);
+    assert.strictEqual(
+      isWithinAnyFilter(crossMidnight, new Date("2026-11-10T16:00:00Z")),
+      true,
+    );
   });
 
-  it('daysOfWeek=["abc"]（非数値文字列）→ errors に型エラー', () => {
-    const config = { ...validConfig(), daysOfWeek: ["abc"] };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
-  });
-
-  it("daysOfWeek=[]（空配列）→ errors にエラー", () => {
-    const config = { ...validConfig(), daysOfWeek: [] };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
-  });
-
-  it("daysOfWeek=[1,1,2]（重複）→ errors に重複エラー", () => {
-    const config = { ...validConfig(), daysOfWeek: [1, 1, 2] };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("重複")));
-  });
-
-  it("daysOfWeek=42（非配列）→ errors に型エラー", () => {
-    const config = { ...validConfig(), daysOfWeek: 42 };
-    const result = validateWatcherConfig(config);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
+  it("rejects an after-midnight time whose start date is the previous day", () => {
+    const crossMidnight = config({
+      filters: [
+        {
+          days: ["2026-11-11"],
+          startTime: "22:00",
+          endTime: "06:00",
+        },
+      ],
+    });
+    assert.strictEqual(isWithinAnyFilter(crossMidnight, AFTER_MIDNIGHT_TOKYO), false);
   });
 });

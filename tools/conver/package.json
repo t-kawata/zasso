@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/entry.ts --bundle --platform=node --external:node:* --outfile=dist/conver.js --format=esm --minify",
+    "build": "esbuild src/entry.ts --bundle --platform=node --external:node:* --external:terminal-image --outfile=dist/conver.js --format=esm --minify",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "node tests/run-all-surfaces.mjs"
@@ -11,7 +11,11 @@
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.102.0",
     "@agentclientprotocol/sdk": "^2.5.0",
-    "node-cron": "^4.5.0"
+    "chalk": "^6.0.1",
+    "marked": "^18.2.0",
+    "marked-terminal": "^8.0.0",
+    "node-cron": "^4.5.0",
+    "wrap-ansi": "^10.0.2"
   },
   "devDependencies": {
     "@types/node": "^26.0.1",

@@ -10,7 +10,7 @@
 // Layer 0/1 純粋ロジック（副作用なし）
 // 依存: P6-2 (isInTimeWindow), P6-1 (WatcherConfig)
 import type { WatcherConfig } from "./watcher.js";
-import { isInTimeWindow } from "./time-window.js";
+import { isWithinAnyFilter } from "./watcher.js";
 
 /**
  * WatcherConfig が設定されている場合、現在時刻が時間枠内かを判定する。
@@ -23,6 +23,8 @@ import { isInTimeWindow } from "./time-window.js";
  */
 // [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
 export function isWithinTimeWindow(
+// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-403 --for-spec --no-implementation-order`.
   config: WatcherConfig | null | undefined,
   now: () => Date = () => new Date(),
 ): boolean {
@@ -31,13 +33,7 @@ export function isWithinTimeWindow(
     return true;
   }
 
-  return isInTimeWindow(
-    now(),
-    config.startTime,
-    config.endTime,
-    config.timezone,
-    config.daysOfWeek,
-  );
+  return isWithinAnyFilter(config, now());
 }
 
 /** 時間枠外のときの待機間隔（ミリ秒） */
@@ -93,13 +89,17 @@ export async function waitForWindow(
 export function checkStepDeadline(
   stepName: string,
   config: WatcherConfig | null | undefined,
+  now: () => Date = () => new Date(),
 ): boolean {
-  if (isWithinTimeWindow(config)) {
+  if (isWithinTimeWindow(config, now)) {
     return true;
   }
 
+  const windows = config?.filters
+    .map((filter) => `${filter.startTime}-${filter.endTime}`)
+    .join(", ") ?? "none";
   console.warn(
-    `⏰ 時間枠外のため ${stepName} をスキップします（endTime: ${config?.endTime ?? "なし"}）`,
+    `⏰ 時間枠外のため ${stepName} をスキップします（windows: ${windows}）`,
   );
   return false;
 }
