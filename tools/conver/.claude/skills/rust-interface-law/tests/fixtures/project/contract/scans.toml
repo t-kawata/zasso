@@ -1,0 +1,19 @@
+[[scan]]
+id = "scan/stubs"
+rules = ["SEC-01"]
+kind = "stubs"
+
+[[scan]]
+id = "scan/test-weakening"
+rules = ["VAL-16"]
+kind = "test-weakening"
+
+[[scan]]
+id = "scan/english"
+rules = ["DOC-11"]
+kind = "english"
+
+[[scan]]
+id = "scan/secrets"
+rules = ["DOC-13"]
+kind = "secrets"

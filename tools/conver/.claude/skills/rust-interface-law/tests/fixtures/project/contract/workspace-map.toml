@@ -1,0 +1,15 @@
+[[unit]]
+id = "app-rest"
+crate = "app-rest"
+role = "rest"
+interfaces = ["rest"]
+paths = ["crates/app-rest/**"]
+phases = ["contract", "operation", "adapter", "conformance"]
+
+[[unit]]
+id = "app-mcp"
+crate = "app-mcp"
+role = "mcp"
+interfaces = ["mcp"]
+paths = ["crates/app-mcp/**"]
+phases = ["contract", "operation", "adapter", "conformance"]

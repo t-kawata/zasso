@@ -1,0 +1,7 @@
+[[operation]]
+id = "account.add"
+authentication = "required"
+scope = "control"
+mode = "unary"
+idempotency = "same-transaction"
+bindings = ["rest", "mcp"]
