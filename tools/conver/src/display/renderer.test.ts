@@ -1,3 +1,4 @@
+// @verifies C001, C004
 // renderer.test.ts — deterministic plain rendering and turn buffering.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -14,6 +15,21 @@ function capture(width = 80): { renderer: DisplayRenderer; lines: string[] } {
     write: (chunk) => lines.push(...chunk.split("\n")),
   });
   return { renderer, lines };
+}
+
+// The line-splitting helper above hides whether two chunks were written
+// without a newline between them, which is exactly what streaming must show.
+// [::TICKET::] PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-408 --for-spec --no-implementation-order`.
+function captureRaw(width = 80): { renderer: DisplayRenderer; output: () => string } {
+  let text = "";
+  const renderer = new DisplayRenderer({
+    width,
+    color: false,
+    write: (chunk) => {
+      text += chunk;
+    },
+  });
+  return { renderer, output: () => text };
 }
 
 describe("DisplayRenderer", () => {
@@ -141,6 +157,44 @@ describe("DisplayRenderer", () => {
     assert.ok(!output.includes("\x1b[1A"));
     assert.ok(!output.includes("\x1b[2K"));
     assert.ok(output.includes("ab"));
+  });
+
+  it("streams thought chunks onto one line with a single prefix", () => {
+    const { renderer, output } = captureRaw();
+    renderer.handle({ kind: "thought", text: "Let" });
+    renderer.handle({ kind: "thought", text: " me" });
+    assert.equal(output(), "∴ Let me");
+    assert.equal((output().match(/∴ /g) ?? []).length, 1);
+  });
+
+  it("closes an open thought line before a tool call", () => {
+    const { renderer, output } = captureRaw();
+    renderer.handle({ kind: "thought", text: "thinking" });
+    renderer.handle({
+      kind: "tool_call",
+      toolCallId: "t1",
+      title: "read",
+      status: "pending",
+      content: [],
+    });
+    assert.ok(output().startsWith("∴ thinking\n"));
+    assert.ok(output().indexOf("∴ thinking") < output().indexOf("⏺ read"));
+  });
+
+  it("closes an open thought line on flush", () => {
+    const { renderer, output } = captureRaw();
+    renderer.handle({ kind: "thought", text: "thinking" });
+    renderer.flush();
+    assert.equal(output(), "∴ thinking\n");
+  });
+
+  it("delegates resize to the thought line", () => {
+    const { renderer, output } = captureRaw(80);
+    renderer.handle({ kind: "thought", text: "abcdefghij" });
+    renderer.resize(8);
+    renderer.handle({ kind: "thought", text: "klmnop" });
+    renderer.flush();
+    assert.ok(output().startsWith("∴ abcdefghij\n"));
   });
 
   it("keeps SGR colors in tool output", () => {

@@ -24,12 +24,17 @@ import { pendingTicketsOf } from "./tickets.js";
 import { readFileSync } from "node:fs";
 import readline from "node:readline";
 import { DisplayRenderer } from "./display/renderer.js";
+import { DisplayLifecycle } from "./display/lifecycle.js";
 import { toDisplayEvent } from "./display/events.js";
 import { ProgressDashboard } from "./progress/dashboard.js";
 import { readProgressSnapshot } from "./progress/model.js";
 import { setAgentStderrSink } from "./session.js";
 import { checkRuntimeDependencies } from "./runtime-dependencies.js";
 import type { DisplayHooks } from "./runner.js";
+
+/** Fallback width for a TTY whose column count the platform does not report. */
+const DEFAULT_TERMINAL_WIDTH = 120;
+const DEFAULT_TERMINAL_ROWS = 24;
 
 /** Log a fatal error without a raw trace. */
 export function reportFatalError(prefix: string, err: unknown): void {
@@ -71,7 +76,7 @@ async function runNormalMode(
   await runWorkspaceLoop(buildLoopOptions(cli, model, display));
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408) --for-spec --no-implementation-order`.
 type WatcherModeResult = "terminated" | "config-error";
 
 async function runWatcherMode(
@@ -187,7 +192,7 @@ export async function main(): Promise<void> {
   const dashboardEnabled = richDisplay && !options.noDashboard;
   const renderer = richDisplay
     ? new DisplayRenderer({
-        width: process.stdout.columns ?? 120,
+        width: process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH,
         color: true,
         write: (chunk) => process.stdout.write(chunk),
       })
@@ -200,8 +205,8 @@ export async function main(): Promise<void> {
         write: (chunk) => process.stdout.write(chunk),
         readSnapshot: () => readProgressSnapshot(model),
         terminalSize: () => ({
-          columns: process.stdout.columns ?? 120,
-          rows: process.stdout.rows ?? 24,
+          columns: process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH,
+          rows: process.stdout.rows ?? DEFAULT_TERMINAL_ROWS,
         }),
         now: Date.now,
         setRawMode: (enabled) => process.stdin.setRawMode?.(enabled),
@@ -210,24 +215,31 @@ export async function main(): Promise<void> {
   if (renderer !== null) setAgentStderrSink((text) => renderer.writeStderr(text));
 
   let keypressHandler: ((text: string, key: readline.Key) => void) | null = null;
-  const onResize = (): void => dashboard?.handleResize();
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
-  function shutdown(code: number): never {
-    dashboard?.stop();
-    if (keypressHandler !== null) process.stdin.off("keypress", keypressHandler);
-    process.removeListener("SIGWINCH", onResize);
-    process.exit(code);
+// [::TICKET::] PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-408 --for-spec --no-implementation-order`.
+  function onResize(): void {
+    lifecycle.resize();
   }
+  // [::TICKET::] PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-408 --for-spec --no-implementation-order`.
+  const lifecycle = new DisplayLifecycle({
+    renderer,
+    dashboard,
+    detachInput: () => {
+      if (keypressHandler !== null) process.stdin.off("keypress", keypressHandler);
+      process.removeListener("SIGWINCH", onResize);
+    },
+    terminalWidth: () => process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH,
+    exit: (code) => process.exit(code) as never,
+  });
   if (dashboard !== null && process.stdin.isTTY === true) {
     readline.emitKeypressEvents(process.stdin);
     keypressHandler = (_text, key) => {
       dashboard.handleKeypress(key?.name ?? "", key?.ctrl === true);
-      if (key?.ctrl === true && key.name === "c") shutdown(0);
+      if (key?.ctrl === true && key.name === "c") lifecycle.shutdown(0);
     };
     process.stdin.on("keypress", keypressHandler);
     process.on("SIGWINCH", onResize);
   }
-  process.once("exit", () => dashboard?.stop());
+  process.once("exit", () => lifecycle.stop());
 
   const display: DisplayHooks | undefined = renderer === null
     ? undefined
@@ -260,30 +272,30 @@ export async function main(): Promise<void> {
       // the shared shutdown path so stdin listeners do not keep the process up.
       // A config error already exited with 1 and must not be re-exited as 0
       // when process.exit is replaced by a test double.
-      if (result === "terminated") shutdown(0);
+      if (result === "terminated") lifecycle.shutdown(0);
     } else {
       await runNormalMode(options, model, display);
     }
   } catch (error) {
     if (error instanceof LoopStoppedError) {
       process.stderr.write(`conver.js — stopped: ${error.context.reason}\n`);
-      shutdown(1);
+      lifecycle.shutdown(1);
     } else if (error instanceof PackageSelectionError) {
       process.stderr.write(
         `conver.js — package selection failed: ${error.message}` +
           (error.candidates.length === 0 ? "\n" : ` (candidates: ${error.candidates.join(", ")})\n`),
       );
-      shutdown(1);
+      lifecycle.shutdown(1);
     } else {
       process.stderr.write(
         `conver.js — fatal: ${error instanceof Error ? error.message : String(error)}\n`,
       );
-      shutdown(1);
+      lifecycle.shutdown(1);
     }
   } finally {
     // Normal completion must release the poll timer; watcher mode exits via
     // shutdown(), whose exit handler also stops the dashboard.
-    dashboard?.stop();
+    lifecycle.stop();
   }
 }
 

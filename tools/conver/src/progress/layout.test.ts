@@ -1,3 +1,4 @@
+// @verifies C005
 // layout.test.ts — aligned header lines, phase columns and floor percent.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -43,6 +44,7 @@ function snapshot(): ProgressSnapshot {
 }
 
 describe("renderHeader", () => {
+// [::TICKET::] PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-408 --for-spec --no-implementation-order`.
   it("C003 renders symbols, floor percent and aligned percent columns", () => {
     const lines = renderHeader(snapshot(), { terminalWidth: 80, color: false });
     assert.strictEqual(lines.length, 2);
@@ -233,11 +235,58 @@ describe("renderHeader", () => {
       );
       const line = lines[0] ?? "";
       assert.ok(line.includes("\x1b[38;2;245;230;168m"));
-      assert.ok(line.includes("\x1b[36m"));
+      assert.ok(line.includes("\x1b[38;2;211;47;47m"));
       const plain = stripAnsi(line);
       assert.ok(plain.includes("P0 [ _ ]"));
       assert.ok(plain.includes("…"));
       assert.ok(plain.endsWith("0%"));
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("colors _ | / x with the dark red while numbers stay white and ? stays cyan", () => {
+    const snapshotWithStatuses: ProgressSnapshot = {
+      packages: [
+        {
+          name: "p",
+          path: ".",
+          phases: [
+            {
+              id: 0,
+              tickets: [
+                { id: 1, status: "made" },
+                { id: 2, status: "planned" },
+                { id: 3, status: "done" },
+                { id: 4, status: "reviewed" },
+                { id: 5, status: "todo" },
+                { id: 6, status: "unknown" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const previousLevel = chalk.level;
+    chalk.level = 3;
+    try {
+      const colored = renderHeader(snapshotWithStatuses, {
+        terminalWidth: 120,
+        color: true,
+      }).join("\n");
+      for (const symbol of ["_", "|", "/", "x"]) {
+        assert.ok(
+          colored.includes(`\x1b[38;2;211;47;47m${symbol}\x1b[39m`),
+          symbol,
+        );
+      }
+      assert.ok(colored.includes("\x1b[37m5\x1b[39m"));
+      assert.ok(colored.includes("\x1b[36m?\x1b[39m"));
+      const plain = renderHeader(snapshotWithStatuses, {
+        terminalWidth: 120,
+        color: false,
+      }).join("\n");
+      assert.strictEqual(stripAnsi(colored).trimEnd(), plain.trimEnd());
     } finally {
       chalk.level = previousLevel;
     }

@@ -10,6 +10,7 @@ import wrapAnsi from "wrap-ansi";
 import chalk from "chalk";
 import type { DisplayEvent, ToolContentSummary } from "./events.js";
 import { sanitizeTerminalText } from "./terminal-text.js";
+import { ThoughtLineWriter } from "./thought-line.js";
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 export interface RendererOptions {
@@ -20,15 +21,21 @@ export interface RendererOptions {
 
 const MAX_DIFF_LINES = 20;
 
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-404, PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-408) --for-spec --no-implementation-order`.
 export class DisplayRenderer {
   #messageBuffer = "";
   #marked: Marked | null = null;
+  readonly #thought: ThoughtLineWriter;
   readonly #options: RendererOptions;
 
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-404, PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-408) --for-spec --no-implementation-order`.
   constructor(options: RendererOptions) {
     this.#options = options;
+    this.#thought = new ThoughtLineWriter({
+      width: options.width,
+      color: options.color,
+      write: options.write,
+    });
     if (options.color) {
       const marked = new Marked();
       marked.use(markedTerminal({ reflowText: true, width: options.width }));
@@ -46,9 +53,15 @@ export class DisplayRenderer {
     }
   }
 
-  /** Flush the buffered agent message, e.g. at the end of a turn. */
+  /** Flush the open thought line and the buffered agent message. */
   flush(): void {
+    this.#thought.close();
     this.#flushMessageBuffer();
+  }
+
+  /** Adopt a new terminal width after SIGWINCH. */
+  resize(width: number): void {
+    this.#thought.resize(width);
   }
 
   /** Forward one child stderr chunk, one line at a time. */
@@ -60,13 +73,14 @@ export class DisplayRenderer {
   }
 
   #handle(event: DisplayEvent): void {
+    if (event.kind !== "thought") this.#thought.close();
     if (event.kind !== "message") this.#flushMessageBuffer();
     switch (event.kind) {
       case "message":
         this.#messageBuffer += event.text;
         return;
       case "thought":
-        this.#writeLines([this.#options.color ? chalk.dim(`∴ ${event.text}`) : `∴ ${event.text}`]);
+        this.#thought.append(event.text);
         return;
       case "tool_call":
         this.#writeLines([

@@ -17,9 +17,12 @@ export interface HeaderOptions {
 }
 
 export const HEADER_BACKGROUND = "#0b1f3a";
+/** Dark red for status marks: visibly red on the navy header without glaring. */
+export const STATUS_SYMBOL_RED = "#d32f2f";
 const PALE_YELLOW = "#f5e6a8";
 const NAME_GAP = "  ";
 const PERCENT_WIDTH = 4;
+const STATUS_SYMBOLS = new Set(["x", "_", "|", "/"]);
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 function phaseLabel(phaseId: number): string {
@@ -32,13 +35,17 @@ function phasePlain(phase: ProgressPhase): string {
   return `${phaseLabel(phase.id)} [ ${symbols} ]`;
 }
 
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-404, PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-408) --for-spec --no-implementation-order`.
+function colorSymbol(symbol: string): string {
+  if (/^\d+$/.test(symbol)) return chalk.white(symbol);
+  if (STATUS_SYMBOLS.has(symbol)) return chalk.hex(STATUS_SYMBOL_RED)(symbol);
+  return chalk.cyan(symbol);
+}
+
+// [::TICKET::] PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-408 --for-spec --no-implementation-order`.
 function phaseColored(phase: ProgressPhase): string {
   const symbols = phase.tickets
-    .map((ticket) => {
-      const symbol = symbolForStatus(ticket);
-      return /^\d+$/.test(symbol) ? chalk.white(symbol) : chalk.cyan(symbol);
-    })
+    .map((ticket) => colorSymbol(symbolForStatus(ticket)))
     .join(" ");
   return `${chalk.hex(PALE_YELLOW)(phaseLabel(phase.id))} [ ${symbols} ]`;
 }

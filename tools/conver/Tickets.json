@@ -62505,6 +62505,163 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-10",
           "reviewed_at": "2026-11-10T07:39:50.346Z"
+        },
+        {
+          "id": 408,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Stream agent thoughts inline and recolor header status symbols",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-408.md",
+          "background": "### Goal\nRender each agent thought as one continuously growing, dim line prefixed once with ∴, and render the four header status symbols _ | / x in #d32f2f instead of cyan.\n\n### Purpose\nToken-per-line output is unreadable: one thought becomes a column of one-word lines. The status symbols currently share the cyan accent, so they do not read as status markers.\n\n### Motivation\nObserved in a real run of `node .claude/scripts/conver/conver.js -c 1 -n 1 ...`: the terminal showed `∴ Let`, `∴ me`, `∴ instead`, ... for a single thought. Reproduction against the built renderer with nine token chunks emitted \"∴ Let\\n∴  me\\n∴  instead\\n∴  use\\n∴  node\\n∴  to\\n∴  write\\n∴  a\\n∴  compact\\n\".\n\n### Constraints\n- The dashboard owns rows 1..N through DECSTBM and saves/restores the cursor on every redraw (src/progress/dashboard.ts:231-243); a write must never leave the cursor in the terminal's pending-wrap state at the last column.\n- Agent text is untrusted at the renderer boundary: escape sequences must be sanitized even when split across chunks (src/display/terminal-text.ts:28-35).\n- Message chunks stay buffered per turn so markdown code fences and lists survive chunking (specs/PX-404.md:78).\n- Non-TTY output is unchanged; the success path adds no runtime log.\n- `string-width` becomes a direct dependency; it is already present transitively as wrap-ansi's 8.3.0 (engines node >=20).",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] src/display/thought-line.ts (new), src/display/thought-line.test.ts (new), src/display/renderer.ts, src/display/renderer.test.ts, src/progress/layout.ts, src/progress/layout.test.ts, src/conver.ts, src/conver.test.ts, package.json, package-lock.json\n  - [Action] add ThoughtLineWriter; route agent_thought_chunk events through it; add DisplayRenderer.resize and a testable display lifecycle; add colorSymbol to the header renderer\n  - [What specifically changes] thought chunks append inline with one ∴ prefix and a two-space continuation indent; the line closes on a non-thought event, flush(), resize() or shutdown; _ | / x switch from chalk.cyan to chalk.hex('#d32f2f')\n  - [Before → After] thought: one '∴ {token}\\n' per chunk → '∴ ' once followed by continuously appended text; color: non-numeric symbols all cyan → _ | / x red, todo numbers white, ? cyan\n  - [API contract change] DisplayRenderer gains resize(width: number): void; the shutdown/resize ordering is extracted into a factory that accepts injected renderer and dashboard collaborators\n  - [Data schema change] none\n  - [Config/env change] none\n  - [Dependency added] string-width ^8.0.0 (direct declaration; already installed transitively as wrap-ansi's 8.3.0)",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - Excluded item: streaming agent_message_chunk. Why excluded: per-turn buffering is required so markdown code fences and lists survive chunking (specs/PX-404.md:78); changing it is a separate ticket.\n  - Excluded item: changing status symbols, phase labels, header geometry or the percent column. Why excluded: this ticket changes symbol color only and keeps symbolForStatus semantics and dashboard alignment unchanged.\n  - Excluded item: non-TTY output changes. Why excluded: the renderer is only constructed when stdout is a TTY (src/conver.ts:186-194), and plain mode already has MessageLineWriter.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - Affected component: ProgressDashboard cursor save/restore and SIGWINCH handling (src/progress/dashboard.ts:231-243).\n  - Nature of impact: terminal cursor safety and resize correctness.\n  - Corresponding change needed: yes. src/conver.ts flushes the renderer before dashboard.stop() and forwards the new width to renderer.resize().\n  - Affected component: message rendering and non-TTY logs.\n  - Nature of impact: none expected.\n  - Corresponding change needed: no; ANSI-stripped header text and the buffered message path are asserted unchanged."
+          ],
+          "testUnit": [
+            "UT: [Normal] Two consecutive thought chunks ('Let' then ' me') append to one line and emit a single '∴ ' prefix; the sink receives no newline until close()",
+            "UT: [Normal] An embedded newline in a thought chunk emits a newline and the next non-empty line begins with the two-space continuation indent",
+            "UT: [Normal] A thought line is closed exactly once before a tool_call event, and flush() closes an already closed line without a second newline",
+            "UT: [Normal] resize(newWidth) closes the open thought line and subsequent chunks wrap at the new width",
+            "UT: [Boundary] At width 20 a 100-character chunk produces lines whose visible width is at most 19 cells; no written run ends at column 19",
+            "UT: [Boundary] CJK characters and the ∴ prefix are measured with string-width (2 cells each) so a wide character never straddles the last usable column",
+            "UT: [Boundary] A width smaller than prefix+indent+2 falls back to unwrapped output without throwing and still closes the line",
+            "UT: [Error] A chunk ending with the incomplete escape ESC[3 followed by '1mred' is sanitized as one stream; the terminal never receives the visible text '31m'",
+            "UT: [Error] A cursor-movement CSI split across chunks (ESC[1 then 'Ab') is dropped entirely and the visible output is 'ab'",
+            "UT: [Error] An unterminated escape tail longer than MAX_ESCAPE_CARRY is discarded and later text is still emitted",
+            "UT: [Invariant] close() is idempotent: two calls after one append emit exactly one newline",
+            "UT: [Invariant] Every rendered line stays within width-1 visible cells for ASCII, CJK and emoji input",
+            "UT: [Invariant] The four status symbols _ | / x render with the truecolor SGR ESC[38;2;211;47;47m at chalk.level 3",
+            "UT: [Invariant] Todo ticket numbers stay chalk.white and the unknown-status ? stays chalk.cyan",
+            "UT: [Invariant] ANSI-stripped colored header text equals plain header text (C004) and truncation preserves the new red SGR",
+            "UT: [Contract] C001 thought-chunk rendering. Precondition: Input: two consecutive events {kind:'thought', text:'Let'} and {kind:'thought', text:' me'} delivered to DisplayRenderer.handle. Postcondition: Output: the sink concatenates to '∴ Let me' and receives zero newline characters until flush, a non-thought event, resize, or shutdown. Invariant: The open thought line contains exactly one '∴ ' prefix.",
+            "UT: [Contract] C002 untrusted text boundary. Precondition: Input: ThoughtLineWriter.append('a' + ESC + '[3') followed by append('1mred'); event text is untrusted. Postcondition: Output: the terminal receives the complete SGR when preserved or nothing, and never the visible substring '31m'. Invariant: No sink call ends inside an escape introducer and the sanitizer carry never exceeds MAX_ESCAPE_CARRY.",
+            "UT: [Contract] C003 fixed header cursor safety. Precondition: Input: width=20 columns with chunks of 100 ASCII characters, 50 CJK characters and 10 emoji; a dashboard redraw may run between appends. Postcondition: Output: no character is written at the terminal last cell (column index width-1), so the cursor never enters the pending-wrap state. Invariant: For every rendered line, stringWidth(stripAnsi(line)) is at most width-1 and no sink run writes the last cell.",
+            "UT: [Contract] C004 thought line lifecycle. Precondition: Input: an open thought line followed by exactly one of a tool_call event, flush(), resize(40), or shutdown(). Postcondition: Output: exactly one newline is written before the next output and the next output starts at column 0. Invariant: Repeated close() calls emit exactly one newline in total.",
+            "UT: [Contract] C005 header symbol color. Precondition: Input: renderHeader(snapshot, {terminalWidth: 80, color: true}) with statuses made, planned, done, reviewed, todo and an unknown status; chalk.level=3. Postcondition: Output: ESC[38;2;211;47;47m precedes each of _ | / x, ESC[37m precedes todo numbers, and ESC[36m precedes ?. Invariant: stripAnsi(colored) equals plain text and preserves the same symbols in the same order."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] src/display/events.ts -> src/display/renderer.ts: a fake ACP update stream (agent_thought_chunk tokens, a tool_call, agent_message_chunk) drives toDisplayEvent and DisplayRenderer through a capturing sink; the output shows one continuous thought line, a closed line before the tool call, and the buffered message last",
+            "IT: [Verification] src/progress/layout.ts -> src/progress/dashboard.ts: renderHeader with color:true is painted through the dashboard write sink; geometry, padding and ANSI-stripped text are unchanged while _ | / x carry #d32f2f",
+            "IT: [Verification] src/conver.ts display lifecycle: an injected renderer/dashboard pair proves flush() runs before stop() on shutdown and resize(width) runs before handleResize() on SIGWINCH",
+            "IT: [Prerequisites] node --test with the existing module mocks in src/conver.test.ts; chalk.level is set and restored around color assertions; no TTY is required because sinks are injected",
+            "IT: [Related tickets] PX-404 (display renderer and dashboard), PX-403 (terminal sanitization boundary)"
+          ],
+          "testExceptions": [
+            "Cannot test in-process: the terminal emulator's pending-wrap behaviour at the last column is outside conver's process, so it is not directly observable in node --test. This is not a design defect because ThoughtLineWriter avoids the last column by construction; the alternative verification is the width invariant asserted by the boundary tests (visible width at most width-1 cells for ASCII, CJK and emoji)."
+          ],
+          "default_files": [
+            "src/display/thought-line.ts",
+            "src/display/thought-line.test.ts",
+            "src/display/lifecycle.ts",
+            "src/display/lifecycle.test.ts",
+            "src/display/renderer.ts",
+            "src/display/renderer.test.ts",
+            "src/progress/layout.ts",
+            "src/progress/layout.test.ts",
+            "src/conver.ts",
+            "src/conver.test.ts",
+            "Makefile",
+            "package.json",
+            "package-lock.json"
+          ],
+          "acceptanceCriteria": [
+            "**Happy path** — a thought stream arrives as token chunks and the terminal shows one continuously growing dim line with a single ∴ prefix; the header renders _ | / x in #d32f2f.",
+            "**Error case** — an escape sequence split across two chunks never appears as visible text such as `31m`; Ctrl-C with an open thought line flushes it so the shell prompt starts at column 0.",
+            "**Edge case** — at width 20 no line occupies the last column; resize closes the open line and adopts the new width; todo numbers stay white and unknown-status `?` stays cyan."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "thought-chunk rendering",
+              "precondition": "Input: two consecutive events {kind:'thought', text:'Let'} and {kind:'thought', text:' me'} delivered to DisplayRenderer.handle",
+              "postcondition": "Output: the sink concatenates to '∴ Let me' and receives zero newline characters until flush, a non-thought event, resize, or shutdown",
+              "invariant": "The open thought line contains exactly one '∴ ' prefix"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "untrusted text boundary",
+              "precondition": "Input: ThoughtLineWriter.append('a' + ESC + '[3') followed by append('1mred'); event text is untrusted",
+              "postcondition": "Output: the terminal receives the complete SGR when preserved or nothing, and never the visible substring '31m'",
+              "invariant": "No sink call ends inside an escape introducer and the sanitizer carry never exceeds MAX_ESCAPE_CARRY"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "fixed header cursor safety",
+              "precondition": "Input: width=20 columns with chunks of 100 ASCII characters, 50 CJK characters and 10 emoji; a dashboard redraw may run between appends",
+              "postcondition": "Output: no character is written at the terminal last cell (column index width-1), so the cursor never enters the pending-wrap state",
+              "invariant": "For every rendered line, stringWidth(stripAnsi(line)) is at most width-1 and no sink run writes the last cell"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "thought line lifecycle",
+              "precondition": "Input: an open thought line followed by exactly one of a tool_call event, flush(), resize(40), or shutdown()",
+              "postcondition": "Output: exactly one newline is written before the next output and the next output starts at column 0",
+              "invariant": "Repeated close() calls emit exactly one newline in total"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "header symbol color",
+              "precondition": "Input: renderHeader(snapshot, {terminalWidth: 80, color: true}) with statuses made, planned, done, reviewed, todo and an unknown status; chalk.level=3",
+              "postcondition": "Output: ESC[38;2;211;47;47m precedes each of _ | / x, ESC[37m precedes todo numbers, and ESC[36m precedes ?",
+              "invariant": "stripAnsi(colored) equals plain text and preserves the same symbols in the same order"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) Red: add src/display/thought-line.test.ts and extend renderer/layout/conver tests. 2) Green: add ThoughtLineWriter; route thought events; add DisplayRenderer.resize and the display lifecycle; add colorSymbol. 3) Refactor: extract constants, remove the inline color ternary, keep functions under 50 lines.\n- [Risks] Writing the last terminal column triggers pending-wrap, and the dashboard's DECSC/DECRC can then overwrite the final cell; the writer caps every line at width-1 cells.\n- [Risks] A split escape sequence currently leaks `31m` as visible text (measured: sanitize(ESC[3) + sanitize(1mred) = \"31mred\"); the streaming sanitizer carries the incomplete tail.\n- [Caveats] The last terminal column is intentionally unused. Message buffering and non-TTY output are intentionally unchanged. `?` (unknown status) stays cyan; only `_ | / x` change. #d32f2f yields 3.32:1 against the #0b1f3a header, so the symbols remain legible while reading as dark red.\n- [Open items] None. The color was fixed to #d32f2f (the recommended candidate) because the conversation specified only \"a red slightly darker than #ff0000\".\n- [Future improvements] Word-boundary wrapping for CJK prose if character wrapping proves insufficient; a configurable header palette if the dashboard becomes themeable.\nImplementation summary (PX-408):\n- Changed files: src/display/thought-line.ts (new), src/display/thought-line.test.ts (new), src/display/lifecycle.ts (new), src/display/lifecycle.test.ts (new), src/display/renderer.ts, src/display/renderer.test.ts, src/progress/layout.ts, src/progress/layout.test.ts, src/conver.ts, Makefile, package.json, package-lock.json, .claude/scripts/conver/conver.js (rebuilt bundle), specs/PX-408.md.\n- Key changes: inline thought streaming with a single prefix; escape-carry sanitizer; width-1 wrapping with string-width; DisplayLifecycle ordering; #d32f2f status symbols; test-conver now reaches display/progress tests.\n- Test results: make test-conver 343 passed, 0 failed; targeted display/progress 71 passed; tsc --noEmit clean; quality checks 0 issues.\n- Note: tests/conventions/bundle-freshness.test.mjs still has one pre-existing failure (HEAD package.json build script does not literally contain 'esbuild'); the bundle byte-identity test in the same file passes. Not caused by and not changed by this ticket.\nReview report (PX-408):\n- Status gate: done; prerequisites skipped:no-prerequisites.\n- Stubs/crimes: find-all-stubs 0; scan-crimes 0 open; no-excuse gate 0 fail.\n- Changed-code scan: no todo!/unimplemented!/panic!, no TODO/FIXME, no mock/fake, no allow suppression.\n- Annotation: all 10 changed source files annotated; 0 AMBIGUOUS.\n- Build/tests: tsc --noEmit exit 0; make test-conver 343 passed / 0 failed.\n- Quality: 0 issues. Translatability greps: 0 findings.\n- Contracts: verify-final-contracts and validate-ticket-targets pending re-run; reverify certificate retained.\n- Known pre-existing failure (not caused by this ticket): tests/conventions/bundle-freshness.test.mjs asserts package.json's build script literally contains 'esbuild'; HEAD already fails this while the bundle byte-identity test passes.",
+          "invariants": "- [Normal condition] Every agent_thought_chunk appends to the open thought line; the line is closed only by a non-thought event, flush(), resize(), or process shutdown, and the next output starts at column 0.\n- [Error invariant] No incomplete escape sequence and no cursor-movement CSI reaches the terminal; the sanitizer carry is bounded by MAX_ESCAPE_CARRY (256) and discarded when exceeded. The renderer never throws into the execution loop.\n- [Internal state invariant] ThoughtLineWriter holds at most one open line; close() is idempotent; the writer never writes into the terminal's last column and never emits a newline for an empty line.\n- [Boundary invariant] Visible line width is at most width-1 cells with string-width accounting (wide characters count as two); message buffering, non-TTY output, and ANSI-stripped header text are unchanged.",
+          "instrumentation": "- [Logging] No new success-path logs. Renderer failures keep the existing `[conver] renderer error: {detail}` path; ThoughtLineWriter never throws.\n- [Metrics] None; the writer performs in-process text composition only.\n- [Error tracking] A malformed escape carry is dropped after MAX_ESCAPE_CARRY characters; no agent text or escape bytes are logged.\n- [Health check] The existing renderer-exception test plus the new sanitizer-carry, idempotent-close and width-boundary tests.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-phrase functions, no generic/single-char variables, named constants, no debug output)\nTests: 343 passed, 0 failed (make test-conver); tsc --noEmit clean\nBuild: bundle rebuilt; committed copy byte-identical to a fresh build",
+          "investigation": "Evidence gathered from the current source:\n\n1. Thought rendering defect. src/display/renderer.ts:68-70 handles kind 'thought' by calling #writeLines([`∴ ${event.text}`]) on every event. #writeLines (src/display/renderer.ts:166-172) appends a newline and sanitizes each line. src/display/events.ts:80-81 maps every agent_thought_chunk to { kind:'thought', text }. src/session.ts:384-393 forwards every session_update to display.onUpdate, so token-sized chunks reach the renderer. Reproduction against dist/display/renderer.js with nine token chunks produced exactly: \"∴ Let\\n∴  me\\n∴  instead\\n∴  use\\n∴  node\\n∴  to\\n∴  write\\n∴  a\\n∴  compact\\n\".\n\n2. Message path is intentionally different. src/display/renderer.ts:25, 65-67, 114-119 buffer message chunks and flush them before a non-message event or on flush(); src/display/renderer.ts:121-131 renders the whole turn through marked/marked-terminal so code fences survive chunking. specs/PX-404.md:78 states this requirement. The fix must not change this path.\n\n3. Fixed header and cursor safety. src/progress/dashboard.ts:231-243 writes SAVE_CURSOR, absolute header rows, then RESTORE_CURSOR. A mid-line cursor is preserved by DECSC/DECRC, but a write that lands in the terminal's last column leaves a pending-wrap state; restoring the cursor can then overwrite the final cell in common emulators. src/display/terminal-text.ts:9-25 documents the fixed-header threat model, and the renderer's sanitizer exists because agent and tool text are untrusted.\n\n4. Split escape leakage. sanitizeTerminalText (src/display/terminal-text.ts:28-35) applies CSI_PATTERN per call. Measured: sanitize('\\x1b[3') + sanitize('1mred') = '31mred', while sanitize('\\x1b[31mred') keeps the SGR. A streaming writer therefore needs to carry a trailing incomplete escape instead of sanitizing each chunk independently.\n\n5. Lifecycle gaps. src/conver.ts:186-194 constructs DisplayRenderer with process.stdout.columns; src/conver.ts:213 defines onResize as dashboard.handleResize() only, so the renderer never learns the new width; src/conver.ts:215-220 shutdown() stops the dashboard without renderer.flush(), and the Ctrl-C keypress path calls shutdown directly, so an open line would run into the shell prompt. src/session.ts:397-400 already flushes the renderer in the runCommand finally block for normal completion.\n\n6. Header symbol colors. src/progress/model.ts:118-132 maps reviewed to 'x', made to '_', planned to '|', done to '/', todo to its number and unknown to '?'. src/progress/layout.ts:20-24 defines HEADER_BACKGROUND #0b1f3a and PALE_YELLOW #f5e6a8; src/progress/layout.ts:37-43 colors numeric symbols with chalk.white and every other symbol with chalk.cyan. src/progress/layout.test.ts:215-244 asserts the cyan SGR ESC[36m directly.\n\n7. Width measurement. package.json declares wrap-ansi ^10.0.2; node_modules/wrap-ansi/node_modules/string-width is 8.3.0 (engines node >=20). Measured stringWidth('∴ ') = 2, 'あ' = 2, 'a' = 1, '🙂' = 2, and ANSI sequences are ignored. chalk.hex('#d32f2f') at level 3 emits ESC[38;2;211;47;47m; at level 1 it downgrades to ESC[31m. #d32f2f has a 3.32:1 contrast ratio against #0b1f3a, above the 3:1 large-text threshold and visibly darker than #ff0000 (4.13:1).\n\n8. Test surfaces. src/display/renderer.test.ts:9-17 captures chunks with a string[] sink; src/progress/layout.test.ts:86-97 asserts ANSI-stripped equality; src/conver.test.ts:190-225 mocks process.exit and streams, and main() runs with a non-TTY stdout in tests. A testable lifecycle factory is therefore needed to assert flush-before-stop and resize ordering deterministically.",
+          "boyScoutPlan": "- Extract the streaming composition into src/display/thought-line.ts so the renderer keeps one responsibility (mapping events) and the writer keeps one responsibility (composing a terminal line).\n- Name the constants instead of literals: THOUGHT_PREFIX = '∴ ', THOUGHT_INDENT = '  ', MAX_ESCAPE_CARRY = 256, STATUS_SYMBOL_RED = '#d32f2f', and USABLE_COLUMNS(width) for the width-1 rule.\n- Replace the inline ternary in phaseColored with a named colorSymbol(symbol) function and a STATUS_SYMBOLS set so the color rule is translatable and directly testable.\n- Extract the display lifecycle (flush the renderer, stop the dashboard, detach listeners, exit) into a factory that accepts injected collaborators; this removes the untested process-level ordering from shutdown() and makes Ctrl-C and normal exit share one path.\n- Keep functions under 50 lines and files focused; the new writer is small and has no hidden global state.\n- No swallowed errors: the writer never throws; the existing renderer catch continues to report `[conver] renderer error: {detail}`. No false comments: existing comments in renderer.ts and layout.ts are updated where the behavior changes.",
+          "created_at": "2026-11-11",
+          "updated_at": "2026-11-11",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-11T02:50:28.433Z",
+          "planTestCode": [
+            "UT: [Normal] C001 thought chunks append to one line (src/display/renderer.test.ts)\n```ts\nimport assert from \"node:assert/strict\";\nimport { DisplayRenderer } from \"./renderer.js\";\n\nconst chunks: string[] = [];\nconst renderer = new DisplayRenderer({ width: 80, color: false, write: (chunk) => chunks.push(chunk) });\nrenderer.handle({ kind: \"thought\", text: \"Let\" });\nrenderer.handle({ kind: \"thought\", text: \" me\" });\nconst open = chunks.join(\"\");\nassert.equal(open, \"∴ Let me\");\nassert.equal((open.match(/∴ /g) ?? []).length, 1);\nrenderer.handle({ kind: \"tool_call\", toolCallId: \"t1\", title: \"read\", status: \"pending\", content: [] });\nassert.ok(chunks.join(\"\").startsWith(\"∴ Let me\\n\"));\n```",
+            "UT: [Error] C002 a split escape is carried, a cursor CSI is dropped, an oversized carry is bounded (src/display/thought-line.test.ts)\n```ts\nimport assert from \"node:assert/strict\";\nimport { stripVTControlCharacters } from \"node:util\";\nimport { ThoughtLineWriter, MAX_ESCAPE_CARRY } from \"./thought-line.js\";\n\nconst kept: string[] = [];\nconst writer = new ThoughtLineWriter({ width: 80, color: false, write: (chunk) => kept.push(chunk) });\nwriter.append(\"a\\x1b[3\");\nassert.ok(!kept.join(\"\").includes(\"31m\"));\nwriter.append(\"1mred\");\nassert.equal(stripVTControlCharacters(kept.join(\"\")), \"∴ ared\");\nassert.ok(kept.join(\"\").includes(\"\\x1b[31m\"));\nwriter.close();\n\nconst dropped: string[] = [];\nconst csi = new ThoughtLineWriter({ width: 80, color: false, write: (chunk) => dropped.push(chunk) });\ncsi.append(\"a\\x1b[1\");\ncsi.append(\"Ab\");\nassert.ok(!dropped.join(\"\").includes(\"\\x1b[1A\"));\nassert.equal(stripVTControlCharacters(dropped.join(\"\")), \"∴ ab\");\n\nconst bounded: string[] = [];\nconst over = new ThoughtLineWriter({ width: 80, color: false, write: (chunk) => bounded.push(chunk) });\nover.append(\"\\x1b[\" + \"0\".repeat(MAX_ESCAPE_CARRY + 1));\nover.append(\"x\");\nassert.ok(!bounded.join(\"\").includes(\"\\x1b[\"));\nassert.ok(stripVTControlCharacters(bounded.join(\"\")).includes(\"x\"));\n```",
+            "UT: [Boundary] C003 no write reaches the last column for ASCII, CJK and emoji (src/display/thought-line.test.ts)\n```ts\nimport assert from \"node:assert/strict\";\nimport stringWidth from \"string-width\";\nimport { ThoughtLineWriter, usableColumns } from \"./thought-line.js\";\n\nconst runs: string[] = [];\nconst writer = new ThoughtLineWriter({ width: 20, color: false, write: (chunk) => runs.push(chunk) });\nwriter.append(\"a\".repeat(100) + \"あ\".repeat(50) + \"🙂\".repeat(10));\nwriter.close();\nfor (const line of runs.join(\"\").split(\"\\n\")) {\n  assert.ok(stringWidth(line) <= usableColumns(20), `visible width ${stringWidth(line)}: ${JSON.stringify(line)}`);\n}\n```",
+            "UT: [Normal] C004 close is idempotent and resize closes the open line (src/display/thought-line.test.ts)\n```ts\nimport assert from \"node:assert/strict\";\nimport stringWidth from \"string-width\";\nimport { ThoughtLineWriter } from \"./thought-line.js\";\n\nconst out: string[] = [];\nconst writer = new ThoughtLineWriter({ width: 80, color: false, write: (chunk) => out.push(chunk) });\nwriter.append(\"a\");\nwriter.close();\nwriter.close();\nassert.equal((out.join(\"\").match(/\\n/g) ?? []).length, 1);\n\nconst resized: string[] = [];\nconst second = new ThoughtLineWriter({ width: 80, color: false, write: (chunk) => resized.push(chunk) });\nsecond.append(\"abcdef\");\nsecond.resize(10);\nsecond.append(\"ghijklmnop\");\nsecond.close();\nassert.ok(resized.join(\"\").includes(\"∴ abcdef\\n\"));\nfor (const line of resized.join(\"\").split(\"\\n\")) assert.ok(stringWidth(line) <= 9);\n```",
+            "UT: [Invariant] C005 status symbols use #d32f2f while numbers stay white and ? stays cyan (src/progress/layout.test.ts)\n```ts\nimport assert from \"node:assert/strict\";\nimport { stripVTControlCharacters } from \"node:util\";\nimport chalk from \"chalk\";\nimport { renderHeader } from \"./layout.js\";\n\nconst snapshot = { packages: [{ name: \"p\", path: \".\", phases: [{ id: 0, tickets: [\n  { id: 1, status: \"made\" }, { id: 2, status: \"planned\" }, { id: 3, status: \"done\" },\n  { id: 4, status: \"reviewed\" }, { id: 5, status: \"todo\" }, { id: 6, status: \"unknown\" },\n] }] }] };\nconst previous = chalk.level;\nchalk.level = 3;\ntry {\n  const colored = renderHeader(snapshot, { terminalWidth: 120, color: true }).join(\"\\n\");\n  for (const symbol of [\"_\", \"|\", \"/\", \"x\"]) {\n    assert.ok(colored.includes(`\\x1b[38;2;211;47;47m${symbol}\\x1b[39m`), symbol);\n  }\n  assert.ok(colored.includes(\"\\x1b[37m5\\x1b[39m\"));\n  assert.ok(colored.includes(\"\\x1b[36m?\\x1b[39m\"));\n  const plain = renderHeader(snapshot, { terminalWidth: 120, color: false }).join(\"\\n\");\n  assert.equal(stripVTControlCharacters(colored), plain);\n} finally {\n  chalk.level = previous;\n}\n```"
+          ],
+          "planned_at": "2026-11-11T02:53:38.053Z",
+          "startedAt": "2026-11-11",
+          "changes": [
+            {
+              "before": "Every agent_thought_chunk wrote its own newline-terminated '∴ {token}' line.",
+              "after": "One '∴ ' prefix opens a thought line; chunks append inline and the line closes on a non-thought event, flush(), resize() or shutdown.",
+              "description": "C001, C004: stream thoughts inline in src/display/thought-line.ts and src/display/renderer.ts."
+            },
+            {
+              "before": "sanitizeTerminalText ran per chunk, so a split escape leaked the visible text '31m'.",
+              "after": "A streaming sanitizer carries an incomplete escape sequence (bounded by MAX_ESCAPE_CARRY=256) and reassembles it before sanitizing.",
+              "description": "C002: escape-carry sanitization in ThoughtLineWriter.append."
+            },
+            {
+              "before": "Thought text used terminal autowrap, which can write the last column and leave a pending-wrap cursor for the dashboard redraw.",
+              "after": "usableColumns(width)=width-1 and string-width accounting keep every line out of the last cell for ASCII, CJK and emoji.",
+              "description": "C003: fixed-header cursor safety."
+            },
+            {
+              "before": "shutdown() stopped the dashboard without flushing the renderer; SIGWINCH resized only the dashboard.",
+              "after": "DisplayLifecycle flushes the renderer before stopping the dashboard and forwards the width before the dashboard redraw.",
+              "description": "C004: extracted src/display/lifecycle.ts and wired it in src/conver.ts."
+            },
+            {
+              "before": "All non-numeric header symbols were chalk.cyan.",
+              "after": "_ | / x use #d32f2f; todo numbers stay white and the unknown-status ? stays cyan.",
+              "description": "C005: colorSymbol in src/progress/layout.ts."
+            },
+            {
+              "before": "string-width was only transitive; test-conver omitted display/progress tests.",
+              "after": "string-width is a direct dependency and test-conver runs every display/progress test file; the committed bundle was rebuilt without a version increment.",
+              "description": "Dependency, test reachability and bundle freshness."
+            }
+          ],
+          "done_at": "2026-11-11T02:59:07.709Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-11",
+          "reviewed_at": "2026-11-11T03:02:43.777Z"
         }
       ]
     },
