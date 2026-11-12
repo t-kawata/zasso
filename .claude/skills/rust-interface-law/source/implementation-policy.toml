@@ -1,0 +1,46 @@
+spec_version = "0.4.0"
+
+[interfaces.rest]
+crate = "axum"
+version = "=0.8.9"
+features = ["json"]
+default_features = false
+forbidden = ["actix-web", "warp", "poem"]
+
+[interfaces.websocket]
+crate = "axum"
+version = "=0.8.9"
+features = ["ws"]
+default_features = false
+forbidden = ["tungstenite"]
+
+[interfaces.cli]
+crate = "clap"
+version = "=4.5.50"
+features = ["derive"]
+default_features = false
+forbidden = []
+
+[interfaces.grpc]
+crate = "tonic"
+version = "=0.14.2"
+features = ["transport", "codegen"]
+default_features = false
+forbidden = []
+
+[interfaces.mcp]
+crate = "rmcp"
+version = "=0.8.5"
+features = ["server", "macros", "transport-streamable-http-server"]
+default_features = false
+forbidden = []
+
+[interfaces.a2a]
+crate = "a2a-lf"
+version = "=0.4.2"
+features = []
+default_features = true
+forbidden = []
+
+[edges]
+forbidden = ["operation_implementation", "business_storage_implementation"]

@@ -262,6 +262,7 @@ Invoke `rust-interface-law`; run `applies` on ticket target files per `SKILL.md`
   `Law: units=<...>; interfaces=<...>; phases=<...>; shared=<yes|no>; manifest=target/law/manifest.json`.
 - Shared: target files under `*-operation|*-core|*-identity-*|*-contract-*` AND ticket affects an interface.
 - Add `gate` V1 evidence and `[[verify]]` checks to `testUnit`/`testIntegration`.
+- Run `implementation-policy` resolution; record pin, feature, and policy hash in `Law:`.
 
 ### Step 6: Replace template markers
 

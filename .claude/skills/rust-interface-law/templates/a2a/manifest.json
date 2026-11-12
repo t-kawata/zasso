@@ -1,0 +1,37 @@
+{
+  "interface": "a2a",
+  "files": [
+    {
+      "path": "src/api-mod.rs",
+      "mode": "create",
+      "rules": [
+        "A2A-25"
+      ],
+      "template": "api-mod.rs.tmpl"
+    },
+    {
+      "path": "src/task-store.rs",
+      "mode": "create",
+      "rules": [
+        "A2A-26"
+      ],
+      "template": "task-store.rs.tmpl"
+    },
+    {
+      "path": "src/events.rs",
+      "mode": "create",
+      "rules": [
+        "A2A-29"
+      ],
+      "template": "events.rs.tmpl"
+    },
+    {
+      "path": "src/sdk-compat.rs",
+      "mode": "create",
+      "rules": [
+        "A2A-30"
+      ],
+      "template": "sdk-compat.rs.tmpl"
+    }
+  ]
+}

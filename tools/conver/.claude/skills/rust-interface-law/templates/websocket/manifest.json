@@ -1,0 +1,13 @@
+{
+  "interface": "websocket",
+  "files": [
+    {
+      "path": "src/api-mod.rs",
+      "mode": "create",
+      "rules": [
+        "WS-33"
+      ],
+      "template": "api-mod.rs.tmpl"
+    }
+  ]
+}

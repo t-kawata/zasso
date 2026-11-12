@@ -445,6 +445,42 @@ for the full statement and exception.
 | `WS-30` | C | ws | WS | Part III.7 | The adapter authorizes protocol-owned subscriptions and streams against the connection identity. | V3 test. | conformance driver |
 | `WS-31` | C | ws | WS | Part III.7 | The adapter MUST NOT authorize business resources; that belongs to the operation. | V3 bypass test. | conformance driver |
 | `WS-32` | C | ws | WS | Part III.7 | A subscription or stream is bound to the connection; disconnect cancels it. | V3 test. | conformance driver |
+| `REST-19` | C | rest | REST | Part III.6 | REST adapters MUST use the admitted HTTP crate and call the shared dispatcher through the adapter bridge. | V2 source; V3 route test. | conformance driver |
+| `REST-20` | C | rest | REST | Part III.6 | Every REST rejection path MUST use the shared semantic error renderer and the canonical request_id. | V3 rejection fixtures. | conformance driver |
+| `REST-21` | C | rest | REST | Part III.6 | OpenAPI operations and schemas MUST be generated from the same operation and validation manifest used at runtime. | V3 equality test. | conformance driver |
+| `WS-33` | C | websocket | WS | Part III.7 | Origin validation and ticket redemption MUST complete before WebSocket acceptance. | V3 pre-accept probe. | conformance driver |
+| `WS-34` | C | websocket | WS | Part III.7 | All connection queues and dispatch concurrency MUST be bounded, with overload producing the configured 1013 close path. | V3 overload test. | conformance driver |
+| `WS-35` | C | websocket | WS | Part III.7 | Stream input closure, output termination, and cancellation MUST be distinct states with deterministic cleanup. | V3 lifecycle test. | conformance driver |
+| `CLI-15` | C | cli | CLI | Part III.8 | clap parsing types MUST be generated inside the CLI adapter and MUST NOT annotate operation-domain types. | V2 AST; V3 command test. | conformance driver |
+| `CLI-16` | C | cli | CLI | Part III.8 | The CLI MUST reject argv credential contents and MUST read secrets only from approved file, stdin, or TTY sources. | V2 scan; V3 process test. | conformance driver |
+| `CLI-17` | C | cli | CLI | Part III.8 | The CLI MUST reserve stdout for results and MUST use the fixed exit-code table for every termination path. | V3 subprocess test. | conformance driver |
+| `GRPC-20` | C | grpc | GRPC | Part III.9 | gRPC services MUST implement generated tonic traits and MUST keep protobuf types outside core and operation contracts. | V2 graph; V3 service test. | conformance driver |
+| `GRPC-21` | C | grpc | GRPC | Part III.9 | Every gRPC streaming shape MUST propagate deadlines, input half-close, and cancellation to the matching dispatcher stream method. | V3 four-shape tests. | conformance driver |
+| `GRPC-22` | C | grpc | GRPC | Part III.9 | Non-loopback gRPC exposure MUST use the declared TLS boundary and shared redacted status mapping. | V3 TLS/status test. | conformance driver |
+| `MCP-22` | C | mcp | MCP | Part III.10 | MCP adapters MUST register generated tools through the admitted rmcp tool router and MUST dispatch through the shared Dispatcher. | V2 source; V3 tool test. | conformance driver |
+| `MCP-23` | C | mcp | MCP | Part III.10 | Every MCP deployment MUST declare its session and replay capabilities and MUST pass cross-instance tests for those capabilities. | V3 process test. | conformance driver |
+| `MCP-24` | C | mcp | MCP | Part III.10 | MCP JSON and SSE responses MUST use SDK framing and MUST share the same tool execution path. | V3 dual-mode test. | conformance driver |
+| `MCP-25` | C | mcp | MCP | Part III.10 | Resumable MCP profiles MUST persist event cursors and MUST pass restart replay without sticky routing. | V3 restart test. | conformance driver |
+| `MCP-26` | C | mcp | MCP | Part III.10 | MCP cancellation and progress MUST map to the dispatcher and MUST NOT buffer unsupported operations. | V3 cancel/progress test. | conformance driver |
+| `MCP-27` | C | mcp | MCP | Part III.10 | MCP authorization MUST expose discovery and challenge, bind the configured audience, and MUST NOT pass a received token downstream. | V3 auth test. | conformance driver |
+| `A2A-25` | C | a2a | A2A | Part III.11 | A2A send and stream methods MUST use one shared executor and SDK wire framing. | V3 shared-path probe. | conformance driver |
+| `A2A-26` | C | a2a | A2A | Part III.11 | Production A2A task state, execution claims, idempotency records, and event logs MUST survive instance replacement. | V3 restart test. | conformance driver |
+| `A2A-27` | C | a2a | A2A | Part III.11 | Every task, cancellation, and replay access MUST bind subject and tenant at the persistence boundary. | V3 owner isolation. | conformance driver |
+| `A2A-28` | C | a2a | A2A | Part III.11 | A2A `message/send` and `message/stream` MUST share the same operation invocation and terminal semantics. | V3 dual-mode test. | conformance driver |
+| `A2A-29` | C | a2a | A2A | Part III.11 | A2A cancellation, disconnect, and resubscribe MUST be distinct and MUST use durable event cursors. | V3 cancel/resubscribe. | conformance driver |
+| `A2A-30` | C | a2a | A2A | Part III.11 | A2A auth and agent card MUST declare and enforce the configured security scheme and audience. | V3 auth/card test. | conformance driver |
+| `IMP-01` | C | all | IMP | Part III.17 | Dependency declarations MUST use the admitted crate, exact version, features, and default-features policy. | V2 metadata check. | implementation-check |
+| `IMP-02` | C | all | IMP | Part III.17 | The gate MUST reject every unresolved dependency, feature, source, advisory, or license disposition. | V2 negative fixtures. | implementation-check |
+| `IMP-03` | C | all | IMP | Part III.17 | Adapter dependency edges MUST reach the dispatcher and identity contracts and MUST NOT reach operation implementations or business storage. | V2 graph check. | implementation-check |
+| `IMP-04` | C | all | IMP | Part III.17 | Core and operation-contract crates MUST NOT depend on protocol SDKs or generated transport types. | V2 graph check. | implementation-check |
+| `IMP-05` | C | all | IMP | Part III.17 | Required source calls MUST be resolved by identity, and unresolved analysis MUST fail closed. | V2 source detector. | implementation-check |
+| `IMP-06` | C | all | IMP | Part III.17 | Generated adapter output MUST equal regeneration from the admitted template and inputs. | V2 generated equality. | implementation-check |
+| `IMP-07` | C | all | IMP | Part III.17 | Scaffold MUST NOT overwrite an existing file; an existing file without a marker becomes merge-required. | V2 scaffold fixture. | implementation-check |
+| `IMP-08` | C | all | IMP | Part III.17 | Template bodies MUST NOT be delivered by context; only rule text, contract tables, and template references are delivered. | V2 delivery test. | implementation-check |
+| `IMP-09` | C | all | IMP | Part III.17 | Missing implementation reports, missing tests, zero selected tests, and failed detectors MUST NOT pass. | V2 gate self-test. | implementation-check |
+| `IMP-10` | C | all | IMP | Part III.17 | Every project MUST pin the law spec_version, dist hash, and policy hash; a mismatch fails unless a scoped exception exists. | V2 identity check. | implementation-check |
+| `IMP-11` | C | all | IMP | Part III.17 | Every implementation rule MUST have a detector or an explicit attestation row. | V2 registry check. | implementation-check |
+| `IMP-12` | C | all | IMP | Part III.17 | Pipeline checkpoints MUST invoke template, implementation-check, gate, and attest through a bounded wrapper. | V2 command inspection. | implementation-check |
 
 ## 2. Duplicate Detection
 

@@ -395,3 +395,18 @@ It is never implicit drift.
 | Naming grammar and collision checks. | Human-readable descriptions. |
 | Verification commands. | CI provider and scheduling. |
 | Version pinning. | Release cadence. |
+
+## 10. Implementation Policy and Templates
+
+Each profile pins its interface SDK in `[workspace.dependencies]` with an exact version and an explicit feature set. The chosen values are written to `target/law/effective-policy.json` and hashed.
+
+| Profile | Template files |
+|---|---|
+| rest | `templates/rest/` |
+| websocket | `templates/websocket/` |
+| cli | `templates/cli/` |
+| grpc | `templates/grpc/` |
+| mcp | `templates/mcp/` |
+| a2a | `templates/a2a/` |
+
+A false profile does not require its template files. A true profile requires the template manifest, implementation template, test template, and `RULE:` annotations.

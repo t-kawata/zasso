@@ -1,0 +1,41 @@
+[[test]]
+id = "rest_auth_body_order"
+interface = "rest"
+driver = "in-process"
+command = ["cargo", "test", "-p", "interface-rest", "--test", "contract", "rest_auth_body_order", "--", "--exact"]
+expected = "selected>=1,failed=0"
+
+[[test]]
+id = "ws_stream_lifecycle"
+interface = "websocket"
+driver = "http-upgrade"
+command = ["cargo", "test", "-p", "interface-websocket", "--test", "contract", "ws_stream_lifecycle", "--", "--exact"]
+expected = "selected>=1,failed=0"
+
+[[test]]
+id = "cli_exit_table"
+interface = "cli"
+driver = "subprocess"
+command = ["cargo", "test", "-p", "interface-cli", "--test", "contract", "cli_exit_table", "--", "--exact"]
+expected = "selected>=1,failed=0"
+
+[[test]]
+id = "grpc_four_shapes"
+interface = "grpc"
+driver = "loopback"
+command = ["cargo", "test", "-p", "interface-grpc", "--test", "contract", "grpc_four_shapes", "--", "--exact"]
+expected = "selected>=1,failed=0"
+
+[[test]]
+id = "mcp_dual_mode"
+interface = "mcp"
+driver = "loopback"
+command = ["cargo", "test", "-p", "interface-mcp", "--test", "contract", "mcp_dual_mode", "--", "--exact"]
+expected = "selected>=1,failed=0"
+
+[[test]]
+id = "a2a_send_stream_shared"
+interface = "a2a"
+driver = "loopback"
+command = ["cargo", "test", "-p", "interface-a2a", "--test", "contract", "a2a_send_stream_shared", "--", "--exact"]
+expected = "selected>=1,failed=0"

@@ -1474,3 +1474,9 @@ conformance kit must report the same version; a mismatch fails startup.
 
 Projects fill these in. The contracts above are the seams through which they
 plug in.
+
+## 11. Adapter Support Composition
+
+Adapters MAY share a project-owned adapter-support module that wraps the dispatcher, verifier, wire context, semantic reply, error mapping, and cancellation. The module is a composition seam, not a second contract. It MUST forward to the dispatcher and MUST NOT implement business logic.
+
+The adapter-support module is generated from the admitted template and carries `RULE: IMP-01` through `RULE: IMP-08` annotations where it implements those obligations.

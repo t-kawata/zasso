@@ -1,0 +1,45 @@
+{
+  "interface": "shared/adapter-support",
+  "files": [
+    {
+      "path": "src/lib.rs",
+      "mode": "create",
+      "rules": [
+        "IMP-01"
+      ],
+      "template": "lib.rs.tmpl"
+    },
+    {
+      "path": "src/bridge.rs",
+      "mode": "create",
+      "rules": [
+        "IMP-01"
+      ],
+      "template": "bridge.rs.tmpl"
+    },
+    {
+      "path": "src/wire.rs",
+      "mode": "create",
+      "rules": [
+        "IMP-02"
+      ],
+      "template": "wire.rs.tmpl"
+    },
+    {
+      "path": "src/error-map.rs",
+      "mode": "create",
+      "rules": [
+        "IMP-03"
+      ],
+      "template": "error-map.rs.tmpl"
+    },
+    {
+      "path": "src/cancel.rs",
+      "mode": "create",
+      "rules": [
+        "IMP-04"
+      ],
+      "template": "cancel.rs.tmpl"
+    }
+  ]
+}

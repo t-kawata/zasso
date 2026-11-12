@@ -1,0 +1,21 @@
+{
+  "interface": "mcp",
+  "files": [
+    {
+      "path": "src/api-mod.rs",
+      "mode": "create",
+      "rules": [
+        "MCP-22"
+      ],
+      "template": "api-mod.rs.tmpl"
+    },
+    {
+      "path": "src/mcp-compat.rs",
+      "mode": "create",
+      "rules": [
+        "MCP-24"
+      ],
+      "template": "mcp-compat.rs.tmpl"
+    }
+  ]
+}

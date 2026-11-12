@@ -225,3 +225,29 @@ read `authorization` metadata
 10. `cargo test -p <project>-grpc` and `cargo clippy -p <project>-grpc -- -D
     warnings`.
 11. The conformance report names `GRPC-01` through `GRPC-19`.
+
+## 11. Implementation Contract
+
+### 11.1 Cargo contract
+
+`tonic = { version = "=0.14.2", features = ["transport", "codegen", "router", "tls-ring"] }`; `prost = { version = "=0.14.1", features = ["derive", "std"] }`; `tonic-prost = { version = "=0.14.2" }`; build `tonic-prost-build = { version = "=0.14.2" }`.
+
+### 11.2 Required API sequence
+
+build.rs proto generation -> generated trait implementation -> interceptor metadata auth -> dispatcher unary/stream method -> status mapping -> deadline/cancel propagation.
+
+### 11.3 Forbidden patterns
+
+protobuf types in core or operation contracts, manual HTTP/2, service business logic, whole-stream collect, unredacted status details.
+
+### 11.4 Template
+
+`templates/grpc/`.
+
+### 11.5 Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| GRPC-20 | gRPC services MUST implement generated tonic traits and MUST keep protobuf types outside core and operation contracts. | Generation and boundary. | Message fields. | V2 graph; V3 service test. |
+| GRPC-21 | Every gRPC streaming shape MUST propagate deadlines, input half-close, and cancellation to the matching dispatcher stream method. | Four shapes. | Stream internals. | V3 four-shape tests. |
+| GRPC-22 | Non-loopback gRPC exposure MUST use the declared TLS boundary and shared redacted status mapping. | TLS and details. | Certificate source. | V3 TLS/status test. |

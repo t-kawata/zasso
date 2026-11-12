@@ -528,3 +528,15 @@ A missing `docs/generated/` directory or a non-zero exit fails the build.
 
 A project that skips a step is non-compliant, even if its documentation looks
 complete.
+
+## 9. Implementation Contract Pipeline
+
+The generator pipeline adds the implementation contract between source and adapter output.
+
+```text
+source docs -> rule registry -> manifest/lock/coverage -> OKF
+effective policy -> template catalog -> template plan -> scaffold
+implementation-check -> implementation report -> gate -> attest
+```
+
+The generator MUST use the admitted template and MUST record the template hash. The gate MUST reject a missing report, a missing test, a zero-test selection, a failed detector, or a law identity mismatch.

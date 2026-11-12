@@ -204,7 +204,8 @@ Otherwise invoke `rust-interface-law`; re-run `applies` on
 - Exit 0 → `resolve`, then `context --phases <lawScope phases>`.
 - Deliver a predecessor once only when `context` reports it missing.
 - Do not deliver phases outside `lawScope`.
-- `explain` for examples; `scaffold` for package templates; dry-run first.
+- `explain` for examples; `template` for plan output; `scaffold` for package templates; dry-run first.
+- `law-implementation` runs template, implementation-check, gate, and attest in order; do not skip.
 
 Begin implementation based on the plan from the immediately preceding `/plan-ticket` execution.
 Comply with the **Implementation Order** below and the following supreme laws:
@@ -456,9 +457,9 @@ the AI determines the approach based on the situation:
 ### Step 7.5: Rust interface law gate (conditional)
 
 `Law: not applicable` → skip.
-Otherwise run `gate` and `attest` per `SKILL.md`; exit 50 → fix findings.
+Otherwise run `implementation-check`, `gate --implementation`, and `attest` per `SKILL.md`; exit 50 → fix findings.
 Attest every `lawScope` phase; `unset` → `status=done` forbidden.
-Completion requires gate exit 0 and all phase attest ok.
+Completion requires implementation-check pass, gate exit 0, and all phase attest ok.
 
 ### Step 8: Quality check
 

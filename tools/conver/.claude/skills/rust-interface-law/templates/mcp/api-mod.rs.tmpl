@@ -1,0 +1,8 @@
+// RULE: MCP-22 MCP-23 MCP-24 MCP-26 MCP-27
+// Interface: {{interface}}
+// Package: {{package}}
+// NOT-COMPILED: project adapter template.
+// Required: L1 sessionless profile; JSON and SSE mounts; one tool execution path.
+// Required: external session/event store for L2; no local authoritative session map.
+// [::STUB::] MUST RESOLVE: implement the admitted MCP adapter.
+pub fn contract_marker() -> &'static str { "mcp-adapter-contract" }

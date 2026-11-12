@@ -1,0 +1,21 @@
+{
+  "interface": "grpc",
+  "files": [
+    {
+      "path": "src/service-mod.rs",
+      "mode": "create",
+      "rules": [
+        "GRPC-20"
+      ],
+      "template": "service-mod.rs.tmpl"
+    },
+    {
+      "path": "src/auth-mod.rs",
+      "mode": "create",
+      "rules": [
+        "GRPC-22"
+      ],
+      "template": "auth-mod.rs.tmpl"
+    }
+  ]
+}

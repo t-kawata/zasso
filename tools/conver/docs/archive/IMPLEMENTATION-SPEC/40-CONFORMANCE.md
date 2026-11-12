@@ -351,3 +351,16 @@ A report that omits a rule or a matrix cell is itself a failure.
 11. `cargo test -p <project>-conformance` and `cargo clippy -p
     <project>-conformance -- -D warnings`.
 12. The report names `CONF-01` through `CONF-65`.
+
+## 13. Implementation Proof
+
+Implementation proof is separate from behavior proof.
+
+| Level | Proof |
+|---|---|
+| V1 | Process scan: stubs, secrets, English, test weakening |
+| V2 | Dependency, feature, edge, source identity, template equality, law identity |
+| V3 | Project compile and interface contract tests |
+| V4 | Human attestation for SDK binding, tenant boundary, TLS trust, retention |
+
+A V1 pass is not rule-level proof. A missing implementation report, missing test, zero selected tests, or failed detector is a failure. The implementation report MUST name `IMP-01` through `IMP-12`.

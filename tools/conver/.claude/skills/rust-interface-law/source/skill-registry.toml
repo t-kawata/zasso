@@ -39,3 +39,23 @@ verification = "test:atom-lock.test.mjs::CRLF normalizes deterministically"
 id = "SK-08"
 statement = "Source or manifest hash mismatch fails verification."
 verification = "test:integration.test.mjs::manifest hash mismatch fails with exit 10"
+
+[[skill]]
+id = "SK-09"
+statement = "Effective implementation policy resolves compatible pins and rejects conflicts."
+verification = "test:implementation-policy.test.mjs::C001 effective policy accepts a compatible project pin"
+
+[[skill]]
+id = "SK-10"
+statement = "Template plans reject unresolved placeholders before any write."
+verification = "test:template.test.mjs::C002 unresolved placeholder rejects the plan and writes nothing"
+
+[[skill]]
+id = "SK-11"
+statement = "A missing implementation report is not_run and never a pass."
+verification = "test:implementation-gate.test.mjs::C003 a missing report makes every implementation rule not_run"
+
+[[skill]]
+id = "SK-12"
+statement = "A law identity mismatch fails unless a scoped exception exists."
+verification = "test:implementation-gate.test.mjs::C004 law identity mismatch fails and a scoped exception passes"

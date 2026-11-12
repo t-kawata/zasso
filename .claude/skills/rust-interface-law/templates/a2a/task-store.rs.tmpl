@@ -1,0 +1,8 @@
+// RULE: A2A-26 A2A-27
+// Interface: {{interface}}
+// Package: {{package}}
+// NOT-COMPILED: project adapter template.
+// Required: load and save by TaskOwner; tenant and subject on every path.
+// Prohibited: InMemoryTaskStore in production; ownerless persistence.
+// [::STUB::] MUST RESOLVE: implement the external A2A task store.
+pub fn contract_marker() -> &'static str { "a2a-task-store-contract" }

@@ -1,0 +1,8 @@
+// RULE: A2A-25 A2A-28 A2A-30
+// Interface: {{interface}}
+// Package: {{package}}
+// NOT-COMPILED: project adapter template.
+// Required: one shared executor for message/send and message/stream.
+// Required: external TaskStore and durable event log; no sticky session.
+// [::STUB::] MUST RESOLVE: implement the admitted A2A adapter.
+pub fn contract_marker() -> &'static str { "a2a-adapter-contract" }

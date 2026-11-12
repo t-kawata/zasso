@@ -1,0 +1,287 @@
+[[contract]]
+rule = "REST-19"
+interface = "rest"
+template = "rest/api-mod.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "rest_auth_body_order"
+level = "V3"
+
+[[contract]]
+rule = "REST-20"
+interface = "rest"
+template = "rest/api-mod.rs.tmpl"
+detector = "scan/forbidden-dependency"
+test = "rest_envelope_errors"
+level = "V3"
+
+[[contract]]
+rule = "REST-21"
+interface = "rest"
+template = "rest/openapi.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "rest_openapi_equal"
+level = "V3"
+
+[[contract]]
+rule = "WS-33"
+interface = "websocket"
+template = "websocket/api-mod.rs.tmpl"
+detector = "scan/query-ticket"
+test = "ws_origin_ticket_preaccept"
+level = "V3"
+
+[[contract]]
+rule = "WS-34"
+interface = "websocket"
+template = "websocket/api-mod.rs.tmpl"
+detector = "scan/unbounded-channel"
+test = "ws_backpressure_1013"
+level = "V3"
+
+[[contract]]
+rule = "WS-35"
+interface = "websocket"
+template = "websocket/api-mod.rs.tmpl"
+detector = "scan/unbounded-channel"
+test = "ws_stream_lifecycle"
+level = "V3"
+
+[[contract]]
+rule = "CLI-15"
+interface = "cli"
+template = "cli/commands-generated.rs.tmpl"
+detector = "scan/clap-on-operation-type"
+test = "cli_command_tree"
+level = "V3"
+
+[[contract]]
+rule = "CLI-16"
+interface = "cli"
+template = "cli/cli-support.rs.tmpl"
+detector = "scan/argv-secret"
+test = "cli_argv_secret_reject"
+level = "V3"
+
+[[contract]]
+rule = "CLI-17"
+interface = "cli"
+template = "cli/api-mod.rs.tmpl"
+detector = "scan/argv-secret"
+test = "cli_exit_table"
+level = "V3"
+
+[[contract]]
+rule = "GRPC-20"
+interface = "grpc"
+template = "grpc/service-mod.rs.tmpl"
+detector = "scan/protobuf-in-core"
+test = "grpc_proto_regen"
+level = "V3"
+
+[[contract]]
+rule = "GRPC-21"
+interface = "grpc"
+template = "grpc/service-mod.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "grpc_four_shapes"
+level = "V3"
+
+[[contract]]
+rule = "GRPC-22"
+interface = "grpc"
+template = "grpc/auth-mod.rs.tmpl"
+detector = "scan/forbidden-dependency"
+test = "grpc_auth_status"
+level = "V3"
+
+[[contract]]
+rule = "MCP-22"
+interface = "mcp"
+template = "mcp/api-mod.rs.tmpl"
+detector = "scan/manual-jsonrpc"
+test = "mcp_tools"
+level = "V3"
+
+[[contract]]
+rule = "MCP-23"
+interface = "mcp"
+template = "mcp/api-mod.rs.tmpl"
+detector = "scan/manual-jsonrpc"
+test = "mcp_dual_mode"
+level = "V3"
+
+[[contract]]
+rule = "MCP-24"
+interface = "mcp"
+template = "mcp/mcp-compat.rs.tmpl"
+detector = "scan/local-session-authority"
+test = "mcp_cross_instance"
+level = "V3"
+
+[[contract]]
+rule = "MCP-25"
+interface = "mcp"
+template = "mcp/mcp-compat.rs.tmpl"
+detector = "scan/local-session-authority"
+test = "mcp_resume_external"
+level = "V3"
+
+[[contract]]
+rule = "MCP-26"
+interface = "mcp"
+template = "mcp/api-mod.rs.tmpl"
+detector = "scan/stream-buffering"
+test = "mcp_cancel_progress"
+level = "V3"
+
+[[contract]]
+rule = "MCP-27"
+interface = "mcp"
+template = "mcp/api-mod.rs.tmpl"
+detector = "scan/stream-buffering"
+test = "mcp_dual_mode"
+level = "V3"
+
+[[contract]]
+rule = "A2A-25"
+interface = "a2a"
+template = "a2a/api-mod.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "a2a_send_stream_shared"
+level = "V3"
+
+[[contract]]
+rule = "A2A-26"
+interface = "a2a"
+template = "a2a/task-store.rs.tmpl"
+detector = "scan/in-memory-task-store"
+test = "a2a_external_store"
+level = "V3"
+
+[[contract]]
+rule = "A2A-27"
+interface = "a2a"
+template = "a2a/task-store.rs.tmpl"
+detector = "scan/in-memory-task-store"
+test = "a2a_owner_isolation"
+level = "V3"
+
+[[contract]]
+rule = "A2A-28"
+interface = "a2a"
+template = "a2a/api-mod.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "a2a_send_stream_shared"
+level = "V3"
+
+[[contract]]
+rule = "A2A-29"
+interface = "a2a"
+template = "a2a/events.rs.tmpl"
+detector = "scan/stream-buffering"
+test = "a2a_cancel_resubscribe"
+level = "V3"
+
+[[contract]]
+rule = "A2A-30"
+interface = "a2a"
+template = "a2a/sdk-compat.rs.tmpl"
+detector = "scan/forbidden-dependency"
+test = "a2a_card_skills"
+level = "V3"
+
+[[contract]]
+rule = "IMP-01"
+interface = "all"
+template = "shared/adapter-support/bridge.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-02"
+interface = "all"
+template = "shared/adapter-support/wire.rs.tmpl"
+detector = "scan/manual-jsonrpc"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-03"
+interface = "all"
+template = "shared/adapter-support/error-map.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-04"
+interface = "all"
+template = "shared/adapter-support/cancel.rs.tmpl"
+detector = "scan/stream-buffering"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-05"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/forbidden-dependency"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-06"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/local-session-authority"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-07"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-08"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/forbidden-dependency"
+test = "implementation-check"
+level = "V2"
+
+[[contract]]
+rule = "IMP-09"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/dispatcher-bypass"
+test = "implementation-check"
+level = "V3"
+
+[[contract]]
+rule = "IMP-10"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/local-session-authority"
+test = "implementation-check"
+level = "V3"
+
+[[contract]]
+rule = "IMP-11"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/stream-buffering"
+test = "implementation-check"
+level = "V3"
+
+[[contract]]
+rule = "IMP-12"
+interface = "all"
+template = "shared/adapter-support/lib.rs.tmpl"
+detector = "scan/forbidden-dependency"
+test = "implementation-check"
+level = "V3"
