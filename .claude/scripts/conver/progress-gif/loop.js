@@ -50,6 +50,8 @@ const GRAPH_STEPS = ['0', '1', '2', '3', '4', '5'];
 const BOUNDIFY_STEPS = ['0', '1', '2', '3'];
 const SPLIT_STEPS = ['0-1', '0-2', '1', '2', '3', '4-1', '4-2', '5-1', '5-2', '5-3', '6'];
 const CRYSTALIZE_STEPS = 4;
+const CONSOLIDATE_MANIFEST_PORTION = 0.5;
+const PENDING_FIND_PORTION = 0.5;
 export const MILLION = 1e6;
 
 // [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
@@ -230,6 +232,30 @@ export function formatUsageTitle(name, cumulative, contracts = '0/?', tickets = 
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
 export function clamp01(value) {
   return Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+}
+
+/**
+ * The reviewed share of one package's contract obligations at one instant.
+ *
+ * The numerator is the union of contract ids whose ticket carries a reviewed_at
+ * at or before the instant; the denominator is the package's whole obligation
+ * total, so a late discovery of new obligations cannot make the completion cue
+ * recede. A legacy model without a contract log falls back to its final reviewed
+ * count instead of pretending the package was never reviewed.
+ */
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
+export function packageReviewedRatioAt(pkg, timestamp) {
+  const total = Math.max(0, Number(pkg && pkg.obligations && pkg.obligations.total) || 0);
+  if (total <= 0) return 0;
+  if (!Array.isArray(pkg.contractLog)) {
+    return clamp01(Math.max(0, Number(pkg.obligations.reviewed) || 0) / total);
+  }
+  const reviewed = new Set();
+  for (const entry of pkg.contractLog) {
+    if (!Number.isFinite(entry.reviewedAt) || entry.reviewedAt > timestamp) continue;
+    for (const id of entry.contractIds || []) reviewed.add(id);
+  }
+  return clamp01(reviewed.size / total);
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -591,12 +617,12 @@ export function stageProgressOf(artifacts, workspaceArtifacts = {}, packageId = 
   }
   const manifests = artifacts.manifests || [];
   const omissions = artifacts.omissions || [];
-  if (manifests.length > 0) stages.consolidate = 0.5;
+  if (manifests.length > 0) stages.consolidate = CONSOLIDATE_MANIFEST_PORTION;
   if (omissions.length > 0) {
     stages.consolidate = 1;
     const tickets = ticketList(artifacts);
     const pending = tickets.some((ticket) => ticket.status === 'remanded' || ticket.forNextRound);
-    stages.find = pending ? 0.5 : 1;
+    stages.find = pending ? PENDING_FIND_PORTION : 1;
   }
 
   const crystalizeEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'crystalize', packageId);
@@ -665,7 +691,7 @@ function emitStageEvent(events, input) {
 }
 
 /** Build stage events for one package. Root events use packageId null and apply to every cell. */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-411) --for-spec --no-implementation-order`.
 export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings = []) {
   const events = [];
   const initialT = workspaceArtifacts.initialT || 0;
@@ -832,15 +858,13 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
     const count = tickets.length || 1;
     for (const ticket of tickets) {
       const status = ticket.status;
-      const isMade = Boolean(status) && status !== 'todo';
-      const isPlanned = ['planned', 'claimed', 'started', 'done', 'reviewed'].includes(status);
-      const isStarted = ['started', 'done', 'reviewed'].includes(status);
-      const isReviewed = status === 'reviewed' || isReviewedStatus(status);
-      const madeAt = isMade ? readTicketStageInstant(ticket, 'make') : null;
-      const plannedAt = isPlanned ? readTicketStageInstant(ticket, 'plan') : null;
-      const startedAt = isStarted ? readTicketStageInstant(ticket, 'start') : null;
-      const reviewedAt = isReviewed ? readTicketStageInstant(ticket, 'review') : null;
-      if (isReviewed && !reviewedAt) {
+      // The explicit instants are the evidence. A status string is not a clock:
+      // R1-R4 and remanded tickets carry the same fields as the nominal states.
+      const madeAt = readTicketStageInstant(ticket, 'make');
+      const plannedAt = readTicketStageInstant(ticket, 'plan');
+      const startedAt = readTicketStageInstant(ticket, 'start');
+      const reviewedAt = readTicketStageInstant(ticket, 'review');
+      if (isReviewedStatus(status) && !reviewedAt) {
         warnOnce(warnings, `[evidence] review ${pkg.id}: ${ticketKeyOf(ticket)} has no reviewed_at; review not credited`);
       }
       if (madeAt) {
@@ -888,7 +912,24 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
       artifactPath: manifest.path,
       context: { initialT, warnings, label: `consolidate ${pkg.id}` },
     });
-    if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'consolidate', packageId: pkg.id, inc: 0.5 / Math.max(1, artifacts.manifests.length), evidence: manifest.path, timeSource: when.source });
+    if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'consolidate', packageId: pkg.id, inc: CONSOLIDATE_MANIFEST_PORTION / Math.max(1, artifacts.manifests.length), evidence: manifest.path, timeSource: when.source });
+  }
+  // An omission file is the second half of consolidation: stageProgressOf sets
+  // consolidate to 1 when any omission exists, so the manifest half needs its
+  // complement at the omission instant or the ladder never reaches the snapshot.
+  const manifestPortion = (artifacts.manifests || []).length > 0 ? CONSOLIDATE_MANIFEST_PORTION : 0;
+  const consolidateRemainder = clamp01(stages.consolidate - manifestPortion);
+  const firstOmission = (artifacts.omissions || [])[0];
+  if (consolidateRemainder > 0 && firstOmission) {
+    const when = resolveCompletionEvidence({
+      evidence: {
+        history: findEarliestHistoryFinish(artifacts.historyRecords, pkg.id, 'consolidate'),
+        statusTime: { t: firstOmission.t, prec: firstOmission.prec },
+      },
+      artifactPath: firstOmission.path,
+      context: { initialT, warnings, label: `consolidate ${pkg.id}` },
+    });
+    if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'consolidate', packageId: pkg.id, inc: consolidateRemainder, evidence: firstOmission.path, timeSource: when.source });
   }
   for (const omission of artifacts.omissions || []) {
     const when = resolveCompletionEvidence({
@@ -899,7 +940,7 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
       artifactPath: omission.path,
       context: { initialT, warnings, label: `find ${pkg.id}` },
     });
-    if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'find', packageId: pkg.id, inc: 1 / Math.max(1, artifacts.omissions.length), evidence: omission.path, timeSource: when.source });
+    if (when) addEvent(events, { t: when.t, prec: when.prec, stage: 'find', packageId: pkg.id, inc: clamp01(stages.find) / Math.max(1, artifacts.omissions.length), evidence: omission.path, timeSource: when.source });
   }
 
   const crystalizeEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'crystalize', pkg.id);
@@ -1024,18 +1065,29 @@ export function reconstructTicketGrowth(input = {}) {
 }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-function computeGrowthMassOf(events, packageId) {
-  return (events || [])
-    .filter((event) => event.packageId === packageId)
-    .reduce((sum, event) => sum + computeGrowthMass(event), 0);
-}
-
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 function computeGrowthMass(event) {
   if (Number.isFinite(event.addedMass)) return Math.max(0, event.addedMass);
   const contracts = Math.max(0, Number(event.addedContracts) || 0);
   if (contracts > 0) return contracts;
   return (event.addedTicketKeys || []).length;
+}
+
+/**
+ * Cap one package's growth mass at the ticket-only obligations it may add.
+ *
+ * A ticket can repeat contract ids already owned by the graph or the registry,
+ * so the raw per-ticket sum is an incidence count, not a scope delta. The cap
+ * keeps the animated area in the same unit as obligations.total and prevents a
+ * package from growing past its final obligation count.
+ */
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
+export function capGrowthMass(events, ticketOnly) {
+  let remaining = Math.max(0, Math.floor(Number(ticketOnly) || 0));
+  return events.map((event) => {
+    const mass = Math.min(computeGrowthMass(event), remaining);
+    remaining -= mass;
+    return { ...event, addedMass: mass };
+  });
 }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -1067,17 +1119,27 @@ export function computeDensity(progress) {
  */
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
 /** Build the mutable package progress state for one model. */
-// [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-411) --for-spec --no-implementation-order`.
 function createPackageModels(model) {
-  const packageModels = (model.packages || []).map((pkg, index) => ({
-    id: pkg.id,
-    name: pkg.name,
-    path: pkg.path,
-    index,
-    total: Math.max(0, (pkg.obligations.total || 0) - computeGrowthMassOf(model.growthEvents, pkg.id)),
-    reviewed: Math.max(0, pkg.obligations.reviewed || 0),
-    progress: new Array(STAGE_ORDER.length).fill(0),
-  }));
+  const packageModels = (model.packages || []).map((pkg, index) => {
+    const cap = Math.max(0, Number(pkg.obligations.total) || 0);
+    // Seed the area with the obligations that are not ticket-only, so the
+    // circle starts at graph/boundary scale and only ticket-only scope grows.
+    const seededMass = capGrowthMass(
+      (model.growthEvents || []).filter((event) => event.packageId === pkg.id),
+      pkg.obligations.ticketOnly,
+    ).reduce((sum, event) => sum + event.addedMass, 0);
+    return {
+      id: pkg.id,
+      name: pkg.name,
+      path: pkg.path,
+      index,
+      cap,
+      total: Math.max(0, cap - seededMass),
+      weight: Math.max(1, cap),
+      progress: new Array(STAGE_ORDER.length).fill(0),
+    };
+  });
   return { packageModels, byId: new Map(packageModels.map((pkg) => [pkg.id, pkg])) };
 }
 
@@ -1410,7 +1472,7 @@ function advanceStageFrontier(state, event) {
 }
 
 /** Apply one timeline event to the frame state. */
-// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381|PX-411) --for-spec --no-implementation-order`.
 export function applyEvent(state, event) {
   state.lastT = event.t;
   state.lastEvidenceT = Math.max(state.lastEvidenceT, event.evidenceT);
@@ -1438,7 +1500,7 @@ export function applyEvent(state, event) {
     if (ticketKeys.length > 0 && unseen.length === 0) return;
     for (const key of unseen) state.seenGrowthKeys.add(key);
     const pkg = state.byId.get(event.packageId);
-    if (pkg) pkg.total = Math.max(0, pkg.total + event.addedMass);
+    if (pkg) pkg.total = Math.min(pkg.cap, Math.max(0, pkg.total + event.addedMass));
     state.growthThisFrame.push({
       packageId: event.packageId,
       stage: event.stage,
@@ -1449,24 +1511,20 @@ export function applyEvent(state, event) {
 }
 
 /** Project the current state into one frame payload. */
-// [::TICKET::] PX-374, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-374, PX-381, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381|PX-411) --for-spec --no-implementation-order`.
 export function frameFromState(state, model, index) {
-  const packageFrames = state.packageModels.map((pkg) => {
-    const reviewed = Math.min(pkg.reviewed, pkg.total);
-    return {
-      id: pkg.id,
-      name: pkg.name,
-      path: pkg.path,
-      total: pkg.total,
-      reviewed,
-      fill: pkg.total > 0 ? reviewed / pkg.total : 0,
-      density: computeDensity(pkg.progress),
-    };
-  });
+  const packageFrames = state.packageModels.map((pkg) => ({
+    id: pkg.id,
+    name: pkg.name,
+    path: pkg.path,
+    total: pkg.total,
+    reviewedRatio: packageReviewedRatioAt((model.packages || [])[pkg.index], state.lastT),
+    density: computeDensity(pkg.progress),
+  }));
   const globalStage = STAGE_ORDER.map((stage, stageIndex) => {
-    const weight = packageFrames.reduce((sum, pkg) => sum + Math.max(1, pkg.total), 0);
+    const weight = state.packageModels.reduce((sum, pkg) => sum + pkg.weight, 0);
     if (weight <= 0) return 0;
-    const weighted = state.packageModels.reduce((sum, pkg) => sum + pkg.progress[stageIndex] * Math.max(1, pkg.total), 0);
+    const weighted = state.packageModels.reduce((sum, pkg) => sum + pkg.progress[stageIndex] * pkg.weight, 0);
     return weighted / weight;
   });
   // Models built before the availability flag keep the old "records mean available" rule.

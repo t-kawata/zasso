@@ -4,10 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { computeLayout, formatDate, formatPercent, groupColor, STAGE_CAPTIONS, stageCaption, MIN_DESCRIPTION_SIZE } from '../../.claude/scripts/conver/progress-gif/layout.js';
+import { computeLayout, formatDate, formatPercent, groupColor, STAGE_CAPTIONS, stageCaption, MIN_DESCRIPTION_SIZE, IMPLEMENTATION_PROGRESS_COLOUR } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { buildFrames, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { drawFrame, makePalette, LADDER_LABEL_SIZE, HEADER_STAGE_SIZE, HEADER_NAME_SIZE, HEADER_DESCRIPTION_SIZE, HEADER_DATE_COLOUR } from '../../.claude/scripts/conver/progress-gif/engine.js';
-import { eventsForEveryStage, makeModel, packageModel, withPackageCount } from './models.mjs';
+import { INITIAL_TIME, eventsForEveryStage, makeModel, packageModel, stageEvent, withPackageCount } from './models.mjs';
 
 /** A Canvas 2D stand-in that records every drawing call the renderer makes. */
 // [::TICKET::] PX-350, PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380) --for-spec --no-implementation-order`.
@@ -31,8 +31,8 @@ function createRecordingContext(measure = (text) => String(text).length * 6) {
       composite = value;
       calls.push(['composite', value]);
     },
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-    fillRect(...args) { calls.push(['fillRect', ...args]); },
+// [::TICKET::] PX-350, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-411) --for-spec --no-implementation-order`.
+    fillRect(...args) { calls.push(['fillRect', ...args, ctx.fillStyle]); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     beginPath() { calls.push(['beginPath']); },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
@@ -51,7 +51,7 @@ function createRecordingContext(measure = (text) => String(text).length * 6) {
     measureText(text) { return { width: measure(text, ctx.font) }; },
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
     setLineDash(values) { calls.push(['dash', ...values]); },
-// [::TICKET::] PX-350, PX-380, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380|PX-401) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-380, PX-401, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-380|PX-401|PX-411) --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
 // [::TICKET::] PX-350, PX-351, PX-354, PX-380, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-354|PX-380|PX-381) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
@@ -345,8 +345,11 @@ test('no caption crosses the percent block for any stage on the narrow board', (
   }
 });
 
-test('C007: each package draws a ladder-styled ticket progress bar', () => {
-  const pkg = { ...packageModel({ id: 'pkg-1' }), tickets: { total: 8, reviewed: 3, remanded: 0 } };
+test('C007: each package draws a ladder-styled contract-obligation progress bar', () => {
+  const pkg = {
+    ...packageModel({ id: 'pkg-1', total: 8, reviewed: 3 }),
+    contractLog: [{ presentAt: INITIAL_TIME, reviewedAt: INITIAL_TIME, contractIds: ['a', 'b', 'c'] }],
+  };
   const model = makeModel({ packages: [pkg] });
   model.events = eventsForEveryStage([pkg]);
   const layout = computeLayout(model, { measureText: (text) => String(text).length * 6 });
@@ -361,6 +364,29 @@ test('C007: each package draws a ladder-styled ticket progress bar', () => {
   assert.equal(bars[0][4], cell.barHeight);
   assert.equal(bars[1][3], cell.barWidth * 3 / 8);
   assert.equal(bars[1][4], cell.barHeight);
+  assert.equal(bars[1][5], IMPLEMENTATION_PROGRESS_COLOUR);
+});
+
+test('C002: the package completion arc and inner tint are removed; other arcs remain', () => {
+  const pkg = {
+    ...packageModel({ id: 'pkg-1', total: 4, reviewed: 3 }),
+    contractLog: [{ presentAt: INITIAL_TIME, reviewedAt: INITIAL_TIME + 1, contractIds: ['a', 'b', 'c'] }],
+  };
+  const model = makeModel({ packages: [pkg, packageModel({ id: 'pkg-2', total: 4 })] });
+  model.events = [stageEvent('educe', INITIAL_TIME + 2, pkg.id, 1)];
+  const layout = computeLayout(model, { measureText: (text) => String(text).length * 6 });
+  const frame = buildFrames(model, { frames: 20 }).at(-1);
+  const { ctx, calls } = createRecordingContext();
+  drawFrame(ctx, layout, frame, model, { title: 'PROGRESS: demo' });
+  const cell = layout.cells[0];
+  const completion = calls.filter((call) => call[0] === 'arc'
+    && call[2] === -Math.PI / 2
+    && Math.abs(call[4] - cell.radius * 1.05) < 1e-9);
+  assert.equal(completion.length, 0);
+  const tint = calls.filter((call) => call[0] === 'arc'
+    && Math.abs(call[4] - cell.radius * 0.96) < 1e-9);
+  assert.equal(tint.length, 0);
+  assert.ok(calls.filter((call) => call[0] === 'arc').length >= 2 * 100);
 });
 
 test('C007: a package without Tickets.json draws an empty track', () => {

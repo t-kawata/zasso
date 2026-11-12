@@ -9,9 +9,12 @@ stage-weighted timeline, held final frame) and applies only the agreed improveme
 Corrections and source-verified facts: see `docs/progress-gif/GIF-ANIMATION-INFO-SUPPLEMENT.md`.
 Synthetic parser fixtures: see `docs/fixtures/gif-animation/`.
 The density formula in this document is a `[PROPOSAL]`, not producer behaviour. The
-implemented tool uses contract obligations for area and reviewed obligations over total
-obligations for the completion cue and the headline, and draws ticket growth at its
-recovered loop stage.
+implemented tool uses contract obligations for area. The per-package completion cue is the
+bar below each circle: unique reviewed contract ids at the frame instant over the package
+contract-obligation total. The circle completion ring and its inner tint were retired by
+PX-411; the dot field, density glow, active flash, neutral ring and dashed unknown-scope
+ring remain. The headline is the stage-weighted ladder completion, and ticket growth is
+drawn at its recovered loop stage.
 Audience: an AI that cannot read the conver source tree. Everything needed to discover the
 data, compute the numbers, and render the animation is stated here.
 Sample workspace used for every measured value below: `~/shyme/gaia` on 2026-11-03.

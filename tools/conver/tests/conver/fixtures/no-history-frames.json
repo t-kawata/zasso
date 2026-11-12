@@ -11,8 +11,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -72,8 +71,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -133,8 +131,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -194,8 +191,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -255,8 +251,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -316,8 +311,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -377,8 +371,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -438,8 +431,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -499,8 +491,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -560,8 +551,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -621,8 +611,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -682,8 +671,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -743,8 +731,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -804,8 +791,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -865,8 +851,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -926,8 +911,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -987,8 +971,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -1048,8 +1031,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -1109,8 +1091,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],
@@ -1170,8 +1151,7 @@
         "name": "pkg-1",
         "path": "pkg-1",
         "total": 1,
-        "reviewed": 1,
-        "fill": 1,
+        "reviewedRatio": 0,
         "density": 0
       }
     ],

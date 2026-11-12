@@ -1,3 +1,4 @@
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
@@ -19,9 +20,14 @@ import {
   frameFromState,
   derivePackageState,
   progressAt,
+  packageReviewedRatioAt,
+  capGrowthMass,
+  stageEventsOf,
+  stageProgressOf,
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { HOLD_END_FRAMES, HOLD_START_FRAMES } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { INITIAL_TIME, eventsForEveryStage, makeModel, packageModel, stageEvent, withPackageCount } from './models.mjs';
+import { ticket } from './fixtures.mjs';
 
 test('STAGE_ORDER is the fixed 16-stage order', () => {
   assert.deepEqual(STAGE_ORDER, [
@@ -129,8 +135,9 @@ test('per-package stage progress never decreases and displayed time is monotonic
   }
 });
 
-test('ticket growth increases area inline, persists, and may lower the completion ratio', () => {
+test('ticket growth increases area inline, persists, and never lowers the contract completion ratio', () => {
   const pkg = packageModel({ id: 'pkg-1', total: 100, reviewed: 10 });
+  pkg.obligations.ticketOnly = 7;
   const model = makeModel({
     packages: [pkg],
     growthEvents: [{
@@ -151,8 +158,171 @@ test('ticket growth increases area inline, persists, and may lower the completio
   assert.equal(frames[growthFrame - 1].packages[0].total, 93);
   assert.equal(frames[growthFrame].packages[0].total, 100);
   assert.equal(frames[growthFrame].growth[0].addedMass, 7);
-  assert.ok(frames[growthFrame].packages[0].fill < frames[growthFrame - 1].packages[0].fill);
+  assert.equal(
+    frames[growthFrame].packages[0].reviewedRatio,
+    frames[growthFrame - 1].packages[0].reviewedRatio,
+  );
+  assert.equal(frames[growthFrame].packages[0].reviewedRatio, 0.1);
   assert.equal(frames.at(-1).packages[0].total, 100);
+});
+
+test('C001: reviewedRatio counts unique reviewed contract ids at the frame instant', () => {
+  const T0 = INITIAL_TIME;
+  const pkg = {
+    ...packageModel({ id: 'pkg-1', total: 4, reviewed: 3 }),
+    contractLog: [
+      { presentAt: T0, reviewedAt: T0 + 1000, contractIds: ['a', 'b'] },
+      { presentAt: T0, reviewedAt: T0 + 2000, contractIds: ['b', 'c'] },
+    ],
+  };
+  assert.equal(packageReviewedRatioAt(pkg, T0), 0);
+  assert.equal(packageReviewedRatioAt(pkg, T0 + 1000), 0.5);
+  assert.equal(packageReviewedRatioAt(pkg, T0 + 2000), 0.75);
+
+  const model = makeModel({
+    packages: [pkg],
+    events: [
+      stageEvent('educe', T0, pkg.id, 0.1),
+      stageEvent('explain', T0 + 2000, pkg.id, 0.1),
+    ],
+  });
+  const frames = buildFrames(model, { frames: 30 });
+  assert.equal(frames[0].packages[0].reviewedRatio, 0);
+  assert.equal(frames.at(-1).packages[0].reviewedRatio, 0.75);
+  for (let index = 1; index < frames.length; index += 1) {
+    assert.ok(frames[index].packages[0].reviewedRatio >= frames[index - 1].packages[0].reviewedRatio);
+  }
+});
+
+test('C001: reviewedRatio clamps at one and legacy models fall back to the static count', () => {
+  const T0 = INITIAL_TIME;
+  assert.equal(packageReviewedRatioAt(packageModel({ id: 'pkg-zero', total: 0, reviewed: 0 }), T0), 0);
+  const clamped = {
+    ...packageModel({ id: 'pkg-c', total: 2, reviewed: 2 }),
+    contractLog: [{ presentAt: T0, reviewedAt: T0, contractIds: ['a', 'b', 'c'] }],
+  };
+  assert.equal(packageReviewedRatioAt(clamped, T0), 1);
+  assert.equal(packageReviewedRatioAt(packageModel({ id: 'pkg-l', total: 2, reviewed: 1 }), T0), 0.5);
+});
+
+test('C003: explicit instants emit one event per stage and sums equal stageProgressOf', () => {
+  const artifacts = {
+    tickets: { phases: [{ id: 0, tickets: [{
+      id: 1,
+      phaseId: 0,
+      status: 'R3',
+      contracts: [{ id: 'C1' }],
+      made_at: '2026-11-01T01:00:00.000Z',
+      planned_at: '2026-11-01T02:00:00.000Z',
+      done_at: '2026-11-01T03:00:00.000Z',
+      reviewed_at: '2026-11-01T04:00:00.000Z',
+    }] }] },
+  };
+  const events = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, artifacts, { initialT: INITIAL_TIME }, []);
+  const stages = stageProgressOf(artifacts, {}, 'pkg-1', []);
+  const expected = {
+    make: Date.parse('2026-11-01T01:00:00Z'),
+    plan: Date.parse('2026-11-01T02:00:00Z'),
+    start: Date.parse('2026-11-01T03:00:00Z'),
+    review: Date.parse('2026-11-01T04:00:00Z'),
+  };
+  for (const [stage, when] of Object.entries(expected)) {
+    const selected = events.filter((event) => event.stage === stage);
+    assert.equal(selected.length, 1, stage);
+    assert.equal(selected[0].t, when, stage);
+    assert.ok(Math.abs(selected[0].inc - 1) < 1e-9, stage);
+    assert.ok(Math.abs(selected[0].inc - stages[stage]) < 1e-9, stage);
+  }
+});
+
+test('C003: a direct todo-to-reviewed ticket emits review only', () => {
+  const artifacts = {
+    tickets: { phases: [{ id: 0, tickets: [{
+      id: 1,
+      phaseId: 0,
+      status: 'reviewed',
+      contracts: [],
+      reviewed_at: '2026-11-02T00:00:00.000Z',
+    }] }] },
+  };
+  const events = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, artifacts, { initialT: INITIAL_TIME }, []);
+  assert.deepEqual(events.map((event) => event.stage), ['review']);
+});
+
+test('C004: a mid-timeline growth event never lowers a ladder bar or overall progress', () => {
+  const pkg = packageModel({ id: 'pkg-1', total: 100 });
+  const model = makeModel({
+    packages: [pkg],
+    events: [stageEvent('educe', INITIAL_TIME, pkg.id, 1)],
+    growthEvents: [{
+      packageId: pkg.id,
+      t: INITIAL_TIME + 50,
+      prec: 'ms',
+      stage: 'find',
+      addedTicketKeys: ['P1-1'],
+      addedContracts: 7,
+      addedReviewed: 0,
+      evidence: 'snapshot',
+      confidence: 'snapshot',
+    }],
+  });
+  const frames = buildFrames(model, { frames: 120 });
+  for (let index = 1; index < frames.length; index += 1) {
+    for (let stage = 0; stage < STAGE_ORDER.length; stage += 1) {
+      assert.ok(frames[index].globalStage[stage] >= frames[index - 1].globalStage[stage] - 1e-12);
+    }
+    assert.ok(frames[index].overallProgress >= frames[index - 1].overallProgress - 1e-12);
+  }
+});
+
+test('C005: growth mass caps at ticketOnly and package total never exceeds obligations.total', () => {
+  const capped = capGrowthMass([{ addedTicketKeys: ['P1-1'], addedContracts: 243 }], 15);
+  assert.equal(capped[0].addedMass, 15);
+
+  const pkg = packageModel({ id: 'pkg-1', total: 183, covered: 183, reviewed: 0 });
+  pkg.obligations.ticketOnly = 15;
+  const model = makeModel({
+    packages: [pkg],
+    growthEvents: [{
+      packageId: pkg.id,
+      t: INITIAL_TIME + 50,
+      prec: 'ms',
+      stage: 'find',
+      addedTicketKeys: ['P1-1'],
+      addedContracts: 243,
+      addedReviewed: 0,
+      evidence: 'omission',
+      confidence: 'omission',
+    }],
+  });
+  const frames = buildFrames(model, { frames: 120 });
+  assert.equal(frames[0].packages[0].total, 168);
+  assert.equal(frames.at(-1).packages[0].total, 183);
+  assert.ok(frames.every((frame) => frame.packages[0].total <= 183));
+});
+
+test('C006: consolidate and find event sums match the snapshot stage fractions', () => {
+  const artifacts = {
+    tickets: { phases: [{ id: 0, tickets: [ticket({ phaseId: 0, id: 1, status: 'R3' })] }] },
+    manifests: [{ path: '/tmp/CONSOLIDATED-MANIFEST-20261101000000.json', t: INITIAL_TIME, prec: 'ms' }],
+    omissions: [{ path: '/tmp/OMISSIONS-20261101000001.json', t: INITIAL_TIME + 1000, prec: 'ms' }],
+  };
+  const events = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, artifacts, { initialT: INITIAL_TIME }, []);
+  const sum = (stage) => events
+    .filter((event) => event.stage === stage)
+    .reduce((total, event) => total + event.inc, 0);
+  assert.ok(Math.abs(sum('consolidate') - 1) < 1e-9);
+  assert.ok(Math.abs(sum('find') - 1) < 1e-9);
+
+  const pendingArtifacts = {
+    ...artifacts,
+    tickets: { phases: [{ id: 0, tickets: [{ ...ticket({ phaseId: 0, id: 1, status: 'R3' }), forNextRound: true }] }] },
+  };
+  const pending = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, pendingArtifacts, { initialT: INITIAL_TIME }, []);
+  const pendingFind = pending
+    .filter((event) => event.stage === 'find')
+    .reduce((total, event) => total + event.inc, 0);
+  assert.ok(Math.abs(pendingFind - 0.5) < 1e-9);
 });
 
 test('root events advance every cell without hijacking the current stage label', () => {
@@ -303,6 +473,7 @@ test('smooth is displayed after grill and before graphify even when measured lat
 
 test('a growth event without contract mass still adds one scope unit per ticket', () => {
   const pkg = packageModel({ id: 'pkg-1', total: 10 });
+  pkg.obligations.ticketOnly = 2;
   const model = makeModel({
     packages: [pkg],
     growthEvents: [{

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
 // Regression tests for the two evidence-time defects found on the gaia
 // workspace: a COMPLETE drill at a gate step was not credited, and an
@@ -151,6 +152,24 @@ test('C006: reviewed_at is the review event time and its status source', () => {
   assert.ok(review);
   assert.equal(review.t, Date.parse('2026-11-03T04:05:06.000Z'));
   assert.equal(review.timeSource, 'status');
+});
+
+test('C003: an R3 ticket with planned_at and done_at emits plan and start', () => {
+  const reviewed = ticket({
+    phaseId: 0,
+    id: 1,
+    status: 'R3',
+    contracts: [],
+    extra: {
+      planned_at: '2026-11-01T02:00:00.000Z',
+      done_at: '2026-11-01T03:00:00.000Z',
+    },
+  });
+  const events = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, ticketArtifacts([reviewed]), { initialT: INITIAL_INSTANT }, []);
+  assert.deepEqual(
+    events.filter((event) => ['plan', 'start'].includes(event.stage)).map((event) => event.stage).sort(),
+    ['plan', 'start'],
+  );
 });
 
 test('C006: a stage fraction without an explicit instant gets no artifact-presence event', () => {

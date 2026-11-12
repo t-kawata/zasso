@@ -21,6 +21,10 @@ const GROUP_COLOURS = Object.freeze({
   evolution: '#EC4899',
 });
 
+/** The reviewed-contract progress bar is always the implementation group colour. */
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
+export const IMPLEMENTATION_PROGRESS_COLOUR = GROUP_COLOURS.implementation;
+
 /**
  * The one-line description shown after the header stage name. The key set must
  * stay identical to STAGE_ORDER; a missing entry removes the caption instead of

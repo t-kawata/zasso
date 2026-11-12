@@ -8,6 +8,7 @@ import {
   fitDescriptionSize,
   ellipsizeDescription,
   MIN_DESCRIPTION_SIZE,
+  IMPLEMENTATION_PROGRESS_COLOUR,
 } from './layout.js';
 
 const BACKGROUND = [5, 7, 10];
@@ -658,17 +659,17 @@ function collectActiveStages(frame, packageIndex) {
 }
 
 // The package bar mirrors the right-column ladder: one neutral track and one
-// group-coloured fill, both drawn with fillRect and the same six-pixel height.
+// implementation-orange fill, both drawn with fillRect and the same six-pixel height.
 const PACKAGE_BAR_TRACK_COLOUR = '#28303c';
 
-/** Draw the reviewed-ticket share of one package between its circle and label. */
-// [::TICKET::] PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-401 --for-spec --no-implementation-order`.
-function drawPackageProgressBar(ctx, layout, cell, progress, model) {
-  const pkg = model && model.packages ? model.packages[cell.packageIndex] : null;
-  const tickets = pkg && pkg.tickets ? pkg.tickets : null;
-  const total = tickets ? Math.max(0, Number(tickets.total) || 0) : 0;
-  const reviewed = tickets ? Math.max(0, Number(tickets.reviewed) || 0) : 0;
-  const ratio = total > 0 ? clampUnit(reviewed / total) : 0;
+/**
+ * Draw the reviewed-contract share of one package between its circle and label.
+ * The ratio is computed by the model at the frame instant; this function only
+ * projects it, so a late obligation cannot repaint a stale final snapshot.
+ */
+// [::TICKET::] PX-401, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-401|PX-411) --for-spec --no-implementation-order`.
+function drawPackageProgressBar(ctx, cell, view) {
+  const ratio = clampUnit(view.reviewedRatio);
   fillRect(ctx, {
     x: cell.barX,
     y: cell.barY,
@@ -682,20 +683,18 @@ function drawPackageProgressBar(ctx, layout, cell, progress, model) {
       y: cell.barY,
       width: cell.barWidth * ratio,
       height: cell.barHeight,
-      colour: groupColor(findTopStage(progress)),
+      colour: IMPLEMENTATION_PROGRESS_COLOUR,
     });
   }
 }
 
-// [::TICKET::] PX-350, PX-351, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-401) --for-spec --no-implementation-order`.
-function drawCell(ctx, layout, cell, frame, model) {
+// [::TICKET::] PX-350, PX-351, PX-401, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-401|PX-411) --for-spec --no-implementation-order`.
+function drawCell(ctx, layout, cell, frame) {
   const scale = layout.scale;
   const view = frame.packages[cell.packageIndex];
   if (!view) return;
   const progress = frame.pi[cell.packageIndex] || new Array(STAGE_ORDER.length).fill(0);
   const total = view.total;
-  const reviewed = Math.min(view.reviewed, total);
-  const fill = total > 0 ? reviewed / total : 0;
   const radius = radiusForArea(total, layout.grid.minTotal, layout.grid.maxTotal, layout.grid.minRadius, layout.grid.maxRadius);
   const stage = findTopStage(progress);
   const hue = groupColor(stage);
@@ -703,16 +702,6 @@ function drawCell(ctx, layout, cell, frame, model) {
   const density = view.density || 0;
   const pulse = 0.5 + 0.5 * Math.sin(frame.index * 0.9);
   strokeRing(ctx, { centre, radius: radius * 1.05, colour: '#3c465a', lineWidth: 1.2 * scale, alpha: 0.55 });
-  if (fill > 0) {
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = hue;
-    ctx.lineWidth = 2.5 * scale;
-    ctx.beginPath();
-    ctx.arc(centre.x, centre.y, radius * 1.05, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    fillCircle(ctx, centre, radius * 0.96, hue, 0.18 * fill);
-  }
   if (total === 0) {
     ctx.globalAlpha = 0.55;
     ctx.strokeStyle = '#5a6478';
@@ -759,7 +748,7 @@ function drawCell(ctx, layout, cell, frame, model) {
   if (flashStages.size > 0) {
     strokeRing(ctx, { centre, radius: radius * 1.16, colour: '#ffffff', lineWidth: 1.5 * scale, alpha: 0.55 + 0.4 * pulse });
   }
-  drawPackageProgressBar(ctx, layout, cell, progress, model);
+  drawPackageProgressBar(ctx, cell, view);
   cell.labelLines.forEach((line, lineIndex) => {
     drawText(ctx, {
       text: line,
@@ -849,7 +838,7 @@ function drawLadder(ctx, layout, frame) {
 export function drawFrame(ctx, layout, frame, model, options = {}) {
   fillRect(ctx, { x: 0, y: 0, width: layout.width, height: layout.height, colour: '#05070a' });
   drawHeader(ctx, layout, frame, options);
-  for (const cell of layout.cells) drawCell(ctx, layout, cell, frame, model);
+  for (const cell of layout.cells) drawCell(ctx, layout, cell, frame);
   drawLadder(ctx, layout, frame);
   drawGrowthPulses(ctx, layout, frame);
   drawRunMarkers(ctx, layout, frame);
