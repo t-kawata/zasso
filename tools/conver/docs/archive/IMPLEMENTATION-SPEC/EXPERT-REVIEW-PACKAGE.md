@@ -32,25 +32,7 @@
 
 ## 1. Your Role
 
-You are an external expert reviewer. You have no prior context on this project.
-Everything you need is in this package. Review it as a normative specification,
-not as finished code.
-
-Your task is to determine, rigorously and adversarially, whether this
-specification can achieve two goals **at the same time**:
-
-1. **Near-complete unification** — independent teams implementing gaia, crystal,
-   doors, and future `conver` projects should produce almost identical seams,
-   adapter structure, authentication behavior, error semantics, and conformance
-   results.
-2. **No limitation on what can be built** — each project must remain free to add
-   its own crates, modules, operations, domain models, scopes, error codes,
-   authentication methods, SSO providers, interfaces, storage backends, tests,
-   benchmarks, fixtures, and project-specific implementations.
-
-A specification that achieves (1) by forbidding legitimate variation is a
-failure. A specification that achieves (2) by leaving the seams ambiguous is also
-a failure. You are reviewing whether this package avoids both failures.
+REMOVED.
 
 ---
 

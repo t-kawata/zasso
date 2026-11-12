@@ -1,0 +1,7 @@
+[[exception]]
+rule = "SEC-01"
+scope = "rest"
+reason = "fixture"
+expires = "2099-01-01"
+approved_by = "reviewer"
+approval_ref = "PR#1"

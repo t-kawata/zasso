@@ -9,13 +9,28 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAttestation, checkAttestation } from './lib/attest.mjs';
+import {
+  discoverWorkspace,
+  mapCanonicalRoles,
+  renderMapToml,
+  renderProfileToml,
+} from './lib/autoconfig.mjs';
 import { buildManifest, loadOkf } from './lib/closure.mjs';
+import { explainRule } from './lib/explain.mjs';
+import { scanImplementation } from './lib/process-scan.mjs';
+import {
+  renderAttestMarkdown,
+  renderContextMarkdown,
+  renderGateMarkdown,
+  renderResolveMarkdown,
+} from './lib/render-ai.mjs';
+import { applyScaffold, renderScaffoldMarkdown } from './lib/scaffold.mjs';
 import { deliverContext } from './lib/context.mjs';
 import { checkExceptions } from './lib/exception.mjs';
-import { runGate } from './lib/gate.mjs';
+import { applyVerify, runGate } from './lib/gate.mjs';
 import { loadProfile, loadWorkspaceMap, matchUnits } from './lib/units.mjs';
 import { parseToml } from './lib/toml.mjs';
 import { redactText } from './lib/redact.mjs';
@@ -23,48 +38,187 @@ import { runScan } from './lib/scan.mjs';
 import { shouldRun } from './lib/should-run.mjs';
 
 const MUST_TYPES = new Set(['Rule', 'CodeBlock', 'ContractType', 'InterfaceBinding', 'Operation', 'Documentation', 'Conformance']);
+const RULE_INTERFACE_BY_PREFIX = {
+  REST: 'rest',
+  WS: 'websocket',
+  CLI: 'cli',
+  GRPC: 'grpc',
+  MCP: 'mcp',
+  A2A: 'a2a',
+};
 
 export function resolveCommand(argv) {
   const options = parseArgs(argv);
-  const profile = loadProfile(required(options, 'profile'));
-  const map = loadWorkspaceMap(required(options, 'map'));
+  const root = resolve(options.root ?? gitRepoRoot(process.cwd()));
+  const auto = !options.profile || !options.map;
+  const discovered = auto ? discoverWorkspace(root) : null;
+  const profile = options.profile ? loadProfile(options.profile) : discovered.profile;
+  const map = options.map ? loadWorkspaceMap(options.map) : { units: discovered.units };
   const nodes = loadOkf(options.okf ?? join(skillRoot(), 'okf'));
+  const paths = String(options.paths ?? '').split(',').filter(Boolean);
 
   const units = options.unit
     ? map.units.filter((unit) => String(unit.id) === String(options.unit))
-    : matchUnits(String(options.paths ?? '').split(',').filter(Boolean), map).units;
+    : (paths.length > 0 ? matchUnits(paths, map).units : map.units);
   if (units.length === 0) throw new Error('no unit matched');
 
   const manifest = buildManifest({ profile, units, nodes });
+  manifest.root = root;
+  manifest.changed = paths;
+  manifest.roles = mapCanonicalRoles(map.units);
+  for (const node of manifest.nodes) {
+    if (node.delivery === 'must' && !(node.verify ?? []).length) {
+      node.verify = [{ level: 'V1', mode: 'process' }];
+    }
+  }
+
   const out = options.out ?? join(process.cwd(), 'manifest.json');
   writeAtomic(out, JSON.stringify(manifest, null, 2) + '\n');
-  process.stdout.write('resolve: ' + manifest.nodes.length + ' nodes -> ' + out + '\n');
+  if (auto) {
+    const outDir = dirname(out);
+    writeAtomic(join(outDir, 'RULES-PROFILE.auto.toml'), renderProfileToml(profile));
+    writeAtomic(join(outDir, 'workspace-map.auto.toml'), renderMapToml(map.units));
+  }
+  process.stdout.write(renderResolveMarkdown({
+    manifest,
+    manifestPath: out,
+    auto,
+    autoSummary: auto ? map.units.length + ' units, matched ' + units.length : null,
+  }));
 }
 
 export function contextCommand(argv) {
   const options = parseArgs(argv);
-  const manifest = JSON.parse(readFileSync(required(options, 'manifest'), 'utf8'));
-  const result = deliverContext({
-    manifest,
-    phase: required(options, 'phase'),
-    ledgerPath: options.ledger ?? join(process.cwd(), 'target/law-ledger.json'),
-    replay: Boolean(options.replay),
-  });
-  for (const node of result.nodes) {
-    process.stdout.write('<!-- node ' + node.id + ' ' + node.content_sha256 + ' -->\n');
-    process.stdout.write(node.body + '\n');
+  const manifestPath = required(options, 'manifest');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const requested = options.phases
+    ? String(options.phases).split(',').map((phase) => phase.trim()).filter(Boolean)
+    : [required(options, 'phase')];
+  for (const phase of requested) {
+    if (!(manifest.phases ?? []).includes(phase)) throw new Error('unknown phase: ' + phase);
   }
-  process.stdout.write('<!-- hash ' + result.hash + ' -->\n');
+  const phases = (manifest.phases ?? []).filter((phase) => requested.includes(phase));
+  const ledgerPath = options.ledger ?? join(process.cwd(), 'target/law-ledger.json');
+  const sections = [];
+
+  for (const phase of phases) {
+    const result = deliverContext({
+      manifest,
+      phase,
+      ledgerPath,
+      replay: Boolean(options.replay),
+    });
+    if (options.format === 'raw') {
+      for (const node of result.nodes) {
+        process.stdout.write('<!-- node ' + node.id + ' ' + node.content_sha256 + ' -->\n');
+        process.stdout.write(node.body + '\n');
+      }
+      process.stdout.write('<!-- hash ' + result.hash + ' -->\n');
+      continue;
+    }
+    sections.push(renderContextMarkdown({
+      manifest,
+      phase,
+      result,
+      lawPath: process.argv[1],
+      manifestPath,
+    }));
+  }
+
+  if (options.format !== 'raw') process.stdout.write(sections.join('\n---\n'));
+}
+
+const INTERFACE_ROLES = new Set(['rest', 'websocket', 'cli', 'grpc', 'mcp', 'a2a']);
+const PHASE_ORDER = ['scope', 'contract', 'core', 'operation', 'adapter', 'docs', 'conformance', 'review'];
+
+export function appliesCommand(argv) {
+  const options = parseArgs(argv);
+  const root = resolve(options.root ?? gitRepoRoot(process.cwd()));
+  const paths = String(options.paths ?? '')
+    .split(',')
+    .map((path) => path.trim())
+    .filter(Boolean)
+    .map((path) => (path.startsWith(root) ? relative(root, path).replace(/\\/g, '/') : path));
+  const units = discoverWorkspace(root).units;
+  const matched = options.unit
+    ? units.filter((unit) => unit.id === String(options.unit))
+    : (paths.length > 0 ? matchUnits(paths, { units }).units : []);
+  const includeShared = Boolean(options['include-shared']);
+  const applicable = matched.filter((unit) => includeShared || INTERFACE_ROLES.has(unit.role));
+  const applies = applicable.length > 0;
+  const phases = [...new Set(applicable.flatMap((unit) => unit.phases ?? []))]
+    .sort((left, right) => PHASE_ORDER.indexOf(left) - PHASE_ORDER.indexOf(right));
+
+  process.stdout.write([
+    '# Law applicability — ' + (applies ? 'APPLIES' : 'SKIP'),
+    '',
+    '| Field | Value |',
+    '|---|---|',
+    '| Repository | `' + root + '` |',
+    '| Paths checked | ' + paths.length + ' |',
+    '| Matched units | ' + (matched.map(labelUnit).join(', ') || '(none)') + ' |',
+    '| Applicable units | ' + (applicable.map(labelUnit).join(', ') || '(none)') + ' |',
+    '| Phases | ' + (phases.join(', ') || '(none)') + ' |',
+    '',
+    applies
+      ? 'Apply rust-interface-law for these units.'
+      : 'Skip rust-interface-law; no interface unit matched.',
+    '',
+  ].join('\n'));
+  process.exit(applies ? 0 : 3);
+}
+
+function labelUnit(unit) {
+  return '`' + unit.id + '` (' + unit.role + ')';
+}
+
+export function explainCommand(argv) {
+  const options = parseArgs(argv);
+  const lock = JSON.parse(readFileSync(
+    options.lock ?? join(skillRoot(), 'atoms.lock.json'),
+    'utf8',
+  ));
+  process.stdout.write(explainRule({
+    ruleId: required(options, 'rule'),
+    lock,
+    root: resolve(options.root ?? gitRepoRoot(process.cwd())),
+  }));
+}
+
+export function scaffoldCommand(argv) {
+  const options = parseArgs(argv);
+  const root = resolve(options.root ?? gitRepoRoot(process.cwd()));
+  const plan = JSON.parse(readFileSync(required(options, 'plan'), 'utf8'));
+  const lock = JSON.parse(readFileSync(join(skillRoot(), 'atoms.lock.json'), 'utf8'));
+  const knownRules = new Set(
+    lock.atoms.filter((atom) => atom.type === 'Rule').map((atom) => atom.id),
+  );
+  const result = applyScaffold({
+    root,
+    plan,
+    write: Boolean(options.write),
+    knownRules,
+    stateDir: options['state-dir'],
+  });
+  process.stdout.write(renderScaffoldMarkdown(result));
+  process.exit(result.ok ? 0 : 1);
 }
 
 export function gateCommand(argv) {
   const options = parseArgs(argv);
   const manifest = JSON.parse(readFileSync(required(options, 'manifest'), 'utf8'));
   const scans = options.scans ? loadScans(options.scans) : {};
-  const report = runGate({ manifest, scans, cwd: process.cwd() });
+  if (options.verify) applyVerify(manifest, loadVerify(options.verify));
+  const processScan = scanImplementation({
+    root: manifest.root ?? process.cwd(),
+    paths: manifest.changed ?? [],
+  });
+  const report = runGate({ manifest, scans, cwd: process.cwd(), processScan });
   const out = options.out ?? join(process.cwd(), 'gate-report.json');
   writeAtomic(out, JSON.stringify(report, null, 2) + '\n');
-  process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+  process.stdout.write(options.format === 'json'
+    ? JSON.stringify(report, null, 2) + '\n'
+    : renderGateMarkdown(report));
   process.exit(report.ok ? 0 : 50);
 }
 
@@ -83,10 +237,24 @@ export function attestCommand(argv) {
   const manifest = JSON.parse(readFileSync(required(options, 'manifest'), 'utf8'));
   const phase = required(options, 'phase');
   if (options.init) {
-    process.stdout.write(JSON.stringify(buildAttestation(manifest, phase), null, 2) + '\n');
+    const template = buildAttestation(manifest, phase);
+    if (options.out) {
+      writeAtomic(options.out, JSON.stringify(template, null, 2) + '\n');
+    }
+    process.stdout.write(options.format === 'json'
+      ? JSON.stringify(template, null, 2) + '\n'
+      : renderAttestMarkdown(template, {
+        lawPath: process.argv[1],
+        manifestPath: required(options, 'manifest'),
+      }));
     return;
   }
-  const rows = JSON.parse(readFileSync(required(options, 'rows'), 'utf8'));
+  const document = JSON.parse(readFileSync(required(options, 'rows'), 'utf8'));
+  const rows = Array.isArray(document) ? document : document.rows;
+  if (!Array.isArray(rows)) throw new Error('attestation rows must be an array');
+  if (!Array.isArray(document) && document.phase && document.phase !== phase) {
+    throw new Error('attestation phase mismatch: ' + document.phase);
+  }
   checkAttestation(manifest, phase, rows);
   process.stdout.write('attest: ok\n');
 }
@@ -283,6 +451,10 @@ function phaseFor(atom) {
 }
 
 function appliesFor(atom) {
+  if (atom.type === 'Rule') {
+    const interfaceName = RULE_INTERFACE_BY_PREFIX[atom.id.split('-')[0]];
+    if (interfaceName) return interfaceName;
+  }
   const file = atom.source.split('/').pop();
   if (file.startsWith('30')) return 'rest';
   if (file.startsWith('31')) return 'websocket';
@@ -305,6 +477,17 @@ function uniqueName(id, used) {
   return candidate;
 }
 
+function gitRepoRoot(start) {
+  try {
+    return execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return resolve(start);
+  }
+}
+
 function findRepoRoot(start) {
   let current = resolve(start);
   while (true) {
@@ -321,6 +504,14 @@ function findRepoRoot(start) {
 function sourceDirFor(repo) {
   const archived = join(repo, 'docs/archive/IMPLEMENTATION-SPEC');
   return existsSync(archived) ? archived : join(repo, 'docs/IMPLEMENTATION-SPEC');
+}
+
+function loadVerify(path) {
+  const text = readFileSync(path, 'utf8');
+  const document = path.endsWith('.toml') ? parseToml(text) : JSON.parse(text);
+  const entries = document.verify ?? document;
+  if (!Array.isArray(entries)) throw new Error('verify overlay must be an array');
+  return entries;
 }
 
 function loadScans(path) {

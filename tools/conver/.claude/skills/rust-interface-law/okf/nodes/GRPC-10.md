@@ -3,7 +3,7 @@ type: Rule
 id: GRPC-10
 phase: adapter
 delivery: must
-applies_to: all
+applies_to: grpc
 requires: []
 references: []
 content_sha256: b830955e8ed7222e5a383851af4f537f035adc894a50227fc53fdf41a284e7dd

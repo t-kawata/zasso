@@ -201,6 +201,16 @@ incomplete implementation found (criteria 1–7) →
 3. resolve immediately; unresolvable → set `false_positive` + reason in `note`
 then: re-run `.claude/scripts/tickets/scan-crimes.sh` → verify reflected in Malfeasance.json
 
+### Step 5.5: Rust interface law re-verification (conditional)
+
+`Law: not applicable` and no `target/law` → skip.
+Otherwise invoke `rust-interface-law`; per `SKILL.md`, regenerate manifest, run `gate`,
+and attest every `lawScope` phase.
+
+- `gate` FAIL → review finding.
+- `PASS (V1 process only)` + rule-level claim → require `[[verify]]`; else review finding.
+- `unset` attestation → review finding.
+
 ### Step 6
 Heal-loop build:
 judge: working dir per change-scope; if `cd` needed, use subshell `(cd <dir> && <cmd>)`

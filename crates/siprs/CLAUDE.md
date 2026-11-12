@@ -166,6 +166,14 @@ Never-Tiny (any 1 overrides Tiny — planning mandatory regardless):
 gate: Tiny → auto; edit directly.
 gate: not Tiny → ask; stop — propose the `/make-ticket` pipeline (make → plan → start → review). Do NOT use `/plan` directly.
 
+### Rust interface law (conditional)
+
+Trigger: changed/target path matches `crates/**` unit with role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only when ticket declares interface scope.
+
+Precheck: `node "$(git rev-parse --show-toplevel)/.claude/skills/rust-interface-law/dist/skill.mjs" applies --root "$(git rev-parse --show-toplevel)" --paths "<paths>"`.
+
+Exit 3 → skip law. Exit 0 → invoke `rust-interface-law`; completion requires `gate` exit 0 and `attest` ok.
+
 ### Verification — mandatory, in order
 
 1. exact verification command (prefer `make` when a Makefile exists)

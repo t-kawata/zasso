@@ -1,0 +1,12 @@
+---
+type: Paragraph
+id: paragraph/10-shared-contracts-7-transaction-outbox-and-events/1/09e09762d2d1
+phase: contract
+delivery: reference
+applies_to: all
+requires: []
+references: []
+content_sha256: 09e09762d2d1e809d52aa2d5556e5ca727966b86b2b6fceabeafeca50ac54522
+source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+---
+Rules:

@@ -3,7 +3,7 @@ type: Rule
 id: CLI-12
 phase: adapter
 delivery: must
-applies_to: all
+applies_to: cli
 requires: []
 references: []
 content_sha256: 1c46274996d0030489b5e538f18703201a2f1e9e7ea2c8b8e3c1f4b05444de00

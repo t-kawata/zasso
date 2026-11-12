@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,7 @@ import { runScan } from '../scripts/lib/scan.mjs';
 import { shouldRun, detectUnledgered } from '../scripts/lib/should-run.mjs';
 import { checkTrust } from '../scripts/lib/trust.mjs';
 import { buildDist, install } from '../scripts/lib/dist.mjs';
+import { renderOkf } from '../scripts/commands.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -44,6 +45,77 @@ test('C001 unmapped path fails closed', () => {
   const matched = matchUnits(['unknown/path.rs'], map);
   assert.equal(matched.units.length, 0);
   assert.deepEqual(matched.unmapped, ['unknown/path.rs']);
+});
+
+// @verifies C001
+test('C001 structural nodes stay reference and are never delivered', () => {
+  const structuralNodes = [
+    ...nodes,
+    {
+      type: 'Paragraph',
+      id: 'paragraph/prose',
+      phase: 'contract',
+      delivery: 'reference',
+      applies_to: 'all',
+      requires: [],
+      body: 'prose body',
+    },
+    {
+      type: 'Blank',
+      id: 'blank/empty',
+      phase: 'contract',
+      delivery: 'reference',
+      applies_to: 'all',
+      requires: [],
+      body: '',
+    },
+  ];
+  const manifest = buildManifest({
+    profile,
+    units: matchUnits(['crates/app-rest/src/x.rs'], map).units,
+    nodes: structuralNodes,
+  });
+
+  assert.equal(manifest.nodes.find((node) => node.id === 'paragraph/prose').delivery, 'reference');
+  assert.equal(manifest.nodes.find((node) => node.id === 'blank/empty').delivery, 'reference');
+
+  const temporary = mkdtempSync(join(tmpdir(), 'law-reference-'));
+  try {
+    const result = deliverContext({
+      manifest,
+      phase: 'contract',
+      okfDir: join(fixtures, 'okf'),
+      ledgerPath: join(temporary, 'ledger.json'),
+    });
+    assert.ok(!result.nodes.some((node) => node.id === 'paragraph/prose'));
+    assert.ok(!result.nodes.some((node) => node.id === 'blank/empty'));
+    assert.ok(result.nodes.every((node) => node.body.length > 0));
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+// @verifies C001
+test('C001 interface-scoped rules render scoped applies_to', () => {
+  const temporary = mkdtempSync(join(tmpdir(), 'law-scope-'));
+  try {
+    const atom = (id) => ({
+      id,
+      type: 'Rule',
+      phase: 'adapter',
+      text: id + ' body',
+      content_sha256: '0'.repeat(64),
+      source: 'docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md',
+    });
+    renderOkf({ spec_version: 'test', atoms: [atom('REST-01'), atom('A2A-01'), atom('OP-AUTH-01')] }, temporary);
+
+    const frontmatter = (id) => readFileSync(join(temporary, 'nodes', id + '.md'), 'utf8');
+    assert.match(frontmatter('REST-01'), /^applies_to: rest$/m);
+    assert.match(frontmatter('A2A-01'), /^applies_to: a2a$/m);
+    assert.match(frontmatter('OP-AUTH-01'), /^applies_to: all$/m);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 });
 
 // @verifies C002
@@ -132,7 +204,7 @@ test('C004 attestation prefill and strict diff', () => {
 test('C005 project law scans detect stub, weakening, language, secret', () => {
   assert.equal(runScan('scan/stubs', { text: '// [::STUB::] x' }).findings.length, 1);
   assert.equal(runScan('scan/test-weakening', { before: 'assert!(x);', after: '' }).findings.length, 1);
-  assert.equal(runScan('scan/english', { text: '日本語' }).findings.length, 1);
+  assert.equal(runScan('scan/english', { text: String.fromCodePoint(0x65e5, 0x672c, 0x8a9e) }).findings.length, 1);
   assert.equal(runScan('scan/secrets', { text: 'password=hunter2' }).findings.length, 1);
   assert.throws(() => runScan('scan/missing', {}), /unknown scan/);
 });

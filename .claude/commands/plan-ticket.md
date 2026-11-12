@@ -142,6 +142,15 @@ node "$CLAUDE_DIR/scripts/tickets/show-ticket-context.js" --ticket-key=<Ticket K
 
 Then Step 3.
 
+### Step 2.5: Rust interface law phase plan (conditional)
+
+Invoke `rust-interface-law`; read `SKILL.md`; read ticket `notes` `Law:`.
+
+- `not applicable` → Step 3.
+- APPLIES → plan `lawScope` phases in manifest order.
+- Plan `context --phases <scope>`; predecessor ledger required.
+- `planTestCode` includes `gate` V1 and `[[verify]]` checks.
+
 ### Step 3: Crime and stub inspection (mandatory — First-Class Rule)
 
 Read `Malfeasance.json`; inspect unresolved crimes. Plan approval requires either:

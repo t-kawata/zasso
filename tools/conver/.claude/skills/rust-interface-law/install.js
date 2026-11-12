@@ -5,6 +5,7 @@ const { join } = require('node:path');
 const root = __dirname;
 const target = process.argv[2] ?? process.cwd();
 const targetDir = join(target, '.claude/skills/rust-interface-law');
+const targetDistDir = join(targetDir, 'dist');
 const dist = join(root, 'dist/skill.mjs');
 
 if (!existsSync(dist)) {
@@ -12,8 +13,9 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
-mkdirSync(targetDir, { recursive: true });
-cpSync(dist, join(targetDir, 'skill.mjs'));
+// Preserve dist/ so the bundled entry resolves okf/ as a sibling, exactly as in the source tree.
+mkdirSync(targetDistDir, { recursive: true });
+cpSync(dist, join(targetDistDir, 'skill.mjs'));
 cpSync(join(root, 'okf'), join(targetDir, 'okf'), { recursive: true });
 cpSync(join(root, 'source'), join(targetDir, 'source'), { recursive: true });
 process.stdout.write('install: copied to ' + targetDir + '\n');

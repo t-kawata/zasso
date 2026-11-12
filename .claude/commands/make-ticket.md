@@ -253,6 +253,16 @@ Green without Red, test-modified Green, or stub Green → incomplete.
 - `pipelineAvailable=false`: spot-investigate using prior conversation plus direct source grep/read.
 - Step 1.5 ran: also read the counterpart ticket(s) in the same `Tickets.json` and the counterpart package's `SEQUENCES.json`/`Tickets.json` when visible. A shared step's interface is its boundary contract; a reference unit's provider is the owner that must exist before this ticket's tests can run.
 
+### Step 5.5: Rust interface law scope (conditional)
+
+Invoke `rust-interface-law`; run `applies` on ticket target files per `SKILL.md`.
+
+- Exit 3 → record `Law: not applicable` in `notes`; Step 6.
+- Exit 0 → record in `notes`:
+  `Law: units=<...>; interfaces=<...>; phases=<...>; shared=<yes|no>; manifest=target/law/manifest.json`.
+- Shared: target files under `*-operation|*-core|*-identity-*|*-contract-*` AND ticket affects an interface.
+- Add `gate` V1 evidence and `[[verify]]` checks to `testUnit`/`testIntegration`.
+
 ### Step 6: Replace template markers
 
 Replace all markers in all 11 fields from investigation evidence.

@@ -1,0 +1,75 @@
+spec_version = "0.3.2"
+redaction_sha256 = "df6ebf273b2cc1fe348b4043c497da7d1ffb49a1477e1d044e9972650e7019f8"
+source_set_sha256 = "22490cf2b5bf23e5b8a48b76a68aa220442e8c75fb1fda6b4b2d857b3793a4ab"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md"
+sha256 = "f6533929d76d2d99304be69b0b2bbea94b801c63fec38fde86264fbbc8f642c0"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md"
+sha256 = "3896c96a48b63d1eae034f7b28d8b3725c1d1e1283d680efa2d4df0dfdce4b7a"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md"
+sha256 = "7a92e6cb21086969bf7a685dc163fa8e80387e2de0176777b3933f44c00237b7"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/20-CORE.md"
+sha256 = "f1ef9f3d4b2f4099a05db12cac736865a4dce8a0806b66cb174d0e8fb79e3cf3"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md"
+sha256 = "0e8f7559f95ca0d9eee8362a0e17611910f7c59f83d57ba2371545555b7d8f6c"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md"
+sha256 = "c066c053d69d6d5351e9659806ed5f9076c3805dd071137ba5a0a31cea462193"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/30-REST.md"
+sha256 = "5206f564b1d5be3323ad7c97f81211802a3f7f69b29de3e34f2b6bc5561bbaef"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md"
+sha256 = "14d921c9e6e49369a4fe931d173ab1dd56e33caa179f93458862612d0e850031"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/32-CLI.md"
+sha256 = "a16338bbd00891658f59cba04cc2bc193a309e69c66776d8acb24168087edc81"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md"
+sha256 = "79de5e1dd90d3ff6e5eec4c9a61b9128d743f6e02aff50b0e3eeb4c22d435931"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/34-MCP.md"
+sha256 = "0d4b14a636a844163d91057fb9646ea1e42b49738ca8115a3612f336f0f624da"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/35-A2A.md"
+sha256 = "dca33057f0459c8920717147374f838e1320d73faeb16724ae16427aead24743"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md"
+sha256 = "4219e133bead9364831d14a6cbf5203469cb842a103d3891fc6ebcd3e944390f"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md"
+sha256 = "2750ec183e8a057a6c2c644022a1ba734aee5468a6eac287ed47f1206ecc64ea"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md"
+sha256 = "4f2d4a903214be3cac3da5a2b525bd5c9e248b173639c7ce53778f94a14250c5"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md"
+sha256 = "1c619d5b181aea72a4091a871212b4afea7e12de136bec52e62758e8a016312a"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md"
+sha256 = "a0ed2c2e68b020ee5c6c00b19e2a9cccd8fc62feab521d81582bbe46bebb301f"
+
+[[file]]
+path = "docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md"
+sha256 = "703db9f8e23f24ba7b30664ddfa1dd9aec2bb6fcfa58a2ddda3ffe002fb4f449"

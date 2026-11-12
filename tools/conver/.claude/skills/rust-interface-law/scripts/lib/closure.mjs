@@ -14,7 +14,7 @@ export function buildManifest({ profile, units, nodes }) {
     if (!appliesTo(node, units)) continue;
     selected.set(node.id, {
       ...node,
-      delivery: 'must',
+      delivery: node.delivery ?? 'must',
       reason: ['phase=' + node.phase, 'units=' + units.map((unit) => unit.id).join(',')],
     });
   }
@@ -28,7 +28,7 @@ export function buildManifest({ profile, units, nodes }) {
       if (!requiring) continue;
       selected.set(node.id, {
         ...node,
-        delivery: 'must',
+        delivery: node.delivery ?? 'must',
         reason: ['requires<-' + requiring.id],
       });
       grew = true;

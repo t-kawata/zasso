@@ -3,7 +3,7 @@ type: Rule
 id: REST-09
 phase: adapter
 delivery: must
-applies_to: all
+applies_to: rest
 requires: []
 references: []
 content_sha256: a955bb2ac60a87e3295a8d43bb167283b07968124ec92e4ec2993e8b7cb42cbf

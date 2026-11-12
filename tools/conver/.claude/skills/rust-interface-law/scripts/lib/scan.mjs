@@ -5,7 +5,7 @@ const SCANS = {
     const after = count(input.after, /\bassert[!]?\s*\(/g);
     return before > after ? 1 : 0;
   },
-  'scan/english': (input) => /[぀-ヿ㐀-鿿가-힯]/.test(String(input.text ?? '')) ? 1 : 0,
+  'scan/english': (input) => /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(String(input.text ?? '')) ? 1 : 0,
   'scan/secrets': (input) => /(password\s*=|-----BEGIN|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})/.test(String(input.text ?? '')) ? 1 : 0,
 };
 

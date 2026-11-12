@@ -3,7 +3,7 @@ type: Rule
 id: MCP-08
 phase: adapter
 delivery: must
-applies_to: all
+applies_to: mcp
 requires: []
 references: []
 content_sha256: f5e42734cb0bc6d5c9c932668e5403572ce3a833c17989eaf8753e126cc3a095

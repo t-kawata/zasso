@@ -1,22 +1,28 @@
 #!/usr/bin/env node
 import {
+  appliesCommand,
   attestCommand,
   checkCommand,
   contextCommand,
   exceptionCommand,
+  explainCommand,
   gateCommand,
   packageCommand,
   rebuildCommand,
   renderCommand,
   resolveCommand,
+  scaffoldCommand,
   scanCommand,
   shouldRunCommand,
 } from './commands.mjs';
 
 const [command, ...args] = process.argv.slice(2);
 const commands = {
+  applies: appliesCommand,
   resolve: resolveCommand,
   context: contextCommand,
+  explain: explainCommand,
+  scaffold: scaffoldCommand,
   gate: gateCommand,
   scan: scanCommand,
   attest: attestCommand,
@@ -30,7 +36,7 @@ const commands = {
 
 const handler = commands[command];
 if (!handler) {
-  process.stderr.write('usage: skill <resolve|context|gate|scan|attest|exception|should-run|render|check|package|rebuild> [options]\n');
+  process.stderr.write('usage: skill <applies|resolve|context|explain|scaffold|gate|scan|attest|exception|should-run|render|check|package|rebuild> [options]\n');
   process.exit(2);
 }
 

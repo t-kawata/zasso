@@ -1,0 +1,22 @@
+[project]
+name = "fixture"
+spec_version = "0.3.2"
+
+[profiles]
+rust = true
+rest = true
+mcp = true
+websocket = false
+cli = false
+grpc = false
+a2a = false
+
+[auth]
+jwt = true
+sso = "disabled"
+local_only = true
+
+[docs]
+generate = true
+english = true
+out_dir = "docs/generated"

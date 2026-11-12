@@ -123,6 +123,13 @@ gate: do not proceed to Step 3 until all warnings/errors resolved.
 cmd: `node "$CLAUDE_DIR/scripts/tickets/review/find-all-stubs.js" "."` (directory-scoped)
 judge: each stub's `[::STUB::]` marker specifies a ticket ID?
 
+### Step 3.5: Rust interface law repair (conditional)
+
+Skip when `Law: not applicable` and `target/law` absent.
+Otherwise invoke `rust-interface-law`; per `SKILL.md`, run `gate`, add findings to
+repair classes, fill `attest` `unset` rows; loop until pass.
+Never change ticket status.
+
 ### Step 4
 cmd (preflight): `node "$CLAUDE_DIR/scripts/tickets/preflight-stub-cleanup.js"`
 

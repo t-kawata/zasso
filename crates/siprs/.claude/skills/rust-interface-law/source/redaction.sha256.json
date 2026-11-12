@@ -1,0 +1,18 @@
+[
+  {
+    "sha256": "9ce6f1ede5fc398bce9ebfc38672e9a9604d925c3627f95958d8924bacee271a",
+    "placeholder": "<platform>"
+  },
+  {
+    "sha256": "b95ee4efc49878ebc6e8f93c29d7f692742dad7330574634428c8d6355794d88",
+    "placeholder": "<project-a>"
+  },
+  {
+    "sha256": "60a0f78b507f6249a6e29eee34f3f2940188b0b995715a82a03469f5d1586275",
+    "placeholder": "<project-b>"
+  },
+  {
+    "sha256": "2870b96cfef35429140e130a8f3457fc3d7b09e172b82e07b6651f714ac04616",
+    "placeholder": "<project-c>"
+  }
+]

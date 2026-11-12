@@ -1,0 +1,41 @@
+# Skill invariants. Verification = test:<file>::<name> or scan:<id>.
+
+[[skill]]
+id = "SK-01"
+statement = "Every source line is attributed to exactly one leaf atom or explicit exclusion."
+verification = "test:atom-lock.test.mjs::coverage partitions every line"
+
+[[skill]]
+id = "SK-02"
+statement = "Rule atoms and registry rows are bijective."
+verification = "test:atom-lock.test.mjs::registry bijection"
+
+[[skill]]
+id = "SK-03"
+statement = "Atom identity survives a line shift and changes on text change."
+verification = "test:atom-lock.test.mjs::identity survives line shift"
+
+[[skill]]
+id = "SK-04"
+statement = "Identical inputs produce identical lock and coverage."
+verification = "test:atom-lock.test.mjs::deterministic output"
+
+[[skill]]
+id = "SK-05"
+statement = "Skill tree contains no forbidden identifier token."
+verification = "test:redaction.test.mjs::skill tree has no forbidden token"
+
+[[skill]]
+id = "SK-06"
+statement = "Redaction map is hash-only."
+verification = "test:redaction.test.mjs::map has only sha256 and placeholder"
+
+[[skill]]
+id = "SK-07"
+statement = "Empty, heading-only, CRLF and EOF inputs are deterministic."
+verification = "test:atom-lock.test.mjs::CRLF normalizes deterministically"
+
+[[skill]]
+id = "SK-08"
+statement = "Source or manifest hash mismatch fails verification."
+verification = "test:integration.test.mjs::manifest hash mismatch fails with exit 10"
