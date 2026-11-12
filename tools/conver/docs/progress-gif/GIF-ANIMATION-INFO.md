@@ -644,7 +644,10 @@ Source marker form: `// [::STUB::] <ticketKey>: <reason> -- <resolve plan>`.
 Progress: `1 - unresolvedMarkers / max(1, initialMarkers)`; unresolved = markers whose
 key is not a completed ticket (or `MUST RESOLVE`), plus `open` crimes. Artifact-only proxy:
 `tickets[].stubs` length is historical, not current; prefer a source scan
-(`grep -R "\[::STUB::\]"` excluding `node_modules`, `.git`, `target`).
+(`grep -R "\[::STUB::\]"` excluding `node_modules`, `.git`, `target`). The renderer cannot
+recover `initialMarkers`, so it divides resolved crime records by crime records plus
+unresolved stubs, and credits a fully resolved package only when a COMPLETE resolve history
+run exists; a package that never ran resolve stays at zero.
 Mass: resolved crimes, removed markers.
 Timestamps: `detected_at` (ISO), source mtimes.
 Pitfall: `stubs[]` on a reviewed ticket does not mean the stub is unresolved; it records
@@ -866,7 +869,7 @@ order, then package build order, with the snapshot date repeated.
 | plan | `count(status≥planned)/tickets` |
 | start | `count(startedAt)/count(status≥planned)` |
 | review | `count(status==reviewed)/count(status≥done)` |
-| resolve | `1 - unresolvedStubs/max(1,totalStubs)` |
+| resolve | resolved crimes / (crime records + unresolved stubs); 1 when no unit is outstanding and a COMPLETE resolve run exists; 0 while a unit is unresolved or the stage never ran |
 | consolidate | 1 if no manifest and zero stubs; 0.5 if manifest exists; else 0 |
 | find | `count(remanded)/count(reviewed+remanded)`; 0 if no reviewed tickets |
 | crystalize | 0.5·(steps/4) + 0.3·(confirmed toc/total) + 0.2·(markers resolved/total) |

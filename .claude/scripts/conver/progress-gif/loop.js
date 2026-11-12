@@ -52,6 +52,9 @@ const SPLIT_STEPS = ['0-1', '0-2', '1', '2', '3', '4-1', '4-2', '5-1', '5-2', '5
 const CRYSTALIZE_STEPS = 4;
 const CONSOLIDATE_MANIFEST_PORTION = 0.5;
 const PENDING_FIND_PORTION = 0.5;
+// Summing equal crime credits can land a hair below the stage fraction; a
+// remainder smaller than this is floating-point noise, not missing evidence.
+const RESOLVE_CREDIT_EPSILON = 1e-9;
 export const MILLION = 1e6;
 
 // [::TICKET::] PX-352 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-352 --for-spec --no-implementation-order`.
@@ -444,6 +447,23 @@ function resolveExecutionEvidence(artifacts, workspaceArtifacts, stage, packageI
   };
 }
 
+/** A resolved-crime status; every other status still owes resolution. */
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
+function isResolvedCrimeRecord(record) {
+  return record.status === 'resolved' || record.status === 'false_positive';
+}
+
+/**
+ * The earliest COMPLETE resolve run for one package, falling back to the
+ * workspace root run. A clean workspace records no crime, so this run is the
+ * only positive evidence that the resolve stage was executed at all.
+ */
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
+function resolveRunCompletion(artifacts, workspaceArtifacts, packageId) {
+  return findEarliestHistoryFinish(artifacts.historyRecords, packageId, 'resolve')
+    ?? findEarliestHistoryFinish(workspaceArtifacts.historyRecords, null, 'resolve');
+}
+
 
 // [::TICKET::] PX-349, PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-381) --for-spec --no-implementation-order`.
 function resolvedQuestions(designTree, warnings = [], packageId = null) {
@@ -612,8 +632,13 @@ export function stageProgressOf(artifacts, workspaceArtifacts = {}, packageId = 
   const unresolvedStubs = Number(artifacts.unresolvedStubs) || 0;
   const resolveTotal = records.length + unresolvedStubs;
   if (resolveTotal > 0) {
-    const resolved = records.filter((record) => record.status === 'resolved' || record.status === 'false_positive').length;
+    const resolved = records.filter(isResolvedCrimeRecord).length;
     stages.resolve = resolved / resolveTotal;
+  } else if (resolveRunCompletion(artifacts, workspaceArtifacts, packageId)) {
+    // Nothing is outstanding, so the stage is complete once a resolve run
+    // executed. A package with no run is not credited: absence of stubs is not
+    // evidence that resolution happened.
+    stages.resolve = 1;
   }
   const manifests = artifacts.manifests || [];
   const omissions = artifacts.omissions || [];
@@ -883,22 +908,42 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
   }
 
   const records = (artifacts.malfeasance && artifacts.malfeasance.records) || [];
-  if (records.length > 0) {
-    for (const record of records) {
-      if (record.status !== 'resolved' && record.status !== 'false_positive') continue;
-      const at = parseInstant(record.resolved_at);
-      if (!at) {
-        warnOnce(warnings, `[evidence] resolve ${pkg.id}: Malfeasance#${record.id} has no resolved_at; resolve not credited`);
-        continue;
-      }
+  let resolveCredited = 0;
+  for (const record of records) {
+    if (!isResolvedCrimeRecord(record)) continue;
+    const at = parseInstant(record.resolved_at);
+    if (!at) {
+      warnOnce(warnings, `[evidence] resolve ${pkg.id}: Malfeasance#${record.id} has no resolved_at; resolve not credited`);
+      continue;
+    }
+    const inc = 1 / (records.length + (Number(artifacts.unresolvedStubs) || 0));
+    resolveCredited += inc;
+    addEvent(events, {
+      t: at.t,
+      prec: at.prec,
+      stage: 'resolve',
+      packageId: pkg.id,
+      inc,
+      evidence: `Malfeasance#${record.id}`,
+      timeSource: 'status',
+    });
+  }
+  // A clean workspace records no crime, and a crime without resolved_at has no
+  // instant, so the COMPLETE resolve run supplies the missing clock. The credit
+  // is scoped to this package: a workspace-level increment would over-credit a
+  // package that still owes resolution.
+  const resolveRemainder = clamp01(stages.resolve - resolveCredited);
+  if (resolveRemainder > RESOLVE_CREDIT_EPSILON) {
+    const when = resolveRunCompletion(artifacts, workspaceArtifacts, pkg.id);
+    if (when) {
       addEvent(events, {
-        t: at.t,
-        prec: at.prec,
+        t: when.t,
+        prec: when.prec,
         stage: 'resolve',
         packageId: pkg.id,
-        inc: 1 / (records.length + (Number(artifacts.unresolvedStubs) || 0)),
-        evidence: `Malfeasance#${record.id}`,
-        timeSource: 'status',
+        inc: resolveRemainder,
+        evidence: 'history',
+        timeSource: 'history',
       });
     }
   }

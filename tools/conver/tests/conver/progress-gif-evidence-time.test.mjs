@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { analyzeWorkspace } from '../../.claude/scripts/conver/draw-progress-gif.js';
-import { buildFrames, buildTimeline, stageEventsOf, derivePackageState } from '../../.claude/scripts/conver/progress-gif/loop.js';
+import { STAGE_ORDER, buildFrames, buildTimeline, derivePackageState, stageEventsOf, stageProgressOf } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { makeModel, packageModel, stageEvent } from './models.mjs';
 import { writeWorkspace, ticket } from './fixtures.mjs';
 
@@ -200,4 +200,101 @@ test('C006: a resolved crime with resolved_at emits one resolve event at that in
   const resolve = events.filter((event) => event.stage === 'resolve');
   assert.equal(resolve.length, 1);
   assert.equal(resolve[0].t, Date.parse('2026-11-02T03:04:05.000Z'));
+});
+
+const RESOLVE_INSTANT = Date.parse('2026-11-02T03:04:05.000Z');
+
+/** One COMPLETE resolve run; packageId null means the run executed at the workspace root. */
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
+function resolveHistory(packageId) {
+  return {
+    v: 1,
+    runId: '20261102030405000-resolve-ticket-test',
+    event: 'finish',
+    stage: 'resolve',
+    command: 'resolve-ticket',
+    packageId,
+    at: '2026-11-02T03:04:05.000Z',
+    status: 'COMPLETE',
+    addedTicketKeys: [],
+  };
+}
+
+/** A package with no stubs and no recorded crime. */
+// [::TICKET::] PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-411 --for-spec --no-implementation-order`.
+function cleanResolveArtifacts(historyRecords = []) {
+  return {
+    tickets: { phases: [] },
+    malfeasance: { records: [] },
+    unresolvedStubs: 0,
+    historyRecords,
+  };
+}
+
+test('resolve stage: a completed resolve run credits the resolve stage when no crime was recorded', () => {
+  const artifacts = cleanResolveArtifacts([resolveHistory('pkg-1')]);
+  assert.equal(stageProgressOf(artifacts, {}, 'pkg-1', []).resolve, 1);
+});
+
+test('resolve stage: a package that never ran resolve and has nothing outstanding stays at zero', () => {
+  assert.equal(stageProgressOf(cleanResolveArtifacts(), {}, 'pkg-1', []).resolve, 0);
+});
+
+test('resolve stage: a workspace-scoped resolve run credits every package', () => {
+  const workspaceArtifacts = { historyRecords: [resolveHistory(null)] };
+  assert.equal(stageProgressOf(cleanResolveArtifacts(), workspaceArtifacts, 'pkg-1', []).resolve, 1);
+});
+
+test('resolve stage: an unresolved stub keeps resolve below full despite a completed run', () => {
+  const artifacts = { ...cleanResolveArtifacts([resolveHistory('pkg-1')]), unresolvedStubs: 1 };
+  assert.equal(stageProgressOf(artifacts, {}, 'pkg-1', []).resolve, 0);
+});
+
+test('resolve stage: a clean package emits its resolve event at the package run instant', () => {
+  const artifacts = cleanResolveArtifacts([resolveHistory('pkg-1')]);
+  const events = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, artifacts, { initialT: INITIAL_INSTANT }, []);
+  const resolve = events.filter((event) => event.stage === 'resolve');
+  assert.equal(resolve.length, 1);
+  assert.equal(resolve[0].t, RESOLVE_INSTANT);
+  assert.equal(resolve[0].packageId, 'pkg-1');
+  assert.equal(resolve[0].inc, 1);
+  assert.equal(resolve[0].timeSource, 'history');
+});
+
+test('resolve stage: a workspace resolve run is credited to this package only', () => {
+  const workspaceArtifacts = { initialT: INITIAL_INSTANT, historyRecords: [resolveHistory(null)] };
+  const events = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, cleanResolveArtifacts(), workspaceArtifacts, []);
+  const resolve = events.filter((event) => event.stage === 'resolve');
+  assert.equal(resolve.length, 1);
+  assert.equal(resolve[0].packageId, 'pkg-1');
+  assert.equal(resolve[0].t, RESOLVE_INSTANT);
+});
+
+test('resolve stage: timed crime records leave no floating-point remainder for a history event', () => {
+  const records = [1, 2, 3].map((id) => ({
+    id,
+    status: 'resolved',
+    resolved_at: `2026-11-0${id}T00:00:00.000Z`,
+  }));
+  const artifacts = {
+    tickets: { phases: [] },
+    malfeasance: { records },
+    unresolvedStubs: 0,
+    historyRecords: [resolveHistory('pkg-1')],
+  };
+  const events = stageEventsOf({ id: 'pkg-1', name: 'pkg-1' }, artifacts, { initialT: INITIAL_INSTANT }, []);
+  assert.equal(events.filter((event) => event.stage === 'resolve').length, 3);
+});
+
+test('resolve stage: the RESOLVE ladder bar reaches full after the recorded resolve run', () => {
+  const root = writeWorkspace({
+    packages: [{ id: 'pkg-1', path: 'pkg-1' }],
+    files: { '.conver-history.jsonl': `${JSON.stringify(resolveHistory(null))}\n` },
+  });
+  const model = analyzeWorkspace(root, { sourceScan: false });
+  const frames = buildFrames(model, { frames: 40 });
+  const resolveIndex = STAGE_ORDER.indexOf('resolve');
+  const last = frames[frames.length - 1];
+  assert.equal(last.pi[0][resolveIndex], 1);
+  assert.equal(last.globalStage[resolveIndex], 1);
 });
