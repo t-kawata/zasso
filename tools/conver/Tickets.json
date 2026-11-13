@@ -63726,6 +63726,978 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-13",
           "reviewed_at": "2026-11-13T00:44:02.949Z"
+        },
+        {
+          "id": 414,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Absorb the crystal-origin generic .claude fixes with workspace-agnostic behavior",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-414.md",
+          "background": "### Goal\nPort the eleven generic .claude fixes that crystal made during the crystal-protocol-types, crystal-adapter-clock and crystal-adapter-current-authority implementation into conver, with tests that use synthetic workspaces.\n\n### Purpose\nThe fixes repair gate behavior: a spec-complete ticket marked made must still own its STUB; stored home-relative paths must resolve; resolved stubs must not be re-checked against removed markers; omission clones must inherit graph-node ownership through the mutation manifest; non-graph node ids must not reach phasing; markdown artifacts must be readable; R<n> tickets must count as complete while past-round records are excluded from re-derivation; prose comments must not be reported as commented-out code; and an empty condensedFrom must still render its provenance heading.\n\n### Motivation\ncrystal v0.0.196 and v0.0.202 replaced the installed .claude tree and reverted every local fix; crystal HEAD contains none of them. The current conver tree still lacks the producer side of manifest.ownershipTransfers although ticket-mutation-gate already consumes it, and create-resolving-ticket.test.js is red against the current ownershipTransfer implementation. Without this ticket every project loses the fixes again on the next conver update.\n\n### Constraints\n- No branch, literal, fixture or path may specialize behavior for crystal, gaia or doors. Behavior is derived from status, extension, graph membership and manifest data.\n- Port against current conver code; conver already carries newer PX-378 consumers and commands, so a cherry-pick would regress them.\n- Tests use synthetic temporary trees with neutral names; no crystal ticket key or real repository path appears in a fixture.\n- Keep the known 14 environmental failures in the four hooks and lib test files unchanged; never run make test for validation.\n- Provenance comments name conver tickets and a runnable show-ticket-context command.\n- TDD Red-Green-Refactor per work unit; never weaken or delete a test to reach Green.",
+          "default_files": [
+            ".claude/commands/amend-rfc-up.md",
+            ".claude/scripts/amend-rfc-up/preflight.js",
+            ".claude/scripts/amend-rfc-up/enumerate.js",
+            ".claude/scripts/amend-rfc-up/claims.js",
+            ".claude/scripts/amend-rfc-up/apply.js",
+            ".claude/scripts/amend-rfc-up/verify.js",
+            ".claude/scripts/amend-rfc-up/report.js",
+            "tests/amend-rfc-up"
+          ],
+          "notes": "Review report:\n- Static quality check: passed (0 issues)\n- Translatability: no new generic names, single-letter vars, hardcoded values or debug output; added lines are clean\n- Dependencies: annotation verify reports 18 files with no missing and no ambiguous markers; crimes 0; stubs 0; no-excuse gate 0\n- Tests: 9 new/changed test files pass; 14 impact-set regression files pass; quality report 0 issues\n- Pre-existing unrelated failures remain outside this ticket: scripts/tickets/tests/renumbering-consistency.test.js (11) and scripts/tickets/tests/show-ticket-context-related-tickets.test.js (1); their inputs are unmodified and PX-414 does not appear in either failure\n- Issues found and fixed during review: none",
+          "invariants": "- [Normal establishment] A fix changes behavior only when its precondition holds; every other status, extension, graph membership or manifest shape keeps the current behavior.\n- [Error invariant] A failure never becomes a silent pass: unresolved stubs, non-graph node ids, malformed JSON and stale active prerequisite sets still fail with the existing named finding.\n- [Internal state invariant] Behavior is derived only from documented data (status value, file extension, RFC-GRAPH node ids, mutation manifest, condensedFrom object); no workspace identity, absolute path prefix or ticket-key family may influence a branch.\n- [Boundary invariant] Round markers match exactly ^R[1-9][0-9]*$; only .json artifacts are parsed; only R<n> records are skipped as past rounds.",
+          "scope": [
+            "Modify .claude/scripts/tickets/validate-no-external-excuses.js: add made to ACTIVE_STATUSES with a comment stating that the make stage writes the spec before the start stage runs. Before: made markers fail Check C; after: made, todo, in_progress, planned and remanded are active obligations.",
+            "Modify .claude/scripts/tickets/validate-ticket-targets.js: require lib/path-utils.fromHomeRelative and call it in checkFileExists and checkMarkerTextMatches. Before: ~/... reaches fs.existsSync unchanged; after: the stored path is expanded before every filesystem read and the error names the resolved path.",
+            "Modify .claude/scripts/tickets/validate-ticket-targets.js: in validateTargets Check 3, pass a synthetic success when targetStub.status is resolved. Before: every resolved stub fails because its marker was removed; after: resolution status governs the check and pending stubs are still checked.",
+            "Modify .claude/scripts/tickets/add-omission-ticket.js: remove the cloned.nodeIds empty assignment and keep the source nodeIds on the omission clone; distribution and formulaObligations stay undefined. Before: the clone claims no node; after: the clone claims the nodes the phasify merge transfers to it.",
+            "Modify .claude/scripts/rfc-graph/phasify-omissions.js: add buildOwnershipTransfers(output), call it in mergePhasifyToTickets to remove transferred nodeIds and default_files from the source, and emit ownershipTransfers in the mutation manifest entry. Before: the mutation gate sees two claimants and refuses the merge; after: the manifest records the handover and the source releases the moved ids and files.",
+            "Modify .claude/scripts/rfc-graph/phasify-omissions.js: in runPhasifyOmissions, intersect every source ticket nodeIds with the RFC-GRAPH node id set before phasing. Before: a boundary-view unit is reported as an invented unit; after: only graph nodes reach the phasing input.",
+            "Modify .claude/scripts/tickets/lib/omission-detectors.js: introduce JSON_ARTIFACT_EXTENSION, read every non-directory artifact, and parse only .json. Before: every RFC.md is ARTIFACT_UNREADABLE; after: prose artifacts are present when readable, malformed JSON stays unreadable, directories are present, and read failures are ARTIFACT_UNREADABLE.",
+            "Modify .claude/scripts/sequences-slice/lib/implementation-order.mjs: add ROUND_MARKED_STATUS, isCompleteStatus(status) and isPastRoundStatus(status), and replace both COMPLETE_STATUSES.has calls in evaluatePrerequisites. Before: R1 and R12 are PREREQUISITE_NOT_DONE; after: they count as complete.",
+            "Modify .claude/scripts/sequences-slice/lib/implementation-order.mjs: skip isPastRoundStatus tickets inside checkPlacement. Before: a finished consumer records prerequisites the current graph no longer derives and fails PREREQUISITE_NOT_BEFORE; after: only active tickets are placed.",
+            "Modify .claude/scripts/sequences-slice/verify-implementation-order.mjs: import isPastRoundStatus and skip it in packagePrerequisiteFindings and verifyPackage. Before: a past-round record is compared with the current graph and fails PREREQUISITE_SET_MISMATCH; after: only active tickets are compared.",
+            "Modify .claude/scripts/tickets/review/run-quality-checks.js: strip the comment prefix and require statement shape (arrow, declaration, condition, punctuated return, lone brace, whole-line call). Before: prose containing return, let or a semicolon is a finding; after: only commented-out statements are findings.",
+            "Modify .claude/scripts/tickets/show-ticket-context.js: in renderCondensedFrom, return the heading with a no-absorption sentence when condensedFrom is an object and tickets is empty or absent. Before: verify-spec-completeness reports a dropped field; after: the heading proves the field was rendered.",
+            "Update and add tests under .claude/tests: create-resolving-ticket.test.js alignment, active-status-made.test.js, validate-targets-home-relative.test.js, round-aware-prerequisites.test.js, omission-detectors.test.cjs, omission-ownership-transfer.test.cjs, prerequisite-round-history.test.cjs and the prose-comment case in review.test.js. Every fixture is a synthetic temporary tree with neutral names.",
+            "Out of scope: the crystal, gaia and doors repositories; conver-newer deltas in commands, skills/rust-interface-law and scripts/conver/conver.js; the __pycache__ artifact; any installer redesign.",
+            "Affected areas: ticket mutation gate, omission detection and phasing, sequences package gate, review quality gate and spec completeness. Impact nature is gate correctness and false-positive reduction; the response is the code and test changes listed above, with no schema or dependency change."
+          ],
+          "testUnit": [
+            "UT: [C001 normal] checkKeyValidity over a synthetic Tickets.json returns passed true for a made ticket and for a todo ticket; each verdict reason is empty when passed.",
+            "UT: [C001 boundary] checkKeyValidity returns passed false for reviewed when consolidation mode is false and true when it is true; a key absent from the document returns passed false.",
+            "UT: [C002 normal] checkFileExists returns pass true for an absolute path in a temporary directory and for the same file expressed as ~/<relative> with HOME unchanged.",
+            "UT: [C002 error] checkFileExists returns pass false with the text File not found for a missing home-relative path; checkMarkerTextMatches reads the resolved file and matches exact marker text.",
+            "UT: [C002 boundary] a path that does not start with ~/ is not expanded; a file that exists only after expansion is treated as present.",
+            "UT: [C003 boundary] validateTargets treats Check 3 as passing when targetStub.status is resolved and the marker is absent; a pending stub with an absent marker still returns pass false.",
+            "UT: [C004 normal] mergePhasifyToTickets removes the transferred nodeIds and default_files from the source ticket and keeps them on the clone; buildOwnershipTransfers returns one entry per clone with from, to, nodeIds and filePaths.",
+            "UT: [C004 boundary] a clone without originalTicketKey, a clone with no nodeIds and no default_files, and a transfer whose source is absent produce no source mutation and no throw.",
+            "UT: [C004 invariant] an add-omission-ticket clone keeps the source nodeIds and clears distribution and formulaObligations only.",
+            "UT: [C005 normal] runPhasifyOmissions filters a source ticket nodeIds that are absent from RFC-GRAPH nodes before phasing; the invented id does not reach the mutation manifest.",
+            "UT: [C005 boundary] an all-non-graph set becomes empty and an all-graph set is unchanged; the filter compares id membership, not a name pattern.",
+            "UT: [C006 normal] artifactStatus reports the rfc family present when RFC.md contains prose, and reports a valid JSON graph present.",
+            "UT: [C006 error] artifactStatus reports ARTIFACT_UNREADABLE for malformed JSON and ARTIFACT_MISSING for an absent artifact.",
+            "UT: [C006 boundary] a directory artifact is present without parsing; a file whose read throws is ARTIFACT_UNREADABLE; an uppercase .JSON extension is parsed.",
+            "UT: [C007 normal] isCompleteStatus returns true for done, reviewed, R1 and R12; evaluatePrerequisites returns ok for both same-package and package prerequisites carrying those statuses.",
+            "UT: [C007 boundary] isCompleteStatus returns false for todo, made, planned, started, R0, RX, an empty string and undefined; evaluatePrerequisites reports PREREQUISITE_NOT_DONE for each.",
+            "UT: [C008 normal] checkPlacement returns no findings for a past-round consumer whose prerequisite is placed later; isPastRoundStatus is true for R1 and R12 and false for reviewed, done, todo and undefined.",
+            "UT: [C008 error] checkPlacement still returns PREREQUISITE_NOT_BEFORE with subject P1-1 for an active consumer placed before its provider.",
+            "UT: [C008 boundary] verifyPackage over a synthetic package returns code 0 and no findings when the only stale prerequisite set belongs to an R1 ticket, and returns code 1 with PREREQUISITE_SET_MISMATCH naming the active ticket when an active ticket has a stale set.",
+            "UT: [C009 normal] runAllChecks reports zero findCommentedCode findings for prose comments containing return, let and a trailing semicolon, and three findings for arrow, declaration and condition statements after //.",
+            "UT: [C009 boundary] a comment whose stripped text is a lone brace is a finding; a URL line starting with http:// is not treated as a comment; a // line inside a string literal is not comment-scanned.",
+            "UT: [C010 normal] renderCondensedFrom returns a string beginning with ## Condensed From and containing the generation when condensedFrom is an object with tickets []; verify-spec-completeness reports no dropped condensedFrom field for that ticket.",
+            "UT: [C010 boundary] renderCondensedFrom returns null when condensedFrom is absent or not an object, and preserves the existing full rendering when tickets is non-empty.",
+            "UT: [C011 regression] createResolvingTicket without ownershipTransfer leaves nodeIds empty on the clone; with seed.ownershipTransfer true it preserves the source nodeIds."
+          ],
+          "testIntegration": [
+            "IT: phasify merge and mutation gate: mergePhasifyToTickets produces a document and a manifest whose ownershipTransfers satisfies ticket-mutation-gate evaluateOwnership with no duplicate-claim finding, using a synthetic source and clone.",
+            "IT: sequences package gate: verifyPackage runs over a temporary package containing SEQUENCES.json, RFC-GRAPH.json and Tickets.json with an R1 history phase and an active phase, and returns code 0 for history-only staleness.",
+            "IT: ticket obligation gate: validate-no-external-excuses CLI runs over a synthetic Tickets.json and a source file carrying a STUB keyed to a made ticket, and exits 0.",
+            "IT: omission detection gate: artifactStatus runs over a synthetic package with RFC.md prose, a valid RFC-GRAPH.json and a malformed graph variant, reporting present and unreadable respectively.",
+            "IT: review quality gate: runAllChecks runs over synthetic prose and commented-statement sources and separates zero findings from three findings.",
+            "IT: spec completeness gate: show-ticket-context and verify-spec-completeness run over a synthetic ticket whose condensedFrom has an empty tickets array and report the heading present and no dropped field.",
+            "IT: regression suite: every affected test file runs green and the four known environmental failure files remain the only failures, with the count unchanged at 14.",
+            "IT: workspace agnosticism: a grep over the modified scripts finds no crystal, gaia or doors literal, no absolute home path and no hardcoded ticket-key family in a branch condition."
+          ],
+          "testExceptions": [
+            "- [Item] No exception is requested.\n- [Reason] Every behavior in scope is deterministic: it is a pure function of status values, file extensions, graph node ids, manifest data or a ticket object, and each is reachable with a temporary fixture.\n- [Alternative verification] Not applicable; the unit and integration tests above are the verification."
+          ],
+          "instrumentation": "Review static quality check: passed\nReview translatability check: no issues\nReview test execution: 9 new/changed test files and 14 impact-set files passed",
+          "acceptanceCriteria": [
+            "[Happy path] Every contract C001 through C011 has at least one failing test confirmed red before implementation, then all affected test files pass green.",
+            "[Error case] An active ticket with a stale prerequisite still fails PREREQUISITE_SET_MISMATCH, malformed JSON is still ARTIFACT_UNREADABLE, and an unresolved pending stub with a removed marker still fails Check 3.",
+            "[Edge case] A neutral workspace with no round-marked tickets and no special names behaves exactly as before; the four known environmental failure files remain the only failures with the count unchanged at 14."
+          ],
+          "investigation": "Sources inspected: current conver files .claude/scripts/tickets/validate-no-external-excuses.js (ACTIVE_STATUSES at line 66), .claude/scripts/tickets/validate-ticket-targets.js (checkFileExists at line 89, checkMarkerTextMatches at line 111, Check 3 at line 533), .claude/scripts/tickets/add-omission-ticket.js (cloned.nodeIds empty at line 502), .claude/scripts/rfc-graph/phasify-omissions.js (no buildOwnershipTransfers; round writer at line 1053), .claude/scripts/tickets/lib/omission-detectors.js (artifactState at line 124), .claude/scripts/sequences-slice/lib/implementation-order.mjs (COMPLETE_STATUSES at line 78, both has calls at lines 928 and 948), .claude/scripts/tickets/review/run-quality-checks.js (finding at line 88), .claude/scripts/tickets/show-ticket-context.js (renderCondensedFrom at line 1039), .claude/scripts/tickets/ticket-mutation-gate.js (manifest.ownershipTransfers consumer at line 171), .claude/scripts/tickets/verify-spec-completeness.js (condensedFrom maps to the heading at line 68) and .claude/scripts/lib/create-ticket-from-source.js (ownershipTransfer clears nodeIds at line 142). Source commits in the crystal repository: b7d4c64, ff7494f, e6627ca, 95c1a38, c28e4db and 0c40fd8. A file-level diff of crystal a6cbdf08 against current conver shows 34 differing files; after excluding conver-newer deltas (284 rust-interface-law files, five command files and scripts/conver/conver.js), the remaining eight source and test differences are exactly the fixes in scope.",
+          "boyScoutPlan": "Translatability plan for every touched function: use verb-phrase names (expandStoredPath, evaluateCompleteStatus, buildOwnershipTransfers, detectCommentedOutCode), domain nouns (ownershipTransfer, roundMarkedStatus, jsonArtifactExtension) and one responsibility per function. Extract the round regex into ROUND_MARKED_STATUS and the JSON extension into JSON_ARTIFACT_EXTENSION instead of inline literals. Never catch and discard an error: a read failure becomes ARTIFACT_UNREADABLE with its reason. Split the comment scanner predicate into a named helper when the statement-shape expression would otherwise need a comment to explain it. Fix any false comment found in touched code and add provenance comments in the conver ticket vocabulary.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "validate-no-external-excuses: ACTIVE_STATUSES",
+              "precondition": "A ticket whose status is made owns a STUB marker keyed to its ticket key, and consolidation mode is false.",
+              "postcondition": "checkKeyValidity returns passed true for made and todo; reviewed passes only in consolidation mode; a missing ticket fails.",
+              "invariant": "Only statuses listed in ACTIVE_STATUSES are active obligations."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "validate-ticket-targets: stored path expansion",
+              "precondition": "A targetStub file is an absolute path or a ~/ relative path whose expansion exists under the current HOME.",
+              "postcondition": "checkFileExists passes for existing paths and names the resolved path on failure; checkMarkerTextMatches reads the resolved path.",
+              "invariant": "No tilde-prefixed string reaches fs.existsSync or fs.readFileSync."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "validate-ticket-targets: Check 3",
+              "precondition": "A targetStub has status resolved and its marker text is no longer in the file.",
+              "postcondition": "Check 3 passes for resolved stubs; a non-resolved stub with a removed marker still fails.",
+              "invariant": "Resolution status, not marker text presence, governs Check 3."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "phasify-omissions: omission ownership handover",
+              "precondition": "A source ticket owns nodeIds and default_files and the phasified output contains a clone with that originalTicketKey.",
+              "postcondition": "The source loses the transferred nodeIds and default_files; the manifest carries ownershipTransfers with from, to, nodeIds and filePaths; the add-omission-ticket clone keeps the nodeIds.",
+              "invariant": "Every node has exactly one claimant after the merge."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "phasify-omissions: graph membership filter",
+              "precondition": "A source ticket lists nodeIds that are absent from RFC-GRAPH nodes.",
+              "postcondition": "Only ids present in graphData.nodes reach the phasing input.",
+              "invariant": "The filter is a set intersection with graph node ids, never a name allowlist."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "omission-detectors: artifactState",
+              "precondition": "An artifact path exists and is a file or directory.",
+              "postcondition": "A .json file must parse; any other readable file is present; malformed JSON and read failures are ARTIFACT_UNREADABLE; a missing path is ARTIFACT_MISSING; a directory is present.",
+              "invariant": "JSON parsing is applied only to paths whose extension is .json."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "implementation-order: complete status vocabulary",
+              "precondition": "A prerequisite ticket or package ticket carries status done, reviewed, R followed by a positive integer, todo, made, planned, started, R0 or RX.",
+              "postcondition": "isCompleteStatus is true only for done, reviewed and R followed by a positive integer; evaluatePrerequisites reports PREREQUISITE_NOT_DONE otherwise.",
+              "invariant": "The round marker is exactly the regex ^R[1-9][0-9]*$."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "implementation-order and verify-implementation-order: past-round guard",
+              "precondition": "A ticket with status R followed by a positive integer records prerequisites and an active ticket records a stale prerequisite set.",
+              "postcondition": "Past-round tickets are skipped by checkPlacement, packagePrerequisiteFindings and verifyPackage; the active mismatch remains PREREQUISITE_SET_MISMATCH.",
+              "invariant": "Only round-marked records are skipped; done and reviewed tickets remain active consumers."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "run-quality-checks: commented-out code",
+              "precondition": "A comment line contains prose with words such as return or let, or an actual statement after the comment prefix.",
+              "postcondition": "Prose produces zero findings; arrow, declaration, condition, punctuated return, lone brace and whole-line call produce findings.",
+              "invariant": "Detection requires statement shape after stripping the comment prefix."
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "show-ticket-context: renderCondensedFrom",
+              "precondition": "A ticket carries condensedFrom as an object with an empty tickets array and a generation number.",
+              "postcondition": "renderCondensedFrom emits the Condensed From heading with the no-absorption fact and verify-spec-completeness reports no dropped field.",
+              "invariant": "Heading presence depends on the condensedFrom object, not on the tickets array length."
+            },
+            {
+              "id": "C011",
+              "sourceEdge": "create-resolving-ticket: ownershipTransfer alignment",
+              "precondition": "A resolving ticket is created from a source that owns nodeIds, with and without seed.ownershipTransfer true.",
+              "postcondition": "Without ownershipTransfer the clone nodeIds are empty; with it the source nodeIds are preserved on the clone.",
+              "invariant": "Ownership moves only when the caller explicitly requests the transfer."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T06:13:17.967Z"
+        },
+        {
+          "id": 415,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Lossless todo-only condensation with round-status protection and convergence rebase",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-415.md",
+          "background": "### Goal\nCondense only all-todo ticket sets; protect done, reviewed, remanded, made, planned, and round-aware R<n>; preserve every absorbed ticket field in the condensedFrom ledger; resolve cloned-ledger identity collisions; and rebase omission convergence artifacts after condensation so /find-omissions can run a final condense without breaking convergence or the next /consolidate-stubs.\n\n### Purpose\nCondensation is a state transformation. It must reduce work without changing completed ticket meaning, losing provenance, or invalidating the surfaces the omission convergence gate measures.\n\n### Motivation\n- .claude/scripts/tickets/lib/ticket-partition.js protects only done and reviewed; R1/R2 are merged and downgraded to todo; made/planned can be absorbed.\n- collectPreservedRecord drops condensedFrom, changes, splitReason, round, contracts, and formulaObligations; nested histories disappear. gaia-foundation and gaia-commerce still show this loss.\n- find-omissions clones duplicate absorbed keys; renumberDocument raises IDENTITY_DUPLICATE_KEY on current crystal packages.\n- Condense changes ticket keys and acceptance indices; OMISSION-CONVERGENCE requires two equal digests, OMISSION-TICKET-INDEX dedups by stableKey, and stub validators resolve live keys only. Without rebase and alias handling, find re-creates duplicate tickets, fails convergence, and the next consolidate fails on orphan markers.\n\n### Constraints\n- TDD Red-Green-Refactor; no new runtime dependency; no ticket status vocabulary change.\n- Second condense is NO_CHANGE and byte-identical.\n- Non-todo tickets keep status, round, timestamps, and authored fields byte-identical; only key renumber is allowed and must resolve through identity.aliases.\n- Existing Tickets.pre-condense-*.json archives remain readable.\n- Command Markdown edits are English, dense terminology, telegraphic, high-compression, non-redundant, information-lossless, and minimal-length.",
+          "default_files": [
+            "tests/amend-rfc-up"
+          ],
+          "testUnit": [
+            "UT: C001 partition locks every non-mergeable status; only a contiguous all-todo range forms a merged group; merged status is todo.",
+            "UT: C001 R1/R2/R3 are completed and never merge with todo; a todo+R2 input leaves R2 live and untouched.",
+            "UT: C001 made, planned, done, reviewed, remanded, and unknown statuses are barriers; a group containing one is a singleton.",
+            "UT: C001 existing preserveCompleted callers retain legacy behavior through an explicit mergeStatusPolicy='non-completed'; the CLI default is mergeStatusPolicy='todo'.",
+            "UT: C001 no-change path writes zero bytes when every ticket is non-todo or already dense.",
+            "UT: C002 mergeTicketGroup preserves nested condensedFrom, changes, splitReason, round, contracts, and formulaObligations in the absorbed ledger record.",
+            "UT: C002 ledger record deep-equals the pre-merge absorbed ticket minus recomputed fields; no authored field is dropped or invented.",
+            "UT: C002 duplicate formula id with different content throws FORMULA_OBLIGATION_CONFLICT instead of silently keeping the first.",
+            "UT: C002 the final single survivor keeps splitReason; it is no longer deleted silently.",
+            "UT: C003 cloned ledgers sharing one absorbed key register ownership under originKey only; renumberDocument does not throw IDENTITY_DUPLICATE_KEY.",
+            "UT: C003 identity.aliases maps every historical key to exactly one survivor; an unknown key is refused with a named finding.",
+            "UT: C003 generation-qualified key key@g resolves a historical key even when a newer live ticket reuses the raw key.",
+            "UT: C004 alias-aware findTicket resolves an absorbed key to its survivor; preflight classifies the marker as a pending obligation.",
+            "UT: C004 marker rewrite writes the survivor key and rolls back both marker and Tickets.json on any failure.",
+            "UT: C004 consolidate-stubs-gate exits 0 with an absorbed marker alias and exits 1 with a truly non-existent key.",
+            "UT: C005 acceptance assetId uses a criterion hash, so union and reindex of acceptanceCriteria preserve the stableKey.",
+            "UT: C005 rebase rewrites gap-scan surfaces, findings, obligations, judgment ledger, ticket index, convergence baseline/runs, and the OMISSIONS deliverable.",
+            "UT: C005 post-rebase gap scan digest equals the rebased convergence digest and unrecorded obligations are zero.",
+            "UT: C005 ticket-index stableKey remap prevents a second omission ticket for the same finding.",
+            "UT: C005 judgment ledger keeps recorded verdicts and marks only genuinely new obligations unrecorded.",
+            "UT: C006 find-omissions Step 9.5 condense is idempotent; the second run is NO_CHANGE and byte-identical.",
+            "UT: C006 post-condense boundary digest equals computeTicketSetDigest of the written Tickets.json.",
+            "UT: C006 command Markdown step order is condense then rebase then rename then cleanup; no template marker or Japanese prose remains in .claude/commands.",
+            "UT: C006 command Markdown is English, telegraphic, high-density, non-redundant, information-lossless, and minimal-length."
+          ],
+          "testIntegration": [
+            "IT: C005 make -> resolve -> consolidate -> find -> condense -> find cycle reaches convergence; the second find creates zero duplicate omission tickets.",
+            "IT: C006 conver boundary state records the post-condense digest; runPackageLoop advances to the next package only when the ticket set is terminal.",
+            "IT: C006 an explicit -P selection exits 0 when every selected package is endpoint and stops at that endpoint.",
+            "IT: C003 a crystal-protocol-types-shaped fixture with cloned ledgers condenses without IDENTITY_DUPLICATE_KEY and keeps every historical key resolvable.",
+            "IT: C004 consolidate-stubs-gate and require-consolidated-manifest pass after condense with absorbed markers and a regenerated manifest.",
+            "IT: C001 a package with R1, todo, and planned tickets condenses only todo; every R1 and planned authored field remains byte-identical.",
+            "IT: C005 a report-only omission target writes no file and exits 0."
+          ],
+          "testExceptions": [],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "condense partition policy -> mergeable ticket group",
+              "precondition": "The input phase contains tickets with statuses todo, made, planned, done, reviewed, remanded, R1, and R2.",
+              "postcondition": "Only a contiguous all-todo group merges; every non-todo ticket is a singleton; the survivor status is todo.",
+              "invariant": "No non-todo ticket's status, round, timestamps, or authored fields change; no completed ticket is absorbed."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "absorbed ticket -> condensedFrom ledger record",
+              "precondition": "An absorbed ticket carries nested condensedFrom, changes, splitReason, round, contracts, and formulaObligations.",
+              "postcondition": "The survivor ledger record contains every authored field and the recursive nested history.",
+              "invariant": "The record deep-equals the pre-merge ticket minus recomputed fields; no field is dropped, invented, or silently overwritten; duplicate formula ids with different content are refused."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "cloned ledger -> identity renumber map",
+              "precondition": "Two clones of a condensed ticket carry the same absorbed key with the same originKey and generation.",
+              "postcondition": "The absorbed key is registered under originKey only; the clone does not claim ownership.",
+              "invariant": "No IDENTITY_DUPLICATE_KEY for a shared historical key; every historical key resolves to exactly one survivor through identity.aliases."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "condense key change -> stub marker resolution",
+              "precondition": "A stub marker references a ticket key absorbed by condense or renumbered by a later generation.",
+              "postcondition": "The validator resolves the marker to the survivor through identity.aliases, and the rewrite path can update the marker transactionally.",
+              "invariant": "No orphan marker remains; the next consolidate-stubs-gate and require-consolidated-manifest pass."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "condense key map -> omission convergence artifacts",
+              "precondition": "Condense changes ticket keys, phase ids, and acceptance indices, and the package has OMISSION-GAP-SCAN, OMISSION-JUDGMENT-LEDGER, OMISSION-TICKET-INDEX, OMISSION-CONVERGENCE, and OMISSIONS artifacts.",
+              "postcondition": "The rebase rewrites every artifact to the post-condense keys and acceptance criterion hashes, and the post-rebase gap scan digest matches the convergence digest.",
+              "invariant": "Unrecorded obligations are zero after adjudication; no duplicate omission ticket is created for the same finding; report-only mode writes nothing."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "find-omissions Step 9 -> Step 9.5 condense -> conver boundary",
+              "precondition": "find-omissions has merged omission phases and is about to return.",
+              "postcondition": "Condense and rebase complete inside find-omissions before return; the boundary digest records the post-condense ticket set.",
+              "invariant": "The second condense is NO_CHANGE; find returns only after all gates pass; conver advances only when the post-find ticket set is terminal."
+            }
+          ],
+          "invariants": "- [Normal establishment] A merge group contains only tickets whose status is todo; the survivor status is todo; the group is contiguous in implementation order and within the work budget.\n- [Invariant on error] A group containing made, planned, done, reviewed, remanded, R<n>, or an unknown status is never merged; mergeTicketGroup refuses it with a typed error and writes nothing.\n- [Internal state invariant] Every absorbed key resolves to exactly one survivor through condensedFrom and identity.aliases; a shared historical key owned by cloned ledgers resolves to its originKey survivor and never raises IDENTITY_DUPLICATE_KEY.\n- [Boundary invariant] Every authored field of an absorbed ticket, including nested condensedFrom, changes, splitReason, round, contracts, and formulaObligations, is retrievable from the survivor ledger after any number of condensation generations.\n- [Convergence invariant] After condense, OMISSION-GAP-SCAN, OMISSION-JUDGMENT-LEDGER, OMISSION-TICKET-INDEX, OMISSION-CONVERGENCE, and OMISSIONS-*.json describe the post-condense ticket set; no unrecorded obligation and no duplicate omission ticket remain.\n- [Boundary invariant] find-omissions returns only after condense and rebase gates pass; the boundary digest recorded by conver equals computeTicketSetDigest of the post-condense Tickets.json.",
+          "scope": [
+            "Add .claude/scripts/tickets/lib/ticket-status.js: export isRoundCompletedStatus, isCompletedStatus, isMergeableStatus, and STATUS_RANKS; treat done, reviewed, and /^R[1-9]\\d*$/ as completed; treat only todo as mergeable; keep remanded, made, planned, and unknown statuses non-mergeable.",
+            "Modify .claude/scripts/tickets/lib/ticket-partition.js: replace COMPLETED_STATUSES/isCompleted with the shared predicate; rank R<n> as completed in leastAdvancedStatus; add mergeStatusPolicy and mergeableStatuses; make minimumContiguousPartition lock every non-mergeable ticket as a singleton barrier; make mergeTicketGroup assert all members todo; preserve nested condensedFrom recursively.",
+            "Modify .claude/scripts/tickets/lib/ticket-partition.js ledger merge: include changes, splitReason, round, contracts, and formulaObligations in collectPreservedRecord; stop deleting splitReason from the final survivor; refuse duplicate formula ids with different content via FORMULA_OBLIGATION_CONFLICT; keep distribution, prerequisites, and mergeAttempts recomputed but record their pre-merge values.",
+            "Modify .claude/scripts/tickets/lib/phase-consolidation.js and .claude/scripts/tickets/condense-tickets.js: apply the phase floor only to all-todo phases; report a skipped non-todo phase instead of merging it; carry mergeStatusPolicy through buildPlan, applyPlan, gateTickets, and the CLI default todo.",
+            "Modify .claude/scripts/tickets/lib/ticket-identity-renumber.js: make collectAbsorbedEntries generation-aware; register an absorbed key under its originKey only; skip a clone claim when the same key@g is already owned by a different live survivor; keep alias resolution total.",
+            "Add .claude/scripts/tickets/condense-rebase.js: accept the pre/post Tickets.json and the condense keyMap plus acceptance index map; rewrite OMISSION-GAP-SCAN.json surfaces, findings, obligations, and stableKeys; rewrite OMISSION-JUDGMENT-LEDGER.json obligations and judgments; rewrite OMISSION-TICKET-INDEX.json keys; rewrite OMISSION-CONVERGENCE.json baseline and run digests; rewrite OMISSIONS-*.json originalTicketKey; verify the post-rebase gap-scan digest and unrecorded count; report-only mode writes nothing.",
+            "Modify .claude/scripts/tickets/lib/omission-detectors.js and .claude/scripts/tickets/omission-gap-scan.js: derive acceptance assetId from a criterion hash instead of the array index so union and reindex preserve the stableKey; keep ticket and contract surfaces unchanged.",
+            "Modify .claude/scripts/tickets/lib/judgment-ledger.js and .claude/scripts/tickets/apply-omission-findings.js: prune or remap stale obligations during rebase; remap OMISSION-TICKET-INDEX stableKeys; refuse a duplicate ticket when the remapped stableKey already exists.",
+            "Modify .claude/scripts/tickets/validate-no-external-excuses.js, .claude/scripts/tickets/preflight-stub-cleanup.js, .claude/scripts/tickets/batch-create-resolving-tickets.js, and .claude/scripts/tickets/consolidate-stubs-gate.sh: resolve marker keys through identity.aliases; align ACTIVE_STATUSES so made is an active obligation; keep non-existent keys a hard failure; add a transactional marker rewrite path with rollback.",
+            "Modify .claude/commands/find-omissions.md: insert Step 9.5 condense and Step 9.6 rebase plus gate after Step 9 and before Step 10 rename; state that find must complete both before return; keep Step 11 cleanup last. Modify .claude/commands/condense-tickets.md, .claude/commands/condense-workspace.md, .claude/commands/split-to-tickets.md, and .claude/commands/consolidate-stubs.md to document todo-only default, R protection, alias resolution, and the rebase contract. All command Markdown must be English, dense terminology, telegraphic, high-compression, non-redundant, information-lossless, and minimal-length.",
+            "Modify tools/conver/src/runner.ts: compute addedTicketKeys against pre-condense keys plus identity.aliases so renumber and merge do not report moved keys as added; keep the endpoint decision on the post-find digest. Modify tools/conver/src/runner.test.ts and tools/conver/src/boundary-state.test.ts with post-condense digest and next-package tests.",
+            "Add tests under tools/conver/tests/tickets: condense-todo-only.test.cjs, condense-lossless-ledger.test.cjs, condense-identity-clone.test.cjs, condense-marker-alias.test.cjs, condense-rebase.test.cjs, find-omissions-condense-e2e.test.cjs, and extend condense-preservation.test.cjs, condense-tickets.test.cjs, condense-workspace.test.cjs, condense-split-step.test.cjs, condense-renumber.test.cjs, and restore-condensed.test.cjs where the new contract supersedes the old one.",
+            "Out of scope: restoring existing gaia/crystal/doors packages (PX-416); changing the ticket status vocabulary; changing --no-find semantics; adding a runtime dependency; rewriting conver.js scheduling; changing the work budget values.",
+            "Affected areas: condensation partition and ledger (data format), omission convergence gate (digest and stable keys), stub validation and consolidation (marker resolution), find-omissions command (step order), conver package loop (boundary digest and added-ticket reporting)."
+          ],
+          "instrumentation": "- [Logging] Emit condense.merge.policy, condense.merge.groups, condense.ledger.restored_fields, condense.identity.alias, condense.rebase.rewrites, condense.rebase.digest, and find.condense.gate with ticket key and artifact path on every apply.\n- [Metrics] Count merged groups, blocked non-todo groups, restored ledger fields, alias resolutions, rebased artifacts, duplicate findings prevented, and orphan markers prevented.\n- [Error tracking] Name IDENTITY_DUPLICATE_KEY, FORMULA_OBLIGATION_CONFLICT, CONDENSE_LEDGER_INVALID, CONVERGENCE_NOT_REACHED, ORPHAN_STUB_KEY, and REBASE_DIGEST_MISMATCH with the ticket key, file, and repair action.\n- [Health check] After apply, assert zero orphan markers, zero duplicate omission tickets, unrecorded obligations zero, and second condense NO_CHANGE; fail the gate on any nonzero.",
+          "notes": "Implementation summary:\n- Changed files: .claude/scripts/tickets/lib/{ticket-status,ticket-partition,ticket-identity-renumber,phase-consolidation,ticket-workload,omission-detectors,marker-alias}.js; .claude/scripts/tickets/{condense-tickets,condense-rebase,validate-no-external-excuses,batch-create-resolving-tickets,rewrite-stub-aliases}.js; .claude/commands/{find-omissions,condense-tickets,condense-workspace,split-to-tickets,consolidate-stubs}.md; tools/conver/src/runner.ts; tools/conver/tests/tickets/{condense-todo-only,condense-lossless-ledger,condense-identity-clone,condense-marker-alias,condense-rebase,find-omissions-condense-e2e}.test.cjs.\n- Key changes: todo-only merge policy; R<n>/made/planned/remanded barriers; lossless recursive ledger; formula conflict refusal; generation/originKey clone ownership; alias-aware validators; transactional marker rewrite; criterion-hash acceptance surfaces; convergence artifact rebase; find Step 9.5/9.6; post-condense digest and addedTicketKeys.\n- Test results: 110 node:test cases in the condense impact set passed; 36 compiled runner/boundary tests passed; npx tsc --noEmit passed; quality checks 0 issues; verify-contract-delivery and verify-acceptance-coverage 0 findings; reverify-ticket 0 findings with certificate written.\n- Law: not applicable (JavaScript/TypeScript only).\n- Residual risk: a genuine acceptance-surface reduction may require one legitimate re-convergence; the rebase reports REBASE_RECONVERGENCE_REQUIRED instead of faking a digest. PX-416 depends on this ticket.",
+          "acceptanceCriteria": [
+            "[Happy path] A package with todo, planned, R1, and reviewed tickets condenses only contiguous todo groups; every non-todo field is byte-identical; the survivor ledger is lossless; find-omissions condense and rebase pass; the second run is NO_CHANGE.",
+            "[Error case] A group containing R2 or planned is refused; duplicate formula id with different content is refused; a marker referencing an absorbed key resolves through aliases or is rewritten; a non-existent marker key still fails consolidate-stubs-gate.",
+            "[Edge case] A package with one todo ticket, no omissions, no archives, a cloned ledger sharing an absorbed key, or a report-only omission target completes without writing or with the expected no-op.",
+            "[Convergence case] After find-omissions condense and rebase, the post-rebase gap-scan digest equals the convergence digest, unrecorded obligations are zero, no duplicate omission ticket is created, and the next find Step 0 does not raise CONVERGENCE_NOT_REACHED."
+          ],
+          "investigation": "- ticket-partition.js:31 defines COMPLETED_STATUSES as done/reviewed; :125 isCompleted ignores R; :147 locks only completed; :456 leastAdvancedStatus treats R as rank 0. Demonstrated: todo+R2 merges and status becomes todo.\n- ticket-partition.js:49-56 excludes contracts, formulaObligations, distribution, prerequisites, mergeAttempts, and condensedFrom from collectPreservedRecord; :468-497 copies only the survivor's prior ledger; :534 deletes splitReason. Demonstrated: nested P0-9 history disappears.\n- condense-tickets.js:425-436 collectLedgerContractIds reads record.contracts, which is never populated; auditContractOwnership and renderCondensedFrom therefore see no contract provenance. tests/tickets/condense-preservation.test.cjs:30-33 codifies contracts as a derived field.\n- ticket-identity-renumber.js:82-104 registers each absorbed raw key against the current live ticket; cloned ledgers duplicate P0-4 and raise IDENTITY_DUPLICATE_KEY 'P0-4 is owned by P0-4 and P1-3'. Reproduced on current crystal-protocol-types and crystal-adapter-current-authority.\n- omission-detectors.js:239-243 enumerates ticket surfaces as ticketKey and acceptance as ticketKey/acceptance[index]; omission-gap-scan.js:83 and :332 put those assetIds in stableKey and the digest; omission-convergence.js:80-84 requires two equal digests; apply-omission-findings.js:89 dedups by stableKey. A condense reindex therefore creates duplicate tickets and resets convergence.\n- judgment-ledger.js:52-66 is append-only; a changed assetId adds unrecorded obligations. validate-no-external-excuses.js:94-104 finds live tickets only; preflight-stub-cleanup.js:49 and validate-no-external-excuses.js:70 know R<n>, but ticket-partition.js does not. consolidate-stubs-gate.sh runs both validators and then batch-create-resolving-tickets --no-write, so an absorbed marker fails the next consolidate.\n- find-omissions.md:323-348 merges omissions in Step 9, renames phases in Step 10, and cleans artifacts in Step 11; no condense step exists. tools/conver/src/runner.ts:794-814 reads Tickets.json after find and advances only when isTicketSetTerminal is true; boundary-state.ts:75-80 digests phaseId:ticketId:status, so condense must finish before find returns.\n- Measured current behavior: crystal-protocol-types 17->17 tickets, 5->3 phases; crystal-adapter-clock 12->12, 4->2; crystal-adapter-current-authority 16->16, 4->3. Ticket-level condensation is zero under the v3 testUnit budget 18; the phase floor is the only reduction.",
+          "boyScoutPlan": "- Extract a shared ticket-status module and replace the four duplicated completed-status regexes in validate-no-external-excuses.js, preflight-stub-cleanup.js, verify-final-contracts.js, and merge-formulas-to-tickets.js; this removes drift and makes R protection one predicate.\n- Rename isCompleted to isCompletedStatus and extract STATUS_RANKS, TODO_STATUS, and MERGEABLE_STATUSES into named constants; replace magic status strings in ticket-partition.js.\n- Split mergeTicketGroup into mergeStatus, mergeLedger, mergeMachineFields, and mergeFormulaObligations; each function names one responsibility and reads as prose.\n- Extract assertAllMergeableTodo and describeMergeGroup from condense-tickets.js; replace inline status checks with the shared predicate.\n- Extract rebaseOmissionArtifacts and rewriteStableKeys into condense-rebase.js; replace repeated object traversal with named functions.\n- Rename generic locals such as bucket, entry, record, and value to domain names: absorbedTicket, ledgerEntry, authoredRecord, and stableFindingKey.\n- Remove swallowed errors by returning typed findings from rebase and marker rewrite; no catch that continues after a failed artifact write.",
+          "planTestCode": [
+            "UT: C001 todo-only partition code\n```js\nconst { minimumContiguousPartition, mergeTicketGroup } = require('../../.claude/scripts/tickets/lib/ticket-partition.js');\nconst context = { graph: null, dirsTree: null, view: null, nodeToFileMap: {} };\nconst budget = { operations: 8, sequenceSteps: 8, ownedContracts: 4, files: 15, testUnit: 18, testIntegration: 6, modules: 4 };\nconst tickets = [\n  { id: 1, phaseId: 0, status: 'todo', title: 'a', nodeIds: [], default_files: [], testUnit: [], testIntegration: [] },\n  { id: 2, phaseId: 0, status: 'todo', title: 'b', nodeIds: [], default_files: [], testUnit: [], testIntegration: [] },\n  { id: 3, phaseId: 0, status: 'R2', title: 'round complete', nodeIds: [], default_files: [], testUnit: [], testIntegration: [] },\n  { id: 4, phaseId: 0, status: 'planned', title: 'planned', nodeIds: [], default_files: [], testUnit: [], testIntegration: [] },\n];\nconst plan = minimumContiguousPartition(tickets, context, budget, { mergeStatusPolicy: 'todo' });\nassert.deepEqual(plan.groups.map((group) => group.members), [['P0-1', 'P0-2'], ['P0-3'], ['P0-4']]);\nassert.equal(plan.groups[1].locked, true);\nassert.equal(plan.groups[2].locked, true);\nconst merged = mergeTicketGroup(tickets, plan.groups[0]).ticket;\nassert.equal(merged.status, 'todo');\n```",
+            "UT: C002 lossless ledger code\n```js\nconst { mergeTicketGroup } = require('../../.claude/scripts/tickets/lib/ticket-partition.js');\nconst nested = { originKey: 'P0-9', generation: 0, tickets: [{ key: 'P0-10', generation: 0, record: { title: 'inner' } }] };\nconst absorbed = { id: 2, phaseId: 0, status: 'todo', title: 'absorbed', nodeIds: [], default_files: [], testUnit: [], testIntegration: [], condensedFrom: nested, changes: [{ before: 'a', after: 'b', description: 'change' }], splitReason: 'budget', round: 2, contracts: [{ id: 'C1' }], formulaObligations: [{ id: 'F1', body: 'x' }] };\nconst survivor = { id: 1, phaseId: 0, status: 'todo', title: 'survivor', nodeIds: [], default_files: [], testUnit: [], testIntegration: [] };\nconst merged = mergeTicketGroup([survivor, absorbed], { start: 0, end: 2 }).ticket;\nconst record = merged.condensedFrom.tickets[0].record;\nassert.deepEqual(record.condensedFrom, nested);\nassert.deepEqual(record.changes, absorbed.changes);\nassert.equal(record.splitReason, 'budget');\nassert.equal(record.round, 2);\nassert.deepEqual(record.contracts, absorbed.contracts);\nassert.deepEqual(record.formulaObligations, absorbed.formulaObligations);\nassert.throws(() => mergeTicketGroup([\n  { ...survivor, formulaObligations: [{ id: 'F1', body: 'a' }] },\n  { ...absorbed, formulaObligations: [{ id: 'F1', body: 'b' }] },\n], { start: 0, end: 2 }), /FORMULA_OBLIGATION_CONFLICT/);\n```",
+            "UT: C003 clone identity code\n```js\nconst { renumberDocument } = require('../../.claude/scripts/tickets/lib/ticket-identity-renumber.js');\nconst entry = { key: 'P0-4', generation: 0, record: { title: 'history' } };\nconst document = { phases: [{ id: 0, tickets: [\n  { id: 1, phaseId: 0, status: 'todo', title: 'survivor', condensedFrom: { originKey: 'P0-1', generation: 0, tickets: [entry] } },\n  { id: 2, phaseId: 0, status: 'todo', title: 'clone', condensedFrom: { originKey: 'P0-1', generation: 0, tickets: [entry] } },\n]}], identity: { generation: 0, aliases: {}, excludedPhases: [-1] } };\nconst result = renumberDocument(document);\nassert.deepEqual(result.findings, []);\nassert.equal(result.document.identity.aliases['P0-4@g0'], 'P0-1');\n```",
+            "UT: C004 alias-aware marker code\n```js\nconst fs = require('node:fs');\nconst { findTicket, checkKeyValidity } = require('../../.claude/scripts/tickets/validate-no-external-excuses.js');\nconst { rewriteMarkerLines } = require('../../.claude/scripts/tickets/lib/marker-alias.js');\nconst ticketsData = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: 'todo', title: 'survivor' }] }], identity: { generation: 1, aliases: { 'P0-4@g0': 'P0-1' } } };\nassert.equal(findTicket(ticketsData, 'P0-4').id, 1);\nassert.equal(checkKeyValidity('P0-4', ticketsData, false).passed, true);\nfs.writeFileSync('src/a.rs', '// [::STUB::] P0-4: reason -- plan\\n');\nrewriteMarkerLines({ cwd: process.cwd(), ticketsData, rewrites: [{ file: 'src/a.rs', line: 1, from: 'P0-4', to: 'P0-1' }] });\nassert.match(fs.readFileSync('src/a.rs', 'utf8'), /\\[::STUB::\\] P0-1:/);\n```",
+            "UT: C005 convergence rebase code\n```js\nconst crypto = require('node:crypto');\nconst { rebaseOmissionArtifacts } = require('../../.claude/scripts/tickets/condense-rebase.js');\nconst pre = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: 'todo', title: 'a', acceptanceCriteria: ['alpha'] }, { id: 2, phaseId: 0, status: 'todo', title: 'b', acceptanceCriteria: ['beta'] }] }] };\nconst post = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: 'todo', title: 'a / b', acceptanceCriteria: ['alpha', 'beta'] }] }], identity: { generation: 1, aliases: { 'P0-2@g0': 'P0-1' }, excludedPhases: [-1] } };\nconst report = rebaseOmissionArtifacts({ cwd, pre, post, dryRun: true });\nconst alphaHash = crypto.createHash('sha256').update('alpha').digest('hex').slice(0, 16);\nassert.equal(report.surfaces.find((surface) => surface.surface === 'acceptance').assetId, 'P0-1/acceptance/' + alphaHash);\nassert.equal(report.digest, report.convergence.latestDigest);\nassert.deepEqual(report.unrecorded, []);\nassert.equal(report.index['acceptance|P0-1/acceptance/' + alphaHash + '|C'].sourceTicket, 'P0-1');\n```",
+            "UT: C006 idempotent find condense code\n```js\nconst fs = require('node:fs');\nconst { applyPlan } = require('../../.claude/scripts/tickets/condense-tickets.js');\nconst { computeTicketSetDigest } = require('../../dist/boundary-state.js');\nconst first = await applyPlan({ ticketsPath, cwd, mergeStatusPolicy: 'todo' });\nconst second = await applyPlan({ ticketsPath, cwd, mergeStatusPolicy: 'todo' });\nassert.equal(second.noChange, true);\nconst written = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));\nassert.equal(first.postCondenseDigest, computeTicketSetDigest(written));\nconst command = fs.readFileSync('.claude/commands/find-omissions.md', 'utf8');\nassert.ok(command.indexOf('Step 9.5') < command.indexOf('Step 10'));\nassert.doesNotMatch(command, /[ぁ-んァ-ン一-龥]/);\n```"
+          ],
+          "changes": [
+            {
+              "before": "only done/reviewed were barriers; R<n>, made and planned could merge and degrade to todo",
+              "after": "shared status predicate; only all-todo contiguous groups merge; every non-todo status is a barrier",
+              "description": "C001 todo-only condensation"
+            },
+            {
+              "before": "ledger dropped nested condensedFrom, changes, splitReason, round, contracts, formulaObligations; formula id collisions kept the first",
+              "after": "ledger copies every authored field, flattens nested history, keeps splitReason, refuses formula conflicts",
+              "description": "C002 lossless ledger"
+            },
+            {
+              "before": "cloned ledgers duplicated an absorbed key and raised IDENTITY_DUPLICATE_KEY",
+              "after": "ownership resolves through originKey and generation; absorbed aliases stay generation-qualified",
+              "description": "C003 clone identity"
+            },
+            {
+              "before": "stub validators resolved live keys only; absorbed markers became orphans",
+              "after": "findTicket and preflight resolve identity.aliases; rewrite-stub-aliases rewrites transactionally",
+              "description": "C004 marker alias"
+            },
+            {
+              "before": "acceptance assetId used the array index; condense reindex reset convergence and duplicated omission tickets",
+              "after": "assetId uses the criterion hash; condense-rebase rewrites scan, ledger, index, convergence and omissions",
+              "description": "C005 convergence rebase"
+            },
+            {
+              "before": "find-omissions returned after phasify merge; conver recorded the pre-condense digest",
+              "after": "Step 9.5 condense and Step 9.6 rebase complete before return; applyPlan returns postCondenseDigest, keyMap and acceptanceMap",
+              "description": "C006 find finishing step"
+            }
+          ],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T06:13:23.922Z"
+        },
+        {
+          "id": 416,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Restore condensed ticket history from pre-condense archives across gaia, crystal, and doors",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-416.md",
+          "testUnit": [
+            "UT: C001 dry-run writes nothing and reports every package, archive, ledger entry, restored field, and unchanged field.",
+            "UT: C001 the latest archive containing a key wins; missing authored fields are copied; an existing non-empty value is never overwritten.",
+            "UT: C001 non-todo status, round, timestamps, and authored fields remain byte-identical after apply.",
+            "UT: C001 a package with no matching archive key is reported as unresolved, never guessed or invented.",
+            "UT: C002 a nested condensedFrom chain is restored recursively and every historical key resolves through identity.aliases.",
+            "UT: C002 a gaia-foundation-shaped fixture restores P0-1<-P0-2<-P0-4 and P1-2<-P1-3<-P1-5 without losing the inner records.",
+            "UT: C002 a gaia-commerce-shaped fixture restores P0-3<-P0-4 (P0-7,P0-8), P1-1<-P1-2 (P1-4), and P1-2<-P1-4 (P1-7).",
+            "UT: C003 apply writes Tickets.pre-restore-<stamp>.json before the first byte and restores it when any gate fails.",
+            "UT: C003 a second apply reports NO_CHANGE and writes zero bytes.",
+            "UT: C003 an unreadable or malformed archive is refused with a named finding; no partial write occurs.",
+            "UT: C004 contracts and formulaObligations from the archive are copied into the ledger record; survivor contract content is not modified.",
+            "UT: C004 a duplicate formula id with different content is reported as FORMULA_PROVENANCE_CONFLICT, never silently resolved.",
+            "UT: C004 an archive without contracts leaves the record unchanged and invents no value.",
+            "UT: C005 the report separates restoredFields, restoredNested, restoredContracts, unresolved, and unchanged per package.",
+            "UT: C005 only a passed=false gap creates a ticket; a provenance-only restoration with covered tests creates no ticket.",
+            "UT: C005 completed ticket implementation files are never modified by the restoration."
+          ],
+          "testIntegration": [
+            "IT: C001+C002 a synthetic package with three archives and two generations restores all nested histories; a second run is NO_CHANGE.",
+            "IT: C003 a forced gate failure restores Tickets.json byte-for-byte and leaves all archives intact.",
+            "IT: C004 the gaia-foundation and gaia-commerce fixture shapes restore 7 and 3 nested ledger entries with contract provenance.",
+            "IT: C005 after restoration, find-omissions/omission-gap-scan runs on the restored fixture; no duplicate omission ticket is created and the convergence gate passes.",
+            "IT: C001 an external-repository dry-run over a copied fixture writes nothing and reports the same package count as the manifest.",
+            "IT: C003 report-only and dry-run modes are idempotent and safe to run before apply."
+          ],
+          "testExceptions": [],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "pre-condense archive -> current condensedFrom ledger record",
+              "precondition": "A package has a current Tickets.json and one or more Tickets.pre-condense-*.json archives containing the absorbed key.",
+              "postcondition": "Missing authored fields are copied from the latest archive that contains the key; existing non-empty values are preserved.",
+              "invariant": "Dry-run writes nothing; non-todo status, round, timestamps, and authored fields remain byte-identical; unresolved keys are reported, never invented."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "archived survivor -> nested condensedFrom history",
+              "precondition": "An absorbed ticket in an archive carries its own condensedFrom entry with inner absorbed keys.",
+              "postcondition": "The nested chain is restored recursively and every historical key is added to identity.aliases.",
+              "invariant": "Every historical key resolves to exactly one survivor; no nested record is dropped; the restored chain is idempotent."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "restore apply -> archive and rollback",
+              "precondition": "Apply is requested and the current Tickets.json is writable.",
+              "postcondition": "Tickets.pre-restore-<stamp>.json is written before the first mutation; a failed gate restores those bytes; success reports the restored path.",
+              "invariant": "No partial write survives a failure; a second apply is NO_CHANGE; dry-run and report-only modes write zero bytes."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "archived contracts and formulaObligations -> ledger provenance",
+              "precondition": "An archive ticket carries contracts or formulaObligations and the current ledger record lacks provenance.",
+              "postcondition": "The provenance arrays are copied into the record; the survivor ticket's contract and formula content is unchanged.",
+              "invariant": "No contract id is lost; a duplicate formula id with different content is reported as FORMULA_PROVENANCE_CONFLICT; an absent archive value invents nothing."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "restored package -> ABC omission inspection",
+              "precondition": "Restoration has completed for a package.",
+              "postcondition": "The package is re-inspected by find-omissions/omission-gap-scan; only a passed=false gap creates a ticket.",
+              "invariant": "Completed implementation files are never modified; no ticket is created without evidence; duplicate omission tickets are zero."
+            }
+          ],
+          "invariants": "- [Normal establishment] For every absorbed key present in a tracked Tickets.pre-condense-*.json archive, the current ledger record gains every missing authored field; existing non-empty values are preserved.\n- [Invariant on error] A malformed, unreadable, or non-matching archive is reported as a named finding; no value is guessed, invented, or partially written.\n- [Internal state invariant] Restored nested condensedFrom chains are recursive and every historical key resolves to exactly one survivor through identity.aliases.\n- [Boundary invariant] Non-todo status, round, timestamps, and authored fields remain byte-identical; completed implementation files are never modified.\n- [Safety invariant] Apply writes Tickets.pre-restore-<stamp>.json before the first mutation and restores those bytes on any gate failure; a second apply is NO_CHANGE.\n- [Inspection invariant] After restoration, only a passed=false ABC gap creates a ticket; duplicate omission tickets and unticketed evidence remain zero.",
+          "background": "### Goal\nRestore the condensed history lost by earlier condense generations in gaia, crystal, and doors from the tracked Tickets.pre-condense-*.json archives, then re-inspect the restored packages and create tickets only for judged implementation gaps.\n\n### Purpose\nThe archives are the authoritative pre-condense state. They contain the nested condensedFrom chains, changes, splitReason, round, contracts, and formulaObligations that the current ledger records dropped. Restoration is a deterministic merge of missing provenance into the current document, not a rollback of the package.\n\n### Motivation\n- gaia carries 29 packages, 52 archives, 154 ledger entries, 146 entries without contract provenance, and 10 nested-ledger entries lost in gaia-foundation and gaia-commerce.\n- crystal carries 23 packages, 49 archives, 92 ledger entries, and 92 entries without contract provenance.\n- doors carries 8 packages, 16 archives, 35 ledger entries, and 35 entries without contract provenance.\n- Contract content is present on survivors (missing contract ids = 0, missing formula ids = 0), but ownership provenance is gone. gaia-foundation and gaia-commerce lost nested histories; gaia also lost changes, splitReason, and round in some records.\n- No confirmed implementation hole exists yet: gaia-foundation has OMISSION-CONVERGENCE debt 0 and gaia-commerce is all todo. Restoration must precede the ABC judgment.\n\n### Constraints\n- TDD Red-Green-Refactor; no new runtime dependency.\n- Do not modify implementation source files or ticket statuses.\n- Do not overwrite existing non-empty values; fill only what the archive proves.\n- Do not reuse the byte rollback of restore-condensed-tickets.js; that would discard post-condense phases, statuses, and new tickets.\n- External repository writes require dry-run, archive, gates, and rollback.\n- The runbook and ticket-facing docs are English; dense, telegraphic, non-redundant, information-lossless.",
+          "scope": [
+            "Add .claude/scripts/tickets/restore-condensed-history.js: a deterministic, idempotent ledger-provenance restoration tool. Reuse ARCHIVE_PREFIX and discoverTicketFiles from restore-condensed-tickets.js; do not change that tool's byte-rollback contract.",
+            "Implement CLI flags --tickets=<Tickets.json>, --workspace=<root>, --dry-run (default), --apply, --report=<path>, and --package=<name>. The report is Markdown plus a complete JSON sidecar; never slice the JSON sidecar.",
+            "Build an archive index per package from every Tickets.pre-condense-*.json, sorted by timestamp; map key and key@generation to the latest archive ticket that contains it; read generation from condensedFrom.generation or identity.generation.",
+            "For every current ledger entry whose key resolves in the archive index, fill missing authored fields without overwriting: condensedFrom, changes, splitReason, round, contracts, formulaObligations, distribution, prerequisites, and mergeAttempts.",
+            "Restore nested condensedFrom recursively; copy inner records and generations; add every historical key to identity.aliases; refuse a conflicting alias target with ALIAS_CONFLICT.",
+            "Copy contract and formula provenance into the ledger record as data; leave the survivor ticket's contracts and formulaObligations unchanged; report FORMULA_PROVENANCE_CONFLICT when the same id has different content.",
+            "Write Tickets.pre-restore-<stamp>.json before the first mutation; run the package gates; restore the pre-restore bytes on any gate failure; report the archive path and the restored path.",
+            "Make the tool idempotent: a second apply reports NO_CHANGE and writes zero bytes; dry-run and report-only modes write zero bytes.",
+            "Add tests tools/conver/tests/tickets/restore-condensed-history.test.cjs and fixtures under tools/conver/tests/tickets/fixtures/restore-history/ covering dry-run, nested restore, field fill, non-overwrite, rollback, idempotence, contract provenance, formula conflict, and the gaia-foundation/gaia-commerce shapes.",
+            "Run the dry-run report over the three repositories: gaia 29 packages/52 archives/154 ledger entries, crystal 23/49/92, doors 8/16/35. Prioritize gaia-foundation (7 nested entries, missing changes/splitReason/round) and gaia-commerce (3 nested entries).",
+            "Apply per package with archive and gates; then run find-omissions/omission-gap-scan on the restored packages; create tickets only for passed=false gaps; record every provenance-only restoration with no ticket.",
+            "Add docs/RESTORE-CONDENSED-HISTORY.md: English, telegraphic runbook with dry-run, apply, rollback, report fields, external repository list, and the judgment rule that only passed=false creates a ticket.",
+            "Out of scope: changing condense core behavior (PX-415); modifying implementation source; rewriting or deleting archives; creating tickets without ABC evidence; changing the ticket status vocabulary; adding a runtime dependency.",
+            "Affected areas: external repository Tickets.json provenance (data format), omission convergence artifacts (digest and stable keys), git history (new pre-restore archives), and the ticket set of every restored package."
+          ],
+          "instrumentation": "- [Logging] Emit restore.package, restore.archives, restore.ledger_entries, restore.fields, restore.nested, restore.contracts, restore.formulas, restore.unresolved, and restore.rollback with the package path and archive timestamp.\n- [Metrics] Count packages scanned, packages changed, ledger entries scanned, fields restored, nested entries restored, contract provenance restored, formula provenance restored, unresolved keys, and NO_CHANGE runs.\n- [Error tracking] Name ARCHIVE_UNREADABLE, ARCHIVE_KEY_MISSING, ALIAS_CONFLICT, FORMULA_PROVENANCE_CONFLICT, RESTORE_GATE_FAILED, and RESTORE_ROLLBACK with the package, ticket key, and artifact.\n- [Health check] After apply, assert every archive key resolves, no non-todo field changed, no duplicate ticket exists, the second run is NO_CHANGE, and find-omissions convergence passes on the restored package.",
+          "notes": "Implementation summary:\n- Changed files: .claude/scripts/tickets/restore-condensed-history.js; tools/conver/tests/tickets/restore-condensed-history.test.cjs; tools/conver/tests/tickets/fixtures/restore-history.cjs; docs/RESTORE-CONDENSED-HISTORY.md.\n- Key changes: archive index (dedupe by content hash, latest key/key@g wins); fill missing authored fields; recursive nested restore; contract/formula provenance with conflict refusal; alias merge preserving the current live resolution; pre-restore archive + atomic write + schema/identity/non-todo verification + rollback; idempotent NO_CHANGE; complete JSON sidecar.\n- External apply: gaia applied=27 noChange=2 failed=0; crystal applied=23 noChange=20 (second run) failed=0; doors applied=8 failed=0. All repos report NO_CHANGE on rerun. Non-todo authored fields unchanged in 27+23+8 packages.\n- Inspection: gaia-foundation 0 must-fix findings, judgments PASS, unrecorded=0; gaia-commerce is entirely todo and its gap scan reports unrecorded must-fix findings with no passed=false judgment, so no restoration-specific ticket is created. The package's own todo tickets own the implementation work.\n- Test results: 16 node:test cases passed (12 new + 4 existing restore); quality checks 0 issues; verify-contract-delivery and verify-acceptance-coverage 0 findings; reverify-ticket 0 findings with certificate written; 0 crimes, 0 stubs, no-excuse gate 0 fail.\n- Residual risk: external repository Tickets.json and Tickets.pre-restore-*.json changes are uncommitted; commit them per repository outside this ticket. A future load-bearing archive deletion would remove the recovery source. gaia-commerce ABC will run when its implementation loop starts.",
+          "acceptanceCriteria": [
+            "[Happy path] A dry-run over gaia, crystal, and doors reports every package, archive, ledger entry, restored field, nested entry, and contract provenance; apply restores the missing data; the second run is NO_CHANGE.",
+            "[Error case] A malformed archive, unresolved key, alias conflict, or formula provenance conflict is reported with a named finding; no partial write survives a gate failure; rollback restores the pre-restore bytes.",
+            "[Edge case] A package with no archives, no ledger entries, an already-complete ledger, a duplicate archive timestamp, or a report-only target completes without writing and without inventing data.",
+            "[Inspection case] After restoration, find-omissions/omission-gap-scan runs on the affected packages; only passed=false gaps create tickets; gaia-foundation and gaia-commerce nested histories are restored; no duplicate omission ticket is created."
+          ],
+          "investigation": "- Tracked archives exist in every affected package. Aggregate counts: gaia 29 packages/52 archives/154 ledger entries/146 contract-provenance gaps/10 nested-loss entries; crystal 23/49/92/92/0; doors 8/16/35/35/0.\n- gaia-foundation archive 2026-11-10T09-08-42-199Z contains P0-1<-P0-2 (inner P0-4), P0-2<-P0-4, P1-2<-P1-3, P1-3<-P1-5, P1-5<-P1-8. Current records for P0-2, P0-4, P1-3, P1-5, P1-8 lack nested condensedFrom and also lack changes, splitReason, and round in several entries.\n- gaia-commerce archive 2026-11-10T09-12-27-217Z contains P0-3<-P0-4 (inner P0-7,P0-8), P1-1<-P1-2 (inner P1-4), and P1-2<-P1-4 (inner P1-7). Current records for P0-4, P1-2, and P1-4 lack the inner chain.\n- Contract content is not missing: comparing archive contract ids against current live tickets yields missingContracts=0 and missingFormulas=0 in all three repositories. The loss is ownership provenance because LEDGER_EXCLUDED_FIELDS omits contracts and formulaObligations.\n- The existing restore-condensed-tickets.js chooses the earliest archive containing every absorbed key, proves untouched tickets did not change, and restores archive bytes. That is a rollback, not a merge; it would discard R1/R2 statuses, new phases, and omission tickets created after condensation.\n- gaia-foundation OMISSION-CONVERGENCE.json records debt before=0 after=0 and newTickets=0. gaia-commerce has no OMISSION-CONVERGENCE.json and every ticket is todo. No implementation hole is confirmed before restoration and ABC re-inspection.\n- The restoration must run after PX-415 because PX-415 defines the lossless record shape, alias resolution, and convergence rebase that the restored data must satisfy.",
+          "boyScoutPlan": "- Reuse ARCHIVE_PREFIX, discoverTicketFiles, and renderRestoreReport from restore-condensed-tickets.js; extract the archive-index and ledger-fill functions into restore-condensed-history.js with names that state the action: readArchiveIndex, resolveArchiveTicket, fillMissingAuthoredFields, restoreNestedLedger, mergeAliasTargets.\n- Rename generic locals such as entry, record, and value to ledgerEntry, archivedTicket, authoredRecord, and provenanceField.\n- Split the tool into one function per responsibility: scanPackage, planRestoration, applyRestoration, verifyRestoration, renderReport. The top-level flow reads as prose: scan, plan, apply, verify, report.\n- Replace hardcoded field arrays with named constants: RESTORABLE_FIELDS, DERIVED_FIELDS, AUTHORED_FIELDS, and PROVENANCE_FIELDS.\n- Return typed findings for unreadable archives, missing keys, alias conflicts, and gate failures; never catch and continue after a failed write.\n- Add a report section that states every unresolved key with its package and ticket key; no silent skip.",
+          "planTestCode": [
+            "UT: C001 archive-to-record fill code\n```js\nconst fs = require('node:fs');\nconst { restoreCondensedHistory } = require('../../.claude/scripts/tickets/restore-condensed-history.js');\nconst pkg = makePackageFixture({ archiveGeneration: 0 });\nconst before = fs.readFileSync(pkg.ticketsPath, 'utf8');\nconst dry = restoreCondensedHistory({ ticketsPath: pkg.ticketsPath, apply: false });\nassert.equal(dry.status, 'ready');\nassert.equal(fs.readFileSync(pkg.ticketsPath, 'utf8'), before);\nconst applied = restoreCondensedHistory({ ticketsPath: pkg.ticketsPath, apply: true });\nassert.equal(applied.status, 'applied');\nconst restored = JSON.parse(fs.readFileSync(pkg.ticketsPath, 'utf8'));\nconst record = restored.phases[0].tickets[0].condensedFrom.tickets[0].record;\nassert.deepEqual(record.changes, [{ before: 'a', after: 'b', description: 'archive change' }]);\nassert.equal(record.round, 3);\nassert.equal(record.splitReason, 'budget');\n```",
+            "UT: C002 nested-history restore code\n```js\nconst { restoreCondensedHistory } = require('../../.claude/scripts/tickets/restore-condensed-history.js');\nconst pkg = makeGaiaFoundationShapedFixture();\nconst result = restoreCondensedHistory({ ticketsPath: pkg.ticketsPath, apply: true });\nassert.equal(result.status, 'applied');\nconst restored = JSON.parse(fs.readFileSync(pkg.ticketsPath, 'utf8'));\nconst survivor = restored.phases[0].tickets[0];\nassert.ok(survivor.condensedFrom.tickets.some((entry) => entry.key === 'P0-4'));\nassert.equal(restored.identity.aliases['P0-4@g0'], 'P0-1');\nconst outer = survivor.condensedFrom.tickets.find((entry) => entry.key === 'P0-2');\nassert.deepEqual(outer.record.condensedFrom.tickets[0].key, 'P0-4');\n```",
+            "UT: C003 archive and rollback code\n```js\nconst fs = require('node:fs');\nconst { restoreCondensedHistory } = require('../../.claude/scripts/tickets/restore-condensed-history.js');\nconst pkg = makePackageFixture({ archiveGeneration: 0 });\nconst original = fs.readFileSync(pkg.ticketsPath, 'utf8');\nconst rolled = restoreCondensedHistory({\n  ticketsPath: pkg.ticketsPath,\n  apply: true,\n  verify: () => ({ ok: false, code: 'FORCED_GATE' }),\n});\nassert.equal(rolled.status, 'rolled-back');\nassert.equal(fs.readFileSync(pkg.ticketsPath, 'utf8'), original);\nconst second = restoreCondensedHistory({ ticketsPath: pkg.ticketsPath, apply: true });\nassert.equal(second.status, 'no-change');\nassert.equal(fs.readFileSync(pkg.ticketsPath, 'utf8'), original);\n```",
+            "UT: C004 contract and formula provenance code\n```js\nconst fs = require('node:fs');\nconst { restoreCondensedHistory } = require('../../.claude/scripts/tickets/restore-condensed-history.js');\nconst pkg = makePackageFixture({ archiveGeneration: 0, archiveContracts: [{ id: 'C1', precondition: 'p', postcondition: 'q', invariant: 'r' }], archiveFormulas: [{ id: 'F1', body: 'x' }] });\nconst currentSurvivorContracts = JSON.parse(fs.readFileSync(pkg.ticketsPath, 'utf8')).phases[0].tickets[0].contracts;\nconst result = restoreCondensedHistory({ ticketsPath: pkg.ticketsPath, apply: true });\nassert.equal(result.status, 'applied');\nconst restored = JSON.parse(fs.readFileSync(pkg.ticketsPath, 'utf8'));\nconst record = restored.phases[0].tickets[0].condensedFrom.tickets[0].record;\nassert.deepEqual(record.contracts, [{ id: 'C1', precondition: 'p', postcondition: 'q', invariant: 'r' }]);\nassert.deepEqual(record.formulaObligations, [{ id: 'F1', body: 'x' }]);\nassert.deepEqual(restored.phases[0].tickets[0].contracts, currentSurvivorContracts);\nconst conflict = restoreCondensedHistory({ ticketsPath: makeFormulaConflictFixture().ticketsPath, apply: false });\nassert.ok(conflict.findings.some((finding) => finding.code === 'FORMULA_PROVENANCE_CONFLICT'));\n```",
+            "UT: C005 inspection selection code\n```js\nconst { restoreCondensedHistory, selectInspectionTickets } = require('../../.claude/scripts/tickets/restore-condensed-history.js');\nconst pkg = makePackageFixture({ archiveGeneration: 0 });\nconst report = restoreCondensedHistory({ ticketsPath: pkg.ticketsPath, apply: false });\nassert.deepEqual(report.report.packages[0].unresolved, []);\nassert.ok(report.report.packages[0].restoredFields.length > 0);\nconst seeds = selectInspectionTickets([\n  { passed: false, contractId: 'C1', reason: 'missing test' },\n  { passed: true, contractId: 'C2', reason: 'covered' },\n]);\nassert.equal(seeds.length, 1);\nassert.equal(seeds[0].contractId, 'C1');\n```"
+          ],
+          "changes": [
+            {
+              "before": "condensed ledger records lacked nested condensedFrom, changes, splitReason, round and contract/formula provenance",
+              "after": "restore-condensed-history.js merges missing authored fields from tracked pre-condense archives without overwriting non-empty values",
+              "description": "ledger provenance restoration"
+            },
+            {
+              "before": "existing restore-condensed-tickets.js rolls the package back to archive bytes",
+              "after": "new tool performs a deterministic ledger merge, archives Tickets.pre-restore-<stamp>.json, verifies schema/identity/non-todo identity, and rolls back on failure",
+              "description": "non-destructive apply with rollback"
+            },
+            {
+              "before": "no machine-readable restoration report",
+              "after": "Markdown report plus complete JSON sidecar with restoredFields, restoredNested, restoredContracts, restoredFormulas, unresolved and unchanged",
+              "description": "complete restoration report"
+            },
+            {
+              "before": "gaia/crystal/doors packages carried lost provenance",
+              "after": "gaia 27 applied + 2 no-change; crystal 23 applied (20 then 3) + all no-change on rerun; doors 8 applied; non-todo authored fields unchanged",
+              "description": "external repository restoration"
+            },
+            {
+              "before": "gaia-foundation and gaia-commerce lost nested histories",
+              "after": "gaia-foundation restored 7 nested entries; gaia-commerce restored 5 nested entries; contract provenance restored in all applied packages",
+              "description": "nested history restored"
+            },
+            {
+              "before": "no documented restoration procedure",
+              "after": "docs/RESTORE-CONDENSED-HISTORY.md records dry-run, apply, rollback, report fields, conflict codes and the passed=false ticket rule",
+              "description": "restoration runbook"
+            }
+          ],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T06:13:30.526Z"
+        },
+        {
+          "id": 417,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "amend-rfc-up: safe upstream design amendment command",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-417.md",
+          "default_files": [
+            ".claude/commands/amend-rfc-up.md",
+            ".claude/scripts/amend-rfc-up/preflight.js",
+            ".claude/scripts/amend-rfc-up/enumerate.js",
+            ".claude/scripts/amend-rfc-up/claims.js",
+            ".claude/scripts/amend-rfc-up/apply.js",
+            ".claude/scripts/amend-rfc-up/verify.js",
+            ".claude/scripts/amend-rfc-up/report.js",
+            "tests/amend-rfc-up"
+          ],
+          "background": "### Goal\nImplement `/amend-rfc-up`: a command that amends the canonical RFC/SPEC upward from material through the design amendment transaction, rederives downstream artifacts through their owners, and verifies the chain. The command is the upstream counterpart of `/drill-rfc-down`.\n\n### Purpose\n`/drill-rfc-down` evolves a materialized canon append-only; it cannot correct an existing design statement. `/grill-me-for-rfc` rewrites the whole RFC but `canon-state.js` stops it on `materialized-fresh`. The missing owner is a correction path that preserves the append-only proof, the digest chain, owner rederive, and continuity.\n\n### Motivation\n`rust-interface-law` is a normative authority created after the RFCs. Correcting those RFCs through ad-hoc edits or a second write path would sever the design provenance that `design-amendment.js`, `verify-amendment.js`, and the stage receipts exist to preserve. The command must make the law applicable to existing RFCs without weakening those guarantees.\n\n### Constraints\n- Public command interface is material paths only: `argument-hint: [<material file|directory>...]`.\n- No thin flags. Package, law manifest, phases, rules, ticket key, apply mode, and report path are derived.\n- `design-amendment.js` is the only writer of SPEC/RFC. Owners write GRAPH/Dirs-Tree/Tickets.\n- RFC amendments are append-only under `## Design Amendments`; the RFC body is never rewritten.\n- Every amendment is ticket-scoped and leaves a ledger entry.\n- Dry-run precedes apply; apply only when the internal gate has zero findings.\n- Any failure restores every touched file byte-for-byte or reports the committed amendment plus `REDERIVE_PENDING`.\n- Design consistency and law conformance are separate axes. `unverifiable` and `not_run` are never reported as pass.\n- Command markdown: terminology-heavy, telegraphic, high compression, high density, non-verbose, no information loss, minimal characters.",
+          "invariants": "- [Normal condition] The command runs only when cwd is a package with Tickets.json and a canonical RFC, the law `applies` returns APPLIES, the canon state is materialized-fresh or materialized-stale, and a ticket key is derivable; it then runs claims -> dry-run -> internal gate -> apply -> owner rederive -> verify.\n- [Error invariant] A refusal (unknown flag, missing package artifact, missing material, missing ticket, law SKIP, invalid claim, dry-run finding, rolled-back amendment, owner failure, verify high finding) never leaves a partial silent write; the report names the code, cause, action, and rerun command.\n- [Internal state invariant] Every promoted amendment has a ledger entry whose beforeDigest and afterDigest match the file; `verify-amendment.js` amendment-integrity reports AMENDMENT_LEDGER_MISMATCH on any drift; the command itself writes no artifact.\n- [Boundary invariant] Zero material arguments trigger discovery of package-local finding documents; no discovered material is MATERIAL_REQUIRED. `standalone` and `partial` canon states are CANON_NOT_AMENDABLE. A duplicated identical claim is a noChange, not a second ledger entry.",
+          "scope": [
+            "**Scope of changes:**\n- `.claude/commands/amend-rfc-up.md` add: telegraphic English command; frontmatter description, `argument-hint: [<material file|directory>...]`, `disable-model-invocation: true`; Steps 0-9 (preflight, law enumeration, claim plan, dry-run gate, apply, owner rederive, verify, report, convergence); safety invariants; terminal states DESIGN_AMENDED / NO_CHANGE / BLOCKED.\n- `.claude/scripts/amend-rfc-up/preflight.js` add: `resolveCommandVariables`, `resolveMaterialPaths`, `assertPackageContext`, `assertCanonAmendable`, `deriveTicketKey`, `renderVariables`.\n- `.claude/scripts/amend-rfc-up/enumerate.js` add: `runLawApplies`, `resolveLawClosure`, `selectPackageUnit`, `extractMustRules`, `selectReferenceExamples`.\n- `.claude/scripts/amend-rfc-up/claims.js` add: `classifyRule`, `buildClaim`, `assertClaimComplete`, `renderClaimText`.\n- `.claude/scripts/amend-rfc-up/apply.js` add: `runDryRun`, `assertInternalGate`, `runApply`, `runOwnerRederive`, `recordRederiveReceipt`.\n- `.claude/scripts/amend-rfc-up/verify.js` add: `runVerifyAmendment`, `runCrossArtifactVerify`, `assertConverged`, `renderFindings`.\n- `.claude/scripts/amend-rfc-up/report.js` add: `renderReportJson`, `renderReportMarkdown`, `assertNoFalseComplete`.\n- `tests/amend-rfc-up/*.test.cjs` add: unit, integration, command-file, installed-parity.\n- Before -> After: no `/amend-rfc-up` command -> material-only command that drives the amendment transaction; no upstream correction owner -> explicit correction owner.\n- API: new slash command only; no existing command signature changes.\n- Schema: no Tickets.json schema change; new scripts CommonJS `.js`; tests `.test.cjs`.\n- Config/env: none; all paths derived from cwd and CLAUDE_DIR.\n- Dependency: no new package; reuse `design-amendment.js`, `verify-amendment.js`, `append-design-amendment.js`, `canon-state.js`, law `applies/resolve/context`, drill `verify-step.js`, ticket scripts.",
+            "**Out of scope:**\n- Rewriting the RFC body: excluded. The amendment transaction appends `## Design Amendments`; the body is canonical history.\n- Creating tickets silently: excluded. The ticket key is derived; no ticket means `TICKET_REQUIRED`.\n- Claiming law conformance at design time: excluded. `gate`/`attest` run on code in implementation tickets; the report records `law_gate: not_run`.\n- Modifying `design-amendment.js`, `/drill-rfc-down`, `/grill-me-for-rfc`, or the law `okf/`: excluded; read-only reuse.\n- One invocation across multiple packages: excluded; the command runs per package directory, like `/drill-rfc-down`.",
+            "**Affected areas:**\n- Command surface: new `/amend-rfc-up`; existing commands unchanged except the installed tree gains the new files.\n- Installed `.claude` trees: source mirrored by `install.js` to root, `crates/siprs`, gaia, crystal, doors; parity tests compare bytes.\n- Ticket pipeline: new scripts under `.claude/scripts/amend-rfc-up`; tests under `tests/amend-rfc-up`.\n- Law skill: read-only consumer of `applies`, `resolve`, `context`; no law file changes.\n- Response: the command report is the operational evidence; no README change required by this ticket."
+          ],
+          "testUnit": [
+            "**UT: [Normal] — normal pipeline:**\n  - preflight: `resolveCommandVariables` derives packageDir, ticketsPath, rfcPath, graphPath, dirsTreePath from cwd and CLAUDE_DIR; `resolveMaterialPaths` walks file and directory arguments in order; `deriveTicketKey` returns the active ticket.\n  - enumerate: `runLawApplies` returns APPLIES for the package; `selectPackageUnit` matches the package unit; `extractMustRules` selects delivery=must nodes for the package phases; `selectReferenceExamples` returns code blocks for the rule.\n  - claims: `classifyRule` returns conforming, missing, contradicting, or ambiguous; `buildClaim` returns target.kind, target.id, predicate, requiredTest, title, text; `renderClaimText` includes the rule id, requirement, design decision, code fence, and proof.\n  - apply: `runDryRun` returns wouldPromote with no write; `assertInternalGate` accepts zero findings; `runApply` returns promoted and a ledger path; an identical claim returns noChange.\n  - report: `renderReportJson` and `renderReportMarkdown` list package, ticket, material digest, law manifest hash, rules, claims, ledgers, rederive status, verify findings, and law_gate not_run.",
+            "**UT: [Error] — refusals and rollback:**\n  - preflight rejects an unknown flag with PREFLIGHT_UNKNOWN_FLAG and no write.\n  - preflight rejects missing Tickets.json or RFC with PREFLIGHT_ARTIFACT_MISSING and no write.\n  - preflight returns TICKET_REQUIRED when no ticket key is derivable and no write occurs.\n  - enumerate returns LAW_NOT_APPLICABLE when `applies` exits 3 and no write occurs.\n  - claims rejects a blanket claim with CLAIM_INVALID because predicate or requiredTest is empty.\n  - `assertInternalGate` rejects a dry-run finding with GATE_FINDING and no apply.\n  - `runApply` on a failed gate returns rolled-back, restores bytes byte-for-byte, and leaves no ledger entry.\n  - `runOwnerRederive` on a failed owner records REDERIVE_PENDING and never reports COMPLETE.\n  - `runVerifyAmendment` on a high finding returns VERIFY_BLOCKED.\n  - `assertNoFalseComplete` refuses COMPLETE when law_gate is not_run or unverifiable.",
+            "**UT: [Boundary] — derived boundaries:**\n  - zero material arguments discover FINDINGS.json, REVIEW.md, or AMEND-RFC-UP-REPORT.json; none returns MATERIAL_REQUIRED.\n  - canon state standalone or partial returns CANON_NOT_AMENDABLE and routes to `/grill-me-for-rfc`.\n  - canon state materialized-fresh or materialized-stale accepts the amendment owner.\n  - a duplicate identical claim returns noChange with one ledger entry.\n  - an RFC without `## Design Amendments` appends the section once; a second claim appends `### Amendment <ticket>-2` under the same section.",
+            "**UT: [Invariant] — safety invariants:**\n  - an fs audit proves the command writes no SPEC, RFC, GRAPH, Dirs-Tree, or Tickets bytes directly; only `design-amendment.js` and owners write.\n  - the pre-existing RFC bytes are a prefix of the after bytes; existing lines are never edited.\n  - the ledger beforeDigest and afterDigest match `verify-amendment.js` amendment-integrity.\n  - owner order is graphify -> boundify -> split; the command records each receipt.\n  - installed copies are byte-identical to the source.\n  - the command markdown argument-hint exposes material paths only and no thin flags."
+          ],
+          "testIntegration": [
+            "**IT: [Integration point] — modules joined:**\n  - fixture package (Tickets.json, RFC.md, RFC-GRAPH.json, RFC-Dirs-Tree.json, RFC-SEED.md) + fixture law manifest + real `design-amendment.js` + real `verify-amendment.js` + `runCrossArtifactVerify` from drill Step 5.",
+            "**IT: [Verification] — end-to-end and failure paths:**\n  - happy: material -> must rules -> claims -> dry-run -> apply -> ledger -> digest chain -> report DESIGN_AMENDED.\n  - failure: dry-run finding stops before apply; rollback restores bytes; owner failure records REDERIVE_PENDING; verify high finding blocks COMPLETE.\n  - convergence: zero new findings twice with the same digest; a changed digest restarts the count.",
+            "**IT: [Prerequisites] — fixture prerequisites:**\n  - git repository fixture, PX ticket, RFC with a `## Design Amendments` anchor, graph and dirs-tree JSON, law manifest with must nodes, owner receipt fixtures.",
+            "**IT: [Related tickets] — upstream contracts:**\n  - PX-400/PX-405 design amendment transaction and owner rollback; PX-416 installed-copy parity pattern; rust-interface-law resolve/context; `/drill-rfc-down` Step 5 verify-step; `/grill-me-for-rfc` canon-state guard."
+          ],
+          "testExceptions": [
+            "Item: law gate/attest at design time. Reason: cannot test before implementation exists; the law gate reads changed code and an implementation report. Alternative verification: the command records law_gate=not_run and emits the exact law gate command into the implementation tickets; /start-ticket and /review-ticket run the gate on code. This is not a design defect because the design phase precedes implementation and the report never claims conformance.",
+            "Item: full owner rederive (graphify/boundify/split) inside the unit test. Reason: cannot test the whole rederive as a unit because it requires AI design decisions and the real stage drivers. Alternative verification: the integration test asserts the command invokes the owners in graphify -> boundify -> split order and records their receipts; each owner command has its own test suite. This is not a design defect because the owner commands are the tested units and the command is an orchestrator."
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path] — design amendment completes:**\n  - material-only invocation in an interface package: law APPLIES, canon materialized-fresh/stale, ticket derived; claims dry-run clean; amendments promoted with ledgers; owners rederive; verify-amendment and cross-artifact verify report zero high findings twice with the same digest; report DESIGN_AMENDED; RFC carries ## Design Amendments; no direct writes.",
+            "**[Error case] — every refusal is safe:**\n  - unknown flag, missing package artifact, missing material, missing ticket, law SKIP, invalid claim, dry-run finding, rolled-back amendment, owner failure, or verify high finding stops with a stable code and report; no partial silent write; no COMPLETE.",
+            "**[Edge case] — derived boundaries:**\n  - zero material discovery, standalone/partial canon, duplicate claim noChange, RFC without amendment section, multi-package separate invocations, unverifiable/not_run not pass."
+          ],
+          "instrumentation": "Review static quality check: passed\nTranslatability: no issues\nImpact tests: 81/81 passed\nRed coverage: 10/10\nFinal contracts: 100%\nInstalled parity: passed",
+          "notes": "Review report:\n- README.md: added /amend-rfc-up section under 進化ループ.\n- Static quality check: 0 issues.\n- Translatability: generic data renamed to ticketsDocument; no debug output.\n- Contracts: verify-final-contracts 100%; validate-ticket-targets clean; reverify 0.\n- Tests: 43/43 new; 81/81 impact set.\n- Installed copies: parity passed.\n- Unrelated baseline: tests/tickets/command-integration.test.cjs C005 fails on pre-existing uncommitted edits to tools/conver/.claude/tests/tickets/create-resolving-ticket.test.js and review.test.js; PX-417 did not modify them.",
+          "investigation": "- `design-amendment.js:1-8`: transaction contract (snapshot, append/owner, digest rebuild, gate manifest, promote/rollback, byte restore).\n- `design-amendment.js:53-58`: appendKinds SPEC/RFC; ownerForKind graph->graphify, dirs-tree->boundify, tickets->mutationGate.\n- `design-amendment.js:100-109`: claim requires target.kind/id, predicate, requiredTest, text; predicate/requiredTest are metadata, not executed by the CLI.\n- `design-amendment.js:298-436`: runAmendment dry-run, before/after gates, diffFindings, rollback, ledger.\n- `append-design-amendment.js:1-10`: append-only writer; never edits an existing line; prefix proof.\n- `append-design-amendment.js` verifyAppendOnly: before bytes are a prefix of after bytes.\n- `amendment-gate-manifest.js:28-40`: 12 fixed gates (chain, graph-integrity, dirs-tree-schema, tickets-schema, ticket-closure, ticket-prerequisites, formula-file-coverage, formula-digest, tree-entry-parity, allocate-chain, reverify, amendment-integrity).\n- `verify-amendment.js`: report mode, absent=skip, unreadable/ambiguous=finding, ledger afterDigest mismatch.\n- `resolve-ticket.md:255-264`, `start-ticket.md:517-526`, `review-ticket.md:333-342`: Design Amendment Rule, dry-run -> apply -> owner rederive -> verify, 0 findings twice same digest, hand edit = defect.\n- `drill-rfc-down.md:12,430-434,485-486`: append-only evolution; proves why correction is a separate owner.\n- `drill-rfc-down.md:727`: amendment route.\n- `grill-me-for-rfc.md:339`: materialized-fresh stops the grill; amendment is the owner.\n- `canon-state.js:86-138`: materialized-fresh/stale/partial/standalone classification.\n- `SKILL.md:14,69,106-112`: law entry is `context`; canonical role mapping; `applies` exit 3 = skip.\n- law manifest nodes[].delivery, phase, body, references: machine-readable must rules; `context --format raw` uses `<!-- node id hash -->` markers.\n- `applies` on `.claude/commands/amend-rfc-up.md` and `.claude/scripts/amend-rfc-up/preflight.js` => SKIP (target is not crates/** interface unit). Record `Law: not applicable`.\n- `ensure-ticket.js` and `add-ticket.js`: PX phase id -1; ticket id max+1; PX-417 is the next.\n- `install.js`: rsync mirror `.claude` to target with --delete; command/script parity is byte equality.\n- `command-amendment-integration.test.cjs`: every owner/detector command names the amendment route; installed copies byte-identical.",
+          "boyScoutPlan": "- Function names: verb phrases (`resolveCommandVariables`, `assertPackageContext`, `selectPackageUnit`, `extractMustRules`, `classifyRule`, `buildClaim`, `renderClaimText`, `runDryRun`, `assertInternalGate`, `runApply`, `runOwnerRederive`, `assertConverged`, `renderReportJson`, `assertNoFalseComplete`).\n- Variable names: domain concepts (`materialPaths`, `lawManifest`, `mustRules`, `claimPlan`, `ledgerPath`, `rederiveReceipts`, `convergenceDigest`).\n- One function: one responsibility; no AND/THEN chains.\n- Named constants: `CANON_AMENDABLE_STATES`, `OWNER_ORDER`, `CONVERGENCE_RUNS`, `LAW_OUT_DIR`, `REPORT_BASENAME`, `AMENDMENT_SECTION`.\n- No swallowed errors: every catch returns a stable finding with cause, action, rerun.\n- No hardcoded paths: derive from `CLAUDE_DIR`, `cwd`, and `lib/package-artifacts.js`.\n- Existing code touched: none; `design-amendment.js`, owners, law, drill, grill remain read-only.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "command interface",
+              "precondition": "argv contains material paths only and no flag",
+              "postcondition": "preflight returns materialPaths and rejects an unknown flag",
+              "invariant": "public interface exposes no thin flags"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "package context",
+              "precondition": "cwd contains Tickets.json and canonical RFC",
+              "postcondition": "preflight returns packageDir, ticketsPath, rfcPath, graphPath, dirsTreePath",
+              "invariant": "missing package artifact fails closed with no write"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "amendment writer",
+              "precondition": "claim is valid",
+              "postcondition": "apply writes through design-amendment.js and records ledger",
+              "invariant": "command writes no SPEC, RFC, GRAPH, Dirs-Tree, or Tickets bytes directly"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "dry-run gate",
+              "precondition": "claims generated",
+              "postcondition": "dry-run returns wouldPromote and no write",
+              "invariant": "no apply after a dry-run finding"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "rollback",
+              "precondition": "gate fails after amendment attempt",
+              "postcondition": "outcome is rolled-back and bytes restored",
+              "invariant": "no ledger entry for a rolled-back amendment"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "append-only RFC",
+              "precondition": "RFC exists",
+              "postcondition": "pre-existing bytes are a prefix and amendment heading appended",
+              "invariant": "existing RFC lines are never edited"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "owner rederive",
+              "precondition": "RFC amendment promoted",
+              "postcondition": "owners invoked graphify -> boundify -> split and receipts recorded",
+              "invariant": "command writes no GRAPH, Dirs-Tree, or Tickets bytes"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "verification convergence",
+              "precondition": "owner rederive completed",
+              "postcondition": "verify-amendment and cross-artifact verify report zero findings twice same digest",
+              "invariant": "no COMPLETE before convergence"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "law conformance axis",
+              "precondition": "law context enumerated",
+              "postcondition": "report records law_gate not_run unless code gate ran and passed",
+              "invariant": "unverifiable or not_run is never pass"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "installed parity",
+              "precondition": "source tree installed",
+              "postcondition": "installed copies byte-identical to source",
+              "invariant": "parity test fails on any difference"
+            }
+          ],
+          "planTestCode": [
+            "// C001 — command interface accepts material only.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { resolveCommandVariables } = require('../../.claude/scripts/amend-rfc-up/preflight.js');\n\ntest('C001: material paths accepted, thin flag rejected', () => {\n  const fixture = makeFixturePackage();\n  const accepted = resolveCommandVariables({ cwd: fixture, materialArgs: ['FINDINGS.json'] });\n  assert.equal(accepted.materialPaths.length, 1);\n  assert.throws(\n    () => resolveCommandVariables({ cwd: fixture, materialArgs: ['--apply'] }),\n    (error) => error.code === 'PREFLIGHT_UNKNOWN_FLAG',\n  );\n  assert.equal(COMMAND_ARGUMENT_HINT, '[<material file|directory>...]');\n});",
+            "// C002 — package context derived from cwd; missing artifact fails closed.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst { resolveCommandVariables, assertPackageContext } = require('../../.claude/scripts/amend-rfc-up/preflight.js');\n\ntest('C002: package context derived and missing artifact fails closed', () => {\n  const fixture = makeFixturePackage();\n  const vars = resolveCommandVariables({ cwd: fixture, materialArgs: ['FINDINGS.json'] });\n  assert.equal(vars.packageDir, fixture);\n  assert.ok(fs.existsSync(vars.ticketsPath));\n  assert.ok(fs.existsSync(vars.rfcPath));\n  assert.throws(\n    () => assertPackageContext({ cwd: makeEmptyDirectory() }),\n    (error) => error.code === 'PREFLIGHT_ARTIFACT_MISSING',\n  );\n});",
+            "// C003 — design-amendment.js is the only writer; ledger recorded.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst { runApply } = require('../../.claude/scripts/amend-rfc-up/apply.js');\n\ntest('C003: apply writes through design-amendment.js and records a ledger', async () => {\n  const fixture = makeFixturePackage();\n  const rfcPath = path.join(fixture, 'RFC.md');\n  const before = fs.readFileSync(rfcPath);\n  const result = await runApply({ claim: VALID_CLAIM, ticketKey: 'PX-417', packageDir: fixture });\n  assert.equal(result.outcome, 'promoted');\n  assert.ok(fs.readFileSync(rfcPath).subarray(0, before.length).equals(before));\n  assert.ok(fs.existsSync(result.ledgerPath));\n});",
+            "// C004 — dry-run precedes apply; finding blocks apply.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { runDryRun, assertInternalGate } = require('../../.claude/scripts/amend-rfc-up/apply.js');\n\ntest('C004: dry-run returns wouldPromote and a finding blocks apply', async () => {\n  const fixture = makeFixturePackage();\n  const dry = await runDryRun({ claim: VALID_CLAIM, ticketKey: 'PX-417', packageDir: fixture });\n  assert.equal(dry.outcome, 'dry-run');\n  assert.equal(dry.wouldPromote, true);\n  const blocked = assertInternalGate({ dryRun: { findings: [{ code: 'GATE_FINDING' }] } });\n  assert.equal(blocked.ok, false);\n  assert.equal(blocked.code, 'GATE_FINDING');\n});",
+            "// C005 — failed gate rolls back bytes and writes no ledger.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst path = require('node:path');\nconst { runApply } = require('../../.claude/scripts/amend-rfc-up/apply.js');\n\ntest('C005: rolled-back amendment restores bytes and leaves no ledger', async () => {\n  const fixture = makeFixturePackage();\n  const rfcPath = path.join(fixture, 'RFC.md');\n  const before = fs.readFileSync(rfcPath);\n  const result = await runApply({ claim: VALID_CLAIM, ticketKey: 'PX-417', packageDir: fixture, gateRunner: failingGate });\n  assert.equal(result.outcome, 'rolled-back');\n  assert.ok(fs.readFileSync(rfcPath).equals(before));\n  assert.equal(fs.existsSync(path.join(fixture, 'amendments')), false);\n});",
+            "// C006 — append-only RFC; existing lines never edited.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst { runApply } = require('../../.claude/scripts/amend-rfc-up/apply.js');\n\ntest('C006: pre-existing bytes are a prefix and the amendment heading is appended', async () => {\n  const fixture = makeFixturePackage();\n  const rfcPath = path.join(fixture, 'RFC.md');\n  const before = fs.readFileSync(rfcPath);\n  await runApply({ claim: VALID_CLAIM, ticketKey: 'PX-417', packageDir: fixture });\n  const after = fs.readFileSync(rfcPath);\n  assert.ok(after.subarray(0, before.length).equals(before));\n  assert.match(after.toString(), /## Design Amendments/);\n  assert.match(after.toString(), /### Amendment PX-417-1/);\n});",
+            "// C007 — owners write derived artifacts in graphify -> boundify -> split order.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst path = require('node:path');\nconst { runOwnerRederive } = require('../../.claude/scripts/amend-rfc-up/apply.js');\n\ntest('C007: owners invoked in order and receipts recorded', async () => {\n  const fixture = makeFixturePackage();\n  const calls = [];\n  const receipts = await runOwnerRederive({\n    packageDir: fixture,\n    invokeOwner: (name) => { calls.push(name); return { ok: true }; },\n  });\n  assert.deepEqual(calls, ['graphify', 'boundify', 'split']);\n  assert.equal(receipts.length, 3);\n  assert.ok(fs.existsSync(path.join(fixture, 'RFC-GRAPH.json')));\n});",
+            "// C008 — verification converges with zero findings twice and same digest.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { assertConverged } = require('../../.claude/scripts/amend-rfc-up/verify.js');\n\ntest('C008: zero findings twice with the same digest converges', async () => {\n  const run = () => ({ findings: [], digest: 'sha256:stable' });\n  const result = await assertConverged({ run, runs: 2 });\n  assert.equal(result.ok, true);\n  assert.equal(result.runs, 2);\n  const unstable = await assertConverged({ run: () => ({ findings: [], digest: String(Math.random()) }), runs: 2 });\n  assert.equal(unstable.ok, false);\n});",
+            "// C009 — law conformance is not claimed at design time.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { renderReportJson, assertNoFalseComplete } = require('../../.claude/scripts/amend-rfc-up/report.js');\n\ntest('C009: law_gate not_run is never rendered as pass', () => {\n  const report = renderReportJson({ lawGate: 'not_run', findings: [] });\n  assert.equal(report.law_gate, 'not_run');\n  const verdict = assertNoFalseComplete(report);\n  assert.equal(verdict.ok, false);\n  assert.equal(verdict.code, 'LAW_GATE_NOT_RUN');\n});",
+            "// C010 — installed copies byte-identical to source.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst path = require('node:path');\n\ntest('C010: installed copies are byte-identical', () => {\n  const sourceRoot = path.resolve(__dirname, '../../.claude');\n  const installedRoot = path.resolve(__dirname, '../../../../.claude');\n  const files = ['commands/amend-rfc-up.md', 'scripts/amend-rfc-up/preflight.js'];\n  for (const rel of files) {\n    const source = fs.readFileSync(path.join(sourceRoot, rel));\n    const installed = fs.readFileSync(path.join(installedRoot, rel));\n    assert.ok(source.equals(installed), rel);\n  }\n});"
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T06:13:36.859Z"
+        },
+        {
+          "id": 418,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "amend-rfc-up: generic artifact amendment with *-law skill verification",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-418.md",
+          "default_files": [
+            ".claude/commands/amend-rfc-up.md",
+            ".claude/scripts/amend-rfc-up/preflight.js",
+            ".claude/scripts/amend-rfc-up/request.js",
+            ".claude/scripts/amend-rfc-up/changes.js",
+            ".claude/scripts/amend-rfc-up/dispatch.js",
+            ".claude/scripts/amend-rfc-up/verify.js",
+            ".claude/scripts/amend-rfc-up/report.js",
+            ".claude/scripts/amend-rfc-up/law-skill-verifier.js",
+            ".claude/skills/rust-interface-law/scripts/verify-law-skill.mjs",
+            ".claude/skills/rust-interface-law/IMPLEMENTATION-LEFTOVERS.md",
+            "tests/amend-rfc-up"
+          ],
+          "background": "### Goal\nReplace the law-specific `/amend-rfc-up` with a generic safe amendment command. Input = material (files/dirs) + free instruction. Output = revised RFC/SPEC, GRAPH, Dirs-Tree, Tickets through `design-amendment.js` and owners. If a `*-law` skill is supplied, verify it against `IMPLEMENTATION-LEFTOVERS.md` before use; then use its `applies` / `resolve` / `context`.\n\n### Purpose\n`rust-interface-law` is one material, not the command's fixed authority. Any material and free instruction must drive changes to all four artifacts while preserving the amendment transaction's append-only, rollback, digest-chain, and owner-rederive guarantees.\n\n### Motivation\nThe PX-417 implementation hardcodes law `applies` / `resolve` / `must` rules and `--artifact=rfc`. It cannot amend GRAPH, Dirs-Tree, or Tickets from arbitrary instructions, and it treats `law_gate` as a mandatory axis. This ticket removes that coupling.\n\n### Constraints\n- Public command args = material only; free instruction is derived into `target/amend/INSTRUCTION.md`. No thin flags.\n- A `*-law` skill must pass the generic verifier before use; failed or unverifiable checks are not a pass.\n- `design-amendment.js` is the only RFC/SPEC writer; owners write GRAPH/Dirs-Tree/Tickets; the command writes no artifact directly.\n- Deterministic steps are scripts; only interpretation, semantic mapping, and prose remain AI.\n- Law is optional evidence; no mandatory `law_gate` axis.\n- One package per invocation. The command is per-package like `/drill-rfc-down`.",
+          "invariants": "- [Normal condition] A package context, material list, free instruction, and ticket key resolve; every `*-law` skill named by the material or instruction passes the generic verifier; the change request covers every instruction clause; each artifact change is dispatched to its transaction or owner; verification converges.\n- [Error invariant] Unknown flag, missing package artifact, missing material/instruction, invalid `*-law` skill, invalid change request, dry-run finding, rolled-back amendment, owner failure, or verify finding stops with a stable code and the artifact bytes remain unchanged or the committed amendment is reported with `REDERIVE_PENDING`; no partial silent write.\n- [Internal state invariant] Every promoted amendment has a ledger entry whose `beforeDigest`/`afterDigest` match; every owner rederive has a receipt; the command writes no artifact; `LAW-SKILL-VERIFICATION.json` is the only proof a `*-law` skill was used.\n- [Boundary invariant] Zero material args discover package finding documents; no instruction and no material is `MATERIAL_REQUIRED`. A `*-law` skill that fails verification is `LAW_SKILL_INVALID` and is not used. A non-law material is ordinary evidence. An instruction with no changes is `NO_CHANGE`, not a failure. A duplicated identical change is `noChange`.",
+          "scope": [
+            "**Scope of changes:**\n- `.claude/commands/amend-rfc-up.md` rewrite: generic material + instruction; artifact changes for rfc/spec/graph/dirs-tree/tickets; `*-law` verifier step; AI/script boundary; no mandatory `law_gate`.\n- `.claude/scripts/amend-rfc-up/preflight.js` generalize: package, material, instruction, ticket; no law-specific resolution.\n- `.claude/scripts/amend-rfc-up/request.js` add: `classifyMaterial`, `parseInstruction`, `buildChangeRequest`, `validateChangeRequest`.\n- `.claude/scripts/amend-rfc-up/changes.js` add: `validateArtifactChange`, `assertRfcAppendClaim`, `assertDerivedOwnerChange`, `assertChangeDag`.\n- `.claude/scripts/amend-rfc-up/dispatch.js` add: `dispatchArtifactChange`, `runOwnerRederive`, `recordOwnerReceipt`.\n- `.claude/scripts/amend-rfc-up/verify.js` generalize: `runVerifyAmendment`, `runCrossArtifactVerify`, `assertConverged`, no law-only axis.\n- `.claude/scripts/amend-rfc-up/report.js` generalize: per-artifact status, law verification, clause coverage, no blanket `law_gate`.\n- `.claude/scripts/amend-rfc-up/law-skill-verifier.js` add: thin caller of the canonical verifier for any `*-law` skill.\n- `.claude/skills/rust-interface-law/scripts/verify-law-skill.mjs` add: canonical generic `*-law` verifier.\n- `.claude/skills/rust-interface-law/IMPLEMENTATION-LEFTOVERS.md` add §15: generic verifier contract, checks, JSON schema, canonical script path.\n- `.claude/skills/rust-interface-law/tests/verify-law-skill.test.mjs` add: pass + one failure per check.\n- `tests/amend-rfc-up/*.test.cjs` rewrite/add: generic material/instruction, artifact dispatch, verifier, failure paths, parity.\n- `README.md`, `ENV-DEPS.json`, installed `.claude` copies: inventory and distribution.\n- Before -> After: law-specific -> generic; rfc-only -> all four artifacts; mandatory `law_gate` -> optional evidence; AI-only -> script-enforced.\n- API: command args remain material only; no existing command signature changes.\n- Schema: `amend-rfc-up.request/v1`, `law-skill-verification/v1`; no Tickets.json schema change.\n- Config/env: none; paths derived from cwd, `CLAUDE_DIR`, and the package artifacts.\n- Dependency: no new package; reuse `design-amendment.js`, owners, law CLI, `verify-step.js`.",
+            "**Out of scope:**\n- Rewriting the RFC body: excluded; `## Design Amendments` append only.\n- Creating tickets silently: excluded; a ticket key is derived or `TICKET_REQUIRED`.\n- Claiming code-level law conformance at design: excluded; the report records law verification and evidence, not conformance.\n- Modifying `design-amendment.js`, owners, or law rule corpus: read-only reuse except the verifier script and guide §15.\n- One invocation across multiple packages: excluded; run per package directory.",
+            "**Affected areas:**\n- Command surface: `/amend-rfc-up` becomes a generic artifact amendment driver.\n- Scripts: preflight/request/changes/dispatch/verify/report/law-skill-verifier.\n- Law skill tree: canonical verifier script and guide §15; `*-law` creation/development uses the same verifier.\n- Installed `.claude` trees: root, `crates/siprs`, gaia, crystal, doors; parity tests compare bytes.\n- Tests/README/ENV-DEPS: generic fixtures, command-file contract, inventory entries."
+          ],
+          "testUnit": [
+            "**UT: [Normal] — generic pipeline:**\n  - preflight: `resolveCommandVariables` resolves packageDir, ticketsPath, rfcPath, graphPath, dirsTreePath, materialPaths, instructionPath, ticketKey; free instruction is derived into `target/amend/INSTRUCTION.md`.\n  - classifyMaterial: returns `law-skill` for a `*-law` directory and `ordinary` for a document.\n  - verifyLawSkill: writes `LAW-SKILL-VERIFICATION.json`; layer, manifest, lock, coverage, registry, generic boundary, delivery, runtime, tests, installer, and determinism are `machine_verified`.\n  - request: `parseInstruction` returns instructionClauses; `buildChangeRequest` returns changes; every instruction clause has a change or noOpReason; every change has artifact, operation, evidence.\n  - changes: rfc/spec append claims require predicate, requiredTest, and text with a code fence; derived changes require owner and reason; dependencies form a DAG.\n  - dispatch: rfc/spec -> `design-amendment.js`; graph -> graphify; dirs-tree -> boundify; tickets -> split/mutationGate.\n  - verify: `verify-amendment` and cross-artifact verify report zero findings twice with the same digest.\n  - report: per-artifact status, law verification, and clause coverage; no mandatory `law_gate`.",
+            "**UT: [Error] — refusals:**\n  - unknown flag -> `PREFLIGHT_UNKNOWN_FLAG`, no write.\n  - missing Tickets or RFC -> `PREFLIGHT_ARTIFACT_MISSING`, no write.\n  - missing material and instruction -> `MATERIAL_REQUIRED`.\n  - invalid `*-law` skill -> `LAW_SKILL_INVALID`; the skill is not used.\n  - verifier check failed or unverifiable -> `LAW_SKILL_INVALID`.\n  - law `applies` exit 3 -> `LAW_NOT_APPLICABLE`; the skill is not used for this package.\n  - instruction clause without change or noOpReason -> `REQUEST_CLAUSE_UNCOVERED`.\n  - change missing artifact or evidence -> `CHANGE_INVALID`.\n  - rfc/spec change without predicate, requiredTest, or code fence -> `CHANGE_INVALID`.\n  - derived change without owner or reason -> `CHANGE_INVALID`.\n  - dry-run finding -> `GATE_FINDING`, no apply.\n  - rolled-back amendment -> bytes restored, no ledger.\n  - owner failure -> `REDERIVE_PENDING`, no false COMPLETE.\n  - verify finding -> `VERIFY_BLOCKED`.\n  - report with unverifiable or not_run -> no COMPLETE.",
+            "**UT: [Boundary] — derived boundaries:**\n  - zero material args discover `FINDINGS.json`, `REVIEW.md`, or `AMEND-RFC-UP-REPORT.json`; none -> `MATERIAL_REQUIRED`.\n  - non-law material is ordinary evidence.\n  - law skill not applicable -> `LAW_NOT_APPLICABLE`.\n  - multiple artifact changes dispatch in rfc/spec -> graph -> dirs-tree -> tickets order.\n  - duplicate identical change -> `noChange` with one ledger.\n  - instruction with no changes -> `NO_CHANGE`.\n  - standalone or partial canon -> `CANON_NOT_AMENDABLE`, route to `/grill-me-for-rfc`.\n  - an absent artifact makes that artifact change skipped or refused, never silently created.",
+            "**UT: [Invariant] — safety:**\n  - command writes no SPEC, RFC, GRAPH, Dirs-Tree, or Tickets bytes directly.\n  - rfc/spec pre-existing bytes are a prefix; existing lines are never edited.\n  - ledger beforeDigest and afterDigest match `verify-amendment`.\n  - owner order is graphify -> boundify -> split; receipts are recorded.\n  - `IMPLEMENTATION-LEFTOVERS.md` contains the generic verifier contract and canonical script path; the command uses that script.\n  - installed copies are byte-identical.\n  - the command markdown exposes material paths only and no thin flags."
+          ],
+          "testIntegration": [
+            "**IT: [Integration point] — modules joined:**\n  - fixture package + material + free instruction + canonical `verify-law-skill.mjs` + real `design-amendment.js` + owners + `verify-step.js`.",
+            "**IT: [Verification] — end-to-end:**\n  - generic material and instruction -> RFC append + graph/dirs-tree/tickets owner rederive -> ledger -> digest chain -> report `DESIGN_AMENDED`.\n  - `*-law` material -> verifier pass -> `applies`/`resolve`/`context` -> changes; invalid skill -> stop.\n  - failure: invalid request, dry-run finding, rollback, owner failure, verify finding.\n  - convergence: zero findings twice with the same digest.",
+            "**IT: [Prerequisites] — fixture prerequisites:**\n  - git repository fixture, PX ticket, RFC, GRAPH, Dirs-Tree, Tickets, `*-law` fixture, owner receipt fixtures.",
+            "**IT: [Related tickets] — upstream contracts:**\n  - PX-400/PX-405 amendment transaction and owner rollback; PX-416 parity pattern; PX-417 baseline; rust-interface-law guide §15."
+          ],
+          "testExceptions": [
+            "Item: full owner rederive (graphify/boundify/split) inside a unit test. Reason: cannot test the whole rederive as a unit because it requires AI design decisions and the real stage drivers. Alternative verification: the integration test asserts dispatch order and receipts; each owner command has its own test suite. This is not a design defect because the owner commands are the tested units and the command is an orchestrator.",
+            "Item: code-level law gate/attest at design time. Reason: cannot test before implementation exists; the gate reads changed code and an implementation report. Alternative verification: the verifier proves the `*-law` skill; the report records law evidence, not conformance; /start-ticket and /review-ticket run gate/attest on code. This is not a design defect because the design phase precedes implementation."
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path] — generic amendment completes:**\n  - material and free instruction resolve; every `*-law` skill passes the generic verifier; every instruction clause is covered; rfc/spec append, graph/dirs-tree/tickets owner rederive, verification converges; report `DESIGN_AMENDED`; no direct writes.",
+            "**[Error case] — every refusal is safe:**\n  - unknown flag, missing package artifact, missing material/instruction, invalid `*-law` skill, invalid change request, dry-run finding, rolled-back amendment, owner failure, or verify finding stops with a stable code and report; no partial silent write; no false COMPLETE.",
+            "**[Edge case] — derived boundaries:**\n  - zero material discovery, non-law material, law not applicable, multiple artifacts, duplicate change, instruction with no changes, standalone/partial canon, absent artifact."
+          ],
+          "instrumentation": "Review static quality check: passed\nTranslatability: no issues\nTests: 41 PX-418 + 2 verifier + 83 impact passed",
+          "notes": "Review report:\n- Generic /amend-rfc-up: rfc/spec/graph/dirs-tree/tickets; law optional.\n- Canonical *-law verifier + IMPLEMENTATION-LEFTOVERS.md section 30; 11 checks machine_verified on the reference skill.\n- Quality 0; red coverage 14/14; final contracts 100%; targets clean; reverify 0.\n- Installed parity across root, crates/siprs, gaia, crystal, doors.\n- Unrelated annotation gaps: 58 pre-existing crates/siprs/.claude changes; not PX-418.\n- Full-suite baseline: tests/tickets/command-integration.test.cjs C005 fails on pre-existing uncommitted edits; PX-418 impact set is clean.",
+          "investigation": "- PX-417 implementation is law-specific: `enumerate.js` uses `applies`/`resolve`/`must` rules; `claims.js` hardcodes law claims; `apply.js` hardcodes `--artifact=rfc`; `report.js` requires `law_gate`. These files are replaced.\n- `design-amendment.js:1-8`: snapshot, append/owner, digest rebuild, fixed gate manifest, promote/rollback, byte restore.\n- `design-amendment.js:53-58`: appendKinds SPEC/RFC; ownerForKind graph->graphify, dirs-tree->boundify, tickets->mutationGate.\n- `design-amendment.js:100-109`: claim requires target.kind/id, predicate, requiredTest, text; metadata is not executed by the CLI.\n- `append-design-amendment.js:1-10`: append-only writer; existing lines are never edited; prefix proof.\n- `amendment-gate-manifest.js:28-40`: 12 fixed gates (chain, graph-integrity, dirs-tree-schema, tickets-schema, ticket-closure, ticket-prerequisites, formula-file-coverage, formula-digest, tree-entry-parity, allocate-chain, reverify, amendment-integrity).\n- `resolve-ticket.md:255-264`, `start-ticket.md:517-526`, `review-ticket.md:333-342`: Design Amendment Rule, dry-run -> apply -> owner rederive -> verify, 0 findings twice same digest, hand edit = defect.\n- `drill-rfc-down.md:12,430-434,485-486`: append-only evolution; `drill-rfc-down.md:727`: amendment route.\n- `grill-me-for-rfc.md:339`: materialized-fresh stops the grill; amendment is the owner.\n- `canon-state.js:86-138`: materialized-fresh/stale/partial/standalone classification.\n- `IMPLEMENTATION-LEFTOVERS.md` §1: layers (SKILL.md, okf/, atoms.lock.json, coverage.json/md, source/, scripts/, dist/skill.mjs, install.js, tests/).\n- `IMPLEMENTATION-LEFTOVERS.md` §2: L1-L12 invariants; §2.1 mechanization principle; §3 manifest/extract/coverage/registry/redaction/determinism; §4 OKF delivery; §5-§7 phase/surface/bootstrap; §8 CLI; §9 gate/attest; §10 scaffold; §11 explain; §12 distribution; §13 tests; §14 anti-patterns.\n- `rust-interface-law` structure: `SKILL.md`, `okf/`, `atoms.lock.json`, `coverage.json`, `coverage.md`, `source/manifest.toml`, `scripts/`, `dist/skill.mjs`, `install.js`, `tests/` (19 test files).\n- `node dist/skill.mjs check` -> `check lint: 2733 nodes ok`; `law-identity` requires `--manifest`; `check lint|graph|coverage|audit` and `rebuild` are the mechanical checks.\n- `source/manifest.toml`: `spec_version`, `redaction_sha256`, `source_set_sha256`, `[[file]] path+sha256`; no absolute paths.\n- `atoms.lock.json`: `spec_version`, source/redaction hashes, atoms with id/type/source/span/classification/content_sha256.\n- `coverage.json`: per-file `lines`, `attributed`, `excluded`, `gaps`, `overlaps`.\n- `README.md` / `ENV-DEPS.json`: conver inventory; PX-417 already added the command and env entry.\n- `verify-step.js`: `--rfc --graph --dirs-tree --src --tickets --session-dir --workspace`; P1 blocking, P2 residue.\n- `applies` on `.claude/commands/amend-rfc-up.md` and `.claude/scripts/amend-rfc-up/*.js` => SKIP (target is not crates/** interface unit). Record `Law: not applicable`.",
+          "boyScoutPlan": "- Function names: verb phrases (`resolveCommandVariables`, `classifyMaterial`, `verifyLawSkill`, `parseInstruction`, `buildChangeRequest`, `validateChangeRequest`, `validateArtifactChange`, `dispatchArtifactChange`, `runOwnerRederive`, `assertConverged`, `renderReport`).\n- Variable names: domain concepts (`materialPaths`, `lawSkillPath`, `verificationReport`, `instructionClauses`, `artifactChanges`, `ownerReceipts`, `convergenceDigest`).\n- One function: one responsibility; no AND/THEN chains.\n- Named constants: `LAW_SKILL_SUFFIX`, `REQUIRED_LAW_LAYERS`, `ARTIFACT_ORDER`, `OWNER_ORDER`, `CONVERGENCE_RUNS`, `LAW_SKILL_VERIFICATION_SCHEMA`, `REQUEST_SCHEMA`.\n- No swallowed errors: every catch returns a stable finding with cause, action, rerun.\n- No hardcoded paths: derive from `CLAUDE_DIR`, `cwd`, and `lib/package-artifacts.js`.\n- Existing code touched: the verifier script and guide §15 are new; `design-amendment.js`, owners, and the law rule corpus remain read-only.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "command interface",
+              "precondition": "argv contains material paths only and no flag",
+              "postcondition": "preflight returns materialPaths and instructionPath and rejects an unknown flag",
+              "invariant": "public interface exposes no thin flags"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "package context",
+              "precondition": "cwd contains Tickets.json and RFC",
+              "postcondition": "preflight returns packageDir, ticketsPath, rfcPath, graphPath, dirsTreePath",
+              "invariant": "missing package artifact fails closed with no write"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "law skill detection",
+              "precondition": "material or instruction names a *-law skill",
+              "postcondition": "classifyMaterial returns law-skill with skill path",
+              "invariant": "no law skill is used without a verification report"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "generic verifier",
+              "precondition": "skill directory contains SKILL.md and okf",
+              "postcondition": "verifyLawSkill writes LAW-SKILL-VERIFICATION.json with per-check status",
+              "invariant": "failed or unverifiable check makes the skill invalid"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "verifier checks",
+              "precondition": "verification runs",
+              "postcondition": "layer, manifest, lock, coverage, registry, generic boundary, delivery, runtime, tests, installer, determinism are checked",
+              "invariant": "all required checks must be machine_verified"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "law use",
+              "precondition": "verification passes and applies returns APPLIES",
+              "postcondition": "resolve and context produce phases and rule bodies",
+              "invariant": "okf is never read directly; context only"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "change request",
+              "precondition": "instruction and material exist",
+              "postcondition": "buildChangeRequest returns instructionClauses and changes",
+              "invariant": "every instruction clause has a change or noOpReason; every change has artifact, operation, evidence"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "artifact dispatch",
+              "precondition": "change request validated",
+              "postcondition": "rfc/spec dispatched to design-amendment; graph/dirs-tree/tickets to owners",
+              "invariant": "command writes no artifact directly"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "RFC append",
+              "precondition": "rfc or spec change",
+              "postcondition": "design-amendment append writes ledger and failed gate restores bytes",
+              "invariant": "existing RFC lines are never edited"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "owner rederive",
+              "precondition": "derived artifact change",
+              "postcondition": "owners invoked graphify -> boundify -> split and receipts recorded",
+              "invariant": "derived artifacts only written by owners"
+            },
+            {
+              "id": "C011",
+              "sourceEdge": "verification convergence",
+              "precondition": "changes applied",
+              "postcondition": "verify-amendment and cross-artifact verify report zero findings twice same digest",
+              "invariant": "no COMPLETE before convergence"
+            },
+            {
+              "id": "C012",
+              "sourceEdge": "report",
+              "precondition": "verification complete",
+              "postcondition": "report has per-artifact status, law verification, clause coverage",
+              "invariant": "no blanket law_gate; unverifiable or not_run never pass"
+            },
+            {
+              "id": "C013",
+              "sourceEdge": "guide and verifier consistency",
+              "precondition": "IMPLEMENTATION-LEFTOVERS.md is updated",
+              "postcondition": "guide contains the generic verifier contract and canonical script path",
+              "invariant": "*-law creation and development use the same verifier; no duplicate divergent checker"
+            },
+            {
+              "id": "C014",
+              "sourceEdge": "installed parity",
+              "precondition": "source installed",
+              "postcondition": "installed copies byte-identical to source",
+              "invariant": "parity test fails on any difference"
+            }
+          ],
+          "planTestCode": [
+            "// C001 — material-only interface; free instruction is derived.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { resolveCommandVariables } = require('../../.claude/scripts/amend-rfc-up/preflight.js');\n\ntest('C001: material paths accepted; thin flag rejected', () => {\n  const fixture = makeFixturePackage();\n  const vars = resolveCommandVariables({\n    cwd: fixture,\n    materialArgs: ['FINDINGS.json'],\n    instructionText: 'Change the REST authorization clause.',\n    repoRoot: fixture,\n    lawPath: '/tmp/law.mjs',\n  });\n  assert.equal(vars.materialPaths.length, 1);\n  assert.ok(vars.instructionPath.endsWith('INSTRUCTION.md'));\n  assert.throws(\n    () => resolveCommandVariables({ cwd: fixture, materialArgs: ['--apply'], instructionText: 'x', repoRoot: fixture }),\n    (error) => error.code === 'PREFLIGHT_UNKNOWN_FLAG',\n  );\n});",
+            "// C002 — package context derived; missing artifact fails closed.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst { resolveCommandVariables, assertPackageContext } = require('../../.claude/scripts/amend-rfc-up/preflight.js');\n\ntest('C002: package context derived and missing artifact fails closed', () => {\n  const fixture = makeFixturePackage();\n  const vars = resolveCommandVariables({\n    cwd: fixture,\n    materialArgs: ['FINDINGS.json'],\n    instructionText: 'x',\n    repoRoot: fixture,\n    lawPath: '/tmp/law.mjs',\n  });\n  assert.equal(vars.packageDir, fixture);\n  assert.ok(fs.existsSync(vars.ticketsPath));\n  assert.ok(fs.existsSync(vars.rfcPath));\n  assert.throws(\n    () => assertPackageContext({ cwd: makeEmptyDirectory() }),\n    (error) => error.code === 'PREFLIGHT_ARTIFACT_MISSING',\n  );\n});",
+            "// C003 — *-law skill detection.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { classifyMaterial } = require('../../.claude/scripts/amend-rfc-up/request.js');\n\ntest('C003: *-law skill detected; ordinary document is ordinary', () => {\n  const law = classifyMaterial({ path: LAW_SKILL_DIR, instructionText: 'use this law' });\n  assert.equal(law.kind, 'law-skill');\n  assert.equal(law.skillPath, LAW_SKILL_DIR);\n  const document = classifyMaterial({ path: '/tmp/NOTES.md', instructionText: 'use this note' });\n  assert.equal(document.kind, 'ordinary');\n});",
+            "// C004 — generic verifier writes a report; invalid skill throws.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst { verifyLawSkill, assertLawSkillValid } = require('../../.claude/scripts/amend-rfc-up/law-skill-verifier.js');\n\ntest('C004: verifier writes LAW-SKILL-VERIFICATION.json and invalid skill throws', () => {\n  const report = verifyLawSkill({ skillPath: LAW_SKILL_DIR, root: REPO_ROOT, outPath: OUT_PATH });\n  assert.ok(fs.existsSync(OUT_PATH));\n  assert.equal(report.schema, 'law-skill-verification/v1');\n  const invalid = { schema: 'law-skill-verification/v1', checks: { layer: { status: 'failed' } } };\n  assert.throws(() => assertLawSkillValid(invalid), (error) => error.code === 'LAW_SKILL_INVALID');\n});",
+            "// C005 — every required verifier check is machine_verified.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { verifyLawSkill } = require('../../.claude/scripts/amend-rfc-up/law-skill-verifier.js');\n\ntest('C005: required verifier checks are machine_verified', () => {\n  const report = verifyLawSkill({ skillPath: LAW_SKILL_DIR, root: REPO_ROOT, outPath: OUT_PATH });\n  for (const name of REQUIRED_CHECKS) {\n    assert.equal(report.checks[name].status, 'machine_verified', name);\n  }\n});",
+            "// C006 — verified law uses applies/resolve/context; okf is never read.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { runLawSkill } = require('../../.claude/scripts/amend-rfc-up/law-skill-verifier.js');\n\ntest('C006: verified law uses applies, resolve, context only', () => {\n  const calls = [];\n  const result = runLawSkill({\n    skillPath: LAW_SKILL_DIR,\n    packageDir: FIXTURE_PACKAGE,\n    phases: ['adapter'],\n    runner: (args) => {\n      calls.push(args[0]);\n      const stdout = args[0] === 'applies' ? APPLIES_OUTPUT : '{\"nodes\":[],\"phases\":[\"adapter\"]}';\n      return { status: 0, stdout };\n    },\n  });\n  assert.equal(result.applies, true);\n  assert.deepEqual(calls, ['applies', 'resolve', 'context']);\n  assert.equal(calls.includes('okf'), false);\n});",
+            "// C007 — every instruction clause has a change or noOpReason.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { buildChangeRequest, validateChangeRequest } = require('../../.claude/scripts/amend-rfc-up/request.js');\n\ntest('C007: change request covers instruction clauses', () => {\n  const request = buildChangeRequest({\n    instructionText: '1. change RFC 2. rederive GRAPH',\n    material: [MATERIAL],\n    law: null,\n    changes: [\n      { id: 'CH1', artifact: 'rfc', operation: 'append', target: { kind: 'clause', id: '1. Design' }, predicate: 'the clause holds', requiredTest: 'gate', text: 'text\\n\\n\\u0060\\u0060\\u0060rust\\nfn x() {}\\n\\u0060\\u0060\\u0060', evidence: ['I1'] },\n      { id: 'CH2', artifact: 'graph', operation: 'owner-rederive', owner: 'graphify', reason: 'the RFC changed', evidence: ['I2'] },\n    ],\n  });\n  assert.equal(request.schema, 'amend-rfc-up.request/v1');\n  assert.ok(validateChangeRequest({ request }).ok);\n  const uncovered = { ...request, instructionClauses: [{ id: 'I3', text: 'x', changeIds: [], noOpReason: null }] };\n  assert.throws(() => validateChangeRequest({ request: uncovered }), (error) => error.code === 'REQUEST_CLAUSE_UNCOVERED');\n});",
+            "// C008 — artifact dispatch: rfc to design-amendment; graph to graphify; no direct write.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { dispatchArtifactChange } = require('../../.claude/scripts/amend-rfc-up/dispatch.js');\n\ntest('C008: dispatch routes rfc and graph to their owners', async () => {\n  const calls = [];\n  const rfc = await dispatchArtifactChange({\n    change: RFC_CHANGE,\n    packageDir: FIXTURE_PACKAGE,\n    ticketKey: 'PX-418',\n    runner: async () => ({ outcome: 'promoted' }),\n  });\n  assert.equal(rfc.outcome, 'promoted');\n  const graph = await dispatchArtifactChange({\n    change: GRAPH_CHANGE,\n    packageDir: FIXTURE_PACKAGE,\n    ticketKey: 'PX-418',\n    ownerRunner: (owner) => { calls.push(owner); return { ok: true }; },\n  });\n  assert.deepEqual(calls, ['graphify']);\n  assert.equal(graph.ok, true);\n});",
+            "// C009 — RFC append is prefix-only; rollback restores bytes and leaves no ledger.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst { dispatchArtifactChange } = require('../../.claude/scripts/amend-rfc-up/dispatch.js');\n\ntest('C009: existing RFC lines are never edited and rollback restores bytes', async () => {\n  const before = fs.readFileSync(RFC_PATH);\n  await dispatchArtifactChange({ change: RFC_CHANGE, packageDir: FIXTURE_PACKAGE, ticketKey: 'PX-418', runner: appendRunner });\n  const after = fs.readFileSync(RFC_PATH);\n  assert.ok(after.subarray(0, before.length).equals(before));\n  const rolled = await dispatchArtifactChange({ change: RFC_CHANGE, packageDir: FIXTURE_PACKAGE, ticketKey: 'PX-418', gateRunner: failingGate });\n  assert.equal(rolled.outcome, 'rolled-back');\n  assert.ok(fs.readFileSync(RFC_PATH).equals(before));\n});",
+            "// C010 — owners graphify -> boundify -> split; failure is REDERIVE_PENDING.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { runOwnerRederive } = require('../../.claude/scripts/amend-rfc-up/dispatch.js');\n\ntest('C010: owners invoked in order and receipts recorded', async () => {\n  const calls = [];\n  const result = await runOwnerRederive({\n    packageDir: FIXTURE_PACKAGE,\n    invokeOwner: (owner) => { calls.push(owner); return { ok: true }; },\n  });\n  assert.deepEqual(calls, ['graphify', 'boundify', 'split']);\n  assert.equal(result.receipts.length, 3);\n  await assert.rejects(\n    () => runOwnerRederive({\n      packageDir: FIXTURE_PACKAGE,\n      invokeOwner: (owner) => (owner === 'boundify' ? { ok: false } : { ok: true }),\n    }),\n    (error) => error.code === 'REDERIVE_PENDING',\n  );\n});",
+            "// C011 — verification converges with zero findings twice and same digest.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { assertConverged } = require('../../.claude/scripts/amend-rfc-up/verify.js');\n\ntest('C011: zero findings twice with the same digest converges', async () => {\n  const ok = await assertConverged({ run: () => ({ findings: [], digest: 'sha256:stable' }), runs: 2 });\n  assert.equal(ok.ok, true);\n  const unstable = await assertConverged({ run: () => ({ findings: [], digest: String(Math.random()) }), runs: 2 });\n  assert.equal(unstable.code, 'CONVERGENCE_FAILED');\n});",
+            "// C012 — report has per-artifact status and no mandatory law_gate.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { renderReportJson, assertNoFalseComplete } = require('../../.claude/scripts/amend-rfc-up/report.js');\n\ntest('C012: report is artifact-centric; unverifiable blocks COMPLETE', () => {\n  const report = renderReportJson({\n    artifacts: { rfc: 'promoted', graph: 'rederived', 'dirs-tree': 'rederived', tickets: 'rederived' },\n    lawVerification: { skill: 'rust-interface-law', status: 'machine_verified' },\n    clauses: [{ id: 'I1', changeIds: ['CH1'] }],\n    findings: [],\n    unverifiable: [],\n  });\n  assert.equal(report.artifacts.rfc, 'promoted');\n  assert.equal(report.law_verification.status, 'machine_verified');\n  assert.equal('law_gate' in report, false);\n  assert.equal(assertNoFalseComplete({ report }).ok, true);\n  const blocked = renderReportJson({ artifacts: {}, unverifiable: [{ name: 'x' }] });\n  assert.equal(assertNoFalseComplete({ report: blocked }).code, 'UNVERIFIABLE');\n});",
+            "// C013 — guide and verifier expose the same checks.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\n\ntest('C013: IMPLEMENTATION-LEFTOVERS.md documents the canonical verifier', async () => {\n  const guide = fs.readFileSync('../../.claude/skills/rust-interface-law/IMPLEMENTATION-LEFTOVERS.md', 'utf8');\n  assert.match(guide, /verify-law-skill\\.mjs/);\n  const { VERIFIER_CHECKS } = await import('../../.claude/skills/rust-interface-law/scripts/verify-law-skill.mjs');\n  for (const check of VERIFIER_CHECKS) assert.equal(guide.includes(check), true, check);\n});",
+            "// C014 — installed copies byte-identical to source.\nconst { test } = require('node:test');\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nconst path = require('node:path');\n\ntest('C014: installed copies are byte-identical to source', () => {\n  const sourceRoot = path.resolve(__dirname, '../../.claude');\n  const installedRoot = path.resolve(__dirname, '../../../../.claude');\n  const files = ['commands/amend-rfc-up.md', 'scripts/amend-rfc-up/preflight.js', 'skills/rust-interface-law/scripts/verify-law-skill.mjs'];\n  for (const relativePath of files) {\n    const source = fs.readFileSync(path.join(sourceRoot, relativePath));\n    const installed = fs.readFileSync(path.join(installedRoot, relativePath));\n    assert.ok(source.equals(installed), relativePath);\n  }\n});"
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T06:13:43.418Z"
+        },
+        {
+          "id": 419,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "amend-rfc-up: multi-package, rule-covered, owner-verified amendment",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-419.md",
+          "default_files": [
+            ".claude/commands/amend-rfc-up.md",
+            ".claude/scripts/amend-rfc-up/preflight.js",
+            ".claude/scripts/amend-rfc-up/request.js",
+            ".claude/scripts/amend-rfc-up/changes.js",
+            ".claude/scripts/amend-rfc-up/dispatch.js",
+            ".claude/scripts/amend-rfc-up/verify.js",
+            ".claude/scripts/amend-rfc-up/report.js",
+            ".claude/scripts/amend-rfc-up/law-skill-verifier.js",
+            ".claude/scripts/amend-rfc-up/material.js",
+            ".claude/scripts/amend-rfc-up/rules.js",
+            ".claude/scripts/amend-rfc-up/workspace.js",
+            ".claude/scripts/amend-rfc-up/ticket.js",
+            ".claude/scripts/amend-rfc-up/owners.js",
+            ".claude/scripts/amend-rfc-up/idempotency.js",
+            "tests/amend-rfc-up/preflight.test.cjs",
+            "tests/amend-rfc-up/request.test.cjs",
+            "tests/amend-rfc-up/changes.test.cjs",
+            "tests/amend-rfc-up/dispatch.test.cjs",
+            "tests/amend-rfc-up/verify.test.cjs",
+            "tests/amend-rfc-up/report.test.cjs",
+            "tests/amend-rfc-up/workspace.test.cjs",
+            "tests/amend-rfc-up/owners.test.cjs",
+            "tests/amend-rfc-up/command-file.test.cjs",
+            "tests/amend-rfc-up/installed-parity.test.cjs"
+          ],
+          "invariants": "- [Normal establishment] Every material path, package, amendment ticket, and instruction-named *-law skill is resolved before any artifact write.\n- [Invariant on error] A failed design amendment restores artifact bytes and leaves no promoted ledger; a failed owner leaves no rederived status; a blocked run never reports COMPLETE.\n- [Internal state invariant] The change DAG is acyclic; every change names a known package; every material rule, interface surface, and cross-package impact has an explicit covered or not_applicable decision.\n- [Boundary invariant] An uncovered rule, unassigned surface, unverified owner receipt, or non-converged verification always blocks COMPLETE and is reported by name.",
+          "background": "### Goal\nMake `/amend-rfc-up` complete one safe amendment across every affected package in a conver workspace. Input = material paths + free instruction. Output = amended RFC/SPEC, GRAPH, Dirs-Tree, and Tickets with per-package and cross-package verification.\n\n### Purpose\nA single interface package cannot satisfy a workspace-wide rule set. The command must discover packages, cover every material rule and named interface surface, verify owner output, and converge without asking the operator.\n\n### Motivation\nThe planned run applies one 409-rule material to 11 interface packages across gaia, crystal, and doors. The current implementation stops at `TICKET_REQUIRED`, cannot dispatch derived artifacts from the CLI (`OWNER_REQUIRED`), has no package dimension, does not cover material rules or surfaces, and trusts owner receipts.\n\n### Constraints\n- Public command arguments remain material files/directories only. No thin flags.\n- Product code must not name gaia, crystal, doors, a concrete surface, or a concrete `*-law` skill.\n- `design-amendment.js` is the only RFC/SPEC writer; owners write GRAPH/Dirs-Tree/Tickets.\n- Existing RFC lines are never edited; amendments append under `## Design Amendments`.\n- The command never asks the operator; only named unrecoverable blockers stop it.\n- TDD Red-Green-Refactor; no stubs; no test weakening; no hand-edited JSON.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - `.claude/commands/amend-rfc-up.md`: rewrite the command for multi-package, non-interactive execution. Add `## Execution Contract`, remove `One package per invocation`, add material resolution bases, amendment-ticket creation, `*-law` discovery, rule/surface coverage, owner-plan/apply/receipt steps, workspace verification, and idempotency. Before → after: single-package single-pass → package-matrix multi-pass.\n  - `.claude/scripts/amend-rfc-up/preflight.js`: add `invocationDir`, home expansion, workspace inventory, amendment-ticket ensure, and instruction-named law discovery. Remove the fixed `LAW_PATH` and the single-package-only assumption. Before → after: package-only inputs → package + workspace + material + ticket + law inputs.\n  - `.claude/scripts/amend-rfc-up/request.js`: raise the request schema to `amend-rfc-up.request/v2`; add `packages[]`, `ruleCoverage[]`, `surfaceCoverage[]`, `crossPackageImpacts[]`, and `changes[].package`. Keep a v1 normalizer.\n  - `.claude/scripts/amend-rfc-up/changes.js`: validate the package dimension, surface assignment, cross-package DAG, and owned-artifact operations. Before → after: artifact-only validation → artifact + package + surface validation.\n  - `.claude/scripts/amend-rfc-up/dispatch.js`: make derived dry-run return an owner plan instead of `OWNER_REQUIRED`; require a verified receipt for derived apply; verify before/after digest, status file, and owner verifier. Await async results in the CLI.\n  - `.claude/scripts/amend-rfc-up/verify.js`: add `runWorkspaceVerify`; verify package amendments and cross-package impact references; require zero findings twice with the same digest.\n  - `.claude/scripts/amend-rfc-up/report.js`: raise the report schema to `amend-rfc-up.report/v2`; output a package × artifact matrix; add rule, surface, impact, and owner-receipt coverage to the COMPLETE guard.\n  - `.claude/scripts/amend-rfc-up/material.js` (new): resolve material in home, absolute, invocation-cwd, package, and repo bases; compute sha256; return triedBases.\n  - `.claude/scripts/amend-rfc-up/rules.js` (new): extract registry rule IDs, build a deterministic inventory, initialize coverage, and validate covered or not_applicable decisions.\n  - `.claude/scripts/amend-rfc-up/workspace.js` (new): read `WORKSPACIFY-TREE-MANIFEST.json` `workspace.packages`, fall back to a bounded scan, enumerate interface surfaces, and resolve package ids.\n  - `.claude/scripts/amend-rfc-up/ticket.js` (new): create or reuse a planned amendment ticket through the ticket CRUD tools; key the reuse decision by material + instruction digest.\n  - `.claude/scripts/amend-rfc-up/owners.js` (new): snapshot artifact digests, validate owner receipts against actual artifacts and status files, and reject no-delta output.\n  - `.claude/scripts/amend-rfc-up/idempotency.js` (new): compute an amendment digest over material, instruction, changes, and target artifacts; return apply, no-change, or supersede.\n  - `tests/amend-rfc-up/*`: add unit and integration tests for every new contract; replace the hardcoded parity repo list with discovery or an environment list.\n  - API contract change: public command arguments stay `[<material file|directory>...]`; internal script arguments may add package, digest, and receipt inputs.\n  - Data schema change: request v1 → v2, report v1 → v2; v1 requests are normalized for reading.\n  - Config/env change: `CONVER_WORKSPACE_ROOTS` (colon-separated) may add sibling repository roots; unset means the current repo only.\n  - Dependency change: none; Node built-ins only.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - Automatic creation of a brand-new package design: delegated to `/grill-me-for-rfc`; this ticket requires the amend command to route to it and then amend the produced artifacts, not to duplicate its design logic.\n  - Semantic proof of owner output beyond digest, status, and owner verifier: separate design-quality work; this ticket guarantees execution, mutation, and verifier pass.\n  - Rewriting the 18 source IMPLEMENTATION-SPEC documents or regenerating the derived material: source-of-truth work.\n  - Project-specific package layout shortcuts: prohibited; all layout knowledge comes from the workspace manifest or bounded scan.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - `/amend-rfc-up` command users in every conver package: API surface and report shape change; required.\n  - `design-amendment.js` callers: no code change, but the command passes a package-specific cwd; required.\n  - graphify/boundify/split owner commands: no code change, but their status files and artifact digests become the verification input; required.\n  - `rust-interface-law` and future `*-law` skills: no rule text change; the command gains discovery and phase derivation; required.\n  - Installed `.claude` copies in sibling repositories: parity must be re-established; required.\n  - `WORKSPACIFY-TREE-MANIFEST.json` consumers: read-only use of `workspace.packages`; no format change.",
+            "**Mutation boundary (cross-package):** every RFC/SPEC mutation goes through `design-amendment.js`; every GRAPH/Dirs-Tree/Tickets mutation goes through the declared owner; the command writes only `amend/` records and verified receipts."
+          ],
+          "testUnit": [
+            "UT: @verifies C001 — material resolution: a home-prefixed path, absolute path, invocation-cwd path, package-relative path, and repo-relative path each resolve; every result carries sha256; a missing path returns MATERIAL_NOT_FOUND with triedBases listing invocation, package, and repo bases.",
+            "UT: @verifies C001 — no write before resolution: a failing material path leaves the package `amend/` directory absent and no claim file written.",
+            "UT: @verifies C002 — amendment ticket: with zero active tickets and no material ticket key, ensure creates a planned PX ticket; a second call with the same material and instruction digest reuses it; ticket JSON is written only through ticket CRUD scripts.",
+            "UT: @verifies C003 — law discovery: an instruction naming a `*-law` skill resolves `.claude/skills/<name>`, the canonical verifier reports machine_verified for every check, and applies/resolve/context run; the `okf/` directory is never read.",
+            "UT: @verifies C003 — missing and ambiguous law skills return LAW_SKILL_NOT_FOUND and LAW_SKILL_AMBIGUOUS; a failed verifier check returns LAW_SKILL_INVALID.",
+            "UT: @verifies C004 — rule inventory: the registry table extraction lists every rule ID with source line and registered flag; an inline unregistered rule ID is flagged; repeated runs produce byte-identical inventory.",
+            "UT: @verifies C005 — rule coverage: every inventory rule is covered by a change or carries a not_applicable reason; an unset rule returns REQUEST_RULE_UNCOVERED; unknown, duplicate, or missing rule IDs return RULE_COVERAGE_INVALID.",
+            "UT: @verifies C006 — workspace inventory: `workspace.packages` is enumerated with id, path, kind, and canon state; a missing manifest falls back to a bounded scan; `.git`, `.claude`, `node_modules`, `target`, and archive directories are excluded.",
+            "UT: @verifies C007 — request v2: every change names a known package; an unknown package returns CHANGE_INVALID; a cross-package cycle returns CHANGE_DAG_CYCLE; a valid multi-package DAG is accepted.",
+            "UT: @verifies C008 — surface coverage: REST, WebSocket, CLI, gRPC, MCP, and A2A are extracted from the instruction and material; an unassigned surface returns SURFACE_TARGET_MISSING; a not_applicable surface requires a reason.",
+            "UT: @verifies C009 — derived dry-run: a graph, dirs-tree, or tickets change returns an owner plan with beforeDigest and expected status files; no artifact is written; OWNER_REQUIRED is never a terminal stop.",
+            "UT: @verifies C009 — derived apply without a receipt returns OWNER_RECEIPT_REQUIRED; apply with a receipt proceeds to receipt validation.",
+            "UT: @verifies C010 — owner receipt: a receipt is accepted only when afterDigest differs from beforeDigest, the status file records success, and the owner verifier exits zero; an unchanged artifact returns OWNER_NO_DELTA; a mismatched digest returns OWNER_RECEIPT_INVALID.",
+            "UT: @verifies C011 — workspace verify: a missing cross-package target or a contradicting contract produces a named finding; zero findings twice with the same digest is accepted; any finding is VERIFY_BLOCKED.",
+            "UT: @verifies C012 — idempotency: the same material and instruction digest returns NO_CHANGE and appends no duplicate amendment or ledger entry; a different digest applies.",
+            "UT: @verifies C013 — report v2: the package × artifact matrix contains every package and artifact; an uncovered rule, unassigned surface, unverified impact, or unverified receipt blocks COMPLETE with a named code.",
+            "UT: @verifies C014 — command contract: the argument hint is material-only; no thin flags are accepted; the command contains a non-interactive execution contract; no repository, surface, or skill name is hardcoded in product code.",
+            "UT: @verifies C001 — path safety: a material path containing `..` resolves to an existing file or fails; no directory traversal outside the declared bases."
+          ],
+          "testIntegration": [
+            "IT: synthetic 3-repo workspace with 11 packages and one shared contract package — run the full amendment; every package produces promoted RFC and rederived GRAPH/Dirs-Tree/Tickets entries; workspace verify reports zero findings.",
+            "IT: owner execution — fake graphify, boundify, and split rewrite their artifacts and status files; receipts carry before and after digest; rederive runs graphify → boundify → split and accepts all three.",
+            "IT: repeat run — the same material and instruction on the amended workspace returns NO_CHANGE and writes no second amendment digest.",
+            "IT: rule fixture — a 10-rule material drives rule coverage; one uncovered rule blocks completion until covered or justified.",
+            "IT: law use — the reference `rust-interface-law` passes the canonical verifier; applies exit 3 yields LAW_NOT_APPLICABLE; resolve writes `amend/law/manifest.json`; context phases come from the manifest.",
+            "IT: failure path — an owner failure yields REDERIVE_PENDING, the run reports BLOCKED, and no package is marked complete.",
+            "IT: installed parity — the command and scripts are copied to target `.claude` roots; byte parity holds; the command contains no gaia, crystal, or doors string."
+          ],
+          "testExceptions": [],
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: all 145 tests passed\nAnnotation: PX-419 source files annotated; pre-existing crates/siprs gaps are unrelated",
+          "notes": "Review report:\n- Static quality check: passed (0 issues).\n- Translatability: no issues; generic names only in temp-file suffixes.\n- Tests: 145 passed, 0 failed (amend + design-amendment impact set).\n- Contracts: 14/14; Gate P and make-contract gates pass.\n- Annotation: PX-419 changed files annotated; zero AMBIGUOUS. Pre-existing crates/siprs files remain unannotated and are not PX-419 changes.\n- Review fixes applied: multi-package change dispatch/verify orchestration; CLI entry points for rules, idempotency, workspace surfaces, ticket ensure, request v2 inputs; owner rederive now validates full receipts; README updated for multi-package, rule/surface coverage, amendment ticket, owner receipts, and NO_CHANGE.\n- README: /amend-rfc-up section updated to remove stale single-package and law-specific statements.",
+          "acceptanceCriteria": [
+            "**[Happy path]** — an amendment from a package cwd with a resolvable material path enumerates the workspace, creates or reuses an amendment ticket, discovers any instruction-named `*-law`, covers every material rule and surface, applies RFC/SPEC and owner changes for every affected package, verifies package and cross-package consistency, and writes a complete report without asking the operator.",
+            "**[Error case]** — with no active ticket, a missing material base, an unverified law skill, an uncovered rule, an unassigned surface, or an owner receipt mismatch, the run stops with the named code and no package is reported COMPLETE.",
+            "**[Edge case]** — repeating the same material and instruction returns NO_CHANGE; a `*-law` skill that does not apply returns LAW_NOT_APPLICABLE; a package without a SPEC skips the spec artifact with `skipped:absent`."
+          ],
+          "investigation": "- Command: `.claude/commands/amend-rfc-up.md` currently declares material-only arguments but also `One package per invocation` (line 34), a fixed single `PACKAGE_DIR`, and Step 3 stops on `OWNER_REQUIRED` (line 113).\n- Preflight: `.claude/scripts/amend-rfc-up/preflight.js` resolves `Tickets.json` and `RFC.md` from cwd, resolves material only via `path.resolve(packageDir, argument)` (lines 99-130), and derives the ticket only from an active status list `planned|started|in-progress` or a material ticket key (lines 155-161). A probe from `crystal-cli` returned `MATERIAL_NOT_FOUND` for the package-relative material and `TICKET_REQUIRED` for the absolute material.\n- Dispatch: `.claude/scripts/amend-rfc-up/dispatch.js` returns `{code:'OWNER_REQUIRED'}` when no `ownerRunner` is injected (lines 87-89). The CLI passes no `ownerRunner` (line 151), so a probe of a graph change returned `OWNER_REQUIRED`; the command cannot apply three of its four artifacts.\n- Request: `.claude/scripts/amend-rfc-up/request.js` validates only instruction clauses and artifact changes; it has no package, rule, surface, or cross-package dimension.\n- Verify/report: `verify.js` runs one package context; `report.js` keys artifacts by artifact name only, so cross-package results collide.\n- Law: `law-skill-verifier.js` calls the canonical verifier at `.claude/scripts/amend-rfc-up/verify-law-skill.mjs`; the reference skill passes 11/11 checks in gaia, crystal, and doors. The command does not discover a law skill named only in the instruction.\n- Workspace: `WORKSPACIFY-TREE-MANIFEST.json` exists in gaia, crystal, and doors and exposes `workspace.packages` arrays (29, 23, and 8 packages) with id, kind, layer, path, and responsibilities. `lib/package-artifacts.js` already exports `resolveSourcePath`, `resolveGraphPath`, `resolveDirsTreePath`, `resolveTicketsPath`, `resolveViewPath`, and stage-status resolvers.\n- Packages: 11 target packages exist and each has `RFC.md`, `RFC-GRAPH.json`, `RFC-Dirs-Tree.json`, and `Tickets.json`. All 11 report canon state `materialized-fresh`. Every ticket in all 11 is `todo`; active-ticket count is 0.\n- Material: the updated invocation uses the absolute path `~/shyme/zasso/tools/conver/docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md`; it contains 409 rule-table rows and 426 unique rule-ID tokens. No MCP/A2A package exists in any of the three repositories; all 11 RFCs have zero MCP/A2A mentions.\n- Owner status: graphify, boundify, and split status files expose `currentStep`, `steps`, `runs`, `runId`, `lastOutputDigest`, and `generation`, which can prove that an owner actually ran and changed output.\n- Genericity: product code has no gaia/crystal/doors/zasso strings; only the installed-parity test lists the three repositories. The fix must move that test to discovery or an environment-provided root list.\n- Existing tests: 45 amend-rfc-up tests pass today; the dispatch tests inject `ownerRunner` and therefore do not exercise the CLI dead end. The new suite must cover the CLI path.",
+          "boyScoutPlan": "- Split `preflight.js` into `material.js` (resolution and digest), `workspace.js` (package inventory and surfaces), `ticket.js` (ensure/reuse), and `law.js` (discovery and phases); preflight becomes a readable sequence of those calls.\n- Rename generic locals (`resolved`, `candidate`, `add`) to domain names (`resolvedMaterialPaths`, `materialCandidate`, `recordMaterial`) and make every exported function a verb phrase.\n- Extract error codes, path bases, excluded directory names, rule-table patterns, and artifact suffixes into named constants; remove repeated string literals.\n- Replace nested conditionals in material resolution and receipt validation with early-return helpers (`resolveAgainstBases`, `assertReceiptDelta`).\n- Keep `dispatchArtifactChange` as the single dispatch entry point; move owner snapshot/receipt logic into `owners.js` so the dispatch function reads as route → plan/apply → verify.\n- Update comments to state why a base order or digest check exists; remove comments that only restate the code.\n- No existing non-compliant code outside the touched files is required for this ticket.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "amend-rfc-up -> material resolution",
+              "precondition": "material arguments may be absolute, home-prefixed, invocation-cwd, package-relative, or repo-relative",
+              "postcondition": "resolved material paths exist and carry sha256; failure returns triedBases",
+              "invariant": "no artifact write occurs before every material path resolves"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "amend-rfc-up -> amendment ticket",
+              "precondition": "Tickets.json has zero active tickets and material carries no ticket key",
+              "postcondition": "a planned PX ticket is created or reused for the same digest",
+              "invariant": "ticket JSON is written only through ticket CRUD scripts"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "instruction -> *-law skill",
+              "precondition": "the instruction names a *-law skill present under repo .claude/skills",
+              "postcondition": "the canonical verifier reports machine_verified for all checks and applies/resolve/context run",
+              "invariant": "okf/ is never read as rule text"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "material -> rule inventory",
+              "precondition": "the material file contains a registry table of rule IDs",
+              "postcondition": "the inventory lists every registry rule ID with source line and registered flag",
+              "invariant": "inventory order and content are deterministic"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "rule inventory -> coverage",
+              "precondition": "the rule inventory and change request exist",
+              "postcondition": "every rule is covered by a change or carries a not_applicable reason",
+              "invariant": "unset, unknown, or duplicate rule coverage is rejected"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "repo -> workspace inventory",
+              "precondition": "the repo root contains WORKSPACIFY-TREE-MANIFEST.json with workspace.packages",
+              "postcondition": "packages and interface surfaces are enumerated with paths and canon state",
+              "invariant": "excluded directories are never treated as packages"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "request -> change DAG",
+              "precondition": "packages, changes, and cross-package impacts are declared",
+              "postcondition": "every change names a known package and the change DAG is acyclic",
+              "invariant": "unknown package or cyclic dependency is CHANGE_INVALID"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "instruction -> surface coverage",
+              "precondition": "the instruction or material names interface surfaces",
+              "postcondition": "every surface maps to a package or carries a not_applicable reason",
+              "invariant": "an unassigned surface is SURFACE_TARGET_MISSING"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "derived artifact -> owner plan",
+              "precondition": "a change targets graph, dirs-tree, or tickets",
+              "postcondition": "dry-run returns an owner plan with beforeDigest and writes no artifact",
+              "invariant": "OWNER_REQUIRED is never a terminal stop for a derived change"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "owner execution -> receipt",
+              "precondition": "an owner command has been executed for a derived change",
+              "postcondition": "receipt afterDigest differs from beforeDigest and the status verifier passes",
+              "invariant": "receipt mismatch or no artifact delta is OWNER_RECEIPT_INVALID or OWNER_NO_DELTA"
+            },
+            {
+              "id": "C011",
+              "sourceEdge": "packages -> workspace verify",
+              "precondition": "all package amendments are applied and owner receipts recorded",
+              "postcondition": "package and workspace verification report zero findings twice with the same digest",
+              "invariant": "any finding blocks completion as VERIFY_BLOCKED"
+            },
+            {
+              "id": "C012",
+              "sourceEdge": "run -> idempotency",
+              "precondition": "the same material and instruction digest was already applied",
+              "postcondition": "the run returns NO_CHANGE and appends no duplicate amendment",
+              "invariant": "the amendment digest ledger is immutable"
+            },
+            {
+              "id": "C013",
+              "sourceEdge": "run -> report v2",
+              "precondition": "package, artifact, rule, surface, and impact results exist",
+              "postcondition": "report v2 contains a package matrix and coverage counts",
+              "invariant": "uncovered, unverifiable, or unverified owner receipt blocks COMPLETE"
+            },
+            {
+              "id": "C014",
+              "sourceEdge": "command markdown -> public contract",
+              "precondition": "the command markdown is read",
+              "postcondition": "arguments are material-only and the steps describe multi-package non-interactive execution",
+              "invariant": "no project-specific repository, surface, or skill name is hardcoded"
+            }
+          ],
+          "planTestCode": [
+            "UT: [Normal/Error] @verifies C001 — material resolution across bases\n  ```js\n  const vars = resolveCommandVariables({ cwd: pkg, invocationDir: invocation, materialArgs: ['docs/spec.md'], instructionText: 'change', repoRoot: repo });\n  assert.equal(vars.materialPaths[0].path, path.join(invocation, 'docs/spec.md'));\n  assert.match(vars.materialPaths[0].sha256, /^[0-9a-f]{64}$/);\n  assert.equal(vars.materialPaths[0].bytes > 0, true);\n  assert.throws(() => resolveMaterialPaths({ materialArgs: ['missing.md'], invocationDir: invocation, packageDir: pkg, repoRoot: repo, instructionText: 'change' }), (error) => error.code === 'MATERIAL_NOT_FOUND' && error.triedBases.length === 3);\n  ```",
+            "UT: [Normal] @verifies C002 — amendment ticket creation and reuse\n  ```js\n  const first = ensureAmendmentTicket({ packageDir: pkg, ticketsPath, materialDigest: 'm1', instructionDigest: 'i1' });\n  assert.equal(first.created, true);\n  assert.match(first.ticketKey, /^PX-[0-9]+$/);\n  const second = ensureAmendmentTicket({ packageDir: pkg, ticketsPath, materialDigest: 'm1', instructionDigest: 'i1' });\n  assert.equal(second.reused, true);\n  assert.equal(second.ticketKey, first.ticketKey);\n  const document = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));\n  const ticket = document.phases.find((phase) => phase.id === -1).tickets.find((entry) => 'PX-' + entry.id === first.ticketKey);\n  assert.equal(ticket.status, 'todo');\n  assert.match(ticket.notes, /Amendment digest: m1/);\n  ```",
+            "UT: [Normal/Error] @verifies C003 — instruction-named *-law discovery and verification\n  ```js\n  const skills = resolveLawSkills({ instructionText: 'use rust-interface-law as needed', repoRoot: repo, claudeDir });\n  assert.equal(skills[0].name, 'rust-interface-law');\n  const report = verifyLawSkill({ skillPath: skills[0].skillPath, root: repo, outPath });\n  assertLawSkillValid({ report });\n  const used = runLawSkill({ skillPath: skills[0].skillPath, root: repo, packageDir: pkg, phases: ['adapter'], runner: lawRunner });\n  assert.equal(used.contexts.includes('context body'), true);\n  assert.equal(used.okfRead, false);\n  assert.throws(() => resolveLawSkills({ instructionText: 'use absent-law', repoRoot: repo, claudeDir }), (error) => error.code === 'LAW_SKILL_NOT_FOUND');\n  ```",
+            "UT: [Normal] @verifies C004 — deterministic rule inventory\n  ```js\n  const rules = extractRules({ materialPaths: [materialPath] });\n  assert.ok(rules.length >= 3);\n  const ids = rules.map((rule) => rule.id);\n  assert.deepEqual(ids, [...ids].sort());\n  assert.equal(new Set(ids).size, ids.length);\n  assert.equal(rules.find((rule) => rule.id === 'ARC-01').registered, true);\n  assert.equal(extractRules({ materialPaths: [materialPath] }).map((rule) => rule.id).join(','), ids.join(','));\n  ```",
+            "UT: [Normal/Error] @verifies C005 — rule coverage is total\n  ```js\n  const rules = extractRules({ materialPaths: [materialPath] });\n  const initialized = initRuleCoverage({ rules });\n  assert.equal(initialized.every((entry) => entry.status === 'unset'), true);\n  const coverage = [\n    { ruleId: rules[0].id, status: 'covered', changeIds: ['CH1'], reason: null },\n    ...rules.slice(1).map((rule) => ({ ruleId: rule.id, status: 'not_applicable', changeIds: [], reason: 'package role excludes this rule' })),\n  ];\n  assert.doesNotThrow(() => validateRuleCoverage({ rules, coverage, changes: [{ id: 'CH1' }] }));\n  assert.throws(() => validateRuleCoverage({ rules, coverage: initialized, changes: [{ id: 'CH1' }] }), (error) => error.code === 'REQUEST_RULE_UNCOVERED');\n  ```",
+            "UT: [Normal/Error] @verifies C006 — workspace package inventory\n  ```js\n  const inventory = discoverPackages({ repoRoot: repo });\n  assert.ok(inventory.packages.length >= 2);\n  assert.equal(inventory.packages.every((entry) => typeof entry.dir === 'string' && entry.dir.startsWith(repo)), true);\n  assert.equal(inventory.packages.some((entry) => entry.dir.includes('node_modules')), false);\n  assert.equal(inventory.source === 'manifest' || inventory.source === 'scan', true);\n  assert.throws(() => resolvePackage({ packages: inventory.packages, idOrPath: 'absent-package' }), (error) => error.code === 'PACKAGE_NOT_FOUND');\n  ```",
+            "UT: [Normal/Error] @verifies C007 — request v2 package and DAG validation\n  ```js\n  const request = buildChangeRequestV2({ packages: [pkgA, pkgB], changes: [changeA, changeB], impacts: [], rules, surfaces });\n  assert.equal(validateChangeRequest({ request, packages: [pkgA, pkgB] }).ok, true);\n  assert.throws(() => validateChangeRequest({ request: { ...request, changes: [{ ...changeA, package: 'absent' }] }, packages: [pkgA, pkgB] }), (error) => error.code === 'CHANGE_INVALID');\n  const cyclic = [{ id: 'A', package: 'pkg-a', dependsOn: ['B'] }, { id: 'B', package: 'pkg-b', dependsOn: ['A'] }];\n  assert.throws(() => assertChangeDag({ changes: cyclic }), (error) => error.code === 'CHANGE_DAG_CYCLE');\n  ```",
+            "UT: [Normal/Error] @verifies C008 — surface coverage\n  ```js\n  const surfaces = extractSurfaces({ instructionText: 'REST, WebSocket, CLI, gRPC, MCP, A2A', materialPaths: [materialPath] });\n  assert.deepEqual(surfaces, ['A2A', 'CLI', 'gRPC', 'MCP', 'REST', 'WebSocket']);\n  const coverage = surfaces.map((surface) => ({ surface, status: 'covered', packageIds: ['pkg-a'], reason: null }));\n  assert.doesNotThrow(() => assertSurfaceCoverage({ surfaces, coverage, packages: [pkgA] }));\n  assert.throws(() => assertSurfaceCoverage({ surfaces, coverage: coverage.filter((entry) => entry.surface !== 'MCP'), packages: [pkgA] }), (error) => error.code === 'SURFACE_TARGET_MISSING');\n  ```",
+            "UT: [Normal] @verifies C009 — derived dry-run produces an owner plan\n  ```js\n  const plan = await dispatchArtifactChange({ change: GRAPH_CHANGE, packageDir: pkg, ticketKey: 'PX-1', mode: 'dry-run' });\n  assert.equal(plan.mode, 'owner');\n  assert.equal(plan.owner, 'graphify');\n  assert.match(plan.beforeDigest, /^[0-9a-f]{64}$/);\n  assert.equal(plan.expectedArtifacts.includes('RFC-GRAPH.json'), true);\n  assert.equal(plan.code, undefined);\n  const applied = await dispatchArtifactChange({ change: GRAPH_CHANGE, packageDir: pkg, ticketKey: 'PX-1', mode: 'apply' });\n  assert.equal(applied.code, 'OWNER_RECEIPT_REQUIRED');\n  ```",
+            "UT: [Normal/Error] @verifies C010 — owner receipt digest and status verification\n  ```js\n  const before = snapshotOwnerArtifacts({ packageDir: pkg, owner: 'graphify' });\n  fs.writeFileSync(path.join(pkg, 'RFC-GRAPH.json'), JSON.stringify({ nodes: [{ id: 'N1' }] }) + '\\n');\n  fs.writeFileSync(path.join(pkg, 'RFC-GRAPHIFY-Status.json'), JSON.stringify({ steps: { '0': 'done' }, runs: 2, lastOutputDigest: 'digest' }));\n  const receipt = { owner: 'graphify', beforeDigest: before.digest, afterDigest: sha256File(path.join(pkg, 'RFC-GRAPH.json')), statusFile: 'RFC-GRAPHIFY-Status.json', exit: 0 };\n  assert.doesNotThrow(() => validateOwnerReceipt({ packageDir: pkg, owner: 'graphify', receipt }));\n  assert.throws(() => validateOwnerReceipt({ packageDir: pkg, owner: 'graphify', receipt: { ...receipt, afterDigest: before.digest } }), (error) => error.code === 'OWNER_NO_DELTA');\n  assert.throws(() => validateOwnerReceipt({ packageDir: pkg, owner: 'graphify', receipt: { ...receipt, afterDigest: '0'.repeat(64) } }), (error) => error.code === 'OWNER_RECEIPT_INVALID');\n  ```",
+            "UT: [Normal/Error] @verifies C011 — workspace cross-package verification\n  ```js\n  const impacts = [{ from: 'pkg-a', to: 'pkg-b', kind: 'contract', reference: 'C-100', changeIds: ['CH2'] }];\n  const clean = runWorkspaceVerify({ packages, impacts, packagesById });\n  assert.equal(clean.findings.length, 0);\n  const missing = runWorkspaceVerify({ packages, impacts: [{ ...impacts[0], to: 'pkg-absent' }], packagesById });\n  assert.equal(missing.findings[0].code, 'IMPACT_TARGET_MISSING');\n  assert.equal(assertConverged({ first: { findings: [], digest: 'd1' }, second: { findings: [], digest: 'd1' } }), true);\n  assert.throws(() => assertConverged({ first: { findings: [{ code: 'X' }], digest: 'd1' }, second: { findings: [], digest: 'd1' } }), (error) => error.code === 'CONVERGENCE_FAILED');\n  ```",
+            "UT: [Normal] @verifies C012 — amendment digest replay\n  ```js\n  const digest = computeAmendmentDigest({ materialDigests: ['m1'], instructionDigest: 'i1', changes: [{ id: 'CH1' }], targetDigests: ['t1'] });\n  writeAmendmentRecord({ packageDir: pkg, digest, ticketKey: 'PX-1', packages: ['pkg-a'] });\n  const ledger = readAmendLedger({ packageDir: pkg });\n  assert.equal(decideReplay({ digest, ledger }).mode, 'no-change');\n  assert.equal(decideReplay({ digest: 'other', ledger }).mode, 'apply');\n  assert.equal(ledger.length, 1);\n  assert.equal(fs.readFileSync(path.join(pkg, 'amend', 'AMENDMENT.json'), 'utf8').includes(digest), true);\n  ```",
+            "UT: [Normal/Error] @verifies C013 — report v2 matrix and complete guard\n  ```js\n  const report = renderReportJson({ packages: { 'pkg-a': { ticketKey: 'PX-1', artifacts: { rfc: 'promoted', graph: 'rederived' } } }, ruleCoverage: { covered: 1, not_applicable: 0, uncovered: 0 }, surfaceCoverage: [], impacts: [], findings: [], unverifiable: [], outcome: 'DESIGN_AMENDED' });\n  assert.equal(report.schema, 'amend-rfc-up.report/v2');\n  assert.equal(Object.keys(report.packages).includes('pkg-a'), true);\n  assert.equal(report.packages['pkg-a'].artifacts.graph, 'rederived');\n  assert.equal(assertNoFalseComplete({ report }).ok, true);\n  const blocked = renderReportJson({ packages: { 'pkg-a': { artifacts: { rfc: 'promoted' } } }, ruleCoverage: { covered: 0, not_applicable: 0, uncovered: 1 }, outcome: 'DESIGN_AMENDED' });\n  assert.equal(assertNoFalseComplete({ report: blocked }).code, 'RULE_COVERAGE_INCOMPLETE');\n  ```",
+            "UT: [Normal] @verifies C014 — command public contract stays material-only\n  ```js\n  const text = fs.readFileSync('../../.claude/commands/amend-rfc-up.md', 'utf8');\n  assert.match(text, /argument-hint:\\s+\\[<material file\\|directory>\\.\\.\\.\\]/);\n  assert.equal(/--(?:apply|package|ticket-key|rule|phase)/.test(text.split('\\n').slice(0, 6).join(' ')), false);\n  assert.equal(text.includes('## Execution Contract'), true);\n  assert.equal(/gaia|crystal|doors/.test(text), false);\n  assert.equal(text.includes('rust-interface-law'), false);\n  assert.equal(text.includes('One package per invocation'), false);\n  ```"
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T06:13:50.191Z"
         }
       ]
     },
