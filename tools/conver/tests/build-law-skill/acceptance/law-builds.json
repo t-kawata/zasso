@@ -1,0 +1,31 @@
+{
+  "schema": "law-builds/v1",
+  "scope": "input-contract",
+  "sources": [
+    {
+      "path": "docs/NATLAB/Implementation-Handbook.md",
+      "sha256": "e1473ffc90085ebf42f02c41aaea1b621e897a10d42a558f82de79e3ebf5b400",
+      "lines": 2987,
+      "headings": 85,
+      "fences": 124,
+      "tableRows": 6
+    },
+    {
+      "path": "docs/BUILDENV/Apple-Silicon-Local-Rust-FFI-Runbook.md",
+      "sha256": "618e6fcecc2eef91025c18b3b01fb7394a7a13e3e9e56ea740a99fc018666f07",
+      "lines": 1423,
+      "headings": 72,
+      "fences": 96,
+      "tableRows": 16
+    },
+    {
+      "path": "docs/BUILDENV/PJSIP-BUILD-GUIDE.md",
+      "sha256": "598534fdcf10578ee9bec6e886ae72af32fa8265d414d48bd8eee2b302325d33",
+      "lines": 484,
+      "headings": 49,
+      "fences": 56,
+      "tableRows": 17
+    }
+  ],
+  "builds": []
+}

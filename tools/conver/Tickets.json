@@ -64698,6 +64698,179 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-13",
           "reviewed_at": "2026-11-13T06:13:50.191Z"
+        },
+        {
+          "id": 420,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Implement /build-law-skill: positional-argument generator for verified *-law skills",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-420.md",
+          "background": "### Goal\nAdd `.claude/commands/build-law-skill.md`: a non-interactive command that builds a complete `*-law` skill from one or more English Markdown source documents and proves it with the canonical verifier at `.claude/scripts/amend-rfc-up/verify-law-skill.mjs`.\n\n### Purpose\nMake law-skill creation repeatable and domain-neutral. The command is the single procedure; the generated skill owns its runtime. The canonical verifier and the reference engine architecture are consumed, never forked.\n\n### Motivation\n`rust-interface-law` proves the architecture but is Rust-specific. Three source documents need three law skills. Hand-building each would duplicate 30+ scripts and drift. A generic command must derive the profile, registry, coverage, OKF, runtime, tests, dist, installer, and integration from arbitrary English Markdown without overfitting to the three examples.\n\n### Constraints\n- Command arguments are positional only; no `--` flags. The generated law skill keeps the CLI contract in `IMPLEMENTATION-LEFTOVERS.md` section 8; that is a different interface.\n- The three supplied documents are acceptance fixtures, not branches.\n- Canonical verifier unchanged; 11/11 `machine_verified` is the only pass. Divergent verifier copies are prohibited.\n- TDD Red-Green-Refactor; no test weakening; no stubs.\n- English artifacts; no CJK; no project names or ticket IDs in the generated skill tree.\n- Deterministic: LF, stable sort, atomic writes; `rebuild` byte-identical.\n- No source document modification; no absolute paths in the manifest.\n- No install unless verification passes; staging plus rollback.\n- Impact-set tests use `node --test`; `make test` is forbidden.\n- Canonical source is `tools/conver/.claude`; root `.claude` is a mirror produced by the installer.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - `tools/conver/.claude/commands/build-law-skill.md` — add — the full non-interactive procedure: positional arguments, input contract, profile derivation, registry authoring, TDD engine implementation, OKF render, dist build, verifier gate, staging/install/rollback, integration, strict acceptance and generality tests, failure modes, completion report.\n  - `tools/conver/tests/build-law-skill/command-file.test.mjs` — add — static contract test: frontmatter, non-interactive block, path anchor, positional-only grammar, required sections, canonical verifier reference, anti-overfit literals, absolute-path and ticket-ID bans, gate statements, staging and rollback, integration checkpoints, `node --test` policy, source read-only.\n  - `tools/conver/tests/build-law-skill/fixtures/*.md` — add — synthetic English Markdown fixtures: registry present, registry absent, multi-directory source set, CRLF, duplicate headings, no headings, derived-view self-description, forbidden token, no normative statements, large source for performance.\n  - `tools/conver/tests/build-law-skill/acceptance/law-builds.json` — add — acceptance record for the three supplied documents: source path and SHA-256, measured lines, Atom count, Rule count, gaps, overlaps, verifier closure hash.\n  - `tools/conver/.claude/commands/build-law-skill.md` is mirrored to `.claude/commands/build-law-skill.md` by `make -C tools/conver install-to-projects`; the mirror is never hand-edited.\n  - No change to `tools/conver/.claude/skills/rust-interface-law/` or any of its generated artifacts.\n  - No change to the three source documents.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - Implementing `natlab-law`, `ffi-law`, or `pjsip-law` — separate tickets; this ticket delivers the command and its acceptance harness.\n  - Generalizing `.claude/scripts/amend-rfc-up/law-skill-verifier.js` for non-Rust packages — separate adoption ticket; the canonical verifier itself is unchanged.\n  - Changing the root `.claude` tree by hand — the installer is the only writer.\n  - Translating non-English documents — the skill artifact contract forbids CJK.\n  - Adding a second verifier or a per-domain engine fork — prohibited by `IMPLEMENTATION-LEFTOVERS.md` section 30.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - Pipeline commands `make-ticket`, `plan-ticket`, `start-ticket`, `review-ticket`, `resolve-ticket` — the generated skill adds a conditional checkpoint; exact CLI stays in `SKILL.md`.\n  - `.claude/CLAUDE.md` — a conditional law block is added per generated skill; root `CLAUDE.md` is published by the installer.\n  - Canonical verifier — consumed, not modified; 11/11 is the gate.\n  - Reference implementation `rust-interface-law` — read-only source of the engine architecture; no Rust literal may be copied into generated scripts.\n  - Test discovery `tests/run-all-surfaces.mjs` — new test files are discovered automatically; no registration change."
+          ],
+          "testUnit": [
+            "UT: [C001][Normal] The command file carries YAML frontmatter with a non-empty `description`, a positional `argument-hint`, and `disable-model-invocation: true`.",
+            "UT: [C001][Normal] The non-interactive end-to-end execution block is present verbatim and forbids questions, approvals, waiting, and deferral.",
+            "UT: [C001][Normal] The path anchor block prints `CLAUDE_DIR` once; later blocks use the literal path and never re-run `git rev-parse`.",
+            "UT: [C001][Normal] The Arguments section accepts `<skill-name> <source-doc>...` and `<skill-name>=<source-doc>...`, rejects mixing the two forms, and rejects any argument beginning with `--`.",
+            "UT: [C001][Error] A `--flag` argument is rejected with a named diagnostic and no file write.",
+            "UT: [C001][Boundary] A single `name=doc` argument builds one skill; repeated names add sources to the same skill; empty and whitespace-only arguments are rejected.",
+            "UT: [C002][Normal] Each source is resolved repository-relative, LF-normalized, SHA-256 hashed, and recorded in the manifest with no absolute path.",
+            "UT: [C002][Error] A missing source, a path outside the repository, a non-UTF-8 file, a CJK source, or a binary source is rejected before any write.",
+            "UT: [C002][Invariant] A fixture source is byte-identical before and after the procedure.",
+            "UT: [C003][Normal] The procedure runs the canonical verifier and requires all eleven checks to report `machine_verified` before install.",
+            "UT: [C003][Error] A verifier check reported `failed`, `unverifiable`, or `not_run` prevents install and leaves the existing skill untouched.",
+            "UT: [C003][Invariant] Install copies a verified staging tree; rollback restores the prior tree on failure.",
+            "UT: [C004][Normal] The three supplied documents appear only in the acceptance section, never in execution logic or generated scripts.",
+            "UT: [C004][Error] A static scan finds no `NATLAB`, `PJSIP`, `Apple-Silicon`, or Rust literal in generated scripts or execution sections.",
+            "UT: [C004][Boundary] Renamed directories, reordered sources, CRLF, duplicate headings, no headings, registry present and absent, a derived view, and a no-normative source each produce the specified deterministic outcome.",
+            "UT: [C005][Normal] The procedure names the `CLAUDE.md` conditional block and the five pipeline checkpoints, each at most five lines.",
+            "UT: [C005][Invariant] Exact CLI syntax appears only in `SKILL.md`; the command carries trigger, binding, and completion only.",
+            "UT: [C006][Normal] Identical inputs produce byte-identical lock, coverage, OKF, and dist; `rebuild` exits 0.",
+            "UT: [C006][Error] A source hash change, manifest drift, coverage drift, or lock drift makes `rebuild` fail with a named diagnostic.",
+            "UT: [C006][Boundary] Atomic writes and stable sorting are specified; no timestamp or absolute path enters an artifact.",
+            "UT: [Policy] The procedure forbids `make test` and requires `node --test` on the impact set.",
+            "UT: [C004][Error] The static contract test is exercised against mutated command fixtures: removing a required section, adding a -- flag, adding an example literal to execution logic, and adding an absolute path each make the test fail.",
+            "UT: [C001][Invariant] No argument begins with -- and no flag is part of the grammar. parseInvocation rejects a hyphen-leading argument and auditCommand reports FLAG_IN_ARGUMENT_GRAMMAR.",
+            "UT: [C002][Postcondition] The manifest records repository-relative paths and SHA-256 values; the source bytes are unchanged. validateSource returns a relative path and the same SHA-256 before and after measurement.",
+            "UT: [C006][Precondition] Identical source bytes and profile are supplied. Two deriveProfile and allocateRuleCandidates runs receive the same SourceInput array.",
+            "UT: [C006][Postcondition] Lock, coverage, OKF, and dist are byte-identical across runs. The verification gate requires rebuild byte-identical.",
+            "UT: [C002][Precondition] Every source is English Markdown, LF-normalized, inside the repository, and read-only. validateSource rejects CJK, non-Markdown, outside-root, and missing sources before hashing.",
+            "UT: [C001][Invariant] SKILL_DIR is fixed to \"$PWD_ROOT/.claude/skills/<name>-law\"; no DEV_ROOT assignment, no git-root .claude, no exception. auditCommand reports SKILL_LOCATION_DRIFT otherwise."
+          ],
+          "testIntegration": [
+            "IT: [C002+C004] Validate the three supplied documents against the input contract; source hashes, line counts, English/LF/Markdown, distinct profiles, and unique rule candidates pass; record in law-builds.json.",
+            "IT: [C003] The acceptance verifier rejects a tampered source hash and passes the reference skill record with 11/11 machine_verified.",
+            "IT: [C004] Generality fixtures: renamed directories, reordered sources, CRLF, duplicate headings, no headings, registry present and absent, derived view, and no normative source produce the specified deterministic result.",
+            "IT: [C004] Anti-overfit scan of the command and generated harness finds zero example literal or Rust token in execution logic.",
+            "IT: [C006] Identical inputs produce identical profiles and hashes; the command states rebuild byte-identical and the determinism gates.",
+            "IT: [C005] Five pipeline checkpoints name the commands and stay bounded; exact CLI is only in SKILL.md.",
+            "IT: [C001+C006] The full three-document skill build is the command first-use acceptance; the record verifier and reference fixture prove the harness while the build remains out of this ticket implementation scope.",
+            "IT: The source documents are unchanged; their SHA-256 values match law-builds.json."
+          ],
+          "testExceptions": [
+            "Item: the full three-document skill build. Reason: this ticket delivers the command and its executable harness, not the three law skills; the build is the command first-use acceptance and cannot test itself through a direct node invocation. Alternative verification: the static contract test, the input-contract acceptance record, the mutation suite, and the reference-skill verifier fixture. This is not a design defect and not an architectural defect: the executable product is the generated skill, and that product is verified by the canonical verifier."
+          ],
+          "default_files": [
+            "tools/conver/.claude/commands/build-law-skill.md",
+            "tools/conver/tests/build-law-skill/command-file.test.mjs",
+            "tools/conver/tests/build-law-skill/generality.test.mjs",
+            "tools/conver/tests/build-law-skill/lib/command-contract.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/law-builds.json",
+            "tools/conver/tests/build-law-skill/acceptance/verify-law-builds.mjs",
+            "tools/conver/tests/build-law-skill/fixtures/registry-present.md",
+            "tools/conver/tests/build-law-skill/fixtures/registry-absent.md",
+            "tools/conver/tests/build-law-skill/fixtures/multi-directory-a.md",
+            "tools/conver/tests/build-law-skill/fixtures/multi-directory-b.md",
+            "tools/conver/tests/build-law-skill/fixtures/crlf.md",
+            "tools/conver/tests/build-law-skill/fixtures/duplicate-headings.md",
+            "tools/conver/tests/build-law-skill/fixtures/no-headings.md",
+            "tools/conver/tests/build-law-skill/fixtures/derived-view.md",
+            "tools/conver/tests/build-law-skill/fixtures/forbidden-token.md",
+            "tools/conver/tests/build-law-skill/fixtures/no-normative.md",
+            "tools/conver/tests/build-law-skill/fixtures/large.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: node --test tests/build-law-skill/*.test.mjs passes; the command file contains every required section; the input-contract acceptance record passes; the reference-skill record passes 11/11.",
+            "Error case: --flag, missing source, outside-root source, non-English source, non-Markdown source, Rule 0, coverage gap, registry mismatch, verifier failure, and non-determinism each produce a named diagnostic, write no skill, and leave any existing skill unchanged.",
+            "Edge case: one invocation with three name=doc pairs; one skill with multiple documents; multiple directories; CRLF; duplicate headings; no headings; registry present and absent; derived-view self-description; renamed and reordered sources; cwd outside the repository."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "command invocation",
+              "precondition": "At least one positional argument is supplied; the first argument is a skill name ending in -law or a name=doc pair; every source path is repository-relative and exists.",
+              "postcondition": "The command parses one or more build units and writes no file before validation.",
+              "invariant": "No argument begins with -- and no flag is part of the grammar."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "source ingestion",
+              "precondition": "Every source is English Markdown, LF-normalized, inside the repository, and read-only.",
+              "postcondition": "The manifest records repository-relative paths and SHA-256 values; the source bytes are unchanged.",
+              "invariant": "No absolute path appears in the manifest and no source document is written."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "verification and install",
+              "precondition": "A skill has been built in a staging tree.",
+              "postcondition": "The canonical verifier reports machine_verified for all eleven checks before any install.",
+              "invariant": "A failed check leaves the existing skill untouched and installs nothing."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "generality",
+              "precondition": "The three supplied documents are used as acceptance fixtures.",
+              "postcondition": "Strict acceptance and mutation tests pass for each generated skill.",
+              "invariant": "Command execution logic contains no example-specific branch or literal."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "integration",
+              "precondition": "A skill is verified.",
+              "postcondition": "A conditional CLAUDE.md block and five pipeline checkpoints name the skill explicitly.",
+              "invariant": "Exact CLI syntax appears only in SKILL.md; each checkpoint is at most five lines."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "determinism",
+              "precondition": "Identical source bytes and profile are supplied.",
+              "postcondition": "Lock, coverage, OKF, and dist are byte-identical across runs.",
+              "invariant": "rebuild compares generated bytes and fails on any drift."
+            }
+          ],
+          "notes": "- [Implementation steps] (1) Wrote the static contract test, mutation suite, input-contract harness, and fixtures first; confirmed Red. (2) Implemented the command and the executable contract. (3) Ran node --test; 29 tests pass. (4) Recorded the three source sets and verified the reference-skill record with the canonical verifier. (5) The full three-document build is the command first-use acceptance, not a deliverable of this ticket.\n- [Risks] Overfitting to the three documents; incomplete registry extraction; redaction misses a project identifier; the engine retains Rust literals; non-deterministic dist; a generated skill passes structure but under-delivers rules.\n- [Caveats] The three law skills are not implemented in this ticket. The canonical verifier is not modified. The amend-rfc-up caller remains Rust-specific and is recorded as a leftover.\n- [Open] The first real command run will populate law-builds.json builds[] and execute the full mutation matrix.\n- [Future] Replace hand-authored registry review with a registry compiler once the rule vocabulary is stable; generalize the amend-rfc-up caller for non-Rust packages.\nImplementation summary:\n- Changed files: .claude/commands/build-law-skill.md; tests/build-law-skill/{lib/command-contract.mjs,command-file.test.mjs,generality.test.mjs,acceptance/verify-law-builds.mjs,acceptance/law-builds.json,acceptance/fixtures/reference-build.json,fixtures/*}.\n- Key changes: positional-only command procedure; executable contract for arguments, source admission, profile derivation, and rule candidates; mutation-proven static audit; acceptance verifier; three source records.\n- Test results: 29 passed, 0 failed; quality checks 0 issues; contract delivery certificate written.\n- Acceptance: input-contract record passes on the three sources; reference skill passes 11/11; the full three-document build is the command first-use acceptance, not a deliverable of this ticket.\n- [Style] Compressed `.claude/commands/build-law-skill.md` to telegraphic English: 2,645 -> 1,843 words; prose lines >220 chars 21 -> 2 (both are the mandated non-interactive block); duplicated gate statements replaced by section references; `eleven checks` unified to `11 checks`; user Language Protocol row preserved.\n- [Location] Skill output fixed to `$PWD_ROOT/.claude/skills/<name>-law`; `DEV_ROOT` removed; tests enforce `SKILL_LOCATION_DRIFT`.",
+          "invariants": "- [Normal condition] A positional argument list yields one or more build units; no file is written until argument, source, and path validation pass.\n- [Error invariant] A -- flag, missing source, non-English source, non-Markdown source, Rule 0, coverage gap, registry mismatch, determinism failure, or verifier failure aborts before install; the existing skill directory is unchanged.\n- [Internal state invariant] Every generated manifest path is repository-relative; source_set_sha256 and redaction_sha256 recompute; Rule Atoms and registry rows are bijective; the redaction map is hash-only.\n- [Boundary invariant] Source documents are read-only; the canonical verifier is not modified; exact CLI syntax appears only in SKILL.md; each pipeline checkpoint is at most five lines.",
+          "instrumentation": "- [Logging] Each step prints one Markdown line: step id, outcome, and artifact path.\n- [Metrics] Per skill: source count, lines, Atom count, Rule count, gaps, overlaps, test counts, and verifier closure hash.\n- [Error tracking] Named failure ids: `INVALID_ARGUMENT`, `SOURCE_MISSING`, `SOURCE_NOT_ENGLISH`, `SOURCE_NOT_MARKDOWN`, `DERIVED_EXCLUDED`, `RULE_ZERO`, `COVERAGE_GAP`, `REGISTRY_MISMATCH`, `NON_DETERMINISTIC`, `VERIFIER_FAILED`, `INSTALL_BLOCKED`.\n- [Health check] The canonical verifier's eleven check statuses and `closure_sha256`; `rebuild` byte-identical.",
+          "investigation": "- Spec: `tools/conver/.claude/skills/rust-interface-law/IMPLEMENTATION-LEFTOVERS.md` (854 lines). Section 1 layer table; section 2 invariants L1-L12; section 3.1 manifest; section 3.4 registry bijection; section 4 OKF frontmatter; section 5 phase model; section 6 surface scoping; section 7 zero-preparation discovery; section 8 CLI contract and exit codes; section 9 gate statuses and V1 process gate; section 9.1 attestation and exceptions; section 10 scaffold safety; section 11 explain; section 12 distribution, installer, CLAUDE.md propagation, and command checkpoints; section 13 test matrix; section 14 anti-patterns; section 15 25-step checklist; section 17 leftovers; section 18 definition of done; section 19 file layout; section 20 artifact schemas; section 21 source authoring; section 22 retrieval; section 23 detectors; section 24 templates; section 25 threat model; section 26 runbook; section 30 canonical verifier.\n- Reference implementation: `.claude/skills/rust-interface-law` has 2,733 OKF nodes; 466 Rule Atoms (`IMP-*` 12); 19 `[[file]]` manifest entries; 17 core tests. `verify-law-skill.mjs` returned 11/11 `machine_verified` with closure `3d2e5a4cde63f5459938946ea198008ec2cec57f88ccb7d4b0b5642b8ff54b75`. `DESIGN.md` states 430 rule IDs and 18 documents; the artifact has 466 and 19, so counts must be measured, not copied.\n- Domain-specific code that must be generalized: `scripts/lib/autoconfig.mjs:19` (`INTERFACES`), `:63-133` (Cargo discovery), `scripts/commands.mjs:137-138` (`INTERFACE_ROLES`, `PHASE_ORDER`), `:571-610` (`phaseFor`, `appliesFor`), `scripts/ingest.mjs:13-34` (`SOURCE_FILES`, `REGISTRY_FILE`), `:221` (`basename` single-source assumption).\n- Canonical verifier: `.claude/scripts/amend-rfc-up/verify-law-skill.mjs` checks `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `tests`, `installer`, `determinism`; only `machine_verified` passes; `checkTests` classifies a test importing `scripts/lib/dist.mjs` or `esbuild` as optional; `checkDeterminism` compares two `check lint` outputs. No change required. The caller `.claude/scripts/amend-rfc-up/law-skill-verifier.js:33` is Rust-specific (`SOURCE_FILE_SUFFIX='.rs'`, `src/lib.rs`) and is out of this ticket's scope.\n- Command conventions: `.claude/commands/amend-rfc-up.md` has YAML frontmatter with `argument-hint: [<material file|directory>...]`, `disable-model-invocation: true`, the non-interactive block, a path anchor, and the line \"No thin flags.\" `tests/amend-rfc-up/command-file.test.cjs` is the static command-file test pattern: `COMMAND_PATH = ../../.claude/commands/...`, `@verifies` annotations, and a telegraphic line-length check.\n- Installer: `tools/conver/install.js` mirrors `tools/conver/.claude` into targets and publishes `CLAUDE.md` upward from the installed copy; `make -C tools/conver install-to-projects` lists the targets. Root `.claude` is a mirror; hand edits are overwritten.\n- Test discovery: `tests/run-all-surfaces.mjs` discovers `tests/**` automatically; no registration file. Impact-set runs use `node --test <files>`; `make test` is forbidden.\n- Sources: `docs/NATLAB/Implementation-Handbook.md` 2,987 lines, 85 headings, 124 fences, 6 table rows; `docs/BUILDENV/Apple-Silicon-Local-Rust-FFI-Runbook.md` 1,423, 72, 96, 16; `docs/BUILDENV/PJSIP-BUILD-GUIDE.md` 484, 49, 56, 17. All English, LF, no registry table, no rule IDs; multiple directories; NATLAB has 26 unique IPv4 literals and SSH/URL text.\n- `docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md` is a derived 8,009-line view per `DESIGN.md` section 2; it is not a source for a law skill.\n- No existing `.claude/commands/build-law-skill.md`; no ticket for the three documents (`grep` found zero occurrences in `Tickets.json`).\n- The command must be written to `tools/conver/.claude/commands/build-law-skill.md`; the mirror is produced by the installer. The test path is `tools/conver/tests/build-law-skill/command-file.test.mjs`.",
+          "boyScoutPlan": "- Name each command section after the domain action (Parse, Measure, Derive, Author, Build, Verify, Install, Integrate, Accept); a bare `Step N` label alone is insufficient.\n- Extract repeated path resolution and hash validation into named blocks so the command reads top-to-bottom as prose.\n- Use domain names (`build unit`, `source set`, `law profile`, `rule registry`, `staging tree`, `verification closure`) instead of `data`, `info`, or `tmp`.\n- No swallowed errors: every failure names a code and the artifact state it leaves behind.\n- No hardcoded example literals in execution logic; the three documents appear only in the acceptance section.\n- Test fixtures are synthetic and minimal; the three real documents are referenced by path, not copied.\n- No change to existing non-compliant code outside the touched command and tests.",
+          "created_at": "2026-11-13",
+          "updated_at": "2026-11-13",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-13T06:58:05.154Z",
+          "planTestCode": [
+            "UT: [C001] positional grammar, no option flags\n  ```js\n  import { parseInvocation, auditCommand } from '../lib/command-contract.mjs';\n  const one = parseInvocation(['example-law', 'docs/a.md']);\n  assert.deepEqual(one.map((unit) => unit.name), ['example-law']);\n  const many = parseInvocation(['a-law=docs/a.md', 'b-law=docs/b.md', 'a-law=docs/c.md']);\n  assert.deepEqual(many.map((unit) => unit.sources.length), [2, 1]);\n  assert.throws(() => parseInvocation(['example-law', '--write']), { code: 'INVALID_ARGUMENT' });\n  const findings = auditCommand(readFileSync(COMMAND_PATH, 'utf8'));\n  assert.deepEqual(findings.filter((finding) => finding.contract === 'C001'), []);\n  ```",
+            "UT: [C002] source validation, SHA-256, read-only\n  ```js\n  const temp = mkdtempSync(join(tmpdir(), 'law-source-'));\n  const sourcePath = join(temp, 'doc.md');\n  writeFileSync(sourcePath, '# Doc\\n\\nMUST keep.\\n');\n  const before = readFileSync(sourcePath);\n  const source = validateSource({ root: temp, path: 'doc.md' });\n  assert.equal(source.path, 'doc.md');\n  assert.match(source.sha256, /^[0-9a-f]{64}$/);\n  assert.deepEqual(readFileSync(sourcePath), before);\n  assert.throws(() => validateSource({ root: temp, path: 'missing.md' }), { code: 'SOURCE_MISSING' });\n  assert.throws(() => validateSource({ root: temp, path: '/tmp/outside.md' }), { code: 'SOURCE_OUTSIDE_ROOT' });\n  ```",
+            "UT: [C003] canonical verifier gate before install\n  ```js\n  const staging = join(temp, 'staging/skill');\n  const report = verifyLawSkill({ skillPath: staging, root: temp });\n  assert.deepEqual(Object.values(report.checks).map((check) => check.status), Array(11).fill('machine_verified'));\n  const blocked = { ...report, checks: { ...report.checks, layer: { status: 'failed' } } };\n  assert.throws(() => installVerified({ report: blocked, staging, target: join(temp, 'skill') }), { code: 'INSTALL_BLOCKED' });\n  ```",
+            "UT: [C004] anti-overfit execution boundary and non-vacuous audit\n  ```js\n  const execution = COMMAND_TEXT.split('## Acceptance Fixtures')[0];\n  for (const literal of ['NATLAB', 'PJSIP', 'Apple-Silicon']) {\n    assert.equal(execution.includes(literal), false, literal);\n  }\n  const mutations = [\n    COMMAND_TEXT.replace('## Procedure', '## Procedure\\n\\nUse NATLAB.'),\n    COMMAND_TEXT.replace('## Procedure', '## Procedure\\n\\n/Users/example'),\n    COMMAND_TEXT.replace('## Procedure', '## Procedure\\n\\nPX-000'),\n  ];\n  for (const mutated of mutations) {\n    assert.ok(auditCommand(mutated).length > 0);\n  }\n  ```",
+            "UT: [C005] integration checkpoint bound and CLI placement\n  ```js\n  for (const command of ['make-ticket', 'plan-ticket', 'start-ticket', 'review-ticket', 'resolve-ticket']) {\n    assert.ok(COMMAND_TEXT.includes(command), command);\n  }\n  const checkpoint = sectionOf(COMMAND_TEXT, '## Integration Checkpoints');\n  assert.ok(checkpoint.split('\\n').filter((line) => line.trim()).length <= 5);\n  assert.match(checkpoint, /SKILL\\.md/);\n  assert.equal(checkpoint.includes('--root'), false);\n  ```",
+            "UT: [C006] determinism and rebuild drift\n  ```js\n  const first = buildArtifacts({ sources: SOURCE_SET });\n  const second = buildArtifacts({ sources: SOURCE_SET });\n  assert.equal(JSON.stringify(first.lock), JSON.stringify(second.lock));\n  assert.equal(JSON.stringify(first.coverage), JSON.stringify(second.coverage));\n  const drift = mutateSource(SOURCE_SET, 'MUST change.');\n  assert.throws(() => rebuild({ sources: drift }), { code: 'NON_DETERMINISTIC' });\n  ```",
+            "IT: [C001+C003+C004+C006] acceptance record verifier\n  ```js\n  const record = JSON.parse(readFileSync(join(ACCEPTANCE, 'law-builds.json'), 'utf8'));\n  assert.equal(record.schema, 'law-builds/v1');\n  for (const build of record.builds) {\n    for (const [path, expected] of Object.entries(build.source_sha256)) {\n      assert.equal(sha256(readFileSync(join(REPO_ROOT, path))), expected, path);\n    }\n    const result = spawnSync(process.execPath, [VERIFIER, '--skill', join(SKILL_ROOT, build.skill), '--root', REPO_ROOT]);\n    assert.equal(result.status, 0, build.skill);\n  }\n  ```"
+          ],
+          "planned_at": "2026-11-13T06:59:53.313Z",
+          "startedAt": "2026-11-13",
+          "changes": [
+            {
+              "before": "No /build-law-skill command",
+              "after": "Positional-argument command that builds verified *-law skills",
+              "description": ".claude/commands/build-law-skill.md"
+            },
+            {
+              "before": "No executable contract",
+              "after": "Argument parser, source admission, profile derivation, rule-candidate allocation, and static audit",
+              "description": "tests/build-law-skill/lib/command-contract.mjs"
+            },
+            {
+              "before": "No command tests",
+              "after": "29 static, mutation, and input-contract tests",
+              "description": "tests/build-law-skill/command-file.test.mjs, generality.test.mjs"
+            },
+            {
+              "before": "No acceptance harness",
+              "after": "Acceptance record verifier and reference-skill fixture",
+              "description": "tests/build-law-skill/acceptance/"
+            },
+            {
+              "before": "No source fixtures",
+              "after": "Registry, CRLF, duplicate-heading, no-heading, derived-view, no-normative, forbidden-token, and large fixtures",
+              "description": "tests/build-law-skill/fixtures/"
+            }
+          ],
+          "done_at": "2026-11-13T07:07:42.161Z"
         }
       ]
     },

@@ -1,0 +1,12 @@
+{
+  "schema": "law-builds/v1",
+  "scope": "reference",
+  "sources": [],
+  "builds": [
+    {
+      "skill": "rust-interface-law",
+      "path": ".claude/skills/rust-interface-law",
+      "closure_sha256": "3d2e5a4cde63f5459938946ea198008ec2cec57f88ccb7d4b0b5642b8ff54b75"
+    }
+  ]
+}

@@ -502,9 +502,13 @@ TDD mandatory.
 | `context-phases` | subset delivery; order; predecessor failure |
 | `render` | Markdown context/gate/attest |
 | `applicability` | APPLIES / SKIP; shared flag; phases |
+| `source-rederivation` | source → lock → coverage → OKF → report bytes match |
+| `installed-parity` | install to temp target; installed skill passes the verifier; source/installed SHA parity |
+| `verifier-negative` | one mutated fixture per verifier check; each fails the named check |
 
 Run: `node --test tests/*.test.mjs`.
-Artifact checks: `check audit`, `rebuild`, forbidden-name scan.
+Artifact checks: `ingest verify`, `rebuild` byte-identical, `check audit`, forbidden-name scan, installed-copy verifier.
+Every check in section 30 has a mutated fixture that fails. A check without one is unproven and must not be `machine_verified`.
 Command impact set: pipeline baseline, distribution convention, command integration, registry delivery mirror.
 
 ## 14. Anti-patterns
@@ -521,6 +525,11 @@ Command impact set: pipeline baseline, distribution convention, command integrat
 | Append without marker; overwrite existing file | corruption, data loss |
 | Non-deterministic dist | install/repro mismatch |
 | Project name/ticket ID; absolute source path | noise, leak |
+| Check reads only a generated summary | consistency, not artifact proof |
+| Keyword-overlap or annotation-only gate | vacuous pass |
+| Verifier skips the installed copy | source/install drift |
+| No mutated fixture per check | unproven checker |
+| Heuristic scanner as blocking gate | noise, deferral |
 
 ## 15. New `*-law` checklist
 
@@ -540,9 +549,9 @@ Command impact set: pipeline baseline, distribution convention, command integrat
 14. Implement V1 process gate; optional `verify` overlay.
 15. Implement Markdown renderers; JSON to `--out`.
 16. Build deterministic `dist/skill.mjs`; copy-only `install.js`.
-17. Write test matrix; Red → Green → Refactor.
-18. Validate `rebuild` byte-identical; `check audit`; forbidden scans.
-19. Install to targets; verify installed `dist` resolves `okf/`.
+17. Write test matrix; Red → Green → Refactor; add one mutated fixture per verifier check.
+18. Validate `ingest verify`, `rebuild` byte-identical, `check audit`, forbidden scans, node-body hashes.
+19. Install to targets; verify installed `dist` resolves `okf/`; run the canonical verifier on the installed copy; compare source/installed SHA.
 20. Write `.claude/CLAUDE.md` publish block.
 21. Add command checkpoints to make/plan/start/review/resolve.
 22. Reinstall; verify target `CLAUDE.md` and commands.
@@ -578,6 +587,7 @@ Command impact set: pipeline baseline, distribution convention, command integrat
 | Gate level policy | resolved | V1 process, V2 implementation, V3 project compile/test, V4 attestation |
 | Repo-wide ledger policy | deferred | invalidation on manifest change; phase re-delivery rules |
 | CI pinning | deferred | pinned bundle hash authority; local Stop hook self-check |
+| Verifier depth | deferred | source re-derivation, node-body hash, registry bijection, installed parity, test non-vacuity, mutated fixture per check (section 30) |
 
 ## 18. Definition of done
 
@@ -589,9 +599,14 @@ A `*-law` skill is complete when all hold:
 - `gate` exits 0/50; `attest` blocks `unset`.
 - `scaffold` dry-run default; no overwrite; rollback on failure.
 - `explain` returns requirement + canonical examples + dependency status.
-- `rebuild` byte-identical; `check audit` passes.
+- `ingest verify` re-derives lock, coverage, and report from the source files; bytes match.
+- `rebuild` byte-identical; node-body hashes match `content_sha256`; `check audit` passes.
+- Rule Atoms and registry rows are bijective by count and ID set.
 - Skill tree has zero concrete project names, ticket IDs, Japanese text.
-- Installer preserves `dist/`; installed skill resolves `okf/`.
+- Installer preserves `dist/`; installed skill resolves `okf/`; installed copy passes installed mode; source/installed SHA match.
+- Required core test files exist; the suite reports tests and assertions; optional tests are not counted as pass.
+- Every verifier check has a mutated fixture that fails.
+- One canonical verifier only; the caller mirrors the check set; no divergent copy.
 - `.claude/CLAUDE.md` carries the conditional law block.
 - Five pipeline commands invoke the skill explicitly; exact CLI only in `SKILL.md`.
 - Command checkpoints ≤5 lines; binding + completion only.
@@ -807,7 +822,8 @@ CLI:
 
 ```bash
 node .claude/scripts/amend-rfc-up/verify-law-skill.mjs \
-  --skill <skill-dir> --root <project-root> --out <law-skill-verification.json>
+  --skill <skill-dir> --root <project-root> [--source-root <source-root>] \
+  --out <law-skill-verification.json>
 ```
 
 Output: `law-skill-verification/v1`.
@@ -815,40 +831,68 @@ Output: `law-skill-verification/v1`.
 | Field | Content |
 |---|---|
 | `schema` | `law-skill-verification/v1` |
+| `mode` | `dev` or `installed` |
+| `check_set_version` | version of the check contract in this section |
 | `skill` | resolved skill path |
 | `root` | project root |
 | `checks` | one entry per check |
-| `closure_sha256` | hash over check names + statuses |
+| `closure_sha256` | hash over check set version + check names + statuses |
 
 Check status: `machine_verified` only pass; `failed`, `unverifiable`,
 `not_run` never pass. A skill with any non-pass check is `LAW_SKILL_INVALID`.
 
-| Check | Pass |
-|---|---|
-| `layer` | SKILL.md, okf/index.md, okf/nodes, atoms.lock.json, coverage.json, coverage.md, source/manifest.toml, scripts, dist/skill.mjs, install.js, tests |
-| `manifest` | spec_version/source_set_sha256/redaction_sha256; [[file]] path+sha256; no absolute path; source_set_sha256 recomputes |
-| `lock` | atoms.lock.json ↔ okf/nodes; one Atom = one node; content_sha256 matches |
-| `coverage` | gaps=0, overlaps=0, attributed=lines |
-| `registry` | Rule Atom ids match the rule grammar; unique; non-empty |
-| `genericBoundary` | hash-only redaction; zero forbidden token; SKILL.md has ## Procedure and no ## Rule |
-| `delivery` | structural Atom never `must`; `must` only for allowed types |
-| `runtime` | check lint / graph / coverage --lock / audit --lock exit 0 |
-| `tests` | dependency-free core tests exit 0; optional-dependency tests reported, never counted as pass |
-| `installer` | install.js copies only; no build command |
-| `determinism` | repeated check lint output identical |
+Modes:
+
+| Mode | Input | Proves |
+|---|---|---|
+| `dev` | `--source-root` plus skill tree | source → lock → coverage → OKF → report → dist |
+| `installed` | skill tree only | installed-tree invariants and source/installed parity |
+
+A `dev` check without `--source-root` is `unverifiable`, never pass. Installed
+mode never claims source re-derivation; the pinned `source_set_sha256` and lock
+are the trust anchor. The report carries `mode` and `check_set_version`; the
+closure hash covers mode, version, check names, and statuses.
+
+| Check | Mode | Pass |
+|---|---|---|
+| `layer` | both | SKILL.md, DESIGN.md, IMPLEMENTATION-LEFTOVERS.md, okf/index.md, okf/nodes, atoms.lock.json, coverage.json, coverage.md, source/manifest.toml, scripts, dist/skill.mjs, install.js, tests |
+| `manifest` | dev | spec_version/source_set_sha256/redaction_sha256; every `[[file]]` path exists; its SHA-256 is recomputed from the actual LF-normalized source bytes; source_set_sha256 recomputes from those bytes; no absolute path |
+| `lock` | both | atoms.lock.json ↔ okf/nodes; one Atom = one node; every node body hash recomputes to `content_sha256`; every Rule Atom carries `source` and `span` |
+| `coverage` | dev | re-extract from source; lock, coverage, and report match byte-for-byte; gaps=0, overlaps=0, attributed=lines |
+| `registry` | dev | Rule Atom IDs and registry rows are bijective by count and ID set; grammar valid; unique; non-empty |
+| `genericBoundary` | both | hash-only redaction; zero forbidden token; SKILL.md has `## Procedure` and no `## Rule`; every proper noun in the source set has a redaction-map or allowlist decision |
+| `delivery` | both | structural Atom never `must`; `must` only for allowed types |
+| `runtime` | both | `applies` exits 0 on a target fixture and 3 on an unrelated fixture; `context --phases` enforces order; `gate` exits 0/50; `attest` rejects `unset`; `check lint/graph/coverage --lock/audit --lock` exit 0 |
+| `reproduction` | dev | `ingest verify` exits 0; `rebuild` is byte-identical |
+| `tests` | both | every required test file exists; the dependency-free core suite reports tests and assertions; optional-dependency tests are reported and never counted as pass |
+| `installer` | both | install.js copies only and no build command; dev installs into a temp target and runs installed mode; installed layering is exact; installed `dist/skill.mjs` resolves sibling `okf/`; source/installed SHA match |
+| `determinism` | dev | a full regeneration of lock, coverage, OKF, report, and dist is byte-identical; repeated lint output is necessary but not sufficient |
 
 Rules:
 
+- A check reads artifacts, not generated summaries. A consistency-only check is
+  `advisory`; it cannot be the only proof of an artifact fact.
+- Every `machine_verified` check executes a fail-closed proof and has a mutated
+  fixture that fails. A check without a fixture is unproven; the verifier's own
+  suite lives under `tests/amend-rfc-up/` and its fixtures under
+  `tests/amend-rfc-up/fixtures/verifier/<check>/`.
+- Report mode is not a gate. The gate enforces the strongest form: contract ID
+  plus contract-specific code, not keyword overlap; test assertions, not
+  annotation presence.
 - The verifier never reads `okf/` rule text as a substitute for the skill's
   delivered `context`.
-- A `*-law` skill is used only after `machine_verified` for every check.
+- The verifier verifies the installed copy in installed mode; it does not claim
+  source re-derivation there.
+- A `*-law` skill is used only after `machine_verified` for every check in the
+  mode that applies.
 - `tests` runs the dependency-free core suite; a test file that imports the
   optional dist/esbuild chain is reported as `unverifiable`, not as pass.
 - The verifier is domain-neutral; no Rust-specific path or rule ID is assumed.
 - The verifier is the same script used by `/amend-rfc-up` and by future
   `*-law` creation/development skills. Divergent copies are a defect.
-- The reference implementation `rust-interface-law` MUST pass; each check MUST
-  have a mutated fixture that fails.
+- The reference implementation `rust-interface-law` MUST pass in dev mode; each
+  check MUST have a mutated fixture that fails.
 
-Tests: `tests/amend-rfc-up/verify-law-skill.test.mjs`.
+Tests: `tests/amend-rfc-up/verify-law-skill.test.mjs` and
+`tests/amend-rfc-up/verify-law-skill-negative.test.mjs`.
 

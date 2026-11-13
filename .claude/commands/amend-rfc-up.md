@@ -29,7 +29,9 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 | Context | Language |
 |---|---|
 | Chat, proposals, explanations addressing user | Japanese only |
-| Code comments, design docs, runtime logs | English |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
 | Every other non-user-directed context | English |
 
 ## Arguments
