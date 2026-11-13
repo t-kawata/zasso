@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3c3b1fbca37231e7342a6232973b819b2426c40a88c49b50cb885c8cbdcdb963
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 #[derive(Clone, Default, PartialEq, Eq)]

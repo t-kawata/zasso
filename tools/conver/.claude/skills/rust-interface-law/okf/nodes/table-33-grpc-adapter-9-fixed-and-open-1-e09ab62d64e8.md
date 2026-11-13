@@ -7,7 +7,7 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: e09ab62d64e85e9d1247c1d341f1322486d289006fa161c0368afbbd05da3af4
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 | Fixed | Open |
 |---|---|

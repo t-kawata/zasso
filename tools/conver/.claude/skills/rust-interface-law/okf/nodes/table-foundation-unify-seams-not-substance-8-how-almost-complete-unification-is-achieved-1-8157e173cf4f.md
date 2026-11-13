@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8157e173cf4f7ac58bbcf9fc5bc00038afc0b488461f19d621bbc75202c7e287
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 | Mechanism | What it unifies |
 |---|---|

@@ -1,0 +1,80 @@
+{
+  "schema": "law-redaction-review/v1",
+  "entries": [
+    {
+      "sha256": "0889113e04d3203f0c401c17c0fd8b352b740dc607433779d3edcaa13320b001",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "2042bc7aa65ee8093727c5bd00b4e0b1ec98b07739dbe6c0aac706c36cbaf173",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "3bfc269594ef649228e9a74bab00f042efc91d5acc6fbee31a382e80d42388fe",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "4137b01e139589b7a1d3b3fc4da031d8ce5bb415808734e970c3a58ea0e98f0f",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "4183b7793fd28ba47ea9e79e7697f2915da218567e6657a158b51bd14bce91cd",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "41cf6794ba4200b839c53531555f0f3998df4cbb01a4d5cb0b94e3ca5e23947d",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "43385991f0be5fed6db7fb640c5f510d41bcaac6ecca6c842a0c2a2d2d2bf510",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "5f161c9149882e0e10124bc5dd5c11f0fbe8ec452edd52bcec76b01e9252cb33",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "8f1f74adf65864c86d3d471ea8ca9e329d4282489edc156c99604264090774bf",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "a56145270ce6b3bebd1dd012b73948677dd618d496488bc608a3cb43ce3547dd",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "b111c6e1d318f203063e5c16bab43c108326af0aa2f7b65760c95547a43dbe52",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "b9776d7ddf459c9ad5b0e1d6ac61e27befb5e99fd62446677600d7cacef544d0",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "c974e17b8e7321ce8c12983de3d0ed4a289821f579bbe0925b0181a4bc8e8d80",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    },
+    {
+      "sha256": "e47125968b3b71049fbc4802d1e40a71ea1359decfabacf70b34588037d4ff0c",
+      "decision": "generic",
+      "reason": "common English or technical term"
+    }
+  ]
+}

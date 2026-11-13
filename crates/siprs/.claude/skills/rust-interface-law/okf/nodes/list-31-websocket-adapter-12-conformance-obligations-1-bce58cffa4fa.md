@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: bce58cffa4fa6a226ae127b2a5cd2841cdf138c0ff784a791da7a8790c36f401
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 1. Ticket redemption, single use, expiry, and audience binding.
 2. Ticket in query is rejected.

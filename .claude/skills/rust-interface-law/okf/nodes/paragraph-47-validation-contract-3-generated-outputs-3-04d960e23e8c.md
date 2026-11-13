@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 04d960e23e8c496eb66169925106fdcc328612fbf0a38555350a3591ef0ea283
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 The macro emits:

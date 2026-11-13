@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 239b53c97e098cbc8739e45511ad037a1868aeb9ef047cb00de429e359e04b05
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 | ID | Rule | Fixed | Open | Verification |
 |---|---|---|---|---|

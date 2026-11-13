@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: ccb3983e0ebdc642fded8a9ffd7e4d2c08ece976ed3688b1a470aaf27d3c3cd1
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 - Every step is additive until the old path is retired.
 - Baseline tests from Step 0 are the rollback oracle.

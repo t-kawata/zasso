@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 108d5f7950eeff3d1b5eecad8254e048bc1edeac71edee016955bd3678397d5b
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ## 8. How “Almost Complete Unification” Is Achieved

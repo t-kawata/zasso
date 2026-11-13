@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 4f45738589636c6669b4bf96e48cc555f01d59ab21e5acfd2d65691a9ae8f465
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 ## 10. Idempotency, Transactions, and Recovery

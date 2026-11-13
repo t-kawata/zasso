@@ -1,3 +1,5 @@
+// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-421 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-421 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -105,7 +107,7 @@ test('C001 interface-scoped rules render scoped applies_to', () => {
       phase: 'adapter',
       text: id + ' body',
       content_sha256: '0'.repeat(64),
-      source: 'docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md',
+      source: 'sources/15-RULE-REGISTRY.md',
     });
     renderOkf({ spec_version: 'test', atoms: [atom('REST-01'), atom('A2A-01'), atom('OP-AUTH-01')] }, temporary);
 

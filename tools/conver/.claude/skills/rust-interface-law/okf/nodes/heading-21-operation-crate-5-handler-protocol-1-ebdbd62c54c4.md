@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: ebdbd62c54c47aed4c6966aef402dac0eec4dbcafea126da80da3591f5eaa152
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ## 5. Handler Protocol

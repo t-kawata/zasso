@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0d4c4423425e6e15c87c2b76628964e22734cec1aef120493654cf25567d5841
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 `#[contract::input]` generates:

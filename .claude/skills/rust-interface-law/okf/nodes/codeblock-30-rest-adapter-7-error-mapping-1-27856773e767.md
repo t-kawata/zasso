@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 27856773e767f21cf9cd3bf8a328204be321422b92f3669201c62b5ae41bc8ed
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 ```rust
 pub struct RestError {

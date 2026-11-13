@@ -7,6 +7,6 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 5a4356a796e4d2659045b54e43891873448376b7360bfecd73bafbf0dbb87aa1
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 ## 7. Errors

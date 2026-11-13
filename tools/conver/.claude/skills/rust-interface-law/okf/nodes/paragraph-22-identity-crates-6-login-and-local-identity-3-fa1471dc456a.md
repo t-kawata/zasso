@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: fa1471dc456a6cf89f05aea28a9550961c9019c37b97da2330196a571884f9df
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 The `LocalCredentialVerifier` returns `AuthenticatedUser`; the
 `LocalIdentityIssuer` converts it into a `VerifiedIdentity` with a CLI binding.

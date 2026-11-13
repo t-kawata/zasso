@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: f908ca35cec3f5a63bec797cdcafb2b98225122a18d71d5ff4147358b66e80ab
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub trait AnonymousOperation: Send + Sync + 'static {

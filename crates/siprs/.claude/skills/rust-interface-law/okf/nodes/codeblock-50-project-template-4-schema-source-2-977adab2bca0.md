@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 977adab2bca07e5057afbf696ed987249d3243ea311f8182cd132f2d24712c2a
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 ```toml
 # contract/proto-field-ledger.toml

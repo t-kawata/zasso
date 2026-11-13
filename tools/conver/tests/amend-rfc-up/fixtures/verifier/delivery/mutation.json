@@ -1,0 +1,6 @@
+{
+  "path": "okf/nodes/table-10-shared-contracts-12-versioning-1-87c122d246c7.md",
+  "operation": "replace",
+  "find": "delivery: reference",
+  "replace": "delivery: must"
+}

@@ -7,6 +7,6 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: bf9d85a578ec3fd786850d309c850994ca572caf9efa658e15f17acbc975f9eb
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 The generator also emits:

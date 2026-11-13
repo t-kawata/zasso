@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2c7435af7f6154bf94183cc737047bacc5a3beb7bd204f35f61a4c727ad8b1fe
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 | Dimension | Obligation |
 |---|---|

@@ -1,3 +1,5 @@
+// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-421 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-421 --for-spec --no-implementation-order`.
 'use strict';
 
 /**
@@ -7,6 +9,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const {
@@ -26,36 +29,42 @@ const {
   makeLawSkillFixture,
 } = require('./helpers.cjs');
 
+const CANONICAL_ROOT = path.resolve(__dirname, '../..');
+const CANONICAL_SKILL = path.join(CANONICAL_ROOT, '.claude/skills/rust-interface-law');
+const SOURCE_ROOT = CANONICAL_ROOT;
+const ALIAS_PATH = path.join(CANONICAL_ROOT, '.claude/skills/rust-interface-law.path-alias.json');
+
 // @verifies C004
 test('C004: verifier writes a report and invalid skill throws', () => {
-  const skill = makeLawSkillFixture();
-  const outPath = path.join(skill, 'law-skill-verification.json');
-  try {
-    const report = verifyLawSkill({ skillPath: skill, root: skill, outPath });
-    assert.ok(fs.existsSync(outPath));
-    assert.equal(report.schema, VERIFIER_SCHEMA);
-    assert.doesNotThrow(() => assertLawSkillValid({ report }));
-    assert.throws(
-      () => assertLawSkillValid({
-        report: { ...report, checks: { ...report.checks, layer: { status: 'failed' } } },
-      }),
-      (error) => error.code === 'LAW_SKILL_INVALID',
-    );
-  } finally {
-    cleanup(skill);
-  }
+  const outPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'law-report-')), 'verification.json');
+  const report = verifyLawSkill({
+    skillPath: CANONICAL_SKILL,
+    root: SOURCE_ROOT,
+    target: { sourceRoot: SOURCE_ROOT, pathAlias: ALIAS_PATH, mode: 'dev' },
+    outPath,
+  });
+  assert.ok(fs.existsSync(outPath));
+  assert.equal(report.schema, VERIFIER_SCHEMA);
+  assert.doesNotThrow(() => assertLawSkillValid({ report }));
+  assert.throws(
+    () => assertLawSkillValid({
+      report: { ...report, checks: { ...report.checks, layer: { status: 'failed' } } },
+    }),
+    (error) => error.code === 'LAW_SKILL_INVALID',
+  );
 });
 
 // @verifies C005
 test('C005: every required check is machine_verified', () => {
-  const skill = makeLawSkillFixture();
-  try {
-    const report = verifyLawSkill({ skillPath: skill, root: skill });
-    for (const name of REQUIRED_CHECKS) {
-      assert.equal(report.checks[name].status, 'machine_verified', name);
-    }
-  } finally {
-    cleanup(skill);
+  const outPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'law-report-')), 'verification.json');
+  const report = verifyLawSkill({
+    skillPath: CANONICAL_SKILL,
+    root: SOURCE_ROOT,
+    target: { sourceRoot: SOURCE_ROOT, pathAlias: ALIAS_PATH, mode: 'dev' },
+    outPath,
+  });
+  for (const name of report.required_checks) {
+    assert.equal(report.checks[name].status, 'machine_verified', name);
   }
 });
 

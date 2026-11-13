@@ -7,6 +7,6 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: 4c09db6feda1873ff2846f6e32a01749dc63494eebdceb93b09e75ebbcc5b8ab
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ### 11.1 Cargo contract

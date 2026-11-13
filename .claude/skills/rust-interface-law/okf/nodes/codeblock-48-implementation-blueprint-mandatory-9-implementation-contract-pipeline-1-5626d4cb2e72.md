@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 5626d4cb2e722c1ea8b9ce810e20f693ea1dd10d177d222066598554dad7d50d
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```text
 source docs -> rule registry -> manifest/lock/coverage -> OKF

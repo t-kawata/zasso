@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 484f9c35270619c45ab307bf1bc1956ace786e9d699568713e932dcf6d44e664
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 Custom rules MUST carry:

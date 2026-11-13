@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: cb52629e8849ed7cf371ef7f0b8be264f7c5365b25d089c1377e5a732707f3d5
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 | ID | Rule | Fixed | Open | Verification |
 |---|---|---|---|---|

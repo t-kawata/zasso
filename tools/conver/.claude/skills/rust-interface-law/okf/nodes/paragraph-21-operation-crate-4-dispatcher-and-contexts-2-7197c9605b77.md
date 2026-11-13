@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 7197c9605b77cc3a18281ace1d34fab1d1b89dacffb01a7f9984dde74a2b1a49
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 The dispatcher, not the project, constructs `AuthenticatedContext` and
 `AnonymousContext`. It checks the credential binding, authentication

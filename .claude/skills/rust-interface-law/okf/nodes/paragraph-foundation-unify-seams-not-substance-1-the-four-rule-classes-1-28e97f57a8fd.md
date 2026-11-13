@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 28e97f57a8fdc6e4c6b5dfb6ea03dcfc80c4ec3e590e7e22ded0cac8707379fc
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 A rule with no **Open** statement is over-specified. A rule with no **Fixed**
 statement is not a rule.

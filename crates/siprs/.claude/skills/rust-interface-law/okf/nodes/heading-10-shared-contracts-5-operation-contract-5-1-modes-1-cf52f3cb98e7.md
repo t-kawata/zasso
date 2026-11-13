@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: cf52f3cb98e7629a2425579eec9a69cc3ec96cccce177b0699f5fa5f3ed86c08
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ### 5.1 Modes

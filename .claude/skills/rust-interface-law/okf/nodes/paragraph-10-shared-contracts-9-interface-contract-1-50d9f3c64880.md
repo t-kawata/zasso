@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 50d9f3c648800a1208bed9991825931e9df231ba28773915062b99c694a5f6e5
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 Adapters authorize **protocol-owned resources** (WebSocket subscriptions, A2A
 tasks, MCP sessions) and MUST NOT authorize business resources; business

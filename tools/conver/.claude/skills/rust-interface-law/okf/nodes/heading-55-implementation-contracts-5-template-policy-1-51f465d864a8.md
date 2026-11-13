@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 51f465d864a81c1f128f6582ddf700006f5434f84a0ffbb863d2b446db211114
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 ## 5. Template Policy

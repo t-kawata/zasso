@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: eb18d339e6948d0302b6c13c44964fa2c5410cfc9cfd9d98af55cf37d99ac79a
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 1. All matrix cells covered or declared not applicable with a reason.
 2. All negative authentication cases pass on every required interface.

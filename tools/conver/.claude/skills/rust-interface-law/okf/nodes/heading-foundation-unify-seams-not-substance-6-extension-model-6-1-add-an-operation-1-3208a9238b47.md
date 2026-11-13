@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3208a9238b47a208398b5c454db0947fdbd45ab62239ae9381a9fa0165a7165f
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ### 6.1 Add an operation

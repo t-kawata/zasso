@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 37e5ccd2597d958f4073e4c8873eac597532351bd14bbcaf7551c0c8ccfa5ffd
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 `ScopeSet` is a public, constructible value:

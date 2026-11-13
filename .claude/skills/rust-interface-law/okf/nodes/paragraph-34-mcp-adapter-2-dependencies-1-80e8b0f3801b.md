@@ -7,6 +7,6 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 80e8b0f3801bd9d63f92b14ebcdea2ec405987d8021a36831ad7216406343da5
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 `*-mcp` MUST NOT depend on `*-rest`, `*-grpc`, or another interface crate.

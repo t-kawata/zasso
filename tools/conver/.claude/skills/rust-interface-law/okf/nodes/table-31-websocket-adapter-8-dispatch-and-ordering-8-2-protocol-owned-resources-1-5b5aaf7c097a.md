@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: 5b5aaf7c097a93058139080740cecb425dec29d66a3daad0db636970ee17c786
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 | ID | Rule | Fixed | Open | Verification |
 |---|---|---|---|---|

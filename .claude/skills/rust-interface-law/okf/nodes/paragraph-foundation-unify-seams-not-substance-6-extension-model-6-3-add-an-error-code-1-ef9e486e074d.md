@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: ef9e486e074df11763b356ae1e2871c45bc705d3a32930b94faabb35261bf554
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 No change to `OperationError` or the category table.

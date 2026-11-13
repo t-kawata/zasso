@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 896897c9850c971a958764d68983076b285eb22ae9c328fd6f65104964a13acc
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ### 7.1 Schema

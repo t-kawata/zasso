@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: d86f46ac2413a89524ecae2a5ee17afaae82cd7c28b8f07ae6634e8630620718
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ```rust
 pub enum ConnectionState {

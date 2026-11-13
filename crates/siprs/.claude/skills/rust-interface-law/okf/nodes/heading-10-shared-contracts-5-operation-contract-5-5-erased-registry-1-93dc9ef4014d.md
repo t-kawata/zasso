@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 93dc9ef4014d4ce211ce1643ea17b9639378a9f137256b472e1a557cf4f98ab0
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ### 5.5 Erased registry

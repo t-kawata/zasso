@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 82736ec71aef7ae189c1929377226a2f51f76f62bdfa375ac5ad68ab96414c18
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 1. Negative authentication suite, including the expanded cases in §9.
 2. Audience isolation between every pair of interfaces.

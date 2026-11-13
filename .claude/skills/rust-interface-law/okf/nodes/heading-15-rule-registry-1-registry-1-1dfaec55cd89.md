@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 1dfaec55cd89c5f3514763d9fdde0cef780d7ada7d9c0bdaa053ed1ad6f389d6
-source: docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md
+source: sources/15-RULE-REGISTRY.md
 ---
 ## 1. Registry

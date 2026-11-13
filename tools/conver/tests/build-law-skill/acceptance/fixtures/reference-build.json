@@ -6,7 +6,9 @@
     {
       "skill": "rust-interface-law",
       "path": ".claude/skills/rust-interface-law",
-      "closure_sha256": "3d2e5a4cde63f5459938946ea198008ec2cec57f88ccb7d4b0b5642b8ff54b75"
+      "closure_sha256": "a53524176fbf0963c9b288a916ef2cc345bfb6791f7322375f795c4b16841563",
+      "mode": "dev",
+      "source_root": "."
     }
   ]
 }

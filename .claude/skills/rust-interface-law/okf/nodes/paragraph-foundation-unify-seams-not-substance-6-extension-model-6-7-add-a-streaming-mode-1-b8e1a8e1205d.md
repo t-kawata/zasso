@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b8e1a8e1205db95e29859e7a6994a00a9d51ba5a495e20041096466dcbfc4780
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 Existing operations are unaffected.

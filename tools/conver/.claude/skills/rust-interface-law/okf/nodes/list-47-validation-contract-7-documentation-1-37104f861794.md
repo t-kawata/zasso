@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 37104f861794c0610fd2e0148476f6bac6d9cb182778eb3a3b19678bdf1d60ea
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 - REST: OpenAPI standard keywords and a rendered constraint table. Custom rules
   appear in the schema `description`; they are not hidden in a vendor extension.

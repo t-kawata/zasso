@@ -7,7 +7,7 @@ applies_to: a2a
 requires: []
 references: []
 content_sha256: ab99520b7f1b154bce611c5dbd813fe30bd3b7c2db96f5c6503d8c015a4fa240
-source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+source: sources/35-A2A.md
 ---
 ```rust
 pub struct A2aState {

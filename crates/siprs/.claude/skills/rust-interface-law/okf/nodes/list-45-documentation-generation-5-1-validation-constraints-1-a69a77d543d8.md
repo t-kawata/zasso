@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: a69a77d543d850848dfc16c03aea622a6d410f8130aa1284debc20c891181986
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 - field name;
 - rule kind and parameters (minimum, maximum, length, items, pattern, enum, or

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b0de581f05c85d559766c17c0b03130c81ec4558bab0a199d0d246f2099f56f1
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 | ID | Rule | Fixed | Open | Verification |
 |---|---|---|---|---|

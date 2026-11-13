@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 32c717b2810f34bc0a3b710b82561d1abc654383f793dcd275ac0ee3510b7579
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ### 4.2 Registry JSON

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: aa06cd77484127a01df9da445b4cff7e1a1d40a1fead5aceafaad307e5b93984
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ## 13. What This Document Deliberately Does Not Define

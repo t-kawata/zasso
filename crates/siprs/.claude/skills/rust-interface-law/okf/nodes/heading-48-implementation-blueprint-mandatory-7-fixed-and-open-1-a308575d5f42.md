@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: a308575d5f42b99a31959e12a2a7fe3202aedba23d9b291e30c2843999884e00
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ## 7. Fixed and Open

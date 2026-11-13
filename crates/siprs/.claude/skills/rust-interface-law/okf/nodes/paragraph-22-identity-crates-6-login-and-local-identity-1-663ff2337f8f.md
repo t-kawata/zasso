@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 663ff2337f8fc391f716ee2b5c6e4bd0f13e66d656fc6029467b0af32f48efc9
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 `auth.token.issue` is an `AnonymousOperation` in `identity-operation`. It is
 registered by the project operation crate.

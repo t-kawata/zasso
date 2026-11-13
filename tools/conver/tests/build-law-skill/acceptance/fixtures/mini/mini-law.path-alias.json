@@ -1,0 +1,8 @@
+{
+  "schema": "law-path-alias/v1",
+  "skill": "mini-law",
+  "input_roots": ["mini-source"],
+  "aliases": {
+    "sources/guide.md": "mini-source/guide.md"
+  }
+}

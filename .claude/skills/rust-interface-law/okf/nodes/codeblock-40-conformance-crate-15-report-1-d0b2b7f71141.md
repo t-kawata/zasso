@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d0b2b7f71141f834e8dafa4c8bcefd732ce6e83a70c9f1aeffb0ef1b3b0112dd
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 ```rust
 pub struct ConformanceReport {

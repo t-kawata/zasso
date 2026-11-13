@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b85e75d16ab857e75a8dc15254c3f2490e07bac30159637e384ad102dd3f2b0c
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 The public module layout is fixed. Hand-written files inside `model/`,
 `state/`, and `ports/` may be organized differently as long as the public

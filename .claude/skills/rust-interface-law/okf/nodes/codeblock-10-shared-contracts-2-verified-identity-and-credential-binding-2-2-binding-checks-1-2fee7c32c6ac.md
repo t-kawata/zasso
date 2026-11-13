@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2fee7c32c6ac021b00de335562603fbb8b13c44dfecaad8c5817c4ee1cef565a
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 binding.interface() == invocation.interface

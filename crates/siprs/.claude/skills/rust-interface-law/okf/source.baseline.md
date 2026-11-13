@@ -2,7 +2,7 @@
 
 Generated from the source documents. Do not edit.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+# Source: sources/00-FOUNDATION.md
 
 # Foundation: Unify Seams, Not Substance
 
@@ -298,7 +298,7 @@ Before accepting a new rule or a project exception, answer all of these.
 
 A rule that fails any of these is not ready.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+# Source: sources/10-CONTRACTS.md
 
 # 10 — Shared Contracts
 
@@ -1777,7 +1777,13 @@ conformance kit must report the same version; a mismatch fails startup.
 Projects fill these in. The contracts above are the seams through which they
 plug in.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md
+## 11. Adapter Support Composition
+
+Adapters MAY share a project-owned adapter-support module that wraps the dispatcher, verifier, wire context, semantic reply, error mapping, and cancellation. The module is a composition seam, not a second contract. It MUST forward to the dispatcher and MUST NOT implement business logic.
+
+The adapter-support module is generated from the admitted template and carries `RULE: IMP-01` through `RULE: IMP-08` annotations where it implements those obligations.
+
+# Source: sources/15-RULE-REGISTRY.md
 
 # 15 — Rule Registry
 
@@ -2226,6 +2232,42 @@ for the full statement and exception.
 | `WS-30` | C | ws | WS | Part III.7 | The adapter authorizes protocol-owned subscriptions and streams against the connection identity. | V3 test. | conformance driver |
 | `WS-31` | C | ws | WS | Part III.7 | The adapter MUST NOT authorize business resources; that belongs to the operation. | V3 bypass test. | conformance driver |
 | `WS-32` | C | ws | WS | Part III.7 | A subscription or stream is bound to the connection; disconnect cancels it. | V3 test. | conformance driver |
+| `REST-19` | C | rest | REST | Part III.6 | REST adapters MUST use the admitted HTTP crate and call the shared dispatcher through the adapter bridge. | V2 source; V3 route test. | conformance driver |
+| `REST-20` | C | rest | REST | Part III.6 | Every REST rejection path MUST use the shared semantic error renderer and the canonical request_id. | V3 rejection fixtures. | conformance driver |
+| `REST-21` | C | rest | REST | Part III.6 | OpenAPI operations and schemas MUST be generated from the same operation and validation manifest used at runtime. | V3 equality test. | conformance driver |
+| `WS-33` | C | websocket | WS | Part III.7 | Origin validation and ticket redemption MUST complete before WebSocket acceptance. | V3 pre-accept probe. | conformance driver |
+| `WS-34` | C | websocket | WS | Part III.7 | All connection queues and dispatch concurrency MUST be bounded, with overload producing the configured 1013 close path. | V3 overload test. | conformance driver |
+| `WS-35` | C | websocket | WS | Part III.7 | Stream input closure, output termination, and cancellation MUST be distinct states with deterministic cleanup. | V3 lifecycle test. | conformance driver |
+| `CLI-15` | C | cli | CLI | Part III.8 | clap parsing types MUST be generated inside the CLI adapter and MUST NOT annotate operation-domain types. | V2 AST; V3 command test. | conformance driver |
+| `CLI-16` | C | cli | CLI | Part III.8 | The CLI MUST reject argv credential contents and MUST read secrets only from approved file, stdin, or TTY sources. | V2 scan; V3 process test. | conformance driver |
+| `CLI-17` | C | cli | CLI | Part III.8 | The CLI MUST reserve stdout for results and MUST use the fixed exit-code table for every termination path. | V3 subprocess test. | conformance driver |
+| `GRPC-20` | C | grpc | GRPC | Part III.9 | gRPC services MUST implement generated tonic traits and MUST keep protobuf types outside core and operation contracts. | V2 graph; V3 service test. | conformance driver |
+| `GRPC-21` | C | grpc | GRPC | Part III.9 | Every gRPC streaming shape MUST propagate deadlines, input half-close, and cancellation to the matching dispatcher stream method. | V3 four-shape tests. | conformance driver |
+| `GRPC-22` | C | grpc | GRPC | Part III.9 | Non-loopback gRPC exposure MUST use the declared TLS boundary and shared redacted status mapping. | V3 TLS/status test. | conformance driver |
+| `MCP-22` | C | mcp | MCP | Part III.10 | MCP adapters MUST register generated tools through the admitted rmcp tool router and MUST dispatch through the shared Dispatcher. | V2 source; V3 tool test. | conformance driver |
+| `MCP-23` | C | mcp | MCP | Part III.10 | Every MCP deployment MUST declare its session and replay capabilities and MUST pass cross-instance tests for those capabilities. | V3 process test. | conformance driver |
+| `MCP-24` | C | mcp | MCP | Part III.10 | MCP JSON and SSE responses MUST use SDK framing and MUST share the same tool execution path. | V3 dual-mode test. | conformance driver |
+| `MCP-25` | C | mcp | MCP | Part III.10 | Resumable MCP profiles MUST persist event cursors and MUST pass restart replay without sticky routing. | V3 restart test. | conformance driver |
+| `MCP-26` | C | mcp | MCP | Part III.10 | MCP cancellation and progress MUST map to the dispatcher and MUST NOT buffer unsupported operations. | V3 cancel/progress test. | conformance driver |
+| `MCP-27` | C | mcp | MCP | Part III.10 | MCP authorization MUST expose discovery and challenge, bind the configured audience, and MUST NOT pass a received token downstream. | V3 auth test. | conformance driver |
+| `A2A-25` | C | a2a | A2A | Part III.11 | A2A send and stream methods MUST use one shared executor and SDK wire framing. | V3 shared-path probe. | conformance driver |
+| `A2A-26` | C | a2a | A2A | Part III.11 | Production A2A task state, execution claims, idempotency records, and event logs MUST survive instance replacement. | V3 restart test. | conformance driver |
+| `A2A-27` | C | a2a | A2A | Part III.11 | Every task, cancellation, and replay access MUST bind subject and tenant at the persistence boundary. | V3 owner isolation. | conformance driver |
+| `A2A-28` | C | a2a | A2A | Part III.11 | A2A `message/send` and `message/stream` MUST share the same operation invocation and terminal semantics. | V3 dual-mode test. | conformance driver |
+| `A2A-29` | C | a2a | A2A | Part III.11 | A2A cancellation, disconnect, and resubscribe MUST be distinct and MUST use durable event cursors. | V3 cancel/resubscribe. | conformance driver |
+| `A2A-30` | C | a2a | A2A | Part III.11 | A2A auth and agent card MUST declare and enforce the configured security scheme and audience. | V3 auth/card test. | conformance driver |
+| `IMP-01` | C | all | IMP | Part III.17 | Dependency declarations MUST use the admitted crate, exact version, features, and default-features policy. | V2 metadata check. | implementation-check |
+| `IMP-02` | C | all | IMP | Part III.17 | The gate MUST reject every unresolved dependency, feature, source, advisory, or license disposition. | V2 negative fixtures. | implementation-check |
+| `IMP-03` | C | all | IMP | Part III.17 | Adapter dependency edges MUST reach the dispatcher and identity contracts and MUST NOT reach operation implementations or business storage. | V2 graph check. | implementation-check |
+| `IMP-04` | C | all | IMP | Part III.17 | Core and operation-contract crates MUST NOT depend on protocol SDKs or generated transport types. | V2 graph check. | implementation-check |
+| `IMP-05` | C | all | IMP | Part III.17 | Required source calls MUST be resolved by identity, and unresolved analysis MUST fail closed. | V2 source detector. | implementation-check |
+| `IMP-06` | C | all | IMP | Part III.17 | Generated adapter output MUST equal regeneration from the admitted template and inputs. | V2 generated equality. | implementation-check |
+| `IMP-07` | C | all | IMP | Part III.17 | Scaffold MUST NOT overwrite an existing file; an existing file without a marker becomes merge-required. | V2 scaffold fixture. | implementation-check |
+| `IMP-08` | C | all | IMP | Part III.17 | Template bodies MUST NOT be delivered by context; only rule text, contract tables, and template references are delivered. | V2 delivery test. | implementation-check |
+| `IMP-09` | C | all | IMP | Part III.17 | Missing implementation reports, missing tests, zero selected tests, and failed detectors MUST NOT pass. | V2 gate self-test. | implementation-check |
+| `IMP-10` | C | all | IMP | Part III.17 | Every project MUST pin the law spec_version, dist hash, and policy hash; a mismatch fails unless a scoped exception exists. | V2 identity check. | implementation-check |
+| `IMP-11` | C | all | IMP | Part III.17 | Every implementation rule MUST have a detector or an explicit attestation row. | V2 registry check. | implementation-check |
+| `IMP-12` | C | all | IMP | Part III.17 | Pipeline checkpoints MUST invoke template, implementation-check, gate, and attest through a bounded wrapper. | V2 command inspection. | implementation-check |
 
 ## 2. Duplicate Detection
 
@@ -2255,7 +2297,7 @@ The registry is extracted from the normative tables by the project rule
 extractor. The report and the conformance coverage check consume the same
 extraction. A rule that is absent from the registry is not covered.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+# Source: sources/20-CORE.md
 
 # 20 — Core Crate
 
@@ -2477,7 +2519,7 @@ The conformance report names `CORE-01` through `CORE-10`.
 The core crate is almost entirely hand-written. The generator only ensures the
 module skeleton exists and that the catalog references resolve.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+# Source: sources/21-OPERATION.md
 
 # 21 — Operation Crate
 
@@ -2861,7 +2903,7 @@ with no registration fails startup.
     `OP-AUTH-05`, `OP-IDEM-01` through `OP-IDEM-10`, and `OP-TX-01` through
     `OP-TX-06`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+# Source: sources/22-IDENTITY.md
 
 # 22 — Identity Crates
 
@@ -3221,7 +3263,7 @@ the minimum rejection set.
 11. The conformance report names `IDN-07` through `IDN-24` and the negative
     cases.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+# Source: sources/30-REST.md
 
 # 30 — REST Adapter
 
@@ -3474,7 +3516,33 @@ trace.
    warnings`.
 9. The conformance report names `REST-01` through `REST-18`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+## 11. Implementation Contract
+
+### 11.1 Cargo contract
+
+`axum = { version = "=0.8.9", features = ["json"] }`; `tower-http = { version = "=0.6.6", features = ["cors", "trace", "request-id"] }`; `utoipa = { version = "=5.4.0", features = ["macros", "axum_extras"] }`; `utoipa-swagger-ui = { version = "=9.0.2", features = ["axum", "vendored"] }`.
+
+### 11.2 Required API sequence
+
+CORS and preflight -> protected auth -> body limit -> decode -> dispatcher -> semantic renderer -> request_id header.
+
+### 11.3 Forbidden patterns
+
+`actix-web`, `warp`, `poem`, hand-written HTTP server, handler-to-operation implementation call, second wire envelope.
+
+### 11.4 Template
+
+`templates/rest/`.
+
+### 11.5 Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| REST-19 | REST adapters MUST use the admitted HTTP crate and call the shared dispatcher through the adapter bridge. | Admission. | Handler conversion. | V2 source; V3 route test. |
+| REST-20 | Every REST rejection path MUST use the shared semantic error renderer and the canonical request_id. | Shared renderer. | Error text. | V3 rejection fixtures. |
+| REST-21 | OpenAPI operations and schemas MUST be generated from the same operation and validation manifest used at runtime. | Generation source. | Descriptions. | V3 equality test. |
+
+# Source: sources/31-WEBSOCKET.md
 
 # 31 — WebSocket Adapter
 
@@ -3803,7 +3871,33 @@ pub enum ConnectionState {
     <project>-websocket -- -D warnings`.
 11. The conformance report names `WS-01` through `WS-32`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+## 11. Implementation Contract
+
+### 11.1 Cargo contract
+
+`axum = { version = "=0.8.9", features = ["ws"] }`; `futures-util = { version = "=0.3.31", features = ["std", "async-await", "sink"] }`; `tokio = { version = "=1.48.0", features = ["sync", "time", "io-util"] }`.
+
+### 11.2 Required API sequence
+
+Origin allowlist -> single ticket header -> one-time redemption -> connection lease -> upgrade -> split -> bounded queue -> dispatcher stream bridge -> cancel/join/release.
+
+### 11.3 Forbidden patterns
+
+Query-string ticket, unbounded channel, blocking send in async task, operation implementation call, stream without terminal event.
+
+### 11.4 Template
+
+`templates/websocket/`.
+
+### 11.5 Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| WS-33 | Origin validation and ticket redemption MUST complete before WebSocket acceptance. | Pre-accept. | Header name. | V3 pre-accept probe. |
+| WS-34 | All connection queues and dispatch concurrency MUST be bounded, with overload producing the configured 1013 close path. | Bounds. | Capacity values. | V3 overload test. |
+| WS-35 | Stream input closure, output termination, and cancellation MUST be distinct states with deterministic cleanup. | State model. | Timing. | V3 lifecycle test. |
+
+# Source: sources/32-CLI.md
 
 # 32 — CLI Adapter
 
@@ -4058,7 +4152,33 @@ Exit code table:
    warnings`.
 10. The conformance report names `CLI-01` through `CLI-14`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+## 11. Implementation Contract
+
+### 11.1 Cargo contract
+
+`clap = { version = "=4.5.50", features = ["derive"] }`; `reqwest = { version = "=0.12.24", features = ["json", "rustls-tls", "stream"] }`; `tonic = { version = "=0.14.2", features = ["transport", "codegen"] }`; `rpassword = "=7.4.0"`; `zeroize = "=1.8.2"`.
+
+### 11.2 Required API sequence
+
+Fallible parse -> validation -> explicit local/REST/gRPC mode -> credential source -> verifier or client -> dispatcher -> output renderer -> exit category.
+
+### 11.3 Forbidden patterns
+
+clap attributes on operation types, argv credential contents, stdout progress, implicit mode fallback, exit code 1 as a generic default.
+
+### 11.4 Template
+
+`templates/cli/`.
+
+### 11.5 Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| CLI-15 | clap parsing types MUST be generated inside the CLI adapter and MUST NOT annotate operation-domain types. | Separation. | Command names. | V2 AST; V3 command test. |
+| CLI-16 | The CLI MUST reject argv credential contents and MUST read secrets only from approved file, stdin, or TTY sources. | Sources. | Prompt text. | V2 scan; V3 process test. |
+| CLI-17 | The CLI MUST reserve stdout for results and MUST use the fixed exit-code table for every termination path. | Channels and exits. | Message text. | V3 subprocess test. |
+
+# Source: sources/33-GRPC.md
 
 # 33 — gRPC Adapter
 
@@ -4288,7 +4408,33 @@ read `authorization` metadata
     warnings`.
 11. The conformance report names `GRPC-01` through `GRPC-19`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+## 11. Implementation Contract
+
+### 11.1 Cargo contract
+
+`tonic = { version = "=0.14.2", features = ["transport", "codegen", "router", "tls-ring"] }`; `prost = { version = "=0.14.1", features = ["derive", "std"] }`; `tonic-prost = { version = "=0.14.2" }`; build `tonic-prost-build = { version = "=0.14.2" }`.
+
+### 11.2 Required API sequence
+
+build.rs proto generation -> generated trait implementation -> interceptor metadata auth -> dispatcher unary/stream method -> status mapping -> deadline/cancel propagation.
+
+### 11.3 Forbidden patterns
+
+protobuf types in core or operation contracts, manual HTTP/2, service business logic, whole-stream collect, unredacted status details.
+
+### 11.4 Template
+
+`templates/grpc/`.
+
+### 11.5 Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| GRPC-20 | gRPC services MUST implement generated tonic traits and MUST keep protobuf types outside core and operation contracts. | Generation and boundary. | Message fields. | V2 graph; V3 service test. |
+| GRPC-21 | Every gRPC streaming shape MUST propagate deadlines, input half-close, and cancellation to the matching dispatcher stream method. | Four shapes. | Stream internals. | V3 four-shape tests. |
+| GRPC-22 | Non-loopback gRPC exposure MUST use the declared TLS boundary and shared redacted status mapping. | TLS and details. | Certificate source. | V3 TLS/status test. |
+
+# Source: sources/34-MCP.md
 
 # 34 — MCP Adapter
 
@@ -4472,7 +4618,36 @@ specification version. The adapter records that version in `McpConfig`.
    warnings`.
 10. The conformance report names `MCP-01` through `MCP-21`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+## 11. Implementation Contract
+
+### 11.1 Cargo contract
+
+`rmcp = { version = "=0.8.5", features = ["server", "macros", "transport-streamable-http-server"] }`; `axum = { version = "=0.8.9", features = ["http1", "tokio", "json"] }`.
+
+### 11.2 Required API sequence
+
+Tool manifest -> SDK tool router -> input/output schema -> HTTP auth -> dispatcher -> JSON or SSE response -> cancellation/progress correlation.
+
+### 11.3 Forbidden patterns
+
+hand-written JSON-RPC, local authoritative session map, sticky-session dependency, ad-hoc SSE framing, whole-stream buffering.
+
+### 11.4 Template
+
+`templates/mcp/`.
+
+### 11.5 Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| MCP-22 | MCP adapters MUST register generated tools through the admitted rmcp tool router and MUST dispatch through the shared Dispatcher. | Tool router. | Tool descriptions. | V2 source; V3 tool test. |
+| MCP-23 | Every MCP deployment MUST declare its session and replay capabilities and MUST pass cross-instance tests for those capabilities. | Profile. | Storage backend. | V3 process test. |
+| MCP-24 | MCP JSON and SSE responses MUST use SDK framing and MUST share the same tool execution path. | Dual mode. | Encoding. | V3 dual-mode test. |
+| MCP-25 | Resumable MCP profiles MUST persist event cursors and MUST pass restart replay without sticky routing. | Replay. | Retention. | V3 restart test. |
+| MCP-26 | MCP cancellation and progress MUST map to the dispatcher and MUST NOT buffer unsupported operations. | Cancellation. | Notification text. | V3 cancel/progress test. |
+| MCP-27 | MCP authorization MUST expose discovery and challenge, bind the configured audience, and MUST NOT pass a received token downstream. | Auth boundary. | Realm text. | V3 auth test. |
+
+# Source: sources/35-A2A.md
 
 # 35 — A2A Adapter
 
@@ -4666,7 +4841,36 @@ prefixed, matching the MCP convention.
    warnings`.
 10. The conformance report names `A2A-01` through `A2A-24`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+## 11. Implementation Contract
+
+### 11.1 Cargo contract
+
+`a2a = { package = "a2a-lf", version = "=0.4.2" }`; `a2a-server = { package = "a2a-server-lf", version = "=0.4.3" }`; `axum = { version = "=0.8.9", features = ["http1", "tokio", "json"] }`; `futures-util = { version = "=0.3.31" }`.
+
+### 11.2 Required API sequence
+
+Agent card -> SDK request handler -> shared executor -> dispatcher -> external TaskStore -> durable event log -> send/stream response -> cancellation/resubscribe.
+
+### 11.3 Forbidden patterns
+
+in-memory task store in production, sticky session, ad-hoc SSE, separate send/stream business paths, ownerless persistence call.
+
+### 11.4 Template
+
+`templates/a2a/`.
+
+### 11.5 Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| A2A-25 | A2A send and stream methods MUST use one shared executor and SDK wire framing. | Shared path. | Executor internals. | V3 shared-path probe. |
+| A2A-26 | Production A2A task state, execution claims, idempotency records, and event logs MUST survive instance replacement. | Durability. | Store backend. | V3 restart test. |
+| A2A-27 | Every task, cancellation, and replay access MUST bind subject and tenant at the persistence boundary. | Owner binding. | Store API. | V3 owner isolation. |
+| A2A-28 | A2A `message/send` and `message/stream` MUST share the same operation invocation and terminal semantics. | Dual mode. | Event payload. | V3 dual-mode test. |
+| A2A-29 | A2A cancellation, disconnect, and resubscribe MUST be distinct and MUST use durable event cursors. | State separation. | Timing. | V3 cancel/resubscribe. |
+| A2A-30 | A2A auth and agent card MUST declare and enforce the configured security scheme and audience. | Security. | Scheme set. | V3 auth/card test. |
+
+# Source: sources/40-CONFORMANCE.md
 
 # 40 — Conformance Crate
 
@@ -5022,7 +5226,20 @@ A report that omits a rule or a matrix cell is itself a failure.
     <project>-conformance -- -D warnings`.
 12. The report names `CONF-01` through `CONF-65`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+## 13. Implementation Proof
+
+Implementation proof is separate from behavior proof.
+
+| Level | Proof |
+|---|---|
+| V1 | Process scan: stubs, secrets, English, test weakening |
+| V2 | Dependency, feature, edge, source identity, template equality, law identity |
+| V3 | Project compile and interface contract tests |
+| V4 | Human attestation for SDK binding, tenant boundary, TLS trust, retention |
+
+A V1 pass is not rule-level proof. A missing implementation report, missing test, zero selected tests, or failed detector is a failure. The implementation report MUST name `IMP-01` through `IMP-12`.
+
+# Source: sources/45-DOCUMENTATION.md
 
 # 45 — Documentation Generation
 
@@ -5262,7 +5479,7 @@ cargo run -p <project>-docgen -- --check openapi docs/generated/rest/openapi.jso
 cargo run -p <project>-docgen -- --check all
 ```
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+# Source: sources/47-VALIDATION.md
 
 # 47 — Validation Contract
 
@@ -5551,7 +5768,7 @@ Rules:
 11. The conformance report names `VAL-01` through `VAL-20` and `CONF-57`
     through `CONF-60`.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+# Source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 
 # 48 — Implementation Blueprint (Mandatory)
 
@@ -6084,7 +6301,19 @@ A missing `docs/generated/` directory or a non-zero exit fails the build.
 A project that skips a step is non-compliant, even if its documentation looks
 complete.
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+## 9. Implementation Contract Pipeline
+
+The generator pipeline adds the implementation contract between source and adapter output.
+
+```text
+source docs -> rule registry -> manifest/lock/coverage -> OKF
+effective policy -> template catalog -> template plan -> scaffold
+implementation-check -> implementation report -> gate -> attest
+```
+
+The generator MUST use the admitted template and MUST record the template hash. The gate MUST reject a missing report, a missing test, a zero-test selection, a failed detector, or a law identity mismatch.
+
+# Source: sources/50-PROJECT-TEMPLATE.md
 
 # 50 — Project Template
 
@@ -6484,7 +6713,157 @@ It is never implicit drift.
 | Verification commands. | CI provider and scheduling. |
 | Version pinning. | Release cadence. |
 
-# Source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+## 10. Implementation Policy and Templates
+
+Each profile pins its interface SDK in `[workspace.dependencies]` with an exact version and an explicit feature set. The chosen values are written to `target/law/effective-policy.json` and hashed.
+
+| Profile | Template files |
+|---|---|
+| rest | `templates/rest/` |
+| websocket | `templates/websocket/` |
+| cli | `templates/cli/` |
+| grpc | `templates/grpc/` |
+| mcp | `templates/mcp/` |
+| a2a | `templates/a2a/` |
+
+A false profile does not require its template files. A true profile requires the template manifest, implementation template, test template, and `RULE:` annotations.
+
+# Source: sources/55-IMPLEMENTATION-CONTRACTS.md
+
+# 55 — Implementation Contracts
+
+**Status:** Normative
+**Version:** 0.4.0
+**Parent:** Part II
+
+---
+
+## 1. Purpose
+
+This document makes adapter implementation methods enforceable.
+Behavior rules state what an adapter must do. This document states which crate,
+version, feature, API sequence, template, detector, and verification prove that
+the adapter was built the admitted way.
+
+The law runtime reads this document as source. It never treats generated atoms
+as editable text.
+
+---
+
+## 2. Policy Model
+
+An implementation policy has four parts.
+
+| Part | Content |
+|---|---|
+| `interfaces` | One crate, exact version, feature set, default-features policy, and forbidden list per interface |
+| `profiles` | Deployment profiles and the capabilities each profile must prove |
+| `edges` | Required and forbidden dependency edges |
+| `template` | Template catalog path and placeholder contract |
+
+The skill baseline policy lives in `source/implementation-policy.toml`.
+A project may override a version only inside the admitted compatibility range.
+An incompatible override is a conflict, not a new baseline.
+
+### 2.1 Effective policy
+
+Resolution order:
+
+1. Read the skill baseline.
+2. Read the project manifest.
+3. If the project has no dependency, use the baseline exact pin.
+4. If the project has a compatible dependency, use the project pin.
+5. If the project pin is incompatible, fail closed with a policy conflict.
+6. Write `effective-policy.json` with the resolved pins, features, and hashes.
+
+The effective policy is the only version source used by templates and checks.
+Rule text MUST NOT hard-code one crate version for every project.
+
+---
+
+## 3. Dependency Policy
+
+| Rule | Requirement |
+|---|---|
+| Pin | Every admitted crate uses an exact version in the policy |
+| Features | Only the listed features are admitted; default features are explicit |
+| Kind | Normal, build, and dev dependencies are distinguished |
+| Edge | Adapter edges reach the dispatcher and identity contracts only |
+| Forbidden | Adapter-to-operation-implementation and core-to-protocol-SDK edges fail |
+| Source | Registry, path, and git sources follow the project source policy |
+| Failure | Missing package, unresolved feature, unknown source, or metadata failure fails closed |
+
+---
+
+## 4. Source Policy
+
+| Rule | Requirement |
+|---|---|
+| Resolved identity | Required calls are resolved to crate and item identity, not string matches |
+| Adapter entry | Adapter calls the dispatcher or adapter bridge only |
+| No business logic | Adapter contains no domain decision, storage query, or transaction |
+| No manual framing | JSON-RPC, SSE, and protocol envelopes use the admitted SDK |
+| No hidden state | Authoritative session and task state live in the external store |
+| Failure | Unresolved analysis, macro expansion, or generated code fails closed |
+
+---
+
+## 5. Template Policy
+
+| Rule | Requirement |
+|---|---|
+| Catalog | Each interface has a template manifest and test/implementation templates |
+| Placeholder | Every placeholder resolves from discovery and effective policy; unresolved placeholder rejects the plan |
+| Rules | Every generated file carries `RULE: <id>` |
+| Modes | `create`, `append`, `merge-required`; no overwrite |
+| Equality | Generated output equals regeneration from the admitted template and inputs |
+| Delivery | Template bodies are not delivered by `context`; only the reference is delivered |
+
+---
+
+## 6. Gate Policy
+
+| Rule | Requirement |
+|---|---|
+| Report | `implementation-check` writes a JSON report with one status per rule |
+| Merge | `gate --implementation` merges report statuses into the manifest closure |
+| Missing | A missing report is `not_run`, never a pass |
+| Tests | A missing test, zero selected tests, or failed detector is `failed` |
+| Identity | A spec_version, dist hash, or policy hash mismatch fails unless a scoped exception exists |
+| Honesty | V1 process proof is not rule-level proof |
+
+---
+
+## 7. Cross-Cutting Rules
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| IMP-01 | Dependency declarations MUST use the admitted crate, exact version, features, and default-features policy. | Admission. | Project-compatible pin inside the range. | metadata check. |
+| IMP-02 | The gate MUST reject every unresolved dependency, feature, source, advisory, or license disposition. | Fail closed. | Disposition format. | negative fixtures. |
+| IMP-03 | Adapter dependency edges MUST reach the dispatcher and identity contracts and MUST NOT reach operation implementations or business storage. | Edge rule. | Internal module split. | graph check. |
+| IMP-04 | Core and operation-contract crates MUST NOT depend on protocol SDKs or generated transport types. | Forbidden. | — | graph check. |
+| IMP-05 | Required source calls MUST be resolved by identity, and unresolved analysis MUST fail closed. | Resolved identity. | Detector implementation. | source detector. |
+| IMP-06 | Generated adapter output MUST equal regeneration from the admitted template and inputs. | Equality. | Template content. | generated equality. |
+| IMP-07 | Scaffold MUST NOT overwrite an existing file; an existing file without a marker becomes merge-required. | No overwrite. | Merge instructions. | scaffold fixture. |
+| IMP-08 | Template bodies MUST NOT be delivered by context; only rule text, contract tables, and template references are delivered. | Delivery boundary. | Excerpt size. | delivery test. |
+| IMP-09 | Missing implementation reports, missing tests, zero selected tests, and failed detectors MUST NOT pass. | Fail closed. | Evidence shape. | gate self-test. |
+| IMP-10 | Every project MUST pin the law spec_version, dist hash, and policy hash; a mismatch fails unless a scoped exception exists. | Identity. | Exception scope. | identity check. |
+| IMP-11 | Every implementation rule MUST have a detector or an explicit attestation row. | Coverage. | Detector choice. | registry check. |
+| IMP-12 | Pipeline checkpoints MUST invoke template, implementation-check, gate, and attest through a bounded wrapper. | Process. | Wrapper name. | command inspection. |
+
+---
+
+## 8. Conformance Obligations
+
+1. Every interface has one admitted crate, exact version, and feature set.
+2. Every implementation rule has a detector or an attestation row.
+3. Every project writes `effective-policy.json` and records its hash.
+4. Every generated adapter carries RULE annotations and template provenance.
+5. Every gate report distinguishes V1 process proof from V2/V3 implementation proof.
+6. Every mismatch, missing report, missing test, or failed detector fails closed.
+7. The conformance report names `IMP-01` through `IMP-12`.
+
+# Source: sources/90-MIGRATION.md
 
 # 90 — Migration
 

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c95c6f670eed2dd756d3483a31c4a76425a9eb770a2ea78838ca23388d9ecddb
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 ```rust
 pub trait Clock: Send + Sync {

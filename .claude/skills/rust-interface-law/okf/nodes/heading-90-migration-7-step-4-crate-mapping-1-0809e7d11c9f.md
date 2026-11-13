@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0809e7d11c9ffd9917bec2982b1131d6d9ed059ed0062e98be463292f583b930
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 ## 7. Step 4 — Crate Mapping

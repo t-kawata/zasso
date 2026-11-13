@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: a9968defaafef1f8b4c432865818234a9a2f64f951f7baae4e6db48b415ef805
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ```toml
 [dependencies]

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e58bf2049b55d464a32534c21c6757b7bcaccaa19e4aa9242827e28d352f52d1
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```rust
 fn validation_to_operation(errors: ValidationErrors) -> OperationError {

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9e59efb03627256653da1d72e11f93de44ce465bb0447fac4287fc31188810ef
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 | Field | Meaning |
 |---|---|

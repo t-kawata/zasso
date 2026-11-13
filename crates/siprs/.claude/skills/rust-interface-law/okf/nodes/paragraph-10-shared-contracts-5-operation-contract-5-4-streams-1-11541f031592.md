@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 11541f03159225338dc57efff0fe1340bdd9d6deeb5f92eca6f07e87bc01d4b9
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 Stream semantics are fixed:

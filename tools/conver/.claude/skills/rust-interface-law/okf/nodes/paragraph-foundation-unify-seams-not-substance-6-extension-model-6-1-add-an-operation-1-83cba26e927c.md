@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 83cba26e927ca0436de9fb568ffd17f6601e1e1e9f8f96447d5d4cafc976419e
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 No shared contract changes.

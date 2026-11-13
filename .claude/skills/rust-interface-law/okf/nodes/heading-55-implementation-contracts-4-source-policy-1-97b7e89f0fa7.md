@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 97b7e89f0fa7675ba23c5c18d155b295cf877fb82cbe0c0f3319eccd8f558986
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 ## 4. Source Policy

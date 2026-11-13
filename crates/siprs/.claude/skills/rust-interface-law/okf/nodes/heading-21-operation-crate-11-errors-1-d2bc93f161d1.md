@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d2bc93f161d1db8976cb57b8adb27d34950cf8ccab161e9a41c201bc395f542b
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ## 11. Errors

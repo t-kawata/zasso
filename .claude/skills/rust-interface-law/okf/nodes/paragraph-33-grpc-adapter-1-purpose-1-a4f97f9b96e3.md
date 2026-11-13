@@ -7,7 +7,7 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: a4f97f9b96e3770054c6f97726b4c6a2842e5c17081b75b78f3bded6fa357255
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 `*-grpc` is a thin gRPC adapter. It generates the protobuf service from the
 operation catalog, extracts metadata credentials, verifies them, converts

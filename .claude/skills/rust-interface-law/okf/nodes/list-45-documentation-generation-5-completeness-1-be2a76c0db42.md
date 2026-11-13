@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: be2a76c0db421f6b633b5f804d83f982905e238110de70548b5e60f05f180cf1
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 - operation ID, summary, and description;
 - authentication requirement (`required`/`anonymous`) and required scopes;

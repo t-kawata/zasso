@@ -7,6 +7,6 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: f3b170a2e8290b56f0d9eb0d63682680f2f73e5e198664932ba06548403b7048
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 ## 8. Deadlines, Streaming, and Limits

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 50a9a8e9907cbbb73baad2cdc5dba9187e8a02aaf3451e861c1399176d62734c
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 ## 11. Conformance Obligations

@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: b0468fa0c8046e1a4303ca7f91d91e907377a295b6baa53902175c97dbde5543
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 1. obtains a token through `auth.token.issue` or a stored token;
 2. sends the operation request over the selected protocol;

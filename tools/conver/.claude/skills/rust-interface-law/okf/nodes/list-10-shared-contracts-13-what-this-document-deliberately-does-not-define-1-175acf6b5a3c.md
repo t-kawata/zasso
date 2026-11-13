@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 175acf6b5a3c664c2ad85ae074261671aee40994f46a939d21ff4e7b38c01f20
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 - The set of operations, scopes, error codes, or domains.
 - The storage engine, schema, or query strategy.

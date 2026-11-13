@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b3739b2437b66cc72e62d18a83ccd4af3fbf74a3db65da150cc6af9639556840
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 - `None` from `next` means normal EOF.
 - `Some(Err(_))` means abnormal termination.

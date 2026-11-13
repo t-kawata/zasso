@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: f1c7aadca8568c055f9993ea291828f0eef18802ca311a1d4b1d2ba2786d6e30
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 1. Every request type uses the shared input macro.
 2. Every rule produces runtime validation, schema output, and a descriptor.

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 475d594058a74005d8fd4280afe6189cca4a3b15a4cb9a41fc4eb117caa72561
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 ## 2. Declaration Syntax

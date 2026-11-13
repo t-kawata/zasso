@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: a69662bebeec19b1bcd6cb33ab093cc351b4a0d1414f182bf614d9d3fb39312d
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 | Target role | Existing crate | Action |
 |---|---|---|

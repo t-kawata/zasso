@@ -1,0 +1,6 @@
+{
+  "path": "source/redaction.review.json",
+  "operation": "replace",
+  "find": "0081779c287d567d9ca622f4c0cc2ede819b0cc7f286a5f01d8c3c0178191ad6",
+  "replace": "0000000000000000000000000000000000000000000000000000000000000000"
+}

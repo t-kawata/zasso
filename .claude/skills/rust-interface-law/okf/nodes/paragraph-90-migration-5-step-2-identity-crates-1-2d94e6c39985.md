@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2d94e6c3998576533b90fac3fdc08464a631e972bf00599bce3fabfd821669f6
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 Verification: negative suite passes; no `Authorization` parsing outside the
 adapters; no raw JWT in operation code.

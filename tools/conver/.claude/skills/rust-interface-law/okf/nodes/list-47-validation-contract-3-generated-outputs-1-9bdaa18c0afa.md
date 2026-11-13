@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9bdaa18c0afa6d0d15489de99ebe3d6a5f6c46e067d99db0facadb180c0323d9
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 - `impl ContractValidate for CreateAccountRequest`;
 - schema attributes for the configured schema backend;

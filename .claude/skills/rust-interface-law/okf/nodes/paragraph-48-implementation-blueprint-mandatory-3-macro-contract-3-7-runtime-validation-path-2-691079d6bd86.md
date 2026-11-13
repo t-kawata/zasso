@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 691079d6bd86c10668f9142e31b9791f643898ae83c4da4d3ab16b3833d7a9b7
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 The dispatcher calls `validate_json` before the idempotency claim, for both the
 replay and new branches:

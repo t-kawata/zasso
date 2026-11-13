@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e35f25335326dfd68d121310f69ad89bb5dbbcc422a8b78e6ad7e39ba097184f
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 This document makes adapter implementation methods enforceable.
 Behavior rules state what an adapter must do. This document states which crate,

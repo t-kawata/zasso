@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3f20e7860724f182b7a33b4987bdc8d042cd457e09b0e5f8a5cd0c1829ab1f55
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 ```rust
 pub use crate::model::*;

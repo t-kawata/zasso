@@ -1,0 +1,4 @@
+[[skill]]
+id = "MINI-01"
+statement = "The implementation MUST expose one entry."
+verification = "test:MINI-01"

@@ -150,6 +150,17 @@ Partition: every source line → exactly one leaf Atom or explicit exclusion.
 | `attributed` | `lines` |
 | Structural exclusion | `Heading`, `Blank`, `TableHeader` |
 
+Semantic coverage: partition alone is not delivery.
+
+| Artifact | Content | Gate |
+|---|---|---|
+| `source/input-ledger.json` | every input under the declared roots; `included` or `excluded` + reason + source phrase; hash-only | every input decided; included ↔ manifest |
+| `source/normative-inventory.json` | every normative Atom → Rule ID or explicit `non-rule` reason | no orphan normative statement |
+| `source/delivery.json` | defaults + every normative or fact-bearing Atom → `must` or `reference` + reason + `delivered_by` | no silent delivery omission |
+| Fact-bearing Atom | `Rule`; normative `Paragraph`/`List`; non-empty `CodeBlock`; `Table` whose header carries a fact column | `must` or recorded `reference` |
+
+`reference` on a fact-bearing `Table`/`Paragraph`/`List` requires `delivered_by` names that exist in the lock. A generic reason (`n/a`, `reference`, `not needed`) fails.
+
 ### 3.4 Registry bijection
 
 Rule Atoms ↔ rule-registry rows. Count equality and ID equality.
@@ -161,6 +172,23 @@ Hash-only map: `[{sha256, placeholder}]`.
 Token: `[A-Za-z][A-Za-z0-9_]*`; lowercase; SHA-256; map hit → placeholder.
 Apply to `text` and `heading_path`. Unknown proper noun → fail `15`.
 Skill tree scan: zero forbidden literal.
+
+Review completeness:
+
+| Artifact | Content | Gate |
+|---|---|---|
+| `source/redaction.review.json` | every candidate → `redacted` / `allowlist` / `generic`; hash-only | no undecided candidate |
+| Candidate | capitalized token, or any token already in the map | every candidate has a decision |
+| `redacted` entry | `category` required; normative constant redaction fails | over-redaction fails |
+| Placeholder | unique per hash | injective |
+
+Path alias:
+
+| Artifact | Content | Gate |
+|---|---|---|
+| `<skill>.path-alias.json` | `{schema, skill, input_roots, aliases}`; original paths; outside the skill tree | every distributable path is an alias |
+| Alias | `sources/<basename>` | grammar valid; target unique; inside an input root |
+| Distributable artifacts | `manifest.toml`, lock `source`, `coverage.json`, node frontmatter, `source.md`, `coverage.md` | alias only; zero original path |
 
 ### 3.6 Determinism
 
@@ -193,6 +221,13 @@ source: docs/.../rule-registry.md
 | `references` | informational links |
 
 Also: `index.md`, `log.md`, `source.md`, `source.baseline.md`.
+
+| Artifact | Rule |
+|---|---|
+| Node body | Atom text + one trailing newline; SHA-256 of the body after removing that newline equals `content_sha256` |
+| `source.md` | Manifest order; `# Source: <alias>` headers; redacted source text; no original path |
+| `source.baseline.md` | Byte-identical to `source.md` |
+| `source/delivery.json` | Authority for normative and fact-bearing delivery; node `delivery` must equal the ledger decision |
 
 Never render structural Atoms as `must`. Never force `delivery=must` in `buildManifest`; preserve OKF delivery.
 
@@ -505,6 +540,10 @@ TDD mandatory.
 | `source-rederivation` | source → lock → coverage → OKF → report bytes match |
 | `installed-parity` | install to temp target; installed skill passes the verifier; source/installed SHA parity |
 | `verifier-negative` | one mutated fixture per verifier check; each fails the named check |
+| `path-alias` | alias grammar; resolution; map outside the skill; zero original path |
+| `redaction-review` | candidate completeness; map bijection; placeholder injectivity |
+| `normative-inventory` | every normative Atom has a Rule or explicit non-rule decision |
+| `delivery-coverage` | every fact-bearing Atom is `must` or explicit `reference` with `delivered_by` |
 
 Run: `node --test tests/*.test.mjs`.
 Artifact checks: `ingest verify`, `rebuild` byte-identical, `check audit`, forbidden-name scan, installed-copy verifier.
@@ -587,7 +626,7 @@ Command impact set: pipeline baseline, distribution convention, command integrat
 | Gate level policy | resolved | V1 process, V2 implementation, V3 project compile/test, V4 attestation |
 | Repo-wide ledger policy | deferred | invalidation on manifest change; phase re-delivery rules |
 | CI pinning | deferred | pinned bundle hash authority; local Stop hook self-check |
-| Verifier depth | deferred | source re-derivation, node-body hash, registry bijection, installed parity, test non-vacuity, mutated fixture per check (section 30) |
+| Verifier depth | resolved | v2 modes, source re-derivation, node-body hash, registry bijection, installed parity, test non-vacuity, mutated fixture per check (section 30) |
 
 ## 18. Definition of done
 
@@ -606,7 +645,13 @@ A `*-law` skill is complete when all hold:
 - Installer preserves `dist/`; installed skill resolves `okf/`; installed copy passes installed mode; source/installed SHA match.
 - Required core test files exist; the suite reports tests and assertions; optional tests are not counted as pass.
 - Every verifier check has a mutated fixture that fails.
-- One canonical verifier only; the caller mirrors the check set; no divergent copy.
+- `source/input-ledger.json` decides every input; included entries equal the manifest.
+- `source/redaction.review.json` decides every candidate; the map is hash-only and injective.
+- `source/normative-inventory.json` covers every normative Atom; no orphan.
+- `source/delivery.json` covers every fact-bearing Atom; no silent `reference`.
+- The path alias map is outside the skill; every distributable path is an alias.
+- The skill passes installed mode; source/installed SHA match.
+- One canonical verifier only; the caller consumes the shared check contract; no divergent copy.
 - `.claude/CLAUDE.md` carries the conditional law block.
 - Five pipeline commands invoke the skill explicitly; exact CLI only in `SKILL.md`.
 - Command checkpoints ≤5 lines; binding + completion only.
@@ -822,8 +867,9 @@ CLI:
 
 ```bash
 node .claude/scripts/amend-rfc-up/verify-law-skill.mjs \
-  --skill <skill-dir> --root <project-root> [--source-root <source-root>] \
-  --out <law-skill-verification.json>
+  --skill <skill-dir> --root <project-root> \
+  [--mode dev|installed] [--source-root <source-root>] \
+  [--path-alias <map>] --out <law-skill-verification.json>
 ```
 
 Output: `law-skill-verification/v1`.
@@ -832,41 +878,52 @@ Output: `law-skill-verification/v1`.
 |---|---|
 | `schema` | `law-skill-verification/v1` |
 | `mode` | `dev` or `installed` |
-| `check_set_version` | version of the check contract in this section |
+| `check_set_version` | `2` |
 | `skill` | resolved skill path |
 | `root` | project root |
+| `source_root` | resolved source root, or null in installed mode |
+| `path_alias` | resolved alias map path |
+| `required_checks` | checks applicable to the mode |
 | `checks` | one entry per check |
-| `closure_sha256` | hash over check set version + check names + statuses |
+| `closure_sha256` | hash over mode + check set version + check names + statuses |
 
 Check status: `machine_verified` only pass; `failed`, `unverifiable`,
-`not_run` never pass. A skill with any non-pass check is `LAW_SKILL_INVALID`.
+`not_run` never pass. A skill with any required non-pass check is
+`LAW_SKILL_INVALID`. `assertMachineVerified` consumes `required_checks`; the
+caller does not keep a second list.
 
 Modes:
 
 | Mode | Input | Proves |
 |---|---|---|
 | `dev` | `--source-root` plus skill tree | source → lock → coverage → OKF → report → dist |
-| `installed` | skill tree only | installed-tree invariants and source/installed parity |
+| `installed` | skill tree only | installed-tree invariants and runtime |
 
 A `dev` check without `--source-root` is `unverifiable`, never pass. Installed
-mode never claims source re-derivation; the pinned `source_set_sha256` and lock
-are the trust anchor. The report carries `mode` and `check_set_version`; the
-closure hash covers mode, version, check names, and statuses.
+mode never claims source re-derivation; it verifies node-body integrity and the
+installed runtime. The alias map default is
+`<skills-root>/<skill-name>.path-alias.json`; it stays outside the skill.
 
 | Check | Mode | Pass |
 |---|---|---|
-| `layer` | both | SKILL.md, DESIGN.md, IMPLEMENTATION-LEFTOVERS.md, okf/index.md, okf/nodes, atoms.lock.json, coverage.json, coverage.md, source/manifest.toml, scripts, dist/skill.mjs, install.js, tests |
-| `manifest` | dev | spec_version/source_set_sha256/redaction_sha256; every `[[file]]` path exists; its SHA-256 is recomputed from the actual LF-normalized source bytes; source_set_sha256 recomputes from those bytes; no absolute path |
-| `lock` | both | atoms.lock.json ↔ okf/nodes; one Atom = one node; every node body hash recomputes to `content_sha256`; every Rule Atom carries `source` and `span` |
-| `coverage` | dev | re-extract from source; lock, coverage, and report match byte-for-byte; gaps=0, overlaps=0, attributed=lines |
+| `layer` | both | dev: SKILL.md, DESIGN.md, IMPLEMENTATION-LEFTOVERS.md, okf/index.md, okf/log.md, okf/source.md, okf/source.baseline.md, okf/nodes, atoms.lock.json, coverage.json, coverage.md, source/manifest.toml, source/redaction.sha256.json, source/input-ledger.json, source/redaction.review.json, source/normative-inventory.json, source/delivery.json, scripts, dist/skill.mjs, install.js, tests. installed: dist/skill.mjs, okf/*, source/*, tests/fixtures/runtime/runtime.json |
+| `manifest` | dev | spec_version/source_set_sha256/redaction_sha256; every `[[file]]` path is an alias resolved by the map; its SHA-256 is recomputed from the actual LF-normalized source bytes; source_set_sha256 recomputes from those bytes |
+| `lock` | both | dev: atoms.lock.json ↔ okf/nodes; one Atom = one node; every node body hash recomputes to `content_sha256`; every Rule Atom carries `source` and `span`. installed: every node body hash recomputes to its frontmatter `content_sha256` |
+| `coverage` | dev | lock spans re-partition every source line; coverage.json and coverage.md match; gaps=0, overlaps=0, attributed=lines |
 | `registry` | dev | Rule Atom IDs and registry rows are bijective by count and ID set; grammar valid; unique; non-empty |
-| `genericBoundary` | both | hash-only redaction; zero forbidden token; SKILL.md has `## Procedure` and no `## Rule`; every proper noun in the source set has a redaction-map or allowlist decision |
+| `genericBoundary` | both | hash-only redaction; zero forbidden token; dev adds SKILL.md `## Procedure` and no `## Rule` |
 | `delivery` | both | structural Atom never `must`; `must` only for allowed types |
-| `runtime` | both | `applies` exits 0 on a target fixture and 3 on an unrelated fixture; `context --phases` enforces order; `gate` exits 0/50; `attest` rejects `unset`; `check lint/graph/coverage --lock/audit --lock` exit 0 |
-| `reproduction` | dev | `ingest verify` exits 0; `rebuild` is byte-identical |
-| `tests` | both | every required test file exists; the dependency-free core suite reports tests and assertions; optional-dependency tests are reported and never counted as pass |
-| `installer` | both | install.js copies only and no build command; dev installs into a temp target and runs installed mode; installed layering is exact; installed `dist/skill.mjs` resolves sibling `okf/`; source/installed SHA match |
-| `determinism` | dev | a full regeneration of lock, coverage, OKF, report, and dist is byte-identical; repeated lint output is necessary but not sufficient |
+| `runtime` | both | `applies` exits 0 on the applicable fixture and 3 on the unrelated fixture; `context --phases` enforces predecessor order; `gate` exits 0/50 with a valid report; `attest` rejects `unset`; `check lint/graph` exit 0; dev adds `check coverage/audit --lock` |
+| `reproduction` | dev | `ingest verify` exits 0; `rebuild` is byte-identical; `source.md` regenerates and `source.baseline.md` equals it |
+| `tests` | dev | every required test file exists; each carries a test and an assertion; the core suite reports tests>0, pass>0, fail=0; meta tests are existence-checked only |
+| `installer` | both | dev: install.js copies only and no build command; temp install; installed mode passes; installed layering is exact; source/installed SHA match. installed: layering is exact; installed `dist` resolves sibling `okf/` |
+| `determinism` | dev | `classify` twice is byte-identical; committed lock/coverage/report match; `rebuild` is byte-identical; in-memory esbuild output equals committed `dist/skill.mjs` |
+| `redaction` | dev | every candidate (capitalized token, or token already in the map) has a decision; map ↔ `redacted` entries; placeholders are injective; a redacted normative constant fails |
+| `coverageSemantics` | dev | every normative Atom has an inventory decision; every fact-bearing Atom is `must` or explicit `reference` with a specific reason and `delivered_by`; node delivery matches the ledger |
+| `inputLedger` | dev | every file under `input_roots` has an alias and a ledger entry; hashes match; included ↔ manifest; excluded has a reason and a source phrase; zero original path in the ledger |
+| `pathAlias` | dev | map is outside the skill; every manifest/lock/coverage/node path is a mapped alias; targets are unique and inside an input root; zero original path or input root in the tree |
+| `installedLeak` | both | zero absolute machine path; zero forbidden token; zero original path; no alias map inside the tree; runtime Markdown is clean |
+| `style` | both | `STYLE_NOT_ENGLISH`, `STYLE_NOT_TELEGRAPHIC`, `STYLE_LOW_DENSITY`, `STYLE_REDUNDANT` separately; authored root Markdown in dev, `okf/index.md` and `okf/log.md` in installed; verbatim node bodies excluded |
 
 Rules:
 

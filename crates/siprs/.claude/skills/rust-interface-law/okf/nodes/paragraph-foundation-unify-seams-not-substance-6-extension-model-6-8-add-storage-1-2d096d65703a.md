@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2d096d65703a9eee2427fde33523b479ff587a0a9a3ae2fb0fd9eea9a1674f62
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 No contract change.

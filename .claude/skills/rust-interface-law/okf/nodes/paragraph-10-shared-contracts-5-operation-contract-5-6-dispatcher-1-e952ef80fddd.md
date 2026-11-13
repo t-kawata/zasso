@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e952ef80fddd930a58d81460c5774bc391ca67839324df9f271ae390c2540253
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 The dispatcher belongs to `operation-contract`, not to a project crate. This is
 what lets it construct contexts and enforce the binding checks.

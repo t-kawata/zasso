@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2e09aeb4147b58e1b4e9d4cf419829b9bf05c8d1dba031d77aee21e96dfbee25
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ```rust
 pub struct TokenIssue;

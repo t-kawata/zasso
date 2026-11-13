@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 7fff0108e41f8b19d002b9ba6a6ce454da31637d50ed34350fe339b6d322a925
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 | Artifact | Version source |
 |---|---|

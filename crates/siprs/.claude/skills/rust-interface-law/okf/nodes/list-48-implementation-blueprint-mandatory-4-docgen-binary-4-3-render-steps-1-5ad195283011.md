@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 5ad195283011ef248e3075a1cce6008247a57387b08b7cefa0fdf693a2ba3a6e
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 1. Read catalog and bindings.
 2. Read both registry JSON files.

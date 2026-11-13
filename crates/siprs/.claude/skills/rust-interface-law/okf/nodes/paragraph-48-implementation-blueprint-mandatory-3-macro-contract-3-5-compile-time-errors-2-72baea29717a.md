@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 72baea29717aa4fe0ab249d91da049ba58e8a20b011d8f50a1e9331164786050
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 No rule is silently ignored.

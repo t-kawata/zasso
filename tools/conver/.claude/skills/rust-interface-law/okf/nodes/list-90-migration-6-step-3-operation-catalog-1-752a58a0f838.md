@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 752a58a0f8388296a622d59571000e2cb7435a9c197e9d83024397cf5d47962f
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 1. Extract every operation from `SYSTEM-DESIGN.md`, RFCs, and handlers.
 2. Add each entry to `contract/operation-catalog.toml` using the §11 template.

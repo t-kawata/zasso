@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 57feb1324ad7dc270f64b315cc925ba2ab2fe0f6af9cfef255df4fa265ca5c5c
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 | Interface | Request binding | Reply binding |
 |---|---|---|

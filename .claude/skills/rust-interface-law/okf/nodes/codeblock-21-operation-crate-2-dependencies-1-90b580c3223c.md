@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 90b580c3223c305fc5a78883311d406b28612a09103e57b95cad4a667eac5392
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ```toml
 [dependencies]

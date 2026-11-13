@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0b65a1d155b79a1359264816128385eae257034aa540c8019fb419eeeeae6893
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub trait AccessTokenVerifier: Send + Sync {

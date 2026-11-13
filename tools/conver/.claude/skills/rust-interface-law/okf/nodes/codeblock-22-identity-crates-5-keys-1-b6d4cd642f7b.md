@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b6d4cd642f7ba34f679362d8c1c5d933f9fb7f094d290c2ca598c9e39c3afd37
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ```rust
 pub trait KeyStore: Send + Sync {

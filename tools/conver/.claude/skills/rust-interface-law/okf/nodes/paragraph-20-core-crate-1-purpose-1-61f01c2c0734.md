@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 61f01c2c0734f23c7b6cafbc81187b83042b1358be7b61ff057c1fd63fec0ef0
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 `*-core` owns the domain model, invariants, value objects, state machines, and
 the **ports** through which the domain reaches the outside world. It knows

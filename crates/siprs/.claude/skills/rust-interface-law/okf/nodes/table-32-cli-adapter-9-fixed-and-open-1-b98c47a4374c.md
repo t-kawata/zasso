@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: b98c47a4374c6c9f188ae77642ab90fd4e72b9f37f0ddc619fcdd69bc87d065d
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 | Fixed | Open |
 |---|---|

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c3f596a4b8194cf5bd1f9eeec51dde1d62b33796d52d4f00bf0ef769f8825a6d
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ### 4.1 Subcommands

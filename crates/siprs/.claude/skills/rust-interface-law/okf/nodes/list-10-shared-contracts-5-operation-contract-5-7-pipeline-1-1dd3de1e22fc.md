@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 1dd3de1e22fcd063a02b34b27ea8ee90c9426e3ba0de8d4a43d9c3859eba49a8
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 - **Validation (6):** runs for both replay and new requests, before the claim.
   It is stateless input validation; state-dependent preconditions, resource

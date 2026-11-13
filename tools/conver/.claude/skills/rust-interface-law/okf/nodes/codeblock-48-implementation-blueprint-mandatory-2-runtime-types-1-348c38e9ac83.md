@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 348c38e9ac833629b6954412d2e426f467bb6155d27c29a4eda5ef555a61898b
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```rust
 // validation-contract

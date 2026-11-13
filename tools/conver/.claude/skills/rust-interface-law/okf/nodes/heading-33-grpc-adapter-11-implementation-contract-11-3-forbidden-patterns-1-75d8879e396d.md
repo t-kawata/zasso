@@ -7,6 +7,6 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: 75d8879e396d1753e1a1d9f951f407fa3a9beb15d8190505f25ac7288df6ea7f
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 ### 11.3 Forbidden patterns

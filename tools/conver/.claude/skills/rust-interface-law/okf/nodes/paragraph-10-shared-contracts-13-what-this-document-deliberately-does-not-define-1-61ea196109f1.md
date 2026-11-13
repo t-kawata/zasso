@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 61ea196109f16398d30aba62d3e21bd0a321563b0c4935e6752d6e7d0b9cad4e
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 Projects fill these in. The contracts above are the seams through which they
 plug in.

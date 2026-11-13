@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e15e1832725f32fe2c1a46ce89f0ae893a190f7b30d991ca091e7ccd559179e1
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ## 5. CI Gates

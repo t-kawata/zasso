@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 7a6aa48dd361ece86da9d3c47e5f688a4bcf4644df31a1b90a5c9e7947aa2a30
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 ```text
 docs/generated/

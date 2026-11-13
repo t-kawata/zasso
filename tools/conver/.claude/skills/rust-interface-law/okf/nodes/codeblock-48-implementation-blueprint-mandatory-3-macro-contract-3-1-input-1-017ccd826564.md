@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 017ccd8265644161aa60fb274ae7c05384b8f35391583a7d10cd925f0435456b
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```rust
 #[contract::input]

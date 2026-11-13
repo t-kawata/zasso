@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: bc7c8ed1de64e7e197d6ff7bb458827bc900c0ec5a69219a04b3a9adabaea107
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 ## 5. Step 2 — Identity Crates

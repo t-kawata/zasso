@@ -456,6 +456,8 @@ the AI determines the approach based on the situation:
 
 ### Step 7.5: Rust interface law gate (conditional)
 
+- Law skill built/changed: before completion run v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+
 `Law: not applicable` → skip.
 Otherwise run `implementation-check`, `gate --implementation`, and `attest` per `SKILL.md`; exit 50 → fix findings.
 Attest every `lawScope` phase; `unset` → `status=done` forbidden.

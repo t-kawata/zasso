@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 49573766c1dc875b641de4454a3a87099f67275ee7173c896d548ea8371028af
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 ```rust
 #[contract::input]

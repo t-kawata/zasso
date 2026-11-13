@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d96eceeee2e6625df9dfb85b30a47a6c9931d56a4ae67f9abff790812335e130
-source: docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md
+source: sources/15-RULE-REGISTRY.md
 ---
 ## 5. Generation

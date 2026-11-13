@@ -1,0 +1,5 @@
+{
+  "path": "tests/atom-lock.test.mjs",
+  "operation": "write",
+  "content": "import test from \"node:test\";\n\ntest(\"vacuous\", () => {\n  void 1;\n});\n"
+}

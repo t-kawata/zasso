@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3c67715a086bc8ef8c2850e248f2cfe75ddc414505085a59d5a0c7742226dd05
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ## 4. Docgen Binary

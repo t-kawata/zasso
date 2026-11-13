@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 5c25fef1ded6b91cbd5284713ccc23aeb7dc10de8892180e4c14435e8dcdac86
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 | Fixed | Open |
 |---|---|

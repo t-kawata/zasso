@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 678bd38adcadf40e942c272815a522876390e323d178268b69a9312e424112ba
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 ```toml
 [dependencies]

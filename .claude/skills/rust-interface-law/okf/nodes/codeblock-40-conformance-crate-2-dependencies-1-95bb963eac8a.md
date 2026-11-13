@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 95bb963eac8ab02a2bab2d3c1dd10b325594d0fd85ee51a79bb98a156c1366ff
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 ```toml
 [dependencies]

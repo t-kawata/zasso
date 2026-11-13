@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c05c5c1f8c815555ab7dd81cfafd2572c0809599f1667b070a09420d1d872a82
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 1. Parse `syn::ItemStruct`.
 2. For each field, read `#[rule(...)]`.

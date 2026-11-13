@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: baf293206fde592bccb2c2ff1c8293a30deece54d76d2e0c2394c40e041b5fa5
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 ```rust
 async fn account_add(

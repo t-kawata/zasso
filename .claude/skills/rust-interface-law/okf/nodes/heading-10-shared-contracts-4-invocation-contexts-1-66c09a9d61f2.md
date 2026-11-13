@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 66c09a9d61f2a20602b59d278edf83645cae71663f53ac033b8030041033d7bd
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ## 4. Invocation Contexts

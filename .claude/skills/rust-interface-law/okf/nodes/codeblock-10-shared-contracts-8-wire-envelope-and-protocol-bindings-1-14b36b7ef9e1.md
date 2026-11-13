@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 14b36b7ef9e1a238df601cfaa9c738d6adbc348a05fdb0462b8450a0ddb49f7f
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub struct WireContext {

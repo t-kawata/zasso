@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b16aaf1bd848506f69188c3e73af80374682f216d9cad4f27717cc48e4cd6ad6
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```text
 crates/

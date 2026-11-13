@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b9f7bca526cca86d71c2792fe192d8fa4a3a85312028b03417692be00cadb58b
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ## 3. Closed Seams

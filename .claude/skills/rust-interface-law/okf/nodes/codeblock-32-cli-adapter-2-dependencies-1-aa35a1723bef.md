@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: aa35a1723bef07e33ceb2a65c9b14bc968423a38a4f3ab5258c94db56c0b4679
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ```toml
 [dependencies]

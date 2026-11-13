@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 52e37c8a8a1225640489798c9e69ecf1742084dbb977e5d606a172a5446cf455
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 The dispatcher constructs these contexts. Adapters cannot construct an
 `AuthenticatedContext` with an arbitrary identity, and they cannot turn an

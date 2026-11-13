@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 71c58c9b670e34c4a3c6b638c96153539f9dc24e791d183ae3c147329679f725
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 ## 4. Matrix

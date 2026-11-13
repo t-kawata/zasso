@@ -1,0 +1,6 @@
+{
+  "path": "tests/fixtures/runtime/runtime.json",
+  "operation": "replace",
+  "find": "\"expect\": 0",
+  "replace": "\"expect\": 3"
+}

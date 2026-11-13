@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9bfdc63447379bc7e432e33765a017bb24736f7e016bf533c628bca7323504d3
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 - operation registry (`register_all.rs`);
 - REST route registration, schemas, OpenAPI;

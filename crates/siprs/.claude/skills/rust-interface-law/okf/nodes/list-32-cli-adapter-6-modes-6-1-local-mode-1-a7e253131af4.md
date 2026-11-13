@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: a7e253131af4f2330d54134128d3cc26d6a815c7aac579ce0ea3bac37ec82677
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 1. reads the local credential from a file, stdin, or TTY;
 2. verifies it through `LocalCredentialVerifier`;

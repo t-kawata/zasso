@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0a76ddee7b8e5058198670306b9aee150c6bf203399c43dd16d39a9b6aa1960f
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 1. Add `RULES-PROFILE.toml` with `spec_version`.
 2. Declare implemented interfaces; mark the rest `false`.

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b4b4c6f9e8949bc0416329b340fa7e95eee870720e44602548ce27aa710491fe
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 | Fixed | Open |
 |---|---|

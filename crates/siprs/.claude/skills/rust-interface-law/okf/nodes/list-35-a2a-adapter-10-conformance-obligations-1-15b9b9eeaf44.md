@@ -7,7 +7,7 @@ applies_to: a2a
 requires: []
 references: []
 content_sha256: 15b9b9eeaf44e93698f38904b6b917691fe87d4a2626453e07f6ab3b8bf6e13c
-source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+source: sources/35-A2A.md
 ---
 1. Every applicable operation has a skill; every skill maps to one operation.
 2. The agent card declares the implemented security scheme.

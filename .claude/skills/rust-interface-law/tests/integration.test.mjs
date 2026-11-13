@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseSkillRegistry, assertSkillRegistry } from '../scripts/lib/registry.mjs';
 import { findForbiddenTokens } from '../scripts/lib/redact.mjs';
@@ -21,14 +21,14 @@ import { buildDist } from '../scripts/lib/dist.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const repoRoot = join(root, '..', '..', '..');
-const sourceDir = existsSync(join(repoRoot, 'docs', 'archive', 'IMPLEMENTATION-SPEC'))
-  ? join(repoRoot, 'docs', 'archive', 'IMPLEMENTATION-SPEC')
-  : join(repoRoot, 'docs', 'IMPLEMENTATION-SPEC');
+const aliasMap = JSON.parse(readFileSync(join(root, '..', 'rust-interface-law.path-alias.json'), 'utf8'));
+const sourceDir = join(repoRoot, aliasMap.input_roots[0]);
 const ingest = join(root, 'scripts', 'ingest.mjs');
 
-function runIngest(args) {
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+function runIngest(args, cwd = repoRoot) {
   return execFileSync(process.execPath, [ingest, ...args], {
-    cwd: repoRoot,
+    cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -57,8 +57,13 @@ test('manifest hash mismatch fails with exit 10', () => {
   try {
     cpSync(sourceDir, join(temporary, 'spec'), { recursive: true });
     appendFileSync(join(temporary, 'spec', '00-FOUNDATION.md'), '\n');
+    const aliases = Object.fromEntries(
+      Object.entries(aliasMap.aliases).map(([alias, original]) => [alias, join(temporary, 'spec', basename(original))]),
+    );
+    const tamperedMap = join(temporary, 'alias.json');
+    writeFileSync(tamperedMap, JSON.stringify({ ...aliasMap, aliases }));
     assert.throws(
-      () => runIngest(['verify', '--source', join(temporary, 'spec')]),
+      () => runIngest(['verify', '--alias', tamperedMap], temporary),
       (error) => error.status === 10,
     );
   } finally {

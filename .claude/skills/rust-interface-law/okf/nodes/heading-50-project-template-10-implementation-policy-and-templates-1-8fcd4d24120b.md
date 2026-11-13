@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8fcd4d24120b22328fa8d44832a8b394a41c31a75db393f73d8ef8dba8cfd9d7
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 ## 10. Implementation Policy and Templates

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 808f91691cde90be9a93750c6de1c69b13d1b35cfb0eb40f9461ed8fb58f8c35
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 A report that omits a rule or a matrix cell is itself a failure.

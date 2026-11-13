@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 73e890875d95dd2e186f1ac30c2b0d0e6ae230bfc7710423477e25ad5c2f1762
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 The registry records, for each rule:

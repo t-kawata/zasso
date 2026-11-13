@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 15b4283131de54e2fc653f98568a623ca00fc8141ef21dcb027001925f2a7a19
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 - **Public router**: `/health` and operations whose catalog authentication is
   `anonymous` (`auth.token.issue`, `auth.refresh`). They still go through

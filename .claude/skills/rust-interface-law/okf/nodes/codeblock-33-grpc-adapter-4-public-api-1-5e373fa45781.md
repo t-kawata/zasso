@@ -7,7 +7,7 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: 5e373fa4578102ad6fbb055bea5b70ae103bdb3eddcefedbda7fac382df2257a
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 ```rust
 pub struct GrpcState {

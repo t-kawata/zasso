@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 19b3487c7714d273fa4d5d594eb43d41c569018ca8ff80a541e859e953e9146a
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 | Crate | Role | May depend on |
 |---|---|---|

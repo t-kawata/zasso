@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: a952a4d496f1c052bc6863c4aef6281604b640ed8a23fe3bb93ff2eec9f77d24
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 - `none` — no idempotency;
 - `same-transaction` — the idempotency record is part of the business unit of

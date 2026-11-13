@@ -1,0 +1,6 @@
+{
+  "path": "install.js",
+  "operation": "replace",
+  "find": "cpSync(join(root, 'okf')",
+  "replace": "cpSync(join(root, 'okf-missing')"
+}

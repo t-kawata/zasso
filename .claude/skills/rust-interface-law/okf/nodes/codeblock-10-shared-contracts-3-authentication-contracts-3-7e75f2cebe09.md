@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 7e75f2cebe09cfbb1376c9f30fb96aecc923a8fe7600189baf97b1cf9b2088eb
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub trait SsoProvider: Send + Sync {

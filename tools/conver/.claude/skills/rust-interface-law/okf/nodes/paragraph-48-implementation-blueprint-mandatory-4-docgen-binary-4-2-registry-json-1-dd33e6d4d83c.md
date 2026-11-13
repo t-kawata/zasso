@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: dd33e6d4d83c1e1852222546e90e9afc1608a7201fbf79c70735e55a1d8861e5
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 `dump-schema` output:

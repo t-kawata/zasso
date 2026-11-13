@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 1ea1e5bcfb11b55ac02a7a95afb87fed39dbe2e8a742a0a8f0648792e1bad2e5
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 - The unique `(family_id, generation)` key prevents two next generations from
   being created for the same family.

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 54c5a1f4528a8293a086fd5c481a2acc1818ec8ad50b096a4992f6a5654a2dfd
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub const INTERFACE_REST: InterfaceId = InterfaceId::new("rest");

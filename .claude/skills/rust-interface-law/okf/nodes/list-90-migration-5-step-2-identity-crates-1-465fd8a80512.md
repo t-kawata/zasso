@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 465fd8a805122d82863294647f3cafe0e4dd4e03dc064514d1d3dcc1220d19b1
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 1. Add `identity-jwt`, `identity-local`, and `identity-operation`.
 2. Replace the existing JWT verifier with `AccessTokenVerifier`.

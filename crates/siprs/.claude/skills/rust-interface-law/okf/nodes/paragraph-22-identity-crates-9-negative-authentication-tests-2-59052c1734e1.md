@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 59052c1734e141fd0fe9e346c4db2e37f4fde5eda583a0bb728850cd856a1317
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 The negative suite is not a claim of complete authentication correctness; it is
 the minimum rejection set.

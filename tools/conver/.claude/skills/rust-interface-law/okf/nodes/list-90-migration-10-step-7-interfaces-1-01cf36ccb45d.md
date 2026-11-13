@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 01cf36ccb45da822b6031cfc99294e54c4a698e4863d56f7a1a22be3e0a0bca0
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 1. Generate bindings from the catalog.
 2. Implement the driver contract.

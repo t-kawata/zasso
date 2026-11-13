@@ -7,6 +7,6 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 09b5ba7befa105b9210478bb66cdab3d7becae043ecb24f408cf3968537c66d6
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 ### 11.5 Rules

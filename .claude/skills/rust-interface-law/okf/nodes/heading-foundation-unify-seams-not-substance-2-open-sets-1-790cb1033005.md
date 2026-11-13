@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 790cb103300574a117882e42473876811d35d8aa93fe1d6c9039645748506c88
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ## 2. Open Sets

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e5a244e0d81b242252bd2ba04aa841664f583c8b0086cdfbaf50e92cb8362a78
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ```text
 *-operation/

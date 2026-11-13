@@ -7,7 +7,7 @@ applies_to: a2a
 requires: []
 references: []
 content_sha256: 83a70a03b133f0f0a53eadeeaf436d118113aead9d58385bca205daf6824e7e4
-source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+source: sources/35-A2A.md
 ---
 | ID | Rule | Fixed | Open | Verification |
 |---|---|---|---|---|

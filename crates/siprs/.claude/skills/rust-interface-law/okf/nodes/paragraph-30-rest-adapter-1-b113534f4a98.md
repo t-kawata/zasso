@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: b113534f4a987c20c7a5fd4a5f6b6e6e25a24d3726032e0f22c18eab3969bfd4
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 **Status:** Normative
 **Version:** 0.3.2

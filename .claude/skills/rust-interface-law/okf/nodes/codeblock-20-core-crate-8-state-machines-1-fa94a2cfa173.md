@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: fa94a2cfa1732366593365f8ebdfba6a02acf6970d672f71a39f5d8822a5f837
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 ```rust
 pub enum <Aggregate>State { /* variants */ }

@@ -7,6 +7,6 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 089a38a4d6ee8163bfb23bc25141bbf9a17c55255f18f7155bcb4236bfac0c65
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 `templates/mcp/`.

@@ -1,0 +1,7 @@
+spec_version = "0.3.2"
+redaction_sha256 = "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+source_set_sha256 = "0ef528c68e41e2821db63787652bac5ab76be1a78fe7805881084335a7af3f6a"
+
+[[file]]
+path = "sources/guide.md"
+sha256 = "ef0db74c3e259aa298c5d39a8ed1e66252878f7871e48a270a9f5f008f7e8560"

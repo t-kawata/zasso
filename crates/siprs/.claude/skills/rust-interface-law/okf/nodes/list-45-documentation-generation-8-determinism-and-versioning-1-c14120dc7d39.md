@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c14120dc7d39993f1442ddafd0e9face8ee21f767483cd13a75a1f7c73312bf4
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 - Same `spec_version` + profile + operation catalog + schema registry +
   interface bindings + generator version → byte-identical output.

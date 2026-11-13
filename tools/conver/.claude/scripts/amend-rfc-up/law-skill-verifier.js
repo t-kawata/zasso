@@ -14,19 +14,9 @@ const { spawnSync } = require('node:child_process');
 
 const CANONICAL_VERIFIER_PATH = path.resolve(__dirname, 'verify-law-skill.mjs');
 const VERIFIER_SCHEMA = 'law-skill-verification/v1';
-const REQUIRED_CHECKS = Object.freeze([
-  'layer',
-  'manifest',
-  'lock',
-  'coverage',
-  'registry',
-  'genericBoundary',
-  'delivery',
-  'runtime',
-  'tests',
-  'installer',
-  'determinism',
-]);
+const CHECK_CONTRACT = require('./law-verify/checks.json');
+const CHECK_SET_VERSION = CHECK_CONTRACT.check_set_version;
+const REQUIRED_CHECKS = Object.freeze(CHECK_CONTRACT.checks.map((check) => check.name));
 const LAW_APPLIES_SKIP_EXIT = 3;
 const LAW_ARTIFACT_DIRECTORY = path.join('amend', 'law');
 const MANIFEST_FILENAME = 'manifest.json';
@@ -49,10 +39,14 @@ function defaultRunner({ scriptPath, args, cwd }) {
 }
 
 /** Run the canonical verifier and return its report. */
-// [::TICKET::] PX-418 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-418 --for-spec --no-implementation-order`.
-function verifyLawSkill({ skillPath, root, outPath = null, runner = null }) {
+// [::TICKET::] PX-418, PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-418|PX-421|PX-422) --for-spec --no-implementation-order`.
+function verifyLawSkill({ skillPath, root, target = {}, outPath = null, runner = null }) {
+  const { sourceRoot = null, pathAlias = null, mode = null } = target;
   const reportPath = outPath || path.join(path.dirname(path.resolve(skillPath)), 'law-skill-verification.json');
   const args = ['--skill', path.resolve(skillPath), '--root', path.resolve(root), '--out', reportPath];
+  if (sourceRoot) args.push('--source-root', path.resolve(sourceRoot));
+  if (pathAlias) args.push('--path-alias', path.resolve(pathAlias));
+  if (mode) args.push('--mode', mode);
   const result = runner
     ? runner({ scriptPath: CANONICAL_VERIFIER_PATH, args })
     : defaultRunner({ scriptPath: CANONICAL_VERIFIER_PATH, args, cwd: root });
@@ -63,12 +57,13 @@ function verifyLawSkill({ skillPath, root, outPath = null, runner = null }) {
 }
 
 /** Machine pass only: every required check is machine_verified. */
-// [::TICKET::] PX-418 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-418 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-418, PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-418|PX-421|PX-422) --for-spec --no-implementation-order`.
 function assertLawSkillValid({ report }) {
   if (!report || report.schema !== VERIFIER_SCHEMA) {
     throw fail('LAW_SKILL_INVALID', 'verification report has the wrong schema');
   }
-  const failed = REQUIRED_CHECKS.filter((name) => report.checks?.[name]?.status !== 'machine_verified');
+  const required = report.required_checks ?? REQUIRED_CHECKS;
+  const failed = required.filter((name) => report.checks?.[name]?.status !== 'machine_verified');
   if (failed.length > 0) {
     throw fail('LAW_SKILL_INVALID', `*-law checks failed: ${failed.join(', ')}`, { failed });
   }
@@ -202,17 +197,39 @@ function deriveLawPhases({ manifest } = {}) {
 }
 
 /** Verify the skill, then run applies/resolve/context once. */
-// [::TICKET::] PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-419 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-419, PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-419|PX-421|PX-422) --for-spec --no-implementation-order`.
+function defaultPathAlias(skillPath) {
+  const base = path.resolve(skillPath);
+  return path.join(path.dirname(base), `${path.basename(base)}.path-alias.json`);
+}
+
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function runVerifiedLawSkill(input = {}) {
   const {
     skillPath,
     root,
     packageDir,
     phases = null,
+    sourceRoot = null,
+    pathAlias = null,
+    mode = null,
     outPath = null,
     runner = defaultRunner,
   } = input;
-  const report = verifyLawSkill({ skillPath, root, outPath, runner });
+  const resolvedSourceRoot = sourceRoot ?? root;
+  const resolvedAlias = pathAlias ?? defaultPathAlias(skillPath);
+  const resolvedMode = mode ?? (fs.existsSync(resolvedAlias) ? 'dev' : 'installed');
+  const report = verifyLawSkill({
+    skillPath,
+    root,
+    target: {
+      sourceRoot: resolvedMode === 'dev' ? resolvedSourceRoot : null,
+      pathAlias: resolvedAlias,
+      mode: resolvedMode,
+    },
+    outPath,
+    runner,
+  });
   assertLawSkillValid({ report });
   return {
     ...runLawSkill({ skillPath, root, packageDir, phases, runner }),

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d2097a1f2482b38694710e1796643c857ce8338133273853053b84cf1341331c
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 | Input | Generated output |
 |---|---|

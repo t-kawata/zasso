@@ -1,0 +1,6 @@
+{
+  "path": "atoms.lock.json",
+  "operation": "replace",
+  "find": "\"id\": \"A2A-01\"",
+  "replace": "\"id\": \"A2A-99\""
+}

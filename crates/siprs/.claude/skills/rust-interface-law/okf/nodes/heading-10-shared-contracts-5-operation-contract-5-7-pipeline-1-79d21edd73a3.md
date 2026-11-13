@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 79d21edd73a34ea1519e4c02fb991046d55d7511bcb185f56ee0f79f4bd40594
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ### 5.7 Pipeline

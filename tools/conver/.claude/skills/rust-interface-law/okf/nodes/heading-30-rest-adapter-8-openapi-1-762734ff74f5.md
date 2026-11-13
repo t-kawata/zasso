@@ -7,6 +7,6 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 762734ff74f52be60b66dd41b4c41bc778a46aa1d796f759903c35860d2eb962
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 ## 8. OpenAPI

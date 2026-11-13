@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2339dfb1eb1fe935e60396091e4b8c7a310237e740e10207a2ad14924d762f24
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub trait CredentialVerifier: Send + Sync {

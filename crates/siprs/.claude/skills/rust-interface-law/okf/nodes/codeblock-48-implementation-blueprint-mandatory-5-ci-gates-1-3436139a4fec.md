@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3436139a4fec57a8fc5d6952595053e17672ee877f4934caec9bface2c524daf
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```bash
 cargo run -p <project>-docgen -- dump-schema --out target/schema/registry.json

@@ -7,6 +7,6 @@ applies_to: a2a
 requires: []
 references: []
 content_sha256: 0b66265c1c79ed05529293284cdeed2c57d82b806dcbad578b123762284208b3
-source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+source: sources/35-A2A.md
 ---
 ## 4. Public API

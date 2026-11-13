@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: a12f3b0d428239280d60258f45cfd098a25899e00b084aebf678ef2652958a93
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ```text
 *-websocket/

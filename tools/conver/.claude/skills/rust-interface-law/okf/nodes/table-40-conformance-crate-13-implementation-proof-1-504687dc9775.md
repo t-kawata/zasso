@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 504687dc977533bfc5efab739bfa8a7697d3fe9102cead0c97881772b118cba5
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 | Level | Proof |
 |---|---|

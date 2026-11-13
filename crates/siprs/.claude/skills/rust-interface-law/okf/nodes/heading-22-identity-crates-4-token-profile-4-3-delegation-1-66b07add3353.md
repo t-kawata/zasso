@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 66b07add3353bf11e3689f008c3c47261765c942a25b48a5c60e492f089f1072
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ### 4.3 Delegation

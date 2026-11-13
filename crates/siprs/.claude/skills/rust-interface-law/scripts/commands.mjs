@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAttestation, checkAttestation } from './lib/attest.mjs';
 import {
@@ -87,7 +87,6 @@ export function resolveCommand(argv) {
   }
   process.stdout.write(renderResolveMarkdown({
     manifest,
-    manifestPath: out,
     auto,
     autoSummary: auto ? map.units.length + ' units, matched ' + units.length : null,
   }));
@@ -97,6 +96,7 @@ export function contextCommand(argv) {
   const options = parseArgs(argv);
   const manifestPath = required(options, 'manifest');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const redaction = loadRedaction();
   const requested = options.phases
     ? String(options.phases).split(',').map((phase) => phase.trim()).filter(Boolean)
     : [required(options, 'phase')];
@@ -116,22 +116,22 @@ export function contextCommand(argv) {
     });
     if (options.format === 'raw') {
       for (const node of result.nodes) {
-        process.stdout.write('<!-- node ' + node.id + ' ' + node.content_sha256 + ' -->\n');
-        process.stdout.write(node.body + '\n');
+        process.stdout.write(redactText('<!-- node ' + node.id + ' ' + node.content_sha256 + ' -->\n', redaction));
+        process.stdout.write(redactText(node.body + '\n', redaction));
       }
-      process.stdout.write('<!-- hash ' + result.hash + ' -->\n');
+      process.stdout.write(redactText('<!-- hash ' + result.hash + ' -->\n', redaction));
       continue;
     }
-    sections.push(renderContextMarkdown({
-      manifest,
-      phase,
-      result,
-      lawPath: process.argv[1],
-      manifestPath,
-    }));
+    sections.push(renderContextMarkdown({ manifest, phase, result }));
   }
 
-  if (options.format !== 'raw') process.stdout.write(sections.join('\n---\n'));
+  if (options.format !== 'raw') process.stdout.write(redactText(sections.join('\n---\n'), redaction));
+}
+
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+function loadRedaction() {
+  const redactionPath = join(skillRoot(), 'source/redaction.sha256.json');
+  return existsSync(redactionPath) ? JSON.parse(readFileSync(redactionPath, 'utf8')) : [];
 }
 
 const INTERFACE_ROLES = new Set(['rest', 'websocket', 'cli', 'grpc', 'mcp', 'a2a']);
@@ -385,10 +385,7 @@ export function attestCommand(argv) {
     }
     process.stdout.write(options.format === 'json'
       ? JSON.stringify(template, null, 2) + '\n'
-      : renderAttestMarkdown(template, {
-        lawPath: process.argv[1],
-        manifestPath: required(options, 'manifest'),
-      }));
+      : renderAttestMarkdown(template));
     return;
   }
   const document = JSON.parse(readFileSync(required(options, 'rows'), 'utf8'));
@@ -477,10 +474,11 @@ export function packageCommand(argv) {
   const manifestPath = options.manifest ?? join(skillRoot(), 'source/manifest.toml');
   const manifest = parseToml(readFileSync(manifestPath, 'utf8'));
   const redaction = JSON.parse(readFileSync(join(skillRoot(), 'source/redaction.sha256.json'), 'utf8'));
-  const repo = findRepoRoot(skillRoot());
+  const aliasMap = loadAliasMap(options.alias);
   const parts = ['# Source View', '', 'Generated from the source documents. Do not edit.', ''];
   for (const file of manifest.file ?? []) {
-    const path = existsSync(file.path) ? file.path : join(repo, file.path);
+    const original = aliasMap?.aliases?.[file.path];
+    const path = original ?? resolve(file.path);
     const text = redactText(readFileSync(path, 'utf8'), redaction);
     parts.push('# Source: ' + file.path, '', text.replace(/\n+$/, ''), '');
   }
@@ -498,17 +496,19 @@ export function packageCommand(argv) {
 export function rebuildCommand(argv) {
   const options = parseArgs(argv);
   const root = resolve(options.root ?? skillRoot());
-  const repo = findRepoRoot(root);
   const temporary = mkdtempSync(join(tmpdir(), 'law-rebuild-'));
   try {
-    execFileSync(process.execPath, [
+    const aliasPath = options.alias
+      ?? join(dirname(root), basename(root) + '.path-alias.json');
+    const ingestArgs = [
       join(root, 'scripts/ingest.mjs'),
       'classify',
-      '--source', sourceDirFor(repo),
       '--lock', join(temporary, 'atoms.lock.json'),
       '--coverage', join(temporary, 'coverage.json'),
       '--report', join(temporary, 'coverage.md'),
-    ], { cwd: repo, stdio: 'ignore' });
+    ];
+    if (existsSync(aliasPath)) ingestArgs.push('--alias', aliasPath);
+    execFileSync(process.execPath, ingestArgs, { cwd: process.cwd(), stdio: 'ignore' });
 
     for (const file of ['atoms.lock.json', 'coverage.json', 'coverage.md']) {
       if (readFileSync(join(root, file), 'utf8') !== readFileSync(join(temporary, file), 'utf8')) {
@@ -632,22 +632,10 @@ function gitRepoRoot(start) {
   }
 }
 
-function findRepoRoot(start) {
-  let current = resolve(start);
-  while (true) {
-    if (existsSync(join(current, 'docs/IMPLEMENTATION-SPEC'))
-      || existsSync(join(current, 'docs/archive/IMPLEMENTATION-SPEC'))) {
-      return current;
-    }
-    const parent = dirname(current);
-    if (parent === current) throw new Error('repository root not found');
-    current = parent;
-  }
-}
-
-function sourceDirFor(repo) {
-  const archived = join(repo, 'docs/archive/IMPLEMENTATION-SPEC');
-  return existsSync(archived) ? archived : join(repo, 'docs/IMPLEMENTATION-SPEC');
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+function loadAliasMap(explicitPath) {
+  const aliasPath = explicitPath ?? join(dirname(skillRoot()), basename(skillRoot()) + '.path-alias.json');
+  return existsSync(aliasPath) ? JSON.parse(readFileSync(aliasPath, 'utf8')) : null;
 }
 
 function loadVerify(path) {

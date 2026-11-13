@@ -1,3 +1,4 @@
+// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
@@ -51,6 +52,14 @@ export const FAILURE_CODES = Object.freeze([
   'NON_DETERMINISTIC',
   'VERIFIER_FAILED',
   'INSTALL_BLOCKED',
+  'ARTIFACT_MISSING',
+  'LEAK_DETECTED',
+  'PATH_ALIAS_MISSING',
+  'NORMATIVE_ORPHAN',
+  'DELIVERY_OMISSION',
+  'VERIFIER_V2_FAILED',
+  'INSTALLED_SHA_MISMATCH',
+  'CHECKPOINT_INVALID',
 ]);
 
 export const EXAMPLE_LITERALS = Object.freeze([
@@ -60,6 +69,51 @@ export const EXAMPLE_LITERALS = Object.freeze([
   'Implementation-Handbook',
   'BUILDENV',
 ]);
+
+export const CANONICAL_CHECK_CONTRACT = JSON.parse(
+  readFileSync(new URL('../../../.claude/scripts/amend-rfc-up/law-verify/checks.json', import.meta.url), 'utf8'),
+);
+export const CANONICAL_CHECKS = Object.freeze(CANONICAL_CHECK_CONTRACT.checks);
+
+export const REQUIRED_ARTIFACTS = Object.freeze([
+  'source/input-ledger.json',
+  'source/redaction.review.json',
+  'source/normative-inventory.json',
+  'source/delivery.json',
+  'okf/source.md',
+  'okf/source.baseline.md',
+  'tests/fixtures/runtime/runtime.json',
+]);
+
+export const STYLE_CODES = Object.freeze([
+  'STYLE_NOT_ENGLISH',
+  'STYLE_NOT_TELEGRAPHIC',
+  'STYLE_LOW_DENSITY',
+  'STYLE_REDUNDANT',
+]);
+
+export const V2_CHECKPOINT_TERMS = Object.freeze([
+  'dev',
+  'installed',
+  'machine_verified',
+  'closure',
+]);
+
+export const SPEC_FIELD_ANCHORS = Object.freeze({
+  background: '## Background',
+  scope: '## Scope',
+  testUnit: '## Test Plan',
+  testIntegration: '## Test Plan',
+  testExceptions: '## Test Plan',
+  default_files: '## Implementation Target Files',
+  acceptanceCriteria: '## Acceptance Criteria',
+  contracts: '## Contracts',
+  notes: '## Notes in Prior Implementation Rounds',
+  invariants: '## Invariants',
+  instrumentation: '### Instrumentation',
+  investigation: '## Investigation',
+  boyScoutPlan: '## Boy Scout Rule',
+});
 
 const NORMATIVE = /\b(MUST NOT|MUST|SHALL|SHOULD|NEVER|REQUIRED|MANDATORY|PROHIBITED)\b|\b(?:Do not|DO NOT)\b/;
 const CJK = /[　-〿぀-ヿ㐀-鿿豈-﫿＀-￯]/;
@@ -249,6 +303,201 @@ export function allocateRuleCandidates({ sources, profile }) {
   return candidates;
 }
 
+
+/**
+ * Whether the command declares every v2 artifact in its layout and procedure.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+export function auditArtifacts(text) {
+  const findings = [];
+  const layout = sectionOf(text, '## Generated Skill Layout');
+  const procedure = sectionOf(text, '## Procedure');
+  for (const artifact of REQUIRED_ARTIFACTS) {
+    if (!layout.includes(artifact)) {
+      findings.push({ code: 'MISSING_ARTIFACT', contract: 'C001', message: `layout lacks ${artifact}` });
+    }
+    if (!procedure.includes(artifact)) {
+      findings.push({ code: 'MISSING_ARTIFACT', contract: 'C001', message: `procedure lacks ${artifact}` });
+    }
+  }
+  return findings;
+}
+
+/**
+ * Whether the command states the leak-prevention contract.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+export function auditLeak(text) {
+  const findings = [];
+  const add = (code, message) => findings.push({ code, contract: 'C002', message });
+  if (!text.includes('path-alias')) add('MISSING_PATH_ALIAS', 'path alias map is not declared');
+  if (!text.includes('outside the skill tree')) add('MISSING_PATH_ALIAS', 'alias map is not placed outside the skill tree');
+  if (!text.includes('source/redaction.review.json')) add('MISSING_LEAK_LEDGER', 'redaction review ledger is not declared');
+  if (!text.includes('forbidden')) add('MISSING_LEAK_SCAN', 'forbidden-token scan is not declared');
+  if (!text.includes('installed')) add('MISSING_INSTALLED_SCAN', 'installed-tree scan is not declared');
+  if (!text.includes('runtime')) add('MISSING_RUNTIME_SCAN', 'runtime output scan is not declared');
+  return findings;
+}
+
+/**
+ * Whether the command states the coverage-semantics contract.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+export function auditCoverage(text) {
+  const findings = [];
+  const add = (code, message) => findings.push({ code, contract: 'C003', message });
+  for (const artifact of ['source/input-ledger.json', 'source/normative-inventory.json', 'source/delivery.json']) {
+    if (!text.includes(artifact)) add('MISSING_COVERAGE_LEDGER', `coverage ledger is not declared: ${artifact}`);
+  }
+  if (!text.includes('delivered_by')) add('MISSING_DELIVERY_REASON', 'delivered_by is not declared');
+  if (!text.includes('fact-bearing')) add('MISSING_FACT_BEARING', 'fact-bearing classification is not declared');
+  if (!text.includes('orphan')) add('MISSING_ORPHAN_GATE', 'orphan gate is not declared');
+  if (!text.includes('omission')) add('MISSING_OMISSION_GATE', 'delivery omission gate is not declared');
+  return findings;
+}
+
+/**
+ * Whether the command states the four style findings.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+export function auditStyle(text) {
+  return STYLE_CODES
+    .filter((code) => !text.includes(code))
+    .map((code) => ({ code: 'MISSING_STYLE_RULE', contract: 'C006', message: code }));
+}
+
+/**
+ * Whether the command consumes the frozen v2 check contract.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+export function auditVerifierContract(text) {
+  const findings = [];
+  const verification = sectionOf(text, '## Verification Gates');
+  if (!verification.includes('verify-law-skill.mjs')) {
+    findings.push({ code: 'MISSING_VERIFIER', contract: 'C004', message: 'canonical verifier is not named' });
+  }
+  for (const token of ['machine_verified', 'check_set_version', 'closure', 'dev', 'installed', String(CANONICAL_CHECKS.length)]) {
+    if (!verification.includes(token)) {
+      findings.push({ code: 'MISSING_GATE_TERM', contract: 'C004', message: `verification gate lacks ${token}` });
+    }
+  }
+  for (const check of CANONICAL_CHECKS) {
+    if (!text.includes(`\`${check.name}\``)) {
+      findings.push({ code: 'MISSING_GATE_TERM', contract: 'C004', message: `check is not declared: ${check.name}` });
+    }
+  }
+  return findings;
+}
+
+/**
+ * The law section of a pipeline command.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function lawSectionOf(text) {
+  const lines = normalizeLf(text).split('\n');
+  const start = lines.findIndex((line) => /^### .*Rust interface law/.test(line));
+  if (start < 0) return '';
+  const body = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^##\s/.test(lines[index])) break;
+    body.push(lines[index]);
+  }
+  return body.join('\n').trim();
+}
+
+/**
+ * Whether one pipeline command carries a bounded v2 checkpoint.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+export function auditPipelineCheckpoint(text) {
+  const findings = [];
+  const law = lawSectionOf(text);
+  if (law === '') {
+    return [{ code: 'MISSING_V2_CHECKPOINT', contract: 'C005', message: 'Rust interface law section is absent' }];
+  }
+  for (const token of V2_CHECKPOINT_TERMS) {
+    if (!law.includes(token)) {
+      findings.push({ code: 'MISSING_V2_CHECKPOINT', contract: 'C005', message: `law checkpoint lacks ${token}` });
+    }
+  }
+  if (/--(?:root|source-root|path-alias)/.test(law)) {
+    findings.push({ code: 'CLI_IN_CHECKPOINT', contract: 'C005', message: 'law checkpoint duplicates exact CLI' });
+  }
+  const v2Lines = law.split('\n').filter((line) => /v2/i.test(line));
+  if (v2Lines.length === 0) {
+    findings.push({ code: 'MISSING_V2_CHECKPOINT', contract: 'C005', message: 'no v2 line' });
+  }
+  for (const line of v2Lines) {
+    if (line.length > 240) findings.push({ code: 'CHECKPOINT_TOO_LONG', contract: 'C005', message: line.slice(0, 60) });
+  }
+  return findings;
+}
+
+/**
+ * Whether CLAUDE.md carries the conditional v2 block.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+export function auditClaudeBlock(text) {
+  const lines = normalizeLf(text).split('\n');
+  const start = lines.findIndex((line) => line.trim() === '### Rust interface law (conditional)');
+  if (start < 0) {
+    return [{ code: 'MISSING_V2_CHECKPOINT', contract: 'C005', message: 'conditional law block is absent' }];
+  }
+  const body = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^##\s/.test(lines[index])) break;
+    body.push(lines[index]);
+  }
+  const block = body.join('\n');
+  return V2_CHECKPOINT_TERMS
+    .filter((token) => !block.includes(token))
+    .map((token) => ({ code: 'MISSING_V2_CHECKPOINT', contract: 'C005', message: `CLAUDE block lacks ${token}` }));
+}
+
+/**
+ * Whether the exported spec carries every ticket field.
+ *
+ * @param {object} ticket
+ * @param {string} specText
+ * @returns {object[]}
+ */
+export function auditSpecParity(ticket, specText) {
+  const findings = [];
+  for (const [field, anchor] of Object.entries(SPEC_FIELD_ANCHORS)) {
+    const value = ticket[field];
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value) ? value.length === 0 : String(value).trim() === '') continue;
+    if (!specText.includes(anchor)) {
+      findings.push({ code: 'SPEC_FIELD_MISSING', contract: 'C005', message: `${field} anchor ${anchor}` });
+      continue;
+    }
+    const first = Array.isArray(value) ? value[0] : value;
+    const representative = first && typeof first === 'object'
+      ? String(first.id ?? first.sourceEdge ?? '')
+      : String(first);
+    if (representative === '' || !specText.includes(representative.slice(0, 40))) {
+      findings.push({ code: 'SPEC_FIELD_MISSING', contract: 'C005', message: `${field} value is absent` });
+    }
+  }
+  return findings;
+}
+
 export function auditCommand(text) {
   const findings = [];
   const add = (code, contract, message) => findings.push({ code, contract, message });
@@ -303,10 +552,7 @@ export function auditCommand(text) {
   }
 
   const verification = sectionOf(body, '## Verification Gates');
-  if (!verification.includes('verify-law-skill.mjs')) {
-    add('MISSING_VERIFIER', 'C003', 'canonical verifier is not named');
-  }
-  for (const token of ['machine_verified', '11', 'check lint', 'check graph', 'check coverage', 'check audit', 'rebuild', 'byte-identical', 'forbidden']) {
+  for (const token of ['check lint', 'check graph', 'check coverage', 'check audit', 'rebuild', 'byte-identical', 'forbidden']) {
     if (!verification.includes(token)) add('MISSING_GATE_TERM', 'C003', `verification gate lacks ${token}`);
   }
 
@@ -351,6 +597,14 @@ export function auditCommand(text) {
   if (ABSOLUTE_PATH.test(execution)) add('ABSOLUTE_PATH', 'C002', 'execution logic contains an absolute path');
   if (TICKET_ID.test(execution)) add('TICKET_ID', 'C005', 'execution logic contains a ticket id');
   if (CJK.test(execution)) add('CJK_TEXT', 'C001', 'execution logic contains CJK text');
+
+  findings.push(
+    ...auditArtifacts(body),
+    ...auditLeak(body),
+    ...auditCoverage(body),
+    ...auditStyle(body),
+    ...auditVerifierContract(body),
+  );
 
   if (!body.includes('node --test')) {
     add('MISSING_NODE_TEST_POLICY', 'C006', 'node --test policy is absent');

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9dd519f23f45d537918e99df0d3b4af1d2b73886a5d1db9f8fb85d7faa6efaac
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 These are the only places where projects are expected to differ.

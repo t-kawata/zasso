@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: a9ef1b53850542f100b35aa5186c8787cc6d12b672d9003b784fa339720a8502
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 ```bash
 # Neutral schema + catalog + bindings -> all interface references

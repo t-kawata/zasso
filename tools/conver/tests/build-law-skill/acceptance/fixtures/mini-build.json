@@ -1,0 +1,15 @@
+{
+  "schema": "law-builds/v1",
+  "scope": "reference",
+  "sources": [],
+  "builds": [
+    {
+      "skill": "mini-law",
+      "path": "tests/build-law-skill/acceptance/fixtures/mini/mini-law",
+      "mode": "dev",
+      "source_root": "tests/build-law-skill/acceptance/fixtures/mini",
+      "path_alias": "tests/build-law-skill/acceptance/fixtures/mini/mini-law.path-alias.json",
+      "closure_sha256": "a53524176fbf0963c9b288a916ef2cc345bfb6791f7322375f795c4b16841563"
+    }
+  ]
+}

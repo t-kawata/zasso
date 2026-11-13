@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 72fff5f96ef65c031b9f4c4d35c1ac50828000f7387f93565d3cfbf797beeeaa
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 The protobuf schema may use typed messages. It MUST carry the semantic
 `Context` fields and the `request_id` on the reply. The universal "JSON bytes in

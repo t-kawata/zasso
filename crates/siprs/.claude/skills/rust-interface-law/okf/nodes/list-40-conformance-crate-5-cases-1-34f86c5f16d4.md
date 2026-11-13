@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 34f86c5f16d4709f69303f7721b1f6a33a8cbbda7b9da1575b6aa65b5bb5e090
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 - authentication material (`AuthCase`);
 - tenant and delegation (`TestPrincipal`);

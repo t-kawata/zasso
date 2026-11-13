@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2915d3456dcfc80ef7efe71b3c04d3be2ac1c4a688f8c9d18e27fde19c411f66
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ```text
 identity-core/src/

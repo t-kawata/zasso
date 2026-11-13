@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 5807f5a062bcbcd41a03307849aaf639a60cce120397520b5326bf053b573637
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 For a struct `CreateAccountRequest`, the macro emits:

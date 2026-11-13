@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 070f3d83d776ac106c35b9da19732f17a55b2b9eca0a206c4e5b2428f44d9ff8
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ```text
 alg allowlist

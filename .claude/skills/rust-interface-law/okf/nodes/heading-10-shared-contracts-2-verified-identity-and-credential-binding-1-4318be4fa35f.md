@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 4318be4fa35f14c0aae05bccd23968af375ba63ac600790f8b09ee98699dd43f
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ## 2. Verified Identity and Credential Binding

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d3db5f3808fc435689f0e25fd7b7871eda997e1cb0e9ec5af229d8225722b790
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 ## 14. Risks and Mitigations

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3fedb435be37989dafa2632562d9ab5d58ea5151001a9b315e7a7d19544fdeb6
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ```rust
 pub trait Authorizer: Send + Sync {

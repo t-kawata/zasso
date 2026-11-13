@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2b7047be3ddf2b033bbdcc8fb8f682713ca44b858d4e374bd62f3508339744b1
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```proto
 message Context {

@@ -7,7 +7,7 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 4ba8ad9c00473e2f91d5f6fcd3deae6885d597b710cd0e84b47eddd49741125a
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 | ID | Rule | Fixed | Open | Verification |
 |---|---|---|---|---|

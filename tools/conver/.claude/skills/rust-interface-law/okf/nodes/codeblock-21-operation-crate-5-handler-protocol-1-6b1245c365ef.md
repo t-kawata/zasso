@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 6b1245c365efe7d31654310090d307a52f8d903760183a59716c2d6bbd69ca6e
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ```rust
 pub struct AddAccount;

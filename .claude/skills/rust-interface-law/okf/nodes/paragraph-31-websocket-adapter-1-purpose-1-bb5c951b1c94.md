@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: bb5c951b1c946ef58ba938bc3b9ac143a9eee327df3dbe735fbac844a18caa36
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 `*-websocket` is a thin, long-lived adapter. It authenticates the upgrade with a
 one-time session ticket, converts messages to operation invocations, correlates

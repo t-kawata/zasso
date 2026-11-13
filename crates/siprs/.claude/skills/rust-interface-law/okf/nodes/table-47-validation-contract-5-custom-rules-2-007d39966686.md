@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 007d3996668697cbf879a7f8d0b3977f8e12c02198396f7a966bf62e6ada1e75
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 | ID | Rule | Fixed | Open | Verification |
 |---|---|---|---|---|

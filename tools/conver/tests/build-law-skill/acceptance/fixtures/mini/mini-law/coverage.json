@@ -1,0 +1,17 @@
+{
+  "spec_version": "0.3.2",
+  "source_manifest_sha256": "1a497fe3cc896106c97daa431fc47aee48b9951ca3e83e847b602729db6b5622",
+  "files": [
+    {
+      "path": "sources/guide.md",
+      "sha256": "ef0db74c3e259aa298c5d39a8ed1e66252878f7871e48a270a9f5f008f7e8560",
+      "lines": 9,
+      "attributed": 9,
+      "excluded": 7,
+      "gaps": [],
+      "overlaps": []
+    }
+  ],
+  "gaps": [],
+  "overlaps": []
+}

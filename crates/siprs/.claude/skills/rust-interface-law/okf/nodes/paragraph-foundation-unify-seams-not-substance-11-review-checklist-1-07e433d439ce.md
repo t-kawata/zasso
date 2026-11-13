@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 07e433d439ce653347f764732b43dfcff32143253c66886ab4ed4abaf7e2ad89
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 Before accepting a new rule or a project exception, answer all of these.

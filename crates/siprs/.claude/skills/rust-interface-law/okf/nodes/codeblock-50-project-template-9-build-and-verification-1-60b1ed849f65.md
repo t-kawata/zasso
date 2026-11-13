@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 60b1ed849f650f83f48852640bf1261218bb146974aaefd6ea329573501d709f
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 ```bash
 cargo fmt --all -- --check

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: fa698a9e18143897a8371bd7b339e2edbe401cc970a909851e2aba00c692831f
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 ```text
 1. Build the neutral schema registry from operation DTOs.

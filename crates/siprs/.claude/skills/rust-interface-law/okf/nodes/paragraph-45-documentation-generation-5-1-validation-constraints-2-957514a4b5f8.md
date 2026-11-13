@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 957514a4b5f8ae5980f751159ec586140dcc30c0caa11314f206c57298272450
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 Each constraint entry includes:

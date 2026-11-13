@@ -7,6 +7,6 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: 0dab820f13b6ba75939c2b9d783322cf23a3d7a2e8dae9b04161bfb6e69e9b4b
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ## 10. Conformance Obligations

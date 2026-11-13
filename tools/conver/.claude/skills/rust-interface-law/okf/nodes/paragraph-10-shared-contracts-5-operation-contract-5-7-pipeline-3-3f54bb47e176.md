@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3f54bb47e176a207aa967ab7e9da3503fb456e83a116bae657dd0d7accd0e3ff
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 For create operations with no existing resource, `prepare` authorizes against
 the tenant or a declared global target:

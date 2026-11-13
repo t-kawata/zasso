@@ -7,6 +7,6 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 09b5ba7befa105b9210478bb66cdab3d7becae043ecb24f408cf3968537c66d6
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 ### 11.5 Rules

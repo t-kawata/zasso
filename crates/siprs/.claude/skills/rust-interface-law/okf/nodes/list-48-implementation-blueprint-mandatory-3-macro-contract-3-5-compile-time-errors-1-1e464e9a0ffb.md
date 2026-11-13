@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 1e464e9a0ffb9b68984f2caa22c50a7c520551cd5ffef0d06b1b3fd8baa47d2b
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 - unknown rule name;
 - rule applied to an incompatible field type;

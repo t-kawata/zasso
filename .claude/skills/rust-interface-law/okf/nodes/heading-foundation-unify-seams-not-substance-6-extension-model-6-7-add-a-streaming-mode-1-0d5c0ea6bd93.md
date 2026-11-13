@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0d5c0ea6bd93f44c312c59e1ff976a50554e6d13218c1db8af9bd9404a7500a9
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ### 6.7 Add a streaming mode

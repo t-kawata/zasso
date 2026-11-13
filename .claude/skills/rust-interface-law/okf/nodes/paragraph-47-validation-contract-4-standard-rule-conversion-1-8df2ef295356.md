@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8df2ef295356d1af246a152d2d7a8d0ab503a08532cfd6dd6092dd91857bd880
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 The neutral registry uses `schemars` as fixed in Part III.18. `utoipa` may be
 used for REST rendering and is compared against the neutral schema; it is not

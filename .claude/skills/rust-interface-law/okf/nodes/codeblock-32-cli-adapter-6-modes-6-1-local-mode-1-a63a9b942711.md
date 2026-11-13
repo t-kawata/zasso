@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: a63a9b942711ef3753096dde8fffe903b8b1802abe38019859e16b5c94a261e6
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ```rust
 pub trait LocalCredentialVerifier: Send + Sync {

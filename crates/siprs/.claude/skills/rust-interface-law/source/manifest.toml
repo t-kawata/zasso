@@ -1,79 +1,79 @@
 spec_version = "0.3.2"
 redaction_sha256 = "df6ebf273b2cc1fe348b4043c497da7d1ffb49a1477e1d044e9972650e7019f8"
-source_set_sha256 = "c68f4ec771458891d651c3774af6b35b36aea605acea739c7ef12323d60e78a1"
+source_set_sha256 = "08797ab9d006634206cc33efcce7bf9405f5747e55e808483a10e885b93ef911"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md"
+path = "sources/00-FOUNDATION.md"
 sha256 = "f6533929d76d2d99304be69b0b2bbea94b801c63fec38fde86264fbbc8f642c0"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md"
+path = "sources/10-CONTRACTS.md"
 sha256 = "bded443f18ef4ada021081116bf97b5342cc7a4bdbd6583491ba533b86de6634"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md"
+path = "sources/15-RULE-REGISTRY.md"
 sha256 = "7a6a24137c503e263c8ed86e970d01a8377a4b2a597b7621ad7f4b57386e12ec"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/20-CORE.md"
+path = "sources/20-CORE.md"
 sha256 = "f1ef9f3d4b2f4099a05db12cac736865a4dce8a0806b66cb174d0e8fb79e3cf3"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md"
+path = "sources/21-OPERATION.md"
 sha256 = "0e8f7559f95ca0d9eee8362a0e17611910f7c59f83d57ba2371545555b7d8f6c"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md"
+path = "sources/22-IDENTITY.md"
 sha256 = "c066c053d69d6d5351e9659806ed5f9076c3805dd071137ba5a0a31cea462193"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/30-REST.md"
+path = "sources/30-REST.md"
 sha256 = "53f7b76cc890fd24991aa7557856c3d2fade7e0e09c673a1809679b824aa634d"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md"
+path = "sources/31-WEBSOCKET.md"
 sha256 = "7bf6478c4e71921c418a12cbf85d578cc87ee2f5655b4021fee32e191c08272e"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/32-CLI.md"
+path = "sources/32-CLI.md"
 sha256 = "ca18e0df527e32bf2a6074e976e4779a6203ef77f23c34644ac57e1554001c9d"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md"
+path = "sources/33-GRPC.md"
 sha256 = "43362dd595a525d0c54b607929f2b07a487fa1a624187d61a97b1b8c51ad843d"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/34-MCP.md"
+path = "sources/34-MCP.md"
 sha256 = "dca295f53df473ec14703020b3a538061bc5eff928605c19b28bfc5a0b31dc17"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/35-A2A.md"
+path = "sources/35-A2A.md"
 sha256 = "9f75a4b4a4cfd4a80f644d3bae925ee649eeed5ad980424b89bd8bc28e1dad2f"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md"
+path = "sources/40-CONFORMANCE.md"
 sha256 = "6aff5847ea135ffa64739b7b66dcaf588c63e95e8cc995480738cd068f6582a1"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md"
+path = "sources/45-DOCUMENTATION.md"
 sha256 = "2750ec183e8a057a6c2c644022a1ba734aee5468a6eac287ed47f1206ecc64ea"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md"
+path = "sources/47-VALIDATION.md"
 sha256 = "4f2d4a903214be3cac3da5a2b525bd5c9e248b173639c7ce53778f94a14250c5"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md"
+path = "sources/48-IMPLEMENTATION-BLUEPRINT.md"
 sha256 = "e2eae391b64cb5a527d4828962c378e7a1b8428453a56b5e67842ab595184e36"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md"
+path = "sources/50-PROJECT-TEMPLATE.md"
 sha256 = "785833abc58ceb31ca734eb835fcc5c8c83b0cac68e0864994455cb4b8d47c2f"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md"
+path = "sources/55-IMPLEMENTATION-CONTRACTS.md"
 sha256 = "d2e7dd8d841f93fd74245ed1ff5ece0e35d9d8ae3587e043c7995f9d8d79bdae"
 
 [[file]]
-path = "docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md"
+path = "sources/90-MIGRATION.md"
 sha256 = "703db9f8e23f24ba7b30664ddfa1dd9aec2bb6fcfa58a2ddda3ffe002fb4f449"

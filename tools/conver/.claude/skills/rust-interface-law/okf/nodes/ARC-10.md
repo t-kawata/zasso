@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b48ef953d0f67bd5105fff4f0c6f49513e9139074d7d17992376104eb52ef30d
-source: docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md
+source: sources/15-RULE-REGISTRY.md
 ---
 | `ARC-10` | C | all | ARC | Part II | Inside a crate, modules SHOULD follow `api/`, `model/`, `state/`, `error/`, `security/`, `config/`, `tests/`. | V4 review. | cargo metadata / check-deps |

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 5d1073713f06f11418dedd56a511b84bc7de4c9130fd6684319f9fcd29aa26aa
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 ## 14.1 Revision Tests (0.3.0)

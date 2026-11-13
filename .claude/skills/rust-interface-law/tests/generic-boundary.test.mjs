@@ -26,10 +26,11 @@ test('C009 SKILL.md contains procedure and no rule text', () => {
   assert.doesNotMatch(text, /^## Rule/m);
 });
 
+// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 function walk(dir) {
   const out = [];
   for (const name of readdirSync(dir)) {
-    if (name === 'node_modules' || name === '.git') continue;
+    if (name === 'node_modules' || name === '.git' || name === 'target') continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) out.push(...walk(path));
     else out.push(path);

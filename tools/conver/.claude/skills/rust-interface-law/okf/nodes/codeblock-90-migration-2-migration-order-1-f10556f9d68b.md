@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: f10556f9d68b5fc197cee78d0aadb6ce5873d1843b7e727c761e8e6cb41aa1cd
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 ```text
 0. Pin spec_version and record baseline behavior tests

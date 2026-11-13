@@ -7,6 +7,6 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: ba3d475a71cc12505ce3fab33774bb7ec314ed96eb6561aa945b6f95859a12c5
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ### 6.2 Remote mode

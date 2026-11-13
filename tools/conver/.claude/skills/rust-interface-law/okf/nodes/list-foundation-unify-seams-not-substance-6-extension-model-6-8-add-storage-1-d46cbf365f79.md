@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d46cbf365f790eeb7b040049772b5a8f626779ca2c53006a7a4c073ecb06ea12
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 1. Implement the core ports.
 2. Keep the domain and operation contracts unchanged.

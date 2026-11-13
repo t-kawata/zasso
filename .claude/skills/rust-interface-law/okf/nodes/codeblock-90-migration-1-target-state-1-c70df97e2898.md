@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c70df97e28981f7aaf4e1552b82827a1668ca7814c87721181528abdfefdac8c
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 ```text
 <project>/

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 1b1f0fb2225584b3bc01079b055c01a1a523d8abda3d72a2d7f04233ca8c82c5
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 - a duplicate operation ID;
 - a tool/skill/CLI name collision after `.` → `_` and kebab-case conversion;

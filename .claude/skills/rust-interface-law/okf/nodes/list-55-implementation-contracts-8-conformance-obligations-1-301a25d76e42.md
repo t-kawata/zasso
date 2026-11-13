@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 301a25d76e42d2052b0e6fd7644ccf859b81c4edfe1010fbeeedfb5531fe336f
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 1. Every interface has one admitted crate, exact version, and feature set.
 2. Every implementation rule has a detector or an attestation row.

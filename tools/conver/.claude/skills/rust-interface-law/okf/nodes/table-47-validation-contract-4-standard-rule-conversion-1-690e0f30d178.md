@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 690e0f30d1788215888ebc437498e80a61a14a73d32d20a8e9a4a08ef4f50d04
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 | Rule | Runtime check | Schema output |
 |---|---|---|

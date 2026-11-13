@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2166633b7b410bb4c88b4db0430ba606b877a011fa4e83d27c06b41c724c1a69
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 | Context | Language |
 |---|---|

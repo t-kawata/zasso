@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c40074af331ea5cc479cd51d15fff376fa03dbcd80ff275d4fc466b38d3a5e22
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 1. Add `contract-macros` and `validation-contract`.
 2. Add `#[contract::input]` to every request type; derive `schemars::JsonSchema`.

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b726716eec162f2ec7fb22f260e586db4238163e827a7a1df4a4810fe18d07e9
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub type BoxFuture<'a, T> =

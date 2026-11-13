@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8b01f9070d48554b83ea80204fb2090a8f5af65693fbdc81f41165607de8f6b7
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ```sql
 BEGIN;

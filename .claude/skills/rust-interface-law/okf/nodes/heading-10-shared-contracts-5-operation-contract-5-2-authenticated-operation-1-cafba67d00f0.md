@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: cafba67d00f03d6fb6a6ddde8c2b23a2f0f639a34795f0044b37deb673d372ea
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ### 5.2 Authenticated operation

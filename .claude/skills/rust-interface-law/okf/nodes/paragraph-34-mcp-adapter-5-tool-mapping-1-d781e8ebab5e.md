@@ -7,7 +7,7 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: d781e8ebab5e5b888ca70e7a2f882a4e2983a82ca37f152812d99c4e1d38a388
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 A tool is applicable when the catalog marks it `mcp: true`. An operation marked
 `mcp: false` must state a reason in the catalog.

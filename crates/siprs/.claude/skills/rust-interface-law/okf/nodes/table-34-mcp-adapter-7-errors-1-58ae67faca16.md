@@ -7,7 +7,7 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 58ae67faca162e0deef704ed71b2c832f90d7012133f395435bbdbaea73434ea
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 | Operation category | MCP mapping |
 |---|---|

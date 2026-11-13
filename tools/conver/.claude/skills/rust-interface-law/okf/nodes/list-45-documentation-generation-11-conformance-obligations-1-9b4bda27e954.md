@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9b4bda27e954e2285879853e08e214cfdd76453057d1f13f94867e0b5b847f55
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 1. Every implemented profile has a generated reference directory.
 2. Every applicable operation appears in each interface reference.

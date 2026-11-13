@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0de378067cbee6f9d437f94d6c578c501a6af2151358081f27045f3b8fe9cb80
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```text
 authenticate / scope / deadline

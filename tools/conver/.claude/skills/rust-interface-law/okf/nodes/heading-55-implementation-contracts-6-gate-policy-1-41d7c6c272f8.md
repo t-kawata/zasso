@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 41d7c6c272f8ab8084e4d2e0e699d485201701b5d9406791eebb695b559c067b
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 ## 6. Gate Policy

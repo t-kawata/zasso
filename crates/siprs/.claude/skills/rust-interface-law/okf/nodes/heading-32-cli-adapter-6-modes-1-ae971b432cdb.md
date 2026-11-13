@@ -7,6 +7,6 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: ae971b432cdbc183c646ae0692930c909284e4e56afe0c8328a02b13a38b3d71
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ## 6. Modes

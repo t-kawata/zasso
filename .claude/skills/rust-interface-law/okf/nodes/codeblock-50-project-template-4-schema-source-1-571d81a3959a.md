@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 571d81a3959ac61781942dc09bdc63cf2f8971e5ed3167f31feafe1fe0309818
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 ```rust
 #[contract::input]

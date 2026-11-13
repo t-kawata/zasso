@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: cba04e8ba2743408d07e6169af19b13d11c0258c21a1e5ba44cb6feb1eb4e6d2
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 | Seam | Why closed |
 |---|---|

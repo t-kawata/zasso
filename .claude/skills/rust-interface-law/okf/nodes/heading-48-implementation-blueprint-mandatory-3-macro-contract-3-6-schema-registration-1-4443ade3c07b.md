@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 4443ade3c07b06dc16f0a1352a5e849f3b086bb82c80f627223440c0f2893e40
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ### 3.6 Schema Registration

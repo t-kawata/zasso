@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 56216d1cc6887c44d3528450efb73183b3676c1155ad58262d3c9bc06229709c
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 | Fixed | Open |
 |---|---|

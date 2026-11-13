@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: efab498fabf83cc064d19cdfd9f9d999fb734494aeb808c6df7c1fc062d5ad54
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 A missing `docs/generated/` directory or a non-zero exit fails the build.

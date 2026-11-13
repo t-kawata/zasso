@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8ae99d9be871f390bbc735850d920904f80940a7ee26d65fbb41d81174a1f417
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ### 7.2 Atomic rotation

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 96154e095e85e38f9987bcfa03761ff1f2d5130f8876073f727b87526519d83b
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```rust
 impl validation_contract::ContractValidate for CreateAccountRequest {

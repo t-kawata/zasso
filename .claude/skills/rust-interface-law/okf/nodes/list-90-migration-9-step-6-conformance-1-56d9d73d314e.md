@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 56d9d73d314eb79092b952c485cda692613ea4df519830f647c954d641eb13d4
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 1. Add `*-conformance` with the matrix and drivers.
 2. Implement in-process drivers for the existing interfaces.

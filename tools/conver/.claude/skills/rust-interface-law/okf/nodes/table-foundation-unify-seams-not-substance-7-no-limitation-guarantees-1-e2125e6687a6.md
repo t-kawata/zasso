@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e2125e6687a65a3e3495b11fd9a026d5c3230cc9a5bdeb894676b2890b94ad1c
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 | ID | Guarantee |
 |---|---|

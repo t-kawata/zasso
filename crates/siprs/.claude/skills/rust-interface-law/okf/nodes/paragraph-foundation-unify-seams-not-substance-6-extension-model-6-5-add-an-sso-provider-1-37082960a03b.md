@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 37082960a03bd0ceac6b03c746e6a9518edf6b0ff0f8b6cb991b5de206a30baa
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 No change to business tables or operations.

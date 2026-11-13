@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: deade2b8eb87ad72a6badf794ce6726086310a8c9535aa973df7db6d0aab9ae3
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 1. Add the operation to the catalog with the §11 template.
 2. Generate the handler skeleton and interface bindings.

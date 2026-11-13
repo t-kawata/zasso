@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 55dab3301cc72d9933e54e8a01a0143f24792a58ea708fd0d3d252f8b90a5558
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 ```rust
 #[derive(Debug, thiserror::Error)]

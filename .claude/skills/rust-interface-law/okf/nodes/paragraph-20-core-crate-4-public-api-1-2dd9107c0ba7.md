@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2dd9107c0ba77de2dfc0249101e6c717f069bfad8d820e26258a2389cf3f5ad3
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 `src/api/mod.rs` re-exports only what other crates may use:

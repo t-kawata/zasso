@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 484caa0be88d168fa43cec4565787b6ed927a40e4b487cfedb46b155dbf95e4d
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ```rust
 pub struct LoginService {

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: ab5522e57e3c8cc2cae04fdfc4206281234e7ef4eed68199442ad2239c5aa0da
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 ## 6. Runtime Execution

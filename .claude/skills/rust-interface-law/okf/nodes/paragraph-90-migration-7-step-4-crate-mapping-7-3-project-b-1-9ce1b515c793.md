@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9ce1b515c793ad15d69e0df676b67b990dadf9866f39f868c125e6e269b8a2b7
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 <project-b> currently has no interface crates. The first interface should be REST,
 because it establishes the catalog and conformance matrix. Do not create six

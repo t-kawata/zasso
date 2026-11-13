@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: ad8cfa873a7a4710466b156410a1c08ed40af620785ac635ec12266eaa6b0d03
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 1. Declare the `Scope` constant.
 2. Add it to the authorization policy.

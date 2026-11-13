@@ -10,35 +10,17 @@ import {
 import { findForbiddenTokens, isRedactedMap, sha256 } from './lib/redact.mjs';
 import { renderCoverageReport } from './lib/report.mjs';
 
-const SOURCE_FILES = [
-  '00-FOUNDATION.md',
-  '10-CONTRACTS.md',
-  '15-RULE-REGISTRY.md',
-  '20-CORE.md',
-  '21-OPERATION.md',
-  '22-IDENTITY.md',
-  '30-REST.md',
-  '31-WEBSOCKET.md',
-  '32-CLI.md',
-  '33-GRPC.md',
-  '34-MCP.md',
-  '35-A2A.md',
-  '40-CONFORMANCE.md',
-  '45-DOCUMENTATION.md',
-  '47-VALIDATION.md',
-  '48-IMPLEMENTATION-BLUEPRINT.md',
-  '50-PROJECT-TEMPLATE.md',
-  '55-IMPLEMENTATION-CONTRACTS.md',
-  '90-MIGRATION.md',
-];
-const REGISTRY_FILE = '15-RULE-REGISTRY.md';
-
 const SKILL_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const DEFAULT_MANIFEST = join(SKILL_ROOT, 'source/manifest.toml');
 const DEFAULT_REDACTION = join(SKILL_ROOT, 'source/redaction.sha256.json');
 const DEFAULT_LOCK = join(SKILL_ROOT, 'atoms.lock.json');
 const DEFAULT_COVERAGE = join(SKILL_ROOT, 'coverage.json');
 const DEFAULT_SKILL_REGISTRY = join(SKILL_ROOT, 'source/skill-registry.toml');
+const DEFAULT_INPUT_LEDGER = join(SKILL_ROOT, 'source/input-ledger.json');
+const DEFAULT_REDACTION_REVIEW = join(SKILL_ROOT, 'source/redaction.review.json');
+const DEFAULT_NORMATIVE_INVENTORY = join(SKILL_ROOT, 'source/normative-inventory.json');
+const DEFAULT_DELIVERY = join(SKILL_ROOT, 'source/delivery.json');
+const DEFAULT_ALIAS = join(dirname(SKILL_ROOT), basename(SKILL_ROOT) + '.path-alias.json');
 
 class IngestError extends Error {
   constructor(code, message) {
@@ -67,22 +49,25 @@ function main() {
   }
 }
 
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function runManifest(options) {
-  const sourceDir = options.source
-    ?? (existsSync('docs/archive/IMPLEMENTATION-SPEC')
-      ? 'docs/archive/IMPLEMENTATION-SPEC'
-      : 'docs/IMPLEMENTATION-SPEC');
   const redactionPath = options.redaction ?? DEFAULT_REDACTION;
   const outPath = options.out ?? DEFAULT_MANIFEST;
   const redactionText = readFileSync(redactionPath, 'utf8');
   const redaction = JSON.parse(redactionText);
   if (!isRedactedMap(redaction)) throw new IngestError(15, 'redaction map is not hash-only');
+  const ledgerPath = options['input-ledger'] ?? DEFAULT_INPUT_LEDGER;
+  if (!existsSync(ledgerPath)) throw new IngestError(10, 'input ledger not found: ' + ledgerPath);
+  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+  const aliasMap = loadAliasMap(options.alias ?? DEFAULT_ALIAS);
 
-  const files = SOURCE_FILES.map((name) => {
-    const path = join(sourceDir, name).replace(/\\/g, '/');
-    const text = normalize(readFileSync(path, 'utf8'));
-    return { path, sha256: sha256(text) };
-  });
+  const files = (ledger.entries ?? [])
+    .filter((entry) => entry.decision === 'included')
+    .map((entry) => {
+      const original = resolveOriginal(entry.alias, aliasMap, options.source);
+      const text = normalize(readFileSync(original, 'utf8'));
+      return { path: entry.alias, sha256: sha256(text) };
+    });
   const sourceSetSha256 = sha256(files.map((file) => file.path + '\0' + file.sha256).join('\n'));
   const lines = [
     'spec_version = "0.3.2"',
@@ -101,9 +86,10 @@ function runManifest(options) {
   return 0;
 }
 
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function runExtract(options) {
   const context = loadContext(options);
-  const docs = parseAll(context.manifest, context.redaction, options.source);
+  const docs = parseAll(context.manifest, context.redaction, options.source, context.aliasMap);
   const candidates = docs.map((doc) => ({
     path: doc.path,
     lines: doc.lines,
@@ -122,9 +108,10 @@ function runExtract(options) {
   return 0;
 }
 
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function runClassify(options) {
   const context = loadContext(options);
-  const docs = parseAll(context.manifest, context.redaction, options.source);
+  const docs = parseAll(context.manifest, context.redaction, options.source, context.aliasMap);
   const decisions = options.decisions
     ? JSON.parse(readFileSync(options.decisions, 'utf8'))
     : {};
@@ -141,6 +128,7 @@ function runClassify(options) {
   return 0;
 }
 
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function runVerify(options) {
   const context = loadContext(options);
   if (context.manifest.redaction_sha256 !== context.redactionSha256) {
@@ -153,7 +141,7 @@ function runVerify(options) {
     throw new IngestError(10, 'manifest source set hash mismatch');
   }
 
-  const docs = parseAll(context.manifest, context.redaction, options.source);
+  const docs = parseAll(context.manifest, context.redaction, options.source, context.aliasMap);
   for (const doc of docs) {
     if (doc.coverage.gaps.length > 0) {
       throw new IngestError(12, 'coverage gap in ' + doc.path + ': ' + doc.coverage.gaps.join(','));
@@ -189,12 +177,17 @@ function runVerify(options) {
 
   const skillRegistry = parseSkillRegistry(readFileSync(DEFAULT_SKILL_REGISTRY, 'utf8'));
   assertSkillRegistry(skillRegistry);
+  assertLedger('law-input-ledger/v1', options['input-ledger'] ?? DEFAULT_INPUT_LEDGER);
+  assertLedger('law-redaction-review/v1', options.review ?? DEFAULT_REDACTION_REVIEW);
+  assertLedger('law-normative-inventory/v1', options.inventory ?? DEFAULT_NORMATIVE_INVENTORY);
+  assertLedger('law-delivery/v1', options.delivery ?? DEFAULT_DELIVERY);
 
   const lines = docs.reduce((total, doc) => total + doc.lines, 0);
   process.stdout.write('verify: ' + docs.length + ' files, ' + lock.atoms.length + ' atoms, ' + lines + ' lines\n');
   return 0;
 }
 
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function loadContext(options) {
   const manifestPath = options.manifest ?? DEFAULT_MANIFEST;
   const redactionPath = options.redaction ?? DEFAULT_REDACTION;
@@ -206,19 +199,51 @@ function loadContext(options) {
   const manifest = readManifest(manifestText);
   const redaction = JSON.parse(redactionText);
   if (!isRedactedMap(redaction)) throw new IngestError(15, 'redaction map is not hash-only');
+  const aliasMap = loadAliasMap(options.alias ?? DEFAULT_ALIAS);
 
   return {
     manifest,
     manifestSha256: sha256(manifestText),
     redaction,
     redactionSha256: sha256(redactionText),
+    aliasMap,
   };
 }
 
-function parseAll(manifest, redaction, sourceDir) {
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+function loadAliasMap(aliasPath) {
+  if (!aliasPath || !existsSync(aliasPath)) {
+    throw new IngestError(10, 'path alias map not found: ' + aliasPath);
+  }
+  const aliasMap = JSON.parse(readFileSync(aliasPath, 'utf8'));
+  if (aliasMap.schema !== 'law-path-alias/v1' || !aliasMap.aliases) {
+    throw new IngestError(10, 'path alias map schema is invalid');
+  }
+  return aliasMap;
+}
+
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+function assertLedger(schema, ledgerPath) {
+  if (!existsSync(ledgerPath)) throw new IngestError(14, 'ledger not found: ' + ledgerPath);
+  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+  if (ledger.schema !== schema || !Array.isArray(ledger.entries ?? ledger.atoms)) {
+    throw new IngestError(14, 'ledger schema is invalid: ' + ledgerPath);
+  }
+}
+
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+function resolveOriginal(alias, aliasMap, sourceDir) {
+  const original = aliasMap?.aliases?.[alias];
+  if (original) return original;
+  if (sourceDir) return join(sourceDir, basename(alias)).replace(/\\/g, '/');
+  return alias;
+}
+
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+function parseAll(manifest, redaction, sourceDir, aliasMap) {
   const docs = [];
   for (const file of manifest.files) {
-    const path = sourceDir ? join(sourceDir, basename(file.path)).replace(/\\/g, '/') : file.path;
+    const path = resolveOriginal(file.path, aliasMap, sourceDir);
     const text = normalize(readFileSync(path, 'utf8'));
     const fileSha256 = sha256(text);
     if (fileSha256 !== file.sha256) {
@@ -269,11 +294,10 @@ function buildArtifacts(docs, context) {
   return { lock, coverage };
 }
 
+// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function registryFromDocs(docs) {
-  const doc = docs.find((item) => item.path.endsWith(REGISTRY_FILE));
-  if (!doc || !doc.registry || doc.registry.size === 0) {
-    throw new IngestError(13, 'registry table not found');
-  }
+  const doc = docs.find((item) => item.registry && item.registry.size > 0);
+  if (!doc) throw new IngestError(13, 'registry table not found');
   return doc.registry;
 }
 

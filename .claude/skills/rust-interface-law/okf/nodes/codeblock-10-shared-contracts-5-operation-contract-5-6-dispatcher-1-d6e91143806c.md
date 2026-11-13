@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d6e91143806c555c155a6f8489121eccc586df618fb6d8677a7fecabb422d423
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub struct Dispatcher {

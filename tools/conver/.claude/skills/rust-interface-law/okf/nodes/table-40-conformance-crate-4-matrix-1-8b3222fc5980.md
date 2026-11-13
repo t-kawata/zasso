@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8b3222fc598038ee197fa84ad7b30f8062fb04184a454986e81913429ec8f9e8
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 | Operation | REST | WS | CLI | gRPC | MCP | A2A |
 |---|---|---|---|---|---|---|

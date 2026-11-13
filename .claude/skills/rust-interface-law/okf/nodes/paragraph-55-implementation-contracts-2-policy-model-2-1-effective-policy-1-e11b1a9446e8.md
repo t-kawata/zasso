@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e11b1a9446e867530d9bd4c0a1a3054017b72c4a48f8ecab81bfe2862200ef8c
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 Resolution order:

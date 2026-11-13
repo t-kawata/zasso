@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 849c31854e20c1c1f9f0019edc0e0374e48da9d3e7f64959b3b93791acc8fcbf
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 | Rust type | Allowed rules |
 |---|---|

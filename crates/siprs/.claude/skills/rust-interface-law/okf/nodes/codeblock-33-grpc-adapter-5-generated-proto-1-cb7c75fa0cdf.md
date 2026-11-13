@@ -7,7 +7,7 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: cb7c75fa0cdfb716f489fdbe9fee94b711a10510f174c15eb3b01c7d5b35c451
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 ```proto
 syntax = "proto3";

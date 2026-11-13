@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 1eb112c58af5efa42f72cf44ef13c18795fe9da5e83f18a6b7503f0799a7b0e6
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 | Fixed | Open |
 |---|---|

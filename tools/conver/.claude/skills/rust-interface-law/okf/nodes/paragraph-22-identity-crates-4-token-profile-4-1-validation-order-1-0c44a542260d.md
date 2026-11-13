@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0c44a542260d527c09470c51ce805cf85857accf15e5ddd44163e77de2696791
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 A failure at any stage returns `AuthenticationError`. The interface maps it to
 401; details are logged, never returned.

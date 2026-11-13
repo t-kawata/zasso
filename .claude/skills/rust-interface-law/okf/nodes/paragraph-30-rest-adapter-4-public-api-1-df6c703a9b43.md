@@ -7,6 +7,6 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: df6c703a9b43c67edb7ae2a0883a54214d66f8b24f9935477cd362673cfeeecf
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 `router` builds two routers and merges them:

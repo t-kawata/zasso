@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: f599973fc2946dbd6cebbbb8e839f254b7327fc907f3803756e49a3000a91ec4
-source: docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md
+source: sources/15-RULE-REGISTRY.md
 ---
 IDs are permanent. A removed rule keeps its ID and is marked `REMOVED`; IDs
 are never reused. Detailed rules may reference a parent rule, but they must

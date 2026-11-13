@@ -7,6 +7,6 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 1e7466ab856dce45c3f6a4c4aa8764156398654665486c329309b284e142f399
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 `rmcp = { version = "=0.8.5", features = ["server", "macros", "transport-streamable-http-server"] }`; `axum = { version = "=0.8.9", features = ["http1", "tokio", "json"] }`.

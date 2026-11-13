@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 566380e0de7c3ca3450282f14da40650c59f0b895c35741e1d5b30a2ccf0d496
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 ## 7. Cross-Cutting Rules

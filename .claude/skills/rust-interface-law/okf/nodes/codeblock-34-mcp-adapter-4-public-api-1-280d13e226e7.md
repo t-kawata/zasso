@@ -7,7 +7,7 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: 280d13e226e750b69d41f64f9b146a6c8b3e5c6288698505a9649a225beab493
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 ```rust
 pub struct McpState {

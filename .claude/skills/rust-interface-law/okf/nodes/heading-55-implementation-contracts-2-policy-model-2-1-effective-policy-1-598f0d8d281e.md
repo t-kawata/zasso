@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 598f0d8d281e7eb3d3c1b89043d80a3d52e6861f6b8012cd5e1268fc6421f7a8
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 ### 2.1 Effective policy

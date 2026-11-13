@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: e50a73810b42f5fa3ab09b9893aaf014d6aca369f6b27cfd0dc0cae1184debc5
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ```rust
 pub struct WebsocketState {

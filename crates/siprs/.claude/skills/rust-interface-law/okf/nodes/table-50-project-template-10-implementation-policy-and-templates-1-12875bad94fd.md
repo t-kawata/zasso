@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 12875bad94fd93e23692109ec005443d738f96aa2126da798faba0351dbbae02
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 | Profile | Template files |
 |---|---|

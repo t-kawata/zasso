@@ -1,0 +1,18 @@
+{
+  "schema": "law-delivery/v1",
+  "defaults": {
+    "Rule": "must",
+    "CodeBlock": "must"
+  },
+  "atoms": [
+    {
+      "id": "paragraph/mini-law-scope/1/986697485ab6",
+      "type": "Paragraph",
+      "decision": "reference",
+      "reason": "explanatory prose subordinate to the listed Rule atoms",
+      "delivered_by": [
+        "MINI-01"
+      ]
+    }
+  ]
+}

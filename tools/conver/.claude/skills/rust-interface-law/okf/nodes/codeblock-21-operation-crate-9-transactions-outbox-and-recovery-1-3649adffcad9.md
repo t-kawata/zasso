@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3649adffcad9d876db4505b8624bd63ba7ce414e9f0ded565ccea2d77ef25721
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 ```rust
 pub trait ProjectUnitOfWork: UnitOfWork {

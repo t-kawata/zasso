@@ -1,0 +1,30 @@
+{
+  "schema": "law-path-alias/v1",
+  "skill": "rust-interface-law",
+  "input_roots": [
+    "docs/archive/IMPLEMENTATION-SPEC"
+  ],
+  "aliases": {
+    "sources/00-FOUNDATION.md": "docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md",
+    "sources/10-CONTRACTS.md": "docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md",
+    "sources/15-RULE-REGISTRY.md": "docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md",
+    "sources/20-CORE.md": "docs/archive/IMPLEMENTATION-SPEC/20-CORE.md",
+    "sources/21-OPERATION.md": "docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md",
+    "sources/22-IDENTITY.md": "docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md",
+    "sources/30-REST.md": "docs/archive/IMPLEMENTATION-SPEC/30-REST.md",
+    "sources/31-WEBSOCKET.md": "docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md",
+    "sources/32-CLI.md": "docs/archive/IMPLEMENTATION-SPEC/32-CLI.md",
+    "sources/33-GRPC.md": "docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md",
+    "sources/34-MCP.md": "docs/archive/IMPLEMENTATION-SPEC/34-MCP.md",
+    "sources/35-A2A.md": "docs/archive/IMPLEMENTATION-SPEC/35-A2A.md",
+    "sources/40-CONFORMANCE.md": "docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md",
+    "sources/45-DOCUMENTATION.md": "docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md",
+    "sources/47-VALIDATION.md": "docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md",
+    "sources/48-IMPLEMENTATION-BLUEPRINT.md": "docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md",
+    "sources/50-PROJECT-TEMPLATE.md": "docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md",
+    "sources/55-IMPLEMENTATION-CONTRACTS.md": "docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md",
+    "sources/90-MIGRATION.md": "docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md",
+    "sources/EXPERT-REVIEW-PACKAGE.md": "docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md",
+    "sources/README.md": "docs/archive/IMPLEMENTATION-SPEC/README.md"
+  }
+}

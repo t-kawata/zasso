@@ -7,6 +7,6 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: f5ad31f9900144abd230a4402b3acde4eb9be9f689bf43cc71f25bfdb2d8a1ae
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 ## 8. Session and State

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e95509c5c3e33b36ea3324d1ac504b0811aecbb18de0b205dcb50b57c843647d
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 - Repositories MUST be obtained from the `UnitOfWork`, so they share the same
   transaction. The project defines its concrete repository surface; the shared

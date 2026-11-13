@@ -1,0 +1,23 @@
+{
+  "check_set_version": "2",
+  "checks": [
+    { "name": "layer", "mode": "both" },
+    { "name": "manifest", "mode": "dev" },
+    { "name": "lock", "mode": "both" },
+    { "name": "coverage", "mode": "dev" },
+    { "name": "registry", "mode": "dev" },
+    { "name": "genericBoundary", "mode": "both" },
+    { "name": "delivery", "mode": "both" },
+    { "name": "runtime", "mode": "both" },
+    { "name": "reproduction", "mode": "dev" },
+    { "name": "tests", "mode": "dev" },
+    { "name": "installer", "mode": "both" },
+    { "name": "determinism", "mode": "dev" },
+    { "name": "redaction", "mode": "dev" },
+    { "name": "coverageSemantics", "mode": "dev" },
+    { "name": "inputLedger", "mode": "dev" },
+    { "name": "pathAlias", "mode": "dev" },
+    { "name": "installedLeak", "mode": "both" },
+    { "name": "style", "mode": "both" }
+  ]
+}

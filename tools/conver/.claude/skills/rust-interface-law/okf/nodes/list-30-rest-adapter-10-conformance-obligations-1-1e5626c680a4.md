@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 1e5626c680a4c0c6e4c7e6333ab7eb7b01cf94c5d2f2a6aebe50f2b5dc0e361c
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 1. Every documented route is served, and every served operation is documented.
 2. Bearer-only enforcement; query/path tokens rejected.

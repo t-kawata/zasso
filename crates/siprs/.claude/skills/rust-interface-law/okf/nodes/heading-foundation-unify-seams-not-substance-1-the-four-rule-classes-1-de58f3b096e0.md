@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: de58f3b096e06cedbdc5f335558bedff967844fb6e7aae2c8d324da24d538da6
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ## 1. The Four Rule Classes

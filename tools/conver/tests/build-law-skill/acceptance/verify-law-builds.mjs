@@ -14,24 +14,11 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
 const VERIFIER_SCHEMA = 'law-skill-verification/v1';
-const VERIFIER_CHECKS = [
-  'layer',
-  'manifest',
-  'lock',
-  'coverage',
-  'registry',
-  'genericBoundary',
-  'delivery',
-  'runtime',
-  'tests',
-  'installer',
-  'determinism',
-];
 const INPUT_CONTRACT_SCOPE = 'input-contract';
 
 // [::TICKET::] PX-420 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-420 --for-spec --no-implementation-order`.
@@ -97,7 +84,7 @@ function verifySources({ root, sources, findings }) {
   });
 }
 
-// [::TICKET::] PX-420 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-420 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-420, PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-420|PX-421|PX-422) --for-spec --no-implementation-order`.
 function verifyBuilds({ root, builds, findings }) {
   const verifierPath = join(root, '.claude/scripts/amend-rfc-up/verify-law-skill.mjs');
   if (builds.length > 0 && !existsSync(verifierPath)) {
@@ -113,11 +100,15 @@ function verifyBuilds({ root, builds, findings }) {
     const outDir = mkdtempSync(join(tmpdir(), 'law-build-'));
     const outPath = join(outDir, 'verification.json');
     try {
-      const run = spawnSync(
-        process.execPath,
-        [verifierPath, '--skill', skillPath, '--root', root, '--out', outPath],
-        { encoding: 'utf8' },
+      const mode = build.mode ?? 'dev';
+      const sourceRoot = resolve(root, build.source_root ?? '.');
+      const aliasPath = resolve(
+        root,
+        build.path_alias ?? join(dirname(build.path ?? build.skill), `${build.skill}.path-alias.json`),
       );
+      const args = [verifierPath, '--skill', skillPath, '--root', root, '--mode', mode, '--out', outPath];
+      if (mode === 'dev') args.push('--source-root', sourceRoot, '--path-alias', aliasPath);
+      const run = spawnSync(process.execPath, args, { encoding: 'utf8' });
       if (run.status !== 0) {
         findings.push(`verifier failed for ${build.skill}: ${(run.stdout || run.stderr || '').trim()}`);
         return { skill: build.skill, status: 'failed', closure_sha256: null };
@@ -126,7 +117,8 @@ function verifyBuilds({ root, builds, findings }) {
       if (report.schema !== VERIFIER_SCHEMA) {
         findings.push(`verifier schema mismatch for ${build.skill}: ${report.schema}`);
       }
-      const failed = VERIFIER_CHECKS.filter((name) => report.checks?.[name]?.status !== 'machine_verified');
+      const required = report.required_checks ?? Object.keys(report.checks ?? {});
+      const failed = required.filter((name) => report.checks?.[name]?.status !== 'machine_verified');
       if (failed.length > 0) {
         findings.push(`verifier checks not machine_verified for ${build.skill}: ${failed.join(', ')}`);
       }

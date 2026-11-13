@@ -1,0 +1,11 @@
+{
+  "schema": "law-input-ledger/v1",
+  "entries": [
+    {
+      "alias": "sources/guide.md",
+      "sha256": "ef0db74c3e259aa298c5d39a8ed1e66252878f7871e48a270a9f5f008f7e8560",
+      "decision": "included",
+      "reason": "authoritative source document"
+    }
+  ]
+}

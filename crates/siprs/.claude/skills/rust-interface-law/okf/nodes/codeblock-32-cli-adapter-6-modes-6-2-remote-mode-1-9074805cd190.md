@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: 9074805cd190b25612ed54c97a9326e1faed8ce6de25827ec430d7de4fa64dba
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ```text
 --endpoint <url|host:port>

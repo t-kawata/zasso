@@ -7,6 +7,6 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: cbc26d28fbc96c3a33e77c1eab6802f9e685869e92469c132cd23ea7642b5f2d
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 `actix-web`, `warp`, `poem`, hand-written HTTP server, handler-to-operation implementation call, second wire envelope.

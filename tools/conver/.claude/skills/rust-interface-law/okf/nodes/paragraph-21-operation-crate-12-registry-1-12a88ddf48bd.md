@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 12a88ddf48bdcb45ee82bd6d3711a729cbcaa5c1f18717922cf272ccd5028330
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 `register_all.rs` is generated from the catalog. It registers authenticated and
 anonymous operations. Duplicate IDs are rejected at startup. A catalog entry

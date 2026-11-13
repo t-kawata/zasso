@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 36a318f684394859f6276b79773acc3258552b576699fc119a18bc93cd5c35a0
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 - ID, class (C/G/O/P), profile, statement, parent rule, and verification.

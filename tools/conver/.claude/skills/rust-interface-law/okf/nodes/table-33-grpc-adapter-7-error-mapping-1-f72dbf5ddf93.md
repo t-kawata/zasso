@@ -7,7 +7,7 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: f72dbf5ddf93bf5465abea38463c2e35104105a6e34e20d5a76656a62707fcd3
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 | Operation category | gRPC status |
 |---|---|

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 6b9f1612c86ef54610c5074ad8b34f3f08a8373af3bc8a3d67ce961e718e9f81
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 Rules alone cannot make two codebases almost identical. The ruleset therefore
 requires four mechanisms working together.

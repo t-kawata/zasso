@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: b444d5991cab1224fba81027da52ba07a236eeee7eacd0d488dece6adebaf838
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 1. Implement `CredentialVerifier`.
 2. Resolve the internal `SubjectId`.

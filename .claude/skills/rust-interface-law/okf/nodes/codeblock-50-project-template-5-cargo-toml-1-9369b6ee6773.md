@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9369b6ee67735065f8ff9d105bd370463139ab194487f1455438e1d0d9800de7
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 ```toml
 [workspace]

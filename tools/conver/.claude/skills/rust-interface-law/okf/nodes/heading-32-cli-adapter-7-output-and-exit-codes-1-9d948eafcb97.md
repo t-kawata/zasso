@@ -7,6 +7,6 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: 9d948eafcb97c894a45be3e1cfbde5ee3797511de0195bd4811b024fc285a394
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ## 7. Output and Exit Codes

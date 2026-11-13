@@ -125,6 +125,8 @@ judge: each stub's `[::STUB::]` marker specifies a ticket ID?
 
 ### Step 3.5: Rust interface law repair (conditional)
 
+- Law skill built/changed: repair until v2 `dev` + `installed` pass; every required check `machine_verified`; record `closure`; no status change.
+
 Skip when `Law: not applicable` and `target/law` absent.
 Otherwise invoke `rust-interface-law`; per `SKILL.md`, run `implementation-check`,
 add its findings and `gate` findings to repair classes, fill `attest` `unset` rows;

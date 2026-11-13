@@ -7,7 +7,7 @@ applies_to: a2a
 requires: []
 references: []
 content_sha256: 19529105e2ca36d8a6d6bf83e7189a1c82a23bef18f22bbc73951e219537e4f3
-source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+source: sources/35-A2A.md
 ---
 The skill identifier is the operation ID with `.` replaced by `_`, optionally
 prefixed, matching the MCP convention.

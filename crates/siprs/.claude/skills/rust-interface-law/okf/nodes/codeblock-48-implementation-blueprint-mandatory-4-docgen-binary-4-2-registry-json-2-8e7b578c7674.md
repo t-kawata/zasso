@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8e7b578c76747f566df57a720cfb8471c682a03761a4474d3352fe25d0a0e9bb
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```json
 {

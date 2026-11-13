@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: cebfce4a3d851ec7e66d6561a89821f3ef591d540a73d89f7a8cab77ecb8e3b9
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 1. Implement `InterfaceDriver` for the new protocol.
 2. Add an `InterfaceId` constant and an audience value.

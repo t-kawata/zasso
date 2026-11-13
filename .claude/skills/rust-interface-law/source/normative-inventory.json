@@ -1,0 +1,2533 @@
+{
+  "schema": "law-normative-inventory/v1",
+  "entries": [
+    {
+      "id": "paragraph/10-shared-contracts-2-verified-identity-and-credential-binding-2-2-binding-checks/1/fe22f0e2a179",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/10-shared-contracts-2-verified-identity-and-credential-binding-2-3-delegation/1/9bf17bcf1a97",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/10-shared-contracts-4-invocation-contexts/3/4f8d4fcae289",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/10-shared-contracts-5-operation-contract-5-5-erased-registry/1/cce0030f6f82",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/10-shared-contracts-5-operation-contract-5-6-dispatcher/2/47b906773db8",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "list/10-shared-contracts-6-idempotency/1/dc5e271d5416",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "list/10-shared-contracts-7-transaction-outbox-and-events/1/e95509c5c3e3",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/10-shared-contracts-8-wire-envelope-and-protocol-bindings-8-1-bindings/2/72fff5f96ef6",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/10-shared-contracts-9-interface-contract/1/50d9f3c64880",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/10-shared-contracts-11-adapter-support-composition/1/863b0633fcdc",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "A2A-01",
+      "kind": "rule",
+      "rule_id": "A2A-01"
+    },
+    {
+      "id": "A2A-02",
+      "kind": "rule",
+      "rule_id": "A2A-02"
+    },
+    {
+      "id": "A2A-03",
+      "kind": "rule",
+      "rule_id": "A2A-03"
+    },
+    {
+      "id": "A2A-04",
+      "kind": "rule",
+      "rule_id": "A2A-04"
+    },
+    {
+      "id": "A2A-05",
+      "kind": "rule",
+      "rule_id": "A2A-05"
+    },
+    {
+      "id": "A2A-06",
+      "kind": "rule",
+      "rule_id": "A2A-06"
+    },
+    {
+      "id": "A2A-07",
+      "kind": "rule",
+      "rule_id": "A2A-07"
+    },
+    {
+      "id": "A2A-08",
+      "kind": "rule",
+      "rule_id": "A2A-08"
+    },
+    {
+      "id": "A2A-09",
+      "kind": "rule",
+      "rule_id": "A2A-09"
+    },
+    {
+      "id": "A2A-10",
+      "kind": "rule",
+      "rule_id": "A2A-10"
+    },
+    {
+      "id": "A2A-11",
+      "kind": "rule",
+      "rule_id": "A2A-11"
+    },
+    {
+      "id": "A2A-12",
+      "kind": "rule",
+      "rule_id": "A2A-12"
+    },
+    {
+      "id": "A2A-13",
+      "kind": "rule",
+      "rule_id": "A2A-13"
+    },
+    {
+      "id": "A2A-14",
+      "kind": "rule",
+      "rule_id": "A2A-14"
+    },
+    {
+      "id": "A2A-15",
+      "kind": "rule",
+      "rule_id": "A2A-15"
+    },
+    {
+      "id": "A2A-16",
+      "kind": "rule",
+      "rule_id": "A2A-16"
+    },
+    {
+      "id": "A2A-17",
+      "kind": "rule",
+      "rule_id": "A2A-17"
+    },
+    {
+      "id": "A2A-18",
+      "kind": "rule",
+      "rule_id": "A2A-18"
+    },
+    {
+      "id": "A2A-19",
+      "kind": "rule",
+      "rule_id": "A2A-19"
+    },
+    {
+      "id": "A2A-20",
+      "kind": "rule",
+      "rule_id": "A2A-20"
+    },
+    {
+      "id": "A2A-21",
+      "kind": "rule",
+      "rule_id": "A2A-21"
+    },
+    {
+      "id": "A2A-22",
+      "kind": "rule",
+      "rule_id": "A2A-22"
+    },
+    {
+      "id": "A2A-23",
+      "kind": "rule",
+      "rule_id": "A2A-23"
+    },
+    {
+      "id": "A2A-24",
+      "kind": "rule",
+      "rule_id": "A2A-24"
+    },
+    {
+      "id": "APP-01",
+      "kind": "rule",
+      "rule_id": "APP-01"
+    },
+    {
+      "id": "APP-02",
+      "kind": "rule",
+      "rule_id": "APP-02"
+    },
+    {
+      "id": "APP-03",
+      "kind": "rule",
+      "rule_id": "APP-03"
+    },
+    {
+      "id": "APP-04",
+      "kind": "rule",
+      "rule_id": "APP-04"
+    },
+    {
+      "id": "APP-05",
+      "kind": "rule",
+      "rule_id": "APP-05"
+    },
+    {
+      "id": "APP-06",
+      "kind": "rule",
+      "rule_id": "APP-06"
+    },
+    {
+      "id": "APP-07",
+      "kind": "rule",
+      "rule_id": "APP-07"
+    },
+    {
+      "id": "ARC-01",
+      "kind": "rule",
+      "rule_id": "ARC-01"
+    },
+    {
+      "id": "ARC-02",
+      "kind": "rule",
+      "rule_id": "ARC-02"
+    },
+    {
+      "id": "ARC-03",
+      "kind": "rule",
+      "rule_id": "ARC-03"
+    },
+    {
+      "id": "ARC-04",
+      "kind": "rule",
+      "rule_id": "ARC-04"
+    },
+    {
+      "id": "ARC-05",
+      "kind": "rule",
+      "rule_id": "ARC-05"
+    },
+    {
+      "id": "ARC-06",
+      "kind": "rule",
+      "rule_id": "ARC-06"
+    },
+    {
+      "id": "ARC-07",
+      "kind": "rule",
+      "rule_id": "ARC-07"
+    },
+    {
+      "id": "ARC-08",
+      "kind": "rule",
+      "rule_id": "ARC-08"
+    },
+    {
+      "id": "ARC-09",
+      "kind": "rule",
+      "rule_id": "ARC-09"
+    },
+    {
+      "id": "ARC-10",
+      "kind": "rule",
+      "rule_id": "ARC-10"
+    },
+    {
+      "id": "AUTH-01",
+      "kind": "rule",
+      "rule_id": "AUTH-01"
+    },
+    {
+      "id": "AUTH-02",
+      "kind": "rule",
+      "rule_id": "AUTH-02"
+    },
+    {
+      "id": "AUTH-03",
+      "kind": "rule",
+      "rule_id": "AUTH-03"
+    },
+    {
+      "id": "AUTH-04",
+      "kind": "rule",
+      "rule_id": "AUTH-04"
+    },
+    {
+      "id": "AUTH-05",
+      "kind": "rule",
+      "rule_id": "AUTH-05"
+    },
+    {
+      "id": "AUTH-06",
+      "kind": "rule",
+      "rule_id": "AUTH-06"
+    },
+    {
+      "id": "AUTH-07",
+      "kind": "rule",
+      "rule_id": "AUTH-07"
+    },
+    {
+      "id": "AUTH-08",
+      "kind": "rule",
+      "rule_id": "AUTH-08"
+    },
+    {
+      "id": "AUTH-09",
+      "kind": "rule",
+      "rule_id": "AUTH-09"
+    },
+    {
+      "id": "AUTH-10",
+      "kind": "rule",
+      "rule_id": "AUTH-10"
+    },
+    {
+      "id": "AUTH-11",
+      "kind": "rule",
+      "rule_id": "AUTH-11"
+    },
+    {
+      "id": "AUTH-12",
+      "kind": "rule",
+      "rule_id": "AUTH-12"
+    },
+    {
+      "id": "AUTH-13",
+      "kind": "rule",
+      "rule_id": "AUTH-13"
+    },
+    {
+      "id": "AUTH-14",
+      "kind": "rule",
+      "rule_id": "AUTH-14"
+    },
+    {
+      "id": "AUTH-15",
+      "kind": "rule",
+      "rule_id": "AUTH-15"
+    },
+    {
+      "id": "AUTH-16",
+      "kind": "rule",
+      "rule_id": "AUTH-16"
+    },
+    {
+      "id": "AUTH-17",
+      "kind": "rule",
+      "rule_id": "AUTH-17"
+    },
+    {
+      "id": "AUTH-18",
+      "kind": "rule",
+      "rule_id": "AUTH-18"
+    },
+    {
+      "id": "AUTH-19",
+      "kind": "rule",
+      "rule_id": "AUTH-19"
+    },
+    {
+      "id": "AUTH-20",
+      "kind": "rule",
+      "rule_id": "AUTH-20"
+    },
+    {
+      "id": "AUTH-21",
+      "kind": "rule",
+      "rule_id": "AUTH-21"
+    },
+    {
+      "id": "AUTH-22",
+      "kind": "rule",
+      "rule_id": "AUTH-22"
+    },
+    {
+      "id": "AUTH-23",
+      "kind": "rule",
+      "rule_id": "AUTH-23"
+    },
+    {
+      "id": "AUTH-24",
+      "kind": "rule",
+      "rule_id": "AUTH-24"
+    },
+    {
+      "id": "AUTH-25",
+      "kind": "rule",
+      "rule_id": "AUTH-25"
+    },
+    {
+      "id": "AUTH-26",
+      "kind": "rule",
+      "rule_id": "AUTH-26"
+    },
+    {
+      "id": "AUTH-27",
+      "kind": "rule",
+      "rule_id": "AUTH-27"
+    },
+    {
+      "id": "AUTH-28",
+      "kind": "rule",
+      "rule_id": "AUTH-28"
+    },
+    {
+      "id": "AUTH-29",
+      "kind": "rule",
+      "rule_id": "AUTH-29"
+    },
+    {
+      "id": "AUTH-30",
+      "kind": "rule",
+      "rule_id": "AUTH-30"
+    },
+    {
+      "id": "AUTH-31",
+      "kind": "rule",
+      "rule_id": "AUTH-31"
+    },
+    {
+      "id": "AUTHZ-01",
+      "kind": "rule",
+      "rule_id": "AUTHZ-01"
+    },
+    {
+      "id": "AUTHZ-02",
+      "kind": "rule",
+      "rule_id": "AUTHZ-02"
+    },
+    {
+      "id": "AUTHZ-03",
+      "kind": "rule",
+      "rule_id": "AUTHZ-03"
+    },
+    {
+      "id": "AUTHZ-04",
+      "kind": "rule",
+      "rule_id": "AUTHZ-04"
+    },
+    {
+      "id": "AUTHZ-05",
+      "kind": "rule",
+      "rule_id": "AUTHZ-05"
+    },
+    {
+      "id": "AUTHZ-06",
+      "kind": "rule",
+      "rule_id": "AUTHZ-06"
+    },
+    {
+      "id": "AUTHZ-07",
+      "kind": "rule",
+      "rule_id": "AUTHZ-07"
+    },
+    {
+      "id": "AUTHZ-08",
+      "kind": "rule",
+      "rule_id": "AUTHZ-08"
+    },
+    {
+      "id": "AUTHZ-09",
+      "kind": "rule",
+      "rule_id": "AUTHZ-09"
+    },
+    {
+      "id": "BP-01",
+      "kind": "rule",
+      "rule_id": "BP-01"
+    },
+    {
+      "id": "BP-02",
+      "kind": "rule",
+      "rule_id": "BP-02"
+    },
+    {
+      "id": "BP-03",
+      "kind": "rule",
+      "rule_id": "BP-03"
+    },
+    {
+      "id": "BP-04",
+      "kind": "rule",
+      "rule_id": "BP-04"
+    },
+    {
+      "id": "BP-05",
+      "kind": "rule",
+      "rule_id": "BP-05"
+    },
+    {
+      "id": "BP-06",
+      "kind": "rule",
+      "rule_id": "BP-06"
+    },
+    {
+      "id": "BP-07",
+      "kind": "rule",
+      "rule_id": "BP-07"
+    },
+    {
+      "id": "BP-08",
+      "kind": "rule",
+      "rule_id": "BP-08"
+    },
+    {
+      "id": "BP-09",
+      "kind": "rule",
+      "rule_id": "BP-09"
+    },
+    {
+      "id": "BP-10",
+      "kind": "rule",
+      "rule_id": "BP-10"
+    },
+    {
+      "id": "BP-11",
+      "kind": "rule",
+      "rule_id": "BP-11"
+    },
+    {
+      "id": "BP-12",
+      "kind": "rule",
+      "rule_id": "BP-12"
+    },
+    {
+      "id": "BP-13",
+      "kind": "rule",
+      "rule_id": "BP-13"
+    },
+    {
+      "id": "BP-14",
+      "kind": "rule",
+      "rule_id": "BP-14"
+    },
+    {
+      "id": "BP-15",
+      "kind": "rule",
+      "rule_id": "BP-15"
+    },
+    {
+      "id": "BP-16",
+      "kind": "rule",
+      "rule_id": "BP-16"
+    },
+    {
+      "id": "BP-17",
+      "kind": "rule",
+      "rule_id": "BP-17"
+    },
+    {
+      "id": "BP-18",
+      "kind": "rule",
+      "rule_id": "BP-18"
+    },
+    {
+      "id": "BP-19",
+      "kind": "rule",
+      "rule_id": "BP-19"
+    },
+    {
+      "id": "BP-20",
+      "kind": "rule",
+      "rule_id": "BP-20"
+    },
+    {
+      "id": "CLI-01",
+      "kind": "rule",
+      "rule_id": "CLI-01"
+    },
+    {
+      "id": "CLI-02",
+      "kind": "rule",
+      "rule_id": "CLI-02"
+    },
+    {
+      "id": "CLI-03",
+      "kind": "rule",
+      "rule_id": "CLI-03"
+    },
+    {
+      "id": "CLI-04",
+      "kind": "rule",
+      "rule_id": "CLI-04"
+    },
+    {
+      "id": "CLI-05",
+      "kind": "rule",
+      "rule_id": "CLI-05"
+    },
+    {
+      "id": "CLI-06",
+      "kind": "rule",
+      "rule_id": "CLI-06"
+    },
+    {
+      "id": "CLI-07",
+      "kind": "rule",
+      "rule_id": "CLI-07"
+    },
+    {
+      "id": "CLI-08",
+      "kind": "rule",
+      "rule_id": "CLI-08"
+    },
+    {
+      "id": "CLI-09",
+      "kind": "rule",
+      "rule_id": "CLI-09"
+    },
+    {
+      "id": "CLI-10",
+      "kind": "rule",
+      "rule_id": "CLI-10"
+    },
+    {
+      "id": "CLI-11",
+      "kind": "rule",
+      "rule_id": "CLI-11"
+    },
+    {
+      "id": "CLI-12",
+      "kind": "rule",
+      "rule_id": "CLI-12"
+    },
+    {
+      "id": "CLI-13",
+      "kind": "rule",
+      "rule_id": "CLI-13"
+    },
+    {
+      "id": "CLI-14",
+      "kind": "rule",
+      "rule_id": "CLI-14"
+    },
+    {
+      "id": "CONF-01",
+      "kind": "rule",
+      "rule_id": "CONF-01"
+    },
+    {
+      "id": "CONF-02",
+      "kind": "rule",
+      "rule_id": "CONF-02"
+    },
+    {
+      "id": "CONF-03",
+      "kind": "rule",
+      "rule_id": "CONF-03"
+    },
+    {
+      "id": "CONF-04",
+      "kind": "rule",
+      "rule_id": "CONF-04"
+    },
+    {
+      "id": "CONF-05",
+      "kind": "rule",
+      "rule_id": "CONF-05"
+    },
+    {
+      "id": "CONF-06",
+      "kind": "rule",
+      "rule_id": "CONF-06"
+    },
+    {
+      "id": "CONF-07",
+      "kind": "rule",
+      "rule_id": "CONF-07"
+    },
+    {
+      "id": "CONF-08",
+      "kind": "rule",
+      "rule_id": "CONF-08"
+    },
+    {
+      "id": "CONF-09",
+      "kind": "rule",
+      "rule_id": "CONF-09"
+    },
+    {
+      "id": "CONF-10",
+      "kind": "rule",
+      "rule_id": "CONF-10"
+    },
+    {
+      "id": "CONF-11",
+      "kind": "rule",
+      "rule_id": "CONF-11"
+    },
+    {
+      "id": "CONF-12",
+      "kind": "rule",
+      "rule_id": "CONF-12"
+    },
+    {
+      "id": "CONF-13",
+      "kind": "rule",
+      "rule_id": "CONF-13"
+    },
+    {
+      "id": "CONF-14",
+      "kind": "rule",
+      "rule_id": "CONF-14"
+    },
+    {
+      "id": "CONF-15",
+      "kind": "rule",
+      "rule_id": "CONF-15"
+    },
+    {
+      "id": "CONF-16",
+      "kind": "rule",
+      "rule_id": "CONF-16"
+    },
+    {
+      "id": "CONF-17",
+      "kind": "rule",
+      "rule_id": "CONF-17"
+    },
+    {
+      "id": "CONF-18",
+      "kind": "rule",
+      "rule_id": "CONF-18"
+    },
+    {
+      "id": "CONF-19",
+      "kind": "rule",
+      "rule_id": "CONF-19"
+    },
+    {
+      "id": "CONF-20",
+      "kind": "rule",
+      "rule_id": "CONF-20"
+    },
+    {
+      "id": "CONF-21",
+      "kind": "rule",
+      "rule_id": "CONF-21"
+    },
+    {
+      "id": "CONF-22",
+      "kind": "rule",
+      "rule_id": "CONF-22"
+    },
+    {
+      "id": "CONF-23",
+      "kind": "rule",
+      "rule_id": "CONF-23"
+    },
+    {
+      "id": "CONF-24",
+      "kind": "rule",
+      "rule_id": "CONF-24"
+    },
+    {
+      "id": "CONF-25",
+      "kind": "rule",
+      "rule_id": "CONF-25"
+    },
+    {
+      "id": "CONF-26",
+      "kind": "rule",
+      "rule_id": "CONF-26"
+    },
+    {
+      "id": "CONF-27",
+      "kind": "rule",
+      "rule_id": "CONF-27"
+    },
+    {
+      "id": "CONF-28",
+      "kind": "rule",
+      "rule_id": "CONF-28"
+    },
+    {
+      "id": "CONF-29",
+      "kind": "rule",
+      "rule_id": "CONF-29"
+    },
+    {
+      "id": "CONF-30",
+      "kind": "rule",
+      "rule_id": "CONF-30"
+    },
+    {
+      "id": "CONF-31",
+      "kind": "rule",
+      "rule_id": "CONF-31"
+    },
+    {
+      "id": "CONF-32",
+      "kind": "rule",
+      "rule_id": "CONF-32"
+    },
+    {
+      "id": "CONF-33",
+      "kind": "rule",
+      "rule_id": "CONF-33"
+    },
+    {
+      "id": "CONF-34",
+      "kind": "rule",
+      "rule_id": "CONF-34"
+    },
+    {
+      "id": "CONF-35",
+      "kind": "rule",
+      "rule_id": "CONF-35"
+    },
+    {
+      "id": "CONF-36",
+      "kind": "rule",
+      "rule_id": "CONF-36"
+    },
+    {
+      "id": "CONF-37",
+      "kind": "rule",
+      "rule_id": "CONF-37"
+    },
+    {
+      "id": "CONF-38",
+      "kind": "rule",
+      "rule_id": "CONF-38"
+    },
+    {
+      "id": "CONF-39",
+      "kind": "rule",
+      "rule_id": "CONF-39"
+    },
+    {
+      "id": "CONF-40",
+      "kind": "rule",
+      "rule_id": "CONF-40"
+    },
+    {
+      "id": "CONF-41",
+      "kind": "rule",
+      "rule_id": "CONF-41"
+    },
+    {
+      "id": "CONF-42",
+      "kind": "rule",
+      "rule_id": "CONF-42"
+    },
+    {
+      "id": "CONF-43",
+      "kind": "rule",
+      "rule_id": "CONF-43"
+    },
+    {
+      "id": "CONF-44",
+      "kind": "rule",
+      "rule_id": "CONF-44"
+    },
+    {
+      "id": "CONF-45",
+      "kind": "rule",
+      "rule_id": "CONF-45"
+    },
+    {
+      "id": "CONF-46",
+      "kind": "rule",
+      "rule_id": "CONF-46"
+    },
+    {
+      "id": "CONF-47",
+      "kind": "rule",
+      "rule_id": "CONF-47"
+    },
+    {
+      "id": "CONF-48",
+      "kind": "rule",
+      "rule_id": "CONF-48"
+    },
+    {
+      "id": "CONF-49",
+      "kind": "rule",
+      "rule_id": "CONF-49"
+    },
+    {
+      "id": "CONF-50",
+      "kind": "rule",
+      "rule_id": "CONF-50"
+    },
+    {
+      "id": "CONF-51",
+      "kind": "rule",
+      "rule_id": "CONF-51"
+    },
+    {
+      "id": "CONF-52",
+      "kind": "rule",
+      "rule_id": "CONF-52"
+    },
+    {
+      "id": "CONF-53",
+      "kind": "rule",
+      "rule_id": "CONF-53"
+    },
+    {
+      "id": "CONF-54",
+      "kind": "rule",
+      "rule_id": "CONF-54"
+    },
+    {
+      "id": "CONF-55",
+      "kind": "rule",
+      "rule_id": "CONF-55"
+    },
+    {
+      "id": "CONF-56",
+      "kind": "rule",
+      "rule_id": "CONF-56"
+    },
+    {
+      "id": "CONF-57",
+      "kind": "rule",
+      "rule_id": "CONF-57"
+    },
+    {
+      "id": "CONF-58",
+      "kind": "rule",
+      "rule_id": "CONF-58"
+    },
+    {
+      "id": "CONF-59",
+      "kind": "rule",
+      "rule_id": "CONF-59"
+    },
+    {
+      "id": "CONF-60",
+      "kind": "rule",
+      "rule_id": "CONF-60"
+    },
+    {
+      "id": "CONF-61",
+      "kind": "rule",
+      "rule_id": "CONF-61"
+    },
+    {
+      "id": "CONF-62",
+      "kind": "rule",
+      "rule_id": "CONF-62"
+    },
+    {
+      "id": "CONF-63",
+      "kind": "rule",
+      "rule_id": "CONF-63"
+    },
+    {
+      "id": "CONF-64",
+      "kind": "rule",
+      "rule_id": "CONF-64"
+    },
+    {
+      "id": "CONF-65",
+      "kind": "rule",
+      "rule_id": "CONF-65"
+    },
+    {
+      "id": "CORE-01",
+      "kind": "rule",
+      "rule_id": "CORE-01"
+    },
+    {
+      "id": "CORE-02",
+      "kind": "rule",
+      "rule_id": "CORE-02"
+    },
+    {
+      "id": "CORE-03",
+      "kind": "rule",
+      "rule_id": "CORE-03"
+    },
+    {
+      "id": "CORE-04",
+      "kind": "rule",
+      "rule_id": "CORE-04"
+    },
+    {
+      "id": "CORE-05",
+      "kind": "rule",
+      "rule_id": "CORE-05"
+    },
+    {
+      "id": "CORE-06",
+      "kind": "rule",
+      "rule_id": "CORE-06"
+    },
+    {
+      "id": "CORE-07",
+      "kind": "rule",
+      "rule_id": "CORE-07"
+    },
+    {
+      "id": "CORE-08",
+      "kind": "rule",
+      "rule_id": "CORE-08"
+    },
+    {
+      "id": "CORE-09",
+      "kind": "rule",
+      "rule_id": "CORE-09"
+    },
+    {
+      "id": "CORE-10",
+      "kind": "rule",
+      "rule_id": "CORE-10"
+    },
+    {
+      "id": "DOC-01",
+      "kind": "rule",
+      "rule_id": "DOC-01"
+    },
+    {
+      "id": "DOC-02",
+      "kind": "rule",
+      "rule_id": "DOC-02"
+    },
+    {
+      "id": "DOC-03",
+      "kind": "rule",
+      "rule_id": "DOC-03"
+    },
+    {
+      "id": "DOC-04",
+      "kind": "rule",
+      "rule_id": "DOC-04"
+    },
+    {
+      "id": "DOC-05",
+      "kind": "rule",
+      "rule_id": "DOC-05"
+    },
+    {
+      "id": "DOC-06",
+      "kind": "rule",
+      "rule_id": "DOC-06"
+    },
+    {
+      "id": "DOC-07",
+      "kind": "rule",
+      "rule_id": "DOC-07"
+    },
+    {
+      "id": "DOC-08",
+      "kind": "rule",
+      "rule_id": "DOC-08"
+    },
+    {
+      "id": "DOC-09",
+      "kind": "rule",
+      "rule_id": "DOC-09"
+    },
+    {
+      "id": "DOC-10",
+      "kind": "rule",
+      "rule_id": "DOC-10"
+    },
+    {
+      "id": "DOC-11",
+      "kind": "rule",
+      "rule_id": "DOC-11"
+    },
+    {
+      "id": "DOC-12",
+      "kind": "rule",
+      "rule_id": "DOC-12"
+    },
+    {
+      "id": "DOC-13",
+      "kind": "rule",
+      "rule_id": "DOC-13"
+    },
+    {
+      "id": "DOC-14",
+      "kind": "rule",
+      "rule_id": "DOC-14"
+    },
+    {
+      "id": "DOC-15",
+      "kind": "rule",
+      "rule_id": "DOC-15"
+    },
+    {
+      "id": "DOC-16",
+      "kind": "rule",
+      "rule_id": "DOC-16"
+    },
+    {
+      "id": "DOC-17",
+      "kind": "rule",
+      "rule_id": "DOC-17"
+    },
+    {
+      "id": "ERR-01",
+      "kind": "rule",
+      "rule_id": "ERR-01"
+    },
+    {
+      "id": "ERR-02",
+      "kind": "rule",
+      "rule_id": "ERR-02"
+    },
+    {
+      "id": "ERR-03",
+      "kind": "rule",
+      "rule_id": "ERR-03"
+    },
+    {
+      "id": "ERR-04",
+      "kind": "rule",
+      "rule_id": "ERR-04"
+    },
+    {
+      "id": "ERR-05",
+      "kind": "rule",
+      "rule_id": "ERR-05"
+    },
+    {
+      "id": "GRPC-01",
+      "kind": "rule",
+      "rule_id": "GRPC-01"
+    },
+    {
+      "id": "GRPC-02",
+      "kind": "rule",
+      "rule_id": "GRPC-02"
+    },
+    {
+      "id": "GRPC-03",
+      "kind": "rule",
+      "rule_id": "GRPC-03"
+    },
+    {
+      "id": "GRPC-04",
+      "kind": "rule",
+      "rule_id": "GRPC-04"
+    },
+    {
+      "id": "GRPC-05",
+      "kind": "rule",
+      "rule_id": "GRPC-05"
+    },
+    {
+      "id": "GRPC-06",
+      "kind": "rule",
+      "rule_id": "GRPC-06"
+    },
+    {
+      "id": "GRPC-07",
+      "kind": "rule",
+      "rule_id": "GRPC-07"
+    },
+    {
+      "id": "GRPC-08",
+      "kind": "rule",
+      "rule_id": "GRPC-08"
+    },
+    {
+      "id": "GRPC-09",
+      "kind": "rule",
+      "rule_id": "GRPC-09"
+    },
+    {
+      "id": "GRPC-10",
+      "kind": "rule",
+      "rule_id": "GRPC-10"
+    },
+    {
+      "id": "GRPC-11",
+      "kind": "rule",
+      "rule_id": "GRPC-11"
+    },
+    {
+      "id": "GRPC-12",
+      "kind": "rule",
+      "rule_id": "GRPC-12"
+    },
+    {
+      "id": "GRPC-13",
+      "kind": "rule",
+      "rule_id": "GRPC-13"
+    },
+    {
+      "id": "GRPC-14",
+      "kind": "rule",
+      "rule_id": "GRPC-14"
+    },
+    {
+      "id": "GRPC-15",
+      "kind": "rule",
+      "rule_id": "GRPC-15"
+    },
+    {
+      "id": "GRPC-16",
+      "kind": "rule",
+      "rule_id": "GRPC-16"
+    },
+    {
+      "id": "GRPC-17",
+      "kind": "rule",
+      "rule_id": "GRPC-17"
+    },
+    {
+      "id": "GRPC-18",
+      "kind": "rule",
+      "rule_id": "GRPC-18"
+    },
+    {
+      "id": "GRPC-19",
+      "kind": "rule",
+      "rule_id": "GRPC-19"
+    },
+    {
+      "id": "ID-01",
+      "kind": "rule",
+      "rule_id": "ID-01"
+    },
+    {
+      "id": "ID-02",
+      "kind": "rule",
+      "rule_id": "ID-02"
+    },
+    {
+      "id": "ID-03",
+      "kind": "rule",
+      "rule_id": "ID-03"
+    },
+    {
+      "id": "ID-04",
+      "kind": "rule",
+      "rule_id": "ID-04"
+    },
+    {
+      "id": "ID-05",
+      "kind": "rule",
+      "rule_id": "ID-05"
+    },
+    {
+      "id": "ID-06",
+      "kind": "rule",
+      "rule_id": "ID-06"
+    },
+    {
+      "id": "IDN-07",
+      "kind": "rule",
+      "rule_id": "IDN-07"
+    },
+    {
+      "id": "IDN-08",
+      "kind": "rule",
+      "rule_id": "IDN-08"
+    },
+    {
+      "id": "IDN-09",
+      "kind": "rule",
+      "rule_id": "IDN-09"
+    },
+    {
+      "id": "IDN-10",
+      "kind": "rule",
+      "rule_id": "IDN-10"
+    },
+    {
+      "id": "IDN-11",
+      "kind": "rule",
+      "rule_id": "IDN-11"
+    },
+    {
+      "id": "IDN-12",
+      "kind": "rule",
+      "rule_id": "IDN-12"
+    },
+    {
+      "id": "IDN-13",
+      "kind": "rule",
+      "rule_id": "IDN-13"
+    },
+    {
+      "id": "IDN-14",
+      "kind": "rule",
+      "rule_id": "IDN-14"
+    },
+    {
+      "id": "IDN-15",
+      "kind": "rule",
+      "rule_id": "IDN-15"
+    },
+    {
+      "id": "IDN-16",
+      "kind": "rule",
+      "rule_id": "IDN-16"
+    },
+    {
+      "id": "IDN-17",
+      "kind": "rule",
+      "rule_id": "IDN-17"
+    },
+    {
+      "id": "IDN-18",
+      "kind": "rule",
+      "rule_id": "IDN-18"
+    },
+    {
+      "id": "IDN-19",
+      "kind": "rule",
+      "rule_id": "IDN-19"
+    },
+    {
+      "id": "IDN-20",
+      "kind": "rule",
+      "rule_id": "IDN-20"
+    },
+    {
+      "id": "IDN-21",
+      "kind": "rule",
+      "rule_id": "IDN-21"
+    },
+    {
+      "id": "IDN-22",
+      "kind": "rule",
+      "rule_id": "IDN-22"
+    },
+    {
+      "id": "IDN-23",
+      "kind": "rule",
+      "rule_id": "IDN-23"
+    },
+    {
+      "id": "IDN-24",
+      "kind": "rule",
+      "rule_id": "IDN-24"
+    },
+    {
+      "id": "IF-01",
+      "kind": "rule",
+      "rule_id": "IF-01"
+    },
+    {
+      "id": "IF-02",
+      "kind": "rule",
+      "rule_id": "IF-02"
+    },
+    {
+      "id": "IF-03",
+      "kind": "rule",
+      "rule_id": "IF-03"
+    },
+    {
+      "id": "IF-04",
+      "kind": "rule",
+      "rule_id": "IF-04"
+    },
+    {
+      "id": "IF-05",
+      "kind": "rule",
+      "rule_id": "IF-05"
+    },
+    {
+      "id": "IF-06",
+      "kind": "rule",
+      "rule_id": "IF-06"
+    },
+    {
+      "id": "IF-07",
+      "kind": "rule",
+      "rule_id": "IF-07"
+    },
+    {
+      "id": "IF-08",
+      "kind": "rule",
+      "rule_id": "IF-08"
+    },
+    {
+      "id": "MCP-01",
+      "kind": "rule",
+      "rule_id": "MCP-01"
+    },
+    {
+      "id": "MCP-02",
+      "kind": "rule",
+      "rule_id": "MCP-02"
+    },
+    {
+      "id": "MCP-03",
+      "kind": "rule",
+      "rule_id": "MCP-03"
+    },
+    {
+      "id": "MCP-04",
+      "kind": "rule",
+      "rule_id": "MCP-04"
+    },
+    {
+      "id": "MCP-05",
+      "kind": "rule",
+      "rule_id": "MCP-05"
+    },
+    {
+      "id": "MCP-06",
+      "kind": "rule",
+      "rule_id": "MCP-06"
+    },
+    {
+      "id": "MCP-07",
+      "kind": "rule",
+      "rule_id": "MCP-07"
+    },
+    {
+      "id": "MCP-08",
+      "kind": "rule",
+      "rule_id": "MCP-08"
+    },
+    {
+      "id": "MCP-09",
+      "kind": "rule",
+      "rule_id": "MCP-09"
+    },
+    {
+      "id": "MCP-10",
+      "kind": "rule",
+      "rule_id": "MCP-10"
+    },
+    {
+      "id": "MCP-11",
+      "kind": "rule",
+      "rule_id": "MCP-11"
+    },
+    {
+      "id": "MCP-12",
+      "kind": "rule",
+      "rule_id": "MCP-12"
+    },
+    {
+      "id": "MCP-13",
+      "kind": "rule",
+      "rule_id": "MCP-13"
+    },
+    {
+      "id": "MCP-14",
+      "kind": "rule",
+      "rule_id": "MCP-14"
+    },
+    {
+      "id": "MCP-15",
+      "kind": "rule",
+      "rule_id": "MCP-15"
+    },
+    {
+      "id": "MCP-16",
+      "kind": "rule",
+      "rule_id": "MCP-16"
+    },
+    {
+      "id": "MCP-17",
+      "kind": "rule",
+      "rule_id": "MCP-17"
+    },
+    {
+      "id": "MCP-18",
+      "kind": "rule",
+      "rule_id": "MCP-18"
+    },
+    {
+      "id": "MCP-19",
+      "kind": "rule",
+      "rule_id": "MCP-19"
+    },
+    {
+      "id": "MCP-20",
+      "kind": "rule",
+      "rule_id": "MCP-20"
+    },
+    {
+      "id": "MCP-21",
+      "kind": "rule",
+      "rule_id": "MCP-21"
+    },
+    {
+      "id": "OBS-01",
+      "kind": "rule",
+      "rule_id": "OBS-01"
+    },
+    {
+      "id": "OBS-02",
+      "kind": "rule",
+      "rule_id": "OBS-02"
+    },
+    {
+      "id": "OBS-03",
+      "kind": "rule",
+      "rule_id": "OBS-03"
+    },
+    {
+      "id": "OBS-04",
+      "kind": "rule",
+      "rule_id": "OBS-04"
+    },
+    {
+      "id": "OBS-05",
+      "kind": "rule",
+      "rule_id": "OBS-05"
+    },
+    {
+      "id": "OP-01",
+      "kind": "rule",
+      "rule_id": "OP-01"
+    },
+    {
+      "id": "OP-02",
+      "kind": "rule",
+      "rule_id": "OP-02"
+    },
+    {
+      "id": "OP-03",
+      "kind": "rule",
+      "rule_id": "OP-03"
+    },
+    {
+      "id": "OP-04",
+      "kind": "rule",
+      "rule_id": "OP-04"
+    },
+    {
+      "id": "OP-05",
+      "kind": "rule",
+      "rule_id": "OP-05"
+    },
+    {
+      "id": "OP-06",
+      "kind": "rule",
+      "rule_id": "OP-06"
+    },
+    {
+      "id": "OP-07",
+      "kind": "rule",
+      "rule_id": "OP-07"
+    },
+    {
+      "id": "OP-08",
+      "kind": "rule",
+      "rule_id": "OP-08"
+    },
+    {
+      "id": "OP-09",
+      "kind": "rule",
+      "rule_id": "OP-09"
+    },
+    {
+      "id": "OP-10",
+      "kind": "rule",
+      "rule_id": "OP-10"
+    },
+    {
+      "id": "OP-11",
+      "kind": "rule",
+      "rule_id": "OP-11"
+    },
+    {
+      "id": "OP-12",
+      "kind": "rule",
+      "rule_id": "OP-12"
+    },
+    {
+      "id": "OP-AUTH-01",
+      "kind": "rule",
+      "rule_id": "OP-AUTH-01"
+    },
+    {
+      "id": "OP-AUTH-02",
+      "kind": "rule",
+      "rule_id": "OP-AUTH-02"
+    },
+    {
+      "id": "OP-AUTH-03",
+      "kind": "rule",
+      "rule_id": "OP-AUTH-03"
+    },
+    {
+      "id": "OP-AUTH-04",
+      "kind": "rule",
+      "rule_id": "OP-AUTH-04"
+    },
+    {
+      "id": "OP-AUTH-05",
+      "kind": "rule",
+      "rule_id": "OP-AUTH-05"
+    },
+    {
+      "id": "OP-IDEM-01",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-01"
+    },
+    {
+      "id": "OP-IDEM-02",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-02"
+    },
+    {
+      "id": "OP-IDEM-03",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-03"
+    },
+    {
+      "id": "OP-IDEM-04",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-04"
+    },
+    {
+      "id": "OP-IDEM-05",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-05"
+    },
+    {
+      "id": "OP-IDEM-06",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-06"
+    },
+    {
+      "id": "OP-IDEM-07",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-07"
+    },
+    {
+      "id": "OP-IDEM-08",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-08"
+    },
+    {
+      "id": "OP-IDEM-09",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-09"
+    },
+    {
+      "id": "OP-IDEM-10",
+      "kind": "rule",
+      "rule_id": "OP-IDEM-10"
+    },
+    {
+      "id": "OP-TX-01",
+      "kind": "rule",
+      "rule_id": "OP-TX-01"
+    },
+    {
+      "id": "OP-TX-02",
+      "kind": "rule",
+      "rule_id": "OP-TX-02"
+    },
+    {
+      "id": "OP-TX-03",
+      "kind": "rule",
+      "rule_id": "OP-TX-03"
+    },
+    {
+      "id": "OP-TX-04",
+      "kind": "rule",
+      "rule_id": "OP-TX-04"
+    },
+    {
+      "id": "OP-TX-05",
+      "kind": "rule",
+      "rule_id": "OP-TX-05"
+    },
+    {
+      "id": "OP-TX-06",
+      "kind": "rule",
+      "rule_id": "OP-TX-06"
+    },
+    {
+      "id": "OP-VAL-01",
+      "kind": "rule",
+      "rule_id": "OP-VAL-01"
+    },
+    {
+      "id": "OP-VAL-02",
+      "kind": "rule",
+      "rule_id": "OP-VAL-02"
+    },
+    {
+      "id": "OP-VAL-03",
+      "kind": "rule",
+      "rule_id": "OP-VAL-03"
+    },
+    {
+      "id": "OPS-01",
+      "kind": "rule",
+      "rule_id": "OPS-01"
+    },
+    {
+      "id": "OPS-02",
+      "kind": "rule",
+      "rule_id": "OPS-02"
+    },
+    {
+      "id": "OPS-03",
+      "kind": "rule",
+      "rule_id": "OPS-03"
+    },
+    {
+      "id": "OPS-04",
+      "kind": "rule",
+      "rule_id": "OPS-04"
+    },
+    {
+      "id": "OPS-05",
+      "kind": "rule",
+      "rule_id": "OPS-05"
+    },
+    {
+      "id": "OPS-06",
+      "kind": "rule",
+      "rule_id": "OPS-06"
+    },
+    {
+      "id": "OPS-07",
+      "kind": "rule",
+      "rule_id": "OPS-07"
+    },
+    {
+      "id": "OPS-08",
+      "kind": "rule",
+      "rule_id": "OPS-08"
+    },
+    {
+      "id": "OPS-09",
+      "kind": "rule",
+      "rule_id": "OPS-09"
+    },
+    {
+      "id": "OPS-10",
+      "kind": "rule",
+      "rule_id": "OPS-10"
+    },
+    {
+      "id": "OPS-11",
+      "kind": "rule",
+      "rule_id": "OPS-11"
+    },
+    {
+      "id": "OPS-12",
+      "kind": "rule",
+      "rule_id": "OPS-12"
+    },
+    {
+      "id": "OPS-13",
+      "kind": "rule",
+      "rule_id": "OPS-13"
+    },
+    {
+      "id": "OPS-14",
+      "kind": "rule",
+      "rule_id": "OPS-14"
+    },
+    {
+      "id": "OPS-15",
+      "kind": "rule",
+      "rule_id": "OPS-15"
+    },
+    {
+      "id": "OPS-16",
+      "kind": "rule",
+      "rule_id": "OPS-16"
+    },
+    {
+      "id": "OPS-17",
+      "kind": "rule",
+      "rule_id": "OPS-17"
+    },
+    {
+      "id": "OPS-18",
+      "kind": "rule",
+      "rule_id": "OPS-18"
+    },
+    {
+      "id": "REST-01",
+      "kind": "rule",
+      "rule_id": "REST-01"
+    },
+    {
+      "id": "REST-02",
+      "kind": "rule",
+      "rule_id": "REST-02"
+    },
+    {
+      "id": "REST-03",
+      "kind": "rule",
+      "rule_id": "REST-03"
+    },
+    {
+      "id": "REST-04",
+      "kind": "rule",
+      "rule_id": "REST-04"
+    },
+    {
+      "id": "REST-05",
+      "kind": "rule",
+      "rule_id": "REST-05"
+    },
+    {
+      "id": "REST-06",
+      "kind": "rule",
+      "rule_id": "REST-06"
+    },
+    {
+      "id": "REST-07",
+      "kind": "rule",
+      "rule_id": "REST-07"
+    },
+    {
+      "id": "REST-08",
+      "kind": "rule",
+      "rule_id": "REST-08"
+    },
+    {
+      "id": "REST-09",
+      "kind": "rule",
+      "rule_id": "REST-09"
+    },
+    {
+      "id": "REST-10",
+      "kind": "rule",
+      "rule_id": "REST-10"
+    },
+    {
+      "id": "REST-11",
+      "kind": "rule",
+      "rule_id": "REST-11"
+    },
+    {
+      "id": "REST-12",
+      "kind": "rule",
+      "rule_id": "REST-12"
+    },
+    {
+      "id": "REST-13",
+      "kind": "rule",
+      "rule_id": "REST-13"
+    },
+    {
+      "id": "REST-14",
+      "kind": "rule",
+      "rule_id": "REST-14"
+    },
+    {
+      "id": "REST-15",
+      "kind": "rule",
+      "rule_id": "REST-15"
+    },
+    {
+      "id": "REST-16",
+      "kind": "rule",
+      "rule_id": "REST-16"
+    },
+    {
+      "id": "REST-17",
+      "kind": "rule",
+      "rule_id": "REST-17"
+    },
+    {
+      "id": "REST-18",
+      "kind": "rule",
+      "rule_id": "REST-18"
+    },
+    {
+      "id": "SEC-01",
+      "kind": "rule",
+      "rule_id": "SEC-01"
+    },
+    {
+      "id": "SEC-02",
+      "kind": "rule",
+      "rule_id": "SEC-02"
+    },
+    {
+      "id": "SEC-03",
+      "kind": "rule",
+      "rule_id": "SEC-03"
+    },
+    {
+      "id": "SEC-04",
+      "kind": "rule",
+      "rule_id": "SEC-04"
+    },
+    {
+      "id": "SEC-05",
+      "kind": "rule",
+      "rule_id": "SEC-05"
+    },
+    {
+      "id": "SSO-01",
+      "kind": "rule",
+      "rule_id": "SSO-01"
+    },
+    {
+      "id": "SSO-02",
+      "kind": "rule",
+      "rule_id": "SSO-02"
+    },
+    {
+      "id": "SSO-03",
+      "kind": "rule",
+      "rule_id": "SSO-03"
+    },
+    {
+      "id": "SSO-04",
+      "kind": "rule",
+      "rule_id": "SSO-04"
+    },
+    {
+      "id": "SSO-05",
+      "kind": "rule",
+      "rule_id": "SSO-05"
+    },
+    {
+      "id": "SSO-06",
+      "kind": "rule",
+      "rule_id": "SSO-06"
+    },
+    {
+      "id": "SSO-07",
+      "kind": "rule",
+      "rule_id": "SSO-07"
+    },
+    {
+      "id": "SSO-08",
+      "kind": "rule",
+      "rule_id": "SSO-08"
+    },
+    {
+      "id": "SSO-09",
+      "kind": "rule",
+      "rule_id": "SSO-09"
+    },
+    {
+      "id": "SSO-10",
+      "kind": "rule",
+      "rule_id": "SSO-10"
+    },
+    {
+      "id": "SSO-11",
+      "kind": "rule",
+      "rule_id": "SSO-11"
+    },
+    {
+      "id": "SSO-12",
+      "kind": "rule",
+      "rule_id": "SSO-12"
+    },
+    {
+      "id": "VAL-01",
+      "kind": "rule",
+      "rule_id": "VAL-01"
+    },
+    {
+      "id": "VAL-02",
+      "kind": "rule",
+      "rule_id": "VAL-02"
+    },
+    {
+      "id": "VAL-03",
+      "kind": "rule",
+      "rule_id": "VAL-03"
+    },
+    {
+      "id": "VAL-04",
+      "kind": "rule",
+      "rule_id": "VAL-04"
+    },
+    {
+      "id": "VAL-05",
+      "kind": "rule",
+      "rule_id": "VAL-05"
+    },
+    {
+      "id": "VAL-06",
+      "kind": "rule",
+      "rule_id": "VAL-06"
+    },
+    {
+      "id": "VAL-07",
+      "kind": "rule",
+      "rule_id": "VAL-07"
+    },
+    {
+      "id": "VAL-08",
+      "kind": "rule",
+      "rule_id": "VAL-08"
+    },
+    {
+      "id": "VAL-09",
+      "kind": "rule",
+      "rule_id": "VAL-09"
+    },
+    {
+      "id": "VAL-10",
+      "kind": "rule",
+      "rule_id": "VAL-10"
+    },
+    {
+      "id": "VAL-11",
+      "kind": "rule",
+      "rule_id": "VAL-11"
+    },
+    {
+      "id": "VAL-12",
+      "kind": "rule",
+      "rule_id": "VAL-12"
+    },
+    {
+      "id": "VAL-13",
+      "kind": "rule",
+      "rule_id": "VAL-13"
+    },
+    {
+      "id": "VAL-14",
+      "kind": "rule",
+      "rule_id": "VAL-14"
+    },
+    {
+      "id": "VAL-15",
+      "kind": "rule",
+      "rule_id": "VAL-15"
+    },
+    {
+      "id": "VAL-16",
+      "kind": "rule",
+      "rule_id": "VAL-16"
+    },
+    {
+      "id": "VAL-17",
+      "kind": "rule",
+      "rule_id": "VAL-17"
+    },
+    {
+      "id": "VAL-18",
+      "kind": "rule",
+      "rule_id": "VAL-18"
+    },
+    {
+      "id": "VAL-19",
+      "kind": "rule",
+      "rule_id": "VAL-19"
+    },
+    {
+      "id": "VAL-20",
+      "kind": "rule",
+      "rule_id": "VAL-20"
+    },
+    {
+      "id": "WS-01",
+      "kind": "rule",
+      "rule_id": "WS-01"
+    },
+    {
+      "id": "WS-02",
+      "kind": "rule",
+      "rule_id": "WS-02"
+    },
+    {
+      "id": "WS-03",
+      "kind": "rule",
+      "rule_id": "WS-03"
+    },
+    {
+      "id": "WS-04",
+      "kind": "rule",
+      "rule_id": "WS-04"
+    },
+    {
+      "id": "WS-05",
+      "kind": "rule",
+      "rule_id": "WS-05"
+    },
+    {
+      "id": "WS-06",
+      "kind": "rule",
+      "rule_id": "WS-06"
+    },
+    {
+      "id": "WS-07",
+      "kind": "rule",
+      "rule_id": "WS-07"
+    },
+    {
+      "id": "WS-08",
+      "kind": "rule",
+      "rule_id": "WS-08"
+    },
+    {
+      "id": "WS-09",
+      "kind": "rule",
+      "rule_id": "WS-09"
+    },
+    {
+      "id": "WS-10",
+      "kind": "rule",
+      "rule_id": "WS-10"
+    },
+    {
+      "id": "WS-11",
+      "kind": "rule",
+      "rule_id": "WS-11"
+    },
+    {
+      "id": "WS-12",
+      "kind": "rule",
+      "rule_id": "WS-12"
+    },
+    {
+      "id": "WS-13",
+      "kind": "rule",
+      "rule_id": "WS-13"
+    },
+    {
+      "id": "WS-14",
+      "kind": "rule",
+      "rule_id": "WS-14"
+    },
+    {
+      "id": "WS-15",
+      "kind": "rule",
+      "rule_id": "WS-15"
+    },
+    {
+      "id": "WS-16",
+      "kind": "rule",
+      "rule_id": "WS-16"
+    },
+    {
+      "id": "WS-17",
+      "kind": "rule",
+      "rule_id": "WS-17"
+    },
+    {
+      "id": "WS-18",
+      "kind": "rule",
+      "rule_id": "WS-18"
+    },
+    {
+      "id": "WS-19",
+      "kind": "rule",
+      "rule_id": "WS-19"
+    },
+    {
+      "id": "WS-20",
+      "kind": "rule",
+      "rule_id": "WS-20"
+    },
+    {
+      "id": "WS-21",
+      "kind": "rule",
+      "rule_id": "WS-21"
+    },
+    {
+      "id": "WS-22",
+      "kind": "rule",
+      "rule_id": "WS-22"
+    },
+    {
+      "id": "WS-23",
+      "kind": "rule",
+      "rule_id": "WS-23"
+    },
+    {
+      "id": "WS-24",
+      "kind": "rule",
+      "rule_id": "WS-24"
+    },
+    {
+      "id": "WS-25",
+      "kind": "rule",
+      "rule_id": "WS-25"
+    },
+    {
+      "id": "WS-26",
+      "kind": "rule",
+      "rule_id": "WS-26"
+    },
+    {
+      "id": "WS-27",
+      "kind": "rule",
+      "rule_id": "WS-27"
+    },
+    {
+      "id": "WS-28",
+      "kind": "rule",
+      "rule_id": "WS-28"
+    },
+    {
+      "id": "WS-29",
+      "kind": "rule",
+      "rule_id": "WS-29"
+    },
+    {
+      "id": "WS-30",
+      "kind": "rule",
+      "rule_id": "WS-30"
+    },
+    {
+      "id": "WS-31",
+      "kind": "rule",
+      "rule_id": "WS-31"
+    },
+    {
+      "id": "WS-32",
+      "kind": "rule",
+      "rule_id": "WS-32"
+    },
+    {
+      "id": "REST-19",
+      "kind": "rule",
+      "rule_id": "REST-19"
+    },
+    {
+      "id": "REST-20",
+      "kind": "rule",
+      "rule_id": "REST-20"
+    },
+    {
+      "id": "REST-21",
+      "kind": "rule",
+      "rule_id": "REST-21"
+    },
+    {
+      "id": "WS-33",
+      "kind": "rule",
+      "rule_id": "WS-33"
+    },
+    {
+      "id": "WS-34",
+      "kind": "rule",
+      "rule_id": "WS-34"
+    },
+    {
+      "id": "WS-35",
+      "kind": "rule",
+      "rule_id": "WS-35"
+    },
+    {
+      "id": "CLI-15",
+      "kind": "rule",
+      "rule_id": "CLI-15"
+    },
+    {
+      "id": "CLI-16",
+      "kind": "rule",
+      "rule_id": "CLI-16"
+    },
+    {
+      "id": "CLI-17",
+      "kind": "rule",
+      "rule_id": "CLI-17"
+    },
+    {
+      "id": "GRPC-20",
+      "kind": "rule",
+      "rule_id": "GRPC-20"
+    },
+    {
+      "id": "GRPC-21",
+      "kind": "rule",
+      "rule_id": "GRPC-21"
+    },
+    {
+      "id": "GRPC-22",
+      "kind": "rule",
+      "rule_id": "GRPC-22"
+    },
+    {
+      "id": "MCP-22",
+      "kind": "rule",
+      "rule_id": "MCP-22"
+    },
+    {
+      "id": "MCP-23",
+      "kind": "rule",
+      "rule_id": "MCP-23"
+    },
+    {
+      "id": "MCP-24",
+      "kind": "rule",
+      "rule_id": "MCP-24"
+    },
+    {
+      "id": "MCP-25",
+      "kind": "rule",
+      "rule_id": "MCP-25"
+    },
+    {
+      "id": "MCP-26",
+      "kind": "rule",
+      "rule_id": "MCP-26"
+    },
+    {
+      "id": "MCP-27",
+      "kind": "rule",
+      "rule_id": "MCP-27"
+    },
+    {
+      "id": "A2A-25",
+      "kind": "rule",
+      "rule_id": "A2A-25"
+    },
+    {
+      "id": "A2A-26",
+      "kind": "rule",
+      "rule_id": "A2A-26"
+    },
+    {
+      "id": "A2A-27",
+      "kind": "rule",
+      "rule_id": "A2A-27"
+    },
+    {
+      "id": "A2A-28",
+      "kind": "rule",
+      "rule_id": "A2A-28"
+    },
+    {
+      "id": "A2A-29",
+      "kind": "rule",
+      "rule_id": "A2A-29"
+    },
+    {
+      "id": "A2A-30",
+      "kind": "rule",
+      "rule_id": "A2A-30"
+    },
+    {
+      "id": "IMP-01",
+      "kind": "rule",
+      "rule_id": "IMP-01"
+    },
+    {
+      "id": "IMP-02",
+      "kind": "rule",
+      "rule_id": "IMP-02"
+    },
+    {
+      "id": "IMP-03",
+      "kind": "rule",
+      "rule_id": "IMP-03"
+    },
+    {
+      "id": "IMP-04",
+      "kind": "rule",
+      "rule_id": "IMP-04"
+    },
+    {
+      "id": "IMP-05",
+      "kind": "rule",
+      "rule_id": "IMP-05"
+    },
+    {
+      "id": "IMP-06",
+      "kind": "rule",
+      "rule_id": "IMP-06"
+    },
+    {
+      "id": "IMP-07",
+      "kind": "rule",
+      "rule_id": "IMP-07"
+    },
+    {
+      "id": "IMP-08",
+      "kind": "rule",
+      "rule_id": "IMP-08"
+    },
+    {
+      "id": "IMP-09",
+      "kind": "rule",
+      "rule_id": "IMP-09"
+    },
+    {
+      "id": "IMP-10",
+      "kind": "rule",
+      "rule_id": "IMP-10"
+    },
+    {
+      "id": "IMP-11",
+      "kind": "rule",
+      "rule_id": "IMP-11"
+    },
+    {
+      "id": "IMP-12",
+      "kind": "rule",
+      "rule_id": "IMP-12"
+    },
+    {
+      "id": "paragraph/15-rule-registry-3-coverage/1/0a592c5716f6",
+      "kind": "non-rule",
+      "rule_id": "IMP-12",
+      "reason": "explanatory normative prose; normative force delivered by IMP-12"
+    },
+    {
+      "id": "paragraph/20-core-crate-2-dependencies/1/7e2e98a4355b",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/20-core-crate-8-state-machines/1/b3b663dea9bd",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/22-identity-crates-2-crates/1/415292bb6df9",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/22-identity-crates-4-token-profile-4-3-delegation/1/8c0ef4048f70",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "list/22-identity-crates-7-refresh-tokens-and-sessions-7-2-atomic-rotation/1/1ea1e5bcfb11",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/22-identity-crates-9-negative-authentication-tests/1/6032a3bf4905",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/30-rest-adapter-2-dependencies/1/597d51cd0ad9",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/31-websocket-adapter-2-dependencies/1/b20d46f4670e",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/32-cli-adapter-2-dependencies/1/944297402280",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/32-cli-adapter-6-modes-6-2-remote-mode/2/78aff0a0e71d",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/34-mcp-adapter-2-dependencies/1/80e8b0f3801b",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/40-conformance-crate-13-implementation-proof/2/56ddcceb51a6",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/45-documentation-generation-1-purpose/1/8474004ea02d",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/45-documentation-generation-5-completeness/1/c59cc147a680",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/45-documentation-generation-7-no-rest-dependency/1/bf1bf928814e",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/45-documentation-generation-7-no-rest-dependency/2/e83930f0ad05",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/47-validation-contract-5-custom-rules/1/484f9c352706",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/48-implementation-blueprint-mandatory/2/306fbe6ce4ca",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/48-implementation-blueprint-mandatory-3-macro-contract-3-1-input/1/fc1ee242d9cf",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/48-implementation-blueprint-mandatory-3-macro-contract-3-7-runtime-validation-path/5/a1808f4a30aa",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/48-implementation-blueprint-mandatory-9-implementation-contract-pipeline/2/72e0bea4094a",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    },
+    {
+      "id": "paragraph/55-implementation-contracts-2-policy-model-2-1-effective-policy/2/979d561b0252",
+      "kind": "non-rule",
+      "rule_id": "A2A-01",
+      "reason": "explanatory normative prose; normative force delivered by A2A-01"
+    }
+  ]
+}

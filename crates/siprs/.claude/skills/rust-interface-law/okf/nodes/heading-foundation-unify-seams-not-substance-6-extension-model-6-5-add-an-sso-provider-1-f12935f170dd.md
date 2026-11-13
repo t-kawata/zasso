@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: f12935f170dd4a56a20456b294d07c6d1ea4814119bc7c92505f82c669ba4609
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ### 6.5 Add an SSO provider

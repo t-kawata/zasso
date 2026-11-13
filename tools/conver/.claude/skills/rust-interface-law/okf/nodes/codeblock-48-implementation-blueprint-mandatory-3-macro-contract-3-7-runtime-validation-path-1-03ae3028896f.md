@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 03ae3028896fbae94b056fdd9b5b58d1f646dadcbafb4b059e3fee05d4e848c6
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ```rust
 impl<O: Operation> ErasedAuthenticatedOperation for O

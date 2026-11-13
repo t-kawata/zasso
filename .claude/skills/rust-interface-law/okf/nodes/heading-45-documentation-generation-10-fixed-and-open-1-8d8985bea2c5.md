@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8d8985bea2c57f9136208142677d1a7bcc871183c2e06302f39b40c53d75ec9d
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 ## 10. Fixed and Open

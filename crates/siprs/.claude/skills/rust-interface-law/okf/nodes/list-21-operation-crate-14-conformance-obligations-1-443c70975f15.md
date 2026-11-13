@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 443c70975f15407b6dae71ad93cd59aa5a0cc558564d1285089250c67c715cd1
-source: docs/archive/IMPLEMENTATION-SPEC/21-OPERATION.md
+source: sources/21-OPERATION.md
 ---
 1. Every catalog operation is registered exactly once.
 2. Every authenticated operation has `prepare` that authorizes before mutation.

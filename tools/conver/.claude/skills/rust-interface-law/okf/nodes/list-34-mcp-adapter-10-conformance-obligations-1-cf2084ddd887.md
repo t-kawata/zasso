@@ -7,7 +7,7 @@ applies_to: mcp
 requires: []
 references: []
 content_sha256: cf2084ddd887f4f5aef5f65202cc733a43c5f194238e2b78c9dc71bf3c55b181
-source: docs/archive/IMPLEMENTATION-SPEC/34-MCP.md
+source: sources/34-MCP.md
 ---
 1. Every applicable operation has a tool; every tool maps to one operation.
 2. Tool input/output schemas match the operation types.

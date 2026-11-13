@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0cc2f5f56e663e8db8efc9b608a4f295bbf6c1472d7cd3178234497d5e907c08
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 The verifier returns an opaque identity that carries **what was verified, where,
 and until when**. The identity alone is not enough to authorize use through a

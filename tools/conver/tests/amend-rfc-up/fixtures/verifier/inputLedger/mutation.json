@@ -1,0 +1,6 @@
+{
+  "path": "source/input-ledger.json",
+  "operation": "replace",
+  "find": "\"decision\": \"included\"",
+  "replace": "\"decision\": \"excluded\""
+}

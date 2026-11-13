@@ -1,0 +1,6 @@
+{
+  "path": "okf/nodes/A2A-01.md",
+  "operation": "replace",
+  "find": "content_sha256: ",
+  "replace": "content_sha256: 0"
+}

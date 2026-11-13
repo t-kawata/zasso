@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c92a1d2bc8b0792892628be77c82f01b510f0d3731225cc985172d00a5b2547f
-source: docs/archive/IMPLEMENTATION-SPEC/90-MIGRATION.md
+source: sources/90-MIGRATION.md
 ---
 ## 10. Step 7 — Interfaces

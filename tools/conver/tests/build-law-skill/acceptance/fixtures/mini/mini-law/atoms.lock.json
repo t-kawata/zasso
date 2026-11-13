@@ -1,0 +1,157 @@
+{
+  "spec_version": "0.3.2",
+  "source_manifest_sha256": "1a497fe3cc896106c97daa431fc47aee48b9951ca3e83e847b602729db6b5622",
+  "redaction_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+  "atoms": [
+    {
+      "id": "heading/mini-law/1/0448edaa8263",
+      "type": "Heading",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law"
+      ],
+      "ordinal": 1,
+      "source_sha256": "0448edaa82630d23dc63c301d592dd02ccc951f365fe670b8c3531e446298cd8",
+      "content_sha256": "0448edaa82630d23dc63c301d592dd02ccc951f365fe670b8c3531e446298cd8",
+      "span": {
+        "start_line": 1,
+        "end_line": 1
+      },
+      "classification": "structural",
+      "reason": "structural block",
+      "text": "# Mini Law"
+    },
+    {
+      "id": "blank/mini-law/1/e3b0c44298fc",
+      "type": "Blank",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law"
+      ],
+      "ordinal": 1,
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "span": {
+        "start_line": 2,
+        "end_line": 2
+      },
+      "classification": "structural",
+      "reason": "structural block",
+      "text": ""
+    },
+    {
+      "id": "heading/mini-law-scope/1/06f13eceae24",
+      "type": "Heading",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law",
+        "Scope"
+      ],
+      "ordinal": 1,
+      "source_sha256": "06f13eceae24bd0eb87002e30400999346da1ac5f0f9e44ba02101ab01d1f6a3",
+      "content_sha256": "06f13eceae24bd0eb87002e30400999346da1ac5f0f9e44ba02101ab01d1f6a3",
+      "span": {
+        "start_line": 3,
+        "end_line": 3
+      },
+      "classification": "structural",
+      "reason": "structural block",
+      "text": "## Scope"
+    },
+    {
+      "id": "blank/mini-law-scope/1/e3b0c44298fc",
+      "type": "Blank",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law",
+        "Scope"
+      ],
+      "ordinal": 1,
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "span": {
+        "start_line": 4,
+        "end_line": 4
+      },
+      "classification": "structural",
+      "reason": "structural block",
+      "text": ""
+    },
+    {
+      "id": "paragraph/mini-law-scope/1/986697485ab6",
+      "type": "Paragraph",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law",
+        "Scope"
+      ],
+      "ordinal": 1,
+      "source_sha256": "986697485ab6c779ce6d8ce4c7a77e1584a73fdb5ac7138791482ee39c243b62",
+      "content_sha256": "986697485ab6c779ce6d8ce4c7a77e1584a73fdb5ac7138791482ee39c243b62",
+      "span": {
+        "start_line": 5,
+        "end_line": 5
+      },
+      "classification": "normative",
+      "reason": "normative keyword: MUST",
+      "text": "The implementation MUST expose one entry."
+    },
+    {
+      "id": "blank/mini-law-scope/2/e3b0c44298fc",
+      "type": "Blank",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law",
+        "Scope"
+      ],
+      "ordinal": 2,
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "span": {
+        "start_line": 6,
+        "end_line": 6
+      },
+      "classification": "structural",
+      "reason": "structural block",
+      "text": ""
+    },
+    {
+      "id": "tableheader/mini-law-scope/1/5c17d59d1501",
+      "type": "TableHeader",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law",
+        "Scope"
+      ],
+      "ordinal": 1,
+      "source_sha256": "5c17d59d15011d4bb5d7a8bfc4630be0e8ed49ea9eeb02b1f874c5d1c69822b9",
+      "content_sha256": "5c17d59d15011d4bb5d7a8bfc4630be0e8ed49ea9eeb02b1f874c5d1c69822b9",
+      "span": {
+        "start_line": 7,
+        "end_line": 8
+      },
+      "classification": "structural",
+      "reason": "registry header",
+      "text": "| ID | Class | Applicability | Parent | Source | Statement | Verification | Gate |\n|---|---|---|---|---|---|---|---|"
+    },
+    {
+      "id": "MINI-01",
+      "type": "Rule",
+      "source": "sources/guide.md",
+      "heading_path": [
+        "Mini Law",
+        "Scope"
+      ],
+      "ordinal": 1,
+      "source_sha256": "cd8be0393aef1eae279a7b6a644a063447a15143e762d18ec963b586aef8084d",
+      "content_sha256": "cd8be0393aef1eae279a7b6a644a063447a15143e762d18ec963b586aef8084d",
+      "span": {
+        "start_line": 9,
+        "end_line": 9
+      },
+      "classification": "normative",
+      "reason": "registry row",
+      "text": "| `MINI-01` | A | all | - | Mini | The implementation MUST expose one entry. | V1 test. | gate |"
+    }
+  ]
+}

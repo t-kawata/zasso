@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 9231b13edefe0aceddb8ab218e4b9ed19a45ab012c291b1d219b67feb00a7729
-source: docs/archive/IMPLEMENTATION-SPEC/40-CONFORMANCE.md
+source: sources/40-CONFORMANCE.md
 ---
 | Interface | Driver |
 |---|---|

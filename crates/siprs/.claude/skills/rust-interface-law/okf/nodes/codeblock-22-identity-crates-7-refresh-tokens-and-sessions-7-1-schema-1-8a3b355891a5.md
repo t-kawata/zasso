@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8a3b355891a5a4f2c1ad69411675daa15a0fe44542f189b8cffa800f5e92d1a4
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ```sql
 CREATE TABLE users (

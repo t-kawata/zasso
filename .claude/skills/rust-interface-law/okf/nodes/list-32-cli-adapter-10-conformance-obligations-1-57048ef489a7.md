@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: 57048ef489a7499b3c651cfa8684f568ecf8a9f6de5a626fc14994f2b05499a8
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 1. Every catalog operation has a subcommand.
 2. Local mode rejects a missing or invalid principal.

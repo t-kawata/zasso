@@ -1,0 +1,6 @@
+{
+  "path": "source/normative-inventory.json",
+  "operation": "replace",
+  "find": "\"kind\": \"non-rule\"",
+  "replace": "\"kind\": \"rule\""
+}

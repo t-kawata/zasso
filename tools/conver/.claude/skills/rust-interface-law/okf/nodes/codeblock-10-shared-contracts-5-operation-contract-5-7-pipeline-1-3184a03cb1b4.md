@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3184a03cb1b4e9f55bf63b4378a35483d17efd981a42ad21b352c75ad123af7c
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```text
 1. decode and size check                     dispatcher

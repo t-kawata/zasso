@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 06e4618fab4ff0b8b92524988745c9b70f9ef7d037394086d3502f40684f30fd
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 ## 3. Outputs

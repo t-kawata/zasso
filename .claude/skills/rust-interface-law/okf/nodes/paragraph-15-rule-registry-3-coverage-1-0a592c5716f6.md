@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0a592c5716f6001bfdba39d96b235647bb736f766f6c9bfabd51e376cfae24b7
-source: docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md
+source: sources/15-RULE-REGISTRY.md
 ---
 The registry extraction covers normative rule tables. A prose paragraph that
 uses MUST/MUST NOT without a rule ID is a coverage defect. The project rule

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: f1e28b93734afe0db3f0a320a3c135ce5d12fea3af7b10df86b49b535d62ddf3
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 | Fixed | Open |
 |---|---|

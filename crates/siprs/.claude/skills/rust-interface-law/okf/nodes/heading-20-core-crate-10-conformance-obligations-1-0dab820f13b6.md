@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0dab820f13b6ba75939c2b9d783322cf23a3d7a2e8dae9b04161bfb6e69e9b4b
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 ## 10. Conformance Obligations

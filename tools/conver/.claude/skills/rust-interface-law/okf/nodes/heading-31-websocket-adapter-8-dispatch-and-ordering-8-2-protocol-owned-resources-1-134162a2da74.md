@@ -7,6 +7,6 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: 134162a2da747fd37a02246d651f256095162ebfb5bf1bba0feb8c135647cbc2
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ### 8.2 Protocol-owned resources

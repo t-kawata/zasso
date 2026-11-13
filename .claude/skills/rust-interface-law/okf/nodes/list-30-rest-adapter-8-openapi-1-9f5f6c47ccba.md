@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 9f5f6c47ccbae369a08ea71967110e0a80373591afdd1ce7a0808db3bfe354fb
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 - `openapi/generated.rs` derives `utoipa::OpenApi`.
 - Every operation path and schema is generated from the catalog.

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: fffa025d80e21a3239828b499b00f9a83901e64cc7b5e017edb3111153fe8921
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 ## 1. Workspace Layout

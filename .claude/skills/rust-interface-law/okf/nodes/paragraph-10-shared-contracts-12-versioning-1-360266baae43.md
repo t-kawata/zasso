@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 360266baae43cbf87ef75c0a848a024d7f7b95667542eeb15826235e30d71281
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 A single `spec_version` covers the rules, these contracts, the generator, and
 the conformance kit. Protocol SDK versions are recorded separately.

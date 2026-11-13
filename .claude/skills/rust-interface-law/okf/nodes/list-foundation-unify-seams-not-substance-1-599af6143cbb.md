@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 599af6143cbbee2230ef470245336eb81a0063a3536f151689a550d1a9121670
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 - **Unify the seams.** Contracts, wire formats, identity, authorization
   placement, error semantics, adapter mechanics, and conformance obligations are

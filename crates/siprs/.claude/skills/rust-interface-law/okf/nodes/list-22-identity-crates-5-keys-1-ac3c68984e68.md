@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: ac3c68984e685050ad952dbe65f9e955b771b6d0c485fc780d7a6184536c49f0
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 - Multiple active public keys are required for rotation.
 - Private keys never leave `identity-core`.

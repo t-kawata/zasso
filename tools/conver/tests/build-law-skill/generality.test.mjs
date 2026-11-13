@@ -1,3 +1,4 @@
+// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 // @verifies C004
 
 /**
@@ -14,7 +15,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { auditCommand, sectionOf } from './lib/command-contract.mjs';
+import {
+  auditClaudeBlock,
+  auditCommand,
+  auditPipelineCheckpoint,
+  sectionOf,
+} from './lib/command-contract.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(here, '../..');
@@ -141,4 +147,55 @@ test('C004: the unmutated command passes', () => {
 
 test('C004: section extraction is exact', () => {
   assert.ok(sectionOf(COMMAND_TEXT, '## Procedure').includes('Step'));
+});
+
+
+test('C006: audit rejects a removed v2 artifact', () => {
+  const text = mutated('source/input-ledger.json', 'source/ledger.json');
+  assert.ok(codes(text).has('MISSING_ARTIFACT'));
+});
+
+test('C006: audit rejects a removed leak ledger', () => {
+  const text = COMMAND_TEXT.replaceAll('source/redaction.review.json', 'source/review.json');
+  assert.notEqual(text, COMMAND_TEXT);
+  assert.ok(codes(text).has('MISSING_LEAK_LEDGER'));
+});
+
+test('C006: audit rejects a removed coverage ledger', () => {
+  const text = COMMAND_TEXT.replaceAll('source/normative-inventory.json', 'source/inventory.json');
+  assert.notEqual(text, COMMAND_TEXT);
+  assert.ok(codes(text).has('MISSING_COVERAGE_LEDGER'));
+});
+
+test('C006: audit rejects a removed style rule', () => {
+  const text = mutated('STYLE_NOT_ENGLISH', 'STYLE');
+  assert.ok(codes(text).has('MISSING_STYLE_RULE'));
+});
+
+test('C006: audit rejects a removed path alias', () => {
+  const text = COMMAND_TEXT.replaceAll('.path-alias.json', 'alias.json').replaceAll('path-alias', 'alias-map');
+  assert.notEqual(text, COMMAND_TEXT);
+  assert.ok(codes(text).has('MISSING_PATH_ALIAS'));
+});
+
+test('C006: audit rejects a removed check name', () => {
+  const text = mutated('`style`', '`appearance`');
+  assert.ok(codes(text).has('MISSING_GATE_TERM'));
+});
+
+test('C006: audit rejects the old eleven-check gate', () => {
+  const text = mutateSection('## Verification Gates', '18 checks', '11 checks');
+  assert.ok(codes(text).has('MISSING_GATE_TERM'));
+});
+
+test('C006: a pipeline checkpoint without installed v2 fails', () => {
+  const path = join(repositoryRoot, '.claude/commands/make-ticket.md');
+  const text = readFileSync(path, 'utf8').replace('v2 `dev` + `installed`', 'v2 `dev`');
+  assert.ok(auditPipelineCheckpoint(text).some((finding) => finding.code === 'MISSING_V2_CHECKPOINT'));
+});
+
+test('C006: a CLAUDE block without closure fails', () => {
+  const path = join(repositoryRoot, '.claude/CLAUDE.md');
+  const text = readFileSync(path, 'utf8').replace('record `closure`', 'record status');
+  assert.ok(auditClaudeBlock(text).some((finding) => finding.code === 'MISSING_V2_CHECKPOINT'));
 });

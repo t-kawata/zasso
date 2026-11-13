@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e24358331162718247358f3e3f63c4ff7be99a8a518e9c84347086cf22086aed
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 ## 2. Runtime Types

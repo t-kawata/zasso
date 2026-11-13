@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 0ab125cfa6ddc29c72542aa78fefdcc04a189a9fb58c73cfb14f989f326785c7
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 ## 5. Hand-Written Layer

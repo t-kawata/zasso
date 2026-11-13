@@ -1,0 +1,6 @@
+{
+  "path": "coverage.json",
+  "operation": "replace",
+  "find": "\"attributed\": 293",
+  "replace": "\"attributed\": 292"
+}

@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: c77ca31546ae8769e74fc5ed9b1cc789c3efa8a23de5af9828988934800e31a2
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ### 2.2 Binding checks

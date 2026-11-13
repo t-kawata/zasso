@@ -7,7 +7,7 @@ applies_to: grpc
 requires: []
 references: []
 content_sha256: ab2e66392427b5ea1caec9868df4002dcb8f669bc9c8f64c349ca62f4ff02a9b
-source: docs/archive/IMPLEMENTATION-SPEC/33-GRPC.md
+source: sources/33-GRPC.md
 ---
 ```toml
 [dependencies]

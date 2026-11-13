@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 660f25115a8cacc71dfd3cd7bb51131054991dae4ff0d62518b39435bef02f01
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 | Class | What it fixes | What it leaves open | Example |
 |---|---|---|---|

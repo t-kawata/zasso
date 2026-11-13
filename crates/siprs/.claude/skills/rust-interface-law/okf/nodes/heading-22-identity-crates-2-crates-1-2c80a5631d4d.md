@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2c80a5631d4d40549af261072601339f779771e0bda5016fce3950f545810ff7
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ## 2. Crates

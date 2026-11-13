@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: a97ba35c2c075269c58c4173a9428b6defce91d4a00d0302a799c033c31a8c86
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub struct Case {

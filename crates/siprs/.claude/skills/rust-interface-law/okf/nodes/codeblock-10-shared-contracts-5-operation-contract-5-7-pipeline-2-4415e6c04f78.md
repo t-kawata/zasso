@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 4415e6c04f78b7f4c039483aaf23a0317d99b503c5d0bb72383921a4eaa2eea3
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub enum AuthorizationTarget {

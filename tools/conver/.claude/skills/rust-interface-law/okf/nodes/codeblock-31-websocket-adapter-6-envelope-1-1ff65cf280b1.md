@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: 1ff65cf280b1ef85d53ea97032fb8b3a44d55566489d6c4d7f52f30d1045b652
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ```rust
 #[derive(serde::Deserialize)]

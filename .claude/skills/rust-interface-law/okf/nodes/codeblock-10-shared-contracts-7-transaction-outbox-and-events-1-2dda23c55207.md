@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 2dda23c552074f25bb62f40c00177916df890c7de704885d79736e7ffda26a1b
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub struct DomainEvent {

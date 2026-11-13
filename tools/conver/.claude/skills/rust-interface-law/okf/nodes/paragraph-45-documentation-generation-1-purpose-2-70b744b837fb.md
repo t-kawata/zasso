@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 70b744b837fba65401f7e0c2bcf9d7005e4709dcc1b5bb6548f4f1a41dc8c034
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 The generator does not parse Rust source code. It consumes a neutral schema
 registry, the operation catalog, the interface bindings, the validation

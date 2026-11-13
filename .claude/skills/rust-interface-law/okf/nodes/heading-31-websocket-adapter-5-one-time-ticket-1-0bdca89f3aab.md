@@ -7,6 +7,6 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: 0bdca89f3aab532742b1e2cb3e99fada20f4f4a42b547fb45705abc45516481d
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ## 5. One-Time Ticket

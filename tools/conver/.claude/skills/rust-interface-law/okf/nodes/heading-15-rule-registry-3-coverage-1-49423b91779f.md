@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 49423b91779f707c3fc9d3c804586ac796a8ab2c9d9ac3608110fcab4c0d0519
-source: docs/archive/IMPLEMENTATION-SPEC/15-RULE-REGISTRY.md
+source: sources/15-RULE-REGISTRY.md
 ---
 ## 3. Coverage

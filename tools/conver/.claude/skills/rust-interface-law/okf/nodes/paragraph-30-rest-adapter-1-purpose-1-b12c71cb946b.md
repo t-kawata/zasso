@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: b12c71cb946bb5b7860421f2be38f6e4c71b550f284ccfde2ebba643c4023b54
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 `*-rest` is a thin HTTP adapter. It extracts the bearer token, verifies it,
 converts the HTTP body to the operation request, calls the dispatcher, converts

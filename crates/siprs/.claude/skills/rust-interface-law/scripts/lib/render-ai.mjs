@@ -1,3 +1,5 @@
+// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-421 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-421 --for-spec --no-implementation-order`.
 import { dirname, join } from 'node:path';
 
 const ACTION_BY_KIND = {
@@ -6,7 +8,7 @@ const ACTION_BY_KIND = {
   'no-changed-paths': 'Pass `--paths` with the changed files; the gate cannot verify an empty change set.',
 };
 
-export function renderResolveMarkdown({ manifest, manifestPath, auto, autoSummary }) {
+export function renderResolveMarkdown({ manifest, auto, autoSummary }) {
   const nodes = manifest.nodes ?? [];
   const must = nodes.filter((node) => node.delivery === 'must').length;
   const reference = nodes.length - must;
@@ -21,7 +23,7 @@ export function renderResolveMarkdown({ manifest, manifestPath, auto, autoSummar
     '| reference | ' + reference + ' |',
     '| omitted | ' + (manifest.omitted ?? []).length + ' |',
     '| closure_sha256 | `' + manifest.closure_sha256 + '` |',
-    '| Manifest | `' + manifestPath + '` |',
+    '| Manifest | `$MANIFEST` (`--out` value) |',
     ...(autoSummary ? ['| Auto discovery | ' + autoSummary + ' |'] : []),
     '',
   ];
@@ -34,7 +36,7 @@ export function renderResolveMarkdown({ manifest, manifestPath, auto, autoSummar
   return lines.join('\n');
 }
 
-export function renderContextMarkdown({ manifest, phase, result, lawPath, manifestPath }) {
+export function renderContextMarkdown({ manifest, phase, result }) {
   const index = (manifest.phases ?? []).indexOf(phase);
   const nextPhase = (manifest.phases ?? [])[index + 1] ?? null;
   const nodesById = new Map((manifest.nodes ?? []).map((node) => [node.id, node]));
@@ -49,7 +51,7 @@ export function renderContextMarkdown({ manifest, phase, result, lawPath, manife
     '',
     '| Field | Value |',
     '|---|---|',
-    '| Repository | `' + (manifest.root ?? '(unknown)') + '` |',
+    '| Repository | `.` (`$REPO_ROOT`) |',
     '| Units | ' + units + ' |',
     '| Phase | `' + phase + '` (' + (index + 1) + ' of ' + (manifest.phases ?? []).length + ') |',
     '| Rules delivered | ' + result.nodes.length + ' |',
@@ -114,15 +116,14 @@ export function renderContextMarkdown({ manifest, phase, result, lawPath, manife
     '1. Run the gate:',
     '',
     '```bash',
-    'node "' + lawPath + '" gate --manifest "' + manifestPath + '" --out "'
-      + join(dirname(manifestPath), 'gate-report.json') + '"',
+    'node "$LAW" gate --manifest "$MANIFEST" --out "$LAW_OUT/gate-report.json"',
     '```',
     '',
     '2. Attest this phase:',
     '',
     '```bash',
-    'node "' + lawPath + '" attest --manifest "' + manifestPath + '" --phase ' + phase
-      + ' --init --out "' + join(dirname(manifestPath), 'attestation.json') + '"',
+    'node "$LAW" attest --manifest "$MANIFEST" --phase ' + phase
+      + ' --init --out "$LAW_OUT/attestation.json"',
     '```',
     '',
     '3. Next phase: ' + (nextPhase ? '`' + nextPhase + '`' : 'none — completion review'),
@@ -222,7 +223,7 @@ export function renderGateMarkdown(report) {
   return lines.join('\n');
 }
 
-export function renderAttestMarkdown(template, { lawPath, manifestPath }) {
+export function renderAttestMarkdown(template) {
   const lines = [
     '# Attestation — ' + template.phase,
     '',
@@ -248,8 +249,8 @@ export function renderAttestMarkdown(template, { lawPath, manifestPath }) {
     'Fill every row, save the JSON document, then run:',
     '',
     '```bash',
-    'node "' + lawPath + '" attest --manifest "' + manifestPath + '" --phase '
-      + template.phase + ' --rows "' + join(dirname(manifestPath), 'attestation.json') + '"',
+    'node "$LAW" attest --manifest "$MANIFEST" --phase '
+      + template.phase + ' --rows "$LAW_OUT/attestation.json"',
     '```',
     '',
   ];

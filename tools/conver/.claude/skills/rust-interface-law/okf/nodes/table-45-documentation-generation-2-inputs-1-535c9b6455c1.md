@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 535c9b6455c1ddfc41b8f868323fdca186977248bbc436fb943f42b2a880b133
-source: docs/archive/IMPLEMENTATION-SPEC/45-DOCUMENTATION.md
+source: sources/45-DOCUMENTATION.md
 ---
 | Input | Authority |
 |---|---|

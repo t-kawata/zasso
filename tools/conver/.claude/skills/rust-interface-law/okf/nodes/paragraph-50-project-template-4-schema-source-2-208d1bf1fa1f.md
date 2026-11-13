@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 208d1bf1fa1fedaed05995725775c8cdaf9862905372be93f9de462e1135f2bb
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 The generator consumes the neutral schema registry and the validation
 descriptor registry. It emits REST schemas, MCP tool schemas, A2A skill

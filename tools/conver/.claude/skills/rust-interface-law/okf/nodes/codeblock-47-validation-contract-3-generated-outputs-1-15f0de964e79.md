@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 15f0de964e79d70f3fff0e2cf78f245f2355eb10e0cfd5413db98b49c3683362
-source: docs/archive/IMPLEMENTATION-SPEC/47-VALIDATION.md
+source: sources/47-VALIDATION.md
 ---
 ```rust
 pub trait ContractValidate {

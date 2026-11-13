@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 841558370b6ee95db6fabfe91ad6b3f12cb21cbdb86976686028720b540ee1c2
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 | Fixed | Open |
 |---|---|

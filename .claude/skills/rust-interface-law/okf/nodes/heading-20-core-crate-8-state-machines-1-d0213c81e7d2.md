@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d0213c81e7d2f630df14c99df4eae5eead20fce25dc74eb6878c399e84379c30
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 ## 8. State Machines

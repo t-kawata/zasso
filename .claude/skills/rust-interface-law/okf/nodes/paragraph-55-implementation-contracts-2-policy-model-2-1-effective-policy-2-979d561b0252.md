@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 979d561b02521a8180e196d0db7246d9b8b01683907d4b9c8752d65c307d3e6a
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 The effective policy is the only version source used by templates and checks.
 Rule text MUST NOT hard-code one crate version for every project.

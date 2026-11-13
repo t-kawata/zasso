@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: d32e35f58ed103eafde9df0e632cec4bcad69cb064ad5b116c92cb4aba999480
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub struct OperationError {

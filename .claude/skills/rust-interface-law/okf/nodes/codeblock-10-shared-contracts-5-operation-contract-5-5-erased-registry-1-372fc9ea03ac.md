@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 372fc9ea03ac6ae0a277e6388dbdba62f7731d1ef61a82dfd4f7259c704d4844
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub enum ErasedOperation {

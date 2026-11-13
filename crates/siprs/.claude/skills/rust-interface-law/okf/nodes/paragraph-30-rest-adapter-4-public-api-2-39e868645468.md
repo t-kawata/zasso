@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: 39e8686454687a70013013e102158fe72ff9059008fc86f660b87eb313779557
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 Every endpoint uses the semantic envelope `{context?, request}` and returns
 `{request_id, result}` or `{request_id, error}`. Aliases are path/method sugar

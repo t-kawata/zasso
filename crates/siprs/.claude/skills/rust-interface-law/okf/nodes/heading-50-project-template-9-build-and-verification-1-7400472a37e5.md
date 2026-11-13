@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 7400472a37e572670ba75169294d7658a8adee018186893cfa89e73eabba6ebd
-source: docs/archive/IMPLEMENTATION-SPEC/50-PROJECT-TEMPLATE.md
+source: sources/50-PROJECT-TEMPLATE.md
 ---
 ## 9. Build and Verification

@@ -7,7 +7,7 @@ applies_to: cli
 requires: []
 references: []
 content_sha256: 6348ee664b5e00bd40e8e35d1bd2087f4fabf6792a1a4b9b31eb24ef83ff9391
-source: docs/archive/IMPLEMENTATION-SPEC/32-CLI.md
+source: sources/32-CLI.md
 ---
 ```rust
 #[derive(clap::Parser)]

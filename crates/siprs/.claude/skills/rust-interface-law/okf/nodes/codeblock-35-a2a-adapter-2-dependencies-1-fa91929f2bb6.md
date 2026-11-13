@@ -7,7 +7,7 @@ applies_to: a2a
 requires: []
 references: []
 content_sha256: fa91929f2bb620027ee0ecd0539c900033ac0b7217fc79e0c2c4f13917ee693a
-source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+source: sources/35-A2A.md
 ---
 ```toml
 [dependencies]

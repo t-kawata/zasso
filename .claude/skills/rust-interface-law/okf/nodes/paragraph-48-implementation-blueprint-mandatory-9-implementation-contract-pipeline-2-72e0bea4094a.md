@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 72e0bea4094a41ca79636baccf8d8c16dc3671d79952d584aa059a5c64dff5b3
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 The generator MUST use the admitted template and MUST record the template hash. The gate MUST reject a missing report, a missing test, a zero-test selection, a failed detector, or a law identity mismatch.

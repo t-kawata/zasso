@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 13e4c4055a68f94fb2b201d473250158c90c57acd7ed517ebfa5a8fb14d855ef
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 1. What seam or invariant does the rule fix?
 2. What does the rule explicitly leave open?

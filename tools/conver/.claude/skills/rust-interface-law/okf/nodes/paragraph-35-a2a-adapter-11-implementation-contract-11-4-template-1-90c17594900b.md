@@ -7,6 +7,6 @@ applies_to: a2a
 requires: []
 references: []
 content_sha256: 90c17594900b0f08d014d22ea7bf61f821c05e20bf132f36c80a861bff35b344
-source: docs/archive/IMPLEMENTATION-SPEC/35-A2A.md
+source: sources/35-A2A.md
 ---
 `templates/a2a/`.

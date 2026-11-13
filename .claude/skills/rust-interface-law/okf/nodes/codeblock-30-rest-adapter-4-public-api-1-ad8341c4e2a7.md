@@ -7,7 +7,7 @@ applies_to: rest
 requires: []
 references: []
 content_sha256: ad8341c4e2a787d57160f85b31b46599dc87f83e99dc94d935aa3385fa7b29e5
-source: docs/archive/IMPLEMENTATION-SPEC/30-REST.md
+source: sources/30-REST.md
 ---
 ```rust
 pub struct RestState {

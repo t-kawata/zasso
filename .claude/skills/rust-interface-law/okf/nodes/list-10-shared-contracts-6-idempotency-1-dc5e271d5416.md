@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: dc5e271d54166f77f6170e89174d1bc53aaa4f8c753c104e6590c47df84a129c
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 - `claim` is atomic. Concurrent claims for the same namespace and key produce
   exactly one `Acquired`; the others receive `InFlight`, `Replay`, or

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 998f1aa2c67e11f711f81ffe73d2c9536ef0cf2f0d704b9e6d3c87a792c236d4
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 ```rust
 pub struct AccessClaims {

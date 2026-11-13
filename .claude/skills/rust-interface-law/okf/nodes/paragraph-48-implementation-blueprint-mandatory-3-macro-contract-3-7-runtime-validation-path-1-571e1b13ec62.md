@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 571e1b13ec625c859cd67e20a3fa2b9d756a00cbd79e9201cb95715ff88e5cf9
-source: docs/archive/IMPLEMENTATION-SPEC/48-IMPLEMENTATION-BLUEPRINT.md
+source: sources/48-IMPLEMENTATION-BLUEPRINT.md
 ---
 `operation-contract` has a blanket erased wrapper. Validation is separate from
 business preparation:

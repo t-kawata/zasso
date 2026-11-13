@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: e6ea60ecb0e1eaa8395e016b48c4a27070bc8c908080fdb02ba97c6ff9898d0e
-source: docs/archive/IMPLEMENTATION-SPEC/55-IMPLEMENTATION-CONTRACTS.md
+source: sources/55-IMPLEMENTATION-CONTRACTS.md
 ---
 1. Read the skill baseline.
 2. Read the project manifest.

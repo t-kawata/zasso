@@ -7,7 +7,7 @@ applies_to: websocket
 requires: []
 references: []
 content_sha256: 14363a70defa1fe522b546d5052e1d797f17e7623bf49eb28498d9425d99bc10
-source: docs/archive/IMPLEMENTATION-SPEC/31-WEBSOCKET.md
+source: sources/31-WEBSOCKET.md
 ---
 ```rust
 pub struct Ticket {

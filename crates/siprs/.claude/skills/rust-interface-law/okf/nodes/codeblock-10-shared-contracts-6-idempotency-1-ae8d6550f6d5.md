@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: ae8d6550f6d5672b22f9261f92d432e9e6e943d1262748a622cf4d12ee8d6b97
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub struct IdempotencyNamespace {

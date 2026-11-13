@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: cbe71ec20468b39eaad9748988491c371c83cdd7bb856989f7a7d4f1dcd0cd7e
-source: docs/archive/IMPLEMENTATION-SPEC/20-CORE.md
+source: sources/20-CORE.md
 ---
 ## 7. Domain Errors

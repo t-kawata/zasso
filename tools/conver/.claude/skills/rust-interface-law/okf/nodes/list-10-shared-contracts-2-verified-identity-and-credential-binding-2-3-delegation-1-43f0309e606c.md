@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 43f0309e606cc1a078d114d713dfb201afa754d52051cd359e161afa404a4f73
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 - the actor is authorized to act for the subject;
 - the delegated scopes are a subset of both the actor's and the subject's

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -24,8 +25,19 @@ import { fileURLToPath } from 'node:url';
 import {
   ACCEPTANCE_HEADING,
   ArgumentError,
+  CANONICAL_CHECKS,
+  PIPELINE_COMMANDS,
+  REQUIRED_ARTIFACTS,
+  STYLE_CODES,
   allocateRuleCandidates,
+  auditArtifacts,
+  auditClaudeBlock,
   auditCommand,
+  auditCoverage,
+  auditLeak,
+  auditPipelineCheckpoint,
+  auditSpecParity,
+  auditStyle,
   deriveProfile,
   measureSource,
   normalizeLf,
@@ -244,4 +256,74 @@ test('C006: the command states the determinism and test policy gates', () => {
     assert.ok(text.includes(token), token);
   }
   assert.match(text, /never[^\n]*`?make test`?/i);
+});
+
+
+// @verifies C001
+test('C001: the command declares every v2 artifact', () => {
+  const text = readCommand();
+  assert.deepEqual(auditArtifacts(text), []);
+  for (const artifact of REQUIRED_ARTIFACTS) assert.ok(text.includes(artifact), artifact);
+  assert.ok(text.includes('<name>-law.path-alias.json'));
+});
+
+// @verifies C002
+test('C002: the command states the leak-prevention contract', () => {
+  const text = readCommand();
+  assert.deepEqual(auditLeak(text), []);
+  assert.ok(text.includes('outside the skill tree'));
+  assert.ok(text.includes('source/redaction.review.json'));
+  assert.ok(text.includes('forbidden'));
+});
+
+// @verifies C003
+test('C003: the command states the coverage-semantics contract', () => {
+  const text = readCommand();
+  assert.deepEqual(auditCoverage(text), []);
+  assert.ok(text.includes('delivered_by'));
+  assert.ok(text.includes('fact-bearing'));
+  assert.ok(text.includes('orphan'));
+  assert.ok(text.includes('omission'));
+});
+
+// @verifies C004
+test('C004: the command consumes the 18-check v2 contract', () => {
+  const text = readCommand();
+  assert.equal(CANONICAL_CHECKS.length, 18);
+  for (const check of CANONICAL_CHECKS) assert.ok(text.includes(check.name), check.name);
+  assert.ok(text.includes('check_set_version'));
+  assert.ok(text.includes('machine_verified'));
+  assert.ok(text.includes('closure'));
+});
+
+// @verifies C005
+test('C005: five pipeline commands carry a bounded v2 checkpoint', () => {
+  for (const command of PIPELINE_COMMANDS) {
+    const text = readFileSync(join(repositoryRoot, `.claude/commands/${command}.md`), 'utf8');
+    assert.deepEqual(auditPipelineCheckpoint(text), [], command);
+  }
+});
+
+// @verifies C005
+test('C005: CLAUDE.md carries the conditional v2 block', () => {
+  const text = readFileSync(join(repositoryRoot, '.claude/CLAUDE.md'), 'utf8');
+  assert.deepEqual(auditClaudeBlock(text), []);
+});
+
+// @verifies C006
+test('C006: the command states the four style rules', () => {
+  const text = readCommand();
+  assert.deepEqual(auditStyle(text), []);
+  for (const code of STYLE_CODES) assert.ok(text.includes(code), code);
+});
+
+// @verifies C005
+test('C005: spec field parity holds', () => {
+  const ticketDocument = JSON.parse(readFileSync(join(repositoryRoot, 'Tickets.json'), 'utf8'));
+  const ticket = ticketDocument.phases
+    .flatMap((phase) => phase.tickets)
+    .find((entry) => entry.id === 422);
+  assert.ok(ticket);
+  const spec = readFileSync(join(repositoryRoot, 'specs/PX-422.md'), 'utf8');
+  assert.deepEqual(auditSpecParity(ticket, spec), []);
 });

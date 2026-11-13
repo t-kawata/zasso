@@ -1,0 +1,16 @@
+{
+  "schema": "law-normative-inventory/v1",
+  "entries": [
+    {
+      "id": "paragraph/mini-law-scope/1/986697485ab6",
+      "kind": "non-rule",
+      "rule_id": "MINI-01",
+      "reason": "explanatory normative prose; normative force delivered by MINI-01"
+    },
+    {
+      "id": "MINI-01",
+      "kind": "rule",
+      "rule_id": "MINI-01"
+    }
+  ]
+}

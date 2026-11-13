@@ -7,6 +7,6 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 92482a8fa9cb39e14a9ee9a49b41df8232a62320dcfe4cdd23208114262ed01f
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 No adapter changes.

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 34dda59668e57ba16d414d4bf7b941157fcf8a9d67b274f2310cdf1e6d0e69f1
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub enum AuthenticationRequirement {

@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 3571abc9d221085e13c30c0debb27f6bbc801b475e36065a2c57c58d5e6317f3
-source: docs/archive/IMPLEMENTATION-SPEC/00-FOUNDATION.md
+source: sources/00-FOUNDATION.md
 ---
 | Open set | How it is extended | What must not change |
 |---|---|---|

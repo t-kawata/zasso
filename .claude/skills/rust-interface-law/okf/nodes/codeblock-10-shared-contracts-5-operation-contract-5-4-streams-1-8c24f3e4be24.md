@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 8c24f3e4be244493e25ca75451d6f10ad8bff9050b8d7a42eb2065474bebf6f0
-source: docs/archive/IMPLEMENTATION-SPEC/10-CONTRACTS.md
+source: sources/10-CONTRACTS.md
 ---
 ```rust
 pub struct RequestStream<T> {

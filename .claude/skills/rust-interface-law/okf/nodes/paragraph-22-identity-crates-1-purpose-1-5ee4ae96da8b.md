@@ -7,7 +7,7 @@ applies_to: all
 requires: []
 references: []
 content_sha256: 5ee4ae96da8b58afd4d4a691883e3fbadaf60586f0edea07a52385497118d8a3
-source: docs/archive/IMPLEMENTATION-SPEC/22-IDENTITY.md
+source: sources/22-IDENTITY.md
 ---
 The identity crates own authentication. They answer: who is the subject, what
 was verified, where, and until when? They do not own business authorization and
