@@ -1,0 +1,17 @@
+# 21-operation
+
+- [1. Purpose](./1-purpose.md)
+- [10. Events](./10-events.md)
+- [11. Errors](./11-errors.md)
+- [12. Registry](./12-registry.md)
+- [13. Fixed and Open](./13-fixed-and-open.md)
+- [14. Conformance Obligations](./14-conformance-obligations.md)
+- [2. Dependencies](./2-dependencies.md)
+- [21 — Operation Crate](./21-operation-crate.md)
+- [3. Layout](./3-layout.md)
+- [4. Dispatcher and Contexts](./4-dispatcher-and-contexts.md)
+- [5. Handler Protocol](./5-handler-protocol.md)
+- [6. Anonymous Operations](./6-anonymous-operations.md)
+- [7. Authorization](./7-authorization.md)
+- [8. Idempotency](./8-idempotency.md)
+- [9. Transactions, Outbox, and Recovery](./9-transactions-outbox-and-recovery.md)

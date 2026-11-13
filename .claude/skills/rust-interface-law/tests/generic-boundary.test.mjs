@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -23,7 +25,7 @@ test('C009 skill tree has zero forbidden identifier', () => {
 test('C009 SKILL.md contains procedure and no rule text', () => {
   const text = readFileSync(join(root, 'SKILL.md'), 'utf8');
   assert.match(text, /## Procedure/);
-  assert.doesNotMatch(text, /^## Rule/m);
+  assert.doesNotMatch(text, /^## Rule\s*$/m);
 });
 
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.

@@ -1,0 +1,7919 @@
+{
+  "schema": "law-rule-concepts/v1",
+  "byRule": {
+    "A2A-01": {
+      "rule_id": "A2A-01",
+      "concept_id": "rules/g/a2a-01",
+      "path": "rules/g/a2a-01.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "115-115"
+    },
+    "A2A-02": {
+      "rule_id": "A2A-02",
+      "concept_id": "rules/c/a2a-02",
+      "path": "rules/c/a2a-02.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "116-116"
+    },
+    "A2A-03": {
+      "rule_id": "A2A-03",
+      "concept_id": "rules/c/a2a-03",
+      "path": "rules/c/a2a-03.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "117-117"
+    },
+    "A2A-04": {
+      "rule_id": "A2A-04",
+      "concept_id": "rules/c/a2a-04",
+      "path": "rules/c/a2a-04.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "118-118"
+    },
+    "A2A-05": {
+      "rule_id": "A2A-05",
+      "concept_id": "rules/c/a2a-05",
+      "path": "rules/c/a2a-05.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "129-129"
+    },
+    "A2A-06": {
+      "rule_id": "A2A-06",
+      "concept_id": "rules/c/a2a-06",
+      "path": "rules/c/a2a-06.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "130-130"
+    },
+    "A2A-07": {
+      "rule_id": "A2A-07",
+      "concept_id": "rules/c/a2a-07",
+      "path": "rules/c/a2a-07.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "131-131"
+    },
+    "A2A-08": {
+      "rule_id": "A2A-08",
+      "concept_id": "rules/c/a2a-08",
+      "path": "rules/c/a2a-08.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "132-132"
+    },
+    "A2A-09": {
+      "rule_id": "A2A-09",
+      "concept_id": "rules/c/a2a-09",
+      "path": "rules/c/a2a-09.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "133-133"
+    },
+    "A2A-10": {
+      "rule_id": "A2A-10",
+      "concept_id": "rules/c/a2a-10",
+      "path": "rules/c/a2a-10.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "134-134"
+    },
+    "A2A-11": {
+      "rule_id": "A2A-11",
+      "concept_id": "rules/c/a2a-11",
+      "path": "rules/c/a2a-11.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "147-147"
+    },
+    "A2A-12": {
+      "rule_id": "A2A-12",
+      "concept_id": "rules/c/a2a-12",
+      "path": "rules/c/a2a-12.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "148-148"
+    },
+    "A2A-13": {
+      "rule_id": "A2A-13",
+      "concept_id": "rules/c/a2a-13",
+      "path": "rules/c/a2a-13.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "149-149"
+    },
+    "A2A-14": {
+      "rule_id": "A2A-14",
+      "concept_id": "rules/c/a2a-14",
+      "path": "rules/c/a2a-14.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "150-150"
+    },
+    "A2A-15": {
+      "rule_id": "A2A-15",
+      "concept_id": "rules/c/a2a-15",
+      "path": "rules/c/a2a-15.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "151-151"
+    },
+    "A2A-16": {
+      "rule_id": "A2A-16",
+      "concept_id": "rules/c/a2a-16",
+      "path": "rules/c/a2a-16.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "159-159"
+    },
+    "A2A-17": {
+      "rule_id": "A2A-17",
+      "concept_id": "rules/c/a2a-17",
+      "path": "rules/c/a2a-17.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "160-160"
+    },
+    "A2A-18": {
+      "rule_id": "A2A-18",
+      "concept_id": "rules/c/a2a-18",
+      "path": "rules/c/a2a-18.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "161-161"
+    },
+    "A2A-19": {
+      "rule_id": "A2A-19",
+      "concept_id": "rules/c/a2a-19",
+      "path": "rules/c/a2a-19.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "162-162"
+    },
+    "A2A-20": {
+      "rule_id": "A2A-20",
+      "concept_id": "rules/c/a2a-20",
+      "path": "rules/c/a2a-20.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "135-135"
+    },
+    "A2A-21": {
+      "rule_id": "A2A-21",
+      "concept_id": "rules/c/a2a-21",
+      "path": "rules/c/a2a-21.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "136-136"
+    },
+    "A2A-22": {
+      "rule_id": "A2A-22",
+      "concept_id": "rules/c/a2a-22",
+      "path": "rules/c/a2a-22.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "137-137"
+    },
+    "A2A-23": {
+      "rule_id": "A2A-23",
+      "concept_id": "rules/c/a2a-23",
+      "path": "rules/c/a2a-23.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "138-138"
+    },
+    "A2A-24": {
+      "rule_id": "A2A-24",
+      "concept_id": "rules/c/a2a-24",
+      "path": "rules/c/a2a-24.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "139-139"
+    },
+    "APP-01": {
+      "rule_id": "APP-01",
+      "concept_id": "rules/o/app-01",
+      "path": "rules/o/app-01.md",
+      "phase": "scope",
+      "requires": [],
+      "required_rules": [],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "42-42"
+    },
+    "APP-02": {
+      "rule_id": "APP-02",
+      "concept_id": "rules/o/app-02",
+      "path": "rules/o/app-02.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "43-43"
+    },
+    "APP-03": {
+      "rule_id": "APP-03",
+      "concept_id": "rules/o/app-03",
+      "path": "rules/o/app-03.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "44-44"
+    },
+    "APP-04": {
+      "rule_id": "APP-04",
+      "concept_id": "rules/o/app-04",
+      "path": "rules/o/app-04.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "45-45"
+    },
+    "APP-05": {
+      "rule_id": "APP-05",
+      "concept_id": "rules/o/app-05",
+      "path": "rules/o/app-05.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "46-46"
+    },
+    "APP-06": {
+      "rule_id": "APP-06",
+      "concept_id": "rules/o/app-06",
+      "path": "rules/o/app-06.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "47-47"
+    },
+    "APP-07": {
+      "rule_id": "APP-07",
+      "concept_id": "rules/o/app-07",
+      "path": "rules/o/app-07.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "48-48"
+    },
+    "ARC-01": {
+      "rule_id": "ARC-01",
+      "concept_id": "rules/c/arc-01",
+      "path": "rules/c/arc-01.md",
+      "phase": "core",
+      "requires": [
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "49-49"
+    },
+    "ARC-02": {
+      "rule_id": "ARC-02",
+      "concept_id": "rules/c/arc-02",
+      "path": "rules/c/arc-02.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/50-PROJECT-TEMPLATE.md",
+      "source_span": "86-86"
+    },
+    "ARC-03": {
+      "rule_id": "ARC-03",
+      "concept_id": "rules/c/arc-03",
+      "path": "rules/c/arc-03.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "51-51"
+    },
+    "ARC-04": {
+      "rule_id": "ARC-04",
+      "concept_id": "rules/c/arc-04",
+      "path": "rules/c/arc-04.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "52-52"
+    },
+    "ARC-05": {
+      "rule_id": "ARC-05",
+      "concept_id": "rules/c/arc-05",
+      "path": "rules/c/arc-05.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "53-53"
+    },
+    "ARC-06": {
+      "rule_id": "ARC-06",
+      "concept_id": "rules/c/arc-06",
+      "path": "rules/c/arc-06.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "54-54"
+    },
+    "ARC-07": {
+      "rule_id": "ARC-07",
+      "concept_id": "rules/c/arc-07",
+      "path": "rules/c/arc-07.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "55-55"
+    },
+    "ARC-08": {
+      "rule_id": "ARC-08",
+      "concept_id": "rules/c/arc-08",
+      "path": "rules/c/arc-08.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/50-PROJECT-TEMPLATE.md",
+      "source_span": "86-86"
+    },
+    "ARC-09": {
+      "rule_id": "ARC-09",
+      "concept_id": "rules/c/arc-09",
+      "path": "rules/c/arc-09.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "57-57"
+    },
+    "ARC-10": {
+      "rule_id": "ARC-10",
+      "concept_id": "rules/c/arc-10",
+      "path": "rules/c/arc-10.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "58-58"
+    },
+    "AUTH-01": {
+      "rule_id": "AUTH-01",
+      "concept_id": "rules/c/auth-01",
+      "path": "rules/c/auth-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "263-263"
+    },
+    "AUTH-02": {
+      "rule_id": "AUTH-02",
+      "concept_id": "rules/c/auth-02",
+      "path": "rules/c/auth-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "264-264"
+    },
+    "AUTH-03": {
+      "rule_id": "AUTH-03",
+      "concept_id": "rules/c/auth-03",
+      "path": "rules/c/auth-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "265-265"
+    },
+    "AUTH-04": {
+      "rule_id": "AUTH-04",
+      "concept_id": "rules/c/auth-04",
+      "path": "rules/c/auth-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "266-266"
+    },
+    "AUTH-05": {
+      "rule_id": "AUTH-05",
+      "concept_id": "rules/c/auth-05",
+      "path": "rules/c/auth-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "267-267"
+    },
+    "AUTH-06": {
+      "rule_id": "AUTH-06",
+      "concept_id": "rules/c/auth-06",
+      "path": "rules/c/auth-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "64-64"
+    },
+    "AUTH-07": {
+      "rule_id": "AUTH-07",
+      "concept_id": "rules/c/auth-07",
+      "path": "rules/c/auth-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "65-65"
+    },
+    "AUTH-08": {
+      "rule_id": "AUTH-08",
+      "concept_id": "rules/c/auth-08",
+      "path": "rules/c/auth-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "66-66"
+    },
+    "AUTH-09": {
+      "rule_id": "AUTH-09",
+      "concept_id": "rules/c/auth-09",
+      "path": "rules/c/auth-09.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "67-67"
+    },
+    "AUTH-10": {
+      "rule_id": "AUTH-10",
+      "concept_id": "rules/c/auth-10",
+      "path": "rules/c/auth-10.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "68-68"
+    },
+    "AUTH-11": {
+      "rule_id": "AUTH-11",
+      "concept_id": "rules/c/auth-11",
+      "path": "rules/c/auth-11.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "69-69"
+    },
+    "AUTH-12": {
+      "rule_id": "AUTH-12",
+      "concept_id": "rules/c/auth-12",
+      "path": "rules/c/auth-12.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "70-70"
+    },
+    "AUTH-13": {
+      "rule_id": "AUTH-13",
+      "concept_id": "rules/c/auth-13",
+      "path": "rules/c/auth-13.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "71-71"
+    },
+    "AUTH-14": {
+      "rule_id": "AUTH-14",
+      "concept_id": "rules/c/auth-14",
+      "path": "rules/c/auth-14.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "72-72"
+    },
+    "AUTH-15": {
+      "rule_id": "AUTH-15",
+      "concept_id": "rules/c/auth-15",
+      "path": "rules/c/auth-15.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "73-73"
+    },
+    "AUTH-16": {
+      "rule_id": "AUTH-16",
+      "concept_id": "rules/c/auth-16",
+      "path": "rules/c/auth-16.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "74-74"
+    },
+    "AUTH-17": {
+      "rule_id": "AUTH-17",
+      "concept_id": "rules/c/auth-17",
+      "path": "rules/c/auth-17.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "75-75"
+    },
+    "AUTH-18": {
+      "rule_id": "AUTH-18",
+      "concept_id": "rules/c/auth-18",
+      "path": "rules/c/auth-18.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "76-76"
+    },
+    "AUTH-19": {
+      "rule_id": "AUTH-19",
+      "concept_id": "rules/c/auth-19",
+      "path": "rules/c/auth-19.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "77-77"
+    },
+    "AUTH-20": {
+      "rule_id": "AUTH-20",
+      "concept_id": "rules/c/auth-20",
+      "path": "rules/c/auth-20.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "78-78"
+    },
+    "AUTH-21": {
+      "rule_id": "AUTH-21",
+      "concept_id": "rules/c/auth-21",
+      "path": "rules/c/auth-21.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "79-79"
+    },
+    "AUTH-22": {
+      "rule_id": "AUTH-22",
+      "concept_id": "rules/c/auth-22",
+      "path": "rules/c/auth-22.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "80-80"
+    },
+    "AUTH-23": {
+      "rule_id": "AUTH-23",
+      "concept_id": "rules/c/auth-23",
+      "path": "rules/c/auth-23.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "81-81"
+    },
+    "AUTH-24": {
+      "rule_id": "AUTH-24",
+      "concept_id": "rules/c/auth-24",
+      "path": "rules/c/auth-24.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "82-82"
+    },
+    "AUTH-25": {
+      "rule_id": "AUTH-25",
+      "concept_id": "rules/c/auth-25",
+      "path": "rules/c/auth-25.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "83-83"
+    },
+    "AUTH-26": {
+      "rule_id": "AUTH-26",
+      "concept_id": "rules/c/auth-26",
+      "path": "rules/c/auth-26.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "84-84"
+    },
+    "AUTH-27": {
+      "rule_id": "AUTH-27",
+      "concept_id": "rules/c/auth-27",
+      "path": "rules/c/auth-27.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "85-85"
+    },
+    "AUTH-28": {
+      "rule_id": "AUTH-28",
+      "concept_id": "rules/c/auth-28",
+      "path": "rules/c/auth-28.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "86-86"
+    },
+    "AUTH-29": {
+      "rule_id": "AUTH-29",
+      "concept_id": "rules/c/auth-29",
+      "path": "rules/c/auth-29.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "87-87"
+    },
+    "AUTH-30": {
+      "rule_id": "AUTH-30",
+      "concept_id": "rules/c/auth-30",
+      "path": "rules/c/auth-30.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "88-88"
+    },
+    "AUTH-31": {
+      "rule_id": "AUTH-31",
+      "concept_id": "rules/c/auth-31",
+      "path": "rules/c/auth-31.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "89-89"
+    },
+    "AUTHZ-01": {
+      "rule_id": "AUTHZ-01",
+      "concept_id": "rules/c/authz-01",
+      "path": "rules/c/authz-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "90-90"
+    },
+    "AUTHZ-02": {
+      "rule_id": "AUTHZ-02",
+      "concept_id": "rules/c/authz-02",
+      "path": "rules/c/authz-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "91-91"
+    },
+    "AUTHZ-03": {
+      "rule_id": "AUTHZ-03",
+      "concept_id": "rules/c/authz-03",
+      "path": "rules/c/authz-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "92-92"
+    },
+    "AUTHZ-04": {
+      "rule_id": "AUTHZ-04",
+      "concept_id": "rules/c/authz-04",
+      "path": "rules/c/authz-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "93-93"
+    },
+    "AUTHZ-05": {
+      "rule_id": "AUTHZ-05",
+      "concept_id": "rules/c/authz-05",
+      "path": "rules/c/authz-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "94-94"
+    },
+    "AUTHZ-06": {
+      "rule_id": "AUTHZ-06",
+      "concept_id": "rules/c/authz-06",
+      "path": "rules/c/authz-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "95-95"
+    },
+    "AUTHZ-07": {
+      "rule_id": "AUTHZ-07",
+      "concept_id": "rules/c/authz-07",
+      "path": "rules/c/authz-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "96-96"
+    },
+    "AUTHZ-08": {
+      "rule_id": "AUTHZ-08",
+      "concept_id": "rules/c/authz-08",
+      "path": "rules/c/authz-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "97-97"
+    },
+    "AUTHZ-09": {
+      "rule_id": "AUTHZ-09",
+      "concept_id": "rules/c/authz-09",
+      "path": "rules/c/authz-09.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "98-98"
+    },
+    "BP-01": {
+      "rule_id": "BP-01",
+      "concept_id": "rules/c/bp-01",
+      "path": "rules/c/bp-01.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "480-480"
+    },
+    "BP-02": {
+      "rule_id": "BP-02",
+      "concept_id": "rules/c/bp-02",
+      "path": "rules/c/bp-02.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "481-481"
+    },
+    "BP-03": {
+      "rule_id": "BP-03",
+      "concept_id": "rules/c/bp-03",
+      "path": "rules/c/bp-03.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "482-482"
+    },
+    "BP-04": {
+      "rule_id": "BP-04",
+      "concept_id": "rules/c/bp-04",
+      "path": "rules/c/bp-04.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "483-483"
+    },
+    "BP-05": {
+      "rule_id": "BP-05",
+      "concept_id": "rules/c/bp-05",
+      "path": "rules/c/bp-05.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "484-484"
+    },
+    "BP-06": {
+      "rule_id": "BP-06",
+      "concept_id": "rules/c/bp-06",
+      "path": "rules/c/bp-06.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "485-485"
+    },
+    "BP-07": {
+      "rule_id": "BP-07",
+      "concept_id": "rules/c/bp-07",
+      "path": "rules/c/bp-07.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "486-486"
+    },
+    "BP-08": {
+      "rule_id": "BP-08",
+      "concept_id": "rules/c/bp-08",
+      "path": "rules/c/bp-08.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "487-487"
+    },
+    "BP-09": {
+      "rule_id": "BP-09",
+      "concept_id": "rules/c/bp-09",
+      "path": "rules/c/bp-09.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "488-488"
+    },
+    "BP-10": {
+      "rule_id": "BP-10",
+      "concept_id": "rules/g/bp-10",
+      "path": "rules/g/bp-10.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "489-489"
+    },
+    "BP-11": {
+      "rule_id": "BP-11",
+      "concept_id": "rules/c/bp-11",
+      "path": "rules/c/bp-11.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "490-490"
+    },
+    "BP-12": {
+      "rule_id": "BP-12",
+      "concept_id": "rules/c/bp-12",
+      "path": "rules/c/bp-12.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "491-491"
+    },
+    "BP-13": {
+      "rule_id": "BP-13",
+      "concept_id": "rules/c/bp-13",
+      "path": "rules/c/bp-13.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "492-492"
+    },
+    "BP-14": {
+      "rule_id": "BP-14",
+      "concept_id": "rules/c/bp-14",
+      "path": "rules/c/bp-14.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "493-493"
+    },
+    "BP-15": {
+      "rule_id": "BP-15",
+      "concept_id": "rules/c/bp-15",
+      "path": "rules/c/bp-15.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "494-494"
+    },
+    "BP-16": {
+      "rule_id": "BP-16",
+      "concept_id": "rules/c/bp-16",
+      "path": "rules/c/bp-16.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "495-495"
+    },
+    "BP-17": {
+      "rule_id": "BP-17",
+      "concept_id": "rules/c/bp-17",
+      "path": "rules/c/bp-17.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "496-496"
+    },
+    "BP-18": {
+      "rule_id": "BP-18",
+      "concept_id": "rules/c/bp-18",
+      "path": "rules/c/bp-18.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "497-497"
+    },
+    "BP-19": {
+      "rule_id": "BP-19",
+      "concept_id": "rules/g/bp-19",
+      "path": "rules/g/bp-19.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "498-498"
+    },
+    "BP-20": {
+      "rule_id": "BP-20",
+      "concept_id": "rules/c/bp-20",
+      "path": "rules/c/bp-20.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+      "source_span": "499-499"
+    },
+    "CLI-01": {
+      "rule_id": "CLI-01",
+      "concept_id": "rules/g/cli-01",
+      "path": "rules/g/cli-01.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "115-115"
+    },
+    "CLI-02": {
+      "rule_id": "CLI-02",
+      "concept_id": "rules/c/cli-02",
+      "path": "rules/c/cli-02.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "116-116"
+    },
+    "CLI-03": {
+      "rule_id": "CLI-03",
+      "concept_id": "rules/c/cli-03",
+      "path": "rules/c/cli-03.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "117-117"
+    },
+    "CLI-04": {
+      "rule_id": "CLI-04",
+      "concept_id": "rules/c/cli-04",
+      "path": "rules/c/cli-04.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "118-118"
+    },
+    "CLI-05": {
+      "rule_id": "CLI-05",
+      "concept_id": "rules/c/cli-05",
+      "path": "rules/c/cli-05.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "193-193"
+    },
+    "CLI-06": {
+      "rule_id": "CLI-06",
+      "concept_id": "rules/c/cli-06",
+      "path": "rules/c/cli-06.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "194-194"
+    },
+    "CLI-07": {
+      "rule_id": "CLI-07",
+      "concept_id": "rules/c/cli-07",
+      "path": "rules/c/cli-07.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "195-195"
+    },
+    "CLI-08": {
+      "rule_id": "CLI-08",
+      "concept_id": "rules/c/cli-08",
+      "path": "rules/c/cli-08.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "196-196"
+    },
+    "CLI-09": {
+      "rule_id": "CLI-09",
+      "concept_id": "rules/c/cli-09",
+      "path": "rules/c/cli-09.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "220-220"
+    },
+    "CLI-10": {
+      "rule_id": "CLI-10",
+      "concept_id": "rules/c/cli-10",
+      "path": "rules/c/cli-10.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "221-221"
+    },
+    "CLI-11": {
+      "rule_id": "CLI-11",
+      "concept_id": "rules/c/cli-11",
+      "path": "rules/c/cli-11.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "222-222"
+    },
+    "CLI-12": {
+      "rule_id": "CLI-12",
+      "concept_id": "rules/c/cli-12",
+      "path": "rules/c/cli-12.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "223-223"
+    },
+    "CLI-13": {
+      "rule_id": "CLI-13",
+      "concept_id": "rules/c/cli-13",
+      "path": "rules/c/cli-13.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "197-197"
+    },
+    "CLI-14": {
+      "rule_id": "CLI-14",
+      "concept_id": "rules/c/cli-14",
+      "path": "rules/c/cli-14.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "198-198"
+    },
+    "CONF-01": {
+      "rule_id": "CONF-01",
+      "concept_id": "rules/p/conf-01",
+      "path": "rules/p/conf-01.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "107-107"
+    },
+    "CONF-02": {
+      "rule_id": "CONF-02",
+      "concept_id": "rules/p/conf-02",
+      "path": "rules/p/conf-02.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "108-108"
+    },
+    "CONF-03": {
+      "rule_id": "CONF-03",
+      "concept_id": "rules/p/conf-03",
+      "path": "rules/p/conf-03.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "109-109"
+    },
+    "CONF-04": {
+      "rule_id": "CONF-04",
+      "concept_id": "rules/p/conf-04",
+      "path": "rules/p/conf-04.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "110-110"
+    },
+    "CONF-05": {
+      "rule_id": "CONF-05",
+      "concept_id": "rules/p/conf-05",
+      "path": "rules/p/conf-05.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "147-147"
+    },
+    "CONF-06": {
+      "rule_id": "CONF-06",
+      "concept_id": "rules/p/conf-06",
+      "path": "rules/p/conf-06.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "148-148"
+    },
+    "CONF-07": {
+      "rule_id": "CONF-07",
+      "concept_id": "rules/p/conf-07",
+      "path": "rules/p/conf-07.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "149-149"
+    },
+    "CONF-08": {
+      "rule_id": "CONF-08",
+      "concept_id": "rules/p/conf-08",
+      "path": "rules/p/conf-08.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "150-150"
+    },
+    "CONF-09": {
+      "rule_id": "CONF-09",
+      "concept_id": "rules/p/conf-09",
+      "path": "rules/p/conf-09.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "151-151"
+    },
+    "CONF-10": {
+      "rule_id": "CONF-10",
+      "concept_id": "rules/p/conf-10",
+      "path": "rules/p/conf-10.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "159-159"
+    },
+    "CONF-11": {
+      "rule_id": "CONF-11",
+      "concept_id": "rules/p/conf-11",
+      "path": "rules/p/conf-11.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "160-160"
+    },
+    "CONF-12": {
+      "rule_id": "CONF-12",
+      "concept_id": "rules/p/conf-12",
+      "path": "rules/p/conf-12.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "161-161"
+    },
+    "CONF-13": {
+      "rule_id": "CONF-13",
+      "concept_id": "rules/p/conf-13",
+      "path": "rules/p/conf-13.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "169-169"
+    },
+    "CONF-14": {
+      "rule_id": "CONF-14",
+      "concept_id": "rules/p/conf-14",
+      "path": "rules/p/conf-14.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "170-170"
+    },
+    "CONF-15": {
+      "rule_id": "CONF-15",
+      "concept_id": "rules/p/conf-15",
+      "path": "rules/p/conf-15.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "171-171"
+    },
+    "CONF-16": {
+      "rule_id": "CONF-16",
+      "concept_id": "rules/p/conf-16",
+      "path": "rules/p/conf-16.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "172-172"
+    },
+    "CONF-17": {
+      "rule_id": "CONF-17",
+      "concept_id": "rules/p/conf-17",
+      "path": "rules/p/conf-17.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "173-173"
+    },
+    "CONF-18": {
+      "rule_id": "CONF-18",
+      "concept_id": "rules/p/conf-18",
+      "path": "rules/p/conf-18.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "174-174"
+    },
+    "CONF-19": {
+      "rule_id": "CONF-19",
+      "concept_id": "rules/p/conf-19",
+      "path": "rules/p/conf-19.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "182-182"
+    },
+    "CONF-20": {
+      "rule_id": "CONF-20",
+      "concept_id": "rules/p/conf-20",
+      "path": "rules/p/conf-20.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "183-183"
+    },
+    "CONF-21": {
+      "rule_id": "CONF-21",
+      "concept_id": "rules/p/conf-21",
+      "path": "rules/p/conf-21.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "184-184"
+    },
+    "CONF-22": {
+      "rule_id": "CONF-22",
+      "concept_id": "rules/p/conf-22",
+      "path": "rules/p/conf-22.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "185-185"
+    },
+    "CONF-23": {
+      "rule_id": "CONF-23",
+      "concept_id": "rules/p/conf-23",
+      "path": "rules/p/conf-23.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "186-186"
+    },
+    "CONF-24": {
+      "rule_id": "CONF-24",
+      "concept_id": "rules/p/conf-24",
+      "path": "rules/p/conf-24.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "194-194"
+    },
+    "CONF-25": {
+      "rule_id": "CONF-25",
+      "concept_id": "rules/p/conf-25",
+      "path": "rules/p/conf-25.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "195-195"
+    },
+    "CONF-26": {
+      "rule_id": "CONF-26",
+      "concept_id": "rules/p/conf-26",
+      "path": "rules/p/conf-26.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "196-196"
+    },
+    "CONF-27": {
+      "rule_id": "CONF-27",
+      "concept_id": "rules/p/conf-27",
+      "path": "rules/p/conf-27.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "197-197"
+    },
+    "CONF-28": {
+      "rule_id": "CONF-28",
+      "concept_id": "rules/p/conf-28",
+      "path": "rules/p/conf-28.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "198-198"
+    },
+    "CONF-29": {
+      "rule_id": "CONF-29",
+      "concept_id": "rules/p/conf-29",
+      "path": "rules/p/conf-29.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "199-199"
+    },
+    "CONF-30": {
+      "rule_id": "CONF-30",
+      "concept_id": "rules/p/conf-30",
+      "path": "rules/p/conf-30.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "207-207"
+    },
+    "CONF-31": {
+      "rule_id": "CONF-31",
+      "concept_id": "rules/p/conf-31",
+      "path": "rules/p/conf-31.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "208-208"
+    },
+    "CONF-32": {
+      "rule_id": "CONF-32",
+      "concept_id": "rules/p/conf-32",
+      "path": "rules/p/conf-32.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "209-209"
+    },
+    "CONF-33": {
+      "rule_id": "CONF-33",
+      "concept_id": "rules/p/conf-33",
+      "path": "rules/p/conf-33.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "210-210"
+    },
+    "CONF-34": {
+      "rule_id": "CONF-34",
+      "concept_id": "rules/p/conf-34",
+      "path": "rules/p/conf-34.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "211-211"
+    },
+    "CONF-35": {
+      "rule_id": "CONF-35",
+      "concept_id": "rules/p/conf-35",
+      "path": "rules/p/conf-35.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "237-237"
+    },
+    "CONF-36": {
+      "rule_id": "CONF-36",
+      "concept_id": "rules/p/conf-36",
+      "path": "rules/p/conf-36.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "238-238"
+    },
+    "CONF-37": {
+      "rule_id": "CONF-37",
+      "concept_id": "rules/p/conf-37",
+      "path": "rules/p/conf-37.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "246-246"
+    },
+    "CONF-38": {
+      "rule_id": "CONF-38",
+      "concept_id": "rules/p/conf-38",
+      "path": "rules/p/conf-38.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "247-247"
+    },
+    "CONF-39": {
+      "rule_id": "CONF-39",
+      "concept_id": "rules/p/conf-39",
+      "path": "rules/p/conf-39.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "248-248"
+    },
+    "CONF-40": {
+      "rule_id": "CONF-40",
+      "concept_id": "rules/p/conf-40",
+      "path": "rules/p/conf-40.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "249-249"
+    },
+    "CONF-41": {
+      "rule_id": "CONF-41",
+      "concept_id": "rules/p/conf-41",
+      "path": "rules/p/conf-41.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "250-250"
+    },
+    "CONF-42": {
+      "rule_id": "CONF-42",
+      "concept_id": "rules/p/conf-42",
+      "path": "rules/p/conf-42.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "258-258"
+    },
+    "CONF-43": {
+      "rule_id": "CONF-43",
+      "concept_id": "rules/p/conf-43",
+      "path": "rules/p/conf-43.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "259-259"
+    },
+    "CONF-44": {
+      "rule_id": "CONF-44",
+      "concept_id": "rules/p/conf-44",
+      "path": "rules/p/conf-44.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "260-260"
+    },
+    "CONF-45": {
+      "rule_id": "CONF-45",
+      "concept_id": "rules/p/conf-45",
+      "path": "rules/p/conf-45.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "270-270"
+    },
+    "CONF-46": {
+      "rule_id": "CONF-46",
+      "concept_id": "rules/p/conf-46",
+      "path": "rules/p/conf-46.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "271-271"
+    },
+    "CONF-47": {
+      "rule_id": "CONF-47",
+      "concept_id": "rules/p/conf-47",
+      "path": "rules/p/conf-47.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "272-272"
+    },
+    "CONF-48": {
+      "rule_id": "CONF-48",
+      "concept_id": "rules/p/conf-48",
+      "path": "rules/p/conf-48.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "273-273"
+    },
+    "CONF-49": {
+      "rule_id": "CONF-49",
+      "concept_id": "rules/p/conf-49",
+      "path": "rules/p/conf-49.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "274-274"
+    },
+    "CONF-50": {
+      "rule_id": "CONF-50",
+      "concept_id": "rules/p/conf-50",
+      "path": "rules/p/conf-50.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "275-275"
+    },
+    "CONF-51": {
+      "rule_id": "CONF-51",
+      "concept_id": "rules/p/conf-51",
+      "path": "rules/p/conf-51.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "276-276"
+    },
+    "CONF-52": {
+      "rule_id": "CONF-52",
+      "concept_id": "rules/p/conf-52",
+      "path": "rules/p/conf-52.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "277-277"
+    },
+    "CONF-53": {
+      "rule_id": "CONF-53",
+      "concept_id": "rules/p/conf-53",
+      "path": "rules/p/conf-53.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "278-278"
+    },
+    "CONF-54": {
+      "rule_id": "CONF-54",
+      "concept_id": "rules/p/conf-54",
+      "path": "rules/p/conf-54.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "279-279"
+    },
+    "CONF-55": {
+      "rule_id": "CONF-55",
+      "concept_id": "rules/p/conf-55",
+      "path": "rules/p/conf-55.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "280-280"
+    },
+    "CONF-56": {
+      "rule_id": "CONF-56",
+      "concept_id": "rules/p/conf-56",
+      "path": "rules/p/conf-56.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "281-281"
+    },
+    "CONF-57": {
+      "rule_id": "CONF-57",
+      "concept_id": "rules/p/conf-57",
+      "path": "rules/p/conf-57.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "282-282"
+    },
+    "CONF-58": {
+      "rule_id": "CONF-58",
+      "concept_id": "rules/p/conf-58",
+      "path": "rules/p/conf-58.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "283-283"
+    },
+    "CONF-59": {
+      "rule_id": "CONF-59",
+      "concept_id": "rules/p/conf-59",
+      "path": "rules/p/conf-59.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "284-284"
+    },
+    "CONF-60": {
+      "rule_id": "CONF-60",
+      "concept_id": "rules/p/conf-60",
+      "path": "rules/p/conf-60.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "285-285"
+    },
+    "CONF-61": {
+      "rule_id": "CONF-61",
+      "concept_id": "rules/p/conf-61",
+      "path": "rules/p/conf-61.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "286-286"
+    },
+    "CONF-62": {
+      "rule_id": "CONF-62",
+      "concept_id": "rules/p/conf-62",
+      "path": "rules/p/conf-62.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "287-287"
+    },
+    "CONF-63": {
+      "rule_id": "CONF-63",
+      "concept_id": "rules/p/conf-63",
+      "path": "rules/p/conf-63.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "288-288"
+    },
+    "CONF-64": {
+      "rule_id": "CONF-64",
+      "concept_id": "rules/p/conf-64",
+      "path": "rules/p/conf-64.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "289-289"
+    },
+    "CONF-65": {
+      "rule_id": "CONF-65",
+      "concept_id": "rules/p/conf-65",
+      "path": "rules/p/conf-65.md",
+      "phase": "conformance",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "conformance",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "290-290"
+    },
+    "CORE-01": {
+      "rule_id": "CORE-01",
+      "concept_id": "rules/c/core-01",
+      "path": "rules/c/core-01.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "97-97"
+    },
+    "CORE-02": {
+      "rule_id": "CORE-02",
+      "concept_id": "rules/c/core-02",
+      "path": "rules/c/core-02.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "98-98"
+    },
+    "CORE-03": {
+      "rule_id": "CORE-03",
+      "concept_id": "rules/c/core-03",
+      "path": "rules/c/core-03.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "99-99"
+    },
+    "CORE-04": {
+      "rule_id": "CORE-04",
+      "concept_id": "rules/c/core-04",
+      "path": "rules/c/core-04.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "100-100"
+    },
+    "CORE-05": {
+      "rule_id": "CORE-05",
+      "concept_id": "rules/c/core-05",
+      "path": "rules/c/core-05.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "101-101"
+    },
+    "CORE-06": {
+      "rule_id": "CORE-06",
+      "concept_id": "rules/c/core-06",
+      "path": "rules/c/core-06.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "102-102"
+    },
+    "CORE-07": {
+      "rule_id": "CORE-07",
+      "concept_id": "rules/c/core-07",
+      "path": "rules/c/core-07.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "103-103"
+    },
+    "CORE-08": {
+      "rule_id": "CORE-08",
+      "concept_id": "rules/c/core-08",
+      "path": "rules/c/core-08.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "104-104"
+    },
+    "CORE-09": {
+      "rule_id": "CORE-09",
+      "concept_id": "rules/c/core-09",
+      "path": "rules/c/core-09.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "105-105"
+    },
+    "CORE-10": {
+      "rule_id": "CORE-10",
+      "concept_id": "rules/c/core-10",
+      "path": "rules/c/core-10.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/20-CORE.md",
+      "source_span": "106-106"
+    },
+    "DOC-01": {
+      "rule_id": "DOC-01",
+      "concept_id": "rules/g/doc-01",
+      "path": "rules/g/doc-01.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "174-174"
+    },
+    "DOC-02": {
+      "rule_id": "DOC-02",
+      "concept_id": "rules/c/doc-02",
+      "path": "rules/c/doc-02.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "175-175"
+    },
+    "DOC-03": {
+      "rule_id": "DOC-03",
+      "concept_id": "rules/c/doc-03",
+      "path": "rules/c/doc-03.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "176-176"
+    },
+    "DOC-04": {
+      "rule_id": "DOC-04",
+      "concept_id": "rules/c/doc-04",
+      "path": "rules/c/doc-04.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "177-177"
+    },
+    "DOC-05": {
+      "rule_id": "DOC-05",
+      "concept_id": "rules/c/doc-05",
+      "path": "rules/c/doc-05.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "178-178"
+    },
+    "DOC-06": {
+      "rule_id": "DOC-06",
+      "concept_id": "rules/g/doc-06",
+      "path": "rules/g/doc-06.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "179-179"
+    },
+    "DOC-07": {
+      "rule_id": "DOC-07",
+      "concept_id": "rules/c/doc-07",
+      "path": "rules/c/doc-07.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "180-180"
+    },
+    "DOC-08": {
+      "rule_id": "DOC-08",
+      "concept_id": "rules/c/doc-08",
+      "path": "rules/c/doc-08.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "181-181"
+    },
+    "DOC-09": {
+      "rule_id": "DOC-09",
+      "concept_id": "rules/g/doc-09",
+      "path": "rules/g/doc-09.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "182-182"
+    },
+    "DOC-10": {
+      "rule_id": "DOC-10",
+      "concept_id": "rules/c/doc-10",
+      "path": "rules/c/doc-10.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "183-183"
+    },
+    "DOC-11": {
+      "rule_id": "DOC-11",
+      "concept_id": "rules/g/doc-11",
+      "path": "rules/g/doc-11.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "184-184"
+    },
+    "DOC-12": {
+      "rule_id": "DOC-12",
+      "concept_id": "rules/g/doc-12",
+      "path": "rules/g/doc-12.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "185-185"
+    },
+    "DOC-13": {
+      "rule_id": "DOC-13",
+      "concept_id": "rules/c/doc-13",
+      "path": "rules/c/doc-13.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "186-186"
+    },
+    "DOC-14": {
+      "rule_id": "DOC-14",
+      "concept_id": "rules/c/doc-14",
+      "path": "rules/c/doc-14.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "187-187"
+    },
+    "DOC-15": {
+      "rule_id": "DOC-15",
+      "concept_id": "rules/g/doc-15",
+      "path": "rules/g/doc-15.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "188-188"
+    },
+    "DOC-16": {
+      "rule_id": "DOC-16",
+      "concept_id": "rules/c/doc-16",
+      "path": "rules/c/doc-16.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "189-189"
+    },
+    "DOC-17": {
+      "rule_id": "DOC-17",
+      "concept_id": "rules/c/doc-17",
+      "path": "rules/c/doc-17.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "docs",
+      "source_alias": "sources/45-DOCUMENTATION.md",
+      "source_span": "190-190"
+    },
+    "ERR-01": {
+      "rule_id": "ERR-01",
+      "concept_id": "rules/c/err-01",
+      "path": "rules/c/err-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "225-225"
+    },
+    "ERR-02": {
+      "rule_id": "ERR-02",
+      "concept_id": "rules/c/err-02",
+      "path": "rules/c/err-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "226-226"
+    },
+    "ERR-03": {
+      "rule_id": "ERR-03",
+      "concept_id": "rules/c/err-03",
+      "path": "rules/c/err-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "227-227"
+    },
+    "ERR-04": {
+      "rule_id": "ERR-04",
+      "concept_id": "rules/c/err-04",
+      "path": "rules/c/err-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "228-228"
+    },
+    "ERR-05": {
+      "rule_id": "ERR-05",
+      "concept_id": "rules/c/err-05",
+      "path": "rules/c/err-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "229-229"
+    },
+    "GRPC-01": {
+      "rule_id": "GRPC-01",
+      "concept_id": "rules/g/grpc-01",
+      "path": "rules/g/grpc-01.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "132-132"
+    },
+    "GRPC-02": {
+      "rule_id": "GRPC-02",
+      "concept_id": "rules/c/grpc-02",
+      "path": "rules/c/grpc-02.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "133-133"
+    },
+    "GRPC-03": {
+      "rule_id": "GRPC-03",
+      "concept_id": "rules/c/grpc-03",
+      "path": "rules/c/grpc-03.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "134-134"
+    },
+    "GRPC-04": {
+      "rule_id": "GRPC-04",
+      "concept_id": "rules/c/grpc-04",
+      "path": "rules/c/grpc-04.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "135-135"
+    },
+    "GRPC-05": {
+      "rule_id": "GRPC-05",
+      "concept_id": "rules/g/grpc-05",
+      "path": "rules/g/grpc-05.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "136-136"
+    },
+    "GRPC-06": {
+      "rule_id": "GRPC-06",
+      "concept_id": "rules/c/grpc-06",
+      "path": "rules/c/grpc-06.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "157-157"
+    },
+    "GRPC-07": {
+      "rule_id": "GRPC-07",
+      "concept_id": "rules/c/grpc-07",
+      "path": "rules/c/grpc-07.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "158-158"
+    },
+    "GRPC-08": {
+      "rule_id": "GRPC-08",
+      "concept_id": "rules/c/grpc-08",
+      "path": "rules/c/grpc-08.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "159-159"
+    },
+    "GRPC-09": {
+      "rule_id": "GRPC-09",
+      "concept_id": "rules/c/grpc-09",
+      "path": "rules/c/grpc-09.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "160-160"
+    },
+    "GRPC-10": {
+      "rule_id": "GRPC-10",
+      "concept_id": "rules/c/grpc-10",
+      "path": "rules/c/grpc-10.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "184-184"
+    },
+    "GRPC-11": {
+      "rule_id": "GRPC-11",
+      "concept_id": "rules/c/grpc-11",
+      "path": "rules/c/grpc-11.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "185-185"
+    },
+    "GRPC-12": {
+      "rule_id": "GRPC-12",
+      "concept_id": "rules/c/grpc-12",
+      "path": "rules/c/grpc-12.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "193-193"
+    },
+    "GRPC-13": {
+      "rule_id": "GRPC-13",
+      "concept_id": "rules/c/grpc-13",
+      "path": "rules/c/grpc-13.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "194-194"
+    },
+    "GRPC-14": {
+      "rule_id": "GRPC-14",
+      "concept_id": "rules/c/grpc-14",
+      "path": "rules/c/grpc-14.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "195-195"
+    },
+    "GRPC-15": {
+      "rule_id": "GRPC-15",
+      "concept_id": "rules/c/grpc-15",
+      "path": "rules/c/grpc-15.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "196-196"
+    },
+    "GRPC-16": {
+      "rule_id": "GRPC-16",
+      "concept_id": "rules/c/grpc-16",
+      "path": "rules/c/grpc-16.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "197-197"
+    },
+    "GRPC-17": {
+      "rule_id": "GRPC-17",
+      "concept_id": "rules/c/grpc-17",
+      "path": "rules/c/grpc-17.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "137-137"
+    },
+    "GRPC-18": {
+      "rule_id": "GRPC-18",
+      "concept_id": "rules/c/grpc-18",
+      "path": "rules/c/grpc-18.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "138-138"
+    },
+    "GRPC-19": {
+      "rule_id": "GRPC-19",
+      "concept_id": "rules/c/grpc-19",
+      "path": "rules/c/grpc-19.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "139-139"
+    },
+    "ID-01": {
+      "rule_id": "ID-01",
+      "concept_id": "rules/c/id-01",
+      "path": "rules/c/id-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "249-249"
+    },
+    "ID-02": {
+      "rule_id": "ID-02",
+      "concept_id": "rules/c/id-02",
+      "path": "rules/c/id-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "250-250"
+    },
+    "ID-03": {
+      "rule_id": "ID-03",
+      "concept_id": "rules/c/id-03",
+      "path": "rules/c/id-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/10-CONTRACTS.md",
+      "source_span": "219-219"
+    },
+    "ID-04": {
+      "rule_id": "ID-04",
+      "concept_id": "rules/c/id-04",
+      "path": "rules/c/id-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "252-252"
+    },
+    "ID-05": {
+      "rule_id": "ID-05",
+      "concept_id": "rules/c/id-05",
+      "path": "rules/c/id-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "253-253"
+    },
+    "ID-06": {
+      "rule_id": "ID-06",
+      "concept_id": "rules/c/id-06",
+      "path": "rules/c/id-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "254-254"
+    },
+    "IDN-07": {
+      "rule_id": "IDN-07",
+      "concept_id": "rules/o/c/idn-07",
+      "path": "rules/o/c/idn-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "186-186"
+    },
+    "IDN-08": {
+      "rule_id": "IDN-08",
+      "concept_id": "rules/o/c/idn-08",
+      "path": "rules/o/c/idn-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "187-187"
+    },
+    "IDN-09": {
+      "rule_id": "IDN-09",
+      "concept_id": "rules/o/c/idn-09",
+      "path": "rules/o/c/idn-09.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "188-188"
+    },
+    "IDN-10": {
+      "rule_id": "IDN-10",
+      "concept_id": "rules/o/c/idn-10",
+      "path": "rules/o/c/idn-10.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "189-189"
+    },
+    "IDN-11": {
+      "rule_id": "IDN-11",
+      "concept_id": "rules/o/c/idn-11",
+      "path": "rules/o/c/idn-11.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "190-190"
+    },
+    "IDN-12": {
+      "rule_id": "IDN-12",
+      "concept_id": "rules/o/c/idn-12",
+      "path": "rules/o/c/idn-12.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "191-191"
+    },
+    "IDN-13": {
+      "rule_id": "IDN-13",
+      "concept_id": "rules/o/c/idn-13",
+      "path": "rules/o/c/idn-13.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "192-192"
+    },
+    "IDN-14": {
+      "rule_id": "IDN-14",
+      "concept_id": "rules/o/c/idn-14",
+      "path": "rules/o/c/idn-14.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "193-193"
+    },
+    "IDN-15": {
+      "rule_id": "IDN-15",
+      "concept_id": "rules/o/c/idn-15",
+      "path": "rules/o/c/idn-15.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "292-292"
+    },
+    "IDN-16": {
+      "rule_id": "IDN-16",
+      "concept_id": "rules/o/c/idn-16",
+      "path": "rules/o/c/idn-16.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "293-293"
+    },
+    "IDN-17": {
+      "rule_id": "IDN-17",
+      "concept_id": "rules/o/c/idn-17",
+      "path": "rules/o/c/idn-17.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "294-294"
+    },
+    "IDN-18": {
+      "rule_id": "IDN-18",
+      "concept_id": "rules/o/c/idn-18",
+      "path": "rules/o/c/idn-18.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "295-295"
+    },
+    "IDN-19": {
+      "rule_id": "IDN-19",
+      "concept_id": "rules/o/c/idn-19",
+      "path": "rules/o/c/idn-19.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "296-296"
+    },
+    "IDN-20": {
+      "rule_id": "IDN-20",
+      "concept_id": "rules/o/c/idn-20",
+      "path": "rules/o/c/idn-20.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "297-297"
+    },
+    "IDN-21": {
+      "rule_id": "IDN-21",
+      "concept_id": "rules/o/c/idn-21",
+      "path": "rules/o/c/idn-21.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "298-298"
+    },
+    "IDN-22": {
+      "rule_id": "IDN-22",
+      "concept_id": "rules/o/c/idn-22",
+      "path": "rules/o/c/idn-22.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "299-299"
+    },
+    "IDN-23": {
+      "rule_id": "IDN-23",
+      "concept_id": "rules/o/c/idn-23",
+      "path": "rules/o/c/idn-23.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "300-300"
+    },
+    "IDN-24": {
+      "rule_id": "IDN-24",
+      "concept_id": "rules/o/c/idn-24",
+      "path": "rules/o/c/idn-24.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-jwt",
+      "source_alias": "sources/22-IDENTITY.md",
+      "source_span": "301-301"
+    },
+    "IF-01": {
+      "rule_id": "IF-01",
+      "concept_id": "rules/c/if-01",
+      "path": "rules/c/if-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "273-273"
+    },
+    "IF-02": {
+      "rule_id": "IF-02",
+      "concept_id": "rules/c/if-02",
+      "path": "rules/c/if-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "274-274"
+    },
+    "IF-03": {
+      "rule_id": "IF-03",
+      "concept_id": "rules/c/if-03",
+      "path": "rules/c/if-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "275-275"
+    },
+    "IF-04": {
+      "rule_id": "IF-04",
+      "concept_id": "rules/c/if-04",
+      "path": "rules/c/if-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "276-276"
+    },
+    "IF-05": {
+      "rule_id": "IF-05",
+      "concept_id": "rules/c/if-05",
+      "path": "rules/c/if-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "277-277"
+    },
+    "IF-06": {
+      "rule_id": "IF-06",
+      "concept_id": "rules/c/if-06",
+      "path": "rules/c/if-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "183-183"
+    },
+    "IF-07": {
+      "rule_id": "IF-07",
+      "concept_id": "rules/c/if-07",
+      "path": "rules/c/if-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "279-279"
+    },
+    "IF-08": {
+      "rule_id": "IF-08",
+      "concept_id": "rules/c/if-08",
+      "path": "rules/c/if-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "280-280"
+    },
+    "MCP-01": {
+      "rule_id": "MCP-01",
+      "concept_id": "rules/c/mcp-01",
+      "path": "rules/c/mcp-01.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "89-89"
+    },
+    "MCP-02": {
+      "rule_id": "MCP-02",
+      "concept_id": "rules/c/mcp-02",
+      "path": "rules/c/mcp-02.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "90-90"
+    },
+    "MCP-03": {
+      "rule_id": "MCP-03",
+      "concept_id": "rules/g/mcp-03",
+      "path": "rules/g/mcp-03.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "91-91"
+    },
+    "MCP-04": {
+      "rule_id": "MCP-04",
+      "concept_id": "rules/g/mcp-04",
+      "path": "rules/g/mcp-04.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "92-92"
+    },
+    "MCP-05": {
+      "rule_id": "MCP-05",
+      "concept_id": "rules/c/mcp-05",
+      "path": "rules/c/mcp-05.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "93-93"
+    },
+    "MCP-06": {
+      "rule_id": "MCP-06",
+      "concept_id": "rules/c/mcp-06",
+      "path": "rules/c/mcp-06.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "94-94"
+    },
+    "MCP-07": {
+      "rule_id": "MCP-07",
+      "concept_id": "rules/c/mcp-07",
+      "path": "rules/c/mcp-07.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "108-108"
+    },
+    "MCP-08": {
+      "rule_id": "MCP-08",
+      "concept_id": "rules/c/mcp-08",
+      "path": "rules/c/mcp-08.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "109-109"
+    },
+    "MCP-09": {
+      "rule_id": "MCP-09",
+      "concept_id": "rules/c/mcp-09",
+      "path": "rules/c/mcp-09.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "110-110"
+    },
+    "MCP-10": {
+      "rule_id": "MCP-10",
+      "concept_id": "rules/c/mcp-10",
+      "path": "rules/c/mcp-10.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "111-111"
+    },
+    "MCP-11": {
+      "rule_id": "MCP-11",
+      "concept_id": "rules/c/mcp-11",
+      "path": "rules/c/mcp-11.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "112-112"
+    },
+    "MCP-12": {
+      "rule_id": "MCP-12",
+      "concept_id": "rules/c/mcp-12",
+      "path": "rules/c/mcp-12.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "113-113"
+    },
+    "MCP-13": {
+      "rule_id": "MCP-13",
+      "concept_id": "rules/c/mcp-13",
+      "path": "rules/c/mcp-13.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "137-137"
+    },
+    "MCP-14": {
+      "rule_id": "MCP-14",
+      "concept_id": "rules/c/mcp-14",
+      "path": "rules/c/mcp-14.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "138-138"
+    },
+    "MCP-15": {
+      "rule_id": "MCP-15",
+      "concept_id": "rules/c/mcp-15",
+      "path": "rules/c/mcp-15.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "146-146"
+    },
+    "MCP-16": {
+      "rule_id": "MCP-16",
+      "concept_id": "rules/c/mcp-16",
+      "path": "rules/c/mcp-16.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "147-147"
+    },
+    "MCP-17": {
+      "rule_id": "MCP-17",
+      "concept_id": "rules/c/mcp-17",
+      "path": "rules/c/mcp-17.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "148-148"
+    },
+    "MCP-18": {
+      "rule_id": "MCP-18",
+      "concept_id": "rules/c/mcp-18",
+      "path": "rules/c/mcp-18.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "149-149"
+    },
+    "MCP-19": {
+      "rule_id": "MCP-19",
+      "concept_id": "rules/c/mcp-19",
+      "path": "rules/c/mcp-19.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "150-150"
+    },
+    "MCP-20": {
+      "rule_id": "MCP-20",
+      "concept_id": "rules/c/mcp-20",
+      "path": "rules/c/mcp-20.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "151-151"
+    },
+    "MCP-21": {
+      "rule_id": "MCP-21",
+      "concept_id": "rules/c/mcp-21",
+      "path": "rules/c/mcp-21.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "152-152"
+    },
+    "OBS-01": {
+      "rule_id": "OBS-01",
+      "concept_id": "rules/c/obs-01",
+      "path": "rules/c/obs-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "302-302"
+    },
+    "OBS-02": {
+      "rule_id": "OBS-02",
+      "concept_id": "rules/c/obs-02",
+      "path": "rules/c/obs-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "303-303"
+    },
+    "OBS-03": {
+      "rule_id": "OBS-03",
+      "concept_id": "rules/c/obs-03",
+      "path": "rules/c/obs-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "304-304"
+    },
+    "OBS-04": {
+      "rule_id": "OBS-04",
+      "concept_id": "rules/c/obs-04",
+      "path": "rules/c/obs-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "305-305"
+    },
+    "OBS-05": {
+      "rule_id": "OBS-05",
+      "concept_id": "rules/c/obs-05",
+      "path": "rules/c/obs-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "306-306"
+    },
+    "OP-01": {
+      "rule_id": "OP-01",
+      "concept_id": "rules/c/op-01",
+      "path": "rules/c/op-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "171-171"
+    },
+    "OP-02": {
+      "rule_id": "OP-02",
+      "concept_id": "rules/c/op-02",
+      "path": "rules/c/op-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "172-172"
+    },
+    "OP-03": {
+      "rule_id": "OP-03",
+      "concept_id": "rules/c/op-03",
+      "path": "rules/c/op-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "173-173"
+    },
+    "OP-04": {
+      "rule_id": "OP-04",
+      "concept_id": "rules/c/op-04",
+      "path": "rules/c/op-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "174-174"
+    },
+    "OP-05": {
+      "rule_id": "OP-05",
+      "concept_id": "rules/c/op-05",
+      "path": "rules/c/op-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "175-175"
+    },
+    "OP-06": {
+      "rule_id": "OP-06",
+      "concept_id": "rules/c/op-06",
+      "path": "rules/c/op-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "176-176"
+    },
+    "OP-07": {
+      "rule_id": "OP-07",
+      "concept_id": "rules/c/op-07",
+      "path": "rules/c/op-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "177-177"
+    },
+    "OP-08": {
+      "rule_id": "OP-08",
+      "concept_id": "rules/g/op-08",
+      "path": "rules/g/op-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "178-178"
+    },
+    "OP-09": {
+      "rule_id": "OP-09",
+      "concept_id": "rules/c/op-09",
+      "path": "rules/c/op-09.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "237-237"
+    },
+    "OP-10": {
+      "rule_id": "OP-10",
+      "concept_id": "rules/c/op-10",
+      "path": "rules/c/op-10.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "238-238"
+    },
+    "OP-11": {
+      "rule_id": "OP-11",
+      "concept_id": "rules/c/op-11",
+      "path": "rules/c/op-11.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "239-239"
+    },
+    "OP-12": {
+      "rule_id": "OP-12",
+      "concept_id": "rules/c/op-12",
+      "path": "rules/c/op-12.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "240-240"
+    },
+    "OP-AUTH-01": {
+      "rule_id": "OP-AUTH-01",
+      "concept_id": "rules/c/op-auth-01",
+      "path": "rules/c/op-auth-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "263-263"
+    },
+    "OP-AUTH-02": {
+      "rule_id": "OP-AUTH-02",
+      "concept_id": "rules/c/op-auth-02",
+      "path": "rules/c/op-auth-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "264-264"
+    },
+    "OP-AUTH-03": {
+      "rule_id": "OP-AUTH-03",
+      "concept_id": "rules/c/op-auth-03",
+      "path": "rules/c/op-auth-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "265-265"
+    },
+    "OP-AUTH-04": {
+      "rule_id": "OP-AUTH-04",
+      "concept_id": "rules/c/op-auth-04",
+      "path": "rules/c/op-auth-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "266-266"
+    },
+    "OP-AUTH-05": {
+      "rule_id": "OP-AUTH-05",
+      "concept_id": "rules/c/op-auth-05",
+      "path": "rules/c/op-auth-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "267-267"
+    },
+    "OP-IDEM-01": {
+      "rule_id": "OP-IDEM-01",
+      "concept_id": "rules/c/op-idem-01",
+      "path": "rules/c/op-idem-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "284-284"
+    },
+    "OP-IDEM-02": {
+      "rule_id": "OP-IDEM-02",
+      "concept_id": "rules/c/op-idem-02",
+      "path": "rules/c/op-idem-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "285-285"
+    },
+    "OP-IDEM-03": {
+      "rule_id": "OP-IDEM-03",
+      "concept_id": "rules/c/op-idem-03",
+      "path": "rules/c/op-idem-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "286-286"
+    },
+    "OP-IDEM-04": {
+      "rule_id": "OP-IDEM-04",
+      "concept_id": "rules/c/op-idem-04",
+      "path": "rules/c/op-idem-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "287-287"
+    },
+    "OP-IDEM-05": {
+      "rule_id": "OP-IDEM-05",
+      "concept_id": "rules/c/op-idem-05",
+      "path": "rules/c/op-idem-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "288-288"
+    },
+    "OP-IDEM-06": {
+      "rule_id": "OP-IDEM-06",
+      "concept_id": "rules/c/op-idem-06",
+      "path": "rules/c/op-idem-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "289-289"
+    },
+    "OP-IDEM-07": {
+      "rule_id": "OP-IDEM-07",
+      "concept_id": "rules/c/op-idem-07",
+      "path": "rules/c/op-idem-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "290-290"
+    },
+    "OP-IDEM-08": {
+      "rule_id": "OP-IDEM-08",
+      "concept_id": "rules/g/op-idem-08",
+      "path": "rules/g/op-idem-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "291-291"
+    },
+    "OP-IDEM-09": {
+      "rule_id": "OP-IDEM-09",
+      "concept_id": "rules/c/op-idem-09",
+      "path": "rules/c/op-idem-09.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "292-292"
+    },
+    "OP-IDEM-10": {
+      "rule_id": "OP-IDEM-10",
+      "concept_id": "rules/c/op-idem-10",
+      "path": "rules/c/op-idem-10.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "293-293"
+    },
+    "OP-TX-01": {
+      "rule_id": "OP-TX-01",
+      "concept_id": "rules/c/op-tx-01",
+      "path": "rules/c/op-tx-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "315-315"
+    },
+    "OP-TX-02": {
+      "rule_id": "OP-TX-02",
+      "concept_id": "rules/c/op-tx-02",
+      "path": "rules/c/op-tx-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "316-316"
+    },
+    "OP-TX-03": {
+      "rule_id": "OP-TX-03",
+      "concept_id": "rules/c/op-tx-03",
+      "path": "rules/c/op-tx-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "317-317"
+    },
+    "OP-TX-04": {
+      "rule_id": "OP-TX-04",
+      "concept_id": "rules/c/op-tx-04",
+      "path": "rules/c/op-tx-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "318-318"
+    },
+    "OP-TX-05": {
+      "rule_id": "OP-TX-05",
+      "concept_id": "rules/c/op-tx-05",
+      "path": "rules/c/op-tx-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "319-319"
+    },
+    "OP-TX-06": {
+      "rule_id": "OP-TX-06",
+      "concept_id": "rules/c/op-tx-06",
+      "path": "rules/c/op-tx-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "320-320"
+    },
+    "OP-VAL-01": {
+      "rule_id": "OP-VAL-01",
+      "concept_id": "rules/g/op-val-01",
+      "path": "rules/g/op-val-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "186-186"
+    },
+    "OP-VAL-02": {
+      "rule_id": "OP-VAL-02",
+      "concept_id": "rules/c/op-val-02",
+      "path": "rules/c/op-val-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "187-187"
+    },
+    "OP-VAL-03": {
+      "rule_id": "OP-VAL-03",
+      "concept_id": "rules/c/op-val-03",
+      "path": "rules/c/op-val-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "188-188"
+    },
+    "OPS-01": {
+      "rule_id": "OPS-01",
+      "concept_id": "rules/c/ops-01",
+      "path": "rules/c/ops-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "343-343"
+    },
+    "OPS-02": {
+      "rule_id": "OPS-02",
+      "concept_id": "rules/c/ops-02",
+      "path": "rules/c/ops-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "344-344"
+    },
+    "OPS-03": {
+      "rule_id": "OPS-03",
+      "concept_id": "rules/c/ops-03",
+      "path": "rules/c/ops-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "345-345"
+    },
+    "OPS-04": {
+      "rule_id": "OPS-04",
+      "concept_id": "rules/g/ops-04",
+      "path": "rules/g/ops-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "346-346"
+    },
+    "OPS-05": {
+      "rule_id": "OPS-05",
+      "concept_id": "rules/g/ops-05",
+      "path": "rules/g/ops-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "347-347"
+    },
+    "OPS-06": {
+      "rule_id": "OPS-06",
+      "concept_id": "rules/c/ops-06",
+      "path": "rules/c/ops-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "348-348"
+    },
+    "OPS-07": {
+      "rule_id": "OPS-07",
+      "concept_id": "rules/c/ops-07",
+      "path": "rules/c/ops-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "349-349"
+    },
+    "OPS-08": {
+      "rule_id": "OPS-08",
+      "concept_id": "rules/c/ops-08",
+      "path": "rules/c/ops-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "350-350"
+    },
+    "OPS-09": {
+      "rule_id": "OPS-09",
+      "concept_id": "rules/c/ops-09",
+      "path": "rules/c/ops-09.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "351-351"
+    },
+    "OPS-10": {
+      "rule_id": "OPS-10",
+      "concept_id": "rules/c/ops-10",
+      "path": "rules/c/ops-10.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "352-352"
+    },
+    "OPS-11": {
+      "rule_id": "OPS-11",
+      "concept_id": "rules/c/ops-11",
+      "path": "rules/c/ops-11.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "353-353"
+    },
+    "OPS-12": {
+      "rule_id": "OPS-12",
+      "concept_id": "rules/c/ops-12",
+      "path": "rules/c/ops-12.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "354-354"
+    },
+    "OPS-13": {
+      "rule_id": "OPS-13",
+      "concept_id": "rules/g/ops-13",
+      "path": "rules/g/ops-13.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "355-355"
+    },
+    "OPS-14": {
+      "rule_id": "OPS-14",
+      "concept_id": "rules/c/ops-14",
+      "path": "rules/c/ops-14.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "356-356"
+    },
+    "OPS-15": {
+      "rule_id": "OPS-15",
+      "concept_id": "rules/c/ops-15",
+      "path": "rules/c/ops-15.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "357-357"
+    },
+    "OPS-16": {
+      "rule_id": "OPS-16",
+      "concept_id": "rules/c/ops-16",
+      "path": "rules/c/ops-16.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "358-358"
+    },
+    "OPS-17": {
+      "rule_id": "OPS-17",
+      "concept_id": "rules/c/ops-17",
+      "path": "rules/c/ops-17.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "359-359"
+    },
+    "OPS-18": {
+      "rule_id": "OPS-18",
+      "concept_id": "rules/g/ops-18",
+      "path": "rules/g/ops-18.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "360-360"
+    },
+    "REST-01": {
+      "rule_id": "REST-01",
+      "concept_id": "rules/c/rest-01",
+      "path": "rules/c/rest-01.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "152-152"
+    },
+    "REST-02": {
+      "rule_id": "REST-02",
+      "concept_id": "rules/c/rest-02",
+      "path": "rules/c/rest-02.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "153-153"
+    },
+    "REST-03": {
+      "rule_id": "REST-03",
+      "concept_id": "rules/c/rest-03",
+      "path": "rules/c/rest-03.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "154-154"
+    },
+    "REST-04": {
+      "rule_id": "REST-04",
+      "concept_id": "rules/c/rest-04",
+      "path": "rules/c/rest-04.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "155-155"
+    },
+    "REST-05": {
+      "rule_id": "REST-05",
+      "concept_id": "rules/c/rest-05",
+      "path": "rules/c/rest-05.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "156-156"
+    },
+    "REST-06": {
+      "rule_id": "REST-06",
+      "concept_id": "rules/c/rest-06",
+      "path": "rules/c/rest-06.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "157-157"
+    },
+    "REST-07": {
+      "rule_id": "REST-07",
+      "concept_id": "rules/c/rest-07",
+      "path": "rules/c/rest-07.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "158-158"
+    },
+    "REST-08": {
+      "rule_id": "REST-08",
+      "concept_id": "rules/c/rest-08",
+      "path": "rules/c/rest-08.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "159-159"
+    },
+    "REST-09": {
+      "rule_id": "REST-09",
+      "concept_id": "rules/c/rest-09",
+      "path": "rules/c/rest-09.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "160-160"
+    },
+    "REST-10": {
+      "rule_id": "REST-10",
+      "concept_id": "rules/c/rest-10",
+      "path": "rules/c/rest-10.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "161-161"
+    },
+    "REST-11": {
+      "rule_id": "REST-11",
+      "concept_id": "rules/c/rest-11",
+      "path": "rules/c/rest-11.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "162-162"
+    },
+    "REST-12": {
+      "rule_id": "REST-12",
+      "concept_id": "rules/c/rest-12",
+      "path": "rules/c/rest-12.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "163-163"
+    },
+    "REST-13": {
+      "rule_id": "REST-13",
+      "concept_id": "rules/c/rest-13",
+      "path": "rules/c/rest-13.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "164-164"
+    },
+    "REST-14": {
+      "rule_id": "REST-14",
+      "concept_id": "rules/c/rest-14",
+      "path": "rules/c/rest-14.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "165-165"
+    },
+    "REST-15": {
+      "rule_id": "REST-15",
+      "concept_id": "rules/c/rest-15",
+      "path": "rules/c/rest-15.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "166-166"
+    },
+    "REST-16": {
+      "rule_id": "REST-16",
+      "concept_id": "rules/c/rest-16",
+      "path": "rules/c/rest-16.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "167-167"
+    },
+    "REST-17": {
+      "rule_id": "REST-17",
+      "concept_id": "rules/c/rest-17",
+      "path": "rules/c/rest-17.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "168-168"
+    },
+    "REST-18": {
+      "rule_id": "REST-18",
+      "concept_id": "rules/c/rest-18",
+      "path": "rules/c/rest-18.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "169-169"
+    },
+    "SEC-01": {
+      "rule_id": "SEC-01",
+      "concept_id": "rules/c/sec-01",
+      "path": "rules/c/sec-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "379-379"
+    },
+    "SEC-02": {
+      "rule_id": "SEC-02",
+      "concept_id": "rules/c/sec-02",
+      "path": "rules/c/sec-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "380-380"
+    },
+    "SEC-03": {
+      "rule_id": "SEC-03",
+      "concept_id": "rules/c/sec-03",
+      "path": "rules/c/sec-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "381-381"
+    },
+    "SEC-04": {
+      "rule_id": "SEC-04",
+      "concept_id": "rules/c/sec-04",
+      "path": "rules/c/sec-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "382-382"
+    },
+    "SEC-05": {
+      "rule_id": "SEC-05",
+      "concept_id": "rules/c/sec-05",
+      "path": "rules/c/sec-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "383-383"
+    },
+    "SSO-01": {
+      "rule_id": "SSO-01",
+      "concept_id": "rules/o/c/sso-01",
+      "path": "rules/o/c/sso-01.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "384-384"
+    },
+    "SSO-02": {
+      "rule_id": "SSO-02",
+      "concept_id": "rules/o/c/sso-02",
+      "path": "rules/o/c/sso-02.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "385-385"
+    },
+    "SSO-03": {
+      "rule_id": "SSO-03",
+      "concept_id": "rules/o/c/sso-03",
+      "path": "rules/o/c/sso-03.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "386-386"
+    },
+    "SSO-04": {
+      "rule_id": "SSO-04",
+      "concept_id": "rules/o/c/sso-04",
+      "path": "rules/o/c/sso-04.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "387-387"
+    },
+    "SSO-05": {
+      "rule_id": "SSO-05",
+      "concept_id": "rules/o/c/sso-05",
+      "path": "rules/o/c/sso-05.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "388-388"
+    },
+    "SSO-06": {
+      "rule_id": "SSO-06",
+      "concept_id": "rules/o/c/sso-06",
+      "path": "rules/o/c/sso-06.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "389-389"
+    },
+    "SSO-07": {
+      "rule_id": "SSO-07",
+      "concept_id": "rules/o/c/sso-07",
+      "path": "rules/o/c/sso-07.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "390-390"
+    },
+    "SSO-08": {
+      "rule_id": "SSO-08",
+      "concept_id": "rules/o/c/sso-08",
+      "path": "rules/o/c/sso-08.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "391-391"
+    },
+    "SSO-09": {
+      "rule_id": "SSO-09",
+      "concept_id": "rules/o/c/sso-09",
+      "path": "rules/o/c/sso-09.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "392-392"
+    },
+    "SSO-10": {
+      "rule_id": "SSO-10",
+      "concept_id": "rules/o/c/sso-10",
+      "path": "rules/o/c/sso-10.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "393-393"
+    },
+    "SSO-11": {
+      "rule_id": "SSO-11",
+      "concept_id": "rules/o/c/sso-11",
+      "path": "rules/o/c/sso-11.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "394-394"
+    },
+    "SSO-12": {
+      "rule_id": "SSO-12",
+      "concept_id": "rules/o/c/sso-12",
+      "path": "rules/o/c/sso-12.md",
+      "phase": "operation",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "auth-sso",
+      "source_alias": "sources/15-RULE-REGISTRY.md",
+      "source_span": "395-395"
+    },
+    "VAL-01": {
+      "rule_id": "VAL-01",
+      "concept_id": "rules/c/val-01",
+      "path": "rules/c/val-01.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "186-186"
+    },
+    "VAL-02": {
+      "rule_id": "VAL-02",
+      "concept_id": "rules/c/val-02",
+      "path": "rules/c/val-02.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "187-187"
+    },
+    "VAL-03": {
+      "rule_id": "VAL-03",
+      "concept_id": "rules/c/val-03",
+      "path": "rules/c/val-03.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/21-OPERATION.md",
+      "source_span": "188-188"
+    },
+    "VAL-04": {
+      "rule_id": "VAL-04",
+      "concept_id": "rules/c/val-04",
+      "path": "rules/c/val-04.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "157-157"
+    },
+    "VAL-05": {
+      "rule_id": "VAL-05",
+      "concept_id": "rules/c/val-05",
+      "path": "rules/c/val-05.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "158-158"
+    },
+    "VAL-06": {
+      "rule_id": "VAL-06",
+      "concept_id": "rules/c/val-06",
+      "path": "rules/c/val-06.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "159-159"
+    },
+    "VAL-07": {
+      "rule_id": "VAL-07",
+      "concept_id": "rules/c/val-07",
+      "path": "rules/c/val-07.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "192-192"
+    },
+    "VAL-08": {
+      "rule_id": "VAL-08",
+      "concept_id": "rules/c/val-08",
+      "path": "rules/c/val-08.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "193-193"
+    },
+    "VAL-09": {
+      "rule_id": "VAL-09",
+      "concept_id": "rules/c/val-09",
+      "path": "rules/c/val-09.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "194-194"
+    },
+    "VAL-10": {
+      "rule_id": "VAL-10",
+      "concept_id": "rules/c/val-10",
+      "path": "rules/c/val-10.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "195-195"
+    },
+    "VAL-11": {
+      "rule_id": "VAL-11",
+      "concept_id": "rules/c/val-11",
+      "path": "rules/c/val-11.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "223-223"
+    },
+    "VAL-12": {
+      "rule_id": "VAL-12",
+      "concept_id": "rules/g/val-12",
+      "path": "rules/g/val-12.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "224-224"
+    },
+    "VAL-13": {
+      "rule_id": "VAL-13",
+      "concept_id": "rules/c/val-13",
+      "path": "rules/c/val-13.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "225-225"
+    },
+    "VAL-14": {
+      "rule_id": "VAL-14",
+      "concept_id": "rules/c/val-14",
+      "path": "rules/c/val-14.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "226-226"
+    },
+    "VAL-15": {
+      "rule_id": "VAL-15",
+      "concept_id": "rules/c/val-15",
+      "path": "rules/c/val-15.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "249-249"
+    },
+    "VAL-16": {
+      "rule_id": "VAL-16",
+      "concept_id": "rules/g/val-16",
+      "path": "rules/g/val-16.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "250-250"
+    },
+    "VAL-17": {
+      "rule_id": "VAL-17",
+      "concept_id": "rules/c/val-17",
+      "path": "rules/c/val-17.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "251-251"
+    },
+    "VAL-18": {
+      "rule_id": "VAL-18",
+      "concept_id": "rules/c/val-18",
+      "path": "rules/c/val-18.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "252-252"
+    },
+    "VAL-19": {
+      "rule_id": "VAL-19",
+      "concept_id": "rules/g/val-19",
+      "path": "rules/g/val-19.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "253-253"
+    },
+    "VAL-20": {
+      "rule_id": "VAL-20",
+      "concept_id": "rules/g/val-20",
+      "path": "rules/g/val-20.md",
+      "phase": "docs",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/47-VALIDATION.md",
+      "source_span": "254-254"
+    },
+    "WS-01": {
+      "rule_id": "WS-01",
+      "concept_id": "rules/c/ws-01",
+      "path": "rules/c/ws-01.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "136-136"
+    },
+    "WS-02": {
+      "rule_id": "WS-02",
+      "concept_id": "rules/c/ws-02",
+      "path": "rules/c/ws-02.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "137-137"
+    },
+    "WS-03": {
+      "rule_id": "WS-03",
+      "concept_id": "rules/c/ws-03",
+      "path": "rules/c/ws-03.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "138-138"
+    },
+    "WS-04": {
+      "rule_id": "WS-04",
+      "concept_id": "rules/c/ws-04",
+      "path": "rules/c/ws-04.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "139-139"
+    },
+    "WS-05": {
+      "rule_id": "WS-05",
+      "concept_id": "rules/c/ws-05",
+      "path": "rules/c/ws-05.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "140-140"
+    },
+    "WS-06": {
+      "rule_id": "WS-06",
+      "concept_id": "rules/c/ws-06",
+      "path": "rules/c/ws-06.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "228-228"
+    },
+    "WS-07": {
+      "rule_id": "WS-07",
+      "concept_id": "rules/c/ws-07",
+      "path": "rules/c/ws-07.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "229-229"
+    },
+    "WS-08": {
+      "rule_id": "WS-08",
+      "concept_id": "rules/c/ws-08",
+      "path": "rules/c/ws-08.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "230-230"
+    },
+    "WS-09": {
+      "rule_id": "WS-09",
+      "concept_id": "rules/c/ws-09",
+      "path": "rules/c/ws-09.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "231-231"
+    },
+    "WS-10": {
+      "rule_id": "WS-10",
+      "concept_id": "rules/c/ws-10",
+      "path": "rules/c/ws-10.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "239-239"
+    },
+    "WS-11": {
+      "rule_id": "WS-11",
+      "concept_id": "rules/c/ws-11",
+      "path": "rules/c/ws-11.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "240-240"
+    },
+    "WS-12": {
+      "rule_id": "WS-12",
+      "concept_id": "rules/c/ws-12",
+      "path": "rules/c/ws-12.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "241-241"
+    },
+    "WS-13": {
+      "rule_id": "WS-13",
+      "concept_id": "rules/c/ws-13",
+      "path": "rules/c/ws-13.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "242-242"
+    },
+    "WS-14": {
+      "rule_id": "WS-14",
+      "concept_id": "rules/c/ws-14",
+      "path": "rules/c/ws-14.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "243-243"
+    },
+    "WS-15": {
+      "rule_id": "WS-15",
+      "concept_id": "rules/c/ws-15",
+      "path": "rules/c/ws-15.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "273-273"
+    },
+    "WS-16": {
+      "rule_id": "WS-16",
+      "concept_id": "rules/c/ws-16",
+      "path": "rules/c/ws-16.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "274-274"
+    },
+    "WS-17": {
+      "rule_id": "WS-17",
+      "concept_id": "rules/c/ws-17",
+      "path": "rules/c/ws-17.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "275-275"
+    },
+    "WS-18": {
+      "rule_id": "WS-18",
+      "concept_id": "rules/c/ws-18",
+      "path": "rules/c/ws-18.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "276-276"
+    },
+    "WS-19": {
+      "rule_id": "WS-19",
+      "concept_id": "rules/c/ws-19",
+      "path": "rules/c/ws-19.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "292-292"
+    },
+    "WS-20": {
+      "rule_id": "WS-20",
+      "concept_id": "rules/c/ws-20",
+      "path": "rules/c/ws-20.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "293-293"
+    },
+    "WS-21": {
+      "rule_id": "WS-21",
+      "concept_id": "rules/c/ws-21",
+      "path": "rules/c/ws-21.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "294-294"
+    },
+    "WS-22": {
+      "rule_id": "WS-22",
+      "concept_id": "rules/c/ws-22",
+      "path": "rules/c/ws-22.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "295-295"
+    },
+    "WS-23": {
+      "rule_id": "WS-23",
+      "concept_id": "rules/c/ws-23",
+      "path": "rules/c/ws-23.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "251-251"
+    },
+    "WS-24": {
+      "rule_id": "WS-24",
+      "concept_id": "rules/c/ws-24",
+      "path": "rules/c/ws-24.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "252-252"
+    },
+    "WS-25": {
+      "rule_id": "WS-25",
+      "concept_id": "rules/c/ws-25",
+      "path": "rules/c/ws-25.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "253-253"
+    },
+    "WS-26": {
+      "rule_id": "WS-26",
+      "concept_id": "rules/c/ws-26",
+      "path": "rules/c/ws-26.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "254-254"
+    },
+    "WS-27": {
+      "rule_id": "WS-27",
+      "concept_id": "rules/c/ws-27",
+      "path": "rules/c/ws-27.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "255-255"
+    },
+    "WS-28": {
+      "rule_id": "WS-28",
+      "concept_id": "rules/c/ws-28",
+      "path": "rules/c/ws-28.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "256-256"
+    },
+    "WS-29": {
+      "rule_id": "WS-29",
+      "concept_id": "rules/c/ws-29",
+      "path": "rules/c/ws-29.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "257-257"
+    },
+    "WS-30": {
+      "rule_id": "WS-30",
+      "concept_id": "rules/c/ws-30",
+      "path": "rules/c/ws-30.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "263-263"
+    },
+    "WS-31": {
+      "rule_id": "WS-31",
+      "concept_id": "rules/c/ws-31",
+      "path": "rules/c/ws-31.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "264-264"
+    },
+    "WS-32": {
+      "rule_id": "WS-32",
+      "concept_id": "rules/c/ws-32",
+      "path": "rules/c/ws-32.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "265-265"
+    },
+    "REST-19": {
+      "rule_id": "REST-19",
+      "concept_id": "rules/c/rest-19",
+      "path": "rules/c/rest-19.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "274-274"
+    },
+    "REST-20": {
+      "rule_id": "REST-20",
+      "concept_id": "rules/c/rest-20",
+      "path": "rules/c/rest-20.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "275-275"
+    },
+    "REST-21": {
+      "rule_id": "REST-21",
+      "concept_id": "rules/c/rest-21",
+      "path": "rules/c/rest-21.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "rest",
+      "source_alias": "sources/30-REST.md",
+      "source_span": "276-276"
+    },
+    "WS-33": {
+      "rule_id": "WS-33",
+      "concept_id": "rules/c/ws-33",
+      "path": "rules/c/ws-33.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "350-350"
+    },
+    "WS-34": {
+      "rule_id": "WS-34",
+      "concept_id": "rules/c/ws-34",
+      "path": "rules/c/ws-34.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "351-351"
+    },
+    "WS-35": {
+      "rule_id": "WS-35",
+      "concept_id": "rules/c/ws-35",
+      "path": "rules/c/ws-35.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "websocket",
+      "source_alias": "sources/31-WEBSOCKET.md",
+      "source_span": "352-352"
+    },
+    "CLI-15": {
+      "rule_id": "CLI-15",
+      "concept_id": "rules/c/cli-15",
+      "path": "rules/c/cli-15.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "276-276"
+    },
+    "CLI-16": {
+      "rule_id": "CLI-16",
+      "concept_id": "rules/c/cli-16",
+      "path": "rules/c/cli-16.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "277-277"
+    },
+    "CLI-17": {
+      "rule_id": "CLI-17",
+      "concept_id": "rules/c/cli-17",
+      "path": "rules/c/cli-17.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "cli",
+      "source_alias": "sources/32-CLI.md",
+      "source_span": "278-278"
+    },
+    "GRPC-20": {
+      "rule_id": "GRPC-20",
+      "concept_id": "rules/c/grpc-20",
+      "path": "rules/c/grpc-20.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "251-251"
+    },
+    "GRPC-21": {
+      "rule_id": "GRPC-21",
+      "concept_id": "rules/c/grpc-21",
+      "path": "rules/c/grpc-21.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "252-252"
+    },
+    "GRPC-22": {
+      "rule_id": "GRPC-22",
+      "concept_id": "rules/c/grpc-22",
+      "path": "rules/c/grpc-22.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "grpc",
+      "source_alias": "sources/33-GRPC.md",
+      "source_span": "253-253"
+    },
+    "MCP-22": {
+      "rule_id": "MCP-22",
+      "concept_id": "rules/c/mcp-22",
+      "path": "rules/c/mcp-22.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "205-205"
+    },
+    "MCP-23": {
+      "rule_id": "MCP-23",
+      "concept_id": "rules/c/mcp-23",
+      "path": "rules/c/mcp-23.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "206-206"
+    },
+    "MCP-24": {
+      "rule_id": "MCP-24",
+      "concept_id": "rules/c/mcp-24",
+      "path": "rules/c/mcp-24.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "207-207"
+    },
+    "MCP-25": {
+      "rule_id": "MCP-25",
+      "concept_id": "rules/c/mcp-25",
+      "path": "rules/c/mcp-25.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "208-208"
+    },
+    "MCP-26": {
+      "rule_id": "MCP-26",
+      "concept_id": "rules/c/mcp-26",
+      "path": "rules/c/mcp-26.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "209-209"
+    },
+    "MCP-27": {
+      "rule_id": "MCP-27",
+      "concept_id": "rules/c/mcp-27",
+      "path": "rules/c/mcp-27.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "mcp",
+      "source_alias": "sources/34-MCP.md",
+      "source_span": "210-210"
+    },
+    "A2A-25": {
+      "rule_id": "A2A-25",
+      "concept_id": "rules/c/a2a-25",
+      "path": "rules/c/a2a-25.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "215-215"
+    },
+    "A2A-26": {
+      "rule_id": "A2A-26",
+      "concept_id": "rules/c/a2a-26",
+      "path": "rules/c/a2a-26.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "216-216"
+    },
+    "A2A-27": {
+      "rule_id": "A2A-27",
+      "concept_id": "rules/c/a2a-27",
+      "path": "rules/c/a2a-27.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "217-217"
+    },
+    "A2A-28": {
+      "rule_id": "A2A-28",
+      "concept_id": "rules/c/a2a-28",
+      "path": "rules/c/a2a-28.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "218-218"
+    },
+    "A2A-29": {
+      "rule_id": "A2A-29",
+      "concept_id": "rules/c/a2a-29",
+      "path": "rules/c/a2a-29.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "219-219"
+    },
+    "A2A-30": {
+      "rule_id": "A2A-30",
+      "concept_id": "rules/c/a2a-30",
+      "path": "rules/c/a2a-30.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "a2a",
+      "source_alias": "sources/35-A2A.md",
+      "source_span": "220-220"
+    },
+    "IMP-01": {
+      "rule_id": "IMP-01",
+      "concept_id": "rules/c/imp-01",
+      "path": "rules/c/imp-01.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/10-CONTRACTS.md",
+      "source_span": "1482-1482"
+    },
+    "IMP-02": {
+      "rule_id": "IMP-02",
+      "concept_id": "rules/c/imp-02",
+      "path": "rules/c/imp-02.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "110-110"
+    },
+    "IMP-03": {
+      "rule_id": "IMP-03",
+      "concept_id": "rules/c/imp-03",
+      "path": "rules/c/imp-03.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "111-111"
+    },
+    "IMP-04": {
+      "rule_id": "IMP-04",
+      "concept_id": "rules/c/imp-04",
+      "path": "rules/c/imp-04.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "112-112"
+    },
+    "IMP-05": {
+      "rule_id": "IMP-05",
+      "concept_id": "rules/c/imp-05",
+      "path": "rules/c/imp-05.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "113-113"
+    },
+    "IMP-06": {
+      "rule_id": "IMP-06",
+      "concept_id": "rules/c/imp-06",
+      "path": "rules/c/imp-06.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "114-114"
+    },
+    "IMP-07": {
+      "rule_id": "IMP-07",
+      "concept_id": "rules/c/imp-07",
+      "path": "rules/c/imp-07.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "115-115"
+    },
+    "IMP-08": {
+      "rule_id": "IMP-08",
+      "concept_id": "rules/c/imp-08",
+      "path": "rules/c/imp-08.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/10-CONTRACTS.md",
+      "source_span": "1482-1482"
+    },
+    "IMP-09": {
+      "rule_id": "IMP-09",
+      "concept_id": "rules/c/imp-09",
+      "path": "rules/c/imp-09.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "117-117"
+    },
+    "IMP-10": {
+      "rule_id": "IMP-10",
+      "concept_id": "rules/c/imp-10",
+      "path": "rules/c/imp-10.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "118-118"
+    },
+    "IMP-11": {
+      "rule_id": "IMP-11",
+      "concept_id": "rules/c/imp-11",
+      "path": "rules/c/imp-11.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/55-IMPLEMENTATION-CONTRACTS.md",
+      "source_span": "119-119"
+    },
+    "IMP-12": {
+      "rule_id": "IMP-12",
+      "concept_id": "rules/c/imp-12",
+      "path": "rules/c/imp-12.md",
+      "phase": "adapter",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/40-CONFORMANCE.md",
+      "source_span": "366-366"
+    }
+  }
+}

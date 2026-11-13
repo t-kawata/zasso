@@ -1,5 +1,5 @@
 ---
-description: Build a complete *-okf wiki skill from English Markdown sources; verify with the canonical OKF verifier in dev and installed modes; install.
+description: Build a complete *-okf wiki skill from English Markdown sources on the Open Knowledge Format v0.2 model; verify in dev and installed modes; install.
 argument-hint: "<skill-name>=<source-doc>... | <skill-name> <source-doc>..."
 disable-model-invocation: true
 ---
@@ -12,7 +12,7 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 
 # /build-okf-skill
 
-Role: build verified `*-okf` wiki skills from English Markdown. A generated skill turns a frozen source set into an OKF knowledge wiki and exposes deterministic retrieval, citation, freshness, conflict, and answer-verification commands. It is a knowledge delivery system, not a gate. Canonical verification decides completion in dev and installed modes. Never install unverified.
+Role: build a verified `*-okf` wiki skill from English Markdown. The skill is an Open Knowledge Format v0.2 bundle plus a deterministic CLI. It exposes navigation, reachability, trust, freshness, sources, and context. It is not a law gate.
 
 ## Path Anchor
 
@@ -25,9 +25,10 @@ printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
 Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run `git rev-parse` again.
 
 - `REPO_ROOT="${CLAUDE_DIR%/.claude}"`.
-- `SKILL_DIR="$CLAUDE_DIR/skills/<name>-okf"` — fixed. No other project `.claude`.
+- `SKILL_DIR="$CLAUDE_DIR/skills/<name>-okf"` — fixed.
 - `ALIAS_PATH="$CLAUDE_DIR/skills/<name>-okf.path-alias.json"` — outside the skill tree.
-- `STAGING_DIR="$REPO_ROOT/target/okf-build/<name>"`; `OKF_OUT="$REPO_ROOT/target/okf"`.
+- `STAGING_DIR="$REPO_ROOT/target/okf-build/<name>"`.
+- `OKF_OUT="$REPO_ROOT/target/okf"`.
 
 ## Language Protocol
 
@@ -52,16 +53,18 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 
 - Positional only; no flag branch.
 - Sources read-only; writes only under `STAGING_DIR`, `SKILL_DIR`, `ALIAS_PATH`, `OKF_OUT`.
-- Canonical verifier: `check_set_version: 1`; 19 checks `machine_verified` in dev mode is the only pass.
-- Every Claim node carries `source`, `span`, `source_sha256`, and `content_sha256`.
-- Every node appears once in `okf/index.md`; every `links` target exists.
-- A stale node is never presented as current by ask, context, or page.
-- A one-sided conflict is `CONFLICT_ASYMMETRIC`; no automatic deletion or silent winner.
-- Generated `SKILL.md` is a complete usage manual: scenarios, recipes, citation rules, freshness, conflicts, update, authoring, failures, and at least two examples.
+- Canonical verifier: `check_set_version` from `okf-verify/checks.json`; every check named there is `machine_verified` in dev mode.
+- `okf/` is the bundle root. Every non-reserved `.md` has parseable frontmatter with a non-empty `type`.
+- Concept ID is the bundle-relative path without `.md`. No synthetic identity.
+- `index.md` is a heading plus a linked list. `log.md` uses `YYYY-MM-DD` headings, newest first.
+- Body Markdown links are the graph. There is no frontmatter `links`.
+- `okf/source.md` and `okf/source.baseline.md` do not exist; source views live in `source/`.
+- A stale or deprecated concept is never presented as current.
+- A required closure is complete or `BUDGET_EXCEEDED`; never truncate.
+- Generated `SKILL.md` is a traversal manual: 12 sections and at least 10 scenarios.
 - No forced edits to `CLAUDE.md` or the make/plan/start/review/resolve commands.
 - Generated skill contains no ticket id, project name, original absolute path, or CJK.
-- Identical inputs → identical lock, coverage, OKF, bundle.
-- Shared engine modules are copied at build time and guarded by a SHA-256 drift test.
+- Identical inputs → identical lock, OKF, and bundle.
 - `node --test` for the impact set; never `make test`.
 
 ## Input Contract
@@ -78,11 +81,11 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 | Ambiguous derivation | include; record `DERIVED_AMBIGUOUS`; never silently drop |
 | Source outside repository root | reject `SOURCE_OUTSIDE_ROOT` |
 | Source missing | reject `SOURCE_MISSING` |
-| Claim registry table | optional; when absent, derive topic and claim from each block |
+| Claim registry table | optional; when absent, derive title and description from each section |
 | Duplicate source basename | reject `SOURCE_ALIAS_DUPLICATE` |
 
 - Sources read-only.
-- Manifest: alias path + `SHA-256` of LF-normalized text.
+- Manifest: alias path + SHA-256 of LF-normalized text.
 - CJK anywhere → reject the whole build; no silent translation.
 
 ## Generated Skill Layout
@@ -94,35 +97,118 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 ├── IMPLEMENTATION-LEFTOVERS.md
 ├── install.js
 ├── atoms.lock.json
-├── okf/index.md
-├── okf/log.md
-├── okf/source.md
-├── okf/source.baseline.md
-├── okf/nodes/
-├── source/manifest.toml
-├── source/redaction.sha256.json
-├── source/input-ledger.json
-├── source/redaction.review.json
-├── source/claim-inventory.json
-├── source/claim-registry.json
-├── source/knowledge-coverage.json
-├── source/line-coverage.json
-├── source/shared-engine.json
-├── source/okf-profile.toml
-├── scripts/{cli.mjs, commands.mjs, ingest.mjs, lib/}
+├── package.json
+├── THIRD_PARTY_NOTICES.md
+├── okf/
+│   ├── index.md
+│   ├── log.md
+│   └── pages/
+│       └── <source>/<section>.md
+├── okf-core/
+│   ├── index.mjs
+│   ├── cli.mjs
+│   ├── adapters/
+│   ├── authoring/
+│   ├── bundle/
+│   ├── context/
+│   ├── graph/
+│   ├── metadata/
+│   ├── parsing/
+│   ├── paths/
+│   └── validation/
+├── scripts/cli.mjs
 ├── dist/skill.mjs
+├── source/
+│   ├── manifest.toml
+│   ├── input-ledger.json
+│   ├── concept-inventory.json
+│   ├── okf-profile.toml
+│   ├── okf-log.json
+│   ├── source-view.md
+│   ├── source.baseline.md
+│   └── shared-engine.json
 └── tests/{smoke.test.mjs, fixtures/runtime/runtime.json}
 ```
 
 Sibling: `<name>-okf.path-alias.json` — outside the skill tree; holds `input_roots` and alias → original path.
+
+## OKF Bundle
+
+Every concept file starts with frontmatter. The required key is a non-empty `type`.
+
+```yaml
+type: Page
+title: Authentication
+description: Tokens expire after 15 minutes.
+sources:
+  - resource: sources/auth.md
+    id: auth-1
+    title: Authentication
+generated:
+  by: build-okf-skill
+  at: "2026-11-13"
+verified:
+  - by: machine
+    at: "2026-11-13"
+status: stable
+stale_after: "2027-11-13"
+x-topic: auth
+x-source-span: "1-20"
+x-content-sha256: "<sha256>"
+```
+
+- `type`, `title`, `description`, `sources` are required for every generated concept.
+- `sources[]` is an object list; `id` is the footnote label in the body.
+- `generated` and `verified` are trust metadata. `status` is `draft`, `stable`, or `deprecated`.
+- `stale_after` is an ISO instant. `x-` keys are extensions and are preserved.
+- No `id`, no `links`, no `topic`, no `summary` keys. Identity is the path.
+
+`index.md`:
+
+```markdown
+# Knowledge
+
+- [Rules](./rules/index.md)
+- [Authentication](./pages/auth/authentication.md)
+```
+
+`log.md`:
+
+```markdown
+# Knowledge Log
+
+## 2026-11-13
+- Built 24 concepts.
+```
+
+The build date is explicit (`--date` or `source/okf-log.json`). The clock is never read.
+
+## Traversal Manual
+
+The generated `SKILL.md` must contain these sections and at least 10 `### Scenario` recipes:
+
+| Section | Must teach |
+|---|---|
+| `## Start Here` | The one entry command and the one question it answers |
+| `## Directory Traversal` | `list --path /` then `list --path <directory>` |
+| `## Concept Page` | `show <concept-id>` returns body, outgoing, incoming, sources, trust, freshness |
+| `## Outgoing and Incoming` | Both directions, and `neighbors` |
+| `## Multi-Hop Reach` | Repeated `outgoing` on returned ids; stop at the required set |
+| `## Required Context` | `required --entry` and `context --entry --budget` |
+| `## Zero Results` | An empty search is an answer; widen or list the directory |
+| `## Budget Exceeded` | Narrow the entry set; never expect a truncated context |
+| `## Trust and Freshness` | `trustTier`, `status`, `stale`, `staleAfter` |
+| `## Sources and Citation` | `sources <id>`; cite a concept id and a source id |
+| `## Authoring and Update` | Add a concept, rebuild index/log, validate conformance |
+| `## Failure Modes` | `UNKNOWN_CONCEPT`, `blocked`, lint-only broken links |
 
 ## Procedure
 
 ### Step 0: Baseline
 
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-okf-skill.mjs`.
-- Require `$CLAUDE_DIR/scripts/amend-rfc-up/okf-verify/checks.json`; require `check_set_version: 1` and 19 named checks with `both` / `dev` modes.
-- Require `$CLAUDE_DIR/scripts/amend-rfc-up/okf-engine/scripts/cli.mjs` and `okf-engine/scripts/lib/claims.mjs`.
+- Require `$CLAUDE_DIR/scripts/amend-rfc-up/okf-verify/checks.json`; require its `check_set_version` and the named checks with `both` / `dev` modes.
+- Require `$CLAUDE_DIR/scripts/amend-rfc-up/okf-core/index.mjs` and `okf-core/cli.mjs`.
 - Missing or mismatched → stop before any write. Never copy, patch, or replace the canonical verifier.
 
 ### Step 1: Parse
@@ -133,9 +219,9 @@ Sibling: `<name>-okf.path-alias.json` — outside the skill tree; holds `input_r
 
 ### Step 2: Measure
 
-- Per source: read bytes; reject NUL/non-Markdown; normalize LF; reject CJK; hash; measure lines and blocks.
+- Per source: read bytes; reject NUL/non-Markdown; normalize LF; reject CJK; hash; measure lines and sections.
 - Derived-view phrase → exclude + record; ambiguous → include + `DERIVED_AMBIGUOUS`.
-- No claim-bearing block → `INFORMATION_ZERO`; never invent a claim.
+- No claim-bearing block → `INFORMATION_ZERO`; never invent a concept.
 - Write `$STAGING_DIR/source/measurements.json`; re-read → hash unchanged.
 
 ### Step 3: Profile
@@ -145,90 +231,73 @@ Derive `source/okf-profile.toml`; never copy another project's values.
 | Field | Derivation |
 |---|---|
 | `domain` | level-1 title, slugged; fall back to first source path |
-| `topics` | level-2 headings, slugged, ordered; max 64 |
-| `roles` | `page`, `claim`, `entity`, `procedure`, `reference` |
+| `types` | `Page`, `Claim`, `Entity`, `Procedure`, `Reference` |
 | `discovery` | manifest names, source roots, globs |
 | `detectors` | `todo`, `fixme`, `hack`, `xxx`, secrets |
 | `language` | `en` |
-| `limits` | `max_answer_nodes=20`, `node_budget=2500` |
+| `limits` | `max_answer_nodes=20`, `node_budget=2500`, `context_budget_bytes=1000000` |
 
 Write with stable sort. Profile is data: a source heading change → profile change, no script edit.
 
-### Step 4: Claim registry
+### Step 4: Concept extraction
 
-- One Claim node per claim-bearing block.
-- Registry columns: `ID | Topic | Claim | Evidence | Source | Freshness | Confidence`.
-- ID grammar: `^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+$`.
-- Bijection: Claim Atoms ↔ registry rows; equal count, equal ID set.
-- Every row carries a source alias and a line span.
-- Unsourced claim → `CLAIM_UNSOURCED`; never promote it to `must`.
+- One concept per level-2 section; a document without level-2 is one root concept.
+- Concept path: `pages/<source-slug>/<section-slug>.md`.
+- `title` = section heading; `description` = first paragraph, at most 200 characters.
+- Body = the original section Markdown, including links and footnotes.
+- `sources` = one object per section: `{resource, id, title}`. Add a footnote if the section has none.
+- `x-topic` = source slug; `x-source-span` = section line span; `x-content-sha256` = body hash.
+- No synthetic ids. The path is the id.
 
 ### Step 5: Source set, redaction, alias, input ledger
 
 - `source/manifest.toml`: `spec_version`, `source_set_sha256`, one `[[file]]` per source; alias only.
-- `source/redaction.sha256.json`: hash-only, injective placeholder.
-- Redact project, product, repository, organization, user, ticket, and private-host identifiers. Keep normative constants.
-- `source/redaction.review.json`: every candidate → `redacted` / `allowlist` / `generic`.
-- `<name>-okf.path-alias.json`: `okf-path-alias/v1`; `input_roots` + alias → original; outside the skill tree.
 - `source/input-ledger.json`: `okf-input-ledger/v1`; every input under the declared roots → `included` or `excluded` + reason.
-- `source/shared-engine.json`: `okf-shared-engine/v1`; every copied shared module with its SHA-256.
+- `source/concept-inventory.json`: `okf-concept-inventory/v1`; every concept id, path, and source alias.
+- `source/okf-log.json`: `okf-log/v1`; explicit dated entries.
+- Redact project, product, repository, organization, user, ticket, and private-host identifiers. Keep normative constants.
+- `<name>-okf.path-alias.json`: `okf-path-alias/v1`; `input_roots` + alias → original; outside the skill tree.
+- `source/shared-engine.json`: `okf-shared-engine/v1`; every copied module with its SHA-256.
 
 ### Step 6: Engine TDD
 
-Red first: failing tests per library.
+Red first: failing tests per module.
 
-| Library | Responsibility | Red test |
+| Module | Responsibility | Red test |
 |---|---|---|
-| `markdown` | headings, tables, fences, lists | fenced block and table are typed blocks |
-| `redact` | hash-only mapping | map has only `sha256` and `placeholder` |
-| `toml` | manifest/profile parse | quoted value survives |
-| `path-alias` | alias → original | unmapped alias fails |
-| `okf` | frontmatter parse | node body and fields separated |
-| `coverage` | line partition | every line attributed or excluded |
-| `atoms` | Claim extraction | empty source yields `INFORMATION_ZERO` |
-| `claims` | registry bijection | missing row fails |
-| `manifest` | lock and ledger render | rebuild byte-identical |
-| `render-okf` | node/index/log/source render | index row per node |
-| `retrieval` | deterministic rank | same query same bytes |
-| `freshness` | source hash compare | stale node reported |
-| `conflicts` | symmetric pair | one-sided pair fails |
-| `answer-verify` | citation and uncited detection | uncited assertion fails |
-| `usage` | manual completeness | missing section fails |
-| `drift` | shared module hash | drift fails |
-| `commands` | CLI dispatch | unknown command exits 2 |
+| `frontmatter` | YAML parse and unknown-key preservation | missing frontmatter and empty type fail |
+| `markdown` | mdast links, footnotes, code blocks | a fenced link is not an edge |
+| `paths` | link resolution and containment | root escape is `blocked` |
+| `bundle` | scan, classify, load | ids are paths and reserved files are not concepts |
+| `graph` | outgoing, incoming, backlinks | both directions agree |
+| `metadata` | trust, status, staleness, sources | human/machine/unverified |
+| `validation` | conformance, lint, profile | broken links pass conformance |
+| `context` | closure, budget | over budget throws `BUDGET_EXCEEDED` |
+| `authoring` | concept, index, log writers | rebuild is byte-identical |
+| `cli` | command dispatch | unknown command exits 2 |
 
 - Green: behavior, not literal test wording.
 - Refactor: remove duplicated path resolution, hardcoded values, false comments, untested branches; check Green before/after; rollback a break.
-- Generated `scripts/` carries no ticket id, project name, or example literal.
+- Generated `okf-core/` carries no ticket id, project name, or example literal.
 
-### Step 6.5: Claim inventory and knowledge coverage
+### Step 7: OKF bundle
 
-- `source/claim-inventory.json`: `okf-claim-inventory/v1`; every Claim or CodeBlock Atom → one entry with source, span, and hash.
-- `source/knowledge-coverage.json`: `okf-knowledge-coverage/v1`; every node → `must` with source.
-- `source/line-coverage.json`: `okf-line-coverage/v1`; every source line attributed or listed as a gap; a gap blocks the build.
-- No orphan inventory row; no node without a decision.
-- Inventory and coverage are deterministic and reproducible from the source set.
-
-### Step 7: OKF
-
-- One Atom = one node.
-- Frontmatter: `type`, `id`, `topic`, `summary`, `sources`, `source_sha256`, `span`, `links`, `conflicts`, `supersedes`, `content_sha256`.
-- Node body = Atom text + one trailing newline; SHA-256 of the body after removing that newline equals `content_sha256`.
-- Write `okf/index.md`, `okf/log.md`, `okf/source.md`, `okf/source.baseline.md`.
-- `okf/source.md` = manifest order, `# Source: <alias>` headers, redacted source text; `okf/source.baseline.md` byte-identical.
-- Delivered context from the lock; the AI never reads `okf/` directly.
+- Write `okf/pages/**/*.md` with the frontmatter schema above.
+- Write `okf/index.md` and one `index.md` per directory as linked lists.
+- Write `okf/log.md` from `source/okf-log.json`; newest date first.
+- Write `source/source-view.md` and `source/source.baseline.md` outside the bundle.
+- Delivered context from `okf-core`; the AI uses the CLI, not raw grep.
 
 ### Step 8: Bundle and installer
 
-- `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map; resolves `okf/` as a sibling; `absWorkingDir` pinned to the skill root; atomic write.
-- `install.js`: copy-only; copies `dist/skill.mjs`, `scripts/`, `okf/`, `source/`, `atoms.lock.json`, `SKILL.md`, `DESIGN.md`, `IMPLEMENTATION-LEFTOVERS.md`, `tests/fixtures/runtime/runtime.json`; no build, judge, or target edit.
+- `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map, `createRequire` banner for CommonJS dependencies; resolves `okf-core/` as a sibling; `absWorkingDir` pinned to the skill root; atomic write.
+- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `scripts/`, `okf/`, `source/`, `atoms.lock.json`, `package.json`, `THIRD_PARTY_NOTICES.md`, `SKILL.md`, `DESIGN.md`, `IMPLEMENTATION-LEFTOVERS.md`, `tests/fixtures/runtime/runtime.json`; no build, judge, or target edit.
 
 ### Step 9: Test matrix
 
-- `node --test`; optional dist/esbuild test reported, never pass.
-- Required: `atom`, `claim`, `retrieval`, `freshness`, `conflict`, `answer`, `usage`, `drift`, `verifier-negative`, `installed-parity`, `source-rederivation`, `style`.
-- Include determinism, performance, forbidden-token, leak, coverage, style: `STYLE_NOT_ENGLISH`, `STYLE_LOW_DENSITY`, `STYLE_REDUNDANT`.
-- Never `make test`.
+- `node --test` on explicit files; never a directory; never `make test`.
+- Required: `frontmatter`, `markdown`, `paths`, `bundle`, `graph`, `metadata`, `validation`, `context`, `authoring`, `cli`, `verifier-negative`, `installed-parity`, `source-rederivation`, `style`, `performance`.
+- Include determinism, forbidden-token, leak, coverage, and style checks.
 
 ### Step 10: Verify
 
@@ -243,7 +312,7 @@ node "$CLAUDE_DIR/scripts/amend-rfc-up/verify-okf-skill.mjs" \
   --out "$OKF_OUT/<name>-dev-verification.json"
 ```
 
-Require exit 0, `check_set_version: 1`, 19/19 `machine_verified`, closure recorded.
+Require exit 0, `check_set_version` from `checks.json`, every dev-required check `machine_verified`, closure recorded.
 
 Installed mode:
 
@@ -257,43 +326,42 @@ node "$CLAUDE_DIR/scripts/amend-rfc-up/verify-okf-skill.mjs" \
   --out "$OKF_OUT/<name>-installed-verification.json"
 ```
 
-Require exit 0, 8/8 installed required checks `machine_verified`, source/installed SHA match. Then `check lint`, `check graph`, `check coverage`, `check provenance`, `check citation`, `check usage`, `check conflicts`; `rebuild` byte-identical; forbidden-token scan. Any failure → no install.
+Require exit 0, every installed-required check `machine_verified`, source/installed SHA match. Any failure → no install.
 
 ### Step 11: Install
 
 - Copy staging tree atomically → `SKILL_DIR`; existing `SKILL_DIR` → backup under `OKF_OUT/backup/`.
 - Copy/post-check fail → rollback backup; `INSTALL_BLOCKED`.
 - Copy `ALIAS_PATH` beside `SKILL_DIR`; never inside it.
-- Installed `dist` resolves sibling `okf/`; installed mode passes; `applies` is advisory and never blocks.
+- Installed `dist` resolves sibling `okf/`; installed mode passes.
 
 ### Step 12: Acceptance
 
 - Acceptance set = the invocation's source set. No fixed external fixture, document name, or path.
-- Per build: run end to end; record source hashes, lines, Atom/Claim counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA in `$OKF_OUT/okf-builds.json`.
+- Per build: run end to end; record source hashes, lines, concept counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA in `$OKF_OUT/okf-builds.json`.
 - Producer proof: a synthetic mini wiki verified in dev and installed modes.
 - Mutation matrix:
 
 | Mutation | Required result |
 |---|---|
-| Rename directory or file | Atom IDs + content hashes unchanged after path normalization |
-| Reorder sources | claim set + coverage unchanged |
-| Remove a claim source | `CLAIM_UNSOURCED`; no install |
-| Remove a links target | `LINK_UNRESOLVED`; no install |
-| Remove an index row | `INDEX_ORPHAN`; no install |
+| Rename directory or file | concept id changes; source hash unchanged |
+| Reorder sources | concept set and coverage unchanged |
+| Remove a concept source | `CLAIM_UNSOURCED`; no install |
+| Remove a body link target | conformance passes; lint `LINK_BROKEN`; no install |
+| Remove an index row | lint `INDEX_ORPHAN`; no install |
 | Edit a source | `STALE_NODE`; no current presentation |
-| Declare one-sided conflict | `CONFLICT_ASYMMETRIC`; no install |
-| Remove a usage section | `USAGE_INCOMPLETE`; no install |
+| Unknown type / unknown key | conformance passes; lint reports |
+| Over-budget context | `BUDGET_EXCEEDED`; no truncation |
 | Drift a shared module | `ENGINE_DRIFT`; no install |
 | Tamper installed copy | `INSTALLED_SHA_MISMATCH`; no completion |
 | Inject CRLF | LF-normalized; hashes stable |
-| Duplicate heading | Atom IDs unique |
-| Expand to 2.5k nodes | performance budget met |
+| Expand to 2.5k concepts | performance budget met |
 
 Scan the generated tree for example literals, original paths, ticket ids, and CJK. The command body names no fixture.
 
 ### Step 13: Report
 
-- Report per skill: name, sources, profile hash, source count, lines, Atom count, Claim count, gaps, overlaps, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, install path, leftovers.
+- Report per skill: name, sources, profile hash, source count, lines, concept count, gaps, overlaps, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, install path, leftovers.
 - Report mutation results + adoption gaps.
 - Completion: every skill `machine_verified` in dev and installed, `rebuild` byte-identical, install verified, acceptance record pass.
 
@@ -301,15 +369,15 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 
 | Gate | Pass |
 |---|---|
-| Canonical verifier dev | `verify-okf-skill.mjs` exit 0; `check_set_version: 1`; 19 checks `machine_verified`; closure recorded |
-| Canonical verifier installed | installed tree; 8 required checks `machine_verified`; source/installed SHA match |
-| Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `boundary`, `provenance`, `citation`, `graph`, `freshness`, `conflicts`, `retrieval`, `usage`, `runtime`, `tests`, `installer`, `determinism`, `distribution`, `style` |
-| Bundle | `check lint` exit 0 |
-| Graph | `check graph` exit 0 |
-| Coverage | `check coverage` exit 0 |
-| Provenance | `check provenance` exit 0 |
-| Citation | `check citation` exit 0 |
-| Usage | `check usage` exit 0 |
+| Canonical verifier dev | exit 0; `check_set_version` from `checks.json`; every dev check `machine_verified`; closure recorded |
+| Canonical verifier installed | installed tree; every installed check `machine_verified`; source/installed SHA match |
+| Conformance | three official conditions only |
+| Lint | broken link, missing index, orphan, unknown type/key, stale, source mismatch |
+| Profile | required types/concepts/rules, closure |
+| Graph | outgoing, incoming, backlinks, index coverage |
+| Context | required closure; `BUDGET_EXCEEDED` over budget |
+| Navigation | `show` returns body, outgoing, incoming, sources, trust, freshness |
+| Usage | 12 sections + 10 scenarios |
 | Determinism | `rebuild` prints byte-identical |
 | Distribution | shared module hashes match; alias map outside the skill tree |
 | Install | installed `dist/skill.mjs` resolves sibling `okf/` |
@@ -328,22 +396,25 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 | `DERIVED_EXCLUDED` | self-described derived view | record alias + phrase; continue |
 | `INFORMATION_ZERO` | no claim-bearing block | stop before profile |
 | `ARTIFACT_MISSING` | a required artifact is absent | write the artifact; re-verify |
-| `CLAIM_UNSOURCED` | a Claim lacks source, span, or hash | repair provenance; no install |
-| `REGISTRY_MISMATCH` | Claim Atoms ≠ registry rows | repair IDs; reclassify |
-| `COVERAGE_GAP` | node or line without a decision | re-extract; never hand-edit the lock |
-| `LINK_UNRESOLVED` | a links target does not exist | add the node or remove the link |
-| `INDEX_ORPHAN` | a node is absent from the index | re-render; no hand edit |
+| `CLAIM_UNSOURCED` | a concept lacks source or hash | repair provenance; no install |
+| `COVERAGE_GAP` | concept or line without a decision | re-extract; never hand-edit the lock |
+| `LINK_BROKEN` | a body link target does not exist | fix the link or add the concept; lint-only |
+| `INDEX_ORPHAN` | a concept is absent from its directory index | re-render; no hand edit |
 | `STALE_NODE` | source hash changed after the build | rebuild from the current source |
-| `CONFLICT_ASYMMETRIC` | a conflict is declared on one side only | declare both sides or remove it |
-| `USAGE_INCOMPLETE` | a required scenario section or example is missing | complete `SKILL.md`; no install |
+| `BUDGET_EXCEEDED` | required context over budget | narrow the entry set; never truncate |
+| `UNKNOWN_TYPE` | type outside the profile | add the type or fix the source |
+| `UNKNOWN_KEY` | key outside the profile | use `x-` or add the key |
+| `CONFORMANCE_FAILED` | one of the three official conditions fails | fix frontmatter, type, index, or log |
+| `PROFILE_FAILED` | required type/concept/rule absent | add the required concept |
+| `USAGE_INCOMPLETE` | a traversal section or scenario is missing | complete `SKILL.md`; no install |
 | `ENGINE_DRIFT` | a shared module differs from its recorded hash | restore the byte-identical copy; no install |
 | `INSTALLED_SHA_MISMATCH` | source and installed differ | reinstall; no completion |
 | `NON_DETERMINISTIC` | rebuild drift | remove timestamps, unordered iteration, absolute paths |
-| `VERIFIER_FAILED` | any check not `machine_verified` | repair; re-verify; no install |
+| `VERIFIER_FAILED` | any required check not `machine_verified` | repair; re-verify; no install |
 | `INSTALL_BLOCKED` | copy or post-check fail | restore backup; report |
 
 ## Completion
 
-- Every built skill: canonical verifier dev 19/19 and installed 8/8 `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass.
+- Every built skill: canonical verifier dev and installed `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass.
 - No write to `CLAUDE.md` or the make/plan/start/review/resolve commands.
 - Report adoption gaps; never claim V1 as rule-level proof.

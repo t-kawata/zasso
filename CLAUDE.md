@@ -168,7 +168,7 @@ gate: not Tiny → ask; stop — propose the `/make-ticket` pipeline (make → p
 
 ### Rust interface law (conditional)
 
-- Law skill built/changed: canonical verifier v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+- Law skill built/changed: canonical verifier v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
 
 Trigger: changed/target path matches `crates/**` unit with role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only when ticket declares interface scope.
 

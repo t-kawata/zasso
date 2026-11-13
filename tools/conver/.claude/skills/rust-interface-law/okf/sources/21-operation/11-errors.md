@@ -1,0 +1,27 @@
+---
+type: "Section"
+title: "11. Errors"
+description: "`error/mapping.rs` maps `DomainError` to `OperationError`. Every"
+sources: 
+  - resource: "sources/21-OPERATION.md"
+    id: "21-operation-11-errors"
+    title: "11. Errors"
+generated: 
+  by: "build-law-skill"
+  at: "2026-11-13"
+verified: 
+  - by: "human:law-review"
+    at: "2026-11-13"
+status: "stable"
+x-document: "sources/21-OPERATION.md"
+x-source-span: "336-344"
+---
+## 11. Errors
+
+`error/mapping.rs` maps `DomainError` to `OperationError`. Every
+`DomainErrorCode` has a mapping; an unknown code is a defect and fails the
+build. Adapters receive `OperationErrorBody`; the internal `source` is never
+serialized.
+
+---
+

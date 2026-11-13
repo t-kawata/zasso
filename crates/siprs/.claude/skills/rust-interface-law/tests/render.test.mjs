@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-421 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-421 --for-spec --no-implementation-order`.
 import test from 'node:test';
@@ -13,9 +15,19 @@ const manifest = {
     {
       id: 'WS-01',
       type: 'Rule',
+      concept_id: 'rules/c/ws-01',
       phase: 'adapter',
       delivery: 'must',
-      applies_to: 'websocket',
+      applies_to: 'ws',
+      rule_class: 'C',
+      description: 'The ticket is random and short-lived.',
+      verification: 'V3 test.',
+      enforcement: 'conformance driver',
+      outgoing: [],
+      incoming: [],
+      sources: [{ resource: 'sources/31-WEBSOCKET.md', id: 'ws-01' }],
+      trustTier: 'human-reviewed',
+      freshness: { stale: false },
       content_sha256: 'a'.repeat(64),
       body: '| `WS-01` | C | ws | WS | Part III.7 | The ticket is random and short-lived. | V3 test. | conformance driver |',
     },
@@ -47,7 +59,7 @@ test('context Markdown states situation, required work, and next commands', () =
   assert.match(text, /## Required work/);
   assert.match(text, /- \[ \] \*\*WS-01\*\*: The ticket is random and short-lived\./);
   assert.match(text, /## Rule references/);
-  assert.match(text, /\| WS-01 \| C \| ws \/ WS \| Part III\.7 \| V3 test\. \| conformance driver \|/);
+  assert.match(text, /\| WS-01 \| C \| ws \| V3 test\. \| conformance driver \|/);
   assert.match(text, /node "\$LAW" gate --manifest "\$MANIFEST" --out "\$LAW_OUT\/gate-report\.json"/);
   assert.equal(text.includes('/repo'), false);
   assert.match(text, /Delivery hash \| `c{64}`/);

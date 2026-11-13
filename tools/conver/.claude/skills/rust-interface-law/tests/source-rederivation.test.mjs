@@ -1,10 +1,14 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { redactText, sha256 } from '../scripts/lib/redact.mjs';
+import { generateLawBundle } from '../scripts/generate-law-bundle.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = join(root, '..', '..', '..');
@@ -47,14 +51,14 @@ test('C002 manifest hashes match the source bytes', () => {
   }
 });
 
-test('C002 lock spans and content hashes re-derive from the source', () => {
-  for (const atom of lock.atoms) {
-    const original = join(sourceRoot, aliasMap.aliases[atom.source]);
-    const lines = linesOf(readFileSync(original, 'utf8'));
-    const spanText = lines.slice(atom.span.start_line - 1, atom.span.end_line).join('\n');
-    assert.equal(sha256(spanText), atom.source_sha256, atom.id);
-    assert.equal(sha256(redactText(spanText, redaction)), atom.content_sha256, atom.id);
+test('C002 lock rules and source spans re-derive from the registry', () => {
+  const ruleMap = JSON.parse(readFileSync(join(root, 'source/rule-concepts.json'), 'utf8'));
+  assert.equal(Object.keys(ruleMap.byRule).length, 466);
+  for (const rule of Object.values(ruleMap.byRule)) {
+    assert.ok(aliasMap.aliases[rule.source_alias], rule.rule_id);
+    assert.match(rule.source_span, /^\d+-\d+$/, rule.rule_id);
   }
+  assert.equal((lock.rules ?? []).length, 466);
 });
 
 test('C002 coverage partitions every source line', () => {
@@ -75,21 +79,23 @@ test('C002 source view and baseline are regenerable', () => {
     parts.push(`# Source: ${file.path}`, '', text.replace(/\n+$/, ''), '');
   }
   const expected = parts.join('\n');
-  assert.equal(readFileSync(join(root, 'okf/source.md'), 'utf8'), expected);
-  assert.equal(readFileSync(join(root, 'okf/source.baseline.md'), 'utf8'), expected);
+  assert.equal(readFileSync(join(root, 'source/source-view.md'), 'utf8'), expected);
+  assert.equal(readFileSync(join(root, 'source/source.baseline.md'), 'utf8'), expected);
 });
 
-test('C002 ingest verify and rebuild are byte-identical', () => {
-  const aliasPath = join(root, '..', 'rust-interface-law.path-alias.json');
-  const verify = execFileSync(process.execPath, [join(root, 'scripts/ingest.mjs'), 'verify', '--alias', aliasPath], {
-    cwd: sourceRoot,
-    encoding: 'utf8',
-  });
-  assert.match(verify, /verify: 19 files, 2733 atoms, 7125 lines/);
-  const rebuild = execFileSync(process.execPath, [join(root, 'scripts/cli.mjs'), 'rebuild', '--root', root, '--alias', aliasPath], {
-    cwd: sourceRoot,
-    encoding: 'utf8',
-  });
-  assert.match(rebuild, /rebuild: byte-identical/);
-  assert.ok(existsSync(join(root, 'okf/source.md')));
+test('C002 two generations are byte-identical', () => {
+  const first = mkdtempSync(join(tmpdir(), 'law-rederive-a-'));
+  const second = mkdtempSync(join(tmpdir(), 'law-rederive-b-'));
+  try {
+    const sourcePaths = manifest.map((file) => file.path.split('/').pop());
+    const sourcePath = join(repoRoot, 'docs/archive/IMPLEMENTATION-SPEC');
+    generateLawBundle({ sourceRoot: sourcePath, sourcePaths, outDir: join(first, 'okf'), sourceDir: join(first, 'source'), date: '2026-11-13' });
+    generateLawBundle({ sourceRoot: sourcePath, sourcePaths, outDir: join(second, 'okf'), sourceDir: join(second, 'source'), date: '2026-11-13' });
+    assert.equal(readFileSync(join(first, 'source/rule-concepts.json'), 'utf8'), readFileSync(join(second, 'source/rule-concepts.json'), 'utf8'));
+    assert.equal(readFileSync(join(first, 'atoms.lock.json'), 'utf8'), readFileSync(join(second, 'atoms.lock.json'), 'utf8'));
+    assert.ok(existsSync(join(root, 'source/source-view.md')));
+  } finally {
+    rmSync(first, { recursive: true, force: true });
+    rmSync(second, { recursive: true, force: true });
+  }
 });

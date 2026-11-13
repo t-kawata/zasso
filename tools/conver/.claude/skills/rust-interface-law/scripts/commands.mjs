@@ -18,8 +18,13 @@ import {
   renderMapToml,
   renderProfileToml,
 } from './lib/autoconfig.mjs';
-import { buildManifest, loadOkf } from './lib/closure.mjs';
-import { explainRule } from './lib/explain.mjs';
+import { buildManifest } from './lib/closure.mjs';
+import { loadLawNodes, loadRuleMap, loadBundle, explainRule as explainLawRule } from './lib/law-bundle.mjs';
+import { listDirectory, validateConformance, lintBundle, checkProfile } from '../okf-core/index.mjs';
+import { showConcept, outgoingEdges, incomingEdges, neighborEdges } from '../okf-core/commands/navigation.mjs';
+import { searchConcepts } from '../okf-core/commands/search.mjs';
+import { resolveRequired } from '../okf-core/context/resolve-required.mjs';
+import { buildContext } from '../okf-core/context/assemble.mjs';
 import { loadImplementationPolicy, phaseForRuleId, resolveEffectivePolicy } from './lib/implementation-policy.mjs';
 import { checkDependencies, readCargoMetadata } from './lib/implementation-metadata.mjs';
 import { scanFiles } from './lib/implementation-scan.mjs';
@@ -52,14 +57,15 @@ const RULE_INTERFACE_BY_PREFIX = {
   A2A: 'a2a',
 };
 
-export function resolveCommand(argv) {
+export async function resolveCommand(argv) {
   const options = parseArgs(argv);
   const root = resolve(options.root ?? gitRepoRoot(process.cwd()));
   const auto = !options.profile || !options.map;
   const discovered = auto ? discoverWorkspace(root) : null;
   const profile = options.profile ? loadProfile(options.profile) : discovered.profile;
   const map = options.map ? loadWorkspaceMap(options.map) : { units: discovered.units };
-  const nodes = loadOkf(options.okf ?? join(skillRoot(), 'okf'));
+  const loaded = await loadLawNodes({ skillRoot: skillRoot() });
+  const nodes = loaded.nodes;
   const paths = String(options.paths ?? '').split(',').filter(Boolean);
 
   const units = options.unit
@@ -92,8 +98,23 @@ export function resolveCommand(argv) {
   }));
 }
 
-export function contextCommand(argv) {
+export async function contextCommand(argv) {
   const options = parseArgs(argv);
+  if (options.rule) {
+    const root = skillRoot();
+    const ruleMap = loadRuleMap(join(root, 'source/rule-concepts.json'));
+    const entry = ruleMap.byRule.get(String(options.rule));
+    if (!entry) throw new Error('unknown rule: ' + options.rule);
+    const bundle = await loadBundle(join(root, 'okf'));
+    const set = resolveRequired({ bundle, entryIds: [entry.concept_id] });
+    const artifact = buildContext({
+      bundle,
+      requiredSet: { ...set, context: set.required },
+      budgetBytes: options.budget ? Number(options.budget) : undefined,
+    });
+    process.stdout.write(JSON.stringify({ required: set, artifact }) + '\n');
+    return;
+  }
   const manifestPath = required(options, 'manifest');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const redaction = loadRedaction();
@@ -178,16 +199,14 @@ function labelUnit(unit) {
   return '`' + unit.id + '` (' + unit.role + ')';
 }
 
-export function explainCommand(argv) {
+export async function explainCommand(argv) {
   const options = parseArgs(argv);
-  const lock = JSON.parse(readFileSync(
-    options.lock ?? join(skillRoot(), 'atoms.lock.json'),
-    'utf8',
-  ));
-  process.stdout.write(explainRule({
+  const root = skillRoot();
+  const ruleMap = loadRuleMap(join(root, 'source/rule-concepts.json'));
+  process.stdout.write(await explainLawRule({
     ruleId: required(options, 'rule'),
-    lock,
-    root: resolve(options.root ?? gitRepoRoot(process.cwd())),
+    ruleMap,
+    skillRoot: root,
   }));
 }
 
@@ -196,9 +215,7 @@ export function scaffoldCommand(argv) {
   const root = resolve(options.root ?? gitRepoRoot(process.cwd()));
   const plan = JSON.parse(readFileSync(required(options, 'plan'), 'utf8'));
   const lock = JSON.parse(readFileSync(join(skillRoot(), 'atoms.lock.json'), 'utf8'));
-  const knownRules = new Set(
-    lock.atoms.filter((atom) => atom.type === 'Rule').map((atom) => atom.id),
-  );
+  const knownRules = new Set((lock.rules ?? []).map((rule) => rule.rule_id));
   const result = applyScaffold({
     root,
     plan,
@@ -483,42 +500,32 @@ export function packageCommand(argv) {
     parts.push('# Source: ' + file.path, '', text.replace(/\n+$/, ''), '');
   }
   const text = parts.join('\n');
-  const out = options.out ?? join(skillRoot(), 'okf/source.md');
+  const out = options.out ?? join(skillRoot(), 'source/source-view.md');
   writeAtomic(out, text);
   if (options.check) {
-    const baseline = join(skillRoot(), 'okf/source.baseline.md');
+    const baseline = join(skillRoot(), 'source/source.baseline.md');
     if (!existsSync(baseline)) throw new Error('package: baseline missing');
     if (readFileSync(baseline, 'utf8') !== text) throw new Error('package: drift');
   }
   process.stdout.write('package: ' + (manifest.file ?? []).length + ' files -> ' + out + '\n');
 }
 
-export function rebuildCommand(argv) {
+export async function rebuildCommand(argv) {
   const options = parseArgs(argv);
   const root = resolve(options.root ?? skillRoot());
   const temporary = mkdtempSync(join(tmpdir(), 'law-rebuild-'));
   try {
-    const aliasPath = options.alias
-      ?? join(dirname(root), basename(root) + '.path-alias.json');
-    const ingestArgs = [
-      join(root, 'scripts/ingest.mjs'),
-      'classify',
-      '--lock', join(temporary, 'atoms.lock.json'),
-      '--coverage', join(temporary, 'coverage.json'),
-      '--report', join(temporary, 'coverage.md'),
-    ];
-    if (existsSync(aliasPath)) ingestArgs.push('--alias', aliasPath);
-    execFileSync(process.execPath, ingestArgs, { cwd: process.cwd(), stdio: 'ignore' });
-
-    for (const file of ['atoms.lock.json', 'coverage.json', 'coverage.md']) {
-      if (readFileSync(join(root, file), 'utf8') !== readFileSync(join(temporary, file), 'utf8')) {
-        throw new Error('drift: ' + file);
-      }
-    }
-
-    renderOkf(JSON.parse(readFileSync(join(temporary, 'atoms.lock.json'), 'utf8')), join(temporary, 'okf'));
+    const bundle = await loadBundle(join(root, 'okf'));
+    const { writeDirectoryIndexes } = await import('../okf-core/authoring/index.mjs');
+    const { writeLog } = await import('../okf-core/authoring/log.mjs');
+    writeDirectoryIndexes({ bundle, outDir: temporary });
+    const logPath = join(root, 'source/okf-log.json');
+    const entries = existsSync(logPath)
+      ? JSON.parse(readFileSync(logPath, 'utf8')).entries
+      : [{ date: '1970-01-01', text: 'rebuild' }];
+    writeLog({ outDir: temporary, entries });
     for (const file of ['index.md', 'log.md']) {
-      if (readFileSync(join(root, 'okf', file), 'utf8') !== readFileSync(join(temporary, 'okf', file), 'utf8')) {
+      if (readFileSync(join(root, 'okf', file), 'utf8') !== readFileSync(join(temporary, file), 'utf8')) {
         throw new Error('drift: okf/' + file);
       }
     }
@@ -792,4 +799,117 @@ function writeAtomic(path, text) {
   const temporary = path + '.tmp';
   writeFileSync(temporary, text);
   renameSync(temporary, path);
+}
+
+export async function listCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  process.stdout.write(JSON.stringify({ path: options.path ?? '', entries: listDirectory(bundle, options.path ?? '') }) + '\n');
+}
+
+export async function showCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
+  const requested = position(options);
+  const conceptId = ruleMap.byRule.get(requested)?.concept_id ?? requested;
+  process.stdout.write(JSON.stringify(showConcept({ bundle, id: conceptId })) + '\n');
+}
+
+export async function outgoingCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
+  const conceptId = resolveRuleConceptId(ruleMap, position(options));
+  process.stdout.write(JSON.stringify({ id: conceptId, edges: outgoingEdges({ bundle, id: conceptId }) }) + '\n');
+}
+
+export async function incomingCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
+  const conceptId = resolveRuleConceptId(ruleMap, position(options));
+  process.stdout.write(JSON.stringify({ id: conceptId, edges: incomingEdges({ bundle, id: conceptId }) }) + '\n');
+}
+
+export async function neighborsCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
+  const conceptId = resolveRuleConceptId(ruleMap, position(options));
+  process.stdout.write(JSON.stringify({ id: conceptId, edges: neighborEdges({ bundle, id: conceptId }) }) + '\n');
+}
+
+export async function requiredCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  if (options.rule) {
+    const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
+    const entry = ruleMap.byRule.get(String(options.rule));
+    if (!entry) throw new Error('unknown rule: ' + options.rule);
+    process.stdout.write(JSON.stringify(resolveRequired({ bundle, entryIds: [entry.concept_id] })) + '\n');
+    return;
+  }
+  if (options.phase) {
+    const loaded = await loadLawNodes({ skillRoot: skillRoot() });
+    const phaseNodes = loaded.nodes.filter((node) => node.phase === options.phase);
+    const required = [...new Set(phaseNodes.flatMap((node) => [node.id, ...(node.requires ?? [])]))].sort();
+    process.stdout.write(JSON.stringify({ phase: options.phase, required }) + '\n');
+    return;
+  }
+  throw new Error('required needs --rule or --phase');
+}
+
+export async function searchCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  process.stdout.write(JSON.stringify({ query: options.query ?? '', rows: searchConcepts({ bundle, query: options.query ?? '' }) }) + '\n');
+}
+
+export async function lintCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const findings = options.mode === 'conformance' ? validateConformance(bundle) : lintBundle(bundle);
+  process.stdout.write(JSON.stringify({ mode: options.mode ?? 'lint', findings }) + '\n');
+  if (findings.length > 0) process.exitCode = 1;
+}
+
+export async function trustCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const rows = bundle.concepts
+    .filter((concept) => !options.tier || concept.trustTier === options.tier)
+    .map((concept) => ({ id: concept.id, rule_id: concept.frontmatter?.['x-rule-id'] ?? null, tier: concept.trustTier }));
+  process.stdout.write(JSON.stringify({ rows }) + '\n');
+}
+
+export async function freshnessCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const now = options.now ? new Date(`${options.now}T00:00:00Z`) : new Date();
+  const rows = bundle.concepts
+    .filter((concept) => concept.isStale(now))
+    .map((concept) => ({ id: concept.id, rule_id: concept.frontmatter?.['x-rule-id'] ?? null, status: concept.status }));
+  process.stdout.write(JSON.stringify({ rows }) + '\n');
+}
+
+export async function sourcesCommand(argv) {
+  const options = parseArgs(argv);
+  const bundle = await loadBundle(join(skillRoot(), 'okf'));
+  const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
+  const conceptId = resolveRuleConceptId(ruleMap, position(options));
+  const concept = bundle.byId.get(conceptId);
+  process.stdout.write(JSON.stringify({ id: conceptId, sources: concept?.sources ?? [] }) + '\n');
+}
+
+// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+function position(options) {
+  const value = options._?.[0];
+  if (!value) throw new Error('positional argument is required');
+  return value;
+}
+
+// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+function resolveRuleConceptId(ruleMap, requested) {
+  return ruleMap.byRule.get(requested)?.concept_id ?? requested;
 }

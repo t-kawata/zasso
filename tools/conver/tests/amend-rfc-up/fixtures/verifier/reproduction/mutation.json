@@ -1,5 +1,6 @@
 {
-  "path": "okf/source.md",
-  "operation": "append",
-  "content": "\ntampered\n"
+  "path": "source/source.baseline.md",
+  "operation": "replace",
+  "find": "# Source View",
+  "replace": "# Source View Mutated"
 }

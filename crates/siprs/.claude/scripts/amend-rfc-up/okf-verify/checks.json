@@ -1,5 +1,5 @@
 {
-  "check_set_version": "1",
+  "check_set_version": "2",
   "checks": [
     { "name": "layer", "mode": "both" },
     { "name": "manifest", "mode": "dev" },
@@ -19,6 +19,17 @@
     { "name": "installer", "mode": "both" },
     { "name": "determinism", "mode": "dev" },
     { "name": "distribution", "mode": "both" },
-    { "name": "style", "mode": "dev" }
+    { "name": "style", "mode": "dev" },
+    { "name": "conformance", "mode": "both" },
+    { "name": "lint", "mode": "dev" },
+    { "name": "profile", "mode": "dev" },
+    { "name": "indexlog", "mode": "dev" },
+    { "name": "trust", "mode": "dev" },
+    { "name": "sources", "mode": "dev" },
+    { "name": "context", "mode": "both" },
+    { "name": "navigation", "mode": "both" },
+    { "name": "containment", "mode": "both" },
+    { "name": "library", "mode": "dev" },
+    { "name": "performance", "mode": "dev" }
   ]
 }

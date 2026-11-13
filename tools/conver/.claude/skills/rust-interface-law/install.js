@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-421 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-421 --for-spec --no-implementation-order`.
 const { cpSync, existsSync, mkdirSync } = require('node:fs');
@@ -18,9 +20,14 @@ if (!existsSync(dist)) {
 // Preserve dist/ so the bundled entry resolves okf/ as a sibling, exactly as in the source tree.
 mkdirSync(targetDistDir, { recursive: true });
 cpSync(dist, join(targetDistDir, 'skill.mjs'));
+cpSync(join(root, 'scripts'), join(targetDir, 'scripts'), { recursive: true });
+cpSync(join(root, 'okf-core'), join(targetDir, 'okf-core'), { recursive: true });
 cpSync(join(root, 'okf'), join(targetDir, 'okf'), { recursive: true });
 cpSync(join(root, 'source'), join(targetDir, 'source'), { recursive: true });
 cpSync(join(root, 'templates'), join(targetDir, 'templates'), { recursive: true });
+for (const file of ['atoms.lock.json', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md', 'package.json', 'THIRD_PARTY_NOTICES.md']) {
+  if (existsSync(join(root, file))) cpSync(join(root, file), join(targetDir, file));
+}
 // Installed mode executes the verifier's runtime fixture; the fixture is not source law.
 const runtimeFixtures = join(root, 'tests/fixtures/runtime');
 if (existsSync(runtimeFixtures)) {

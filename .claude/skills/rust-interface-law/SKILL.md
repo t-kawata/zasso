@@ -11,199 +11,259 @@ description: >
 
 # Rust Interface Law
 
-Rule text: `okf/`. This file: procedure and entry contract. Never read `okf/` directly; never grep rule IDs.
+Rule text: the OKF v0.2 bundle under `okf/`. This file is the procedure and
+entry contract. Use the CLI to traverse the bundle; do not grep raw bundle files.
+Never invent a rule id: the registry and `source/rule-concepts.json` are the
+identity source.
 
 ## Outcome
 
 | Command | Artifact | Meaning |
 |---|---|---|
 | `applies` | stdout | Exit 0 = interface unit matched; exit 3 = skip the law |
-| `resolve` | `manifest.json` + `*.auto.toml` | Auto-discovered units, phases, `must`/`reference`/`omitted` nodes, `closure_sha256` |
-| `context` | stdout + `ledger.json` | Exact rule bodies for one phase; stable delivery hash |
-| `gate` | `gate-report.json` | Per-node status; exit 0 pass, 50 blocked |
-| `attest` | `attestation.json` | One row per `must` node; `unset` blocks completion |
-| `explain` | stdout | One rule: requirement, verification, enforcement, canonical code examples, implementation contract |
-| `template` | stdout + plan JSON | Render an interface template plan with resolved placeholders; `--reconcile` marks `merge-required`; no write |
-| `implementation-check` | `implementation-report.json` | Dependency, feature, edge, source, and template checks; exit 0 pass, 50 blocked |
-| `law-identity` | stdout | Compare manifest spec_version, dist hash, and policy hash with the installed law |
-| `law-implementation` | stdout + reports | Run implementation-check then gate with the report; exit 50 on either failure |
-| `scaffold` | stdout + `scaffold-manifest.json` | Package-level file plan; dry-run by default; `--write` applies |
+| `resolve` | `manifest.json` + `*.auto.toml` | Units, phases, `must`/`reference`/`omitted` nodes, `concept_id`, `closure_sha256` |
+| `context` | stdout + `ledger.json` | Rule bodies plus outgoing, incoming, sources, trust, freshness |
+| `gate` | `gate-report.json` | Per-rule status; exit 0 pass, 50 blocked |
+| `attest` | `attestation.json` | One row per `must` rule with `rule`, `concept_id`, and evidence |
+| `explain` | stdout | One rule: requirement, verification, enforcement, one-hop neighborhood |
+| `template` | stdout + plan JSON | Interface template plan; `--reconcile` marks `merge-required`; no write |
+| `implementation-check` | `implementation-report.json` | Dependency, feature, edge, source, and template checks |
+| `law-identity` | stdout | Compare manifest spec_version, dist hash, and policy hash |
+| `law-implementation` | stdout + reports | implementation-check then gate; exit 50 on either failure |
+| `scaffold` | stdout + `scaffold-manifest.json` | Package-level plan; dry-run by default; `--write` applies |
 
-Only `machine_verified` is a machine pass. `human_attested` requires `approval_ref`. `unverifiable`, `not_run`, `failed` never pass.
-
-## Zero preparation
-
-`resolve` auto-discovers the workspace. No profile, map, or manifest is authored by hand.
-
-| Source | Discovery |
-|---|---|
-| `Cargo.toml` with `[package]` | Crate name, directory |
-| `crates/**/src/` | Crate candidate when no manifest exists |
-| Path/name suffix | `rest`, `websocket`, `cli`, `grpc`, `mcp`, `a2a` |
-| Path/name role | `operation`, `adapter`, `conformance`, else `core` |
-| Git diff | Changed paths; omitted → all units |
-
-Generated: `RULES-PROFILE.auto.toml`, `workspace-map.auto.toml` next to `manifest.json`. Override with `--profile`/`--map` only for nonstandard layouts.
-
-## Path anchor — run once per session
-
-```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-SKILL_DIR="$REPO_ROOT/.claude/skills/rust-interface-law"
-LAW="$SKILL_DIR/dist/skill.mjs"
-[ -f "$LAW" ] || LAW="$SKILL_DIR/scripts/cli.mjs"
-LAW_OUT="$REPO_ROOT/target/law"
-mkdir -p "$LAW_OUT"
-```
-
-Invoke `node "$LAW" ...` with absolute `--root`/`--out`/`--ledger` paths. Never `cd` into the skill; never write outside `$LAW_OUT`.
-
-## Explain and scaffold
-
-`explain` gives one rule plus its canonical code patterns from the matching interface document:
-
-```bash
-node "$LAW" explain --rule WS-01 --root "$REPO_ROOT"
-```
-
-Output includes `## Dependency check`: every crate named by the canonical `[dependencies]` example is marked `workspace member`, `declared dependency`, `mapped to <project crate>`, or `MISSING`. Canonical roles (`identity-core`, `operation-contract`, `interface-contract`, `contract-macros`) map automatically to project crates; `MISSING` means no project crate fulfills the role.
-
-`scaffold` writes a package-level template batch. AI writes the fixed-schema plan after structural reasoning; the script performs every file/directory operation.
-
-```json
-{
-  "schema": "rust-interface-law.scaffold/v1",
-  "package": "crates/app-rest",
-  "interface": "rest",
-  "unit": "app-rest",
-  "files": [
-    {
-      "path": "crates/app-rest/src/state.rs",
-      "mode": "create",
-      "rules": ["REST-01"],
-      "content": "// RULE: REST-01\npub struct RestState;\n"
-    },
-    {
-      "path": "crates/app-rest/src/lib.rs",
-      "mode": "append",
-      "marker": "// [::LAW-SCAFFOLD::] modules",
-      "rules": ["REST-01"],
-      "content": "pub mod state; // RULE: REST-01\n"
-    }
-  ]
-}
-```
-
-```bash
-node "$LAW" scaffold --plan target/law/scaffold-plan.json --root "$REPO_ROOT"
-node "$LAW" scaffold --plan target/law/scaffold-plan.json --root "$REPO_ROOT" --write
-```
-
-Safety invariants: package basename must end with `-<interface>`; paths stay inside the package; `create` never overwrites; `append` requires a marker appearing exactly once; every file annotates each listed rule; canonical placeholder crates (`operation-contract`, `identity-core`, `interface-contract`, `contract-macros`) are rejected unless they are workspace members; unknown rule, secret, unmarked incomplete code, traversal, or duplicate path rejects the whole plan; writes are rolled back on failure; backups and manifest live under `target/law/`.
-
-## Applicability precheck
-
-Run this before any law command. Do not run the law for unrelated work.
-
-```bash
-node "$LAW" applies --root "$REPO_ROOT" --paths "$CHANGED"
-```
-
-Exit 0 = `APPLIES`; continue. Exit 3 = `SKIP`; stop — no `resolve`, `context`, `gate`, or `attest`. Output lists matched units and their phases. `--include-shared` also matches `operation`, `core`, `adapter`, and `conformance` units.
+Only `machine_verified` is a machine pass. `human_attested` requires
+`approval_ref`. `unverifiable`, `not_run`, and `failed` never pass.
 
 ## Procedure
 
-1. Resolve changed paths (repo-relative, as `git diff --name-only` prints).
+1. Run `applies`. 2. Run `resolve`. 3. Deliver `context` one phase at a time. 4. Implement. 5. Run `implementation-check`, `gate`, and `attest`.
+
+## Start Here
+
+Run `applies` first. If it exits 3, stop. If it exits 0, run `resolve` and then
+`context` for the phases the ticket needs.
 
 ```bash
-CHANGED="$(git -C "$REPO_ROOT" diff --name-only HEAD | paste -sd, -)"
-node "$LAW" resolve \
-  --root "$REPO_ROOT" \
-  --paths "$CHANGED" \
-  --out "$LAW_OUT/manifest.json"
+LAW=".claude/skills/rust-interface-law/dist/skill.mjs"
+LAW_OUT="target/law"
+mkdir -p "$LAW_OUT"
+node "$LAW" applies --root "$REPO_ROOT" --paths "$CHANGED"
 ```
 
-Output: Markdown `# Resolved closure` with units, phases, `must`/`reference`/`omitted`, hash, manifest path, auto-discovery counts. Every `must` node receives a V1 process verification entry. No unit matched → map gap; stop.
+## Directory Traversal
 
-2. Deliver one phase at a time, in `manifest.phases` order.
+The bundle is a tree. Start at the root index, then enter the class or source
+directory that matches the task.
 
 ```bash
-node "$LAW" context \
-  --manifest "$LAW_OUT/manifest.json" \
-  --phases <phase1,phase2> \
-  --ledger "$LAW_OUT/ledger.json"
+node "$LAW" list --path /
+node "$LAW" list --path rules/adapter
+node "$LAW" list --path sources
 ```
 
-`--phase` = one phase; `--phases` = planned subset, manifest order enforced. Deliver only phases the ticket needs. Output: Markdown with `Situation`, `Project role mapping` (canonical crate role → project crate), `Required work` (one checklist item per rule), `Rule references` (requirement / verification / enforcement), `References` (code blocks), and `After implementation`. Implement from this output only. Out-of-order phase fails until its predecessor is in the ledger. `--format raw` prints node markers + bodies + hash.
+## Rule Page
 
-3. Implement. Follow project TDD law.
-
-Before implementation, render the interface template plan:
+`show` returns the rule body, its outgoing links, its incoming links, its
+sources, its trust tier, and its freshness in one call.
 
 ```bash
-node "$LAW" template --interface <role> --unit <unit> --templates "$SKILL_DIR/templates" \
-  --out "$LAW_OUT/template-plan.json" --reconcile --root "$REPO_ROOT"
+node "$LAW" show rules/g/rest-01 --root "$REPO_ROOT"
 ```
 
-Apply the plan with `scaffold --plan "$LAW_OUT/template-plan.json" --write`. A `merge-required` file is not written; merge it by hand. Template bodies are not delivered by `context`.
+## Outgoing and Incoming
 
-After implementation, run the implementation check and pass its report to the gate:
+`outgoing` follows the rule body links. `incoming` follows the backlinks.
+`neighbors` returns both.
+
+```bash
+node "$LAW" outgoing rules/g/rest-01
+node "$LAW" incoming rules/g/rest-01
+node "$LAW" neighbors rules/g/rest-01
+```
+
+## Multi-Hop Reach
+
+Repeat `outgoing` on returned ids until the required set is covered. Stop when
+the next hop adds no new rule. Do not read every rule page by default.
+
+```bash
+node "$LAW" outgoing <rule-id>
+node "$LAW" outgoing <returned-rule-id>
+```
+
+## Required Context
+
+`required` computes the `x-requires` closure. `context` adds bodies and one-hop
+edges. A required set is complete or the command fails; it is never truncated.
+
+```bash
+node "$LAW" required --rule REST-01 --root "$REPO_ROOT"
+node "$LAW" context --rule REST-01 --budget 1000000 --root "$REPO_ROOT"
+```
+
+## Zero Results
+
+An empty `search` or `list` is an answer. Widen the query, list the parent
+directory, or check `applies` before assuming the rule does not exist.
+
+```bash
+node "$LAW" search --query "authorization" --root "$REPO_ROOT"
+node "$LAW" list --path rules
+```
+
+## Budget Exceeded
+
+`BUDGET_EXCEEDED` means the requested closure is too large. Narrow the entry
+set or request one phase at a time. Never accept a truncated rule list.
+
+```bash
+node "$LAW" context --rule REST-01 --budget 1 --root "$REPO_ROOT"
+```
+
+## Trust and Freshness
+
+Every rule page carries `trustTier`, `status`, `stale`, and `staleAfter`.
+A stale or deprecated rule is never presented as current.
+
+```bash
+node "$LAW" trust --tier unverified --root "$REPO_ROOT"
+node "$LAW" freshness --root "$REPO_ROOT"
+```
+
+## Sources and Citation
+
+Every rule concept carries `sources[]` objects. Cite the rule id and the source
+id. A rule without a source is a defect.
+
+```bash
+node "$LAW" sources rules/g/rest-01 --root "$REPO_ROOT"
+```
+
+## Gate and Attest
+
+`gate` decides completion. `attest` records every `must` rule. A gate failure
+is exit 50. An `unset` attestation row blocks completion. `applied` requires
+evidence; `human_attested` requires `approval_ref`.
 
 ```bash
 node "$LAW" implementation-check --root "$REPO_ROOT" --manifest "$LAW_OUT/manifest.json" \
   --out "$LAW_OUT/implementation-report.json"
-```
-
-4. Run the gate.
-
-```bash
-node "$LAW" gate \
-  --manifest "$LAW_OUT/manifest.json" \
-  --implementation "$LAW_OUT/implementation-report.json" \
-  --out "$LAW_OUT/gate-report.json"
-```
-
-Output: Markdown `# Gate Report — PASS|FAIL` with counts, `## Blocking violations` (`file:line`, kind, exact action), `## Cannot be verified`, and `## Next action`. JSON is written to `--out`; exit 0 = all `machine_verified` or `human_attested`; exit 50 = blocked. `--format json` prints JSON.
-
-V1 process gate is automatic: scans changed paths for unmarked `todo!`/`unimplemented!`/`panic!`/`TODO`/`FIXME`/`HACK`/`XXX` and secret patterns. `[::STUB::]` on the same or previous line exempts the line. V1 proves process cleanliness, not per-rule behavior. Empty changed paths fail closed (`no-changed-paths`).
-
-Add rule-level proof with `--verify "$REPO_ROOT/contract/verify.toml"`; `[[verify]]` rows merge by `rule` (rows outside closure ignored). `[[verify]]` row: `rule`, `level`, one of `cmd` + `expected_cases` | `scan` | `review`; optional `timeout_ms`. `cmd` must print `{"selected":N,"failed":M}`.
-
-5. Attest every `must` node in the phase.
-
-```bash
+node "$LAW" gate --manifest "$LAW_OUT/manifest.json" \
+  --implementation "$LAW_OUT/implementation-report.json" --out "$LAW_OUT/gate-report.json"
 node "$LAW" attest --manifest "$LAW_OUT/manifest.json" --phase <phase> \
   --init --out "$LAW_OUT/attestation.json"
-# edit attestation.json: status=applied + evidence | human_attested + approval_ref | exception + exception_ref
-node "$LAW" attest --manifest "$LAW_OUT/manifest.json" --phase <phase> \
-  --rows "$LAW_OUT/attestation.json"
 ```
 
-`--init` prints a Markdown checklist and writes the JSON template to `--out`. `unset` row → command fails. Completion is forbidden while gate or attestation fails.
-
-After compaction: `context --replay` reproduces the same nodes and hash without re-reading phase order.
-
-## Judgment boundary
-
-| Decide | Do not decide |
-|---|---|
-| Open-part design | Applicable rule set |
-| Exception draft | Closure or phase order |
-| Fixed-boundary crossing | Link reachability |
-| Amendment need | Gate pass/fail |
-
-## Failure modes
+## Failure Modes
 
 | Symptom | Cause | Action |
 |---|---|---|
 | `no unit matched` | changed path outside discovered crates | extend `workspace-map.auto.toml` or pass `--map` |
 | `auto: 0 units` | no Cargo manifest or `crates/**/src` | pass explicit `--map` |
 | `predecessor phase not delivered` | phase skipped | deliver in order, or `--replay` |
-| gate exit 50 | `unverifiable` / `not_run` / `failed` | inspect `evidence`, fix code, add `[[verify]]` row |
-| `no-changed-paths` | `resolve` ran without `--paths` | pass changed paths; gate cannot verify nothing |
+| gate exit 50 | `unverifiable` / `not_run` / `failed` | inspect `evidence`, fix code, add `[[verify]]` |
+| `no-changed-paths` | `resolve` ran without `--paths` | pass changed paths |
 | `unset rule` | unfilled attestation row | fill status + evidence |
 | `applied requires evidence` | empty evidence | record the executed check |
-| scaffold `REJECTED` | plan violates a safety check | read the errors table; no files were written |
-| `unknown rule` | explain/scaffold rule outside registry | use a rule id from `context` |
+| `unknown rule` | rule id outside the registry | use an id from `list` or `search` |
+| `rule concept missing` | `source/rule-concepts.json` drift | rebuild the bundle |
+| `BUDGET_EXCEEDED` | closure over budget | narrow the entry set |
 
-All artifacts stay under `$LAW_OUT`; no source-tree writes.
+### Scenario 1 — Which rules apply to a REST adapter?
+
+```bash
+node "$LAW" applies --root "$REPO_ROOT" --paths crates/app-rest/src/lib.rs
+node "$LAW" list --path rules/adapter
+```
+
+Expected: exit 0, the REST unit, and the adapter-phase rules.
+
+### Scenario 2 — What does REST-01 require?
+
+```bash
+node "$LAW" show rules/g/rest-01 --root "$REPO_ROOT"
+```
+
+Expected: the body, verification, enforcement, sources, trust, and freshness.
+
+### Scenario 3 — What does REST-01 depend on?
+
+```bash
+node "$LAW" required --rule REST-01 --root "$REPO_ROOT"
+```
+
+Expected: the complete `x-requires` closure in phase order.
+
+### Scenario 4 — Which rules link to an identity rule?
+
+```bash
+node "$LAW" incoming rules/c/id-01 --root "$REPO_ROOT"
+```
+
+Expected: every rule whose body links to the identity rule.
+
+### Scenario 5 — What is the context for a WebSocket adapter?
+
+```bash
+node "$LAW" context --phase websocket --root "$REPO_ROOT"
+```
+
+Expected: the WebSocket rules and their dependencies.
+
+### Scenario 6 — Which rules are stale?
+
+```bash
+node "$LAW" freshness --root "$REPO_ROOT"
+```
+
+Expected: rules past `stale_after` or deprecated. A stale rule is never current.
+
+### Scenario 7 — Which rules are unverified?
+
+```bash
+node "$LAW" trust --tier unverified --root "$REPO_ROOT"
+```
+
+Expected: every rule with no `verified` event.
+
+### Scenario 8 — What does the gate require for REST-01?
+
+```bash
+node "$LAW" explain --rule REST-01 --root "$REPO_ROOT"
+node "$LAW" gate --manifest "$LAW_OUT/manifest.json" --out "$LAW_OUT/gate-report.json"
+```
+
+Expected: the same rule id, verification, and enforcement in both outputs.
+
+### Scenario 9 — Which rules mention authorization?
+
+```bash
+node "$LAW" search --query "authorization" --root "$REPO_ROOT"
+```
+
+Expected: rule ids with snippets, no raw grep.
+
+### Scenario 10 — What must be delivered before phase 2?
+
+```bash
+node "$LAW" required --phase contract --root "$REPO_ROOT"
+```
+
+Expected: the phase-2 prerequisites in manifest order.
+
+### Scenario 11 — Which rules are orphaned or unreachable?
+
+```bash
+node "$LAW" lint --root "$REPO_ROOT"
+```
+
+Expected: zero `INDEX_ORPHAN` and zero unreachable rules.
+
+### Scenario 12 — What is the full one-hop neighborhood of a rule?
+
+```bash
+node "$LAW" neighbors rules/g/rest-01 --root "$REPO_ROOT"
+```
+
+Expected: body-linked outgoing rules and backlinked incoming rules.

@@ -1,9 +1,8 @@
-// @verifies C001 C002 C003 C004 C005 C006
 /**
- * Canonical *-law skill verifier, check-set v2.
+ * Canonical *-law skill verifier, check-set v3.
  *
  * Two modes prove two different things:
- *   dev        source -> lock -> coverage -> OKF -> report -> dist
+ *   dev        source -> manifest -> rule concepts -> OKF -> runtime -> dist
  *   installed  installed-tree invariants and installed runtime
  *
  * `machine_verified` is the only pass. A dev-only check without --source-root
@@ -12,32 +11,10 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as checks from './law-verify/v3.mjs';
 import {
-  checkCoverage,
-  checkCoverageSemantics,
-  checkDelivery,
-  checkGenericBoundary,
-  checkInputLedger,
-  checkInstalledLeak,
-  checkLayer,
-  checkLock,
-  checkManifest,
-  checkPathAlias,
-  checkRedaction,
-  checkRegistry,
-  checkStyle,
-} from './law-verify/checks-artifact.mjs';
-import {
-  checkDeterminism,
-  checkInstaller,
-  checkReproduction,
-  checkRuntime,
-  checkTests,
-  prepareRuntime,
-} from './law-verify/checks-runtime.mjs';
-import {
-  CHECK_SET_VERSION,
   CHECK_CONTRACT,
+  CHECK_SET_VERSION,
   VERIFIER_CHECKS,
   closureSha256,
   notRun,
@@ -48,36 +25,21 @@ import { exists, status, writeAtomic } from './law-verify/source.mjs';
 
 export { VERIFIER_CHECKS, CHECK_SET_VERSION };
 
-// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
-function runCheck(action) {
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
+async function runCheck(action) {
   try {
-    return action();
+    return await action();
   } catch (error) {
     return status('failed', error.message, { codes: [error.code ?? 'CHECK_CRASHED'] });
   }
 }
 
-// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function defaultAliasPath(skillPath) {
   const skillName = path.basename(skillPath);
   return path.join(path.dirname(skillPath), `${skillName}.path-alias.json`);
 }
 
-/**
- * Verify one *-law skill.
- *
- * @param {{
- *   skillPath: string,
- *   root?: string,
- *   sourceRoot?: string|null,
- *   pathAlias?: string|null,
- *   mode?: 'dev'|'installed'|null,
- *   outPath?: string|null,
- *   skipTests?: boolean,
- * }} input
- * @returns {object} law-skill-verification/v1
- */
-export function verifyLawSkill({
+export async function verifyLawSkill({
   skillPath,
   root = process.cwd(),
   sourceRoot = null,
@@ -92,68 +54,68 @@ export function verifyLawSkill({
   }
   const resolvedMode = resolveMode({ mode, sourceRoot });
   const aliasPath = pathAlias ?? defaultAliasPath(resolvedSkillPath);
-  const runtime = prepareRuntime({ skillPath: resolvedSkillPath, mode: resolvedMode });
+  const runtime = checks.prepareRuntime({ skillPath: resolvedSkillPath });
 
   const actions = {
-    layer: () => checkLayer({ skillPath: resolvedSkillPath, mode: resolvedMode }),
-    manifest: () => checkManifest({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
-    lock: () => checkLock({ skillPath: resolvedSkillPath, mode: resolvedMode }),
-    coverage: () => checkCoverage({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
-    registry: () => checkRegistry({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
-    genericBoundary: () => checkGenericBoundary({ skillPath: resolvedSkillPath, mode: resolvedMode }),
-    delivery: () => checkDelivery({ skillPath: resolvedSkillPath }),
-    runtime: () => checkRuntime({ runtime }),
-    reproduction: () => checkReproduction({ skillPath: resolvedSkillPath, sourceRoot, aliasPath, runtime }),
-    tests: () => (skipTests
-      ? status('not_run', 'tests skipped by caller', { codes: [] })
-      : checkTests({ skillPath: resolvedSkillPath })),
-    installer: () => checkInstaller({ skillPath: resolvedSkillPath, mode: resolvedMode, sourceRoot, aliasPath }),
-    determinism: () => checkDeterminism({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
-    redaction: () => checkRedaction({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
-    coverageSemantics: () => checkCoverageSemantics({ skillPath: resolvedSkillPath }),
-    inputLedger: () => checkInputLedger({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
-    pathAlias: () => checkPathAlias({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
-    installedLeak: () => checkInstalledLeak({
-      skillPath: resolvedSkillPath,
-      mode: resolvedMode,
-      aliasPath,
-      sourceRoot,
-      runtime,
-    }),
-    style: () => checkStyle({ skillPath: resolvedSkillPath, mode: resolvedMode }),
+    layer: () => checks.checkLayer({ skillPath: resolvedSkillPath, mode: resolvedMode }),
+    manifest: () => checks.checkManifest({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
+    lock: () => checks.checkLock({ skillPath: resolvedSkillPath }),
+    coverage: () => checks.checkCoverage({ skillPath: resolvedSkillPath }),
+    registry: () => checks.checkRegistry({ skillPath: resolvedSkillPath }),
+    genericBoundary: () => checks.checkGenericBoundary({ skillPath: resolvedSkillPath }),
+    delivery: () => checks.checkDelivery({ skillPath: resolvedSkillPath }),
+    runtime: () => checks.checkRuntime({ runtime }),
+    reproduction: () => checks.checkReproduction({ skillPath: resolvedSkillPath }),
+    tests: () => (skipTests ? status('not_run', 'tests skipped by caller', { codes: [] }) : checks.checkTests({ skillPath: resolvedSkillPath })),
+    installer: () => checks.checkInstaller({ skillPath: resolvedSkillPath, mode: resolvedMode }),
+    determinism: () => checks.checkDeterminism({ skillPath: resolvedSkillPath }),
+    redaction: () => checks.checkRedaction({ skillPath: resolvedSkillPath }),
+    coverageSemantics: () => checks.checkCoverageSemantics({ skillPath: resolvedSkillPath }),
+    inputLedger: () => checks.checkInputLedger({ skillPath: resolvedSkillPath }),
+    pathAlias: () => checks.checkPathAlias({ skillPath: resolvedSkillPath, aliasPath }),
+    installedLeak: () => checks.checkInstalledLeak({ skillPath: resolvedSkillPath, mode: resolvedMode, aliasPath }),
+    style: () => checks.checkStyle({ skillPath: resolvedSkillPath }),
+    conformance: () => checks.checkConformance({ skillPath: resolvedSkillPath }),
+    lint: () => checks.checkLint({ skillPath: resolvedSkillPath }),
+    profile: () => checks.checkProfile({ skillPath: resolvedSkillPath }),
+    graph: () => checks.checkGraph({ skillPath: resolvedSkillPath }),
+    context: () => checks.checkContext({ skillPath: resolvedSkillPath }),
+    navigation: () => checks.checkNavigation({ skillPath: resolvedSkillPath }),
+    ruleIdentity: () => checks.checkRuleIdentity({ skillPath: resolvedSkillPath }),
+    performance: () => checks.checkPerformance({ skillPath: resolvedSkillPath }),
   };
 
-  const checks = {};
+  const results = {};
   for (const contract of CHECK_CONTRACT) {
-    const name = contract.name;
     if (contract.mode === 'dev' && resolvedMode === 'installed') {
-      checks[name] = notRun(contract);
+      results[contract.name] = notRun(contract);
       continue;
     }
-    const action = actions[name];
-    checks[name] = action
-      ? runCheck(action)
-      : status('failed', `no implementation for check: ${name}`, { codes: ['CHECK_MISSING'] });
-    checks[name].mode = contract.mode;
+    const action = actions[contract.name];
+    results[contract.name] = action
+      ? await runCheck(action)
+      : status('failed', `no implementation for check: ${contract.name}`, { codes: ['CHECK_MISSING'] });
+    results[contract.name].mode = contract.mode;
   }
 
+  const failed = Object.values(results).some((entry) => entry.status === 'failed');
   const report = {
     schema: 'law-skill-verification/v1',
+    status: failed ? 'failed' : 'machine_verified',
     mode: resolvedMode,
     check_set_version: CHECK_SET_VERSION,
     skill: resolvedSkillPath,
     root: path.resolve(root),
     source_root: sourceRoot ? path.resolve(sourceRoot) : null,
     path_alias: aliasPath,
-    required_checks: requiredChecks(resolvedMode),
-    checks,
-    closure_sha256: closureSha256({ mode: resolvedMode, checks }),
+    required_checks: requiredChecks(resolvedMode).filter((name) => !(skipTests && name === 'tests')),
+    checks: results,
+    closure_sha256: closureSha256({ mode: resolvedMode, checks: results }),
   };
   if (outPath) writeAtomic(path.resolve(outPath), `${JSON.stringify(report, null, 2)}\n`);
   return report;
 }
 
-/** Machine pass only: every required check is machine_verified. */
 export function assertMachineVerified({ report }) {
   const required = report?.required_checks ?? VERIFIER_CHECKS;
   const failed = required.filter((name) => report?.checks?.[name]?.status !== 'machine_verified');
@@ -174,7 +136,7 @@ function argumentValue(args, name) {
   return index >= 0 && index + 1 < args.length ? args[index + 1] : null;
 }
 
-export function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2)) {
   const skillPath = argumentValue(argv, 'skill');
   const outPath = argumentValue(argv, 'out');
   if (!skillPath) {
@@ -182,7 +144,7 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
   try {
-    const report = verifyLawSkill({
+    const report = await verifyLawSkill({
       skillPath,
       root: argumentValue(argv, 'root') || process.cwd(),
       sourceRoot: argumentValue(argv, 'source-root'),
@@ -212,5 +174,5 @@ export function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
-  process.exit(main());
+  main().then((code) => { process.exitCode = code; });
 }

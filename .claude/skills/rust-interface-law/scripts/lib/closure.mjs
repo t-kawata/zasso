@@ -1,8 +1,16 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import { sha256 } from './redact.mjs';
+import { loadLawNodes } from './law-bundle.mjs';
 
 export { loadOkf } from './okf.mjs';
 
 const PHASE_ORDER = ['scope', 'contract', 'core', 'operation', 'adapter', 'docs', 'conformance', 'review'];
+
+export async function buildLawManifest({ skillRoot, units }) {
+  const { nodes } = await loadLawNodes({ skillRoot });
+  return buildManifest({ profile: { project: { spec_version: '0.3.2' } }, units, nodes });
+}
 
 export function buildManifest({ profile, units, nodes }) {
   const phases = [...new Set(units.flatMap((unit) => unit.phases ?? []))]

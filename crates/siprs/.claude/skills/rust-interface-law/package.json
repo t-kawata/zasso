@@ -1,0 +1,9 @@
+{
+  "name": "rust-interface-law",
+  "version": "0.3.2",
+  "private": true,
+  "description": "OKF v0.2 law bundle and closure runtime for Rust interface implementation.",
+  "dependencies": {
+    "@okforest/okf": "^0.14.0"
+  }
+}

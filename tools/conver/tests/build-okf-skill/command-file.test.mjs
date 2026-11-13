@@ -1,3 +1,5 @@
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // @verifies C008
 // @verifies C010
 /**
@@ -47,8 +49,8 @@ test('C008/C010: the command carries the required sections and no integration st
   assert.equal(text.includes('verify-law-integration.mjs'), false);
 });
 
-test('C008: the check contract is okf v1 with 19 named checks', () => {
-  assert.equal(CHECK_SET_VERSION, '1');
-  assert.equal(CHECK_NAMES.length, 19);
-  assert.deepEqual(new Set(CHECK_NAMES).size, 19);
+test('C008: the check contract is okf v2 with named checks', () => {
+  assert.equal(CHECK_SET_VERSION, '2');
+  assert.equal(CHECK_NAMES.length, 30);
+  assert.deepEqual(new Set(CHECK_NAMES).size, CHECK_NAMES.length);
 });

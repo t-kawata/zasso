@@ -1,0 +1,17 @@
+# 10-contracts
+
+- [1. Identifier Types](./1-identifier-types.md)
+- [10. Conformance Harness](./10-conformance-harness.md)
+- [10 — Shared Contracts](./10-shared-contracts.md)
+- [11. Adapter Support Composition](./11-adapter-support-composition.md)
+- [11. Rule Registry](./11-rule-registry.md)
+- [12. Versioning](./12-versioning.md)
+- [13. What This Document Deliberately Does Not Define](./13-what-this-document-deliberately-does-not-define.md)
+- [2. Verified Identity and Credential Binding](./2-verified-identity-and-credential-binding.md)
+- [3. Authentication Contracts](./3-authentication-contracts.md)
+- [4. Invocation Contexts](./4-invocation-contexts.md)
+- [5. Operation Contract](./5-operation-contract.md)
+- [6. Idempotency](./6-idempotency.md)
+- [7. Transaction, Outbox, and Events](./7-transaction-outbox-and-events.md)
+- [8. Wire Envelope and Protocol Bindings](./8-wire-envelope-and-protocol-bindings.md)
+- [9. Interface Contract](./9-interface-contract.md)

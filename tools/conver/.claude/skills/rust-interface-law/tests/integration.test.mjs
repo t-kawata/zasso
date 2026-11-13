@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -34,21 +36,17 @@ function runIngest(args, cwd = repoRoot) {
   });
 }
 
-test('19 docs verify with 466 rules and zero gaps', () => {
-  const output = runIngest(['verify', '--source', sourceDir]);
-  assert.match(output, /19 files, \d+ atoms, 7125 lines/);
-
+test('19 docs generate 466 rule concepts and zero gaps', () => {
+  const manifest = readFileSync(join(root, 'source/manifest.toml'), 'utf8');
+  const sources = (manifest.match(/\[\[file\]\]/g) ?? []).length;
   const lock = JSON.parse(readFileSync(join(root, 'atoms.lock.json'), 'utf8'));
-  const coverage = JSON.parse(readFileSync(join(root, 'coverage.json'), 'utf8'));
-  const rules = lock.atoms.filter((atom) => atom.type === 'Rule');
-
+  const ruleMap = JSON.parse(readFileSync(join(root, 'source/rule-concepts.json'), 'utf8'));
+  const rules = lock.rules ?? [];
+  assert.equal(sources, 19);
   assert.equal(rules.length, 466);
-  assert.equal(new Set(rules.map((atom) => atom.id)).size, 466);
-  assert.equal(coverage.files.length, 19);
-  assert.equal(coverage.files.reduce((total, file) => total + file.lines, 0), 7125);
-  assert.equal(coverage.files.reduce((total, file) => total + file.attributed, 0), 7125);
-  assert.equal(coverage.gaps.length, 0);
-  assert.equal(coverage.overlaps.length, 0);
+  assert.equal(new Set(rules.map((rule) => rule.rule_id)).size, 466);
+  assert.equal(Object.keys(ruleMap.byRule).length, 466);
+  assert.equal(new Set(Object.values(ruleMap.byRule).map((rule) => rule.concept_id)).size, 466);
 });
 
 // @verifies C001
@@ -179,7 +177,8 @@ test('install.js preserves dist layout and the installed entry resolves', async 
     });
     const skillDir = join(temporary, '.claude/skills/rust-interface-law');
     assert.ok(existsSync(join(skillDir, 'dist/skill.mjs')));
-    assert.ok(existsSync(join(skillDir, 'okf/nodes')));
+    assert.ok(existsSync(join(skillDir, 'okf/rules')));
+    assert.ok(existsSync(join(skillDir, 'okf-core/index.mjs')));
 
     const out = join(temporary, 'manifest.json');
     execFileSync(process.execPath, [
@@ -199,23 +198,7 @@ test('install.js preserves dist layout and the installed entry resolves', async 
   }
 });
 
-test('classify is byte-identical on repeat', () => {
-  const temporary = mkdtempSync(join(tmpdir(), 'law-determinism-'));
-  try {
-    const lockPath = join(temporary, 'atoms.lock.json');
-    const coveragePath = join(temporary, 'coverage.json');
-    const reportPath = join(temporary, 'coverage.md');
-    runIngest([
-      'classify',
-      '--source', sourceDir,
-      '--lock', lockPath,
-      '--coverage', coveragePath,
-      '--report', reportPath,
-    ]);
-    assert.equal(readFileSync(lockPath, 'utf8'), readFileSync(join(root, 'atoms.lock.json'), 'utf8'));
-    assert.equal(readFileSync(coveragePath, 'utf8'), readFileSync(join(root, 'coverage.json'), 'utf8'));
-    assert.equal(readFileSync(reportPath, 'utf8'), readFileSync(join(root, 'coverage.md'), 'utf8'));
-  } finally {
-    rmSync(temporary, { recursive: true, force: true });
-  }
+test('rebuild is byte-identical on repeat', () => {
+  const output = execFileSync(process.execPath, [join(root, 'dist/skill.mjs'), 'rebuild', '--root', root], { encoding: 'utf8' });
+  assert.match(output, /byte-identical/);
 });

@@ -11,6 +11,7 @@
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.102.0",
     "@agentclientprotocol/sdk": "^2.5.0",
+    "@okforest/okf": "^0.14.0",
     "chalk": "^6.0.1",
     "marked": "^18.2.0",
     "marked-terminal": "^8.0.0",
@@ -19,10 +20,17 @@
     "wrap-ansi": "^10.0.2"
   },
   "devDependencies": {
+    "@jfomhover/okf-validator": "^0.1.7",
     "@types/node": "^26.0.1",
     "@types/node-cron": "^3.0.11",
     "esbuild": "^0.28.1",
-    "typescript": "^5.4.0"
+    "js-okf": "^0.3.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "typescript": "^5.4.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.2.0",
+    "yaml": "^2.9.1"
   },
   "engines": {
     "node": ">=22"

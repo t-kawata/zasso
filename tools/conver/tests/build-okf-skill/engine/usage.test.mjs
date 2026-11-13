@@ -1,47 +1,34 @@
 // @verifies C007
 /**
- * PX-424 — the generated SKILL.md must carry exhaustive usage scenarios.
+ * The generated SKILL.md must carry the traversal manual.
  */
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { auditUsageManual } from '../lib/command-contract.mjs';
+import { auditUsageManual, REQUIRED_SECTIONS, MINIMUM_SCENARIOS } from '../../../.claude/scripts/amend-rfc-up/okf-core/commands/usage.mjs';
 
-const HEADINGS = [
-  '## When to Use',
-  '## Query Recipes',
-  '## Evidence and Citation',
-  '## Freshness and Conflict',
-  '## Update Procedure',
-  '## Page Authoring',
-  '## Failure Modes',
-  '## Examples',
-];
-
-// [::TICKET::] PX-424 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-424 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-425, PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426) --for-spec --no-implementation-order`.
 function manual() {
   return [
     '# Example OKF',
     '',
-    ...HEADINGS.flatMap((heading) => [heading, '', 'Body.', '']),
-    '### Example 1',
-    '',
-    'Ask a question.',
-    '',
-    '### Example 2',
-    '',
-    'Cite the answer.',
-    '',
+    ...REQUIRED_SECTIONS.flatMap((heading) => [heading, '', 'Body.', '']),
+    ...Array.from({ length: MINIMUM_SCENARIOS }, (_, index) => [
+      `### Scenario ${index + 1}`,
+      '',
+      'Run `show <id>`.',
+      '',
+    ].join('\n')),
   ].join('\n');
 }
 
-test('C007: a complete usage manual has every section and two examples', () => {
+test('C007: a complete traversal manual has every section and ten scenarios', () => {
   assert.deepEqual(auditUsageManual(manual()), []);
 });
 
-test('C007: a missing section or fewer than two examples is incomplete', () => {
-  const missing = manual().replace('## When to Use', '## Usage');
+test('C007: a missing section or too few scenarios is incomplete', () => {
+  const missing = manual().replace('## Start Here', '## Usage');
   assert.ok(auditUsageManual(missing).some((finding) => finding.code === 'USAGE_INCOMPLETE'));
-  const oneExample = manual().replace('### Example 2', '### Sample');
-  assert.ok(auditUsageManual(oneExample).some((finding) => finding.code === 'USAGE_INCOMPLETE'));
+  const fewer = manual().replace('### Scenario 10', '### Sample');
+  assert.ok(auditUsageManual(fewer).some((finding) => finding.code === 'USAGE_INCOMPLETE'));
 });

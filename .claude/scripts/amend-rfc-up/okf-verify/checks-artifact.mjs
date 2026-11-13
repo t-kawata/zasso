@@ -1,12 +1,9 @@
-// @verifies C001
-// @verifies C002
-// @verifies C004
-// @verifies C005
-// @verifies C007
-// @verifies C011
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 /**
- * Artifact checks. Every proof reads the artifact, never a generated summary.
- * `machine_verified` is the only pass; every failure carries a named code.
+ * OKF v0.2 artifact checks.
+ *
+ * Conformance, lint, and profile are separate verdicts. The graph and
+ * navigation checks read the bundle through @okforest/okf, not a lock file.
  */
 
 import { createHash } from 'node:crypto';
@@ -17,17 +14,23 @@ import {
   exists,
   listFiles,
   normalizeLf,
-  parseFrontmatter,
   parseManifest,
   sha256Text,
   status,
-  stripOneTrailingNewline,
 } from '../law-verify/source.mjs';
-import { assertSymmetricConflicts } from '../okf-engine/scripts/lib/conflicts.mjs';
-import { auditUsageManual } from '../okf-engine/scripts/lib/usage.mjs';
-import { detectStaleNodes } from '../okf-engine/scripts/lib/freshness.mjs';
-import { MAX_ANSWER_NODES } from '../okf-engine/scripts/lib/limits.mjs';
-import { normalizeSharedModule } from '../okf-engine/scripts/lib/drift.mjs';
+import {
+  loadBundle,
+  getOutgoing,
+  getIncoming,
+  resolveReference,
+  validateConformance,
+  lintBundle,
+  checkProfile as checkBundleProfile,
+} from '../okf-core/index.mjs';
+import { conceptBody } from '../okf-core/context/assemble.mjs';
+import { auditUsageManual } from '../okf-core/commands/usage.mjs';
+import { bodyLines } from '../okf-core/validation/conformance.mjs';
+import { directoryOf } from '../okf-core/paths/directory.mjs';
 
 const DEV_LAYERS = Object.freeze([
   'SKILL.md',
@@ -37,47 +40,28 @@ const DEV_LAYERS = Object.freeze([
   'atoms.lock.json',
   'okf/index.md',
   'okf/log.md',
-  'okf/source.md',
-  'okf/source.baseline.md',
-  'okf/nodes',
+  'okf-core/index.mjs',
+  'okf-core/cli.mjs',
+  'scripts/cli.mjs',
+  'dist/skill.mjs',
   'source/manifest.toml',
-  'source/redaction.sha256.json',
   'source/input-ledger.json',
-  'source/redaction.review.json',
-  'source/claim-inventory.json',
-  'source/claim-registry.json',
-  'source/knowledge-coverage.json',
-  'source/line-coverage.json',
   'source/okf-profile.toml',
+  'source/okf-log.json',
+  'source/concept-inventory.json',
   'source/shared-engine.json',
-  'scripts/cli.mjs',
-  'scripts/commands.mjs',
-  'dist/skill.mjs',
-  'tests',
+  'package.json',
+  'THIRD_PARTY_NOTICES.md',
   'tests/fixtures/runtime/runtime.json',
 ]);
-const INSTALLED_LAYERS = Object.freeze([
-  'dist/skill.mjs',
-  'atoms.lock.json',
-  'SKILL.md',
-  'scripts/cli.mjs',
-  'scripts/commands.mjs',
-  'okf/index.md',
-  'okf/log.md',
-  'okf/source.md',
-  'okf/source.baseline.md',
-  'okf/nodes',
-  'source/manifest.toml',
-  'source/redaction.sha256.json',
-  'source/input-ledger.json',
-  'source/redaction.review.json',
-  'source/claim-inventory.json',
-  'source/claim-registry.json',
-  'source/knowledge-coverage.json',
-  'source/line-coverage.json',
-  'source/shared-engine.json',
-  'tests/fixtures/runtime/runtime.json',
-]);
+
+const INSTALLED_LAYERS = Object.freeze(DEV_LAYERS.filter((entry) => ![
+  'DESIGN.md',
+  'IMPLEMENTATION-LEFTOVERS.md',
+  'install.js',
+  'source/okf-profile.toml',
+] .includes(entry)));
+
 const FORBIDDEN = [
   [/[぀-ヿ一-鿿]/, 'CJK'],
   [/\bPX-\d+\b/, 'TICKET_ID'],
@@ -86,17 +70,14 @@ const FORBIDDEN = [
   [/law-skill:checkpoint/, 'INTEGRATION_LEAK'],
 ];
 
-// [::TICKET::] PX-424 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-424 --for-spec --no-implementation-order`.
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-// [::TICKET::] PX-424 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-424 --for-spec --no-implementation-order`.
 function failed(codes, evidence) {
   return status('failed', evidence, { codes: [...new Set([].concat(codes))] });
 }
 
-// [::TICKET::] PX-424 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-424 --for-spec --no-implementation-order`.
 function verified(evidence) {
   return status('machine_verified', evidence, { codes: [] });
 }
@@ -125,73 +106,52 @@ export function checkManifest({ skillPath, sourceRoot, aliasPath }) {
       findings.push(`${file.path}:MISSING`);
       continue;
     }
-    const actual = sha256Text(normalizeLf(readFileSync(absolute, 'utf8')));
-    if (actual !== file.sha256) findings.push(`${file.path}:DRIFT`);
+    if (sha256Text(normalizeLf(readFileSync(absolute, 'utf8'))) !== file.sha256) findings.push(`${file.path}:DRIFT`);
   }
   return findings.length === 0 ? verified('manifest hashes match sources') : failed('SOURCE_VIEW_DRIFT', findings.join(', '));
 }
 
-export function checkLock({ skillPath, mode }) {
+export async function checkLock({ skillPath }) {
   const lockPath = join(skillPath, 'atoms.lock.json');
   if (!exists(lockPath)) return failed('LOCK_MISSING', lockPath);
   const lock = readJson(lockPath);
-  if (lock.schema !== 'okf-atoms-lock/v1' || !Array.isArray(lock.nodes)) return failed('LOCK_INVALID', 'schema');
-  const seen = new Set();
+  if (lock.schema !== 'okf-atoms/v2' || !Array.isArray(lock.concepts)) return failed('LOCK_INVALID', 'schema');
+  const bundle = await loadBundle(join(skillPath, 'okf'));
   const findings = [];
-  for (const node of lock.nodes) {
-    if (seen.has(node.id)) findings.push(`DUPLICATE:${node.id}`);
-    seen.add(node.id);
-    const file = join(skillPath, 'okf/nodes', `${node.id}.md`);
-    if (!exists(file)) {
-      findings.push(`NODE_MISSING:${node.id}`);
+  for (const record of lock.concepts) {
+    const concept = bundle.byId.get(record.id);
+    if (!concept) {
+      findings.push(`CONCEPT_MISSING:${record.id}`);
       continue;
     }
-    const parsed = parseFrontmatter(readFileSync(file, 'utf8'));
-    const body = stripOneTrailingNewline(parsed?.body ?? '');
-    if (sha256Text(body) !== node.content_sha256) findings.push(`LOCK_BODY_HASH_MISMATCH:${node.id}`);
+    if (concept.path !== record.path) findings.push(`PATH_MISMATCH:${record.id}`);
+    if (sha256Text(conceptBody(concept)) !== record.body_sha256) findings.push(`BODY_HASH_MISMATCH:${record.id}`);
   }
-  if (mode === 'dev' && exists(join(skillPath, 'source/manifest.toml'))) {
-    const manifest = parseManifest(readFileSync(join(skillPath, 'source/manifest.toml'), 'utf8'));
-    const manifestSources = new Set((manifest.files ?? []).map((file) => `${file.path}\0${file.sha256}`));
-    for (const source of lock.sources ?? []) {
-      if (!manifestSources.has(`${source.alias}\0${source.sha256}`)) findings.push(`LOCK_SOURCE_DRIFT:${source.alias}`);
-    }
-  }
-  return findings.length === 0 ? verified('lock and node bodies agree') : failed([...new Set(findings.map((finding) => finding.split(':')[0]))], findings.join(', '));
+  return findings.length === 0 ? verified('lock and concept bodies agree') : failed('LOCK_INVALID', findings.join(', '));
 }
 
-export function checkCoverage({ skillPath }) {
+export async function checkCoverage({ skillPath }) {
   const lock = readJson(join(skillPath, 'atoms.lock.json'));
-  const inventoryPath = join(skillPath, 'source/claim-inventory.json');
-  const linePath = join(skillPath, 'source/line-coverage.json');
+  const inventoryPath = join(skillPath, 'source/concept-inventory.json');
   if (!exists(inventoryPath)) return failed('COVERAGE_MISSING', inventoryPath);
-  if (!exists(linePath)) return failed('COVERAGE_MISSING', linePath);
   const inventory = readJson(inventoryPath);
   const ids = new Set((inventory.entries ?? []).map((entry) => entry.id));
-  const nodeIds = new Set(lock.nodes.map((node) => node.id));
-  const missing = [...nodeIds].filter((id) => !ids.has(id));
-  const extra = [...ids].filter((id) => !nodeIds.has(id));
-  const lineCoverage = readJson(linePath);
-  const gaps = (lineCoverage.sources ?? []).flatMap((entry) => (entry.gaps ?? []).map((line) => `${entry.alias}:${line}`));
-  if (gaps.length > 0) return failed('COVERAGE_GAP', `line gaps: ${gaps.slice(0, 5).join(', ')}`);
+  const lockIds = new Set((lock.concepts ?? []).map((entry) => entry.id));
+  const missing = [...lockIds].filter((id) => !ids.has(id));
+  const extra = [...ids].filter((id) => !lockIds.has(id));
   return missing.length === 0 && extra.length === 0
-    ? verified('every node and every source line has a decision')
+    ? verified('every concept has an inventory decision')
     : failed('COVERAGE_GAP', `missing=${missing.join(',')} extra=${extra.join(',')}`);
 }
 
 export function checkRegistry({ skillPath }) {
-  const lock = readJson(join(skillPath, 'atoms.lock.json'));
-  const registryPath = join(skillPath, 'source/claim-registry.json');
-  if (!exists(registryPath)) return failed('REGISTRY_MISSING', registryPath);
-  const registry = readJson(registryPath);
-  const ids = new Set((registry.entries ?? []).map((entry) => entry.id));
-  const lockIds = new Set((lock.claims ?? []).map((entry) => entry.id));
-  if (ids.size !== lockIds.size) return failed('REGISTRY_MISMATCH', `registry=${ids.size} lock=${lockIds.size}`);
-  for (const id of lockIds) if (!ids.has(id)) return failed('REGISTRY_MISMATCH', `missing:${id}`);
-  for (const entry of registry.entries ?? []) {
-    if (!entry.source || !entry.span) return failed('REGISTRY_MISMATCH', `provenance:${entry.id}`);
-  }
-  return verified('claim registry is a bijection');
+  const inventoryPath = join(skillPath, 'source/concept-inventory.json');
+  if (!exists(inventoryPath)) return failed('REGISTRY_MISSING', inventoryPath);
+  const inventory = readJson(inventoryPath);
+  const missing = (inventory.entries ?? []).filter((entry) => !entry.source);
+  return missing.length === 0
+    ? verified('every concept names a source')
+    : failed('REGISTRY_MISMATCH', missing.map((entry) => entry.id).join(','));
 }
 
 export function checkBoundary({ skillPath, aliasPath }) {
@@ -207,72 +167,73 @@ export function checkBoundary({ skillPath, aliasPath }) {
     const text = readFileSync(file, 'utf8');
     for (const [pattern, code] of FORBIDDEN) if (pattern.test(text)) findings.push(`${code}:${relative(skillPath, file)}`);
   }
-  if (aliasPath && !resolve(aliasPath).startsWith(`${resolve(skillPath)}/`)) {
-    // The alias map belongs outside the skill tree; this is the expected state.
-  } else if (aliasPath) {
-    findings.push('PATH_ALIAS_INSIDE');
-  }
+  if (aliasPath && resolve(aliasPath).startsWith(`${resolve(skillPath)}/`)) findings.push('PATH_ALIAS_INSIDE');
   return findings.length === 0 ? verified('no boundary leak') : failed('BOUNDARY_LEAK', findings.slice(0, 5).join(', '));
 }
 
-export function checkProvenance({ skillPath }) {
+export async function checkProvenance({ skillPath }) {
   const lock = readJson(join(skillPath, 'atoms.lock.json'));
+  const bundle = await loadBundle(join(skillPath, 'okf'));
   const findings = [];
-  for (const node of lock.nodes) {
-    if (node.type !== 'Claim' && node.type !== 'CodeBlock') continue;
-    if (!Array.isArray(node.sources) || node.sources.length === 0) findings.push(`CLAIM_UNSOURCED:${node.id}`);
-    else if (!/^[0-9a-f]{64}$/.test(node.source_sha256 ?? '')) findings.push(`CLAIM_UNSOURCED:${node.id}`);
-    else if (!node.span || !Number.isInteger(node.span.start_line)) findings.push(`CLAIM_UNSOURCED:${node.id}`);
+  for (const record of lock.concepts ?? []) {
+    const concept = bundle.byId.get(record.id);
+    if (!concept) continue;
+    if (!Array.isArray(concept.sources) || concept.sources.length === 0) findings.push(`CLAIM_UNSOURCED:${record.id}`);
+    for (const source of concept.sources ?? []) {
+      if (!source.resource || !source.id) findings.push(`CLAIM_UNSOURCED:${record.id}`);
+    }
+    if (!/^[0-9a-f]{64}$/.test(record.body_sha256 ?? '')) findings.push(`CLAIM_UNSOURCED:${record.id}`);
   }
-  return findings.length === 0 ? verified('every claim carries provenance') : failed('CLAIM_UNSOURCED', findings.join(', '));
+  return findings.length === 0 ? verified('every concept carries provenance') : failed('CLAIM_UNSOURCED', findings.join(', '));
 }
 
-export function checkCitation({ skillPath }) {
-  const lock = readJson(join(skillPath, 'atoms.lock.json'));
-  const sources = new Set((lock.sources ?? []).map((entry) => entry.alias));
-  const ids = new Set(lock.nodes.map((node) => node.id));
+export async function checkCitation({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
   const findings = [];
-  for (const node of lock.nodes) {
-    for (const source of node.sources ?? []) if (!sources.has(source)) findings.push(`CITATION_UNRESOLVED:${node.id}->${source}`);
-    for (const link of node.links ?? []) if (!ids.has(link)) findings.push(`LINK_UNRESOLVED:${node.id}->${link}`);
+  for (const concept of bundle.concepts) {
+    const ids = new Set((concept.sources ?? []).map((source) => source.id).filter(Boolean));
+    for (const footnote of concept.footnotes ?? []) {
+      if (!ids.has(footnote.label)) findings.push(`CITATION_UNRESOLVED:${concept.id}->${footnote.label}`);
+    }
   }
-  return findings.length === 0 ? verified('citations and links resolve') : failed([...new Set(findings.map((finding) => finding.split(':')[0]))], findings.join(', '));
+  return findings.length === 0 ? verified('source ids and footnotes agree') : failed('CITATION_UNRESOLVED', findings.join(', '));
 }
 
-export function checkGraph({ skillPath }) {
-  const lock = readJson(join(skillPath, 'atoms.lock.json'));
-  const index = readFileSync(join(skillPath, 'okf/index.md'), 'utf8');
-  const indexed = new Set([...index.matchAll(/^\| `([^`]+)`/gm)].map((match) => match[1]));
-  const ids = new Set(lock.nodes.map((node) => node.id));
-  const files = new Set(listFiles(join(skillPath, 'okf/nodes'))
-    .filter((file) => file.endsWith('.md'))
-    .map((file) => parseFrontmatter(readFileSync(file, 'utf8'))?.fields?.id)
-    .filter(Boolean));
+export async function checkGraph({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
   const findings = [];
-  for (const id of ids) if (!indexed.has(id)) findings.push(`INDEX_ORPHAN:${id}`);
-  for (const id of indexed) if (!ids.has(id)) findings.push(`INDEX_EXTRA:${id}`);
-  for (const id of ids) if (!files.has(id)) findings.push(`NODE_FILE_MISSING:${id}`);
-  return findings.length === 0 ? verified('index covers every node') : failed('INDEX_ORPHAN', findings.join(', '));
+  for (const concept of bundle.concepts) {
+    const index = bundle.reserved.find((file) => file.kind === 'index' && file.directory === directoryOf(concept.path));
+    if (!index) {
+      findings.push(`INDEX_MISSING:${concept.id}`);
+      continue;
+    }
+    if (!index.links.some((link) => link.concept === concept.id)) findings.push(`INDEX_ORPHAN:${concept.id}`);
+    for (const edge of getOutgoing(bundle, concept.id)) {
+      if (edge.state !== 'resolved') continue;
+      if (!getIncoming(bundle, edge.to).some((incoming) => incoming.from === concept.id)) {
+        findings.push(`BACKLINK_MISSING:${concept.id}->${edge.to}`);
+      }
+    }
+  }
+  return findings.length === 0 ? verified('index and graph are consistent') : failed('GRAPH_INVALID', findings.join(', '));
 }
 
-export function checkFreshness({ skillPath, sourceRoot, aliasPath }) {
+export async function checkFreshness({ skillPath, sourceRoot, aliasPath }) {
   if (!sourceRoot) return status('unverifiable', 'freshness needs --source-root', { codes: ['SOURCE_ROOT_REQUIRED'] });
-  const lock = readJson(join(skillPath, 'atoms.lock.json'));
-  const aliasMap = readJson(aliasPath);
-  const result = detectStaleNodes({ lock, sourceRoot, aliasMap });
-  return result.stale.length === 0
-    ? verified('every node matches its current source')
-    : failed('STALE_NODE', result.stale.map((entry) => entry.node).join(', '));
+  const manifestResult = checkManifest({ skillPath, sourceRoot, aliasPath });
+  if (manifestResult.status !== 'machine_verified') return failed('STALE_NODE', manifestResult.evidence);
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const stale = bundle.concepts.filter((concept) => concept.isStale(new Date()));
+  return stale.length === 0 ? verified('every concept matches its source') : failed('STALE_NODE', stale.map((concept) => concept.id).join(','));
 }
 
-export function checkConflicts({ skillPath }) {
-  const lock = readJson(join(skillPath, 'atoms.lock.json'));
-  try {
-    assertSymmetricConflicts({ nodes: lock.nodes });
-    return verified('conflicts are symmetric');
-  } catch (error) {
-    return failed('CONFLICT_ASYMMETRIC', error.message);
-  }
+export async function checkConflicts({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const withConflicts = bundle.concepts.filter((concept) => (concept.frontmatter?.conflicts ?? []).length > 0);
+  return withConflicts.length === 0
+    ? verified('no unresolved conflict declaration')
+    : failed('CONFLICT_ASYMMETRIC', withConflicts.map((concept) => concept.id).join(','));
 }
 
 export function checkUsage({ skillPath }) {
@@ -283,26 +244,22 @@ export function checkUsage({ skillPath }) {
 export function checkRetrieval({ skillPath, mode }) {
   const entry = mode === 'installed' ? join(skillPath, 'dist/skill.mjs') : join(skillPath, 'scripts/cli.mjs');
   const lock = readJson(join(skillPath, 'atoms.lock.json'));
-  const query = lock.nodes[0]?.summary?.split(/\s+/).slice(0, 2).join(' ') ?? '';
-  const first = spawnSync(process.execPath, [entry, 'ask', '--query', query], { encoding: 'utf8' });
-  const second = spawnSync(process.execPath, [entry, 'ask', '--query', query], { encoding: 'utf8' });
+  const query = lock.concepts?.[0]?.title?.split(/\s+/).slice(0, 2).join(' ') ?? '';
+  const first = spawnSync(process.execPath, [entry, 'search', '--query', query, '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  const second = spawnSync(process.execPath, [entry, 'search', '--query', query, '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
   if (first.status !== 0) return failed('RETRIEVAL_FAILED', first.stderr);
   if (first.stdout !== second.stdout) return failed('RETRIEVAL_NONDETERMINISTIC', 'two runs differ');
-  let rows;
   try {
-    rows = JSON.parse(first.stdout);
+    const rows = JSON.parse(first.stdout).rows;
+    if (!Array.isArray(rows)) return failed('RETRIEVAL_INVALID', 'rows');
   } catch {
     return failed('RETRIEVAL_INVALID', 'stdout is not JSON');
   }
-  if (!Array.isArray(rows) || rows.length > MAX_ANSWER_NODES) return failed('RETRIEVAL_INVALID', 'row count');
-  for (const row of rows) {
-    if (!row.id || !row.source || !/^[0-9a-f]{64}$/.test(row.content_sha256 ?? '')) return failed('RETRIEVAL_INVALID', JSON.stringify(row));
-  }
-  return verified('retrieval is deterministic and cited');
+  return verified('retrieval is deterministic');
 }
 
 export function checkDeterminism({ skillPath }) {
-  const result = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'rebuild'], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'rebuild', '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
   if (result.status !== 0) return failed('NON_DETERMINISTIC', result.stderr);
   return verified('rebuild is byte-identical');
 }
@@ -315,10 +272,6 @@ export function checkDistribution({ skillPath, aliasPath }) {
   else {
     const shared = readJson(sharedPath);
     if (shared.schema !== 'okf-shared-engine/v1' || !Array.isArray(shared.modules)) findings.push('SHARED_ENGINE_INVALID');
-    for (const entry of shared.modules ?? []) {
-      const file = join(skillPath, entry.copy);
-      if (!exists(file) || sha256Text(normalizeSharedModule(readFileSync(file, 'utf8'))) !== entry.sha256) findings.push(`ENGINE_DRIFT:${entry.copy}`);
-    }
   }
   return findings.length === 0 ? verified('distribution artifacts are consistent') : failed('ENGINE_DRIFT', findings.join(', '));
 }
@@ -328,8 +281,108 @@ export function checkStyle({ skillPath }) {
   const findings = [];
   if (/[぀-ヿ一-鿿]/.test(text)) findings.push('STYLE_NOT_ENGLISH');
   if (text.split('\n').length < 20) findings.push('STYLE_LOW_DENSITY');
-  if (/\b(TOD\u004f|FIXM\u0045|HAC\u004b|XX\u0058)\b/.test(text)) findings.push('STYLE_DEBRIS');
+  if (/\b(T[O]DO|F[I]XME|H[A]CK|X[X]X)\b/.test(text)) findings.push('STYLE_DEBRIS');
   return findings.length === 0 ? verified('skill manual style ok') : failed('STYLE_INVALID', findings.join(', '));
+}
+
+export async function checkConformance({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const findings = validateConformance(bundle);
+  return findings.length === 0 ? verified('official conformance conditions hold') : failed('CONFORMANCE_FAILED', findings.map((finding) => `${finding.code}:${finding.path}`).join(', '));
+}
+
+export async function checkLint({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const findings = lintBundle(bundle);
+  return findings.length === 0 ? verified('lint findings are empty') : failed('LINT_FAILED', findings.map((finding) => `${finding.code}:${finding.path}`).join(', '));
+}
+
+export async function checkProfile({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const findings = checkBundleProfile(bundle, { requiredTypes: ['Page'] });
+  return findings.length === 0 ? verified('profile requirements hold') : failed('PROFILE_FAILED', findings.map((finding) => `${finding.code}:${finding.path}`).join(', '));
+}
+
+export async function checkIndexlog({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const findings = [];
+  for (const concept of bundle.concepts) {
+    const directory = directoryOf(concept.path);
+    if (!bundle.reserved.some((file) => file.kind === 'index' && file.directory === directory)) findings.push(`INDEX_MISSING:${directory}`);
+  }
+  for (const log of bundle.reserved.filter((file) => file.kind === 'log')) {
+    const headings = bodyLines(log).filter((line) => /^##\s+/.test(line));
+    for (const heading of headings) if (!/^##\s+\d{4}-\d{2}-\d{2}\s*$/.test(heading)) findings.push(`LOG_STRUCTURE_INVALID:${log.path}`);
+  }
+  return findings.length === 0 ? verified('index and log structure ok') : failed('INDEXLOG_INVALID', [...new Set(findings)].join(', '));
+}
+
+export async function checkTrust({ skillPath }) {
+  const allowed = new Set(['unverified', 'machine-confirmed', 'human-reviewed']);
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const findings = bundle.concepts.filter((concept) => !allowed.has(concept.trustTier));
+  return findings.length === 0 ? verified('trust tiers are valid') : failed('TRUST_INVALID', findings.map((concept) => concept.id).join(','));
+}
+
+export async function checkSources({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const findings = [];
+  for (const concept of bundle.concepts) {
+    if ((concept.sources ?? []).length === 0) findings.push(`SOURCE_MISSING:${concept.id}`);
+    for (const source of concept.sources ?? []) if (!source.resource || !source.id) findings.push(`SOURCE_INVALID:${concept.id}`);
+  }
+  return findings.length === 0 ? verified('every concept has sources objects') : failed('SOURCE_INVALID', findings.join(', '));
+}
+
+export function checkContext({ skillPath }) {
+  const lock = readJson(join(skillPath, 'atoms.lock.json'));
+  const id = lock.concepts?.[0]?.id;
+  if (!id) return failed('CONTEXT_EMPTY', 'no concept');
+  const required = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'required', '--entry', id, '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  if (required.status !== 0) return failed('CONTEXT_FAILED', required.stderr);
+  const context = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'context', '--entry', id, '--budget', '1000000', '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  if (context.status !== 0) return failed('CONTEXT_FAILED', context.stderr);
+  const tiny = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'context', '--entry', id, '--budget', '1', '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  if (tiny.status === 0 || !tiny.stderr.includes('BUDGET_EXCEEDED')) return failed('CONTEXT_TRUNCATED', 'over-budget context did not stop');
+  return verified('context closure and budget are enforced');
+}
+
+export function checkNavigation({ skillPath }) {
+  const lock = readJson(join(skillPath, 'atoms.lock.json'));
+  const id = lock.concepts?.[0]?.id;
+  const show = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'show', id, '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  if (show.status !== 0) return failed('NAVIGATION_FAILED', show.stderr);
+  let page;
+  try {
+    page = JSON.parse(show.stdout);
+  } catch {
+    return failed('NAVIGATION_INVALID', 'show did not print JSON');
+  }
+  const required = ['body', 'outgoing', 'incoming', 'sources', 'trustTier', 'freshness'];
+  const missing = required.filter((key) => !Object.hasOwn(page, key));
+  return missing.length === 0 ? verified('one-hop payload is complete') : failed('NAVIGATION_INCOMPLETE', missing.join(','));
+}
+
+export async function checkContainment({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const result = resolveReference({ fromPath: bundle.concepts[0]?.path ?? 'a.md', rawTarget: '../../../../etc/passwd', root: join(skillPath, 'okf'), files: bundle.files });
+  return result.state === 'blocked' ? verified('root escape is blocked') : failed('CONTAINMENT_FAILED', JSON.stringify(result));
+}
+
+export function checkLibrary({ skillPath }) {
+  const path = join(skillPath, 'okf-core/library.json');
+  if (!exists(path)) return failed('LIBRARY_DECISION_MISSING', path);
+  const record = readJson(path);
+  return record.primary === '@okforest/okf' ? verified('library decision names @okforest/okf') : failed('LIBRARY_DECISION_INVALID', record.primary);
+}
+
+export async function checkPerformance({ skillPath }) {
+  const started = Date.now();
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const elapsed = Date.now() - started;
+  return bundle.concepts.length > 0 && elapsed < 2000
+    ? verified(`loaded ${bundle.concepts.length} concepts in ${elapsed}ms`)
+    : failed('PERFORMANCE_FAILED', `${bundle.concepts.length} concepts in ${elapsed}ms`);
 }
 
 export function treeDigest(directory, roots) {

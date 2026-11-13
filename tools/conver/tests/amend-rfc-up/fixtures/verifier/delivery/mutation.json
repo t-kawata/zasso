@@ -1,6 +1,6 @@
 {
-  "path": "okf/nodes/table-10-shared-contracts-12-versioning-1-87c122d246c7.md",
+  "path": "source/rule-concepts.json",
   "operation": "replace",
-  "find": "delivery: reference",
-  "replace": "delivery: must"
+  "find": "\"concept_id\": \"rules/c/a2a-02\"",
+  "replace": "\"concept_id\": \"\""
 }

@@ -2,5 +2,5 @@
   "applies": { "root": "applicable", "paths": ["crates/app-rest/src/lib.rs"], "expect": 0 },
   "unrelated": { "root": "unrelated", "paths": ["crates/app-other/src/lib.rs"], "expect": 3 },
   "phases": ["contract", "core", "operation", "adapter"],
-  "attest_phase": "contract"
+  "attest_phase": "adapter"
 }

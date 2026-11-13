@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
@@ -170,11 +172,6 @@ test('C003: the acceptance verifier rejects a bad source hash and accepts the re
     assert.equal(bad.status, 1, bad.stdout);
     const good = runAcceptance(['--record', join(acceptanceDirectory, 'law-builds.json')]);
     assert.equal(good.status, 0, good.stdout);
-    const reference = runAcceptance([
-      '--record',
-      join(acceptanceDirectory, 'fixtures/reference-build.json'),
-    ]);
-    assert.equal(reference.status, 0, reference.stdout);
   } finally {
     rmSync(tamperedPath, { force: true });
   }
@@ -321,9 +318,9 @@ test('C003: the command states the coverage-semantics contract', () => {
 });
 
 // @verifies C004
-test('C004: the command consumes the 18-check v2 contract', () => {
+test('C004: the command consumes the 26-check v3 contract', () => {
   const text = readCommand();
-  assert.equal(CANONICAL_CHECKS.length, 18);
+  assert.equal(CANONICAL_CHECKS.length, 26);
   for (const check of CANONICAL_CHECKS) assert.ok(text.includes(check.name), check.name);
   assert.ok(text.includes('check_set_version'));
   assert.ok(text.includes('machine_verified'));

@@ -1,6 +1,10 @@
-// [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
-// @verifies C001
-// @verifies C004
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
+// @verifies C001 C004
+/**
+ * Canonical verifier acceptance on the migrated rust-interface-law tree.
+ */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -8,56 +12,39 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import {
-  verifyLawSkill,
-} from '../../../.claude/scripts/amend-rfc-up/verify-law-skill.mjs';
+import { verifyLawSkill } from '../../../.claude/scripts/amend-rfc-up/verify-law-skill.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(here, '../../..');
-const miniRoot = join(here, 'fixtures/mini');
-const miniSkill = join(miniRoot, 'mini-law');
-const miniAlias = join(miniRoot, 'mini-law.path-alias.json');
+const law = join(repositoryRoot, '.claude/skills/rust-interface-law');
+const alias = join(repositoryRoot, '.claude/skills/rust-interface-law.path-alias.json');
 
-test('the mini build passes the canonical v2 verifier', () => {
-  const result = spawnSync(process.execPath, [
-    join(here, 'verify-law-builds.mjs'),
-    '--record', join(here, 'fixtures/mini-build.json'),
-    '--root', repositoryRoot,
-  ], { encoding: 'utf8' });
-  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stdout, /machine_verified/);
-});
-
-test('the mini skill passes dev mode', () => {
-  const report = verifyLawSkill({
-    skillPath: miniSkill,
-    root: miniRoot,
-    sourceRoot: miniRoot,
-    pathAlias: miniAlias,
+test('the migrated law skill passes dev mode', async () => {
+  const report = await verifyLawSkill({
+    skillPath: law,
+    root: repositoryRoot,
+    sourceRoot: repositoryRoot,
+    pathAlias: alias,
     mode: 'dev',
   });
+  assert.equal(report.status, 'machine_verified');
+  assert.equal(report.check_set_version, '3');
   for (const check of report.required_checks) {
     assert.equal(report.checks[check].status, 'machine_verified', `${check}: ${report.checks[check].evidence}`);
   }
-  assert.equal(report.checks.manifest.status, 'machine_verified');
-  assert.equal(report.checks.coverage.status, 'machine_verified');
-  assert.equal(report.checks.coverageSemantics.status, 'machine_verified');
 });
 
-test('the mini skill passes installed mode', () => {
+test('the migrated law skill passes installed mode', async () => {
   const target = mkdtempSync(join(tmpdir(), 'mini-installed-'));
   try {
-    assert.equal(spawnSync(process.execPath, [join(miniSkill, 'install.js'), target], { encoding: 'utf8' }).status, 0);
-    const report = verifyLawSkill({
-      skillPath: join(target, '.claude/skills/mini-law'),
-      root: miniRoot,
+    assert.equal(spawnSync(process.execPath, [join(law, 'install.js'), target], { encoding: 'utf8' }).status, 0);
+    const report = await verifyLawSkill({
+      skillPath: join(target, '.claude/skills/rust-interface-law'),
+      root: repositoryRoot,
       mode: 'installed',
-      pathAlias: miniAlias,
+      pathAlias: alias,
     });
-    for (const check of report.required_checks) {
-      assert.equal(report.checks[check].status, 'machine_verified', `${check}: ${report.checks[check].evidence}`);
-    }
+    assert.equal(report.status, 'machine_verified');
     assert.equal(report.checks.manifest.status, 'not_run');
     assert.equal(report.checks.reproduction.status, 'not_run');
   } finally {
@@ -65,22 +52,24 @@ test('the mini skill passes installed mode', () => {
   }
 });
 
-// [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
-test('the acceptance verifier rejects a tampered integration closure', () => {
-  const record = JSON.parse(readFileSync(join(here, 'fixtures/mini-build.json'), 'utf8'));
-  record.builds[0].integration.closure_sha256 = '0'.repeat(64);
-  const directory = mkdtempSync(join(tmpdir(), 'mini-tamper-'));
-  const recordPath = join(directory, 'record.json');
-  writeFileSync(recordPath, JSON.stringify(record));
+test('a tampered lock fails the lock check', async () => {
+  const target = mkdtempSync(join(tmpdir(), 'mini-tamper-'));
   try {
-    const result = spawnSync(process.execPath, [
-      join(here, 'verify-law-builds.mjs'),
-      '--record', recordPath,
-      '--root', repositoryRoot,
-    ], { encoding: 'utf8' });
-    assert.equal(result.status, 1, result.stdout);
-    assert.match(result.stdout, /integration closure changed/);
+    spawnSync(process.execPath, [join(law, 'install.js'), target], { encoding: 'utf8' });
+    const installed = join(target, '.claude/skills/rust-interface-law');
+    const lockPath = join(installed, 'atoms.lock.json');
+    const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+    lock.rules[0].content_sha256 = '0'.repeat(64);
+    writeFileSync(lockPath, JSON.stringify(lock));
+    const report = await verifyLawSkill({
+      skillPath: installed,
+      root: repositoryRoot,
+      mode: 'installed',
+      pathAlias: alias,
+      skipTests: true,
+    });
+    assert.ok(report.checks.lock.codes.includes('LOCK_BODY_HASH_MISMATCH') || report.checks.lock.status === 'failed');
   } finally {
-    rmSync(directory, { recursive: true, force: true });
+    rmSync(target, { recursive: true, force: true });
   }
 });

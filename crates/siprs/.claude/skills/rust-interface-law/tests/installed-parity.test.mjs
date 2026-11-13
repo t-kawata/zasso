@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -11,7 +13,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = join(root, '..', '..', '..');
 const verifier = join(repoRoot, '.claude/scripts/amend-rfc-up/verify-law-skill.mjs');
 const aliasPath = join(root, '..', 'rust-interface-law.path-alias.json');
-const INSTALLED_ROOTS = ['dist/', 'okf/', 'source/', 'templates/', 'tests/fixtures/runtime/'];
+const INSTALLED_ROOTS = ['dist/', 'okf/', 'okf-core/', 'scripts/', 'source/', 'templates/', 'tests/fixtures/runtime/'];
 
 // [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
 function listFiles(directory) {

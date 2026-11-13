@@ -1,3 +1,5 @@
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // @verifies C010
 /**
  * PX-424 — executable contract for the `/build-okf-skill` procedure.
@@ -8,7 +10,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { auditUsageManual } from '../../../.claude/scripts/amend-rfc-up/okf-engine/scripts/lib/usage.mjs';
+import { auditUsageManual } from '../../../.claude/scripts/amend-rfc-up/okf-core/commands/usage.mjs';
 
 export { auditUsageManual };
 
@@ -21,6 +23,8 @@ export const COMMAND_SECTIONS = Object.freeze([
   '## Invariants',
   '## Input Contract',
   '## Generated Skill Layout',
+  '## OKF Bundle',
+  '## Traversal Manual',
   '## Procedure',
   '## Verification Gates',
   '## Failure Modes',
@@ -30,8 +34,8 @@ export const COMMAND_SECTIONS = Object.freeze([
 export const REQUIRED_SCRIPTS = Object.freeze([
   'verify-okf-skill.mjs',
   'okf-verify/checks.json',
-  'okf-engine/scripts/cli.mjs',
-  'okf-engine/scripts/lib/claims.mjs',
+  'okf-core/index.mjs',
+  'okf-core/cli.mjs',
 ]);
 
 export const FORBIDDEN_COMMAND_TEXT = Object.freeze([
@@ -119,7 +123,7 @@ export function auditOkfCommand(text) {
     if (!text.includes(script)) findings.push({ code: 'MISSING_SCRIPT', detail: script });
   }
   if (!text.includes('check_set_version')) findings.push({ code: 'MISSING_CHECK_VERSION', detail: 'check_set_version' });
-  if (!text.includes('19')) findings.push({ code: 'MISSING_CHECK_COUNT', detail: '19 checks' });
+  if (!text.includes('checks.json')) findings.push({ code: 'MISSING_CHECK_CONTRACT', detail: 'checks.json' });
   if (!text.includes('-okf')) findings.push({ code: 'MISSING_NAME_GRAMMAR', detail: '-okf' });
   if (/[぀-ヿ一-鿿]/.test(text)) findings.push({ code: 'CJK_TEXT', detail: 'non-English' });
   if (/\bPX-\d+\b/.test(text)) findings.push({ code: 'TICKET_ID', detail: 'ticket id' });

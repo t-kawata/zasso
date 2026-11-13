@@ -1,11 +1,13 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 export function buildAttestation(manifest, phase) {
   const rules = (manifest.nodes ?? [])
     .filter((node) => node.phase === phase && node.delivery === 'must')
-    .map((node) => node.id);
+    .map((node) => ({ rule: node.id, concept_id: node.concept_id ?? null }));
 
   return {
     phase,
-    rows: rules.map((rule) => ({ rule, status: 'unset', evidence: '' })),
+    rows: rules.map((entry) => ({ rule: entry.rule, concept_id: entry.concept_id, status: 'unset', evidence: '' })),
   };
 }
 

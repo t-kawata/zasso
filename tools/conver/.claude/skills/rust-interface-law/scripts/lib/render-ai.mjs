@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-421 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-421 --for-spec --no-implementation-order`.
 import { dirname, join } from 'node:path';
@@ -75,29 +77,46 @@ export function renderContextMarkdown({ manifest, phase, result }) {
 
   for (const delivered of result.nodes) {
     const node = nodesById.get(delivered.id);
-    if (node?.type === 'Rule') {
-      const rule = parseRuleRow(delivered.body);
-      const requirement = rule?.requirement ?? firstLine(delivered.body);
-      lines.push('- [ ] **' + (rule?.id ?? delivered.id) + '**: ' + requirement);
+    if (node?.rule_class || node?.type === 'Rule') {
+      const requirement = node?.description ?? firstLine(delivered.body);
+      lines.push('- [ ] **' + delivered.id + '**: ' + requirement);
     } else {
       lines.push('- [ ] ' + summaryFor(node, delivered) + ' (reference below).');
     }
   }
 
-  const rules = result.nodes
-    .map((delivered) => parseRuleRow(delivered.body))
-    .filter(Boolean);
+  const rules = result.nodes.filter((delivered) => nodesById.get(delivered.id)?.rule_class);
 
   if (rules.length > 0) {
     lines.push(
       '',
       '## Rule references',
       '',
-      '| Rule | Class | Surface | Specification | Verification | Enforcement |',
-      '|---|---|---|---|---|---|',
-      ...rules.map((rule) => '| ' + rule.id + ' | ' + rule.class + ' | ' + rule.surface
-        + ' / ' + rule.prefix + ' | ' + rule.spec + ' | ' + rule.verification
-        + ' | ' + rule.enforcement + ' |'),
+      '| Rule | Class | Applies to | Verification | Enforcement |',
+      '|---|---|---|---|---|',
+      ...rules.map((delivered) => {
+        const node = nodesById.get(delivered.id);
+        return '| ' + delivered.id + ' | ' + (node.rule_class ?? 'unknown') + ' | '
+          + (node.applies_to ?? 'all') + ' | ' + (node.verification ?? 'unknown')
+          + ' | ' + (node.enforcement ?? 'unknown') + ' |';
+      }),
+      '',
+      '## One-hop context',
+      '',
+      ...rules.flatMap((delivered) => {
+        const node = nodesById.get(delivered.id);
+        return [
+          '### ' + delivered.id,
+          '',
+          '- Concept: `' + (node.concept_id ?? 'unknown') + '`',
+          '- Outgoing: ' + ((node.outgoing ?? []).map((edge) => '`' + edge.rawTarget + '`').join(', ') || 'none'),
+          '- Incoming: ' + ((node.incoming ?? []).map((edge) => '`' + edge.from + '`').join(', ') || 'none'),
+          '- Sources: ' + ((node.sources ?? []).map((source) => '`' + source.resource + '`').join(', ') || 'none'),
+          '- Trust: ' + (node.trustTier ?? 'unverified'),
+          '- Stale: ' + (node.freshness?.stale ?? false),
+          '',
+        ];
+      }),
     );
   }
 

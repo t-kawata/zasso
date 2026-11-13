@@ -1,0 +1,16 @@
+# 31-websocket
+
+- [1. Purpose](./1-purpose.md)
+- [10. Close Codes and Cleanup](./10-close-codes-and-cleanup.md)
+- [11. Fixed and Open](./11-fixed-and-open.md)
+- [11. Implementation Contract](./11-implementation-contract.md)
+- [12. Conformance Obligations](./12-conformance-obligations.md)
+- [2. Dependencies](./2-dependencies.md)
+- [3. Layout](./3-layout.md)
+- [31 — WebSocket Adapter](./31-websocket-adapter.md)
+- [4. Public API](./4-public-api.md)
+- [5. One-Time Ticket](./5-one-time-ticket.md)
+- [6. Envelope](./6-envelope.md)
+- [7. Connection State](./7-connection-state.md)
+- [8. Dispatch and Ordering](./8-dispatch-and-ordering.md)
+- [9. Backpressure and Limits](./9-backpressure-and-limits.md)

@@ -15,18 +15,29 @@ import {
   checkBoundary,
   checkCitation,
   checkConflicts,
+  checkConformance,
+  checkContainment,
+  checkContext,
   checkCoverage,
   checkDeterminism,
   checkDistribution,
   checkFreshness,
   checkGraph,
+  checkIndexlog,
   checkLayer,
+  checkLibrary,
+  checkLint,
   checkLock,
   checkManifest,
+  checkNavigation,
+  checkPerformance,
+  checkProfile,
   checkProvenance,
   checkRegistry,
   checkRetrieval,
+  checkSources,
   checkStyle,
+  checkTrust,
   checkUsage,
 } from './okf-verify/checks-artifact.mjs';
 import {
@@ -47,10 +58,10 @@ import { exists, status, writeAtomic } from './law-verify/source.mjs';
 
 export { VERIFIER_CHECKS, CHECK_SET_VERSION };
 
-// [::TICKET::] PX-424 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-424 --for-spec --no-implementation-order`.
-function runCheck(action) {
+// [::TICKET::] PX-424, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-424|PX-425) --for-spec --no-implementation-order`.
+async function runCheck(action) {
   try {
-    return action();
+    return await action();
   } catch (error) {
     return status('failed', error.message, { codes: [error.code ?? 'CHECK_CRASHED'] });
   }
@@ -61,7 +72,7 @@ function defaultAliasPath(skillPath) {
   return path.join(path.dirname(skillPath), `${path.basename(skillPath)}.path-alias.json`);
 }
 
-export function verifyOkfSkill({
+export async function verifyOkfSkill({
   skillPath,
   root = process.cwd(),
   sourceRoot = null,
@@ -97,6 +108,17 @@ export function verifyOkfSkill({
     determinism: () => checkDeterminism({ skillPath: resolvedSkillPath }),
     distribution: () => checkDistribution({ skillPath: resolvedSkillPath, aliasPath }),
     style: () => checkStyle({ skillPath: resolvedSkillPath }),
+    conformance: () => checkConformance({ skillPath: resolvedSkillPath }),
+    lint: () => checkLint({ skillPath: resolvedSkillPath }),
+    profile: () => checkProfile({ skillPath: resolvedSkillPath }),
+    indexlog: () => checkIndexlog({ skillPath: resolvedSkillPath }),
+    trust: () => checkTrust({ skillPath: resolvedSkillPath }),
+    sources: () => checkSources({ skillPath: resolvedSkillPath }),
+    context: () => checkContext({ skillPath: resolvedSkillPath }),
+    navigation: () => checkNavigation({ skillPath: resolvedSkillPath }),
+    containment: () => checkContainment({ skillPath: resolvedSkillPath }),
+    library: () => checkLibrary({ skillPath: resolvedSkillPath }),
+    performance: () => checkPerformance({ skillPath: resolvedSkillPath }),
   };
 
   const checks = {};
@@ -107,7 +129,7 @@ export function verifyOkfSkill({
     }
     const action = actions[contract.name];
     checks[contract.name] = action
-      ? runCheck(action)
+      ? await runCheck(action)
       : status('failed', `no implementation for check: ${contract.name}`, { codes: ['CHECK_MISSING'] });
     checks[contract.name].mode = contract.mode;
   }
@@ -122,7 +144,7 @@ export function verifyOkfSkill({
     root: path.resolve(root),
     source_root: sourceRoot ? path.resolve(sourceRoot) : null,
     path_alias: aliasPath,
-    required_checks: requiredChecks(resolvedMode),
+    required_checks: requiredChecks(resolvedMode).filter((name) => !(skipTests && name === 'tests')),
     checks,
     closure_sha256: closureSha256({ mode: resolvedMode, checks }),
   };
@@ -148,14 +170,14 @@ function argumentValue(args, name) {
   return index >= 0 && index + 1 < args.length ? args[index + 1] : null;
 }
 
-export function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2)) {
   const skillPath = argumentValue(argv, 'skill');
   if (!skillPath) {
     process.stdout.write(`${JSON.stringify({ code: 'OKF_SKILL_INVALID', message: '--skill is required' })}\n`);
     return 1;
   }
   try {
-    const report = verifyOkfSkill({
+    const report = await verifyOkfSkill({
       skillPath,
       root: argumentValue(argv, 'root') || process.cwd(),
       sourceRoot: argumentValue(argv, 'source-root'),
@@ -174,5 +196,5 @@ export function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
-  process.exit(main());
+  main().then((code) => { process.exitCode = code; });
 }

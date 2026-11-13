@@ -1,3 +1,4 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-424 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-424 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-421 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-421 --for-spec --no-implementation-order`.
@@ -17,6 +18,9 @@ export async function buildDist({ root }) {
     logLevel: 'silent',
     sourcemap: false,
     legalComments: 'none',
+    banner: {
+      js: "import { createRequire as __okfCreateRequire } from 'node:module'; const require = __okfCreateRequire(import.meta.url);",
+    },
     // Path comments are relative to this root; without it the bundle depends on cwd.
     absWorkingDir: absoluteRoot,
   });

@@ -1,0 +1,28 @@
+{
+  "schema": "law-bundle/v1",
+  "skill": "rust-interface-law",
+  "generated_at": "2026-11-13",
+  "rules": 466,
+  "sections": 239,
+  "sources": [
+    "sources/00-FOUNDATION.md",
+    "sources/10-CONTRACTS.md",
+    "sources/15-RULE-REGISTRY.md",
+    "sources/20-CORE.md",
+    "sources/21-OPERATION.md",
+    "sources/22-IDENTITY.md",
+    "sources/30-REST.md",
+    "sources/31-WEBSOCKET.md",
+    "sources/32-CLI.md",
+    "sources/33-GRPC.md",
+    "sources/34-MCP.md",
+    "sources/35-A2A.md",
+    "sources/40-CONFORMANCE.md",
+    "sources/45-DOCUMENTATION.md",
+    "sources/47-VALIDATION.md",
+    "sources/48-IMPLEMENTATION-BLUEPRINT.md",
+    "sources/50-PROJECT-TEMPLATE.md",
+    "sources/55-IMPLEMENTATION-CONTRACTS.md",
+    "sources/90-MIGRATION.md"
+  ]
+}

@@ -1,0 +1,52 @@
+---
+type: "Section"
+title: "3. Layout"
+description: "```text"
+sources: 
+  - resource: "sources/33-GRPC.md"
+    id: "33-grpc-3-layout"
+    title: "3. Layout"
+generated: 
+  by: "build-law-skill"
+  at: "2026-11-13"
+verified: 
+  - by: "human:law-review"
+    at: "2026-11-13"
+status: "stable"
+x-document: "sources/33-GRPC.md"
+x-source-span: "39-72"
+---
+## 3. Layout
+
+```text
+*-grpc/
+├── Cargo.toml
+├── build.rs                     # tonic-prost-build
+├── proto/
+│   └── <project>.v1.proto       # generated from the catalog, checked in
+└── src/
+    ├── lib.rs
+    ├── api/
+    │   └── mod.rs               # service(), GrpcState, GrpcConfig
+    ├── generated/
+    │   └── mod.rs               # include_proto!
+    ├── service/
+    │   ├── mod.rs
+    │   ├── unary.rs             # generated per-operation methods
+    │   └── stream.rs            # S/C/B methods
+    ├── auth/
+    │   ├── mod.rs
+    │   └── metadata.rs          # Bearer extraction and verification layer
+    ├── conversion/
+    │   ├── mod.rs
+    │   └── generated.rs         # proto <-> operation request/response
+    ├── error/
+    │   └── status.rs            # OperationError -> Status
+    └── tests/
+```
+
+Generated files carry `// @generated`. `proto/<project>.v1.proto` is generated
+and checked in so that field numbers are reviewed; it is not edited by hand.
+
+---
+

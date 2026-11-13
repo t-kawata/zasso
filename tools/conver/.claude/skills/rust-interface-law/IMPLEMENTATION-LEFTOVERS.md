@@ -197,7 +197,7 @@ LF normalize CRLF/CR. Stable sort. Atomic writes. `classify` repeat → byte-ide
 
 ## 4. OKF bundle
 
-One Atom = one node under `okf/nodes/`.
+One registry row = one Rule concept under `okf/rules/<class>/<rule-id>.md`; one source section = one Section concept under `okf/sources/<doc>/<section>.md`.
 Frontmatter:
 
 ```yaml
@@ -678,7 +678,7 @@ A `*-law` skill is complete when all hold:
 | bundle | `dist/skill.mjs` | deterministic esbuild bundle; single entry |
 | source | `source/manifest.toml`, `redaction.sha256.json`, `skill-registry.toml` | paths, hashes, SK invariants |
 | lock | `atoms.lock.json`, `coverage.json`, `coverage.md` | Atom set, attribution, gaps/overlaps |
-| OKF | `okf/nodes/*.md`, `index.md`, `log.md`, `source.md`, `source.baseline.md` | one Atom per node; provenance; redacted source; baseline |
+| OKF | `okf/rules/**`, `okf/sources/**`, `index.md`, `log.md`, `okf-core/` | path-based concepts; linked-list indexes; dated log; one-hop navigation |
 | entry | `scripts/cli.mjs`, `commands.mjs`, `ingest.mjs` | dispatch, commands, manifest/extract/classify/verify |
 | ingestion libs | `atoms`, `markdown`, `coverage`, `redact`, `registry`, `report`, `toml` | parse, partition, hash, registry, report |
 | closure libs | `units`, `closure`, `okf`, `context` | profile/map, manifest, frontmatter, delivery |
@@ -736,7 +736,7 @@ Optional: explain, scaffold, exception, should-run, trust, package, rebuild.
 | `--phases` | token budget per ticket |
 | ledger | deliver once per phase |
 
-Never search by grep. Never read `okf/` directly. Never deliver `reference`/`omitted` nodes.
+Use the CLI; do not grep raw bundle files. Never deliver `reference`/`omitted` nodes.
 
 ## 23. Detector and gate recipe
 
@@ -848,7 +848,7 @@ Measure in tests. Reject linear scans over full source at delivery time.
 |---|---|
 | Rule text only in OKF vs lock text; one Atom vs reference nodes | lock is machine source; AI reads delivered context; only `must` delivered |
 | Zero preparation vs maintained CLAUDE/commands; root vs `.claude/CLAUDE.md` | development-time integration; installer publishes `.claude/CLAUDE.md` |
-| Two installers; `should-run` vs `applies` | skill installer copies `dist/okf/source`; workspace installer mirrors `.claude`; `applies` authoritative |
+| Two installers; `should-run` vs `applies` | skill installer copies `dist/okf-core/okf/source`; workspace installer mirrors `.claude`; `applies` authoritative |
 | V1 PASS vs rule compliance | V1 process only; V2+ verify required |
 | `context --phases` subset vs predecessor | predecessor must be in ledger; deliver once |
 | Scaffold AI plan vs template catalog | catalog optional; AI plan minimum safe path |
@@ -906,15 +906,15 @@ installed runtime. The alias map default is
 
 | Check | Mode | Pass |
 |---|---|---|
-| `layer` | both | dev: SKILL.md, DESIGN.md, IMPLEMENTATION-LEFTOVERS.md, okf/index.md, okf/log.md, okf/source.md, okf/source.baseline.md, okf/nodes, atoms.lock.json, coverage.json, coverage.md, source/manifest.toml, source/redaction.sha256.json, source/input-ledger.json, source/redaction.review.json, source/normative-inventory.json, source/delivery.json, scripts, dist/skill.mjs, install.js, tests. installed: dist/skill.mjs, okf/*, source/*, tests/fixtures/runtime/runtime.json |
+| `layer` | both | dev: SKILL.md, DESIGN.md, IMPLEMENTATION-LEFTOVERS.md, okf/index.md, okf/log.md, okf/rules/**, okf/sources/**, okf-core/**, atoms.lock.json, source/rule-concepts.json, source/source-view.md, source/source.baseline.md, source/manifest.toml, source/redaction.sha256.json, source/input-ledger.json, source/redaction.review.json, source/normative-inventory.json, source/delivery.json, scripts, dist/skill.mjs, install.js, package.json, THIRD_PARTY_NOTICES.md, tests. installed: dist/skill.mjs, okf/**, okf-core/**, source/*, tests/fixtures/runtime/runtime.json |
 | `manifest` | dev | spec_version/source_set_sha256/redaction_sha256; every `[[file]]` path is an alias resolved by the map; its SHA-256 is recomputed from the actual LF-normalized source bytes; source_set_sha256 recomputes from those bytes |
-| `lock` | both | dev: atoms.lock.json ↔ okf/nodes; one Atom = one node; every node body hash recomputes to `content_sha256`; every Rule Atom carries `source` and `span`. installed: every node body hash recomputes to its frontmatter `content_sha256` |
+| `lock` | both | dev: atoms.lock.json v2 ↔ `okf/rules/**` and `okf/sources/**`; every concept body hash recomputes; every rule carries `rule_id`, `concept_id`, `path`. installed: every concept body hash recomputes |
 | `coverage` | dev | lock spans re-partition every source line; coverage.json and coverage.md match; gaps=0, overlaps=0, attributed=lines |
 | `registry` | dev | Rule Atom IDs and registry rows are bijective by count and ID set; grammar valid; unique; non-empty |
 | `genericBoundary` | both | hash-only redaction; zero forbidden token; dev adds SKILL.md `## Procedure` and no `## Rule` |
 | `delivery` | both | structural Atom never `must`; `must` only for allowed types |
 | `runtime` | both | `applies` exits 0 on the applicable fixture and 3 on the unrelated fixture; `context --phases` enforces predecessor order; `gate` exits 0/50 with a valid report; `attest` rejects `unset`; `check lint/graph` exit 0; dev adds `check coverage/audit --lock` |
-| `reproduction` | dev | `ingest verify` exits 0; `rebuild` is byte-identical; `source.md` regenerates and `source.baseline.md` equals it |
+| `reproduction` | dev | `ingest verify` exits 0; `rebuild` is byte-identical; `source/source-view.md` regenerates and `source/source.baseline.md` equals it |
 | `tests` | dev | every required test file exists; each carries a test and an assertion; the core suite reports tests>0, pass>0, fail=0; meta tests are existence-checked only |
 | `installer` | both | dev: install.js copies only and no build command; temp install; installed mode passes; installed layering is exact; source/installed SHA match. installed: layering is exact; installed `dist` resolves sibling `okf/` |
 | `determinism` | dev | `classify` twice is byte-identical; committed lock/coverage/report match; `rebuild` is byte-identical; in-memory esbuild output equals committed `dist/skill.mjs` |

@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -86,8 +88,14 @@ export const REQUIRED_ARTIFACTS = Object.freeze([
   'source/redaction.review.json',
   'source/normative-inventory.json',
   'source/delivery.json',
-  'okf/source.md',
-  'okf/source.baseline.md',
+  'source/rule-concepts.json',
+  'source/source-view.md',
+  'source/source.baseline.md',
+  'okf/rules',
+  'okf/sources',
+  'okf-core',
+  'package.json',
+  'THIRD_PARTY_NOTICES.md',
   'tests/fixtures/runtime/runtime.json',
 ]);
 
@@ -450,11 +458,11 @@ export function auditPipelineCheckpoint(text) {
   if (/--(?:root|source-root|path-alias)/.test(law)) {
     findings.push({ code: 'CLI_IN_CHECKPOINT', contract: 'C005', message: 'law checkpoint duplicates exact CLI' });
   }
-  const v2Lines = law.split('\n').filter((line) => /v2/i.test(line));
-  if (v2Lines.length === 0) {
-    findings.push({ code: 'MISSING_V2_CHECKPOINT', contract: 'C005', message: 'no v2 line' });
+  const versionLines = law.split('\n').filter((line) => /v[23]/i.test(line));
+  if (versionLines.length === 0) {
+    findings.push({ code: 'MISSING_V2_CHECKPOINT', contract: 'C005', message: 'no version line' });
   }
-  for (const line of v2Lines) {
+  for (const line of versionLines) {
     if (line.length > 240) findings.push({ code: 'CHECKPOINT_TOO_LONG', contract: 'C005', message: line.slice(0, 60) });
   }
   return findings;

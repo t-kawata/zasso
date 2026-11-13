@@ -52,8 +52,8 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 
 - Positional only; no flag branch.
 - Sources read-only; writes only under `STAGING_DIR`, `SKILL_DIR`, `ALIAS_PATH`, `LAW_OUT`.
-- Canonical verifier unchanged; 18/18 `machine_verified` in dev mode is the only pass.
-- Generated skill carries input ledger, alias map, redaction review, normative inventory, delivery coverage, node body hash, `source.md`, `source.baseline.md`.
+- Canonical verifier: check_set_version 3; every dev-required check `machine_verified` is the only pass.
+- Generated skill carries input ledger, alias map, redaction review, normative inventory, delivery coverage, rule-concept map, concept body hash, `source/source-view.md`, `source/source.baseline.md`.
 - No install before verification; failed verification leaves existing skill untouched.
 - Exact generated-skill CLI only in `SKILL.md`.
 - Integration: six canonical lines, one per host file; skill-agnostic; marked; idempotent; CLI-free.
@@ -104,9 +104,14 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 ├── source/rule-registry.md     # only when the sources have no registry
 ├── okf/index.md
 ├── okf/log.md
-├── okf/source.md
-├── okf/source.baseline.md
-├── okf/nodes/
+├── okf/rules/<class>/<rule-id>.md
+├── okf/sources/<doc>/<section>.md
+├── okf-core/
+├── source/rule-concepts.json
+├── source/source-view.md
+├── source/source.baseline.md
+├── package.json
+├── THIRD_PARTY_NOTICES.md
 ├── scripts/{cli.mjs, commands.mjs, ingest.mjs, lib/}
 ├── tests/{atom-lock, redaction, generic-boundary, skill-runtime, integration,
 │          bootstrap, scaffold, context-phases, render, applicability,
@@ -125,7 +130,7 @@ Sibling: `<name>-law.path-alias.json` — outside the skill tree; holds `input_r
 
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs`.
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-integration.mjs` and `$CLAUDE_DIR/scripts/amend-rfc-up/law-integration/contract.mjs`.
-- Read `$CLAUDE_DIR/scripts/amend-rfc-up/law-verify/checks.json`; require `check_set_version: 2`, 18 named checks, and `both` / `dev` modes.
+- Read `$CLAUDE_DIR/scripts/amend-rfc-up/law-verify/checks.json`; require `check_set_version: 3`, the named checks, and `both` / `dev` modes.
 - Missing or mismatched → stop before any write. Never copy, patch, or replace the canonical verifier.
 
 ### Step 1: Parse
@@ -228,18 +233,19 @@ Red first: failing tests per library.
 
 ### Step 7: OKF
 
-- One Atom = one node.
-- Frontmatter: `type`, `id`, `phase`, `delivery`, `applies_to`, `requires`, `references`, `content_sha256`, `source`.
-- `delivery=must` only for Rule, CodeBlock, ContractType, InterfaceBinding, Operation, Documentation, Conformance; structural never `must`.
-- Node body = Atom text + one trailing newline; SHA-256 of the body after removing that newline equals `content_sha256`.
-- Write `okf/index.md`, `okf/log.md`, `okf/source.md`, `okf/source.baseline.md`.
-- `okf/source.md` = manifest order, `# Source: <alias>` headers, redacted source text; `okf/source.baseline.md` byte-identical.
-- Delivered context from lock; AI never reads `okf/`.
+- One registry row = one Rule concept at `okf/rules/<class>/<rule-id>.md`.
+- One source section = one Section concept at `okf/sources/<doc>/<section>.md`.
+- Rule frontmatter: `type`, `title`, `description`, `sources`, `generated`, `verified`, `status`, `x-rule-id`, `x-rule-class`, `x-applies-to`, `x-parent`, `x-source-part`, `x-verification`, `x-enforcement`, `x-phase`, `x-requires`.
+- Section frontmatter: `type`, `title`, `description`, `sources`, `generated`, `verified`, `status`.
+- `okf/index.md` is a linked list; `okf/log.md` uses `YYYY-MM-DD` headings.
+- `source/rule-concepts.json` maps every rule id to its concept id, path, phase, requires, applies_to, source alias, and source span.
+- `source/source-view.md` = manifest order, `# Source: <alias>` headers, redacted source text; `source/source.baseline.md` byte-identical.
+- Delivered context from okf-core; the AI uses the CLI, not raw grep.
 
 ### Step 8: Bundle and installer
 
-- `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map; resolves `okf/` sibling; `absWorkingDir` pinned to the skill root; atomic write.
-- `install.js`: copy-only; copies `dist/skill.mjs`, `okf/`, `source/`, `templates/`, `tests/fixtures/runtime/runtime.json`, `tests/fixtures/host/`; no build, judge, or target edit.
+- `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map, `createRequire` banner for CommonJS dependencies; resolves `okf-core/` and `okf/` siblings; `absWorkingDir` pinned to the skill root; atomic write.
+- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `okf/`, `source/`, `templates/`, `package.json`, `THIRD_PARTY_NOTICES.md`, `tests/fixtures/runtime/runtime.json`, `tests/fixtures/host/`; no build, judge, or target edit.
 
 ### Step 9: Test matrix
 
@@ -262,7 +268,7 @@ node "$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs" \
   --out "$LAW_OUT/<name>-dev-verification.json"
 ```
 
-Require exit 0, `check_set_version: 2`, 18/18 `machine_verified`, closure recorded.
+Require exit 0, `check_set_version: 3`, every dev-required check `machine_verified`, closure recorded.
 
 Installed mode:
 
@@ -342,7 +348,8 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 
 | Gate | Pass |
 |---|---|
-| Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 2`; 18 checks `machine_verified`; closure recorded |
+| Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 3`; 26 checks; every dev-required check `machine_verified`; closure recorded |
+| Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style`, `conformance`, `lint`, `profile`, `graph`, `context`, `navigation`, `ruleIdentity`, `performance` |
 | Canonical verifier installed | installed tree; 8 required checks `machine_verified`; source/installed SHA match |
 | Integration | `verify-law-integration.mjs --mode check --require-skill` exit 0; six canonical lines; no drift, duplicate, location, or CLI leak |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style` |
@@ -416,6 +423,6 @@ Six host files carry one canonical line each. Marker: `<!-- law-skill:checkpoint
 
 ## Completion
 
-- Every built skill: canonical verifier dev 18/18 and installed 8/8 `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration checkpoints present.
+- Every built skill: canonical verifier v3 dev and installed `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration checkpoints present.
 - Integration: six canonical lines present; `--mode check --require-skill` exit 0; no drift, duplicate, location, or CLI leak; integration closure recorded.
 - Report adoption gaps; never claim V1 as rule-level proof.

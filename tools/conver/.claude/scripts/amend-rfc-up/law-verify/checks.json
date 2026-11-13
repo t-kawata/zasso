@@ -1,5 +1,5 @@
 {
-  "check_set_version": "2",
+  "check_set_version": "3",
   "checks": [
     { "name": "layer", "mode": "both" },
     { "name": "manifest", "mode": "dev" },
@@ -18,6 +18,14 @@
     { "name": "inputLedger", "mode": "dev" },
     { "name": "pathAlias", "mode": "dev" },
     { "name": "installedLeak", "mode": "both" },
-    { "name": "style", "mode": "both" }
+    { "name": "style", "mode": "both" },
+    { "name": "conformance", "mode": "both" },
+    { "name": "lint", "mode": "dev" },
+    { "name": "profile", "mode": "dev" },
+    { "name": "graph", "mode": "both" },
+    { "name": "context", "mode": "both" },
+    { "name": "navigation", "mode": "both" },
+    { "name": "ruleIdentity", "mode": "dev" },
+    { "name": "performance", "mode": "dev" }
   ]
 }

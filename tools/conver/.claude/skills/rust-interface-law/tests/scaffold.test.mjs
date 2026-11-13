@@ -1,3 +1,5 @@
+// [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -6,14 +8,14 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyScaffold, renderScaffoldMarkdown, validatePlan } from '../scripts/lib/scaffold.mjs';
-import { explainRule } from '../scripts/lib/explain.mjs';
+import { explainRule, loadRuleMap } from '../scripts/lib/law-bundle.mjs';
 import { discoverWorkspace, mapCanonicalRoles } from '../scripts/lib/autoconfig.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const cli = join(root, 'scripts/cli.mjs');
-const lock = JSON.parse(readFileSync(join(root, 'atoms.lock.json'), 'utf8'));
-const knownRules = new Set(lock.atoms.filter((atom) => atom.type === 'Rule').map((atom) => atom.id));
+const ruleMap = loadRuleMap(join(root, 'source/rule-concepts.json'));
+const knownRules = new Set(ruleMap.byRule.keys());
 
 function makeRepo() {
   const repo = mkdtempSync(join(tmpdir(), 'law-scaffold-'));
@@ -132,15 +134,12 @@ test('scaffold CLI is dry-run by default and --write applies the package plan', 
   }
 });
 
-test('explain returns requirement and canonical code examples for a rule', () => {
-  const text = explainRule({ ruleId: 'WS-01', lock });
+test('explain returns the requirement and one-hop context for a rule', async () => {
+  const text = await explainRule({ ruleId: 'WS-01', ruleMap, skillRoot: root });
   assert.match(text, /# Rule WS-01/);
-  assert.match(text, /The ticket is random, hashed at rest, single-use/);
-  assert.match(text, /## Canonical examples/);
-  assert.match(text, /31-WEBSOCKET\.md/);
-  assert.match(text, /```(?:rust|toml|text)/);
-  assert.match(text, /Dependency example only/);
-  assert.throws(() => explainRule({ ruleId: 'NOPE-99', lock }), /unknown rule/);
+  assert.match(text, /one-time ticket/i);
+  assert.match(text, /## Sources/);
+  await assert.rejects(() => explainRule({ ruleId: 'NOPE-99', ruleMap, skillRoot: root }), /unknown rule/);
 });
 
 test('canonical roles map to project crate names', () => {
@@ -166,31 +165,12 @@ test('canonical roles map to project crate names', () => {
   }
 });
 
-test('explain maps canonical roles to project crates', () => {
-  const repo = mkdtempSync(join(tmpdir(), 'law-roles-explain-'));
-  try {
-    for (const crate of ['app-core', 'app-operation', 'app-ports']) {
-      mkdirSync(join(repo, 'crates', crate, 'src'), { recursive: true });
-    }
-    const text = explainRule({ ruleId: 'WS-01', lock, root: repo });
-    assert.match(text, /`operation-contract` \| mapped to `app-operation`/);
-    assert.match(text, /`identity-core` \| mapped to `app-core`/);
-    assert.match(text, /`interface-contract` \| mapped to `app-ports`/);
-  } finally {
-    rmSync(repo, { recursive: true, force: true });
-  }
+test('explain keeps the rule identity stable', async () => {
+  const text = await explainRule({ ruleId: 'WS-01', ruleMap, skillRoot: root });
+  assert.match(text, /\| Concept \| `rules\/c\/ws-01` \|/);
 });
 
-test('explain checks example dependencies against the target workspace', () => {
-  const repo = mkdtempSync(join(tmpdir(), 'law-deps-'));
-  try {
-    mkdirSync(join(repo, 'crates/app-rest/src'), { recursive: true });
-    const text = explainRule({ ruleId: 'WS-01', lock, root: repo });
-    assert.match(text, /## Dependency check/);
-    assert.match(text, /operation-contract/);
-    assert.match(text, /MISSING/);
-    assert.match(text, /do not copy the example verbatim/i);
-  } finally {
-    rmSync(repo, { recursive: true, force: true });
-  }
+test('explain names the source document', async () => {
+  const text = await explainRule({ ruleId: 'WS-01', ruleMap, skillRoot: root });
+  assert.match(text, /31-WEBSOCKET\.md/);
 });

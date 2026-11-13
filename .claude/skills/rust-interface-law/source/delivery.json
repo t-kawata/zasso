@@ -1,972 +1,2335 @@
 {
-  "schema": "law-delivery/v1",
-  "defaults": {
-    "Rule": "must",
-    "CodeBlock": "must"
-  },
-  "atoms": [
-    {
-      "id": "table/foundation-unify-seams-not-substance-4-generated-mechanics/1/d2097a1f2482",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/foundation-unify-seams-not-substance-7-no-limitation-guarantees/1/e2125e6687a6",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/foundation-unify-seams-not-substance-9-versioning-and-amendment/1/06b64b11ef08",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-2-verified-identity-and-credential-binding-2-2-binding-checks/1/fe22f0e2a179",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-2-verified-identity-and-credential-binding-2-3-delegation/1/9bf17bcf1a97",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-4-invocation-contexts/3/4f8d4fcae289",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-5-operation-contract-5-5-erased-registry/1/cce0030f6f82",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-5-operation-contract-5-6-dispatcher/2/47b906773db8",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "list/10-shared-contracts-6-idempotency/1/dc5e271d5416",
-      "type": "List",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "list/10-shared-contracts-7-transaction-outbox-and-events/1/e95509c5c3e3",
-      "type": "List",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-8-wire-envelope-and-protocol-bindings-8-1-bindings/2/72fff5f96ef6",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-9-interface-contract/1/50d9f3c64880",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/10-shared-contracts-11-adapter-support-composition/1/863b0633fcdc",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/15-rule-registry-3-coverage/1/0a592c5716f6",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "IMP-12"
-      ]
-    },
-    {
-      "id": "paragraph/20-core-crate-2-dependencies/1/7e2e98a4355b",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/20-core-crate-5-domain-model-rules/1/8cb2de3ae56d",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/20-core-crate-8-state-machines/1/b3b663dea9bd",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/21-operation-crate-5-handler-protocol/1/4f5aea73bc82",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/21-operation-crate-5-handler-protocol-5-1-input-validation/1/83de1c34d1af",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/21-operation-crate-6-anonymous-operations/1/d73a6abc64ba",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/21-operation-crate-7-authorization/1/cb52629e8849",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/21-operation-crate-8-idempotency/1/2aed87c3d815",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/21-operation-crate-9-transactions-outbox-and-recovery/1/8bb7d9b06636",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/22-identity-crates-2-crates/1/415292bb6df9",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/22-identity-crates-4-token-profile/1/0f5cfb4c5e15",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/22-identity-crates-4-token-profile-4-3-delegation/1/8c0ef4048f70",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/22-identity-crates-7-refresh-tokens-and-sessions/1/40d192cd97a4",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "list/22-identity-crates-7-refresh-tokens-and-sessions-7-2-atomic-rotation/1/1ea1e5bcfb11",
-      "type": "List",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/22-identity-crates-8-sso/1/5a43fa75d778",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/22-identity-crates-9-negative-authentication-tests/1/6032a3bf4905",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/30-rest-adapter-2-dependencies/1/597d51cd0ad9",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/30-rest-adapter-6-http-rules/1/6ff17a936ad8",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/30-rest-adapter-11-implementation-contract-11-5-rules/1/5a73dd5bf006",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/31-websocket-adapter-2-dependencies/1/b20d46f4670e",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-5-one-time-ticket/1/7298495840c1",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-7-connection-state/1/eb7deadb7415",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-8-dispatch-and-ordering/1/ab3faa0a8471",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-8-dispatch-and-ordering-8-1-streaming/1/7a2a874e91e9",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-8-dispatch-and-ordering-8-2-protocol-owned-resources/1/5b5aaf7c097a",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-9-backpressure-and-limits/1/c2cf28bb7790",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-10-close-codes-and-cleanup/1/b8c38979b874",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-10-close-codes-and-cleanup/2/31c64331eece",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/31-websocket-adapter-11-implementation-contract-11-5-rules/1/06c54f2db70f",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/32-cli-adapter-2-dependencies/1/944297402280",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/32-cli-adapter-5-generated-command-tree/1/eda818df8425",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/32-cli-adapter-6-modes-6-2-remote-mode/2/78aff0a0e71d",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/32-cli-adapter-7-output-and-exit-codes/1/7b29182c792c",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/32-cli-adapter-7-output-and-exit-codes/2/55d5f4226c77",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/32-cli-adapter-8-secrets/1/325004b46b5d",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/32-cli-adapter-11-implementation-contract-11-5-rules/1/e0510cd0ff12",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/33-grpc-adapter-5-generated-proto/1/f76a5c2584c9",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/33-grpc-adapter-6-authentication/1/f2018fe0641a",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/33-grpc-adapter-7-error-mapping/2/9161c65826a7",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/33-grpc-adapter-8-deadlines-streaming-and-limits/1/4eb87e03afdb",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/33-grpc-adapter-11-implementation-contract-11-5-rules/1/efe6e272b2b6",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/34-mcp-adapter-2-dependencies/1/80e8b0f3801b",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/34-mcp-adapter-5-tool-mapping/1/0f18ace4e604",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/34-mcp-adapter-6-authorization/1/ee920ff70090",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/34-mcp-adapter-7-errors/2/db10e3ad50ea",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/34-mcp-adapter-8-session-and-state/1/79f686acc26e",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/34-mcp-adapter-11-implementation-contract-11-5-rules/1/4ba8ad9c0047",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/35-a2a-adapter-5-agent-card-and-skills/1/57bea355b7a8",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/35-a2a-adapter-6-task-mapping/1/65acb01164a0",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/35-a2a-adapter-7-security/1/83a70a03b133",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/35-a2a-adapter-8-streaming-and-errors/1/de1661ad19bf",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/35-a2a-adapter-11-implementation-contract-11-5-rules/1/cdd0e791bbba",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-4-matrix/1/8b3222fc5980",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-4-matrix/2/239b53c97e09",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-6-fixtures-and-determinism/1/6342fe49f9ae",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-7-independent-oracle/1/e6f475744414",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-8-authentication-and-binding/1/7de4f4646dc0",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-9-security-proofs/1/214361630e50",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-10-idempotency-transactions-and-recovery/1/fc824f439519",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-11-streaming/1/515269f45428",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-12-drivers/2/6eaf410cc4f4",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-13-dependency-and-rule-coverage/1/9d0a6bb41a67",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-14-sso-regression/1/21193ae43671",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-14-1-revision-tests-0-3-0/1/2d08674eadb3",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/40-conformance-crate-13-implementation-proof/1/504687dc9775",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/40-conformance-crate-13-implementation-proof/2/56ddcceb51a6",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/45-documentation-generation-1-purpose/1/8474004ea02d",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/45-documentation-generation-2-inputs/1/535c9b6455c1",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/45-documentation-generation-5-completeness/1/c59cc147a680",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/45-documentation-generation-7-no-rest-dependency/1/bf1bf928814e",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/45-documentation-generation-7-no-rest-dependency/2/e83930f0ad05",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/45-documentation-generation-9-rules/1/0108072ad68f",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/47-validation-contract-4-standard-rule-conversion/1/690e0f30d178",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/47-validation-contract-4-standard-rule-conversion/2/55236f0f3204",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/47-validation-contract-5-custom-rules/1/484f9c352706",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/47-validation-contract-5-custom-rules/1/9e59efb03627",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/47-validation-contract-5-custom-rules/2/007d39966686",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/47-validation-contract-6-runtime-execution/1/c07fbe3c21b9",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/47-validation-contract-7-documentation/1/7d89bad07c55",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/48-implementation-blueprint-mandatory/2/306fbe6ce4ca",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/48-implementation-blueprint-mandatory-3-macro-contract-3-1-input/1/fc1ee242d9cf",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/48-implementation-blueprint-mandatory-3-macro-contract-3-7-runtime-validation-path/5/a1808f4a30aa",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/48-implementation-blueprint-mandatory-4-docgen-binary-4-4-check-implementations/2/b7fd0d916f17",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "reference table; carries no rule-level fact",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/48-implementation-blueprint-mandatory-6-mandatory-rules/1/77956551d9dd",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/48-implementation-blueprint-mandatory-9-implementation-contract-pipeline/2/72e0bea4094a",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/50-project-template-3-operation-catalog/1/3aa9fb79fe0e",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/50-project-template-8-naming/1/eff84d5148dc",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "paragraph/55-implementation-contracts-2-policy-model-2-1-effective-policy/2/979d561b0252",
-      "type": "Paragraph",
-      "decision": "reference",
-      "reason": "explanatory prose subordinate to the listed Rule atoms",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/55-implementation-contracts-3-dependency-policy/1/97666a9dc449",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/55-implementation-contracts-4-source-policy/1/46d46ef3b70c",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/55-implementation-contracts-5-template-policy/1/97a151a58029",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/55-implementation-contracts-6-gate-policy/1/90d05b30df94",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
-    },
-    {
-      "id": "table/55-implementation-contracts-7-cross-cutting-rules/1/b0de581f05c8",
-      "type": "Table",
-      "decision": "reference",
-      "reason": "rule table mirrored by the Rule atoms delivered in this document",
-      "delivered_by": [
-        "A2A-01"
-      ]
+  "schema": "law-delivery/v2",
+  "rules": [
+    {
+      "rule_id": "A2A-01",
+      "concept_id": "rules/g/a2a-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-02",
+      "concept_id": "rules/c/a2a-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-03",
+      "concept_id": "rules/c/a2a-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-04",
+      "concept_id": "rules/c/a2a-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-05",
+      "concept_id": "rules/c/a2a-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-06",
+      "concept_id": "rules/c/a2a-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-07",
+      "concept_id": "rules/c/a2a-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-08",
+      "concept_id": "rules/c/a2a-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-09",
+      "concept_id": "rules/c/a2a-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-10",
+      "concept_id": "rules/c/a2a-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-11",
+      "concept_id": "rules/c/a2a-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-12",
+      "concept_id": "rules/c/a2a-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-13",
+      "concept_id": "rules/c/a2a-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-14",
+      "concept_id": "rules/c/a2a-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-15",
+      "concept_id": "rules/c/a2a-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-16",
+      "concept_id": "rules/c/a2a-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-17",
+      "concept_id": "rules/c/a2a-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-18",
+      "concept_id": "rules/c/a2a-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-19",
+      "concept_id": "rules/c/a2a-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-20",
+      "concept_id": "rules/c/a2a-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-21",
+      "concept_id": "rules/c/a2a-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-22",
+      "concept_id": "rules/c/a2a-22",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-23",
+      "concept_id": "rules/c/a2a-23",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-24",
+      "concept_id": "rules/c/a2a-24",
+      "decision": "must"
+    },
+    {
+      "rule_id": "APP-01",
+      "concept_id": "rules/o/app-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "APP-02",
+      "concept_id": "rules/o/app-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "APP-03",
+      "concept_id": "rules/o/app-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "APP-04",
+      "concept_id": "rules/o/app-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "APP-05",
+      "concept_id": "rules/o/app-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "APP-06",
+      "concept_id": "rules/o/app-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "APP-07",
+      "concept_id": "rules/o/app-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-01",
+      "concept_id": "rules/c/arc-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-02",
+      "concept_id": "rules/c/arc-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-03",
+      "concept_id": "rules/c/arc-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-04",
+      "concept_id": "rules/c/arc-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-05",
+      "concept_id": "rules/c/arc-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-06",
+      "concept_id": "rules/c/arc-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-07",
+      "concept_id": "rules/c/arc-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-08",
+      "concept_id": "rules/c/arc-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-09",
+      "concept_id": "rules/c/arc-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ARC-10",
+      "concept_id": "rules/c/arc-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-01",
+      "concept_id": "rules/c/auth-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-02",
+      "concept_id": "rules/c/auth-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-03",
+      "concept_id": "rules/c/auth-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-04",
+      "concept_id": "rules/c/auth-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-05",
+      "concept_id": "rules/c/auth-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-06",
+      "concept_id": "rules/c/auth-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-07",
+      "concept_id": "rules/c/auth-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-08",
+      "concept_id": "rules/c/auth-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-09",
+      "concept_id": "rules/c/auth-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-10",
+      "concept_id": "rules/c/auth-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-11",
+      "concept_id": "rules/c/auth-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-12",
+      "concept_id": "rules/c/auth-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-13",
+      "concept_id": "rules/c/auth-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-14",
+      "concept_id": "rules/c/auth-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-15",
+      "concept_id": "rules/c/auth-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-16",
+      "concept_id": "rules/c/auth-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-17",
+      "concept_id": "rules/c/auth-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-18",
+      "concept_id": "rules/c/auth-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-19",
+      "concept_id": "rules/c/auth-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-20",
+      "concept_id": "rules/c/auth-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-21",
+      "concept_id": "rules/c/auth-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-22",
+      "concept_id": "rules/c/auth-22",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-23",
+      "concept_id": "rules/c/auth-23",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-24",
+      "concept_id": "rules/c/auth-24",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-25",
+      "concept_id": "rules/c/auth-25",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-26",
+      "concept_id": "rules/c/auth-26",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-27",
+      "concept_id": "rules/c/auth-27",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-28",
+      "concept_id": "rules/c/auth-28",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-29",
+      "concept_id": "rules/c/auth-29",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-30",
+      "concept_id": "rules/c/auth-30",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTH-31",
+      "concept_id": "rules/c/auth-31",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-01",
+      "concept_id": "rules/c/authz-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-02",
+      "concept_id": "rules/c/authz-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-03",
+      "concept_id": "rules/c/authz-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-04",
+      "concept_id": "rules/c/authz-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-05",
+      "concept_id": "rules/c/authz-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-06",
+      "concept_id": "rules/c/authz-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-07",
+      "concept_id": "rules/c/authz-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-08",
+      "concept_id": "rules/c/authz-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "AUTHZ-09",
+      "concept_id": "rules/c/authz-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-01",
+      "concept_id": "rules/c/bp-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-02",
+      "concept_id": "rules/c/bp-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-03",
+      "concept_id": "rules/c/bp-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-04",
+      "concept_id": "rules/c/bp-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-05",
+      "concept_id": "rules/c/bp-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-06",
+      "concept_id": "rules/c/bp-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-07",
+      "concept_id": "rules/c/bp-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-08",
+      "concept_id": "rules/c/bp-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-09",
+      "concept_id": "rules/c/bp-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-10",
+      "concept_id": "rules/g/bp-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-11",
+      "concept_id": "rules/c/bp-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-12",
+      "concept_id": "rules/c/bp-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-13",
+      "concept_id": "rules/c/bp-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-14",
+      "concept_id": "rules/c/bp-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-15",
+      "concept_id": "rules/c/bp-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-16",
+      "concept_id": "rules/c/bp-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-17",
+      "concept_id": "rules/c/bp-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-18",
+      "concept_id": "rules/c/bp-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-19",
+      "concept_id": "rules/g/bp-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "BP-20",
+      "concept_id": "rules/c/bp-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-01",
+      "concept_id": "rules/g/cli-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-02",
+      "concept_id": "rules/c/cli-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-03",
+      "concept_id": "rules/c/cli-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-04",
+      "concept_id": "rules/c/cli-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-05",
+      "concept_id": "rules/c/cli-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-06",
+      "concept_id": "rules/c/cli-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-07",
+      "concept_id": "rules/c/cli-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-08",
+      "concept_id": "rules/c/cli-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-09",
+      "concept_id": "rules/c/cli-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-10",
+      "concept_id": "rules/c/cli-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-11",
+      "concept_id": "rules/c/cli-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-12",
+      "concept_id": "rules/c/cli-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-13",
+      "concept_id": "rules/c/cli-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-14",
+      "concept_id": "rules/c/cli-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-01",
+      "concept_id": "rules/p/conf-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-02",
+      "concept_id": "rules/p/conf-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-03",
+      "concept_id": "rules/p/conf-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-04",
+      "concept_id": "rules/p/conf-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-05",
+      "concept_id": "rules/p/conf-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-06",
+      "concept_id": "rules/p/conf-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-07",
+      "concept_id": "rules/p/conf-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-08",
+      "concept_id": "rules/p/conf-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-09",
+      "concept_id": "rules/p/conf-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-10",
+      "concept_id": "rules/p/conf-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-11",
+      "concept_id": "rules/p/conf-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-12",
+      "concept_id": "rules/p/conf-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-13",
+      "concept_id": "rules/p/conf-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-14",
+      "concept_id": "rules/p/conf-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-15",
+      "concept_id": "rules/p/conf-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-16",
+      "concept_id": "rules/p/conf-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-17",
+      "concept_id": "rules/p/conf-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-18",
+      "concept_id": "rules/p/conf-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-19",
+      "concept_id": "rules/p/conf-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-20",
+      "concept_id": "rules/p/conf-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-21",
+      "concept_id": "rules/p/conf-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-22",
+      "concept_id": "rules/p/conf-22",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-23",
+      "concept_id": "rules/p/conf-23",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-24",
+      "concept_id": "rules/p/conf-24",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-25",
+      "concept_id": "rules/p/conf-25",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-26",
+      "concept_id": "rules/p/conf-26",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-27",
+      "concept_id": "rules/p/conf-27",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-28",
+      "concept_id": "rules/p/conf-28",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-29",
+      "concept_id": "rules/p/conf-29",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-30",
+      "concept_id": "rules/p/conf-30",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-31",
+      "concept_id": "rules/p/conf-31",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-32",
+      "concept_id": "rules/p/conf-32",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-33",
+      "concept_id": "rules/p/conf-33",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-34",
+      "concept_id": "rules/p/conf-34",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-35",
+      "concept_id": "rules/p/conf-35",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-36",
+      "concept_id": "rules/p/conf-36",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-37",
+      "concept_id": "rules/p/conf-37",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-38",
+      "concept_id": "rules/p/conf-38",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-39",
+      "concept_id": "rules/p/conf-39",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-40",
+      "concept_id": "rules/p/conf-40",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-41",
+      "concept_id": "rules/p/conf-41",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-42",
+      "concept_id": "rules/p/conf-42",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-43",
+      "concept_id": "rules/p/conf-43",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-44",
+      "concept_id": "rules/p/conf-44",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-45",
+      "concept_id": "rules/p/conf-45",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-46",
+      "concept_id": "rules/p/conf-46",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-47",
+      "concept_id": "rules/p/conf-47",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-48",
+      "concept_id": "rules/p/conf-48",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-49",
+      "concept_id": "rules/p/conf-49",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-50",
+      "concept_id": "rules/p/conf-50",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-51",
+      "concept_id": "rules/p/conf-51",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-52",
+      "concept_id": "rules/p/conf-52",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-53",
+      "concept_id": "rules/p/conf-53",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-54",
+      "concept_id": "rules/p/conf-54",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-55",
+      "concept_id": "rules/p/conf-55",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-56",
+      "concept_id": "rules/p/conf-56",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-57",
+      "concept_id": "rules/p/conf-57",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-58",
+      "concept_id": "rules/p/conf-58",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-59",
+      "concept_id": "rules/p/conf-59",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-60",
+      "concept_id": "rules/p/conf-60",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-61",
+      "concept_id": "rules/p/conf-61",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-62",
+      "concept_id": "rules/p/conf-62",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-63",
+      "concept_id": "rules/p/conf-63",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-64",
+      "concept_id": "rules/p/conf-64",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CONF-65",
+      "concept_id": "rules/p/conf-65",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-01",
+      "concept_id": "rules/c/core-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-02",
+      "concept_id": "rules/c/core-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-03",
+      "concept_id": "rules/c/core-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-04",
+      "concept_id": "rules/c/core-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-05",
+      "concept_id": "rules/c/core-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-06",
+      "concept_id": "rules/c/core-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-07",
+      "concept_id": "rules/c/core-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-08",
+      "concept_id": "rules/c/core-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-09",
+      "concept_id": "rules/c/core-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CORE-10",
+      "concept_id": "rules/c/core-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-01",
+      "concept_id": "rules/g/doc-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-02",
+      "concept_id": "rules/c/doc-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-03",
+      "concept_id": "rules/c/doc-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-04",
+      "concept_id": "rules/c/doc-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-05",
+      "concept_id": "rules/c/doc-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-06",
+      "concept_id": "rules/g/doc-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-07",
+      "concept_id": "rules/c/doc-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-08",
+      "concept_id": "rules/c/doc-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-09",
+      "concept_id": "rules/g/doc-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-10",
+      "concept_id": "rules/c/doc-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-11",
+      "concept_id": "rules/g/doc-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-12",
+      "concept_id": "rules/g/doc-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-13",
+      "concept_id": "rules/c/doc-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-14",
+      "concept_id": "rules/c/doc-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-15",
+      "concept_id": "rules/g/doc-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-16",
+      "concept_id": "rules/c/doc-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "DOC-17",
+      "concept_id": "rules/c/doc-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ERR-01",
+      "concept_id": "rules/c/err-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ERR-02",
+      "concept_id": "rules/c/err-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ERR-03",
+      "concept_id": "rules/c/err-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ERR-04",
+      "concept_id": "rules/c/err-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ERR-05",
+      "concept_id": "rules/c/err-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-01",
+      "concept_id": "rules/g/grpc-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-02",
+      "concept_id": "rules/c/grpc-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-03",
+      "concept_id": "rules/c/grpc-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-04",
+      "concept_id": "rules/c/grpc-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-05",
+      "concept_id": "rules/g/grpc-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-06",
+      "concept_id": "rules/c/grpc-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-07",
+      "concept_id": "rules/c/grpc-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-08",
+      "concept_id": "rules/c/grpc-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-09",
+      "concept_id": "rules/c/grpc-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-10",
+      "concept_id": "rules/c/grpc-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-11",
+      "concept_id": "rules/c/grpc-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-12",
+      "concept_id": "rules/c/grpc-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-13",
+      "concept_id": "rules/c/grpc-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-14",
+      "concept_id": "rules/c/grpc-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-15",
+      "concept_id": "rules/c/grpc-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-16",
+      "concept_id": "rules/c/grpc-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-17",
+      "concept_id": "rules/c/grpc-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-18",
+      "concept_id": "rules/c/grpc-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-19",
+      "concept_id": "rules/c/grpc-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ID-01",
+      "concept_id": "rules/c/id-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ID-02",
+      "concept_id": "rules/c/id-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ID-03",
+      "concept_id": "rules/c/id-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ID-04",
+      "concept_id": "rules/c/id-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ID-05",
+      "concept_id": "rules/c/id-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "ID-06",
+      "concept_id": "rules/c/id-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-07",
+      "concept_id": "rules/o/c/idn-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-08",
+      "concept_id": "rules/o/c/idn-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-09",
+      "concept_id": "rules/o/c/idn-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-10",
+      "concept_id": "rules/o/c/idn-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-11",
+      "concept_id": "rules/o/c/idn-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-12",
+      "concept_id": "rules/o/c/idn-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-13",
+      "concept_id": "rules/o/c/idn-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-14",
+      "concept_id": "rules/o/c/idn-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-15",
+      "concept_id": "rules/o/c/idn-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-16",
+      "concept_id": "rules/o/c/idn-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-17",
+      "concept_id": "rules/o/c/idn-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-18",
+      "concept_id": "rules/o/c/idn-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-19",
+      "concept_id": "rules/o/c/idn-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-20",
+      "concept_id": "rules/o/c/idn-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-21",
+      "concept_id": "rules/o/c/idn-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-22",
+      "concept_id": "rules/o/c/idn-22",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-23",
+      "concept_id": "rules/o/c/idn-23",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IDN-24",
+      "concept_id": "rules/o/c/idn-24",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-01",
+      "concept_id": "rules/c/if-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-02",
+      "concept_id": "rules/c/if-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-03",
+      "concept_id": "rules/c/if-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-04",
+      "concept_id": "rules/c/if-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-05",
+      "concept_id": "rules/c/if-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-06",
+      "concept_id": "rules/c/if-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-07",
+      "concept_id": "rules/c/if-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IF-08",
+      "concept_id": "rules/c/if-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-01",
+      "concept_id": "rules/c/mcp-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-02",
+      "concept_id": "rules/c/mcp-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-03",
+      "concept_id": "rules/g/mcp-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-04",
+      "concept_id": "rules/g/mcp-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-05",
+      "concept_id": "rules/c/mcp-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-06",
+      "concept_id": "rules/c/mcp-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-07",
+      "concept_id": "rules/c/mcp-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-08",
+      "concept_id": "rules/c/mcp-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-09",
+      "concept_id": "rules/c/mcp-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-10",
+      "concept_id": "rules/c/mcp-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-11",
+      "concept_id": "rules/c/mcp-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-12",
+      "concept_id": "rules/c/mcp-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-13",
+      "concept_id": "rules/c/mcp-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-14",
+      "concept_id": "rules/c/mcp-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-15",
+      "concept_id": "rules/c/mcp-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-16",
+      "concept_id": "rules/c/mcp-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-17",
+      "concept_id": "rules/c/mcp-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-18",
+      "concept_id": "rules/c/mcp-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-19",
+      "concept_id": "rules/c/mcp-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-20",
+      "concept_id": "rules/c/mcp-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-21",
+      "concept_id": "rules/c/mcp-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OBS-01",
+      "concept_id": "rules/c/obs-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OBS-02",
+      "concept_id": "rules/c/obs-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OBS-03",
+      "concept_id": "rules/c/obs-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OBS-04",
+      "concept_id": "rules/c/obs-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OBS-05",
+      "concept_id": "rules/c/obs-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-01",
+      "concept_id": "rules/c/op-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-02",
+      "concept_id": "rules/c/op-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-03",
+      "concept_id": "rules/c/op-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-04",
+      "concept_id": "rules/c/op-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-05",
+      "concept_id": "rules/c/op-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-06",
+      "concept_id": "rules/c/op-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-07",
+      "concept_id": "rules/c/op-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-08",
+      "concept_id": "rules/g/op-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-09",
+      "concept_id": "rules/c/op-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-10",
+      "concept_id": "rules/c/op-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-11",
+      "concept_id": "rules/c/op-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-12",
+      "concept_id": "rules/c/op-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-AUTH-01",
+      "concept_id": "rules/c/op-auth-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-AUTH-02",
+      "concept_id": "rules/c/op-auth-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-AUTH-03",
+      "concept_id": "rules/c/op-auth-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-AUTH-04",
+      "concept_id": "rules/c/op-auth-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-AUTH-05",
+      "concept_id": "rules/c/op-auth-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-01",
+      "concept_id": "rules/c/op-idem-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-02",
+      "concept_id": "rules/c/op-idem-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-03",
+      "concept_id": "rules/c/op-idem-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-04",
+      "concept_id": "rules/c/op-idem-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-05",
+      "concept_id": "rules/c/op-idem-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-06",
+      "concept_id": "rules/c/op-idem-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-07",
+      "concept_id": "rules/c/op-idem-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-08",
+      "concept_id": "rules/g/op-idem-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-09",
+      "concept_id": "rules/c/op-idem-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-IDEM-10",
+      "concept_id": "rules/c/op-idem-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-TX-01",
+      "concept_id": "rules/c/op-tx-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-TX-02",
+      "concept_id": "rules/c/op-tx-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-TX-03",
+      "concept_id": "rules/c/op-tx-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-TX-04",
+      "concept_id": "rules/c/op-tx-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-TX-05",
+      "concept_id": "rules/c/op-tx-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-TX-06",
+      "concept_id": "rules/c/op-tx-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-VAL-01",
+      "concept_id": "rules/g/op-val-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-VAL-02",
+      "concept_id": "rules/c/op-val-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OP-VAL-03",
+      "concept_id": "rules/c/op-val-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-01",
+      "concept_id": "rules/c/ops-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-02",
+      "concept_id": "rules/c/ops-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-03",
+      "concept_id": "rules/c/ops-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-04",
+      "concept_id": "rules/g/ops-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-05",
+      "concept_id": "rules/g/ops-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-06",
+      "concept_id": "rules/c/ops-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-07",
+      "concept_id": "rules/c/ops-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-08",
+      "concept_id": "rules/c/ops-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-09",
+      "concept_id": "rules/c/ops-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-10",
+      "concept_id": "rules/c/ops-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-11",
+      "concept_id": "rules/c/ops-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-12",
+      "concept_id": "rules/c/ops-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-13",
+      "concept_id": "rules/g/ops-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-14",
+      "concept_id": "rules/c/ops-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-15",
+      "concept_id": "rules/c/ops-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-16",
+      "concept_id": "rules/c/ops-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-17",
+      "concept_id": "rules/c/ops-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "OPS-18",
+      "concept_id": "rules/g/ops-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-01",
+      "concept_id": "rules/c/rest-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-02",
+      "concept_id": "rules/c/rest-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-03",
+      "concept_id": "rules/c/rest-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-04",
+      "concept_id": "rules/c/rest-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-05",
+      "concept_id": "rules/c/rest-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-06",
+      "concept_id": "rules/c/rest-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-07",
+      "concept_id": "rules/c/rest-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-08",
+      "concept_id": "rules/c/rest-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-09",
+      "concept_id": "rules/c/rest-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-10",
+      "concept_id": "rules/c/rest-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-11",
+      "concept_id": "rules/c/rest-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-12",
+      "concept_id": "rules/c/rest-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-13",
+      "concept_id": "rules/c/rest-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-14",
+      "concept_id": "rules/c/rest-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-15",
+      "concept_id": "rules/c/rest-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-16",
+      "concept_id": "rules/c/rest-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-17",
+      "concept_id": "rules/c/rest-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-18",
+      "concept_id": "rules/c/rest-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SEC-01",
+      "concept_id": "rules/c/sec-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SEC-02",
+      "concept_id": "rules/c/sec-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SEC-03",
+      "concept_id": "rules/c/sec-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SEC-04",
+      "concept_id": "rules/c/sec-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SEC-05",
+      "concept_id": "rules/c/sec-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-01",
+      "concept_id": "rules/o/c/sso-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-02",
+      "concept_id": "rules/o/c/sso-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-03",
+      "concept_id": "rules/o/c/sso-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-04",
+      "concept_id": "rules/o/c/sso-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-05",
+      "concept_id": "rules/o/c/sso-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-06",
+      "concept_id": "rules/o/c/sso-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-07",
+      "concept_id": "rules/o/c/sso-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-08",
+      "concept_id": "rules/o/c/sso-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-09",
+      "concept_id": "rules/o/c/sso-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-10",
+      "concept_id": "rules/o/c/sso-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-11",
+      "concept_id": "rules/o/c/sso-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "SSO-12",
+      "concept_id": "rules/o/c/sso-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-01",
+      "concept_id": "rules/c/val-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-02",
+      "concept_id": "rules/c/val-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-03",
+      "concept_id": "rules/c/val-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-04",
+      "concept_id": "rules/c/val-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-05",
+      "concept_id": "rules/c/val-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-06",
+      "concept_id": "rules/c/val-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-07",
+      "concept_id": "rules/c/val-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-08",
+      "concept_id": "rules/c/val-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-09",
+      "concept_id": "rules/c/val-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-10",
+      "concept_id": "rules/c/val-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-11",
+      "concept_id": "rules/c/val-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-12",
+      "concept_id": "rules/g/val-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-13",
+      "concept_id": "rules/c/val-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-14",
+      "concept_id": "rules/c/val-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-15",
+      "concept_id": "rules/c/val-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-16",
+      "concept_id": "rules/g/val-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-17",
+      "concept_id": "rules/c/val-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-18",
+      "concept_id": "rules/c/val-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-19",
+      "concept_id": "rules/g/val-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VAL-20",
+      "concept_id": "rules/g/val-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-01",
+      "concept_id": "rules/c/ws-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-02",
+      "concept_id": "rules/c/ws-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-03",
+      "concept_id": "rules/c/ws-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-04",
+      "concept_id": "rules/c/ws-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-05",
+      "concept_id": "rules/c/ws-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-06",
+      "concept_id": "rules/c/ws-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-07",
+      "concept_id": "rules/c/ws-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-08",
+      "concept_id": "rules/c/ws-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-09",
+      "concept_id": "rules/c/ws-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-10",
+      "concept_id": "rules/c/ws-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-11",
+      "concept_id": "rules/c/ws-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-12",
+      "concept_id": "rules/c/ws-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-13",
+      "concept_id": "rules/c/ws-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-14",
+      "concept_id": "rules/c/ws-14",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-15",
+      "concept_id": "rules/c/ws-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-16",
+      "concept_id": "rules/c/ws-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-17",
+      "concept_id": "rules/c/ws-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-18",
+      "concept_id": "rules/c/ws-18",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-19",
+      "concept_id": "rules/c/ws-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-20",
+      "concept_id": "rules/c/ws-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-21",
+      "concept_id": "rules/c/ws-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-22",
+      "concept_id": "rules/c/ws-22",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-23",
+      "concept_id": "rules/c/ws-23",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-24",
+      "concept_id": "rules/c/ws-24",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-25",
+      "concept_id": "rules/c/ws-25",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-26",
+      "concept_id": "rules/c/ws-26",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-27",
+      "concept_id": "rules/c/ws-27",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-28",
+      "concept_id": "rules/c/ws-28",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-29",
+      "concept_id": "rules/c/ws-29",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-30",
+      "concept_id": "rules/c/ws-30",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-31",
+      "concept_id": "rules/c/ws-31",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-32",
+      "concept_id": "rules/c/ws-32",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-19",
+      "concept_id": "rules/c/rest-19",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-20",
+      "concept_id": "rules/c/rest-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "REST-21",
+      "concept_id": "rules/c/rest-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-33",
+      "concept_id": "rules/c/ws-33",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-34",
+      "concept_id": "rules/c/ws-34",
+      "decision": "must"
+    },
+    {
+      "rule_id": "WS-35",
+      "concept_id": "rules/c/ws-35",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-15",
+      "concept_id": "rules/c/cli-15",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-16",
+      "concept_id": "rules/c/cli-16",
+      "decision": "must"
+    },
+    {
+      "rule_id": "CLI-17",
+      "concept_id": "rules/c/cli-17",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-20",
+      "concept_id": "rules/c/grpc-20",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-21",
+      "concept_id": "rules/c/grpc-21",
+      "decision": "must"
+    },
+    {
+      "rule_id": "GRPC-22",
+      "concept_id": "rules/c/grpc-22",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-22",
+      "concept_id": "rules/c/mcp-22",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-23",
+      "concept_id": "rules/c/mcp-23",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-24",
+      "concept_id": "rules/c/mcp-24",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-25",
+      "concept_id": "rules/c/mcp-25",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-26",
+      "concept_id": "rules/c/mcp-26",
+      "decision": "must"
+    },
+    {
+      "rule_id": "MCP-27",
+      "concept_id": "rules/c/mcp-27",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-25",
+      "concept_id": "rules/c/a2a-25",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-26",
+      "concept_id": "rules/c/a2a-26",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-27",
+      "concept_id": "rules/c/a2a-27",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-28",
+      "concept_id": "rules/c/a2a-28",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-29",
+      "concept_id": "rules/c/a2a-29",
+      "decision": "must"
+    },
+    {
+      "rule_id": "A2A-30",
+      "concept_id": "rules/c/a2a-30",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-01",
+      "concept_id": "rules/c/imp-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-02",
+      "concept_id": "rules/c/imp-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-03",
+      "concept_id": "rules/c/imp-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-04",
+      "concept_id": "rules/c/imp-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-05",
+      "concept_id": "rules/c/imp-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-06",
+      "concept_id": "rules/c/imp-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-07",
+      "concept_id": "rules/c/imp-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-08",
+      "concept_id": "rules/c/imp-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-09",
+      "concept_id": "rules/c/imp-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-10",
+      "concept_id": "rules/c/imp-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-11",
+      "concept_id": "rules/c/imp-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "IMP-12",
+      "concept_id": "rules/c/imp-12",
+      "decision": "must"
     }
   ]
 }
