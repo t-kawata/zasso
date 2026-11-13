@@ -6,7 +6,7 @@
 // happens at startup, before any session is opened.
 import type { WorkspacePackage } from "./workspace.js";
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 export type SelectionErrorCode = "UNKNOWN" | "AMBIGUOUS" | "ORDER_CROSSING";
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -40,7 +40,7 @@ function normalizeRequested(requested: readonly string[]): string[] {
   return [...new Set(names)];
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 function resolveOne(
   packages: readonly WorkspacePackage[],
   requestedName: string,
@@ -62,7 +62,34 @@ function resolveOne(
       matches.map((pkg) => pkg.name),
     );
   }
-  return matches[0]!;
+  const [match] = matches;
+  if (match === undefined) {
+    throw new PackageSelectionError(
+      "UNKNOWN",
+      `package "${requestedName}" does not match any package`,
+    );
+  }
+  return match;
+}
+
+/**
+ * Resolve the requested names without the order-crossing check.
+ *
+ * The watcher uses this first: when every selected package is already at its
+ * endpoint, nothing is processed and no order can be violated. A non-endpoint
+ * selection still goes through resolvePackageSelection's ORDER_CROSSING gate.
+ */
+export function resolveRequestedPackages(
+  packages: readonly WorkspacePackage[],
+  requested: readonly string[],
+): WorkspacePackage[] {
+  const names = normalizeRequested(requested);
+  if (names.length === 0) return [...packages];
+
+  const selectedIds = new Set(
+    names.map((name) => resolveOne(packages, name).id),
+  );
+  return packages.filter((pkg) => selectedIds.has(pkg.id));
 }
 
 /**
@@ -70,13 +97,8 @@ function resolveOne(
  * skip an earlier pending package. An empty request selects every package.
  */
 export function resolvePackageSelection(input: SelectionInput): WorkspacePackage[] {
-  const requested = normalizeRequested(input.requested);
-  if (requested.length === 0) return [...input.packages];
-
-  const selectedIds = new Set(
-    requested.map((name) => resolveOne(input.packages, name).id),
-  );
-  const selected = input.packages.filter((pkg) => selectedIds.has(pkg.id));
+  const selected = resolveRequestedPackages(input.packages, input.requested);
+  const selectedIds = new Set(selected.map((pkg) => pkg.id));
 
   let lastPendingIndex = -1;
   input.packages.forEach((pkg, index) => {

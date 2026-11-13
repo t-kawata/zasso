@@ -42,7 +42,7 @@ run-conver:
 
 # test-conver: 全ユニットテストを実行する（テストファイルは tsc でコンパイル）
 test-conver:
-		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/line-writer.test.js dist/runner.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js dist/workspace.test.js dist/package-selection.test.js dist/next-action.test.js dist/command-history.test.js dist/runtime-dependencies.test.js dist/display/events.test.js dist/display/terminal-text.test.js dist/display/thought-line.test.js dist/display/lifecycle.test.js dist/display/renderer.test.js dist/progress/model.test.js dist/progress/short-name.test.js dist/progress/layout.test.js dist/progress/dashboard.test.js
+		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/line-writer.test.js dist/runner.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js dist/workspace.test.js dist/package-selection.test.js dist/boundary-state.test.js dist/next-action.test.js dist/command-history.test.js dist/runtime-dependencies.test.js dist/display/events.test.js dist/display/terminal-text.test.js dist/display/thought-line.test.js dist/display/lifecycle.test.js dist/display/renderer.test.js dist/progress/model.test.js dist/progress/short-name.test.js dist/progress/layout.test.js dist/progress/dashboard.test.js
 
 # test: リポジトリのテストを1コマンドで実行する（3面の合併）
 #   PX-204: 集約器が discovery を行い、面ごとに実行して欠落を照合する。

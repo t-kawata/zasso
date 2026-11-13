@@ -10,10 +10,32 @@ import { readFileSync } from "node:fs";
 import { withSession, runCommand } from "./session.js";
 import type { RunCommandOptions, AcpSession, SessionConfig } from "./session.js";
 import {
+  sendSlackBoundaryComplete,
   sendSlackPhaseComplete,
   sendSlackStop,
 } from "./notifier.js";
-import type { PhaseCompleteContext, StopContext } from "./notifier.js";
+import type {
+  BoundaryCompleteContext,
+  PhaseCompleteContext,
+  StopContext,
+} from "./notifier.js";
+import {
+  BOUNDARY_STATUS_COMPLETE,
+  computeTicketSetDigest,
+  createBoundaryState,
+  isPackageEndpoint,
+  isTicketSetTerminal,
+  markBoundaryCompleted,
+  markBoundaryStarted,
+  markFindSkipped,
+  markReviewed,
+  markResolved,
+  nodeBoundaryStateIo,
+  readBoundaryState,
+  ticketKeysOf,
+  writeBoundaryState,
+} from "./boundary-state.js";
+import type { BoundaryState, BoundaryStateIo } from "./boundary-state.js";
 import {
   clearForNextRound,
   packageProgress,
@@ -35,6 +57,7 @@ import {
 import type { CommandExecution } from "./command-history.js";
 import {
   resolvePackageSelection,
+  resolveRequestedPackages,
   PackageSelectionError,
 } from "./package-selection.js";
 import type { WorkspaceModel, WorkspacePackage } from "./workspace.js";
@@ -77,14 +100,36 @@ export interface WorkspaceLoopOptions extends LoopOptions {
 }
 
 /** Session and notification seams, injected by tests. */
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 export interface PackageLoopDeps {
   withSession: typeof withSession;
   runCommand: typeof runCommand;
   sendSlackPhaseComplete: typeof sendSlackPhaseComplete;
   sendSlackStop: typeof sendSlackStop;
+  /** Optional so existing test seams keep their shape; the real notifier is the default. */
+  sendSlackBoundaryComplete?: typeof sendSlackBoundaryComplete;
+  /** Optional file-system seam for deterministic boundary-state failures. */
+  boundaryStateIo?: BoundaryStateIo;
   now: () => number;
 }
+
+/** What one workspace tick did, and whether every selected package is at its endpoint. */
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+export interface WorkspaceLoopResult {
+  processed: number;
+  allSelectedComplete: boolean;
+}
+
+/** The real seams. Kept outside the signatures so the parameter list stays readable. */
+const DEFAULT_PACKAGE_LOOP_DEPS: PackageLoopDeps = {
+  withSession,
+  runCommand,
+  sendSlackPhaseComplete,
+  sendSlackStop,
+  sendSlackBoundaryComplete,
+  boundaryStateIo: nodeBoundaryStateIo,
+  now: Date.now,
+};
 
 /** Raised after a Slack stop message was sent. main() turns this into exit 1. */
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -197,6 +242,18 @@ function readTicketsOrThrow(ticketsPath: string): TicketsJson {
   }
 }
 
+/** True when every package has a complete boundary record for its current ticket set. */
+export function allPackagesAreEndpoint(
+  packages: readonly WorkspacePackage[],
+  io: BoundaryStateIo = nodeBoundaryStateIo,
+): boolean {
+  return packages.every((pkg) => {
+    const ticketsData = readTicketsOrThrow(pkg.ticketsPath);
+    const state = readBoundaryState(pkg.directory, io);
+    return isPackageEndpoint(ticketsData, state);
+  });
+}
+
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 function parseTicketKey(key: string): { phaseId: number; id: number } {
   const separator = key.indexOf("-");
@@ -255,11 +312,14 @@ interface PackageState {
   notifiedPhases: Set<number>;
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
-function createPackageState(options: LoopOptions): PackageState {
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
+function createPackageState(
+  options: LoopOptions,
+  reviewedSinceResolve = 0,
+): PackageState {
   return {
     progress: {
-      reviewedSinceResolve: 0,
+      reviewedSinceResolve,
       resolveEvery: options.resolveEvery,
       consolidateDone: false,
       findDone: false,
@@ -271,15 +331,19 @@ function createPackageState(options: LoopOptions): PackageState {
   };
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
-async function notifyPhaseIfComplete(
-  options: WorkspaceLoopOptions,
-  pkg: WorkspacePackage,
-  state: PackageState,
-  ticketsData: TicketsJson,
-  phaseId: number,
-  deps: PackageLoopDeps,
-): Promise<void> {
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
+interface PhaseNotificationInput {
+  options: WorkspaceLoopOptions;
+  pkg: WorkspacePackage;
+  state: PackageState;
+  ticketsData: TicketsJson;
+  phaseId: number;
+  deps: PackageLoopDeps;
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+async function notifyPhaseIfComplete(input: PhaseNotificationInput): Promise<void> {
+  const { options, pkg, state, ticketsData, phaseId, deps } = input;
   if (state.notifiedPhases.has(phaseId)) return;
   const phase = phaseProgress(ticketsData, phaseId);
   if (!phase.complete) return;
@@ -296,15 +360,19 @@ async function notifyPhaseIfComplete(
   await deps.sendSlackPhaseComplete(options.slackWebhookUrl, context);
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
-function stopContextFor(
-  options: WorkspaceLoopOptions,
-  pkg: WorkspacePackage,
-  action: NextAction | null,
-  reason: string,
-  ticketKey?: string,
-  command?: string,
-): StopContext {
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
+interface StopContextInput {
+  options: WorkspaceLoopOptions;
+  pkg: WorkspacePackage;
+  action: NextAction | null;
+  reason: string;
+  ticketKey?: string;
+  command?: string;
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+function stopContextFor(input: StopContextInput): StopContext {
+  const { options, pkg, action, reason, ticketKey, command } = input;
   return {
     workspace: options.workspace.name,
     packageName: pkg.name,
@@ -383,6 +451,94 @@ async function runBoundary(
   process.stdout.write(`\n>>> ✅ ${command.replace("/", "")} 完了\n`);
 }
 
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+function boundaryIoOf(deps: PackageLoopDeps): BoundaryStateIo {
+  return deps.boundaryStateIo ?? nodeBoundaryStateIo;
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+function nowIso(deps: PackageLoopDeps): string {
+  return new Date(deps.now()).toISOString();
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+function persistBoundaryState(
+  pkg: WorkspacePackage,
+  state: BoundaryState,
+  deps: PackageLoopDeps,
+): void {
+  writeBoundaryState(pkg.directory, state, boundaryIoOf(deps));
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+interface BoundaryRunResult {
+  state: BoundaryState;
+  addedTicketKeys: string[];
+}
+
+/**
+ * Run one boundary command and persist its lifecycle. A crash between the start
+ * write and the completion write leaves IN_PROGRESS, which is never endpoint.
+ */
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+interface BoundaryRunInput {
+  pkg: WorkspacePackage;
+  kind: "consolidate" | "find";
+  command: "/consolidate-stubs" | "/find-omissions";
+  options: WorkspaceLoopOptions;
+  deps: PackageLoopDeps;
+  state: BoundaryState;
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+async function runPackageBoundary(
+  input: BoundaryRunInput,
+): Promise<BoundaryRunResult> {
+  const { pkg, kind, command, options, deps, state } = input;
+  const started = markBoundaryStarted(state, kind, nowIso(deps));
+  persistBoundaryState(pkg, started, deps);
+
+  const beforeKeys = new Set(ticketKeysOf(readTicketsOrThrow(pkg.ticketsPath)));
+  await runBoundary(pkg, command, options, deps);
+
+  const afterData = readTicketsOrThrow(pkg.ticketsPath);
+  const addedTicketKeys = ticketKeysOf(afterData).filter(
+    (key) => !beforeKeys.has(key),
+  );
+  const completed = markBoundaryCompleted(started, kind, nowIso(deps), {
+    digest: computeTicketSetDigest(afterData),
+    addedTicketKeys,
+  });
+  persistBoundaryState(pkg, completed, deps);
+  return { state: completed, addedTicketKeys };
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+async function notifyBoundaryComplete(
+  options: WorkspaceLoopOptions,
+  pkg: WorkspacePackage,
+  state: BoundaryState,
+  addedTicketKeys: string[],
+  deps: PackageLoopDeps,
+): Promise<void> {
+  const notify = deps.sendSlackBoundaryComplete ?? sendSlackBoundaryComplete;
+  const context: BoundaryCompleteContext = {
+    workspace: options.workspace.name,
+    packageName: pkg.name,
+    lastReviewedTicketKey: state.lastReviewedTicketKey ?? "none",
+    consolidateFinishedAt: state.consolidate?.finishedAt ?? "",
+    findFinishedAt:
+      state.find?.status === BOUNDARY_STATUS_COMPLETE
+        ? state.find.finishedAt
+        : null,
+    addedTicketCount: addedTicketKeys.length,
+    timezone:
+      options.watcherConfig?.timezone ??
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+  await notify(options.slackWebhookUrl, context);
+}
+
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 function recordExecution(
   options: WorkspaceLoopOptions,
@@ -401,15 +557,19 @@ function recordExecution(
   commandHistory.record(execution);
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
-async function executeCommand(
-  session: AcpSession,
-  options: WorkspaceLoopOptions,
-  pkg: WorkspacePackage,
-  action: Extract<NextAction, { kind: "command" }>,
-  escalationLevel: number,
-  deps: PackageLoopDeps,
-): Promise<void> {
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
+interface CommandExecutionInput {
+  session: AcpSession;
+  options: WorkspaceLoopOptions;
+  pkg: WorkspacePackage;
+  action: Extract<NextAction, { kind: "command" }>;
+  escalationLevel: number;
+  deps: PackageLoopDeps;
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+async function executeCommand(input: CommandExecutionInput): Promise<void> {
+  const { session, options, pkg, action, escalationLevel, deps } = input;
   printCommandHeader(action.command, action.ticketKey);
   await deps.runCommand(session, `${action.command} ${action.ticketKey}`, {
     ...toRunCommandOptions(options),
@@ -425,21 +585,32 @@ function escalationLevelFor(action: Extract<NextAction, { kind: "command" }>): n
 }
 
 /** Run one derived ticket command, optionally binding the whole pipeline to one session. */
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
-async function runTicketStep(
-  pkg: WorkspacePackage,
-  options: WorkspaceLoopOptions,
-  action: Extract<NextAction, { kind: "command" }>,
-  state: PackageState,
-  deps: PackageLoopDeps,
-): Promise<void> {
+// [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
+interface TicketStepInput {
+  pkg: WorkspacePackage;
+  options: WorkspaceLoopOptions;
+  action: Extract<NextAction, { kind: "command" }>;
+  state: PackageState;
+  deps: PackageLoopDeps;
+}
+
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+async function runTicketStep(input: TicketStepInput): Promise<void> {
+  const { pkg, options, action, state, deps } = input;
   await waitForWindow(options.watcherConfig);
   const config = toSessionConfig(options);
   const firstLevel = escalationLevelFor(action);
 
   if (!options.bindReviewInOneSession) {
     await runWithDeps(pkg, config, deps, async (session) => {
-      await executeCommand(session, options, pkg, action, firstLevel, deps);
+      await executeCommand({
+        session,
+        options,
+        pkg,
+        action,
+        escalationLevel: firstLevel,
+        deps,
+      });
     });
     return;
   }
@@ -448,7 +619,14 @@ async function runTicketStep(
     let currentAction = action;
     let currentLevel = firstLevel;
     for (;;) {
-      await executeCommand(session, options, pkg, currentAction, currentLevel, deps);
+      await executeCommand({
+        session,
+        options,
+        pkg,
+        action: currentAction,
+        escalationLevel: currentLevel,
+        deps,
+      });
       const ticketsData = readTicketsOrThrow(pkg.ticketsPath);
       const next = deriveNextAction(ticketsData, state.progress);
       if (next.kind !== "command" || next.ticketKey !== action.ticketKey) {
@@ -467,21 +645,43 @@ async function runTicketStep(
 export async function runPackageLoop(
   pkg: WorkspacePackage,
   options: WorkspaceLoopOptions,
-  deps: PackageLoopDeps = {
-    withSession,
-    runCommand,
-    sendSlackPhaseComplete,
-    sendSlackStop,
-    now: Date.now,
-  },
+  deps: PackageLoopDeps = DEFAULT_PACKAGE_LOOP_DEPS,
   budget: number = options.maxCount,
 ): Promise<number> {
   const previousCwd = process.cwd();
   process.chdir(pkg.directory);
   options.display?.onPackageStart(pkg.name);
   try {
+    const initialState = readBoundaryState(pkg.directory, boundaryIoOf(deps));
+    const currentData = readTicketsOrThrow(pkg.ticketsPath);
+    if (isPackageEndpoint(currentData, initialState)) {
+      process.stdout.write(
+        `[boundary] package=${pkg.name} endpoint=true reason=digest-match\n`,
+      );
+      return 0;
+    }
+
+    let boundaryState = initialState ?? createBoundaryState(pkg.id);
+    // A package can arrive already terminal (manual review or a previous run).
+    // No review transition will fire, so record the last ticket at boundary seed
+    // time; otherwise the record could never prove the boundary belongs to it.
+    if (boundaryState.lastReviewedAt === null && isTicketSetTerminal(currentData)) {
+      const keys = ticketKeysOf(currentData);
+      const lastKey = keys[keys.length - 1];
+      if (lastKey !== undefined) {
+        boundaryState = {
+          ...boundaryState,
+          lastReviewedTicketKey: lastKey,
+          lastReviewedAt: nowIso(deps),
+        };
+      }
+    }
+
     clearForNextRound(pkg.ticketsPath);
-    const state = createPackageState(options);
+    const state = createPackageState(
+      options,
+      initialState?.reviewedSinceResolve ?? 0,
+    );
     let processed = 0;
 
     while (processed < budget) {
@@ -495,7 +695,13 @@ export async function runPackageLoop(
             options,
             pkg,
             deps,
-            stopContextFor(options, pkg, null, `invalid status ${error.status} on ${error.ticketKey}`, error.ticketKey),
+            stopContextFor({
+              options,
+              pkg,
+              action: null,
+              reason: `invalid status ${error.status} on ${error.ticketKey}`,
+              ticketKey: error.ticketKey,
+            }),
           );
         }
         if (error instanceof FindRoundLimitError) {
@@ -503,7 +709,12 @@ export async function runPackageLoop(
             options,
             pkg,
             deps,
-            stopContextFor(options, pkg, null, error.message),
+            stopContextFor({
+              options,
+              pkg,
+              action: null,
+              reason: error.message,
+            }),
           );
         }
         throw error;
@@ -512,7 +723,7 @@ export async function runPackageLoop(
       if (action.kind === "complete") break;
 
       if (action.kind === "command") {
-        await runTicketStep(pkg, options, action, state, deps);
+        await runTicketStep({ pkg, options, action, state, deps });
         const afterData = readTicketsOrThrow(pkg.ticketsPath);
         const { phaseId, id } = parseTicketKey(action.ticketKey);
         const afterStatus = statusOfTicket(afterData, phaseId, id);
@@ -521,7 +732,20 @@ export async function runPackageLoop(
           if (isTerminalStatus(afterStatus)) {
             processed++;
             state.progress.reviewedSinceResolve++;
-            await notifyPhaseIfComplete(options, pkg, state, afterData, phaseId, deps);
+            boundaryState = markReviewed(
+              boundaryState,
+              action.ticketKey,
+              nowIso(deps),
+            );
+            persistBoundaryState(pkg, boundaryState, deps);
+            await notifyPhaseIfComplete({
+              options,
+              pkg,
+              state,
+              ticketsData: afterData,
+              phaseId,
+              deps,
+            });
           }
         }
         continue;
@@ -531,22 +755,59 @@ export async function runPackageLoop(
         await waitForWindow(options.watcherConfig);
         await runResolve(pkg, options, action.ticketKey, deps);
         state.progress.reviewedSinceResolve = 0;
+        boundaryState = markResolved(boundaryState);
+        persistBoundaryState(pkg, boundaryState, deps);
         continue;
       }
 
       if (action.kind === "consolidate") {
         await waitForWindow(options.watcherConfig);
-        await runBoundary(pkg, "/consolidate-stubs", options, deps);
+        const consolidated = await runPackageBoundary({
+          pkg,
+          kind: "consolidate",
+          command: "/consolidate-stubs",
+          options,
+          deps,
+          state: boundaryState,
+        });
+        boundaryState = consolidated.state;
         state.progress.consolidateDone = true;
+
+        if (options.noFind === true) {
+          const afterConsolidate = readTicketsOrThrow(pkg.ticketsPath);
+          boundaryState = markFindSkipped(
+            boundaryState,
+            nowIso(deps),
+            computeTicketSetDigest(afterConsolidate),
+          );
+          persistBoundaryState(pkg, boundaryState, deps);
+          state.progress.findDone = true;
+          await notifyBoundaryComplete(options, pkg, boundaryState, [], deps);
+        }
         continue;
       }
 
       await waitForWindow(options.watcherConfig);
-      await runBoundary(pkg, "/find-omissions", options, deps);
+      const found = await runPackageBoundary({
+        pkg,
+        kind: "find",
+        command: "/find-omissions",
+        options,
+        deps,
+        state: boundaryState,
+      });
+      boundaryState = found.state;
       state.progress.findRounds++;
       state.progress.findDone = true;
       const afterFind = readTicketsOrThrow(pkg.ticketsPath);
-      if (pendingTicketsOf(afterFind).length > 0) {
+      await notifyBoundaryComplete(
+        options,
+        pkg,
+        boundaryState,
+        found.addedTicketKeys,
+        deps,
+      );
+      if (!isTicketSetTerminal(afterFind)) {
         state.progress.consolidateDone = false;
         state.progress.findDone = false;
         state.notifiedPhases.clear();
@@ -561,14 +822,14 @@ export async function runPackageLoop(
         options,
         pkg,
         deps,
-        stopContextFor(
+        stopContextFor({
           options,
           pkg,
-          null,
-          "repeated command exhausted three escalations",
-          error.ticketKey,
-          error.command,
-        ),
+          action: null,
+          reason: "repeated command exhausted three escalations",
+          ticketKey: error.ticketKey,
+          command: error.command,
+        }),
       );
     }
     if (error instanceof PackageSelectionError) throw error;
@@ -576,12 +837,12 @@ export async function runPackageLoop(
       options,
       pkg,
       deps,
-      stopContextFor(
+      stopContextFor({
         options,
         pkg,
-        null,
-        error instanceof Error ? error.message : String(error),
-      ),
+        action: null,
+        reason: error instanceof Error ? error.message : String(error),
+      }),
     );
   } finally {
     process.chdir(previousCwd);
@@ -595,18 +856,25 @@ export async function runPackageLoop(
  */
 export async function runWorkspaceLoop(
   options: WorkspaceLoopOptions,
-  deps: PackageLoopDeps = {
-    withSession,
-    runCommand,
-    sendSlackPhaseComplete,
-    sendSlackStop,
-    now: Date.now,
-  },
-): Promise<void> {
+  deps: PackageLoopDeps = DEFAULT_PACKAGE_LOOP_DEPS,
+): Promise<WorkspaceLoopResult> {
   const cliPackages = options.packages ?? [];
   const requested = cliPackages.length > 0
     ? cliPackages
     : options.watcherConfig?.packages ?? [];
+  const boundaryIo = boundaryIoOf(deps);
+  const requestedPackages = resolveRequestedPackages(
+    options.workspace.packages,
+    requested,
+  );
+
+  if (requestedPackages.length > 0 && allPackagesAreEndpoint(requestedPackages, boundaryIo)) {
+    process.stdout.write(
+      `\n✅ ワークスペース ${options.workspace.name} の処理が完了しました。\n`,
+    );
+    return { processed: 0, allSelectedComplete: true };
+  }
+
   const selected = resolvePackageSelection({
     packages: options.workspace.packages,
     requested,
@@ -614,13 +882,19 @@ export async function runWorkspaceLoop(
   });
 
   let budget = options.maxCount;
+  let processed = 0;
   for (const pkg of selected) {
     if (budget <= 0) break;
-    const processed = await runPackageLoop(pkg, options, deps, budget);
-    budget -= processed;
+    const packageProcessed = await runPackageLoop(pkg, options, deps, budget);
+    processed += packageProcessed;
+    budget -= packageProcessed;
   }
 
   process.stdout.write(
     `\n✅ ワークスペース ${options.workspace.name} の処理が完了しました。\n`,
   );
+  return {
+    processed,
+    allSelectedComplete: allPackagesAreEndpoint(selected, boundaryIo),
+  };
 }

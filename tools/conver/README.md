@@ -526,7 +526,7 @@ node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 |--------|------|-----------|
 | `-k`, `--api-key` | API Key（任意。keyless プロバイダーでは省略可） | — |
 | `-s`, `--slack-url` | Slack Incoming Webhook URL（必須） | — |
-| `-P`, `--package` | 対象パッケージ名。繰り返し／カンマ区切り。部分一致は一意な場合のみ | 全パッケージ |
+| `-P`, `--package` | 対象パッケージ名。繰り返し／カンマ区切り。部分一致は一意な場合のみ。`-w` 併用時は全 selected が endpoint で exit 0 | 全パッケージ |
 | `-c`, `--count` | ワークスペース全体で処理するチケット数の上限 | `999999` |
 | `-r`, `--resolve-every` | パッケージごとに N チケット完了ごとに resolve | `3` |
 | `-p`, `--push` | resolve 後に `/epush-branch` を実行（0/1） | `1` |
@@ -534,8 +534,8 @@ node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 | `-v`, `--verbose` | 詳細表示（0/1） | `1` |
 | `--timeout` | 各コマンドのタイムアウト（秒） | `1800` |
 | `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
-| `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動） | — |
-| `-n`, `--no-find` | 全 reviewed 後の consolidate/find をスキップ（0/1） | `0` |
+| `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。endpoint で exit 0） | — |
+| `-n`, `--no-find` | 全 reviewed 後の find をスキップ（consolidate は実行）（0/1） | `0` |
 | `--no-dashboard` | 固定進捗ヘッダーを無効化 | 無効（ヘッダー表示） |
 | `--dashboard-interval` | ヘッダーのポーリング間隔（秒） | `5` |
 | `-h`, `--help` | ヘルプ表示 | — |
@@ -662,14 +662,24 @@ flowchart TD
     VALIDATE --> WINDOW{"優先順にフィルターを評価し<br/>最初にマッチしたか"}
     WINDOW -->|どのフィルターにも不一致| WAIT["waitForWindow<br/>プロセスは生存したまま<br/>60秒間隔で再判定"]
     WAIT --> WINDOW
+    WINDOW -->|枠内 かつ全 selected が endpoint| ENDPOINT(["endpoint 終了（exit 0）"])
     WINDOW -->|枠内| CRON["CronScheduler を起動<br/>intervalMinutes 間隔で runWorkspaceLoop を定期実行<br/>フィルターは timezone 基準"]
     CRON --> CHECK{"チケット境界・各フェーズの直前<br/>（make/plan/start/review/resolve/find）<br/>時間枠内か"}
     CHECK -->|枠外| WAIT_PHASE["waitForWindow<br/>枠内に戻るまで待機"]
     WAIT_PHASE --> CHECK
     CHECK -->|枠内| RUN["status から次コマンドを導出して実行<br/>直前に Tickets.json を再読込"]
+    RUN -->|全 selected が endpoint| ENDPOINT
     RUN --> CRON
     CRON -.->|SIGINT/SIGTERM（任意の時点）| STOP(["グレースフルシャットダウン"])
 ```
+
+**Endpoint と完了記録**:
+
+- **境界の skip**: 全チケットが terminal で、`.conver-boundary.json` の ticket-set digest が一致し、consolidate/find が COMPLETE（または `-n` による find の SKIPPED）で、final resolve が済んでいるパッケージは `/consolidate-stubs` と `/find-omissions` を再実行しません。判定できない記録（欠落・破損・部分書き込み）は「記録なし」として境界を 1 回だけ再実行します。
+- **完了記録**: 各パッケージの `Tickets.json` の隣に `.conver-boundary.json` を置きます。最終 review の ticket key と時刻、`reviewedSinceResolve`、consolidate/find の状態と終了時刻、post-find の ticket-set digest を保存します。write は temp file + rename で行い、途中で落ちても古い有効な document を読みます。
+- **watcher の終了**: 選択した全パッケージが endpoint になった時点で scheduler を止め、exit 0 で終了します。`-P` で明示選択した場合は、未完了の先行パッケージがあっても何も処理しないため、endpoint 判定を ORDER_CROSSING より先に行います。`-P` を指定しない場合はワークスペース全体が endpoint になったときに終了します。
+- **境界 Slack**: consolidate と find の完了時に 1 通だけ、`[workspace] package consolidate HH:mm / find HH:mm TZ (last: KEY) — added N` を送ります。find が追加したチケットがあれば `added N` で示し、`-n 1` で find を省略した場合は `find skipped` と表示します。
+- **`-n 1` の注意**: `-n 1` は find のみを省略し、consolidate は実行します。endpoint 判定では find を `SKIPPED` として記録します。
 
 > 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）では、`days` と `daysOfWeek` の両方を**窓の開始日**で判定します（例: 月22:00〜火06:00 + `daysOfWeek: [1]` は月曜夜〜火曜未明が連続して稼働）。
 

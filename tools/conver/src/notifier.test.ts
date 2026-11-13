@@ -10,10 +10,14 @@ import {
   sendSlackError,
   sendSlackPhaseComplete,
   sendSlackStop,
+  sendSlackBoundaryComplete,
+  buildBoundaryMessage,
+  formatClockTime,
   ErrorContext,
   PhaseCompleteContext,
   StopContext,
 } from "./notifier.js";
+import type { BoundaryCompleteContext } from "./notifier.js";
 
 // HTTP サーバーモック: 指定したステータスコードで応答するローカルサーバーを起動する
 function createMockServer(
@@ -261,5 +265,72 @@ describe("sendSlackPhaseComplete and sendSlackStop", () => {
     assert.ok(text.includes("P0"));
     assert.ok(text.includes("P0-3"));
     assert.ok(text.includes("/make-ticket"));
+  });
+});
+
+// @verifies C004 — one boundary message with both finish times
+describe("sendSlackBoundaryComplete and boundary formatting", () => {
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+  async function capturePayload(
+    send: (url: string) => Promise<void>,
+  ): Promise<string> {
+    let receivedBody = "";
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", () => {
+        receivedBody = body;
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.end("ok");
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    await send(`http://localhost:${port}`);
+    server.close();
+    const formDecoded = receivedBody.replace(/\+/g, "%20").replace(/^payload=/, "");
+    const parsed = JSON.parse(decodeURIComponent(formDecoded)) as { text: string };
+    return parsed.text;
+  }
+
+  const context: BoundaryCompleteContext = {
+    workspace: "doors",
+    packageName: "doors-core",
+    lastReviewedTicketKey: "P3-1",
+    consolidateFinishedAt: "2026-11-13T00:40:00.000Z",
+    findFinishedAt: "2026-11-13T00:42:00.000Z",
+    addedTicketCount: 0,
+    timezone: "Asia/Tokyo",
+  };
+
+  it("renders both finish times, the last ticket and the added count", () => {
+    const text = buildBoundaryMessage(context);
+    assert.ok(text.includes("[doors] doors-core"));
+    assert.ok(text.includes("consolidate 09:40"));
+    assert.ok(text.includes("find 09:42"));
+    assert.ok(text.includes("last: P3-1"));
+    assert.ok(text.includes("added 0"));
+  });
+
+  it("renders find skipped when noFind suppressed the find command", () => {
+    const text = buildBoundaryMessage({ ...context, findFinishedAt: null });
+    assert.ok(text.includes("consolidate 09:40"));
+    assert.ok(text.includes("find skipped"));
+    assert.ok(text.includes("last: P3-1"));
+  });
+
+  it("formats a fixed instant in the requested timezone and falls back safely", () => {
+    assert.equal(formatClockTime("2026-11-13T00:40:00.000Z", "Asia/Tokyo"), "09:40");
+    assert.equal(formatClockTime("not-a-date", "Asia/Tokyo"), "unknown");
+    assert.equal(formatClockTime("2026-11-13T00:40:00.000Z", "Not/AZone"), "00:40");
+  });
+
+  it("sends the boundary message through the webhook payload", async () => {
+    const text = await capturePayload((url) => sendSlackBoundaryComplete(url, context));
+    assert.ok(text.includes("consolidate 09:40"));
+    assert.ok(text.includes("find 09:42"));
+    assert.ok(text.includes("last: P3-1"));
+    assert.ok(text.includes("added 0"));
   });
 });

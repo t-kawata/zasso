@@ -241,6 +241,89 @@ export async function sendSlackPhaseComplete(
   });
 }
 
+/** Boundary completion context: both command finish times, last ticket and added count. */
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+export interface BoundaryCompleteContext {
+  workspace: string;
+  packageName: string;
+  lastReviewedTicketKey: string;
+  consolidateFinishedAt: string;
+  /** null when -n/--no-find suppressed the find command. */
+  findFinishedAt: string | null;
+  addedTicketCount: number;
+  timezone: string;
+}
+
+/** Render an ISO instant as HH:mm in the requested timezone, or "unknown". */
+export function formatClockTime(iso: string, timezone: string): string {
+  const instant = new Date(iso);
+  if (Number.isNaN(instant.getTime())) return "unknown";
+  const format = (zone: string): string =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: zone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(instant);
+  try {
+    return format(timezone);
+  } catch {
+    return format("UTC");
+  }
+}
+
+/** The short zone label for the requested timezone, with the IANA name as fallback. */
+export function formatTimeZoneLabel(timezone: string, iso: string): string {
+  const instant = new Date(iso);
+  if (Number.isNaN(instant.getTime())) return timezone;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      timeZoneName: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(instant);
+    return (
+      parts.find((part) => part.type === "timeZoneName")?.value ?? timezone
+    );
+  } catch {
+    return timezone;
+  }
+}
+
+/** Build the one-line boundary message; consolidate and find stay in one message. */
+export function buildBoundaryMessage(context: BoundaryCompleteContext): string {
+  const consolidate = formatClockTime(
+    context.consolidateFinishedAt,
+    context.timezone,
+  );
+  const zone = formatTimeZoneLabel(
+    context.timezone,
+    context.consolidateFinishedAt,
+  );
+  const findPart =
+    context.findFinishedAt === null
+      ? "find skipped"
+      : `find ${formatClockTime(context.findFinishedAt, context.timezone)} ${zone}`;
+  return (
+    `[${context.workspace}] ${context.packageName} consolidate ${consolidate} ${zone} / ` +
+    `${findPart} (last: ${context.lastReviewedTicketKey}) — added ${context.addedTicketCount}`
+  );
+}
+
+/** Notify Slack that one package completed consolidate and find (or skipped find). */
+export async function sendSlackBoundaryComplete(
+  webhookUrl: string,
+  context: BoundaryCompleteContext,
+): Promise<void> {
+  await sendSlackWithRetry(webhookUrl, {
+    username: "conver",
+    icon_emoji: ":white_check_mark:",
+    text: buildBoundaryMessage(context),
+  });
+}
+
 /** Notify Slack that conver is stopping, with the location and reason. */
 export async function sendSlackStop(
   webhookUrl: string,

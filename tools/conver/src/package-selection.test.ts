@@ -1,9 +1,11 @@
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
 // package-selection.test.ts — unique partial package names and order-crossing safety.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   PackageSelectionError,
   resolvePackageSelection,
+  resolveRequestedPackages,
 } from "./package-selection.js";
 import type { WorkspacePackage } from "./workspace.js";
 
@@ -103,5 +105,53 @@ describe("resolvePackageSelection", () => {
       hasPending,
     });
     assert.deepStrictEqual(selected.map((entry) => entry.name), ["doors-operation"]);
+  });
+});
+
+// @verifies C003 — an endpoint selection is resolved before the order check
+describe("resolveRequestedPackages", () => {
+  it("returns every package in implementation order when no selection is given", () => {
+    const selected = resolveRequestedPackages(selectionPackages, []);
+    assert.deepStrictEqual(
+      selected.map((entry) => entry.name),
+      packages.map((entry) => entry.name),
+    );
+  });
+
+  it("resolves exact and unique partial names and deduplicates", () => {
+    assert.deepStrictEqual(
+      resolveRequestedPackages(selectionPackages, ["doors-cli"]).map((entry) => entry.name),
+      ["doors-cli"],
+    );
+    assert.deepStrictEqual(
+      resolveRequestedPackages(selectionPackages, ["prebuilt"]).map((entry) => entry.name),
+      ["pjsip-prebuilt"],
+    );
+    assert.deepStrictEqual(
+      resolveRequestedPackages(selectionPackages, ["doors-cli", "doors-cli"]).map(
+        (entry) => entry.name,
+      ),
+      ["doors-cli"],
+    );
+  });
+
+  it("rejects ambiguous and unknown names", () => {
+    assert.throws(
+      () => resolveRequestedPackages(packages, ["doors"]),
+      (error: unknown) =>
+        error instanceof PackageSelectionError && error.code === "AMBIGUOUS",
+    );
+    assert.throws(
+      () => resolveRequestedPackages(packages, ["missing"]),
+      (error: unknown) =>
+        error instanceof PackageSelectionError && error.code === "UNKNOWN",
+    );
+  });
+
+  it("does not reject a selection that skips an earlier pending package", () => {
+    assert.deepStrictEqual(
+      resolveRequestedPackages(packages, ["pjsip-prebuilt"]).map((entry) => entry.name),
+      ["pjsip-prebuilt"],
+    );
   });
 });

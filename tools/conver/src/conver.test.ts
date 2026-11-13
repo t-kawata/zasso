@@ -1,3 +1,4 @@
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
 // conver.test.ts — workspace entry gate, normal mode, watcher mode and crash handlers.
 import { describe, it, mock, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -60,6 +61,8 @@ const state: {
   callback: (() => void) | null;
   exitCalls: number[];
   runtimeCheck: { blocked: boolean; message: string };
+  runResult: { processed: number; allSelectedComplete: boolean };
+  allPackagesEndpoint: boolean;
 } = {
   cli: {
     apiKey: "k",
@@ -87,6 +90,8 @@ const state: {
   callback: null,
   exitCalls: [],
   runtimeCheck: { blocked: false, message: "" },
+  runResult: { processed: 0, allSelectedComplete: false },
+  allPackagesEndpoint: false,
 };
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -125,7 +130,9 @@ mock.module("./runner.js", {
     runWorkspaceLoop: async (options: Record<string, unknown>) => {
       state.runOptions = options;
       if (state.runError) throw state.runError;
+      return state.runResult;
     },
+    allPackagesAreEndpoint: () => state.allPackagesEndpoint,
     LoopStoppedError: MockLoopStoppedError,
   },
 });
@@ -159,12 +166,17 @@ mock.module("./cron-scheduler.js", {
 });
 mock.module("./termination.js", {
   exports: {
+    createTerminationHandle: () => ({
+      wait: () => state.termination.promise,
+      stop: () => state.termination.resolve(),
+    }),
     waitForTerminationSignal: () => state.termination.promise,
   },
 });
 mock.module("./package-selection.js", {
   exports: {
     resolvePackageSelection: () => state.workspace.packages,
+    resolveRequestedPackages: () => state.workspace.packages,
     PackageSelectionError: MockPackageSelectionError,
   },
 });
@@ -222,8 +234,11 @@ beforeEach(() => {
   state.cli.watcherConfig = undefined;
   state.cli.packages = [];
   state.runtimeCheck = { blocked: false, message: "" };
+  state.runResult = { processed: 0, allSelectedComplete: false };
+  state.allPackagesEndpoint = false;
 });
 
+// @verifies C003 — endpoint exit and non-endpoint continuation
 describe("main", () => {
   it("runs the workspace loop in normal mode", async () => {
     mockExit();
@@ -300,6 +315,43 @@ describe("main", () => {
 
     state.termination.resolve();
     await running;
+    assert.strictEqual(state.schedulerStopped, true);
+    assert.deepStrictEqual(state.exitCalls, [0]);
+  });
+
+  it("exits 0 when every selected package is already endpoint at startup", async () => {
+    mockExit();
+    state.cli.watcherConfig = "/tmp/watcher.json";
+    state.workspace.packages = [
+      {
+        id: "pkg-a",
+        name: "a",
+        path: "crates/a",
+        directory: "/ws/crates/a",
+        ticketsPath: "/ws/crates/a/Tickets.json",
+      },
+    ];
+    state.allPackagesEndpoint = true;
+
+    await main();
+
+    assert.strictEqual(state.schedulerStarted, false);
+    assert.deepStrictEqual(state.exitCalls, [0]);
+  });
+
+  it("exits 0 when a watcher tick reaches the endpoint", async () => {
+    mockExit();
+    state.cli.watcherConfig = "/tmp/watcher.json";
+    state.runResult = { processed: 0, allSelectedComplete: true };
+
+    const running = main();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.strictEqual(state.schedulerStarted, true);
+    state.callback?.();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await running;
+
     assert.strictEqual(state.schedulerStopped, true);
     assert.deepStrictEqual(state.exitCalls, [0]);
   });

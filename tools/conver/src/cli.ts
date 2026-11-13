@@ -40,7 +40,7 @@ export interface CliOptions {
   watcherConfig?: string;
 }
 
-// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 function showUsage(): void {
   process.stdout.write(`conver.js ${VERSION} — ACP-based ticket processing pipeline (provider-agnostic)
 
@@ -50,6 +50,7 @@ Usage:
 Options:
   -k, --api-key <key>        API key (optional; keyless providers use a placeholder)
   -P, --package <name>       Package name (repeatable or comma-separated; default: all)
+                             With -w, the watcher exits 0 when every selected package is endpoint
   -c, --count <number>       Max tickets to process in this workspace (default: 999999)
   -r, --resolve-every <num>  Resolve interval per package (default: 3)
   -p, --push <0|1>           Auto epush-branch after resolve (default: 1)
@@ -60,8 +61,8 @@ Options:
   --timeout <seconds>        Command timeout in seconds (default: 1800)
   -b, --bind-review-in-one-session <0|1>
                              Bind review in same session (default: 1)
-  -w, --watcher <path>       Watcher config JSON path
-  -n, --no-find <0|1>        Skip consolidate/find after all done (default: 0)
+  -w, --watcher <path>       Watcher config JSON path (exits 0 at the endpoint)
+  -n, --no-find <0|1>        Skip find after all done; consolidate still runs (default: 0)
   --no-dashboard             Disable the fixed progress header
   --dashboard-interval <sec> Header poll interval in seconds (default: 5)
   -h, --help                 Show this message

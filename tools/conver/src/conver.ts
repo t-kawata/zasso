@@ -1,13 +1,13 @@
 // conver.ts — process entry: the 5-layer workspace gate, watcher and loop.
 import { parseCliOptions } from "./cli.js";
 import type { CliOptions } from "./cli.js";
-import { runWorkspaceLoop } from "./runner.js";
-import type { WorkspaceLoopOptions } from "./runner.js";
+import { allPackagesAreEndpoint, runWorkspaceLoop } from "./runner.js";
+import type { WorkspaceLoopOptions, WorkspaceLoopResult } from "./runner.js";
 import { loadWatcherConfig } from "./watcher.js";
 import type { WatcherConfig } from "./watcher.js";
 import { isWithinTimeWindow } from "./step-timer.js";
 import { CronScheduler } from "./cron-scheduler.js";
-import { waitForTerminationSignal } from "./termination.js";
+import { createTerminationHandle } from "./termination.js";
 import {
   readWorkspace,
   resolveWorkspaceRoot,
@@ -17,6 +17,7 @@ import {
 import type { WorkspaceModel } from "./workspace.js";
 import {
   resolvePackageSelection,
+  resolveRequestedPackages,
   PackageSelectionError,
 } from "./package-selection.js";
 import { LoopStoppedError } from "./runner.js";
@@ -76,9 +77,10 @@ async function runNormalMode(
   await runWorkspaceLoop(buildLoopOptions(cli, model, display));
 }
 
-// [::TICKET::] PX-403, PX-404, PX-408 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408) --for-spec --no-implementation-order`.
-type WatcherModeResult = "terminated" | "config-error";
+// [::TICKET::] PX-403, PX-404, PX-408, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413) --for-spec --no-implementation-order`.
+type WatcherModeResult = "terminated" | "endpoint" | "config-error";
 
+// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
 async function runWatcherMode(
   cli: CliOptions,
   model: WorkspaceModel,
@@ -96,11 +98,23 @@ async function runWatcherMode(
     return "config-error";
   }
 
+  const requested = cli.packages.length > 0
+    ? cli.packages
+    : config.packages ?? [];
+
+  // An explicit endpoint selection is terminal even when an earlier package
+  // still has pending work: nothing is processed, so no order is crossed.
+  const requestedPackages = resolveRequestedPackages(model.packages, requested);
+  if (requestedPackages.length > 0 && allPackagesAreEndpoint(requestedPackages)) {
+    process.stdout.write("Watcher mode: endpoint reached; exiting\n");
+    return "endpoint";
+  }
+
   // Validate the selection before the first firing so an ambiguous or
   // order-crossing choice fails at startup, not hours later.
   resolvePackageSelection({
     packages: model.packages,
-    requested: cli.packages.length > 0 ? cli.packages : config.packages ?? [],
+    requested,
     hasPending: (pkg) => hasPendingTickets(pkg.ticketsPath),
   });
 
@@ -113,6 +127,8 @@ async function runWatcherMode(
   const loopOptions = buildLoopOptions(cli, model, display);
   loopOptions.watcherConfig = config;
   let isLoopRunning = false;
+  let exitReason: "terminated" | "endpoint" = "terminated";
+  const terminationHandle = createTerminationHandle();
 
   const scheduler = new CronScheduler(config);
   scheduler.start(() => {
@@ -122,6 +138,13 @@ async function runWatcherMode(
     }
     isLoopRunning = true;
     runWorkspaceLoop(loopOptions)
+      .then((result: WorkspaceLoopResult) => {
+        if (result.allSelectedComplete) {
+          exitReason = "endpoint";
+          scheduler.stop();
+          terminationHandle.stop();
+        }
+      })
       .catch((err) => {
         console.error(
           "Watcher runLoop error:",
@@ -145,13 +168,12 @@ async function runWatcherMode(
       `filters=${windows}, tz=${config.timezone}\n`,
   );
 
-  // Watcher mode owns the process until a termination signal arrives. Returning
-  // here would run main()'s finally and stop the dashboard while cron keeps
-  // firing, so the header would freeze and the next stdout write would land on
-  // row 1 instead of below the log.
-  await waitForTerminationSignal();
+  // The wait ends on a signal or when a tick proves every selected package is
+  // endpoint. Returning early without this wait would stop the dashboard while
+  // cron still fires.
+  await terminationHandle.wait();
   scheduler.stop();
-  return "terminated";
+  return exitReason;
 }
 
 export async function main(): Promise<void> {
@@ -272,7 +294,7 @@ export async function main(): Promise<void> {
       // the shared shutdown path so stdin listeners do not keep the process up.
       // A config error already exited with 1 and must not be re-exited as 0
       // when process.exit is replaced by a test double.
-      if (result === "terminated") lifecycle.shutdown(0);
+      if (result === "terminated" || result === "endpoint") lifecycle.shutdown(0);
     } else {
       await runNormalMode(options, model, display);
     }
