@@ -13,7 +13,6 @@ import { isAbsolute, relative, resolve } from 'node:path';
  * the test surface that proves the stated rules are discriminator enough.
  */
 
-export const ACCEPTANCE_HEADING = '## Acceptance Fixtures';
 export const NON_INTERACTIVE_HEADING = '# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION';
 
 export const PIPELINE_COMMANDS = Object.freeze([
@@ -35,7 +34,6 @@ export const COMMAND_SECTIONS = Object.freeze([
   '## Verification Gates',
   '## Failure Modes',
   '## Integration Checkpoints',
-  '## Acceptance Fixtures',
   '## Completion',
 ]);
 
@@ -68,6 +66,7 @@ export const EXAMPLE_LITERALS = Object.freeze([
   'Apple-Silicon',
   'Implementation-Handbook',
   'BUILDENV',
+  'rust-interface-law',
 ]);
 
 export const CANONICAL_CHECK_CONTRACT = JSON.parse(
@@ -514,11 +513,14 @@ export function auditCommand(text) {
   }
 
   const pathAnchor = sectionOf(body, '## Path Anchor');
-  if (!pathAnchor.includes('SKILL_DIR="$PWD_ROOT/.claude/skills/<name>-law"')) {
-    add('SKILL_LOCATION_DRIFT', 'C001', 'SKILL_DIR is not fixed to $PWD_ROOT/.claude/skills/<name>-law');
+  if (!pathAnchor.includes("printf '%s/.claude\\n' \"$(git rev-parse --show-toplevel)\"")) {
+    add('SKILL_LOCATION_DRIFT', 'C001', 'path anchor does not print <repo>/.claude from the git top-level');
   }
-  if (/DEV_ROOT\s*=/.test(pathAnchor)) {
-    add('SKILL_LOCATION_DRIFT', 'C001', 'path anchor assigns DEV_ROOT instead of the current directory');
+  if (!pathAnchor.includes('SKILL_DIR="$CLAUDE_DIR/skills/<name>-law"')) {
+    add('SKILL_LOCATION_DRIFT', 'C001', 'SKILL_DIR is not fixed to $CLAUDE_DIR/skills/<name>-law');
+  }
+  if (/\b(?:PWD_ROOT|DEV_ROOT)\b/.test(pathAnchor)) {
+    add('SKILL_LOCATION_DRIFT', 'C001', 'path anchor uses a non-canonical root or skill location');
   }
 
   const argumentsSection = sectionOf(body, '## Arguments');
@@ -575,28 +577,17 @@ export function auditCommand(text) {
     add('CHECKPOINT_TOO_LONG', 'C005', 'checkpoint block exceeds five lines');
   }
 
-  const acceptance = sectionOf(body, ACCEPTANCE_HEADING);
-  if (!body.includes(`${ACCEPTANCE_HEADING}\n`)) {
-    add('MISSING_SECTION', 'C004', `missing ${ACCEPTANCE_HEADING}`);
-  }
-  for (const path of [
-    'docs/NATLAB/Implementation-Handbook.md',
-    'docs/BUILDENV/Apple-Silicon-Local-Rust-FFI-Runbook.md',
-    'docs/BUILDENV/PJSIP-BUILD-GUIDE.md',
-  ]) {
-    if (!acceptance.includes(path)) add('MISSING_ACCEPTANCE_FIXTURE', 'C004', `acceptance lacks ${path}`);
-  }
-
-  const cut = body.indexOf(ACCEPTANCE_HEADING);
-  const execution = cut < 0 ? body : body.slice(0, cut);
   for (const literal of EXAMPLE_LITERALS) {
-    if (execution.includes(literal)) {
-      add('EXAMPLE_LITERAL_IN_EXECUTION', 'C004', `execution logic names ${literal}`);
+    if (body.includes(literal)) {
+      add('EXAMPLE_LITERAL_IN_EXECUTION', 'C004', `command names external fixture ${literal}`);
     }
   }
-  if (ABSOLUTE_PATH.test(execution)) add('ABSOLUTE_PATH', 'C002', 'execution logic contains an absolute path');
-  if (TICKET_ID.test(execution)) add('TICKET_ID', 'C005', 'execution logic contains a ticket id');
-  if (CJK.test(execution)) add('CJK_TEXT', 'C001', 'execution logic contains CJK text');
+  if (/\bdocs\//.test(body)) {
+    add('EXTERNAL_FIXTURE_REFERENCE', 'C004', 'command names an external source path');
+  }
+  if (ABSOLUTE_PATH.test(body)) add('ABSOLUTE_PATH', 'C002', 'command contains an absolute path');
+  if (TICKET_ID.test(body)) add('TICKET_ID', 'C005', 'command contains a ticket id');
+  if (CJK.test(body)) add('CJK_TEXT', 'C001', 'command contains CJK text');
 
   findings.push(
     ...auditArtifacts(body),

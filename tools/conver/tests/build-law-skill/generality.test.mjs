@@ -80,11 +80,20 @@ test('C004: audit rejects non-English text', () => {
   assert.ok(codes(text).has('CJK_TEXT'));
 });
 
-test('C004: audit rejects a skill location outside the current directory', () => {
+test('C004: audit rejects a path anchor not rooted at the git top-level', () => {
   const text = mutateSection(
     '## Path Anchor',
+    "printf '%s/.claude\\n' \"$(git rev-parse --show-toplevel)\"",
+    "printf '%s\\n' \"$PWD\"",
+  );
+  assert.ok(codes(text).has('SKILL_LOCATION_DRIFT'));
+});
+
+test('C004: audit rejects a skill location outside <repo>/.claude/skills', () => {
+  const text = mutateSection(
+    '## Path Anchor',
+    'SKILL_DIR="$CLAUDE_DIR/skills/<name>-law"',
     'SKILL_DIR="$PWD_ROOT/.claude/skills/<name>-law"',
-    'SKILL_DIR="$REPO_ROOT/.claude/skills/<name>-law"',
   );
   assert.ok(codes(text).has('SKILL_LOCATION_DRIFT'));
 });
@@ -136,9 +145,9 @@ test('C004: audit rejects a missing failure code', () => {
   assert.ok(codes(text).has('MISSING_FAILURE_CODE'));
 });
 
-test('C004: audit rejects a missing acceptance fixture', () => {
-  const text = mutated('docs/NATLAB/Implementation-Handbook.md', 'docs/example.md');
-  assert.ok(codes(text).has('MISSING_ACCEPTANCE_FIXTURE'));
+test('C004: audit rejects an external source fixture reference', () => {
+  const text = mutated('## Procedure', '## Procedure\n\nUse docs/example.md.');
+  assert.ok(codes(text).has('EXTERNAL_FIXTURE_REFERENCE'));
 });
 
 test('C004: the unmutated command passes', () => {

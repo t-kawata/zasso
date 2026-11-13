@@ -23,9 +23,9 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ACCEPTANCE_HEADING,
   ArgumentError,
   CANONICAL_CHECKS,
+  EXAMPLE_LITERALS,
   PIPELINE_COMMANDS,
   REQUIRED_ARTIFACTS,
   STYLE_CODES,
@@ -113,11 +113,12 @@ test('C001: command carries the required frontmatter and sections', () => {
 });
 
 // @verifies C001
-test('C001: SKILL_DIR is fixed to the current directory .claude/skills', () => {
+test('C001: SKILL_DIR is fixed to <repo>/.claude/skills', () => {
   const text = readCommand();
   const anchor = sectionOf(text, '## Path Anchor');
-  assert.ok(anchor.includes('SKILL_DIR="$PWD_ROOT/.claude/skills/<name>-law"'));
-  assert.equal(/DEV_ROOT\s*=/.test(anchor), false);
+  assert.ok(anchor.includes("printf '%s/.claude\\n' \"$(git rev-parse --show-toplevel)\""));
+  assert.ok(anchor.includes('SKILL_DIR="$CLAUDE_DIR/skills/<name>-law"'));
+  assert.equal(/\b(?:PWD_ROOT|DEV_ROOT)\b/.test(anchor), false);
   assert.equal(auditCommand(text).some((finding) => finding.code === 'SKILL_LOCATION_DRIFT'), false);
 });
 
@@ -204,13 +205,13 @@ test('C004: rule candidates are unique, grammar-valid, and source-order stable',
 });
 
 // @verifies C004
-test('C004: execution text excludes the acceptance fixtures', () => {
+test('C004: command is standalone and names no external source fixture', () => {
   const text = readCommand();
-  const execution = text.slice(0, text.indexOf(ACCEPTANCE_HEADING));
-  for (const literal of ['NATLAB', 'PJSIP', 'Apple-Silicon', 'Implementation-Handbook', 'BUILDENV']) {
-    assert.equal(execution.includes(literal), false, literal);
+  for (const literal of EXAMPLE_LITERALS) {
+    assert.equal(text.includes(literal), false, literal);
   }
-  assert.ok(text.slice(text.indexOf(ACCEPTANCE_HEADING)).includes(sourcePaths[0]));
+  assert.equal(/\bdocs\//.test(text), false);
+  assert.equal(text.includes('## Acceptance Fixtures'), false);
 });
 
 // @verifies C004

@@ -19,16 +19,15 @@ Role: build verified `*-law` skills from English Markdown. Derive profile, regis
 Run once:
 
 ```bash
-printf '%s\n' "$PWD"
+printf '%s/.claude\n' "$(git rev-parse --show-toplevel)"
 ```
 
-- `PWD_ROOT` = printed path (current directory).
-- `CLAUDE_DIR="$PWD_ROOT/.claude"`.
-- `SKILL_DIR="$PWD_ROOT/.claude/skills/<name>-law"` — fixed. No git-root `.claude`, no `DEV_ROOT`, no other project. No exception. `$CLAUDE_DIR` absent → stop.
-- `ALIAS_PATH="$PWD_ROOT/.claude/skills/<name>-law.path-alias.json"` — outside the skill tree.
-- `STAGING_DIR="$PWD_ROOT/target/law-build/<name>"`; `LAW_OUT="$PWD_ROOT/target/law"`.
-- `REPO_ROOT="$(git rev-parse --show-toplevel)"` for repository-relative source paths only; never for `SKILL_DIR`.
-- No second `git rev-parse`.
+Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run `git rev-parse` again.
+
+- `REPO_ROOT="${CLAUDE_DIR%/.claude}"`.
+- `SKILL_DIR="$CLAUDE_DIR/skills/<name>-law"` — fixed. No other project `.claude`. No exception. `$CLAUDE_DIR` absent → stop.
+- `ALIAS_PATH="$CLAUDE_DIR/skills/<name>-law.path-alias.json"` — outside the skill tree.
+- `STAGING_DIR="$REPO_ROOT/target/law-build/<name>"`; `LAW_OUT="$REPO_ROOT/target/law"`.
 
 ## Language Protocol
 
@@ -120,18 +119,9 @@ Sibling: `<name>-law.path-alias.json` — outside the skill tree; holds `input_r
 
 ### Step 0: Baseline
 
-Run canonical verifier on the reference in dev mode:
-
-```bash
-node "$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs" \
-  --skill "$CLAUDE_DIR/skills/rust-interface-law" \
-  --root "$PWD_ROOT" --mode dev \
-  --source-root "$PWD_ROOT" \
-  --path-alias "$CLAUDE_DIR/skills/rust-interface-law.path-alias.json" \
-  --out "$LAW_OUT/reference-verification.json"
-```
-
-Require exit 0, `check_set_version: 2`, 18/18 `machine_verified`, closure recorded. Reference fail → stop.
+- Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs`.
+- Read `$CLAUDE_DIR/scripts/amend-rfc-up/law-verify/checks.json`; require `check_set_version: 2`, 18 named checks, and `both` / `dev` modes.
+- Missing or mismatched → stop before any write. Never copy, patch, or replace the canonical verifier.
 
 ### Step 1: Parse
 
@@ -260,8 +250,8 @@ Dev mode:
 ```bash
 node "$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs" \
   --skill "$STAGING_DIR" \
-  --root "$PWD_ROOT" --mode dev \
-  --source-root "$PWD_ROOT" \
+  --root "$REPO_ROOT" --mode dev \
+  --source-root "$REPO_ROOT" \
   --path-alias "$ALIAS_PATH" \
   --out "$LAW_OUT/<name>-dev-verification.json"
 ```
@@ -275,7 +265,7 @@ INSTALL_TARGET="$(mktemp -d)"
 node "$STAGING_DIR/install.js" "$INSTALL_TARGET"
 node "$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs" \
   --skill "$INSTALL_TARGET/.claude/skills/<name>-law" \
-  --root "$PWD_ROOT" --mode installed \
+  --root "$REPO_ROOT" --mode installed \
   --path-alias "$ALIAS_PATH" \
   --out "$LAW_OUT/<name>-installed-verification.json"
 ```
@@ -293,13 +283,13 @@ Require exit 0, 8/8 installed required checks `machine_verified`, source/install
 
 - Per skill: conditional block in `"$CLAUDE_DIR/CLAUDE.md"`: trigger, `applies`, invoke, completion (`gate` 0 + `attest` ok), v2 dev + installed closure.
 - Add `## Integration Checkpoints`.
-- Write only to `$PWD_ROOT/.claude`; never mirror the skill into a git-root or another project `.claude/skills`.
+- Write only under `$CLAUDE_DIR`; never mirror the skill into another project `.claude/skills`.
 
 ### Step 13: Acceptance
 
-- Sources: `## Acceptance Fixtures`.
-- Per build: run end to end; record source hashes, lines, Atom/Rule counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA in `law-builds.json`; run `tests/build-law-skill/acceptance/verify-law-builds.mjs`.
-- Producer proof: `tests/build-law-skill/acceptance/fixtures/mini/` is a synthetic mini law skill verified in dev and installed modes; the three-document build remains first-use acceptance.
+- Acceptance set = the invocation's source set. No fixed external fixture, document name, or path.
+- Per build: run end to end; record source hashes, lines, Atom/Rule counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA in `$LAW_OUT/law-builds.json`.
+- Producer proof: a synthetic mini law skill verified in dev and installed modes.
 - Mutation matrix:
 
 | Mutation | Required result |
@@ -326,7 +316,7 @@ Require exit 0, 8/8 installed required checks `machine_verified`, source/install
 | Run from another cwd | same output |
 | Expand to 2.5k Atoms | performance budget met |
 
-Scan generated tree for example literals + Rust tokens. Only this section may name fixtures.
+Scan generated tree for example literals + Rust tokens. The command body names no fixture.
 
 ### Step 14: Report
 
@@ -384,18 +374,7 @@ Scan generated tree for example literals + Rust tokens. Only this section may na
 - `review-ticket`: regenerate manifest; gate; attest; re-run v2 `dev` + `installed`; compare `closure`; state V1-only honesty.
 - `resolve-ticket`: repair gate findings; fill attestation; no status change; repair until v2 `dev` + `installed` pass.
 
-## Acceptance Fixtures
-
-| Fixture | Path |
-|---|---|
-| WAN/NAT laboratory handbook | `docs/NATLAB/Implementation-Handbook.md` |
-| Apple-Silicon local FFI runbook | `docs/BUILDENV/Apple-Silicon-Local-Rust-FFI-Runbook.md` |
-| PJSIP native build guide | `docs/BUILDENV/PJSIP-BUILD-GUIDE.md` |
-
-- Strict acceptance: all three parse, hash, measure, derive distinct profiles, allocate unique rule candidates; full build passes canonical verifier.
-- Generality mutations use copies; originals unchanged.
-
 ## Completion
 
-- Every built skill: canonical verifier dev 18/18 and installed 8/8 `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration mirror byte-identical.
+- Every built skill: canonical verifier dev 18/18 and installed 8/8 `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration checkpoints present.
 - Report adoption gaps; never claim V1 as rule-level proof.
