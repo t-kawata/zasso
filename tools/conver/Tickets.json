@@ -65391,6 +65391,270 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-13",
           "reviewed_at": "2026-11-13T09:18:36.052Z"
+        },
+        {
+          "id": 424,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Build *-okf wiki skills from OKF sources with a shared law-skill engine",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-424.md",
+          "background": "### Goal\nBuild /build-okf-skill as a standalone command that produces verified <name>-okf skills. Each generated skill ingests English Markdown sources into an OKF knowledge wiki and exposes deterministic retrieval, citation, freshness, conflict, and answer-verification commands so an AI can work from reliable information.\n\n### Purpose\n/build-law-skill already implements the expensive machinery: source measurement, manifest and atom lock, OKF node rendering, redaction, alias and input ledgers, dist bundling, installer, canonical verification, and acceptance mutation. A law skill and a wiki skill differ in semantics, not in that machinery. Reusing the machinery keeps the build deterministic and verified; replacing the rule-gate layer with claim provenance preserves the law skill's proven guarantees while serving a different purpose.\n\n### Motivation\nThe repository already generates okf/, atoms.lock.json, source/, dist/, and install.js for every *-law skill. A second skill type can reuse those artifacts instead of inventing a second knowledge pipeline. AI work needs cited, current, conflict-aware information; a flat index alone is insufficient. The law verifier and the PX-423 integration closure must remain unchanged, so the OKF path must be additive and isolated.\n\n### Constraints\n- English UTF-8 Markdown sources in v1; Japanese source support is a separate decision.\n- Generated *-okf skills are standalone; no runtime import from *-law.\n- Shared engine modules are copied at build time and guarded by a SHA-256 drift test against rust-interface-law/scripts/lib.\n- No edits to CLAUDE.md, make/plan/start/review/resolve, verify-law-skill.mjs, law-verify/*, verify-law-integration.mjs, or rust-interface-law.\n- No forced integration checkpoints; the command has no Step 12/12.5 and no Integration Contract section.\n- The OKF verifier check contract is separate; the law check_set_version 2 stays byte-identical.\n- node --test for the impact set; never make test.\n- Generated tree contains no ticket IDs, project names, or CJK.",
+          "default_files": [
+            ".claude/commands/build-okf-skill.md",
+            ".claude/scripts/amend-rfc-up/verify-okf-skill.mjs",
+            ".claude/scripts/amend-rfc-up/okf-verify/checks.json",
+            ".claude/scripts/amend-rfc-up/okf-verify/report.mjs",
+            ".claude/scripts/amend-rfc-up/okf-verify/checks-artifact.mjs",
+            ".claude/scripts/amend-rfc-up/okf-verify/checks-runtime.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/cli.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/commands.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/ingest.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/markdown.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/redact.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/toml.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/path-alias.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/okf.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/render-ai.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/report.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/dist.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/trust.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/scan.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/coverage.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/atoms.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/manifest.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/claims.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/retrieval.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/freshness.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/conflicts.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/answer-verify.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/usage.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/applicability.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/context.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/scripts/lib/limits.mjs",
+            ".claude/scripts/amend-rfc-up/okf-engine/install.js",
+            "tests/build-okf-skill/lib/command-contract.mjs",
+            "tests/build-okf-skill/command-file.test.mjs",
+            "tests/build-okf-skill/generality.test.mjs",
+            "tests/build-okf-skill/verifier/verify.test.mjs",
+            "tests/build-okf-skill/engine/claims.test.mjs",
+            "tests/build-okf-skill/engine/retrieval.test.mjs",
+            "tests/build-okf-skill/engine/freshness.test.mjs",
+            "tests/build-okf-skill/engine/conflicts.test.mjs",
+            "tests/build-okf-skill/engine/answer-verify.test.mjs",
+            "tests/build-okf-skill/engine/usage.test.mjs",
+            "tests/build-okf-skill/engine/drift.test.mjs",
+            "tests/build-okf-skill/acceptance/mini-wiki.test.mjs",
+            "tests/build-okf-skill/acceptance/verify-okf-builds.mjs"
+          ],
+          "notes": "- Law: not applicable. `applies` exit 3 on all PX-424 target paths; no `crates/**` interface unit is touched.\n- [Implementation steps] 1) Write the build-okf-skill command with the 14-step procedure and no integration steps. 2) Add the OKF verifier and check contract, reusing law-verify/source.mjs. 3) Add the okf-engine template: copy the shared modules byte-identically and implement claims, retrieval, freshness, conflicts, answer verification, usage, and applicability. 4) Add the generated SKILL.md usage template and the usage check. 5) Add unit and acceptance tests, including the shared-engine drift guard. 6) Run the mini-wiki dev and installed builds. 7) Mirror the command, verifier, and engine to the root and siprs .claude trees.\n- [Risks] The law check set is law-specific; reusing it unchanged would reject a wiki. The shared-engine copy can drift; a SHA-256 test is mandatory. Retrieval can become non-deterministic if it depends on directory order or mtimes. A large wiki can exceed the node budget; the performance test catches it.\n- [Caveats] v1 accepts English sources only. Retrieval is lexical, not semantic. The wiki is AI-facing; there is no browser UI. No forced invocation exists, so the generated SKILL.md description must carry the trigger.\n- [Open items] Whether Japanese sources should be accepted in a later ticket; whether ingest should support incremental source addition rather than full rebuild.\n- [Future improvements] Add an optional embedding index behind a stable interface; add a source-watcher that marks freshness without a full rebuild; add a cross-wiki federation command.\nImplementation summary:\n- Changed files: build-okf-skill.md, verify-okf-skill.mjs, okf-verify/*, okf-engine/*, tests/build-okf-skill/*, mirrors.\n- Key changes: 19-check OKF verifier; claim provenance, deterministic retrieval, freshness, conflict symmetry, answer citation verification, usage-manual audit; no CLAUDE.md or pipeline edits.\n- Test results: 33/33 OKF tests pass; 72/72 law build tests pass; law dev verifier 18/18; mini wiki dev 19/19 and installed 8/8; quality checks 0; crimes 0; ambiguous markers 0.\n- Law: not applicable (applies exit 3).\nReview report:\n- Static quality check: passed (0 issues).\n- Translatability: no new issues; the generic `data` binding in the vendored shared module is accepted as unmodified upstream code.\n- Tests: 38/38 OKF, 72/72 law build regression, law dev 18/18, mini OKF dev 19/19, installed 8/8.\n- Findings and fixes: (1) metadata lines and separators were extracted as Claims and polluted ranking; fixed in atoms.mjs and covered by tests. (2) retrieval weights were tuned after a real-document probe so topical substantive rows outrank header noise. (3) line-level coverage was missing; source/line-coverage.json and a gap check were added. (4) quoted spans were not verified; verify-answer now rejects QUOTE_MISMATCH. (5) the 2,500-node budget and live shared-module drift were untested; performance and live-drift tests were added. (6) shared modules carry a provenance line; drift comparison now normalizes that line and records strip=ticket-annotation.\n- Information retrieval probe on a hypothetical rust-interface-okf built from 00-FOUNDATION, 21-OPERATION, 22-IDENTITY, and 30-REST: 113 nodes; ask returned cited rows with source/span/hash; page returned the full claim; verify-answer accepted a fully cited answer and rejected an uncited sentence and a wrong quote; freshness flagged 24 nodes after a source edit; conflicts returned empty. Quality is sufficient for navigation and citation, with lexical ranking as the known limit.",
+          "invariants": "- [Normal establishment] Every source in source/manifest.toml resolves to a repository-relative alias whose SHA-256 equals the LF-normalized source bytes; every Claim Atom has source, span, and content_sha256; every node appears exactly once in okf/index.md.\n- [Error invariant] A source with no claim-bearing content stops the build with INFORMATION_ZERO and writes no skill; a stale source marks dependent nodes stale and no stale node is returned as current by ask/context/page; a one-sided conflict is CONFLICT_ASYMMETRIC and blocks install.\n- [Internal state invariant] lock, index, log, and dist are a pure function of the source set; rebuild is byte-identical; the installed tree is SHA-identical to the verified staging subset; no generated artifact embeds a timestamp or absolute path.\n- [Boundary invariant] ask returns at most 20 nodes; the 2,500-node acceptance corpus completes inside the performance budget; CRLF and duplicate headings do not change Atom identity; a structural Atom is never delivery=must.\n- [Boundary invariant] The build writes only under STAGING_DIR, SKILL_DIR, ALIAS_PATH, LAW_OUT, and the declared mirror paths; CLAUDE.md and the five pipeline commands hash-identically before and after the build.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [.claude/commands/build-okf-skill.md] [add] [Standalone build command for *-okf skills] [Before: absent -> After: argument grammar, 14-step procedure, input contract, generated layout, 19-check gate, no integration steps] [API contract: positional <skill-name>=<source-doc>; name matches ^[a-z][a-z0-9-]*-okf$] [Data schema: okf-build-units/v1, okf-profile.toml, claim registry] [Config/env: none] [Dependency: reuses existing node:fs, node:crypto, esbuild only]",
+            "**Scope of changes (describe each change comprehensively):**\n  - [.claude/scripts/amend-rfc-up/verify-okf-skill.mjs + okf-verify/{checks.json,report.mjs,checks-artifact.mjs,checks-runtime.mjs}] [add] [Canonical OKF verifier, check-set v1, 19 checks] [Before: law-only verifier -> After: okf verifier sharing law-verify/source.mjs helpers but owning its check contract] [API contract: verifyOkfSkill({skillPath, root, sourceRoot, pathAlias, mode, outPath}) -> okf-skill-verification/v1] [Data schema: okf-skill-verification/v1 with checks, required_checks, closure_sha256] [Dependency: imports ../law-verify/source.mjs read-only]",
+            "**Scope of changes (describe each change comprehensively):**\n  - [.claude/scripts/amend-rfc-up/okf-engine/] [add] [Runtime template copied into every generated *-okf skill] [Before: law-only scripts embedded in rust-interface-law -> After: build-time template with verbatim shared modules and OKF-specific modules] [API contract: cli.mjs commands applies/resolve/context/explain/search/ask/page/related/gaps/freshness/conflicts/verify-answer/render/check/package/rebuild/ingest] [Data schema: node frontmatter Page|Claim|Entity|Procedure|Reference with topic, summary, claims, sources, source_sha256, updated_at, supersedes, conflicts, links] [Dependency: esbuild for dist only]",
+            "**Scope of changes (describe each change comprehensively):**\n  - [tests/build-okf-skill/] [add] [Command contract, generality mutations, verifier checks, engine units, acceptance mini wiki] [Before: law-only tests -> After: OKF tests plus byte-drift guard against rust-interface-law/scripts/lib] [API contract: node --test tests/build-okf-skill/**/*.test.mjs] [Data schema: fixtures for sources, nodes, answers, stale/conflict cases] [Dependency: none beyond node:test]",
+            "**Scope of changes (describe each change comprehensively):**\n  - [.claude mirrors] [add] [Mirror build-okf-skill.md, verify-okf-skill.mjs, and okf-engine byte-identically to root .claude and crates/siprs/.claude] [Before: law-only mirrors -> After: identical OKF assets in three trees] [API contract: none] [Data schema: none] [Dependency: none]",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Japanese source ingestion] [Why excluded: redaction tokenization and style checks are ASCII-oriented; a separate ticket must define Japanese identifier detection and language-aware retrieval]\n  - [Browser Wiki UI] [Why excluded: the deliverable is an AI-facing skill and its CLI, not a web application]\n  - [Automatic web crawling or scheduled ingest] [Why excluded: source acquisition stays an explicit build input; deterministic builds require a frozen source set]\n  - [Forced gates in CLAUDE.md or make/plan/start/review/resolve] [Why excluded by user constraint: *-okf has no enforcement role and must not add noise or invocation cost]\n  - [Semantic embeddings or LLM reranking] [Why excluded: v1 retrieval must be deterministic, dependency-free, and reproducible; lexical rank is sufficient for the contract]\n  - [Refactoring rust-interface-law to import a shared engine] [Why excluded: it would change the PX-423 verified bytes; v1 uses build-time copying plus a drift test]",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [rust-interface-law] [Nature: source of shared engine modules and behavioral reference] [Change needed: N; read-only]\n  - [law verifier and PX-423 integration closure] [Nature: must remain byte-identical and 18/18] [Change needed: N; regression test only]\n  - [conver installer and mirrors] [Nature: new command and scripts must propagate identically] [Change needed: Y; byte-identical mirror copy]\n  - [target/law and target/okf outputs] [Nature: build evidence and backups] [Change needed: N; new target/okf-build path only]"
+          ],
+          "testUnit": [
+            "UT: [C001][Precondition] measureSources accepts repository-relative English UTF-8 Markdown with headings and paragraphs, rejects NUL bytes with SOURCE_NOT_MARKDOWN, and leaves every source byte unchanged.",
+            "UT: [C001][Postcondition] A two-source fixture produces manifest entries {alias, sha256} and Claim Atoms with line spans; an empty descriptive source produces INFORMATION_ZERO and no skill directory.",
+            "UT: [C001][Invariant] CRLF and LF inputs hash identically after normalization; duplicate headings still yield unique Atom ids; re-measurement does not mutate the source mtime or bytes.",
+            "UT: [C002][Precondition] A Claim Atom is recognized only when the block is a statement paragraph, list item, or registry row and carries source, start_line, and end_line.",
+            "UT: [C002][Postcondition] Every rendered Claim node frontmatter contains source, span, and content_sha256; the claim registry ids and Claim Atom ids are a bijection (duplicate or missing id fails).",
+            "UT: [C002][Invariant] No delivery=must Claim lacks provenance; an unsourced claim is emitted as reference with a specific reason or rejected, never silently promoted.",
+            "UT: [C003][Precondition] ask is called with a non-empty query against a built atoms.lock.json and okf/index.md; an empty query exits 2 with INVALID_QUERY.",
+            "UT: [C003][Postcondition] ask returns at most 20 rows ordered by topic match, heading match, then claim match; each row carries node, source, span, and content_sha256.",
+            "UT: [C003][Invariant] Two identical ask invocations against the same lock produce byte-identical stdout; changing the filesystem mtime or cwd does not change rank order.",
+            "UT: [C004][Precondition] A source file changes after a build so its new SHA-256 differs from the lock entry for that alias.",
+            "UT: [C004][Postcondition] freshness reports each dependent node as stale with expected and actual hashes and names the changed alias.",
+            "UT: [C004][Invariant] ask, context, and page mark a stale node as stale and never return it with current status; a stale-only result set is visibly flagged.",
+            "UT: [C005][Precondition] Two Claim nodes declare contradictory values for the same topic key and are both current.",
+            "UT: [C005][Postcondition] conflicts returns a symmetric pair with both node ids and the conflicting key; the output is sorted deterministically.",
+            "UT: [C005][Invariant] A one-sided conflict declaration is CONFLICT_ASYMMETRIC and blocks install; no automatic deletion or silent winner selection occurs.",
+            "UT: [C006][Precondition] An answer contains free text plus zero or more [node-id] citations, and each citation optionally quotes a span.",
+            "UT: [C006][Postcondition] verify-answer resolves every citation to a node, checks the quoted span hash, and lists every uncited assertion with its sentence.",
+            "UT: [C006][Invariant] verify-answer exits 1 if any citation is unresolved or any assertion is uncited; only a fully cited answer is machine_verified.",
+            "UT: [C007][Precondition] A generated SKILL.md exists in the staging tree and its description names the skill's trigger.",
+            "UT: [C007][Postcondition] The file contains When to Use, Query Recipes, Evidence and Citation, Freshness and Conflict, Update Procedure, Page Authoring, Failure Modes, and Examples with at least two concrete examples.",
+            "UT: [C007][Invariant] A missing required section or fewer than two examples is USAGE_INCOMPLETE and blocks install.",
+            "UT: [C008][Precondition] The build runs in a repository whose CLAUDE.md and five pipeline commands exist.",
+            "UT: [C008][Postcondition] Their bytes are unchanged after the build; no law-skill:checkpoint is added; verify-law-integration is never invoked.",
+            "UT: [C008][Invariant] The command document contains no Integration Contract section and no Step 12 or Step 12.5; a test asserts both strings are absent.",
+            "UT: [C009][Precondition] okf-engine contains a module listed in source/shared-engine.json with a source hash.",
+            "UT: [C009][Postcondition] Its SHA-256 equals the corresponding rust-interface-law/scripts/lib module; the drift report lists every shared module and both hashes.",
+            "UT: [C009][Invariant] A mismatch is ENGINE_DRIFT and blocks install; the build never overwrites the law module or silently accepts the drift.",
+            "UT: [C010][Precondition] The command is read as a standalone Markdown document with no access to another command document at runtime.",
+            "UT: [C010][Postcondition] It names every required script and path; it references no other command document, RFC, or external specification.",
+            "UT: [C010][Invariant] A required script name absent from the command is MISSING_SCRIPT; a link or filename reference to build-law-skill.md is EXTERNAL_REFERENCE.",
+            "UT: [C011][Precondition] A verified staging tree is installed with install.js into a temporary target directory.",
+            "UT: [C011][Postcondition] The installed subset (dist, okf, source, tests/fixtures/runtime) is SHA-identical; installed mode passes its required checks.",
+            "UT: [C011][Invariant] A source/installed mismatch is INSTALLED_SHA_MISMATCH and blocks completion.",
+            "UT: [Normal] The command parser rejects an empty argument, a hyphen-leading argument, a mixed name=source/positional form, and a name that does not end in -okf with INVALID_ARGUMENT before any write.",
+            "UT: [Error] A derived-view source is excluded with DERIVED_EXCLUDED and a recorded phrase; an ambiguous derived view is included with DERIVED_AMBIGUOUS and never silently dropped.",
+            "UT: [Boundary] A 2,500-node source set completes the build inside the documented budget, and ask on it returns within the same budget with at most 20 rows.",
+            "UT: [Invariant] The generated tree contains no ticket id, project name, original absolute path, or CJK token; redaction and forbidden-token scans return zero.",
+            "UT: [Normal] rebuild on an unchanged source set prints byte-identical for atoms.lock.json, okf/index.md, okf/log.md, okf/source.md, and dist/skill.mjs.",
+            "UT: [Boundary] A source with only headings and blank lines yields INFORMATION_ZERO; a source with only a fenced code block yields a claim-bearing CodeBlock and does not yield INFORMATION_ZERO.",
+            "UT: [Error] A node whose links point to a missing node fails with LINK_UNRESOLVED and no install; a node absent from index fails with INDEX_ORPHAN.",
+            "UT: [C001][Precondition] Input paths are repository-relative English UTF-8 Markdown files with at least one heading or paragraph and no NUL byte; measureSources accepts each fixture path.",
+            "UT: [C003][Precondition] ask is invoked with a non-empty query against a built lock and index; the fixture supplies atoms.lock.json and okf/index.md.",
+            "UT: [C003][Invariant] The same query and lock produce byte-identical stdout independent of cwd, mtime, and directory order; two runs are compared.",
+            "UT: [C004][Invariant] ask, context, and page mark stale nodes and never claim current status for them; markStale sets stale true."
+          ],
+          "testIntegration": [
+            "IT: [Dev end-to-end] Build a mini-okf skill from two English sources, run verify-okf-skill --mode dev with --source-root and --path-alias, and require exit 0, check_set_version 1, 19/19 machine_verified, and a recorded closure.",
+            "IT: [Installed mode] Run install.js into a temporary target and verify the installed skill with --mode installed; require exit 0, installed subset SHA parity, and a working ask command from the installed dist.",
+            "IT: [Law regression] Run verify-law-skill --mode dev on rust-interface-law and require check_set_version 2 with 18/18 machine_verified, proving the OKF verifier did not alter the law contract.",
+            "IT: [Integration isolation] Hash CLAUDE.md and the five pipeline commands before and after a full OKF build; require byte identity and no new law-skill:checkpoint marker.",
+            "IT: [Mirror parity] Require build-okf-skill.md, verify-okf-skill.mjs, okf-verify/*, and okf-engine/* to be byte-identical in tools/conver/.claude, root .claude, and crates/siprs/.claude.",
+            "IT: [Answer verification] A fully cited answer passes verify-answer; an uncited assertion yields UNCITED_ASSERTION; an unresolved [node-id] yields CITATION_UNRESOLVED; both exit 1.",
+            "IT: [Freshness and conflict] After a source edit, freshness reports stale nodes; a two-sided conflict pair is reported symmetrically; a one-sided declaration blocks install with CONFLICT_ASYMMETRIC.",
+            "IT: [Standalone command] Read build-okf-skill.md without any other document and execute every named path; require no reference to build-law-skill.md, no RFC path, and no external spec URL.",
+            "IT: [Related tickets] PX-421 and PX-422 produced the v2 law verifier and the OKF leak/coverage artifacts; PX-423 produced the integration gate that PX-424 must not invoke or modify."
+          ],
+          "testExceptions": [
+            "Subjective answer usefulness for a human reader cannot test deterministically; this is not a design defect because the machine contract is citation coverage, source freshness, and conflict visibility, each verified by verify-answer and the OKF verifier."
+          ],
+          "instrumentation": "- [Logging] Each build step writes one JSON line to stderr with step, status, and counts; generated artifacts contain no timestamps or absolute paths.\n- [Metrics] Count sources, lines, atoms, claims, pages, stale nodes, conflict pairs, citations, and retrieval hits; write them to the acceptance record.\n- [Error tracking] Every failure uses a named code (INFORMATION_ZERO, CLAIM_UNSOURCED, LINK_UNRESOLVED, INDEX_ORPHAN, ENGINE_DRIFT, USAGE_INCOMPLETE, CONFLICT_ASYMMETRIC, INSTALLED_SHA_MISMATCH); verify-okf-skill reports per-check status and codes.\n- [Health check] The generated skill's check command validates index, links, provenance, freshness, and conflicts; verify-okf-skill is the producer-side health gate.\n- Logging: each build step emits a JSON line with step, status, and counts; generated artifacts contain no timestamps or absolute paths.\n- Metrics: sources, lines, atoms, claims, nodes, stale nodes, conflict pairs, citations, retrieval hits.\n- Error tracking: every failure carries a named code; verify-okf-skill reports per-check status and codes.\n- Health check: the generated check command validates index, graph, coverage, provenance, citation, usage, and conflicts; verify-okf-skill is the producer-side gate.",
+          "acceptanceCriteria": [
+            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - A mini wiki built from two English sources verifies 19/19 in dev and 8/8 in installed mode, rebuild is byte-identical, ask returns cited rows, verify-answer passes a fully cited answer, and CLAUDE.md plus the five pipeline commands are unchanged.",
+            "**[Error case] — Describe an error scenario the feature must handle:**\n  - A source with no claim-bearing content stops with INFORMATION_ZERO; a stale source is reported by freshness; a one-sided conflict blocks install; a shared-engine drift blocks install; an uncited assertion fails verify-answer.",
+            "**[Edge case] — Describe any boundary or exception to verify:**\n  - CRLF input, duplicate headings, and a 2,500-node corpus preserve Atom identity and the performance budget; installed mode succeeds without --source-root; the command contains no build-law-skill.md reference."
+          ],
+          "investigation": "- build-law-skill.md is 421 lines and fixes the build contract: Role/Path Anchor/Arguments/Input Contract/Generated Skill Layout/Procedure Steps 0-14/Verification Gates/Failure Modes/Integration Contract/Completion. Steps 0-11 and 13-14 are kind-independent; Steps 12 and 12.5 are the PX-423 integration gate and must be removed for OKF.\n- verify-law-skill.mjs is 216 lines. Its verifyLawSkill() builds an actions map at lines 97-124 over 18 named checks and reads the check contract from law-verify/checks.json. The same harness can drive an OKF check contract without changing the law file.\n- law-verify/checks.json declares check_set_version 2 and 18 checks: layer, manifest, lock, coverage, registry, genericBoundary, delivery, runtime, reproduction, tests, installer, determinism, redaction, coverageSemantics, inputLedger, pathAlias, installedLeak, style. registry/delivery/normative-inventory are law-specific; layer/manifest/lock/genericBoundary/reproduction/tests/installer/determinism/redaction/inputLedger/pathAlias/installedLeak/style are reusable patterns.\n- law-verify/source.mjs exports ALIAS_PATTERN, sha256Text, normalizeLf, readText, exists, isInside, listFiles, listRelativeFiles, splitLines, parseManifest, parseFrontmatter, stripOneTrailingNewline, redactText, tokenHashes, loadAliasMap, resolveAlias, hashSpan, writeAtomic, status. These are read-only reuse candidates; the OKF verifier imports them instead of copying.\n- rust-interface-law/scripts/commands.mjs is 795 lines and exposes 19 commands. renderOkf() at lines 531-569 writes nodes/index/log; phaseFor() at 571-595 and appliesFor() at 597-610 are Rust/rule-specific and must be replaced by topic/applicability logic for OKF. gate/attest/implementation-*/law-* are law-only and are dropped from the OKF CLI.\n- rust-interface-law/scripts/lib contains 34 modules and 3,882 lines. Generic modules include markdown.mjs, redact.mjs, toml.mjs, path-alias.mjs, okf.mjs, render-ai.mjs, report.mjs, dist.mjs, trust.mjs, scan.mjs, and coverage.mjs. Law-specific modules include registry.mjs (Rule ID grammar and bijection), normative-inventory.mjs, delivery.mjs, units.mjs, autoconfig.mjs (Cargo discovery), gate.mjs, attest.mjs, implementation-*.mjs, template.mjs, and scaffold.mjs.\n- rust-interface-law/install.js is copy-only and copies dist/skill.mjs, okf/, source/, templates/, tests/fixtures/runtime/, and (since PX-423) tests/fixtures/host/. The OKF installer drops the host fixture and adds the engine already present in dist and okf.\n- rust-interface-law has 22 test files; tests/build-law-skill has 18 test files. The build-law-skill tests already cover command audit, generality mutations, acceptance records, and verifier behavior; the OKF suite reuses the command-audit and mutation patterns.\n- build-law-skill.md, verify-law-skill.mjs, and the law-verify contract are byte-identical in tools/conver/.claude, root .claude, and crates/siprs/.claude. Any new producer asset must follow the same mirror discipline.\n- PX-423 introduced verify-law-integration.mjs, law-integration/contract.mjs, six canonical checkpoint lines, and the acceptance integration closure. PX-424 must not read, write, or invoke any of these; the OKF command has no integration step.\n- okf/index.md is a markdown table mapping node id to node file; okf/log.md records spec_version, node count, and lock hash; okf/source.md is the redacted concatenation of sources; okf/nodes/*.md carry frontmatter with type, id, phase, delivery, applies_to, requires, references, content_sha256, and source. The OKF extension adds topic, summary, claims, sources, source_sha256, updated_at, supersedes, conflicts, and links.\n- The current law skill loads the entire lock for context delivery. An OKF wiki can be much larger, so retrieval must rank summaries from index and lazily read node bodies; the performance test uses a 2,500-node corpus.",
+          "boyScoutPlan": "- Use verb-phrase functions for every new responsibility: measureSources, deriveOkfProfile, extractClaims, renderClaimRegistry, buildKnowledgeCoverage, rankNodes, detectStaleNodes, findConflictPairs, verifyAnswerCitations, auditSkillUsage.\n- Use domain nouns for state: source, alias, span, claim, topic, node, citation, freshness, conflict. Do not introduce data, info, tmp, or generic item names.\n- One function per responsibility: measuring, extracting, rendering, ranking, freshness, conflict, and answer verification stay separate; no AND/THEN function chains.\n- Extract numeric limits into named constants: MAX_ANSWER_NODES=20, MAX_TOPICS=64, MAX_CONFLICT_DEPTH=3, NODE_BUDGET=2500, and put them in one limits module used by both engine and verifier.\n- Never swallow errors: every failure carries a named code and a file/line context; rollback paths log the restored path.\n- Where a shared module is byte-identical, copy it and record its hash in source/shared-engine.json; where it must differ, rename the law-specific concept (phase -> topic, rule -> claim) and document the difference in DESIGN.md.\n- Improve touched code: remove duplicated path resolution by using one resolveSkillPath helper; replace hardcoded 'okf' and 'source' strings with named constants; rewrite any comment that describes what the code already says.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "User requirement: /build-okf-skill accepts English Markdown and builds a wiki skill.",
+              "precondition": "Input paths are repository-relative English UTF-8 Markdown files with at least one heading or paragraph and no NUL byte.",
+              "postcondition": "A manifest entry {alias, sha256} and at least one Atom with a line span exist; a source with zero claim-bearing blocks yields INFORMATION_ZERO and no skill write.",
+              "invariant": "Sources are read-only; LF normalization makes CRLF and LF hashes equal and does not change Atom identity."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Reliability requirement: every wiki statement has a source.",
+              "precondition": "Every Atom classified as Claim carries source alias, start_line, and end_line.",
+              "postcondition": "Each Claim node frontmatter contains source, span, and content_sha256; the claim registry and Claim Atoms are a bijection.",
+              "invariant": "No delivery=must Claim lacks provenance; an unsourced claim is reference with a specific reason or is rejected."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "AI retrieval requirement: deterministic, cited answers.",
+              "precondition": "ask is invoked with a non-empty query against a built lock and index.",
+              "postcondition": "Output lists at most 20 node ids in stable rank order; each result carries node, source, span, and content_sha256.",
+              "invariant": "The same query and lock produce byte-identical stdout independent of cwd, mtime, and directory order."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "Freshness requirement: stale knowledge is never presented as current.",
+              "precondition": "A source file content changes after a build and its new SHA-256 differs from the lock.",
+              "postcondition": "freshness reports every dependent node as stale with expected and actual hashes and names the changed alias.",
+              "invariant": "ask, context, and page mark stale nodes and never claim current status for them."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "Conflict requirement: contradictory knowledge is surfaced, not silently resolved.",
+              "precondition": "Two Claim nodes declare contradictory values for the same topic key and are both current.",
+              "postcondition": "conflicts returns a symmetric pair with both node ids and the conflicting key in deterministic order.",
+              "invariant": "A one-sided declaration is CONFLICT_ASYMMETRIC and blocks install; no automatic deletion or silent winner selection occurs."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "Answer verification requirement: unsupported assertions are detectable.",
+              "precondition": "An answer contains free text plus zero or more [node-id] citations, and each citation optionally quotes a span.",
+              "postcondition": "verify-answer resolves every citation, checks the quoted span hash, and lists every uncited assertion with its sentence.",
+              "invariant": "verify-answer exits 1 if any citation is unresolved or any assertion is uncited; only a fully cited answer is machine_verified."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "User requirement: the skill itself exhaustively provides usage scenarios and methods.",
+              "precondition": "A generated SKILL.md exists in the staging tree and its description names the skill trigger.",
+              "postcondition": "It contains When to Use, Query Recipes, Evidence and Citation, Freshness and Conflict, Update Procedure, Page Authoring, Failure Modes, and Examples with at least two concrete examples.",
+              "invariant": "A missing required section or fewer than two examples is USAGE_INCOMPLETE and blocks install."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "User constraint: no forced gates on CLAUDE.md or the make/plan/start/review/resolve commands.",
+              "precondition": "The build runs in a repository whose CLAUDE.md and five pipeline commands exist.",
+              "postcondition": "Their bytes are unchanged after the build; no law-skill:checkpoint is added; verify-law-integration is never invoked.",
+              "invariant": "The command document contains no Integration Contract section and no Step 12 or Step 12.5."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "Reuse requirement: shared engine modules are single-source and drift-guarded.",
+              "precondition": "okf-engine contains a module listed in source/shared-engine.json with a source hash.",
+              "postcondition": "Its SHA-256 equals the corresponding rust-interface-law/scripts/lib module; the drift report lists every shared module and both hashes.",
+              "invariant": "A mismatch is ENGINE_DRIFT and blocks install; the build never overwrites the law module or silently accepts drift."
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "User requirement: /build-okf-skill is standalone, like /build-law-skill.",
+              "precondition": "The command is read as a standalone Markdown document with no runtime access to another command document.",
+              "postcondition": "It names every required script and path and references no other command document, RFC, or external specification.",
+              "invariant": "A required script name absent from the command is MISSING_SCRIPT; a link or filename reference to build-law-skill.md is EXTERNAL_REFERENCE."
+            },
+            {
+              "id": "C011",
+              "sourceEdge": "Distribution requirement: the installed skill proves the same bytes as staging.",
+              "precondition": "A verified staging tree is installed with install.js into a temporary target directory.",
+              "postcondition": "The installed subset (dist, okf, source, tests/fixtures/runtime) is SHA-identical and installed mode passes its required checks.",
+              "invariant": "A source/installed mismatch is INSTALLED_SHA_MISMATCH and blocks completion."
+            }
+          ],
+          "created_at": "2026-11-13",
+          "updated_at": "2026-11-13",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-13T11:05:18.264Z",
+          "planTestCode": [
+            "UT: [C001][Precondition/Postcondition/Invariant] Source admission and measurement\n```js\nconst fixture = createSourceTree({\n  'guide.md': '# Auth\\n\\nTokens expire after 15 minutes.\\n',\n  'empty.md': '# Empty\\n',\n  'crlf.md': '# Auth\\r\\n\\r\\nTokens expire after 15 minutes.\\r\\n',\n});\nconst measured = measureSources({ root: fixture, paths: ['guide.md'] });\nassert.equal(measured.manifest[0].alias, 'sources/guide.md');\nassert.match(measured.manifest[0].sha256, /^[0-9a-f]{64}$/);\nassert.ok(measured.atoms.some((atom) => atom.type === 'Claim'));\nassert.throws(\n  () => measureSources({ root: fixture, paths: ['empty.md'] }),\n  (error) => error.code === 'INFORMATION_ZERO',\n);\nconst crlf = measureSources({ root: fixture, paths: ['crlf.md'] });\nconst lf = measureSources({ root: fixture, paths: ['guide.md'] });\nassert.equal(crlf.manifest[0].sha256, lf.manifest[0].sha256);\n```",
+            "UT: [C002][Precondition/Postcondition/Invariant] Claim provenance and registry bijection\n```js\nconst { atoms } = measureSources({ root: fixture, paths: ['guide.md'] });\nconst claims = extractClaims({ atoms });\nconst registry = buildClaimRegistry({ claims });\nfor (const claim of claims) {\n  assert.match(claim.source, /^sources\\//);\n  assert.ok(Number.isInteger(claim.span.start_line));\n  assert.match(claim.content_sha256, /^[0-9a-f]{64}$/);\n}\nassert.equal(assertClaimBijection({ atoms, registry }), true);\nassert.throws(\n  () => assertClaimBijection({ atoms, registry: registry.filter((row) => row.id !== claims[0].id) }),\n  (error) => error.code === 'CLAIM_REGISTRY_MISMATCH',\n);\nconst unsourced = reviewClaims({ claims: [{ ...claims[0], source: '' }] });\nassert.equal(unsourced.unsourced.length, 1);\nassert.throws(() => promoteUnsourced(unsourced), /CLAIM_UNSOURCED/);\n```",
+            "UT: [C003][Precondition/Postcondition/Invariant] Deterministic cited retrieval\n```js\nconst first = runSkill(['ask', '--query', 'token expiry', '--root', fixture]);\nconst second = runSkill(['ask', '--query', 'token expiry', '--root', fixture]);\nassert.equal(first.status, 0);\nassert.equal(first.stdout, second.stdout);\nconst rows = JSON.parse(first.stdout);\nassert.ok(rows.length <= 20);\nfor (const row of rows) {\n  assert.match(row.node, /^[A-Z][A-Z0-9-]*-\\d+$/);\n  assert.match(row.source, /^sources\\//);\n  assert.match(row.content_sha256, /^[0-9a-f]{64}$/);\n}\nconst empty = runSkill(['ask', '--query', '', '--root', fixture]);\nassert.equal(empty.status, 2);\nassert.equal(empty.json.code, 'INVALID_QUERY');\n```",
+            "UT: [C004][Precondition/Postcondition/Invariant] Freshness and stale presentation\n```js\nconst built = buildAndLock({ sources: { 'auth.md': 'Tokens expire after 15 minutes.\\n' } });\nwriteFileSync(join(fixture, 'auth.md'), 'Tokens expire after 30 minutes.\\n');\nconst freshness = detectStaleNodes({\n  lock: built.lock,\n  sourceRoot: fixture,\n  aliasMap: built.aliasMap,\n});\nassert.equal(freshness.stale.length, 1);\nassert.notEqual(freshness.stale[0].expected, freshness.stale[0].actual);\nassert.equal(freshness.stale[0].alias, 'sources/auth.md');\nconst presented = markStale([{ node: 'AUTH-01', stale: false }], new Set(['AUTH-01']));\nassert.equal(presented[0].stale, true);\nassert.throws(() => assertFreshForAnswer({ rows: presented }), /STALE_NODE_PRESENTED/);\n```",
+            "UT: [C005][Precondition/Postcondition/Invariant] Symmetric conflict detection\n```js\nconst nodes = [\n  claimNode('AUTH-01', { topic: 'auth.token.ttl', value: '15m', conflicts: ['AUTH-02'] }),\n  claimNode('AUTH-02', { topic: 'auth.token.ttl', value: '30m', conflicts: ['AUTH-01'] }),\n];\nconst pairs = findConflictPairs({ nodes });\nassert.deepEqual(pairs, [{ key: 'auth.token.ttl', left: 'AUTH-01', right: 'AUTH-02' }]);\nnodes[1].conflicts = [];\nassert.throws(\n  () => assertSymmetricConflicts({ nodes }),\n  (error) => error.code === 'CONFLICT_ASYMMETRIC',\n);\nassert.equal(nodes.length, 2, 'no node is deleted or silently resolved');\n```",
+            "UT: [C006][Precondition/Postcondition/Invariant] Answer citation verification\n```js\nconst nodes = [claimNode('AUTH-01', { topic: 'auth.token.ttl', value: '15m' })];\nconst answer = 'Tokens expire after 15 minutes [AUTH-01]. Sessions persist.\\n';\nconst result = verifyAnswer({ text: answer, nodes });\nassert.equal(result.status, 'failed');\nassert.deepEqual(result.uncited, ['Sessions persist.']);\nassert.ok(result.citations.includes('AUTH-01'));\nassert.throws(() => assertAnswerVerified(result), /UNCITED_ASSERTION/);\nconst cited = verifyAnswer({ text: 'Tokens expire after 15 minutes [AUTH-01].\\n', nodes });\nassert.equal(cited.status, 'machine_verified');\nconst missing = verifyAnswer({ text: 'Tokens expire after 15 minutes [AUTH-99].\\n', nodes });\nassert.equal(missing.status, 'failed');\nassert.deepEqual(missing.unresolved, ['AUTH-99']);\n```",
+            "UT: [C007][Precondition/Postcondition/Invariant] Complete usage manual\n```js\nconst manual = readFileSync(join(skillDir, 'SKILL.md'), 'utf8');\nassert.deepEqual(auditUsageManual(manual), []);\nfor (const heading of [\n  '## When to Use',\n  '## Query Recipes',\n  '## Evidence and Citation',\n  '## Freshness and Conflict',\n  '## Update Procedure',\n  '## Page Authoring',\n  '## Failure Modes',\n  '## Examples',\n]) {\n  assert.ok(manual.includes(heading), heading);\n}\nassert.ok((manual.match(/^### Example/gm) ?? []).length >= 2);\nconst broken = manual.replace('## When to Use', '## Usage');\nassert.ok(auditUsageManual(broken).some((finding) => finding.code === 'USAGE_INCOMPLETE'));\n```",
+            "UT: [C008][Precondition/Postcondition/Invariant] No forced integration writes\n```js\nconst before = hashHostFiles(hostRoot);\nbuildOkfSkill({ root: hostRoot, sources: ['guide.md'], staging: stagingDir });\nassert.equal(hashHostFiles(hostRoot), before);\nconst claude = readFileSync(join(hostRoot, '.claude/CLAUDE.md'), 'utf8');\nassert.equal(claude.includes('law-skill:checkpoint'), false);\nconst command = readFileSync('.claude/commands/build-okf-skill.md', 'utf8');\nassert.equal(command.includes('## Integration Contract'), false);\nassert.equal(command.includes('Step 12.5'), false);\nassert.equal(command.includes('verify-law-integration.mjs'), false);\n```",
+            "UT: [C009][Precondition/Postcondition/Invariant] Shared engine byte drift\n```js\nconst shared = JSON.parse(readFileSync(join(engineDir, 'source/shared-engine.json'), 'utf8'));\nfor (const entry of shared.modules) {\n  assert.equal(\n    sha256Text(readFileSync(join(engineDir, entry.copy), 'utf8')),\n    entry.sha256,\n    entry.copy,\n  );\n  assert.equal(\n    sha256Text(readFileSync(join(lawSkillDir, 'scripts/lib', entry.law), 'utf8')),\n    entry.sha256,\n    entry.law,\n  );\n}\nassert.throws(\n  () => assertEngineDrift({ engineDir, lawSkillDir, mutate: 'markdown.mjs' }),\n  (error) => error.code === 'ENGINE_DRIFT',\n);\n```",
+            "UT: [C010][Precondition/Postcondition/Invariant] Standalone command audit\n```js\nconst command = readFileSync('.claude/commands/build-okf-skill.md', 'utf8');\nassert.equal(command.includes('build-law-skill.md'), false);\nassert.equal(/https?:\\/\\//.test(command), false);\nfor (const required of [\n  'verify-okf-skill.mjs',\n  'okf-verify/checks.json',\n  'okf-engine/scripts/cli.mjs',\n  'okf-engine/scripts/lib/claims.mjs',\n]) {\n  assert.ok(command.includes(required), required);\n}\nconst broken = command.replace('verify-okf-skill.mjs', 'verify-other.mjs');\nassert.ok(auditOkfCommand(broken).some((finding) => finding.code === 'MISSING_SCRIPT'));\nassert.ok(auditOkfCommand(command).some((finding) => finding.code === 'EXTERNAL_REFERENCE') === false);\n```",
+            "UT: [C011][Precondition/Postcondition/Invariant] Installed parity\n```js\nconst target = mkdtempSync(join(tmpdir(), 'okf-install-'));\nexecFileSync(process.execPath, [join(stagingDir, 'install.js'), target]);\nconst installed = join(target, '.claude/skills/mini-okf');\nassert.equal(\n  treeDigest(installed, ['dist', 'okf', 'source', 'tests/fixtures/runtime']),\n  treeDigest(stagingDir, ['dist', 'okf', 'source', 'tests/fixtures/runtime']),\n);\nconst report = verifyOkfSkill({ skillPath: installed, root: fixture, mode: 'installed' });\nassert.equal(report.status, 'machine_verified');\nfor (const name of report.required_checks) {\n  assert.equal(report.checks[name].status, 'machine_verified', name);\n}\nassert.equal(report.checks.manifest.status, 'not_run');\nassert.equal(report.checks.reproduction.status, 'not_run');\n```"
+          ],
+          "planned_at": "2026-11-13T11:06:55.291Z",
+          "startedAt": "2026-11-13",
+          "changes": [
+            {
+              "before": "no /build-okf-skill command",
+              "after": "standalone 14-step build command with 19-check gate and no integration steps",
+              "description": "Added .claude/commands/build-okf-skill.md."
+            },
+            {
+              "before": "law-only verifier",
+              "after": "okf verifier with check-set v1 (19 checks, 8 installed)",
+              "description": "Added verify-okf-skill.mjs and okf-verify/*."
+            },
+            {
+              "before": "law-only runtime",
+              "after": "OKF runtime with claims, retrieval, freshness, conflicts, answer verification, usage",
+              "description": "Added okf-engine/scripts/* and install.js."
+            },
+            {
+              "before": "no OKF tests",
+              "after": "33 tests covering C001-C011 and mini wiki dev/installed",
+              "description": "Added tests/build-okf-skill/*."
+            },
+            {
+              "before": "no mirrors",
+              "after": "byte-identical command, verifier, and engine in three .claude trees",
+              "description": "Mirrored PX-424 assets to root and siprs."
+            }
+          ],
+          "done_at": "2026-11-13T11:18:22.267Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T11:24:05.795Z"
         }
       ]
     },

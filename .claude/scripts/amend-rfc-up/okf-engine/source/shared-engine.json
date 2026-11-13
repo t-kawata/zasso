@@ -1,0 +1,41 @@
+{
+  "schema": "okf-shared-engine/v1",
+  "modules": [
+    {
+      "copy": "scripts/lib/markdown.mjs",
+      "law": "markdown.mjs",
+      "sha256": "a933b28148a0d3525eceef8c4153cca3859c4cba18a83dffaadaf2bbf3b51139",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "scripts/lib/redact.mjs",
+      "law": "redact.mjs",
+      "sha256": "54d766d81b86e762edc52a1a8a9896de1f23f4bbee3df955ac4ca3219008c28d",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "scripts/lib/toml.mjs",
+      "law": "toml.mjs",
+      "sha256": "0c8415d4c76f68374b3a9159f38f888b3ac5142d16043cb9a8ffe94c11260d22",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "scripts/lib/path-alias.mjs",
+      "law": "path-alias.mjs",
+      "sha256": "51b4b5302fff614be62b7e20708e56f6b9b28583da2a595b2f0b1983d409c026",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "scripts/lib/okf.mjs",
+      "law": "okf.mjs",
+      "sha256": "3f48a5bcd2a89b91792a40c67fa7ceb90679f2cb916e4765641140d3120eb6a4",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "scripts/lib/coverage.mjs",
+      "law": "coverage.mjs",
+      "sha256": "84f6c8c9dcf4c24dd6899166aaa1743ab52529ac889558437d32ef523cabc1d3",
+      "strip": "ticket-annotation"
+    }
+  ]
+}

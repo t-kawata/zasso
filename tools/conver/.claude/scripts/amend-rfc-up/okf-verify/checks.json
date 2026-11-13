@@ -1,0 +1,24 @@
+{
+  "check_set_version": "1",
+  "checks": [
+    { "name": "layer", "mode": "both" },
+    { "name": "manifest", "mode": "dev" },
+    { "name": "lock", "mode": "both" },
+    { "name": "coverage", "mode": "dev" },
+    { "name": "registry", "mode": "dev" },
+    { "name": "boundary", "mode": "both" },
+    { "name": "provenance", "mode": "dev" },
+    { "name": "citation", "mode": "dev" },
+    { "name": "graph", "mode": "both" },
+    { "name": "freshness", "mode": "dev" },
+    { "name": "conflicts", "mode": "dev" },
+    { "name": "retrieval", "mode": "both" },
+    { "name": "usage", "mode": "both" },
+    { "name": "runtime", "mode": "dev" },
+    { "name": "tests", "mode": "dev" },
+    { "name": "installer", "mode": "both" },
+    { "name": "determinism", "mode": "dev" },
+    { "name": "distribution", "mode": "both" },
+    { "name": "style", "mode": "dev" }
+  ]
+}
