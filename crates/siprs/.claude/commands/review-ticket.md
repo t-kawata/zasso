@@ -203,7 +203,7 @@ then: re-run `.claude/scripts/tickets/scan-crimes.sh` → verify reflected in Ma
 
 ### Step 5.5: Rust interface law re-verification (conditional)
 
-- Law skill built/changed: re-run v2 `dev` + `installed`; compare `closure`; every required check `machine_verified`.
+<!-- law-skill:checkpoint --> Law skill built/changed: regenerate manifest; `gate`; `attest`; re-run v2 `dev` + `installed`; every required check `machine_verified`; compare `closure`.
 
 `Law: not applicable` and no `target/law` → skip.
 Otherwise invoke `rust-interface-law`; per `SKILL.md`, regenerate manifest, run

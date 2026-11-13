@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,5 +62,25 @@ test('the mini skill passes installed mode', () => {
     assert.equal(report.checks.reproduction.status, 'not_run');
   } finally {
     rmSync(target, { recursive: true, force: true });
+  }
+});
+
+// [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
+test('the acceptance verifier rejects a tampered integration closure', () => {
+  const record = JSON.parse(readFileSync(join(here, 'fixtures/mini-build.json'), 'utf8'));
+  record.builds[0].integration.closure_sha256 = '0'.repeat(64);
+  const directory = mkdtempSync(join(tmpdir(), 'mini-tamper-'));
+  const recordPath = join(directory, 'record.json');
+  writeFileSync(recordPath, JSON.stringify(record));
+  try {
+    const result = spawnSync(process.execPath, [
+      join(here, 'verify-law-builds.mjs'),
+      '--record', recordPath,
+      '--root', repositoryRoot,
+    ], { encoding: 'utf8' });
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stdout, /integration closure changed/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });

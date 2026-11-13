@@ -84,18 +84,23 @@ function verifySources({ root, sources, findings }) {
   });
 }
 
-// [::TICKET::] PX-420, PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-420|PX-421|PX-422) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-420, PX-421, PX-422, PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-420|PX-421|PX-422|PX-423) --for-spec --no-implementation-order`.
 function verifyBuilds({ root, builds, findings }) {
   const verifierPath = join(root, '.claude/scripts/amend-rfc-up/verify-law-skill.mjs');
+  const integrationPath = join(root, '.claude/scripts/amend-rfc-up/verify-law-integration.mjs');
   if (builds.length > 0 && !existsSync(verifierPath)) {
     findings.push(`canonical verifier missing: ${verifierPath}`);
+    return [];
+  }
+  if (builds.length > 0 && !existsSync(integrationPath)) {
+    findings.push(`integration verifier missing: ${integrationPath}`);
     return [];
   }
   return builds.map((build) => {
     const skillPath = resolve(root, build.path ?? build.skill);
     if (!existsSync(skillPath)) {
       findings.push(`build missing: ${build.path ?? build.skill}`);
-      return { skill: build.skill, status: 'failed', closure_sha256: null };
+      return { skill: build.skill, status: 'failed', closure_sha256: null, integration: null };
     }
     const outDir = mkdtempSync(join(tmpdir(), 'law-build-'));
     const outPath = join(outDir, 'verification.json');
@@ -111,7 +116,7 @@ function verifyBuilds({ root, builds, findings }) {
       const run = spawnSync(process.execPath, args, { encoding: 'utf8' });
       if (run.status !== 0) {
         findings.push(`verifier failed for ${build.skill}: ${(run.stdout || run.stderr || '').trim()}`);
-        return { skill: build.skill, status: 'failed', closure_sha256: null };
+        return { skill: build.skill, status: 'failed', closure_sha256: null, integration: null };
       }
       const report = JSON.parse(readFileSync(outPath, 'utf8'));
       if (report.schema !== VERIFIER_SCHEMA) {
@@ -125,12 +130,14 @@ function verifyBuilds({ root, builds, findings }) {
       if (build.closure_sha256 && report.closure_sha256 !== build.closure_sha256) {
         findings.push(`closure hash changed for ${build.skill}`);
       }
+      const integration = verifyIntegration({ root, build, integrationPath, findings });
       return {
         skill: build.skill,
         status: failed.length === 0 && report.closure_sha256 === build.closure_sha256
           ? 'machine_verified'
           : 'failed',
         closure_sha256: report.closure_sha256 ?? null,
+        integration,
       };
     } finally {
       rmSync(outDir, { recursive: true, force: true });
@@ -138,7 +145,55 @@ function verifyBuilds({ root, builds, findings }) {
   });
 }
 
-// [::TICKET::] PX-420 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-420 --for-spec --no-implementation-order`.
+/**
+ * Run the six-line integration gate for one recorded build.
+ *
+ * The record stores the gate closure and each line hash; comparing both makes
+ * a hand-edited host line visible even when the canonical verifier is green.
+ *
+ * @param {{root:string,build:object,integrationPath:string,findings:string[]}} input
+ * @returns {{status:string,closure_sha256:string|null}|null}
+ */
+// [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
+function verifyIntegration({ root, build, integrationPath, findings }) {
+  const expected = build.integration;
+  if (!expected) {
+    findings.push(`integration record missing for ${build.skill}`);
+    return { status: 'failed', closure_sha256: null };
+  }
+  const outDir = mkdtempSync(join(tmpdir(), 'law-integration-'));
+  const outPath = join(outDir, 'integration.json');
+  try {
+    const run = spawnSync(process.execPath, [
+      integrationPath,
+      '--root', root,
+      '--mode', 'check',
+      '--require-skill',
+      '--out', outPath,
+    ], { encoding: 'utf8' });
+    if (run.status !== 0) {
+      findings.push(`integration gate failed for ${build.skill}: ${(run.stdout || run.stderr || '').trim()}`);
+      return { status: 'failed', closure_sha256: null };
+    }
+    const report = JSON.parse(readFileSync(outPath, 'utf8'));
+    if (report.closure_sha256 !== expected.closure_sha256) {
+      findings.push(`integration closure changed for ${build.skill}`);
+    }
+    for (const [key, line] of Object.entries(expected.lines ?? {})) {
+      if (report.checks?.[key]?.line_sha256 !== line) {
+        findings.push(`integration line changed for ${build.skill}: ${key}`);
+      }
+    }
+    return {
+      status: report.closure_sha256 === expected.closure_sha256 ? 'machine_verified' : 'failed',
+      closure_sha256: report.closure_sha256 ?? null,
+    };
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
+  }
+}
+
+// [::TICKET::] PX-420, PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-420|PX-423) --for-spec --no-implementation-order`.
 function render({ recordPath, record, results, findings, ok }) {
   const { sources, builds } = results;
   const lines = [
@@ -158,9 +213,9 @@ function render({ recordPath, record, results, findings, ok }) {
     lines.push('');
   }
   if (builds.length > 0) {
-    lines.push('## Builds', '', '| Skill | Status | Closure |', '|---|---|---|');
+    lines.push('## Builds', '', '| Skill | Status | Closure | Integration |', '|---|---|---|---|');
     for (const build of builds) {
-      lines.push(`| \`${build.skill}\` | ${build.status} | \`${build.closure_sha256 ?? '(none)'}\` |`);
+      lines.push(`| \`${build.skill}\` | ${build.status} | \`${build.closure_sha256 ?? '(none)'}\` | ${build.integration?.status ?? '(none)'} |`);
     }
     lines.push('');
   }

@@ -26,6 +26,9 @@ import {
   ArgumentError,
   CANONICAL_CHECKS,
   EXAMPLE_LITERALS,
+  INTEGRATION_CANONICAL_LINES,
+  INTEGRATION_CODES,
+  INTEGRATION_MARKER,
   PIPELINE_COMMANDS,
   REQUIRED_ARTIFACTS,
   STYLE_CODES,
@@ -237,6 +240,36 @@ test('C005: integration checkpoints name five commands and stay bounded', () => 
   assert.equal(checkpoints.includes('--root'), false);
   assert.ok(checkpoints.split('\n').filter((line) => line.trim()).length <= 5);
 });
+
+// @verifies C006
+// [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
+test('C005: the command declares the fixed integration contract', () => {
+  const text = readCommand();
+  assert.deepEqual(auditCommand(text), []);
+  const section = sectionOf(text, '## Integration Contract');
+  assert.ok(section.includes(INTEGRATION_MARKER));
+  for (const line of Object.values(INTEGRATION_CANONICAL_LINES)) {
+    assert.ok(section.includes(line), line);
+  }
+  assert.ok(section.includes('verify-law-integration.mjs'));
+  assert.match(sectionOf(text, '## Verification Gates'), /\|\s*Integration\s*\|/);
+  for (const code of INTEGRATION_CODES) assert.ok(text.includes(code), code);
+  assert.ok(sectionOf(text, '## Procedure').includes('Step 12.5'));
+});
+
+// @verifies C006
+test('C006: the generated pipeline-checkpoints template checks the host contract', () => {
+  const template = readFileSync(
+    join(here, 'acceptance/fixtures/mini/mini-law/tests/pipeline-checkpoints.test.mjs'),
+    'utf8',
+  );
+  assert.match(template, /function findHostRoot/);
+  assert.match(template, /LAW_HOST_ROOT/);
+  assert.match(template, /law-skill:checkpoint/);
+  assert.ok(template.includes('tests/fixtures/host'));
+  assert.equal(template.includes('rust-interface-law'), false);
+});
+
 
 // @verifies C006
 test('C006: identical inputs produce identical hashes and profiles', () => {

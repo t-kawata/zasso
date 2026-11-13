@@ -2,6 +2,12 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
+import {
+  CANONICAL_LINES as INTEGRATION_CANONICAL_LINES,
+  INTEGRATION_CODES,
+  INTEGRATION_MARKER,
+  MAX_CHECKPOINT_LENGTH,
+} from '../../../.claude/scripts/amend-rfc-up/law-integration/contract.mjs';
 
 /**
  * PX-420 — executable contract for the `/build-law-skill` procedure.
@@ -33,6 +39,7 @@ export const COMMAND_SECTIONS = Object.freeze([
   '## Procedure',
   '## Verification Gates',
   '## Failure Modes',
+  '## Integration Contract',
   '## Integration Checkpoints',
   '## Completion',
 ]);
@@ -97,6 +104,13 @@ export const V2_CHECKPOINT_TERMS = Object.freeze([
   'machine_verified',
   'closure',
 ]);
+
+export {
+  INTEGRATION_CANONICAL_LINES,
+  INTEGRATION_CODES,
+  INTEGRATION_MARKER,
+  MAX_CHECKPOINT_LENGTH,
+};
 
 export const SPEC_FIELD_ANCHORS = Object.freeze({
   background: '## Background',
@@ -470,6 +484,61 @@ export function auditClaudeBlock(text) {
 }
 
 /**
+ * Whether the command declares the fixed integration contract.
+ *
+ * The contract is intentionally one line per host file. This audit proves the
+ * command carries the six canonical lines, the verifier, the gate row, and
+ * every failure code that the producer must emit.
+ *
+ * @param {string} text
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
+export function auditIntegrationContract(text) {
+  const findings = [];
+  const add = (code, message) => findings.push({ code, contract: 'C005', message });
+  const body = normalizeLf(text);
+  const section = sectionOf(body, '## Integration Contract');
+  if (section === '') {
+    add('MISSING_INTEGRATION_CONTRACT', '## Integration Contract is absent');
+    return findings;
+  }
+  if (!section.includes(INTEGRATION_MARKER)) {
+    add('MISSING_INTEGRATION_MARKER', 'canonical marker is absent');
+  }
+  const markerLines = section
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith(INTEGRATION_MARKER));
+  if (markerLines.length !== Object.keys(INTEGRATION_CANONICAL_LINES).length) {
+    add('MISSING_INTEGRATION_LINE', 'the section must carry exactly six canonical lines');
+  }
+  for (const line of markerLines) {
+    if (line.length > MAX_CHECKPOINT_LENGTH) add('CHECKPOINT_TOO_LONG', 'canonical line exceeds the limit');
+    if (/--(?:root|source-root|path-alias)/.test(line)) add('INTEGRATION_CLI_LEAK', 'canonical line carries exact CLI');
+    for (const term of V2_CHECKPOINT_TERMS) {
+      if (!line.includes(term)) add('MISSING_INTEGRATION_LINE', `canonical line lacks ${term}`);
+    }
+  }
+  for (const [key, line] of Object.entries(INTEGRATION_CANONICAL_LINES)) {
+    if (!markerLines.includes(line)) add('MISSING_INTEGRATION_LINE', `canonical line is absent or drifted: ${key}`);
+  }
+  if (!section.includes('verify-law-integration.mjs')) {
+    add('MISSING_INTEGRATION_VERIFIER', 'integration verifier is not named');
+  }
+  if (!/\|\s*Integration\s*\|/.test(sectionOf(body, '## Verification Gates'))) {
+    add('MISSING_INTEGRATION_GATE', 'Verification Gates lacks an Integration row');
+  }
+  if (!sectionOf(body, '## Procedure').includes('Step 12.5')) {
+    add('MISSING_INTEGRATION_STEP', 'Step 12.5 is absent');
+  }
+  for (const code of INTEGRATION_CODES) {
+    if (!body.includes(code)) add('MISSING_INTEGRATION_CODE', `failure table lacks ${code}`);
+  }
+  return findings;
+}
+
+/**
  * Whether the exported spec carries every ticket field.
  *
  * @param {object} ticket
@@ -595,6 +664,7 @@ export function auditCommand(text) {
     ...auditCoverage(body),
     ...auditStyle(body),
     ...auditVerifierContract(body),
+    ...auditIntegrationContract(body),
   );
 
   if (!body.includes('node --test')) {

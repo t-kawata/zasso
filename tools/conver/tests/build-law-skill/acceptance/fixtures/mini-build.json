@@ -9,7 +9,19 @@
       "mode": "dev",
       "source_root": "tests/build-law-skill/acceptance/fixtures/mini",
       "path_alias": "tests/build-law-skill/acceptance/fixtures/mini/mini-law.path-alias.json",
-      "closure_sha256": "a53524176fbf0963c9b288a916ef2cc345bfb6791f7322375f795c4b16841563"
+      "closure_sha256": "a53524176fbf0963c9b288a916ef2cc345bfb6791f7322375f795c4b16841563",
+      "integration": {
+        "status": "machine_verified",
+        "closure_sha256": "ea894ce93fb3d51f51abf9382963ea055a06a7e59661f4bfedc90252267d996d",
+        "lines": {
+          "claude": "f2d7d76e56727c58983c775cbdc90f6d29746d9b06ec048028eeb46347153ca5",
+          "make-ticket": "58dcb4c7ae26d08d34d6e2db0c1887482d1be37b413b19fd081718e316f0c294",
+          "plan-ticket": "79b36c75d79c9a95af40aef6d4548a7eea3f7f79fece0be665d23ab6d74f5779",
+          "start-ticket": "4a5345b2ea723d8d6730100628559ceb51f2eb09a7efe12e917d7aab3f23103a",
+          "review-ticket": "820f23b1d5e90a5b794226aeb884e175b0f56b4e2ca942647edb161a62328d1e",
+          "resolve-ticket": "49fb6e9e04a5bcf0919f24d702382bf2b4f2261c59244a5c7ce0d6cb4671fff5"
+        }
+      }
     }
   ]
 }

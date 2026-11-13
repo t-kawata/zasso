@@ -144,7 +144,7 @@ Then Step 3.
 
 ### Step 2.5: Rust interface law phase plan (conditional)
 
-- Law skill built/changed: plan v2 `dev` + `installed`; exact CLI in `SKILL.md`; check set is 18; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: plan phases from each `skills/*-law` `SKILL.md`; check set 18; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
 
 Invoke `rust-interface-law`; read `SKILL.md`; read ticket `notes` `Law:`.
 

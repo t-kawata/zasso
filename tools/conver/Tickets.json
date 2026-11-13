@@ -65213,6 +65213,184 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-13",
           "reviewed_at": "2026-11-13T08:32:19.981Z"
+        },
+        {
+          "id": 423,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Enforce /build-law-skill integration with fixed canonical checkpoints and a fail-closed gate",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-423.md",
+          "background": "### Goal\nMake /build-law-skill host integration mandatory and machine-verifiable: one fixed canonical checkpoint line in CLAUDE.md and in each of make-ticket, plan-ticket, start-ticket, review-ticket, and resolve-ticket, plus a gate that fails the build when any line is missing, drifted, duplicated, or carries exact CLI.\n\n### Purpose\nGive every built *-law skill binding force without per-skill text growth. The six host lines are skill-agnostic and constant-size; each generated SKILL.md owns its trigger and exact CLI.\n\n### Motivation\nThe command declares integration at build-law-skill.md:284-285 and 369-375, but Step 12 names only CLAUDE.md, no exact template exists, the five command files are not patch targets, and Verification Gates has no integration row. Multiple builds would otherwise append per-skill text and drift. One fixed marker line per host file, enforced by a gate, is the smallest mechanism that stays byte-identical across builds.\n\n### Constraints\n- Minimum text: exactly one marker line per host file; no per-skill blocks.\n- Fixed location: the line lives in the file's law section; the writer owns the anchor.\n- Determinism: the same canonical bytes for every build; the second write is byte-identical.\n- Fail closed: missing, drifted, duplicate, mislocated, or CLI-bearing line blocks completion.\n- Canonical verifier v2 stays 18 checks and check_set_version 2; no 19th check.\n- No new dependency; no external document reference; no CJK; no ticket ID in the command body.\n- TDD Red-Green-Refactor; node --test for the impact set; make test is forbidden.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - `tools/conver/.claude/scripts/amend-rfc-up/law-integration/contract.mjs` — add — single source of truth for the marker, six canonical phase lines, the 240-character limit, phase verbs, finding codes, and law-section parsing. The lines are skill-agnostic and name no concrete skill.\n  - `tools/conver/.claude/scripts/amend-rfc-up/verify-law-integration.mjs` — add — CLI with `--root`, `--claude`, `--commands`, `--skills`, `--mode check|write`, `--require-skill`, `--out`. `check` exits 1 on any missing, drifted, duplicated, mislocated, or CLI-bearing canonical line; `write` inserts or repairs the six lines atomically, with backup and rollback, and is byte-identical on a second run. It scans `skills/*-law` and requires each skill to carry `SKILL.md` and `dist/skill.mjs`.\n  - `tools/conver/.claude/commands/build-law-skill.md` — update — add `## Integration Contract` with the marker, the six canonical lines, the fixed anchor rule, and the no-per-skill-text rule; add Step 12 write, Step 12.5 check, the `Integration` gate row, the new `INTEGRATION_*` failure codes, the completion condition, and the invariant. Keep `## Integration Checkpoints` at five lines and CLI-free.\n  - `tools/conver/.claude/CLAUDE.md` — update — add the CLAUDE.md canonical marker line inside the law section; remove the exact CLI from that block; keep the existing detailed law instructions.\n  - `tools/conver/.claude/commands/{make,plan,start,review,resolve}-ticket.md` — update — add one phase-specific canonical marker line inside each law section; keep the existing detailed instructions; the line is identical for every built skill.\n  - `tools/conver/tests/build-law-skill/lib/command-contract.mjs` — update — add `INTEGRATION_CANONICAL_LINES`, `INTEGRATION_MARKER`, `INTEGRATION_CODES`, and `auditIntegrationContract`; add `## Integration Contract` to `COMMAND_SECTIONS`.\n  - `tools/conver/tests/build-law-skill/integration/verify.test.mjs` — add — valid host fixture, six missing-line cases, drift, duplicate, CLI leak, mislocation, write idempotency, write rollback, zero/one/two skills, and skill validity.\n  - `tools/conver/tests/build-law-skill/command-file.test.mjs` — update — assert `## Integration Contract`, the six canonical lines, Step 12/12.5, the gate row, and the failure codes.\n  - `tools/conver/tests/build-law-skill/generality.test.mjs` — update — mutations for missing contract, missing gate, missing command line, drift, duplicate, CLI leak, and overlong line.\n  - `tools/conver/tests/build-law-skill/acceptance/verify-law-builds.mjs` — update — run the integration gate for each recorded build and compare the integration closure.\n  - `tools/conver/tests/build-law-skill/acceptance/law-builds.json` and `fixtures/mini-build.json` — update — record integration status, closure, and per-file block hashes.\n  - `tools/conver/tests/build-law-skill/acceptance/fixtures/mini/mini-law/tests/pipeline-checkpoints.test.mjs` and `SKILL.md` — update — assert the six canonical lines through host-root discovery; name the five commands and exact CLI in `SKILL.md`.\n  - The root `.claude` and `crates/siprs/.claude` trees — mirror — copy the command, script, CLAUDE.md, and five commands byte-identically.\n  - No change to `tools/conver/.claude/skills/rust-interface-law/`; it is read-only regression input.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - Per-skill blocks in CLAUDE.md or the five commands — rejected because they grow with every build and break the minimum-text and fixed-location constraints.\n  - A 19th canonical check or a v3 check set — the canonical verifier stays at 18 checks in v2; integration is a producer-side gate.\n  - New npm dependencies — the writer uses Node built-ins only.\n  - External document references — the build command must remain standalone.\n  - Rebuilding the three full source-document law skills — the mini synthetic skill, a two-skill temp host, and the existing rust-interface-law dev/installed run cover the producer contract.\n  - `make test` — forbidden by the command and the repository rule.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - `make-ticket`, `plan-ticket`, `start-ticket`, `review-ticket`, `resolve-ticket` — each gains one canonical line; no per-skill text.\n  - `.claude/CLAUDE.md` — gains one canonical line; exact CLI stays in each `SKILL.md`.\n  - Canonical verifier `verify-law-skill.mjs` — consumed unchanged; 18 checks remain the only pass.\n  - Generated `pipeline-checkpoints.test.mjs` — becomes the second layer that proves the host lines from the installed skill.\n  - Mirror trees and the acceptance record — updated by the same canonical contract."
+          ],
+          "testUnit": [
+            "UT: [C001][Normal] The contract module exports exactly six canonical lines: one CLAUDE.md line and five phase lines. Each starts with the fixed marker, is at most 240 characters, contains `dev`, `installed`, `machine_verified`, and `closure`, and contains no `--root`, `--source-root`, or `--path-alias`. Each line names no concrete skill.",
+            "UT: [C001][Normal] The five phase lines are distinct and carry the phase verbs: make records `Law:` scope; plan plans phases and the 18-check set; start applies, gates, and attests; review regenerates the manifest, gates, attests, and compares closure; resolve repairs findings, fills attestation, and changes no status.",
+            "UT: [C001][Boundary] A line of 241 characters is rejected by the contract check; a line of 240 is accepted.",
+            "UT: [C002][Normal] `--mode check` on a valid temp host returns exit 0 and `status: machine_verified`; the report lists six checked files and the discovered law skills.",
+            "UT: [C002][Error] A missing CLAUDE.md canonical line returns exit 1 with `INTEGRATION_MISSING`, the file path, and the expected marker line number.",
+            "UT: [C002][Error] A missing canonical line in any one of the five commands returns exit 1 with `INTEGRATION_MISSING` naming that command; the other five files do not mask it.",
+            "UT: [C002][Error] A drifted line returns exit 1 with `INTEGRATION_DRIFT` and a byte diff against the canonical phase line.",
+            "UT: [C002][Error] A duplicate marker line returns exit 1 with `INTEGRATION_DUPLICATE` and both line numbers.",
+            "UT: [C002][Error] A canonical line containing `--root` returns exit 1 with `INTEGRATION_CLI_LEAK`.",
+            "UT: [C002][Error] A marker line outside the law section returns exit 1 with `INTEGRATION_LOCATION`.",
+            "UT: [C002][Boundary] A host with no `skills/*-law` returns `skipped:no-law-skill` exit 0; the same host with `--require-skill` returns `INTEGRATION_NO_SKILL` exit 1.",
+            "UT: [C003][Normal] `--mode write` on an empty temp host inserts all six canonical lines at the fixed anchor; a following `--mode check` returns exit 0.",
+            "UT: [C003][Normal] A second `--mode write` changes no byte; the SHA-256 of all six files is identical to the first run.",
+            "UT: [C003][Error] A write failure on a read-only file restores the backup and leaves the original bytes unchanged; the report returns `INTEGRATION_WRITE_FAILED`.",
+            "UT: [C003][Boundary] A duplicate marker blocks write with `INTEGRATION_DUPLICATE`; no file is partially written.",
+            "UT: [C004][Normal] A temp host with one valid `skills/*-law` passes; a temp host with two sorted skills also passes, and the six host lines are byte-identical before and after the second build.",
+            "UT: [C004][Error] A `skills/*-law` directory without `SKILL.md` returns `INTEGRATION_SKILL_INVALID`; one without `dist/skill.mjs` returns the same code.",
+            "UT: [C004][Boundary] Skill discovery is a stable sort; no host line contains a skill name or a per-skill block.",
+            "UT: [C005][Normal] `auditCommand` on the real build-law-skill command returns no findings; `## Integration Contract`, Step 12, Step 12.5, the `Integration` gate row, and every `INTEGRATION_*` failure code are present.",
+            "UT: [C005][Error] Removing the `Integration` gate row yields `MISSING_INTEGRATION_GATE`; removing `## Integration Contract` yields `MISSING_SECTION`; replacing a canonical term yields the matching finding.",
+            "UT: [C005][Boundary] `## Integration Checkpoints` stays at five lines or fewer and contains no `--root`; adding a sixth line yields `CHECKPOINT_TOO_LONG`.",
+            "UT: [C006][Normal] The generated `pipeline-checkpoints.test.mjs` template discovers the host root, asserts the six canonical lines, asserts the five command names in `SKILL.md`, and contains no concrete skill literal.",
+            "UT: [C006][Error] When the host root is absent and no bundled fixture exists, the generated test fails; it never skips.",
+            "UT: [C006][Boundary] In installed mode the generated test uses the bundled host fixture; in dev mode it uses the real host.",
+            "UT: [C002][Error] check exits 0 only when every file has exactly one canonical line in its law section; otherwise it exits 1 with a named code and file.",
+            "UT: [C002][Invariant] no partial pass; every finding carries a code, file, and line.",
+            "UT: [C003][Normal] one or more canonical lines are absent or drifted, then write inserts or repairs them at the fixed anchor.",
+            "UT: [C003][Normal] write inserts or repairs the six lines at the fixed anchor and a second write is byte-identical.",
+            "UT: [C003][Error] writes are atomic; a failure restores the backup and leaves the original bytes.",
+            "UT: [C004][Boundary] zero or more skills exist under the skills directory; each carries SKILL.md and dist/skill.mjs.",
+            "UT: [C005][Boundary] Integration Checkpoints stays at five lines or fewer and contains no exact CLI."
+          ],
+          "testIntegration": [
+            "IT: [Normal] A temp repository runs `--mode write`, installs a mini `*-law` skill, runs `--mode check`, and exits 0. A second mini skill is added and both builds run; the six host lines remain byte-identical and the gate passes for both skills.",
+            "IT: [Normal] The build-law-skill command, integration verifier, and acceptance verifier run end to end on the mini build; the acceptance record contains integration status, integration closure, and all six block hashes.",
+            "IT: [Error] Removing one canonical line from a temp host makes the integration gate exit 1 and blocks build completion with `INTEGRATION_MISSING`; restoring the line restores exit 0.",
+            "IT: [Normal] The existing `rust-interface-law` remains unchanged and still passes dev mode 18/18 and installed mode 8/8 `machine_verified` with the same closure.",
+            "IT: [Boundary] The canonical command, script, CLAUDE.md, and five command files are byte-identical across `tools/conver/.claude`, root `.claude`, and `crates/siprs/.claude` by SHA-256."
+          ],
+          "testExceptions": [
+            "A full build of the three real source documents cannot test in the unit suite: it is an E2E first-use acceptance that depends on the external source set and a complete build environment, and it is not testable as a deterministic unit test in this ticket. The mini synthetic skill and a two-skill temp host cover the same producer contract. This is an E2E scope boundary, not a design defect."
+          ],
+          "default_files": [
+            "tools/conver/.claude/commands/build-law-skill.md",
+            "tools/conver/.claude/scripts/amend-rfc-up/verify-law-integration.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/law-integration/contract.mjs",
+            "tools/conver/.claude/CLAUDE.md",
+            "tools/conver/.claude/commands/make-ticket.md",
+            "tools/conver/.claude/commands/plan-ticket.md",
+            "tools/conver/.claude/commands/start-ticket.md",
+            "tools/conver/.claude/commands/review-ticket.md",
+            "tools/conver/.claude/commands/resolve-ticket.md",
+            "tools/conver/tests/build-law-skill/lib/command-contract.mjs",
+            "tools/conver/tests/build-law-skill/command-file.test.mjs",
+            "tools/conver/tests/build-law-skill/generality.test.mjs",
+            "tools/conver/tests/build-law-skill/integration/verify.test.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/verify-law-builds.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/law-builds.json",
+            "tools/conver/tests/build-law-skill/acceptance/fixtures/mini-build.json",
+            "tools/conver/tests/build-law-skill/acceptance/fixtures/mini/mini-law/tests/pipeline-checkpoints.test.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/fixtures/mini/mini-law/SKILL.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: `--mode write` inserts the six canonical lines once; `--mode check` exits 0; a second write changes no byte; two built law skills leave the six lines identical.",
+            "Error case: missing, drifted, duplicate, mislocated, or CLI-bearing canonical line each returns exit 1 with its named `INTEGRATION_*` code and blocks completion; no partial write remains.",
+            "Edge case: zero skills skips only without `--require-skill`; one and two skills pass; rust-interface-law stays 18/18 dev and 8/8 installed; the three mirror trees are byte-identical."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "canonical contract -> host files",
+              "precondition": "the contract module is read",
+              "postcondition": "six canonical lines exist: one CLAUDE.md line and five phase lines, each marker-prefixed, at most 240 characters, containing dev, installed, machine_verified, and closure, and naming no concrete skill",
+              "invariant": "the canonical bytes are identical for every build and every law skill"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "gate -> build completion",
+              "precondition": "the six host files are readable",
+              "postcondition": "check exits 0 only when every file has exactly one canonical line in its law section; otherwise it exits 1 with a named code and file",
+              "invariant": "no partial pass; every finding carries a code, file, and line"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "writer -> host files",
+              "precondition": "one or more canonical lines are absent or drifted",
+              "postcondition": "write inserts or repairs the six lines at the fixed anchor and a second write is byte-identical",
+              "invariant": "writes are atomic; a failure restores the backup and leaves the original bytes"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "skills/*-law -> host enforcement",
+              "precondition": "zero or more skills exist under the skills directory",
+              "postcondition": "each skill carries SKILL.md and dist/skill.mjs; with require-skill, at least one skill exists; zero skills skip only without require-skill",
+              "invariant": "host lines are skill-agnostic and constant-size; no per-skill block is added"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "command markdown -> public contract",
+              "precondition": "the build-law-skill command is read",
+              "postcondition": "Integration Contract, Step 12, Step 12.5, the Integration gate row, and every INTEGRATION_* failure code are present",
+              "invariant": "Integration Checkpoints stays at five lines or fewer and contains no exact CLI"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "generated skill -> host verification",
+              "precondition": "the generated pipeline-checkpoints test runs",
+              "postcondition": "it discovers the host root, asserts the six canonical lines, and asserts the five command names in SKILL.md",
+              "invariant": "it never skips; dev uses the real host and installed uses the bundled host fixture"
+            }
+          ],
+          "notes": "- [Implementation steps] (1) Add failing integration tests and temp-host fixtures. (2) Implement contract, host writer, audit, and CLI. (3) Add the six canonical lines to the host files. (4) Wire Step 12/12.5, the Integration gate, failure codes, and completion. (5) Update the generated pipeline-checkpoints test and the mini fixture. (6) Update the acceptance verifier and records. (7) Sync the three mirrors and run the impact set.\n- [Risks] The existing law sections are rust-specific; migration must preserve their detailed instructions. A glob line may look too generic; SKILL.md must carry the trigger and exact CLI. Repeated builds must never duplicate the marker.\n- [Caveats] The canonical verifier v2 stays at 18 checks. The integration gate is producer-side. No per-skill host text is added.\n- [Open] Whether to rename the CLAUDE.md section from Rust interface law (conditional) to Law skills (conditional); decide in plan without breaking C005.\n- [Future] Add --prune for orphan skill directories; add a host audit dashboard.\n- [Law] not applicable: rust-interface-law applies precheck exited 3 on the target .claude and test paths; no crates/** interface unit is changed.\nImplementation summary:\n- Changed files: tools/conver/.claude/scripts/amend-rfc-up/verify-law-integration.mjs; tools/conver/.claude/scripts/amend-rfc-up/law-integration/contract.mjs; tools/conver/.claude/commands/build-law-skill.md; tools/conver/.claude/CLAUDE.md; five pipeline command files; tests/build-law-skill/{lib/command-contract.mjs,integration/verify.test.mjs,command-file.test.mjs,generality.test.mjs,acceptance/verify-law-builds.mjs,acceptance/mini-build.test.mjs}; mini fixture host tree; acceptance records; root and crates/siprs mirrors.\n- Key changes: one skill-agnostic canonical line per host file; --mode write repairs atomically and idempotently; --mode check fails on missing, drift, duplicate, location, CLI leak, invalid skill, or no skill; eight INTEGRATION_* codes; acceptance compares integration closure and six line hashes.\n- Test results: 72 build-law-skill impact tests pass; rust-interface-law dev 18/18 and installed 8/8 machine_verified; integration check exit 0 in tools/conver, root .claude, and crates/siprs/.claude.\n- Integration closure: 192511018ab372ecee351c3b4de8d87ba49eb5fb943a6d8e903e95b91122eaa5.\n- Canonical verifier v2 18 checks unchanged.\nReview report:\n- Static quality check: passed (0 issues).\n- Translatability: no generic variables, no debug output; function names are verb phrases.\n- Tests: build-law-skill 72 pass; integration gate exit 0 in tools/conver, root .claude, and crates/siprs/.claude; rust-interface-law dev 18/18 and installed 8/8 machine_verified.\n- User concern: the CLAUDE.md line is now conditional: \"Only when a `skills/*-law` trigger matches: apply ... No match -> skip.\" One line, no per-skill block. A project with no matching law skill has no invocation.\n- Host-file scope: the canonical line is one 230-character line inside the existing Rust interface law section; install.js copies it to every conver project, but the line is conditional and explicitly skips when no trigger matches.\n- Clutter check: removed generated fixture target/ directories under .claude/skills/rust-interface-law/tests/fixtures/runtime; no test .tmp, backup, record, or integration JSON remains in .claude.\n- Integration closure: ea894ce93fb3d51f51abf9382963ea055a06a7e59661f4bfedc90252267d996d.\n- Residual: a zero-text install would require an opt-in law integration file rather than the shared CLAUDE.md; that is a future design change, not a defect in this ticket.",
+          "invariants": "- [Normal establishment] CLAUDE.md and the five pipeline commands each carry exactly one canonical marker line inside their law section.\n- [Invariant on error] A missing, drifted, duplicated, mislocated, or CLI-bearing line yields a named INTEGRATION_* finding and exit 1; no completion.\n- [Internal invariant] The writer is atomic and idempotent; the second run is byte-identical; a failed write restores the backup.\n- [Boundary invariant] The host lines are skill-agnostic and constant-size; zero skills skip unless --require-skill; one to N skills are discovered from skills/*-law without adding per-skill text.",
+          "instrumentation": "- Logs: JSON report `law-integration-verification/v1` with per-file status and codes.\n- Metrics: host files checked, law skills discovered, bytes changed by write.\n- Error tracking: every finding names the file, marker line, and code.\n- Health: `--mode check` exit 0 is the single gate; the acceptance record stores the integration closure.\nReview instrumentation:\n- 72 build-law-skill impact tests passed.\n- 3 integration checks passed (package, root mirror, siprs mirror).\n- rust-interface-law dev 18/18 and installed 8/8.\n- quality check 0 issues; no unresolved crimes or stubs.",
+          "investigation": "Evidence:\n- `tools/conver/.claude/commands/build-law-skill.md:284-285` — Step 12 names only CLAUDE.md and says Add Integration Checkpoints; it gives no exact template, no fixed anchor, and no patch procedure for the five command files.\n- `tools/conver/.claude/commands/build-law-skill.md:369-375` — the Integration Checkpoints section declares the five phases but is a declaration, not a machine gate.\n- `tools/conver/.claude/commands/build-law-skill.md:327-342` — Verification Gates has no integration row; Step 10 runs only the canonical verifier.\n- `tools/conver/.claude/commands/build-law-skill.md:379` — completion says integration checkpoints present, but no script checks it.\n- `tools/conver/.claude/CLAUDE.md:171` — one v2 law-skill bullet; the same file at :175 carries exact CLI, contradicting the command invariant that exact CLI lives only in SKILL.md.\n- `make-ticket.md:258`, `plan-ticket.md:147`, `start-ticket.md:459`, `review-ticket.md:206`, `resolve-ticket.md:128` — each carries one phase-specific v2 bullet in a Rust interface law section; none has a marker or a fixed canonical text.\n- `tools/conver/tests/build-law-skill/lib/command-contract.mjs:94-99` — V2_CHECKPOINT_TERMS are dev, installed, machine_verified, closure; :407-447 audits the pipeline law section; :455-470 audits the CLAUDE block; :567-578 audits the build command checkpoint.\n- `tools/conver/tests/build-law-skill/command-file.test.mjs:230-239` checks the build command checkpoint; :300-312 checks the five pipeline files and CLAUDE.md.\n- `tools/conver/.claude/scripts/amend-rfc-up/verify-law-skill.mjs` and `law-verify/checks.json` — 18 checks, check_set_version 2, dev 18/18 and installed 8/8; the verifier is consumed, not modified.\n- Current behavior: a second /build-law-skill run has no canonical line to find, so any per-skill integration would either duplicate or drift. A fixed skill-agnostic marker line is the smallest invariant that survives multiple builds.",
+          "boyScoutPlan": "- Extract the duplicated law-section parsing from the test contract and the new verifier into `law-integration/contract.mjs`; one parser, one marker constant, one line limit, one code table.\n- Replace Rust-specific literals in generic integration paths with the `skills/*-law` discovery rule; keep rust-interface-law only as regression input.\n- Name every threshold and code as a constant; no magic 240, marker, or code string repeated.\n- Every read and write failure becomes a named finding; no swallowed errors.",
+          "created_at": "2026-11-13",
+          "updated_at": "2026-11-13",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-13T09:01:22.799Z",
+          "planTestCode": [
+            "UT: [C001][Normal] six canonical lines are fixed, bounded, term-complete, and skill-agnostic\n```js\nconst { CANONICAL_LINES, MAX_CHECKPOINT_LENGTH, INTEGRATION_MARKER } = await import('./contract.mjs');\nconst lines = Object.values(CANONICAL_LINES);\nassert.equal(lines.length, 6);\nfor (const line of lines) {\n  assert.ok(line.startsWith(INTEGRATION_MARKER));\n  assert.ok(line.length <= MAX_CHECKPOINT_LENGTH);\n  assert.ok(['dev', 'installed', 'machine_verified', 'closure'].every((term) => line.includes(term)));\n  assert.equal(/--(?:root|source-root|path-alias)/.test(line), false);\n  assert.equal(line.includes('rust-interface-law'), false);\n}\nassert.equal(new Set(lines).size, 6);\n```",
+            "UT: [C001][Boundary] canonical bytes are identical across reads and builds\n```js\nconst first = JSON.stringify(CANONICAL_LINES);\nconst second = JSON.stringify(CANONICAL_LINES);\nassert.equal(first, second);\nassert.equal(Object.values(CANONICAL_LINES).every((line) => line.length <= 240), true);\n```",
+            "UT: [C002][Normal/Error] check gate exits 0 only when all six lines are canonical\n```js\nconst host = createHost({ lines: 'canonical' });\nconst ok = runIntegration(host, ['--mode', 'check']);\nassert.equal(ok.status, 0);\nassert.equal(ok.json.status, 'machine_verified');\nconst missing = createHost({ omit: 'make-ticket' });\nconst bad = runIntegration(missing, ['--mode', 'check']);\nassert.equal(bad.status, 1);\nassert.ok(bad.json.checks['make-ticket'].codes.includes('INTEGRATION_MISSING'));\nassert.equal(bad.json.checks['make-ticket'].file, '.claude/commands/make-ticket.md');\n```",
+            "UT: [C002][Error] gate names drift, duplicate, location, and CLI leak\n```js\nassert.ok(runWith({ drift: 'claude' }).json.checks.claude.codes.includes('INTEGRATION_DRIFT'));\nassert.ok(runWith({ duplicate: 'make-ticket' }).json.checks['make-ticket'].codes.includes('INTEGRATION_DUPLICATE'));\nassert.ok(runWith({ location: 'plan-ticket' }).json.checks['plan-ticket'].codes.includes('INTEGRATION_LOCATION'));\nassert.ok(runWith({ cli: 'start-ticket' }).json.checks['start-ticket'].codes.includes('INTEGRATION_CLI_LEAK'));\n```",
+            "UT: [C003][Normal/Error] write inserts once, is idempotent, and restores on failure\n```js\nconst before = hashHost(host);\nassert.equal(runIntegration(host, ['--mode', 'write']).status, 0);\nconst first = hashHost(host);\nassert.equal(runIntegration(host, ['--mode', 'write']).status, 0);\nassert.equal(hashHost(host), first);\nassert.notEqual(first, before);\nchmodSync(join(host, '.claude/commands'), 0o555);\nconst failed = runIntegration(host, ['--mode', 'write']);\nassert.equal(failed.status, 1);\nassert.ok(failed.json.checks['make-ticket'].codes.includes('INTEGRATION_WRITE_FAILED'));\nassert.equal(hashHost(host), first);\nchmodSync(join(host, '.claude/commands'), 0o755);\n```",
+            "UT: [C004][Normal/Error/Boundary] skill discovery is sorted, valid, and skill-agnostic\n```js\nwriteSkill(host, 'beta-law');\nwriteSkill(host, 'alpha-law');\nconst report = runIntegration(host, ['--mode', 'check', '--require-skill']);\nassert.equal(report.status, 0);\nassert.deepEqual(report.json.skills.discovered, ['alpha-law', 'beta-law']);\nconst before = hashHost(host);\nwriteSkill(host, 'gamma-law');\nrunIntegration(host, ['--mode', 'write']);\nassert.equal(hashHost(host), before);\nwriteSkill(host, 'broken-law', { skipSkillMd: true });\nassert.ok(runIntegration(host, ['--mode', 'check']).json.skills.codes.includes('INTEGRATION_SKILL_INVALID'));\n```",
+            "UT: [C005][Normal/Error/Boundary] command audit requires contract, steps, gate, codes, and bounded checkpoints\n```js\nconst text = readFileSync('.claude/commands/build-law-skill.md', 'utf8');\nassert.deepEqual(auditCommand(text), []);\nassert.ok(text.includes('## Integration Contract'));\nassert.ok(text.includes('| Integration |'));\nfor (const code of INTEGRATION_CODES) assert.ok(text.includes(code));\nconst noGate = text.replace('| Integration |', '| Integrated |');\nassert.ok(auditCommand(noGate).some((f) => f.code === 'MISSING_INTEGRATION_GATE'));\nconst sixLines = text.replace('## Integration Checkpoints\\n', '## Integration Checkpoints\\n\\n- sixth\\n');\nassert.ok(auditCommand(sixLines).some((f) => f.code === 'CHECKPOINT_TOO_LONG'));\n```",
+            "UT: [C006][Normal/Error/Boundary] generated test discovers host root and fails closed\n```js\nconst template = readFileSync('tests/build-law-skill/acceptance/fixtures/mini/mini-law/tests/pipeline-checkpoints.test.mjs', 'utf8');\nassert.match(template, /function findHostRoot/);\nassert.match(template, /LAW_HOST_ROOT/);\nassert.match(template, /law-skill:checkpoint/);\nassert.equal(template.includes('rust-interface-law'), false);\nassert.throws(() => findHostRoot('/tmp/absent-host'), /HOST_ROOT_NOT_FOUND/);\nassert.ok(template.includes('tests/fixtures/host'));\n```"
+          ],
+          "planned_at": "2026-11-13T09:04:07.010Z",
+          "startedAt": "2026-11-13",
+          "changes": [
+            {
+              "before": "no integration gate",
+              "after": "verify-law-integration.mjs checks and writes six canonical lines",
+              "description": "Added the producer-side integration verifier and contract module."
+            },
+            {
+              "before": "host files had legacy per-file bullets",
+              "after": "one fixed marker line per host file",
+              "description": "Added canonical lines to CLAUDE.md and the five pipeline commands; removed duplicated legacy bullets and exact CLI."
+            },
+            {
+              "before": "build-law-skill had no integration gate",
+              "after": "Integration Contract, Step 12/12.5, gate row, eight failure codes",
+              "description": "Wired the integration contract into the build command."
+            },
+            {
+              "before": "acceptance did not check integration",
+              "after": "acceptance records and verifier compare integration closure and line hashes",
+              "description": "Extended the acceptance verifier and fixtures."
+            },
+            {
+              "before": "generated pipeline-checkpoints test only named commands",
+              "after": "host-root discovery plus six canonical line checks",
+              "description": "Updated the generated test template, mini fixture, and installer host fixture copy."
+            }
+          ],
+          "done_at": "2026-11-13T09:14:35.033Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-13",
+          "reviewed_at": "2026-11-13T09:18:36.052Z"
         }
       ]
     },

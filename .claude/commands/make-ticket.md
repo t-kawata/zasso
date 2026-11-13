@@ -255,7 +255,7 @@ Green without Red, test-modified Green, or stub Green → incomplete.
 
 ### Step 5.5: Rust interface law scope (conditional)
 
-- Law skill built/changed: record v2 `dev` + `installed` closure; every required check `machine_verified`.
+<!-- law-skill:checkpoint --> Law skill built/changed: record `Law:` scope; apply each `skills/*-law` per `SKILL.md`; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
 
 Invoke `rust-interface-law`; run `applies` on ticket target files per `SKILL.md`.
 

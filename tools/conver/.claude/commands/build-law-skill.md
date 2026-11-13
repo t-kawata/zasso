@@ -56,6 +56,8 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - Generated skill carries input ledger, alias map, redaction review, normative inventory, delivery coverage, node body hash, `source.md`, `source.baseline.md`.
 - No install before verification; failed verification leaves existing skill untouched.
 - Exact generated-skill CLI only in `SKILL.md`.
+- Integration: six canonical lines, one per host file; skill-agnostic; marked; idempotent; CLI-free.
+- Integration gate: missing, drift, duplicate, location, CLI leak, or invalid skill → no completion.
 - Identical inputs → identical lock, coverage, OKF, bundle.
 - `node --test` for impact set; never `make test`.
 
@@ -110,6 +112,8 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 │          bootstrap, scaffold, context-phases, render, applicability,
 │          pipeline-checkpoints, source-rederivation, installed-parity,
 │          verifier-negative}.test.mjs
+├── tests/fixtures/host/CLAUDE.md
+├── tests/fixtures/host/commands/{make,plan,start,review,resolve}-ticket.md
 └── tests/fixtures/runtime/runtime.json
 ```
 
@@ -120,6 +124,7 @@ Sibling: `<name>-law.path-alias.json` — outside the skill tree; holds `input_r
 ### Step 0: Baseline
 
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs`.
+- Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-integration.mjs` and `$CLAUDE_DIR/scripts/amend-rfc-up/law-integration/contract.mjs`.
 - Read `$CLAUDE_DIR/scripts/amend-rfc-up/law-verify/checks.json`; require `check_set_version: 2`, 18 named checks, and `both` / `dev` modes.
 - Missing or mismatched → stop before any write. Never copy, patch, or replace the canonical verifier.
 
@@ -234,12 +239,13 @@ Red first: failing tests per library.
 ### Step 8: Bundle and installer
 
 - `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map; resolves `okf/` sibling; `absWorkingDir` pinned to the skill root; atomic write.
-- `install.js`: copy-only; copies `dist/skill.mjs`, `okf/`, `source/`, `templates/`, `tests/fixtures/runtime/runtime.json`; no build, judge, or target edit.
+- `install.js`: copy-only; copies `dist/skill.mjs`, `okf/`, `source/`, `templates/`, `tests/fixtures/runtime/runtime.json`, `tests/fixtures/host/`; no build, judge, or target edit.
 
 ### Step 9: Test matrix
 
 - `node --test`; optional dist/esbuild test reported, never pass.
 - Required: `atom-lock`, `redaction`, `generic-boundary`, `skill-runtime`, `integration`, `bootstrap`, `scaffold`, `context-phases`, `render`, `applicability`, `pipeline-checkpoints`, `source-rederivation`, `installed-parity`, `verifier-negative`.
+- `pipeline-checkpoints`: find host root (`LAW_HOST_ROOT`, else walk up to `.claude/commands/make-ticket.md`); assert the six canonical lines from `## Integration Contract`; assert `SKILL.md` names the five commands; use bundled `tests/fixtures/host/` only when no host; never skip.
 - Include determinism, performance, forbidden-token, leak, coverage, style: `STYLE_NOT_ENGLISH`, `STYLE_NOT_TELEGRAPHIC`, `STYLE_LOW_DENSITY`, `STYLE_REDUNDANT`.
 - Never `make test`.
 
@@ -281,14 +287,22 @@ Require exit 0, 8/8 installed required checks `machine_verified`, source/install
 
 ### Step 12: Integrate
 
-- Per skill: conditional block in `"$CLAUDE_DIR/CLAUDE.md"`: trigger, `applies`, invoke, completion (`gate` 0 + `attest` ok), v2 dev + installed closure.
-- Add `## Integration Checkpoints`.
+- Run `verify-law-integration.mjs --mode write` with `--root "$REPO_ROOT"`, `--claude "$CLAUDE_DIR/CLAUDE.md"`, `--commands "$CLAUDE_DIR/commands"`, `--skills "$CLAUDE_DIR/skills"`.
+- It inserts or repairs the six fixed canonical lines from `## Integration Contract`; one line per file; skill-agnostic; idempotent; atomic with backup/rollback.
+- Never hand-edit a canonical line. Never add a per-skill block. Never duplicate.
+- `INTEGRATION_DUPLICATE` or `INTEGRATION_LOCATION` → stop; no write.
 - Write only under `$CLAUDE_DIR`; never mirror the skill into another project `.claude/skills`.
+
+### Step 12.5: Integration gate
+
+- Run `verify-law-integration.mjs --mode check --require-skill` with the same roots.
+- Require exit 0; six canonical lines; no missing, drift, duplicate, location, CLI leak, or invalid skill.
+- Failure → `INTEGRATION_*`; stop before Step 13.
 
 ### Step 13: Acceptance
 
 - Acceptance set = the invocation's source set. No fixed external fixture, document name, or path.
-- Per build: run end to end; record source hashes, lines, Atom/Rule counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA in `$LAW_OUT/law-builds.json`.
+- Per build: run end to end; record source hashes, lines, Atom/Rule counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA, integration status, integration closure, six line hashes in `$LAW_OUT/law-builds.json`.
 - Producer proof: a synthetic mini law skill verified in dev and installed modes.
 - Mutation matrix:
 
@@ -320,7 +334,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 
 ### Step 14: Report
 
-- Report per skill: name, sources, profile hash, source count, lines, Atom count, Rule count, gaps, overlaps, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, install path, leftovers.
+- Report per skill: name, sources, profile hash, source count, lines, Atom count, Rule count, gaps, overlaps, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, integration status, integration closure, install path, leftovers.
 - Report mutation results + adoption gaps.
 - Completion: every skill `machine_verified` in dev and installed, `rebuild` byte-identical, install verified, acceptance record pass.
 
@@ -330,6 +344,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 |---|---|
 | Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 2`; 18 checks `machine_verified`; closure recorded |
 | Canonical verifier installed | installed tree; 8 required checks `machine_verified`; source/installed SHA match |
+| Integration | `verify-law-integration.mjs --mode check --require-skill` exit 0; six canonical lines; no drift, duplicate, location, or CLI leak |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style` |
 | Bundle lint | `check lint` exit 0 |
 | Graph | `check graph` exit 0 |
@@ -363,6 +378,14 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | `VERIFIER_FAILED` | any check not `machine_verified` | repair; re-verify; no install |
 | `VERIFIER_V2_FAILED` | v2 check contract not satisfied | repair the artifact; re-run dev and installed |
 | `INSTALLED_SHA_MISMATCH` | source and installed differ | reinstall; no completion |
+| `INTEGRATION_MISSING` | host file or canonical line is absent | write it; re-check |
+| `INTEGRATION_DRIFT` | line differs from the canonical text | rewrite with `--mode write`; re-check |
+| `INTEGRATION_DUPLICATE` | more than one marker line | remove the extra; re-check |
+| `INTEGRATION_LOCATION` | marker outside the law section or not at the anchor | move it to the anchor; re-check |
+| `INTEGRATION_CLI_LEAK` | canonical line carries exact CLI | remove the flag; exact CLI stays in `SKILL.md` |
+| `INTEGRATION_SKILL_INVALID` | `skills/*-law` lacks `SKILL.md` or `dist/skill.mjs` | complete the skill; re-check |
+| `INTEGRATION_NO_SKILL` | `--require-skill` with zero skills | install the built skill; re-check |
+| `INTEGRATION_WRITE_FAILED` | atomic write failed | restore backup; fix permissions; retry |
 | `CHECKPOINT_INVALID` | checkpoint over 5 lines or carries exact CLI | rewrite the checkpoint |
 | `INSTALL_BLOCKED` | copy or post-check fail | restore backup; report |
 
@@ -374,7 +397,25 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 - `review-ticket`: regenerate manifest; gate; attest; re-run v2 `dev` + `installed`; compare `closure`; state V1-only honesty.
 - `resolve-ticket`: repair gate findings; fill attestation; no status change; repair until v2 `dev` + `installed` pass.
 
+## Integration Contract
+
+Six host files carry one canonical line each. Marker: `<!-- law-skill:checkpoint -->`. The line is skill-agnostic: it applies to every `skills/*-law`; exact CLI stays in `SKILL.md`. Fixed anchor: first content line after the law section heading. `--mode write` inserts or repairs; `--mode check` gates. One line per file, no per-skill block.
+
+```text
+<!-- law-skill:checkpoint --> Only when a `skills/*-law` trigger matches: apply; completion `gate` 0 + `attest` ok; built/changed: v2 `dev` + `installed`, every required check `machine_verified`, record `closure`. No match → skip.
+<!-- law-skill:checkpoint --> Law skill built/changed: record `Law:` scope; apply each `skills/*-law` per `SKILL.md`; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: plan phases from each `skills/*-law` `SKILL.md`; check set 18; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: apply each `skills/*-law`; `gate`; `attest`; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: regenerate manifest; `gate`; `attest`; re-run v2 `dev` + `installed`; every required check `machine_verified`; compare `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: repair `gate` findings; fill `attest`; no status change; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+```
+
+- `verify-law-integration.mjs --mode write`: idempotent, atomic, backup/rollback.
+- `verify-law-integration.mjs --mode check --require-skill`: exit 0 only when the six lines are canonical and every `skills/*-law` has `SKILL.md` + `dist/skill.mjs`.
+- `INTEGRATION_*` findings block Step 13.
+
 ## Completion
 
 - Every built skill: canonical verifier dev 18/18 and installed 8/8 `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration checkpoints present.
+- Integration: six canonical lines present; `--mode check --require-skill` exit 0; no drift, duplicate, location, or CLI leak; integration closure recorded.
 - Report adoption gaps; never claim V1 as rule-level proof.

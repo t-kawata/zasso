@@ -19,6 +19,7 @@ import {
   auditClaudeBlock,
   auditCommand,
   auditPipelineCheckpoint,
+  INTEGRATION_CANONICAL_LINES,
   sectionOf,
 } from './lib/command-contract.mjs';
 
@@ -104,7 +105,7 @@ test('C004: audit rejects a missing canonical verifier', () => {
 });
 
 test('C004: audit rejects a missing pipeline checkpoint', () => {
-  const text = mutated('make-ticket', 'make-something');
+  const text = mutateSection('## Integration Checkpoints', 'make-ticket', 'make-something');
   assert.ok(codes(text).has('MISSING_CHECKPOINT'));
 });
 
@@ -148,6 +149,36 @@ test('C004: audit rejects a missing failure code', () => {
 test('C004: audit rejects an external source fixture reference', () => {
   const text = mutated('## Procedure', '## Procedure\n\nUse docs/example.md.');
   assert.ok(codes(text).has('EXTERNAL_FIXTURE_REFERENCE'));
+});
+
+// [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
+test('C005: audit rejects a missing Integration Contract section', () => {
+  const text = COMMAND_TEXT.replace('\n## Integration Contract\n', '\n## Integration Notes\n');
+  assert.notEqual(text, COMMAND_TEXT);
+  assert.ok(codes(text).has('MISSING_SECTION'));
+  assert.ok(codes(text).has('MISSING_INTEGRATION_CONTRACT'));
+});
+
+test('C005: audit rejects a missing Integration gate row', () => {
+  const text = mutated('| Integration |', '| Integrated |');
+  assert.ok(codes(text).has('MISSING_INTEGRATION_GATE'));
+});
+
+test('C005: audit rejects a missing integration failure code', () => {
+  const text = mutated('INTEGRATION_MISSING', 'INTEGRATION_ABSENT');
+  assert.ok(codes(text).has('MISSING_INTEGRATION_CODE'));
+});
+
+test('C005: audit rejects a drifted canonical line', () => {
+  const canonical = INTEGRATION_CANONICAL_LINES.claude;
+  const text = mutated(canonical, canonical.replace('machine_verified', 'verified'));
+  assert.ok(codes(text).has('MISSING_INTEGRATION_LINE'));
+});
+
+test('C005: audit rejects exact CLI in a canonical line', () => {
+  const canonical = INTEGRATION_CANONICAL_LINES.claude;
+  const text = mutated(canonical, `${canonical} --root .`);
+  assert.ok(codes(text).has('INTEGRATION_CLI_LEAK'));
 });
 
 test('C004: the unmutated command passes', () => {
