@@ -21,9 +21,10 @@ const DOC_BY_PREFIX = {
   DOC: '45-DOCUMENTATION.md',
   VAL: '47-VALIDATION.md',
   BP: '48-IMPLEMENTATION-BLUEPRINT.md',
+  IMP: '55-IMPLEMENTATION-CONTRACTS.md',
 };
 
-export function explainRule({ ruleId, lock, root }) {
+export function explainRule({ ruleId, lock, root, implementation }) {
   const rule = (lock.atoms ?? []).find((atom) => atom.type === 'Rule' && atom.id === ruleId);
   if (!rule) throw new Error('unknown rule: ' + ruleId);
 
@@ -49,6 +50,22 @@ export function explainRule({ ruleId, lock, root }) {
     '| Source | `' + rule.source + '` |',
     '',
   ];
+
+  if (implementation) {
+    lines.push(
+      '## Implementation contract',
+      '',
+      '| Field | Value |',
+      '|---|---|',
+      '| Effective pin | `' + (implementation.version ?? 'unresolved') + '` |',
+      '| Template | `' + (implementation.template ?? 'none') + '` |',
+      '| Detector | `' + (implementation.detector ?? 'none') + '` |',
+      '| Test | `' + (implementation.test ?? 'none') + '` |',
+      '',
+      'Apply the template and detector before treating the rule as satisfied.',
+      '',
+    );
+  }
 
   if (document) {
     lines.push(

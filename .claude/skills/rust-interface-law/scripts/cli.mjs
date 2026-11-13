@@ -7,6 +7,9 @@ import {
   exceptionCommand,
   explainCommand,
   gateCommand,
+  implementationCheckCommand,
+  lawIdentityCommand,
+  lawImplementationCommand,
   packageCommand,
   rebuildCommand,
   renderCommand,
@@ -14,6 +17,7 @@ import {
   scaffoldCommand,
   scanCommand,
   shouldRunCommand,
+  templateCommand,
 } from './commands.mjs';
 
 const [command, ...args] = process.argv.slice(2);
@@ -32,11 +36,15 @@ const commands = {
   check: checkCommand,
   package: packageCommand,
   rebuild: rebuildCommand,
+  template: templateCommand,
+  'implementation-check': implementationCheckCommand,
+  'law-identity': lawIdentityCommand,
+  'law-implementation': lawImplementationCommand,
 };
 
 const handler = commands[command];
 if (!handler) {
-  process.stderr.write('usage: skill <applies|resolve|context|explain|scaffold|gate|scan|attest|exception|should-run|render|check|package|rebuild> [options]\n');
+  process.stderr.write('usage: skill <applies|resolve|context|explain|scaffold|template|implementation-check|law-identity|law-implementation|gate|scan|attest|exception|should-run|render|check|package|rebuild> [options]\n');
   process.exit(2);
 }
 

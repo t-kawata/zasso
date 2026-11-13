@@ -103,20 +103,31 @@ export function latestCommitVersion(repoDir, runGit = defaultRunGit) {
  * Decide whether the build may advance VERSION.json.
  *
  * `current` is the version file being incremented; `latest` is the newest
- * versioned commit in the deployment repository. The only allowed result is
- * exactly one step past that commit. A second increment (which would be two
- * steps ahead) is refused before anything is written.
+ * versioned commit in the deployment repository. The allowed results are the
+ * already-prepared version (when an interrupted release is resumed) and exactly
+ * one step past that commit. Anything further ahead is refused before anything
+ * is written.
  */
 export function planIncrement({ current, latest }) {
-  const next = bumpPatch(current);
   if (latest === null || latest === undefined) {
     return {
-      next,
+      next: bumpPatch(current),
       allowed: true,
       reason:
         "the deployment repository has no versioned commit; the increment was not checked",
     };
   }
+  // A previous build-conver may have prepared the next version and then been
+  // interrupted before distribution. Rebuilding that same version resumes the
+  // release; incrementing again would skip a version and is refused below.
+  if (versionDistance(current, latest) === 1) {
+    return {
+      next: current,
+      allowed: true,
+      reason: `a release at ${current} is already prepared; rebuilding it`,
+    };
+  }
+  const next = bumpPatch(current);
   const distance = versionDistance(next, latest);
   if (distance >= 2) {
     return {

@@ -1,3 +1,5 @@
+import { detectorIds, runRegisteredScan } from './implementation-scan.mjs';
+
 const SCANS = {
   'scan/stubs': (input) => count(input.text, /\[::STUB::\]/g),
   'scan/test-weakening': (input) => {
@@ -10,6 +12,7 @@ const SCANS = {
 };
 
 export function runScan(id, input = {}) {
+  if (detectorIds().includes(id)) return runRegisteredScan(id, input);
   const scan = SCANS[id];
   if (!scan) throw new Error('unknown scan: ' + id);
   const count = scan(input);

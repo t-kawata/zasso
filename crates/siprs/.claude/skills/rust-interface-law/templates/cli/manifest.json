@@ -1,0 +1,29 @@
+{
+  "interface": "cli",
+  "files": [
+    {
+      "path": "src/commands-generated.rs",
+      "mode": "create",
+      "rules": [
+        "CLI-15"
+      ],
+      "template": "commands-generated.rs.tmpl"
+    },
+    {
+      "path": "src/cli-support.rs",
+      "mode": "create",
+      "rules": [
+        "CLI-16"
+      ],
+      "template": "cli-support.rs.tmpl"
+    },
+    {
+      "path": "src/api-mod.rs",
+      "mode": "create",
+      "rules": [
+        "CLI-17"
+      ],
+      "template": "api-mod.rs.tmpl"
+    }
+  ]
+}

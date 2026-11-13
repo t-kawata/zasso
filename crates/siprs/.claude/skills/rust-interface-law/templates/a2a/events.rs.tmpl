@@ -1,0 +1,7 @@
+// RULE: A2A-29
+// Interface: {{interface}}
+// Package: {{package}}
+// NOT-COMPILED: project adapter template.
+// Required: durable event cursor; resubscribe; cancel distinct from disconnect.
+// [::STUB::] MUST RESOLVE: implement the durable A2A event log.
+pub fn contract_marker() -> &'static str { "a2a-events-contract" }

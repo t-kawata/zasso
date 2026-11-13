@@ -25,11 +25,12 @@ export function applyVerify(manifest, entries = []) {
   return { applied, ignored: entries.length - applied };
 }
 
-export function runGate({ manifest, scans = {}, cwd = process.cwd(), processScan }) {
+export function runGate({ manifest, scans = {}, cwd = process.cwd(), processScan, scanRunner }) {
+  const context = { scans, cwd, processScan, scanRunner };
   const statuses = [];
   for (const node of manifest.nodes ?? []) {
     if (node.delivery !== 'must') continue;
-    statuses.push({ rule: node.id, ...evaluateNode(node, scans, cwd, processScan) });
+    statuses.push({ rule: node.id, ...evaluateNode(node, context) });
   }
 
   const machinePass = statuses.length > 0
@@ -44,13 +45,14 @@ export function gateStatus(report, rule) {
   return report.statuses.find((entry) => entry.rule === rule)?.status;
 }
 
-function evaluateNode(node, scans, cwd, processScan) {
+function evaluateNode(node, context) {
+  if (node.implementation_status) return node.implementation_status;
   const verifyEntries = node.verify ?? [];
   if (verifyEntries.length === 0) {
     return { status: 'unverifiable', evidence: 'no verify entry', modes: ['none'] };
   }
 
-  const results = verifyEntries.map((entry) => evaluateEntry(entry, node, scans, cwd, processScan));
+  const results = verifyEntries.map((entry) => evaluateEntry(entry, { ...context, node }));
   const modes = results.map((result) => result.mode);
   if (results.some((result) => result.status === 'failed')) return { status: 'failed', evidence: results, modes };
   if (results.some((result) => result.status === 'not_run')) return { status: 'not_run', evidence: results, modes };
@@ -64,7 +66,8 @@ function evaluateNode(node, scans, cwd, processScan) {
   return { status: 'unverifiable', evidence: results, modes };
 }
 
-function evaluateEntry(entry, node, scans, cwd, processScan) {
+function evaluateEntry(entry, context) {
+  const { node, scans, cwd, processScan, scanRunner } = context;
   if (entry.mode === 'process') {
     if (!processScan) return { status: 'unverifiable', evidence: 'process scan not run', mode: 'process' };
     if (!processScan.ok) return { status: 'failed', evidence: processScan, mode: 'process' };
@@ -82,7 +85,11 @@ function evaluateEntry(entry, node, scans, cwd, processScan) {
     if (!scans[entry.scan] && !BUILTIN_SCANS.has(entry.scan)) {
       return { status: 'unverifiable', evidence: 'scan not registered: ' + entry.scan, mode: 'scan' };
     }
-    return { status: 'machine_verified', evidence: entry.scan, mode: 'scan' };
+    if (!scanRunner) return { status: 'machine_verified', evidence: entry.scan, mode: 'scan' };
+    const result = scanRunner(entry.scan, node);
+    return result.ok
+      ? { status: 'machine_verified', evidence: result, mode: 'scan' }
+      : { status: 'failed', evidence: result, mode: 'scan' };
   }
 
   if (entry.cmd) {

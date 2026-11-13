@@ -111,3 +111,16 @@ Exit: `0` pass; `10` source/extract; `11` classify; `12` coverage; `13` registry
 ## 10. Non-goals
 
 The runtime owns OKF render, resolve, context, scan, gate, attest, exception, hooks, CI, packaging. The asset lock does not edit the 18 docs, regenerate the expert package, or change the registry.
+
+## 11. Implementation Contract Layer
+
+| Artifact | Role |
+|---|---|
+| `source/implementation-policy.toml` | baseline pins, features, forbidden edges |
+| `source/implementation-contracts.toml` | rule to template, detector, and test mapping |
+| `source/implementation-tests.toml` | test driver and command manifest |
+| `templates/<interface>/` | test and implementation skeletons |
+| `implementation-check` | dependency, feature, edge, source, and template checks |
+| `law-identity` | spec_version, dist, and policy hash comparison |
+
+Template bodies stay outside `context` delivery. `gate --implementation` consumes the report. A missing report is `not_run`, never a pass.

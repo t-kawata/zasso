@@ -566,18 +566,18 @@ Command impact set: pipeline baseline, distribution convention, command integrat
 
 ## 17. Known leftovers
 
-| Leftover | Required work |
-|---|---|
-| `lawScope` validator | required ticket field; cross-check `applies`; fail make/plan/start on mismatch |
-| Auto phase planner | target path → phase subset; avoid AI guess |
-| Rule-level detectors | mechanical rules: header, algorithm, audience, query token, unwrap, wildcard |
-| Dependency validation | Cargo metadata; distinguish external vs missing workspace crate |
-| Nonstandard layout discovery | workspace members outside `crates/`; crate names without role suffix |
-| Template catalog | extract interface code blocks to file templates; map heading → path |
-| Per-rule examples | link rule → nearest code block; confidence score |
-| Gate level policy | declare when V1 is sufficient vs V2+ required |
-| Repo-wide ledger policy | invalidation on manifest change; phase re-delivery rules |
-| CI pinning | pinned bundle hash authority; local Stop hook self-check |
+| Leftover | Status | Required work |
+|---|---|---|
+| `lawScope` validator | deferred | required ticket field; cross-check `applies`; fail make/plan/start on mismatch |
+| Auto phase planner | deferred | target path → phase subset; avoid AI guess |
+| Rule-level detectors | resolved | `implementation-scan` executes registered detectors; V2 source proof |
+| Dependency validation | resolved | `implementation-metadata` checks required and forbidden edges |
+| Nonstandard layout discovery | deferred | workspace members outside `crates/`; names without role suffix |
+| Template catalog | resolved | `templates/<interface>/` plus `template` plan and scaffold reconciliation |
+| Per-rule examples | resolved | `explain` shows effective pin, template, detector, and test |
+| Gate level policy | resolved | V1 process, V2 implementation, V3 project compile/test, V4 attestation |
+| Repo-wide ledger policy | deferred | invalidation on manifest change; phase re-delivery rules |
+| CI pinning | deferred | pinned bundle hash authority; local Stop hook self-check |
 
 ## 18. Definition of done
 

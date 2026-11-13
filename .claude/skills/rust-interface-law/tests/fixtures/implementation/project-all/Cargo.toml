@@ -1,0 +1,11 @@
+[package]
+name = "app-adapters"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "=0.8.9", features = ["json", "ws"] }
+clap = { version = "=4.5.50", features = ["derive"] }
+tonic = { version = "=0.14.2", features = ["transport", "codegen"] }
+rmcp = { version = "=0.8.5", features = ["server", "macros", "transport-streamable-http-server"] }
+a2a-lf = { version = "=0.4.2" }

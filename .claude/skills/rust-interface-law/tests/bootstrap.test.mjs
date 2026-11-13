@@ -136,10 +136,18 @@ test('resolve auto-discovers the workspace and attaches process verification', (
     assert.ok(readFileSync(join(outDir, 'RULES-PROFILE.auto.toml'), 'utf8').includes('[profiles]'));
     assert.ok(readFileSync(join(outDir, 'workspace-map.auto.toml'), 'utf8').includes('[[unit]]'));
 
+    const implementationReport = join(outDir, 'implementation.json');
+    writeFileSync(implementationReport, JSON.stringify({
+      statuses: manifest.nodes
+        .filter((node) => /^(IMP|REST|WS|CLI|GRPC|MCP|A2A)-\d+$/.test(node.id))
+        .map((node) => ({ rule: node.id, status: 'machine_verified', evidence: { fixture: true } })),
+    }));
+
     const cleanReport = join(outDir, 'gate-clean.json');
     execFileSync(process.execPath, [
       cli, 'gate',
       '--manifest', manifestPath,
+      '--implementation', implementationReport,
       '--out', cleanReport,
     ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     const clean = JSON.parse(readFileSync(cleanReport, 'utf8'));
@@ -151,6 +159,7 @@ test('resolve auto-discovers the workspace and attaches process verification', (
       () => execFileSync(process.execPath, [
         cli, 'gate',
         '--manifest', manifestPath,
+        '--implementation', implementationReport,
         '--out', dirtyReport,
       ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }),
       (error) => error.status === 50,

@@ -149,7 +149,8 @@ Invoke `rust-interface-law`; read `SKILL.md`; read ticket `notes` `Law:`.
 - `not applicable` → Step 3.
 - APPLIES → plan `lawScope` phases in manifest order.
 - Plan `context --phases <scope>`; predecessor ledger required.
-- `planTestCode` includes `gate` V1 and `[[verify]]` checks.
+- Plan `template --mode plan --kind test`; include its rule annotations and test shape.
+- `planTestCode` includes `gate` V1, `implementation-check`, and `[[verify]]` checks.
 
 ### Step 3: Crime and stub inspection (mandatory — First-Class Rule)
 

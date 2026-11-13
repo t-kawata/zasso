@@ -22,7 +22,11 @@ Rule text: `okf/`. This file: procedure and entry contract. Never read `okf/` di
 | `context` | stdout + `ledger.json` | Exact rule bodies for one phase; stable delivery hash |
 | `gate` | `gate-report.json` | Per-node status; exit 0 pass, 50 blocked |
 | `attest` | `attestation.json` | One row per `must` node; `unset` blocks completion |
-| `explain` | stdout | One rule: requirement, verification, enforcement, canonical code examples |
+| `explain` | stdout | One rule: requirement, verification, enforcement, canonical code examples, implementation contract |
+| `template` | stdout + plan JSON | Render an interface template plan with resolved placeholders; `--reconcile` marks `merge-required`; no write |
+| `implementation-check` | `implementation-report.json` | Dependency, feature, edge, source, and template checks; exit 0 pass, 50 blocked |
+| `law-identity` | stdout | Compare manifest spec_version, dist hash, and policy hash with the installed law |
+| `law-implementation` | stdout + reports | Run implementation-check then gate with the report; exit 50 on either failure |
 | `scaffold` | stdout + `scaffold-manifest.json` | Package-level file plan; dry-run by default; `--write` applies |
 
 Only `machine_verified` is a machine pass. `human_attested` requires `approval_ref`. `unverifiable`, `not_run`, `failed` never pass.
@@ -134,11 +138,28 @@ node "$LAW" context \
 
 3. Implement. Follow project TDD law.
 
+Before implementation, render the interface template plan:
+
+```bash
+node "$LAW" template --interface <role> --unit <unit> --templates "$SKILL_DIR/templates" \
+  --out "$LAW_OUT/template-plan.json" --reconcile --root "$REPO_ROOT"
+```
+
+Apply the plan with `scaffold --plan "$LAW_OUT/template-plan.json" --write`. A `merge-required` file is not written; merge it by hand. Template bodies are not delivered by `context`.
+
+After implementation, run the implementation check and pass its report to the gate:
+
+```bash
+node "$LAW" implementation-check --root "$REPO_ROOT" --manifest "$LAW_OUT/manifest.json" \
+  --out "$LAW_OUT/implementation-report.json"
+```
+
 4. Run the gate.
 
 ```bash
 node "$LAW" gate \
   --manifest "$LAW_OUT/manifest.json" \
+  --implementation "$LAW_OUT/implementation-report.json" \
   --out "$LAW_OUT/gate-report.json"
 ```
 

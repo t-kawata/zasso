@@ -18,4 +18,5 @@ mkdirSync(targetDistDir, { recursive: true });
 cpSync(dist, join(targetDistDir, 'skill.mjs'));
 cpSync(join(root, 'okf'), join(targetDir, 'okf'), { recursive: true });
 cpSync(join(root, 'source'), join(targetDir, 'source'), { recursive: true });
+cpSync(join(root, 'templates'), join(targetDir, 'templates'), { recursive: true });
 process.stdout.write('install: copied to ' + targetDir + '\n');

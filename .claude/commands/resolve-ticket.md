@@ -126,9 +126,9 @@ judge: each stub's `[::STUB::]` marker specifies a ticket ID?
 ### Step 3.5: Rust interface law repair (conditional)
 
 Skip when `Law: not applicable` and `target/law` absent.
-Otherwise invoke `rust-interface-law`; per `SKILL.md`, run `gate`, add findings to
-repair classes, fill `attest` `unset` rows; loop until pass.
-Never change ticket status.
+Otherwise invoke `rust-interface-law`; per `SKILL.md`, run `implementation-check`,
+add its findings and `gate` findings to repair classes, fill `attest` `unset` rows;
+loop until pass. Never change ticket status.
 
 ### Step 4
 cmd (preflight): `node "$CLAUDE_DIR/scripts/tickets/preflight-stub-cleanup.js"`

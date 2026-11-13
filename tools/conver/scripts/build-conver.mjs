@@ -76,6 +76,8 @@ async function main() {
     }
     if (latest === null) {
       process.stderr.write(`[build-conver] warning: ${plan.reason}\n`);
+    } else if (plan.reason !== "") {
+      process.stdout.write(`[build-conver] ${plan.reason}\n`);
     }
     targetVersion = plan.next;
     shouldWriteVersion = true;

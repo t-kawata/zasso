@@ -1,0 +1,21 @@
+{
+  "interface": "rest",
+  "files": [
+    {
+      "path": "src/api-mod.rs",
+      "mode": "create",
+      "rules": [
+        "REST-19"
+      ],
+      "template": "api-mod.rs.tmpl"
+    },
+    {
+      "path": "src/openapi.rs",
+      "mode": "create",
+      "rules": [
+        "REST-21"
+      ],
+      "template": "openapi.rs.tmpl"
+    }
+  ]
+}

@@ -62,11 +62,18 @@ describe("planIncrement", () => {
     assert.deepEqual(plan, { next: "0.0.100", allowed: true, reason: "" });
   });
 
-  it("refuses a second increment when it would be two steps ahead", () => {
-    const plan = planIncrement({ current: "0.0.100", latest: "0.0.99" });
+  it("refuses an increment when the version is already two steps ahead", () => {
+    const plan = planIncrement({ current: "0.0.101", latest: "0.0.99" });
     assert.equal(plan.allowed, false);
-    assert.equal(plan.next, "0.0.101");
+    assert.equal(plan.next, "0.0.102");
     assert.match(plan.reason, /ahead of the latest commit v0\.0\.99/);
+  });
+
+  it("rebuilds an already-prepared release without incrementing again", () => {
+    const plan = planIncrement({ current: "0.0.100", latest: "0.0.99" });
+    assert.equal(plan.allowed, true);
+    assert.equal(plan.next, "0.0.100");
+    assert.match(plan.reason, /already prepared/);
   });
 
   it("refuses an increment that would not advance past the latest commit", () => {

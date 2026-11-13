@@ -34,19 +34,19 @@ function runIngest(args) {
   });
 }
 
-test('18 docs verify with 430 rules and zero gaps', () => {
+test('19 docs verify with 466 rules and zero gaps', () => {
   const output = runIngest(['verify', '--source', sourceDir]);
-  assert.match(output, /18 files, \d+ atoms, 6749 lines/);
+  assert.match(output, /19 files, \d+ atoms, 7125 lines/);
 
   const lock = JSON.parse(readFileSync(join(root, 'atoms.lock.json'), 'utf8'));
   const coverage = JSON.parse(readFileSync(join(root, 'coverage.json'), 'utf8'));
   const rules = lock.atoms.filter((atom) => atom.type === 'Rule');
 
-  assert.equal(rules.length, 430);
-  assert.equal(new Set(rules.map((atom) => atom.id)).size, 430);
-  assert.equal(coverage.files.length, 18);
-  assert.equal(coverage.files.reduce((total, file) => total + file.lines, 0), 6749);
-  assert.equal(coverage.files.reduce((total, file) => total + file.attributed, 0), 6749);
+  assert.equal(rules.length, 466);
+  assert.equal(new Set(rules.map((atom) => atom.id)).size, 466);
+  assert.equal(coverage.files.length, 19);
+  assert.equal(coverage.files.reduce((total, file) => total + file.lines, 0), 7125);
+  assert.equal(coverage.files.reduce((total, file) => total + file.attributed, 0), 7125);
   assert.equal(coverage.gaps.length, 0);
   assert.equal(coverage.overlaps.length, 0);
 });
@@ -69,7 +69,7 @@ test('manifest hash mismatch fails with exit 10', () => {
 // @verifies C007
 test('SK registry entries have verification', () => {
   const entries = parseSkillRegistry(readFileSync(join(root, 'source/skill-registry.toml'), 'utf8'));
-  assert.equal(entries.length, 8);
+  assert.equal(entries.length, 12);
   assert.doesNotThrow(() => assertSkillRegistry(entries));
 });
 

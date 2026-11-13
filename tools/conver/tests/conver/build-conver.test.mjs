@@ -75,8 +75,26 @@ describe("build-conver", () => {
     }
   });
 
-  it("does not increment when the result would be two steps ahead", () => {
+  it("does not increment when the version is already two steps ahead", () => {
     const root = mkdtempSync(path.join(tmpdir(), "conver-build-guard-"));
+    const deployment = createDeployment(["v0.0.99"]);
+    try {
+      const versionFile = createVersionFile(root, "0.0.101");
+      const outfile = path.join(root, "conver.js");
+
+      const result = runBuild({ versionFile, deployDir: deployment.root, outfile });
+
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /was not changed/);
+      assert.equal(JSON.parse(readFileSync(versionFile, "utf8")).version, "0.0.101");
+    } finally {
+      deployment.cleanup();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rebuilds a prepared release without incrementing it again", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "conver-build-resume-"));
     const deployment = createDeployment(["v0.0.99"]);
     try {
       const versionFile = createVersionFile(root, "0.0.100");
@@ -84,9 +102,16 @@ describe("build-conver", () => {
 
       const result = runBuild({ versionFile, deployDir: deployment.root, outfile });
 
-      assert.equal(result.status, 1);
-      assert.match(result.stderr, /was not changed/);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /already prepared/);
       assert.equal(JSON.parse(readFileSync(versionFile, "utf8")).version, "0.0.100");
+      assert.equal(
+        JSON.parse(readFileSync(path.join(deployment.root, "VERSION.json"), "utf8")).version,
+        "0.0.100",
+      );
+      const printed = spawnSync(process.execPath, [outfile, "--version"], { encoding: "utf8" });
+      assert.equal(printed.status, 0, printed.stderr);
+      assert.match(printed.stdout, /conver\.js v0\.0\.100/);
     } finally {
       deployment.cleanup();
       rmSync(root, { recursive: true, force: true });

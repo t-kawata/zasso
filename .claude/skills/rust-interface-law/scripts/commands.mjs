@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -20,6 +20,11 @@ import {
 } from './lib/autoconfig.mjs';
 import { buildManifest, loadOkf } from './lib/closure.mjs';
 import { explainRule } from './lib/explain.mjs';
+import { loadImplementationPolicy, phaseForRuleId, resolveEffectivePolicy } from './lib/implementation-policy.mjs';
+import { checkDependencies, readCargoMetadata } from './lib/implementation-metadata.mjs';
+import { scanFiles } from './lib/implementation-scan.mjs';
+import { applyImplementationReport, checkLawIdentity } from './lib/implementation-gate.mjs';
+import { reconcileTemplatePlan, renderTemplatePlan } from './lib/template.mjs';
 import { scanImplementation } from './lib/process-scan.mjs';
 import {
   renderAttestMarkdown,
@@ -33,7 +38,7 @@ import { checkExceptions } from './lib/exception.mjs';
 import { applyVerify, runGate } from './lib/gate.mjs';
 import { loadProfile, loadWorkspaceMap, matchUnits } from './lib/units.mjs';
 import { parseToml } from './lib/toml.mjs';
-import { redactText } from './lib/redact.mjs';
+import { redactText, sha256 } from './lib/redact.mjs';
 import { runScan } from './lib/scan.mjs';
 import { shouldRun } from './lib/should-run.mjs';
 
@@ -66,13 +71,14 @@ export function resolveCommand(argv) {
   manifest.root = root;
   manifest.changed = paths;
   manifest.roles = mapCanonicalRoles(map.units);
+  const out = options.out ?? join(process.cwd(), 'manifest.json');
+  applyLawIdentity({ manifest, root, out });
   for (const node of manifest.nodes) {
     if (node.delivery === 'must' && !(node.verify ?? []).length) {
       node.verify = [{ level: 'V1', mode: 'process' }];
     }
   }
 
-  const out = options.out ?? join(process.cwd(), 'manifest.json');
   writeAtomic(out, JSON.stringify(manifest, null, 2) + '\n');
   if (auto) {
     const outDir = dirname(out);
@@ -204,6 +210,130 @@ export function scaffoldCommand(argv) {
   process.exit(result.ok ? 0 : 1);
 }
 
+export function templateCommand(argv) {
+  const options = parseArgs(argv);
+  const interfaceName = required(options, 'interface');
+  const unit = required(options, 'unit');
+  const provided = options.values ? JSON.parse(readFileSync(options.values, 'utf8')) : {};
+  const values = {
+    crate: options.crate ?? unit,
+    package: options.package ?? unit,
+    interface: interfaceName,
+    unit,
+    ...provided,
+  };
+  const templateRoot = options.templates ?? join(skillRoot(), 'templates');
+  const rendered = renderTemplatePlan({
+    interface: interfaceName,
+    unit,
+    values,
+    root: templateRoot,
+  });
+  if (!rendered.ok) {
+    process.stdout.write(renderPlanMarkdown(rendered));
+    process.exit(1);
+  }
+  const plan = options.reconcile && options.root
+    ? reconcileTemplatePlan({ plan: rendered.plan, root: resolve(options.root) })
+    : rendered.plan;
+  if (options.out) writeAtomic(options.out, JSON.stringify(plan, null, 2) + '\n');
+  process.stdout.write(renderPlanMarkdown({ ...rendered, plan, files: plan.files }));
+  process.exit(plan.findings?.length ? 1 : 0);
+}
+
+export function implementationCheckCommand(argv) {
+  const options = parseArgs(argv);
+  const root = resolve(options.root ?? gitRepoRoot(process.cwd()));
+  const policyPath = options.policy ?? join(skillRoot(), 'source/implementation-policy.toml');
+  const baseline = loadImplementationPolicy(policyPath);
+  const metadata = readCargoMetadata({ root, locked: false });
+  const manifest = options.manifest
+    ? JSON.parse(readFileSync(options.manifest, 'utf8'))
+    : { nodes: [], changed: String(options.paths ?? '').split(',').filter(Boolean) };
+  const activeInterfaces = new Set((manifest.units ?? []).flatMap((unit) => unit.interfaces ?? []));
+  const scopedPolicy = activeInterfaces.size > 0
+    ? { ...baseline, interfaces: pickInterfaces(baseline.interfaces, activeInterfaces) }
+    : baseline;
+  const project = { interfaces: projectInterfaces(metadata) };
+  const effective = resolveEffectivePolicy({ baseline: scopedPolicy, project });
+  const dependencyCheck = checkDependencies({ metadata, policy: scopedPolicy });
+  const contractsPath = options.contracts ?? join(skillRoot(), 'source/implementation-contracts.toml');
+  const contractRules = loadContractRules(contractsPath);
+  const contractLevels = loadContractLevels(contractsPath);
+  const testStatuses = loadTestStatuses(options.tests);
+  const paths = manifest.changed?.length ? manifest.changed : String(options.paths ?? '').split(',').filter(Boolean);
+  const sourceScan = scanFiles({ root, paths });
+  const checksPass = effective.ok && dependencyCheck.ok && sourceScan.ok;
+
+  const statuses = (manifest.nodes ?? [])
+    .filter((node) => node.delivery === 'must' && (String(node.id).startsWith('IMP-') || contractRules.has(node.id) || options.all))
+    .map((node) => {
+      const level = contractLevels.get(node.id) ?? 'V3';
+      const testStatus = testStatuses.get(node.id);
+      let status = 'not_run';
+      if (!checksPass) status = 'failed';
+      else if (level === 'V2') status = 'machine_verified';
+      else if (testStatus) status = testStatus.status;
+      return {
+        rule: node.id,
+        status,
+        evidence: {
+          level,
+          effective_policy: effective.effective ?? null,
+          dependency_findings: dependencyCheck.findings,
+          source_findings: sourceScan.findings,
+          test: testStatus?.evidence ?? null,
+        },
+      };
+    });
+
+  const report = {
+    schema: 'rust-interface-law.implementation/v1',
+    spec_version: baseline.spec_version,
+    policy_sha256: effective.policy_sha256,
+    statuses,
+    findings: [...(effective.findings ?? []), ...dependencyCheck.findings, ...sourceScan.findings],
+    ok: statuses.length > 0 && statuses.every((entry) => entry.status === 'machine_verified' || entry.status === 'human_attested'),
+  };
+  const out = options.out ?? join(process.cwd(), 'implementation-report.json');
+  writeAtomic(out, JSON.stringify(report, null, 2) + '\n');
+  process.stdout.write(renderImplementationReportMarkdown(report));
+  process.exit(report.ok ? 0 : 50);
+}
+
+export function lawIdentityCommand(argv) {
+  const options = parseArgs(argv);
+  const manifest = JSON.parse(readFileSync(required(options, 'manifest'), 'utf8'));
+  const installed = {
+    spec_version: manifest.spec_version ?? '0.4.0',
+    dist_sha256: sha256(readFileSync(join(skillRoot(), 'dist/skill.mjs'), 'utf8')),
+    policy_sha256: sha256(readFileSync(join(skillRoot(), 'source/implementation-policy.toml'), 'utf8')),
+  };
+  const result = checkLawIdentity({ manifest, installed, exception: options.exception ? JSON.parse(readFileSync(options.exception, 'utf8')) : null });
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  process.exit(result.ok ? 0 : 50);
+}
+
+export function lawImplementationCommand(argv) {
+  const options = parseArgs(argv);
+  const manifest = required(options, 'manifest');
+  const root = resolve(options.root ?? gitRepoRoot(process.cwd()));
+  const outDir = options['out-dir'] ?? dirname(manifest);
+  const report = join(outDir, 'implementation-report.json');
+  const gateReport = join(outDir, 'gate-report.json');
+  const entry = process.argv[1];
+
+  const check = spawnSync(process.execPath, [
+    entry, 'implementation-check', '--root', root, '--manifest', manifest, '--out', report,
+  ], { stdio: 'inherit' });
+  if (check.status !== 0) process.exit(check.status ?? 50);
+
+  const gate = spawnSync(process.execPath, [
+    entry, 'gate', '--manifest', manifest, '--implementation', report, '--out', gateReport,
+  ], { stdio: 'inherit' });
+  process.exit(gate.status ?? 50);
+}
+
 export function gateCommand(argv) {
   const options = parseArgs(argv);
   const manifest = JSON.parse(readFileSync(required(options, 'manifest'), 'utf8'));
@@ -213,7 +343,19 @@ export function gateCommand(argv) {
     root: manifest.root ?? process.cwd(),
     paths: manifest.changed ?? [],
   });
-  const report = runGate({ manifest, scans, cwd: process.cwd(), processScan });
+  const implementationRules = loadContractRules(join(skillRoot(), 'source/implementation-contracts.toml'));
+  if (options.implementation) {
+    const implementationReport = JSON.parse(readFileSync(options.implementation, 'utf8'));
+    applyImplementationReport(manifest, implementationReport, implementationRules);
+  } else {
+    applyImplementationReport(manifest, null, implementationRules);
+  }
+  const scanRunner = (id) => scanFiles({
+    root: manifest.root ?? process.cwd(),
+    paths: manifest.changed ?? [],
+    detectors: [id],
+  });
+  const report = runGate({ manifest, scans, cwd: process.cwd(), processScan, scanRunner });
   const out = options.out ?? join(process.cwd(), 'gate-report.json');
   writeAtomic(out, JSON.stringify(report, null, 2) + '\n');
   process.stdout.write(options.format === 'json'
@@ -429,6 +571,7 @@ export function renderOkf(lock, outDir) {
 function phaseFor(atom) {
   if (atom.type === 'Rule') {
     const prefix = atom.id.split('-')[0];
+    if (prefix === 'IMP') return phaseForRuleId(atom.id);
     if (['AUTH', 'OPS', 'OP', 'SEC'].includes(prefix)) return 'operation';
     if (['REST', 'WS', 'CLI', 'GRPC', 'MCP', 'A2A'].includes(prefix)) return 'adapter';
     if (['DOC', 'VAL', 'BP'].includes(prefix)) return 'docs';
@@ -445,6 +588,7 @@ function phaseFor(atom) {
   if (/^(30|31|32|33|34|35)/.test(file)) return 'adapter';
   if (file.startsWith('40')) return 'conformance';
   if (/^(45|47|48)/.test(file)) return 'docs';
+  if (file.startsWith('55')) return 'adapter';
   if (file.startsWith('50')) return 'scope';
   if (file.startsWith('90')) return 'review';
   return 'contract';
@@ -521,6 +665,108 @@ function loadScans(path) {
     return Object.fromEntries((document.scan ?? []).map((scan) => [scan.id, scan]));
   }
   return JSON.parse(text);
+}
+
+function applyLawIdentity({ manifest, root, out }) {
+  const policyPath = join(skillRoot(), 'source/implementation-policy.toml');
+  if (!existsSync(policyPath)) return;
+  try {
+    const baseline = loadImplementationPolicy(policyPath);
+    const metadata = readCargoMetadata({ root, locked: false });
+    const effective = resolveEffectivePolicy({ baseline, project: { interfaces: projectInterfaces(metadata) } });
+    manifest.spec_version = baseline.spec_version;
+    manifest.policy_sha256 = effective.policy_sha256;
+    manifest.dist_sha256 = existsSync(join(skillRoot(), 'dist/skill.mjs'))
+      ? sha256(readFileSync(join(skillRoot(), 'dist/skill.mjs'), 'utf8'))
+      : null;
+    manifest.effective_policy = join(dirname(out), 'effective-policy.json');
+    writeAtomic(manifest.effective_policy, JSON.stringify(effective, null, 2) + '\n');
+    if (!effective.ok) manifest.policy_findings = effective.findings;
+  } catch (error) {
+    manifest.policy_findings = [{ kind: 'policy-unavailable', message: error.message }];
+  }
+}
+
+function pickInterfaces(interfaces, active) {
+  return Object.fromEntries(
+    Object.entries(interfaces ?? {}).filter(([name]) => active.has(name)),
+  );
+}
+
+function loadContractRules(path) {
+  if (!existsSync(path)) return new Set();
+  const document = parseToml(readFileSync(path, 'utf8'));
+  return new Set((document.contract ?? []).map((contract) => contract.rule).filter(Boolean));
+}
+
+function loadContractLevels(path) {
+  if (!existsSync(path)) return new Map();
+  const document = parseToml(readFileSync(path, 'utf8'));
+  return new Map((document.contract ?? []).map((contract) => [contract.rule, contract.level ?? 'V3']));
+}
+
+function loadTestStatuses(path) {
+  if (!path || !existsSync(path)) return new Map();
+  const document = JSON.parse(readFileSync(path, 'utf8'));
+  return new Map((document.statuses ?? []).map((entry) => [entry.rule, entry]));
+}
+
+function projectInterfaces(metadata) {
+  const dependencies = (metadata?.packages ?? []).flatMap((pkg) => pkg.dependencies ?? []);
+  const byName = new Map(dependencies.map((dependency) => [dependency.name, dependency]));
+  const map = {};
+  const interfaces = {
+    rest: 'axum',
+    websocket: 'axum',
+    cli: 'clap',
+    grpc: 'tonic',
+    mcp: 'rmcp',
+    a2a: 'a2a-lf',
+  };
+  for (const [interfaceName, crate] of Object.entries(interfaces)) {
+    const dependency = byName.get(crate);
+    if (dependency) map[interfaceName] = { version: dependency.version };
+  }
+  return map;
+}
+
+function renderPlanMarkdown(result) {
+  if (!result.ok) {
+    return [
+      '# Template — REJECTED',
+      '',
+      '| Path | Kind | Message |',
+      '|---|---|---|',
+      ...(result.findings ?? []).map((finding) => '| `' + (finding.path ?? '(plan)') + '` | ' + finding.kind + ' | ' + finding.message + ' |'),
+      '',
+      'No files written.',
+      '',
+    ].join('\n');
+  }
+  const files = result.plan?.files ?? result.files ?? [];
+  return [
+    '# Template — ' + (result.plan?.interface ?? ''),
+    '',
+    '| Path | Mode | Rules |',
+    '|---|---|---|',
+    ...files.map((file) => '| `' + file.path + '` | ' + file.mode + ' | ' + file.rules.join(', ') + ' |'),
+    '',
+    'Plan written to `--out`; use `scaffold` to apply it.',
+    '',
+  ].join('\n');
+}
+
+function renderImplementationReportMarkdown(report) {
+  return [
+    '# Implementation check — ' + (report.ok ? 'PASS' : 'FAIL'),
+    '',
+    '| Rule | Status |',
+    '|---|---|',
+    ...(report.statuses ?? []).map((status) => '| ' + status.rule + ' | ' + status.status + ' |'),
+    '',
+    'Findings: ' + (report.findings?.length ?? 0),
+    '',
+  ].join('\n');
 }
 
 function parseArgs(argv) {
