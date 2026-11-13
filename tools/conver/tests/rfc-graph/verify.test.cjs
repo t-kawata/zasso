@@ -312,6 +312,22 @@ describe('verify.js — checkCoverage', () => {
     assert.deepEqual(result.uncoveredHeadings, ['Security']);
   });
 
+  it('normal: the transaction-owned Design Amendments container is not a design heading', () => {
+    const sourceLines = [
+      '## Requirements',
+      'Content 1',
+      '## Design Amendments',
+      '### Amendment PX-1-1',
+      'Body',
+    ];
+    const nodes = [
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['Requirements'] }]),
+    ];
+    const result = checkCoverage(sourceLines, nodes);
+    assert.equal(result.covered, true);
+    assert.deepEqual(result.uncoveredHeadings, []);
+  });
+
   it('normal: empty source is considered covered', () => {
     const sourceLines = [];
     const nodes = [];

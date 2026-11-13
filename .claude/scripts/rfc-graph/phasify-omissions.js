@@ -743,6 +743,60 @@ function formatTicketKey(phaseId, ticketId) {
 }
 
 /**
+ * The ownership each omission clone takes from its source.
+ *
+ * The mutation gate treats nodeIds as ownership, so a clone that re-implements a
+ * source must record the handover and the source must stop claiming the moved
+ * nodes. Emitting the transfer here is what makes the merge admissible.
+ *
+ * @param {object} output — phasified output { phases[] }
+ * @returns {{from: string, to: string, nodeIds: string[], filePaths: string[]}[]}
+ */
+// [::TICKET::] PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
+function buildOwnershipTransfers(output) {
+  const transfers = [];
+  for (const phase of output?.phases ?? []) {
+    for (const ticket of phase.tickets ?? []) {
+      if (typeof ticket.originalTicketKey !== 'string') continue;
+      const nodeIds = Array.isArray(ticket.nodeIds) ? [...ticket.nodeIds] : [];
+      const filePaths = Array.isArray(ticket.default_files) ? [...ticket.default_files] : [];
+      if (nodeIds.length === 0 && filePaths.length === 0) continue;
+      transfers.push({
+        from: ticket.originalTicketKey,
+        to: formatTicketKey(phase.id, ticket.id),
+        nodeIds,
+        filePaths,
+      });
+    }
+  }
+  return transfers;
+}
+
+/**
+ * Keep only the node ids the graph owns.
+ *
+ * A source ticket may list a unit that lives in a boundary or sequences view
+ * rather than the graph. Phasing can only own graph nodes, and the mutation gate
+ * reports anything else as an invented unit, so the phasing input keeps the
+ * intersection. The input tickets are left untouched.
+ *
+ * @param {object[]} tickets
+ * @param {Set<string>} graphNodeIds
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
+function filterNodeIdsToGraph(tickets, graphNodeIds) {
+  return tickets.map(function(ticket) {
+    if (!Array.isArray(ticket.nodeIds)) return ticket;
+    return Object.assign({}, ticket, {
+      nodeIds: ticket.nodeIds.filter(function(nodeId) {
+        return graphNodeIds.has(nodeId);
+      }),
+    });
+  });
+}
+
+/**
  * Rewrite the old ticket keys inside every cloned ticket's stubs[].content to the
  * clone's new key, and rewrite the actual source marker lines under the current
  * directory (phasify always runs from the Tickets.json root, so CWD is the source
@@ -891,7 +945,7 @@ function backupTickets(sourcePath, targetPath) {
  * @throws {TypeError} On null/invalid input
  */
 // [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108, PX-144, PX-145, PX-146 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-108|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108, PX-144, PX-145, PX-146, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-108|PX-144|PX-145|PX-146|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
   if (!ticketsData || typeof ticketsData !== 'object') {
     throw new TypeError('ticketsData must be a non-null object');
@@ -911,6 +965,33 @@ function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
   // Append each phase (already deep-cloned by stringify/parse cycle)
   for (let i = 0; i < phasesToAdd.length; i++) {
     merged.phases.push(phasesToAdd[i]);
+  }
+
+  // Ownership handover: a clone that re-implements its source takes the source's
+  // nodeIds and default_files, so the source must stop claiming them. Without the
+  // node handover the mutation gate sees two claimants for one node; without the
+  // file handover the formula projection sees two tickets carrying one formula.
+  const ticketsByKey = new Map();
+  for (const phase of merged.phases) {
+    for (const ticket of (phase.tickets || [])) {
+      ticketsByKey.set(formatTicketKey(phase.id, ticket.id), ticket);
+    }
+  }
+  for (const transfer of buildOwnershipTransfers(phasifiedOutput)) {
+    const source = ticketsByKey.get(transfer.from);
+    if (source === undefined) continue;
+    if (Array.isArray(source.nodeIds)) {
+      const movedNodeIds = new Set(transfer.nodeIds);
+      source.nodeIds = source.nodeIds.filter(function(nodeId) {
+        return !movedNodeIds.has(nodeId);
+      });
+    }
+    if (Array.isArray(source.default_files) && Array.isArray(transfer.filePaths)) {
+      const movedFilePaths = new Set(transfer.filePaths);
+      source.default_files = source.default_files.filter(function(filePath) {
+        return !movedFilePaths.has(filePath);
+      });
+    }
   }
 
   // Round transition (PX-144): release every ticket for the next round. The flag
@@ -1304,7 +1385,7 @@ function rollbackFromSnapshot(ticketsPath, withBackup) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127, PX-341, PX-356, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127|PX-341|PX-356|PX-378) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127, PX-341, PX-356, PX-378, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127|PX-341|PX-356|PX-378|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1380,8 +1461,13 @@ function runPhasifyOmissions(opts) {
   }
 
   // PX-113: No dedupTickets separation — all tickets processed uniformly
-  // reference tickets must not be excluded from phase reallocation
-  const actionTickets = allTickets;
+  // reference tickets must not be excluded from phase reallocation. A source
+  // ticket may list a unit outside the graph (for example a boundary-view unit);
+  // phasing can only own graph nodes, so the input keeps the intersection.
+  const graphNodeIds = new Set((graphData.nodes || []).map(function(node) {
+    return node.id;
+  }));
+  const actionTickets = filterNodeIdsToGraph(allTickets, graphNodeIds);
   const referenceTickets = [];
   const actionTicketKeys = new Set();
   if (opts.verbose) {
@@ -1792,6 +1878,9 @@ function runPhasifyOmissions(opts) {
       reason: 'phasified omissions',
       added: addedKeys,
       origin: 'omission',
+      // Each clone takes its source's graph nodes; the merge has already cleared
+      // them from the source, so this manifest entry is the gate's proof.
+      ownershipTransfers: buildOwnershipTransfers(output),
     },
     afterDocument: mergedResult.data,
     packageDirectory: path.dirname(opts.ticketsPath),
@@ -1851,6 +1940,8 @@ module.exports = {
   buildOutput,
   // PX-120: STUB key rewrite on cloned tickets
   formatTicketKey,
+  buildOwnershipTransfers,
+  filterNodeIdsToGraph,
   rewriteOutputStubKeys,
   rewriteSourceMarkerLines,
   verifyMarkerRewrites,

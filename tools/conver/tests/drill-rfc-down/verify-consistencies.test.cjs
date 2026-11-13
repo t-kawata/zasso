@@ -109,6 +109,15 @@ describe('verify-consistencies.js (6-consistency check)', () => {
     assert.ok(out.findings.some((f) => f.severity === 'high' && /heading|uncovered/i.test(f.message)), 'uncovered RFC heading flagged');
   });
 
+  it('does not treat the Design Amendments container as an uncovered heading', () => {
+    const { rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath } = setupProject();
+    fs.appendFileSync(rfcPath, '\n## Design Amendments\n\n### Amendment PX-1-1\n\nBody\n');
+    const outPath = path.join(tmpRoot, 'vc-amendment.json');
+    runVerify({ rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath }, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.equal(out.findings.some((f) => f.message.includes('Design Amendments')), false);
+  });
+
   it('reports a GRAPH node with no Dirs-Tree mappedNodeId (C001)', () => {
     const { rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath } = setupProject();
     const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));

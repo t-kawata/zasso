@@ -15,7 +15,8 @@ Role: condense every manifest package in one mechanical run; root package `path:
 Scope: one workspacify workspace = current directory. Package-only → `/condense-tickets`.
 
 Invariants:
-- argument: none. Non-empty `$ARGUMENTS` → refuse before any write. `--plan` / `--apply` / `--gate` / `--workspace` are script flags, never command arguments.
+- policy: default `merge-status=todo`; only an all-todo contiguous group merges; `done`, `reviewed`, `R<n>`, `made`, `planned`, `remanded` and unknown statuses are barriers; non-todo authored fields stay byte-identical.
+- argument: none. Non-empty `$ARGUMENTS` → refuse before any write. `--plan` / `--apply` / `--gate` / `--workspace` / `--merge-status` are script flags, never command arguments.
 - targets: `workspace.packages[].path` is authoritative; `path: "."` = root package; rows deduped, manifest order.
 - fallback: filesystem walk only when `WORKSPACIFY-TREE-MANIFEST.json` is absent.
 - skip: no `Tickets.json` → `skipped:unsplit`; absent directory → `skipped:missing-directory`; never write.
@@ -77,7 +78,7 @@ fi
    ```
 2. Apply the same plan to every package: per-package archive → merge → phase-floor merge → remap → recompute → atomic write → gates. The phase-floor merge is the same pass `/condense-tickets` runs; it repairs an existing package whose split left one-ticket phases, in evolve mode too. Failing package restores its archive; remaining packages still run; every failure reported; exit 1. After the loop, workspace implementation order regenerated once when ≥1 package changed.
    ```bash
-   node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --workspace="$PWD"
+   node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --workspace="$PWD" --merge-status=todo
    ```
 3. Re-run → `NO_CHANGE` for every package; zero bytes written.
 

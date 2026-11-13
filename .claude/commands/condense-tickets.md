@@ -15,7 +15,8 @@ Role: condense `./Tickets.json` to the version-3 contiguous partition minimum; n
 Scope: one package = current directory. Workspace-wide → `/condense-workspace`.
 
 Invariants:
-- argument: none. Non-empty `$ARGUMENTS` → refuse before any write. `--plan` / `--apply` / `--gate` / `--workspace` are script flags, never command arguments.
+- policy: default `merge-status=todo`; only a contiguous all-todo group merges; `done`, `reviewed`, `R<n>`, `made`, `planned`, `remanded` and unknown statuses are barriers; non-todo authored fields stay byte-identical.
+- argument: none. Non-empty `$ARGUMENTS` → refuse before any write. `--plan` / `--apply` / `--gate` / `--workspace` / `--merge-status` are script flags, never command arguments.
 - target: current directory; requires `./Tickets.json`.
 - prose: preserved, not authored. Absorbed ticket → `### From <key>: <title>` under `background` / `notes` / `invariants` / `scope`.
 - identity: every non-excluded phase ends dense `1..N` in implementation order. Absorbed keys → `condensedFrom`; history keeps its old keys with the generation they belong to; `identity.aliases` resolves every historical key. `identity.excludedPhases` (default `[-1]`, the PX phase) is byte-identical.
@@ -78,7 +79,7 @@ fi
    ```
 2. Apply the same plan: archive → merge contiguous groups → merge phases below the floor → remap absorbed and moved keys → recompute contracts / formulas / prerequisites / related ids → atomic write → coverage, closure, chain, implementation-order gates. Failing gate restores the archive; exit 1. A phase merge is re-condensed in the same apply, so one run reaches the fixed point and the second run reports `NO_CHANGE`.
    ```bash
-   node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json
+   node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json --merge-status=todo
    ```
 3. Package in a workspacify workspace → regenerate the workspace order once:
    ```bash

@@ -147,6 +147,8 @@ undo (precise, no git): `node "$CLAUDE_DIR/scripts/tickets/batch-update-stub.js"
 
 ### Step 5 — Verify the result (blocking gate)
 
+marker key resolution: live key first; absorbed key through `identity.aliases`; non-existent key still fails. condense rewrite may leave an absorbed key only when the alias resolves it.
+
 ```bash
 bash "$CLAUDE_DIR/scripts/tickets/consolidate-stubs-gate.sh"
 ```

@@ -554,7 +554,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
  * Verify that all changed source files have a ticket-key annotation at each
  * changed definition. Returns a verification report object.
  */
-// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-114, PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114|PX-415|PX-416) --for-spec --no-implementation-order`.
 function verifyAnnotations(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -597,6 +597,10 @@ function verifyAnnotations(cwd, ticketKey, opts) {
   const missing = [];
   const ambiguous = [];
   const errors = [];
+  const requiredTicketKeys = String(ticketKey)
+    .split(',')
+    .map((key) => key.trim())
+    .filter((key) => key.length > 0);
 
   for (const file of sourceFiles) {
     try {
@@ -620,7 +624,7 @@ function verifyAnnotations(cwd, ticketKey, opts) {
       // Check each expected definition has an annotation
       for (const [startLine] of expectedDefs) {
         const annot = detectAnnotationAtLine(lines, startLine + 1);
-        if (!annot || !annot.ticketKeys.includes(ticketKey)) {
+        if (!annot || !requiredTicketKeys.every((key) => annot.ticketKeys.includes(key))) {
           missing.push({ file, startLine });
         }
       }

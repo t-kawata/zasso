@@ -16,7 +16,7 @@ Only terminal state: a fresh run exits 0 **and** its verdict is `pass`.
 Frozen inputs: regeneration transaction only; no in-place edits.
 
 `/smooth-sequences`: never asks; never delegates a ground to a human; AI decides by default.
-Only human surface: delegated design command's direction questions within its own limit.
+No human surface: every ground is settled by this AI from specification, code, documents, and existing decisions.
 
 **Path anchor (mandatory — resolve once).**
 
@@ -376,10 +376,11 @@ State's `next:` names owning command + argument; `groundHandoff` selects by grou
 | an RFC seed (the reason contains `RFC-SEED` or `RFC SEED`) | `/explain-seed` | the `RFC-SEED.md` path the ground names under the staging root |
 
 Both: `disable-model-invocation: true`.
+Execute the owner non-interactively: its question gate is decided by this AI from the available evidence; no question is put to a human.
 Read `.claude/commands/grill-me-for-rfc.md` or `.claude/commands/explain-seed.md`; execute its Steps with mapped argument; no slash invocation.
 
-Owners: settle every point possible from specification, code, documents.
-Only human surface: owners may ask direction questions only, within own limits (3 questions/round, 5 rounds).
+Owners: settle every point from specification, code, documents, and existing decisions.
+No human questions: a direction the evidence cannot settle is decided by the minimal, backward-compatible, reversible design; record the assumption and its basis.
 `/smooth-sequences`: never ask; never delegate ground itself.
 
 `continue` prints only handoff → `node "$CLAUDE_DIR/scripts/regeneration/run.mjs" verify` exposes ground as `reason:`.

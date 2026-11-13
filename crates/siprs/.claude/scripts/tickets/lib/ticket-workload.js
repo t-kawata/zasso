@@ -793,7 +793,7 @@ function hasExternalIoSurface(ticket, context) {
  * actually exceeds a ceiling, or when `ownership-boundary` is proven by foreign
  * ownership. Versions 1 and 2 never call this function.
  */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
 function collectPartitionFindings(phase, budget, context = {}, options = {}) {
   const components = options.components ?? WORKLOAD_COMPONENTS;
   const tickets = Array.isArray(phase?.tickets) ? phase.tickets : [];
@@ -802,7 +802,7 @@ function collectPartitionFindings(phase, budget, context = {}, options = {}) {
     tickets,
     context,
     budget,
-    { components, preserveCompleted: options.preserveCompleted !== false },
+    { components, preserveCompleted: options.preserveCompleted !== false, mergeStatusPolicy: options.mergeStatusPolicy },
   );
   const findings = [];
   if (tickets.length > partition.count) {
@@ -1027,7 +1027,7 @@ function collectWorkloadFindings(phase, budget, context = {}, options = {}) {
 /**
  * Analyze one phase: all findings, accepted overages and the budget report.
  */
-// [::TICKET::] PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-394) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-347|PX-394) --for-spec --no-implementation-order`.
 function analyzeTicketWorkload(phase, budget, context = {}, options = {}) {
   const mode = options.mode === 'v1' ? 'v1' : 'v2';
   const components = options.components
@@ -1044,6 +1044,7 @@ function analyzeTicketWorkload(phase, budget, context = {}, options = {}) {
     ? require('./ticket-partition.js').minimumContiguousPartition(tickets, context, budget, {
       components,
       preserveCompleted: options.preserveCompleted !== false,
+      mergeStatusPolicy: options.mergeStatusPolicy,
     })
     : null;
   const partitionFindings = partition === null
@@ -1051,6 +1052,7 @@ function analyzeTicketWorkload(phase, budget, context = {}, options = {}) {
     : collectPartitionFindings(phase, budget, context, {
       components,
       preserveCompleted: options.preserveCompleted !== false,
+      mergeStatusPolicy: options.mergeStatusPolicy,
       partition,
     });
   const findings = [...workloadFindings, ...merge.findings, ...reasonFindings, ...partitionFindings];

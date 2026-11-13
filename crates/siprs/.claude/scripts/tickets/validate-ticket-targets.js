@@ -19,6 +19,8 @@
 const fs = require('fs');
 const path = require('path');
 const { findTicket, ticketExists } = require('../lib/find-ticket');
+// A record stores `~/...` so it names no machine; expand it before any filesystem read.
+const { fromHomeRelative } = require('../lib/path-utils');
 const {
   reportMode,
   gateRerun,
@@ -78,7 +80,7 @@ function checkContractIdExists(stubId, contractIds, ticketContracts) {
  * @param {string} filePath
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function checkFileExists(stubId, filePath) {
   if (!filePath) {
     return {
@@ -86,12 +88,13 @@ function checkFileExists(stubId, filePath) {
       error: formatError(stubId, 'File path is empty or null', 'targetStub has no file path', 'Update the targetStub entry with a valid file path')
     };
   }
-  if (!fs.existsSync(filePath)) {
+  const resolvedPath = fromHomeRelative(filePath);
+  if (!fs.existsSync(resolvedPath)) {
     return {
       pass: false,
       error: formatError(
         stubId,
-        'File not found: ' + filePath,
+        'File not found: ' + resolvedPath,
         'targetStub references a file that no longer exists',
         'Verify the file path and update, or remove the targetStub if the file was deleted'
       )
@@ -107,9 +110,10 @@ function checkFileExists(stubId, filePath) {
  * @param {string} markerText
  * @returns {{pass: boolean, error?: string}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function checkMarkerTextMatches(stubId, filePath, markerText) {
-  if (!filePath || !fs.existsSync(filePath)) {
+  const resolvedPath = filePath ? fromHomeRelative(filePath) : filePath;
+  if (!resolvedPath || !fs.existsSync(resolvedPath)) {
     return { pass: true }; // Skip — file check already handles this
   }
   if (!markerText) {
@@ -119,7 +123,7 @@ function checkMarkerTextMatches(stubId, filePath, markerText) {
     };
   }
 
-  const content = fs.readFileSync(filePath, 'utf8');
+  const content = fs.readFileSync(resolvedPath, 'utf8');
   // Use exact substring match
   const searchText = markerText.trim();
   if (!content.includes(searchText)) {
@@ -127,13 +131,30 @@ function checkMarkerTextMatches(stubId, filePath, markerText) {
       pass: false,
       error: formatError(
         stubId,
-        'markerText not found in file: ' + path.basename(filePath),
+        'markerText not found in file: ' + path.basename(resolvedPath),
         'The STUB marker may have been resolved or modified',
         'If resolved: update targetStub status to "resolved". If modified: update markerText to match current content'
       )
     };
   }
   return { pass: true };
+}
+
+/**
+ * Check 3 for one tracked stub.
+ *
+ * A resolved stub's marker is gone by design: the status transition records the
+ * resolution. Re-checking the removed text would make every resolved stub fail the
+ * gate it is meant to clear.
+ *
+ * @param {string} stubId
+ * @param {{ status?: string, file?: string, markerText?: string }} item
+ * @returns {{pass: boolean, error?: string}}
+ */
+// [::TICKET::] PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
+function checkMarkerTextForStub(stubId, item) {
+  if (item?.status === 'resolved') return { pass: true };
+  return checkMarkerTextMatches(stubId, item?.file, item?.markerText);
 }
 
 /**
@@ -485,7 +506,7 @@ function staleCloneFindings(ticket, ticketsData, ticketsPath) {
  * @param {string} ticketKey — Ticket to validate
  * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79, PX-95, PX-94, PX-129, PX-130, PX-131 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-95|PX-94|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-95, PX-94, PX-129, PX-130, PX-131, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-77|PX-78|PX-79|PX-95|PX-94|PX-129|PX-130|PX-131|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function validateTargets(ticketsData, ticketKey) {
   const ticket = findTicket(ticketsData, ticketKey);
   if (!ticket) {
@@ -530,8 +551,8 @@ function validateTargets(ticketsData, ticketKey) {
     checks.push({ index: 2, pass: c2.pass, itemId: itemId });
     if (!c2.pass) errors.push(c2.error);
 
-    // Check 3: markerText matches
-    const c3 = checkMarkerTextMatches(itemId, item.file, item.markerText);
+    // Check 3: markerText matches (a resolved stub has already removed its marker)
+    const c3 = checkMarkerTextForStub(itemId, item);
     checks.push({ index: 3, pass: c3.pass, itemId: itemId });
     if (!c3.pass) errors.push(c3.error);
 
@@ -670,6 +691,7 @@ module.exports = {
   checkContractIdExists,
   checkFileExists,
   checkMarkerTextMatches,
+  checkMarkerTextForStub,
   checkContractsNonEmpty,
   checkDeferredToExists,
   checkStatusValid,

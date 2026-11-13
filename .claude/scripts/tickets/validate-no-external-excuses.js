@@ -29,6 +29,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { liveTicket, resolveAliasTarget } = require('./lib/marker-alias.js');
+const { isCompletedStatus } = require('./lib/ticket-status.js');
 
 // -- Constants --
 
@@ -62,8 +64,10 @@ const WORK_ITEM_VERB_RE = /\b(?:Implement|Build|Vendor|Add|Generate|Integrate|Wi
 // Ticket key extraction from marker content (same pattern as create-tmp-omissions.js).
 const STUB_TICKET_KEY_RE = /\[::STUB::\].*?([A-Z]+[A-Z\d]*-\d+)/;
 
-// Statuses that mean "this ticket will still resolve work".
-const ACTIVE_STATUSES = new Set(['todo', 'in_progress', 'planned', 'remanded']);
+// Statuses that mean "this ticket will still resolve work". `made` belongs here:
+// the make stage writes the spec and the ticket has not started, so its STUB markers
+// are still that ticket's obligation.
+const ACTIVE_STATUSES = new Set(['todo', 'made', 'in_progress', 'planned', 'remanded']);
 
 // Completed statuses: in consolidation mode (--for-consolidate) a marker re-pointed
 // to a completed ticket is the find-omissions re-ticketization handoff, not a defect.
@@ -88,19 +92,12 @@ function extractTicketKey(content) {
  * @param {string} ticketKey — e.g. "P3-2" or "PX-53"
  * @returns {object|null} — The ticket object or null
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-120, PX-121 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-120|PX-121) --for-spec --no-implementation-order`.
 function findTicket(ticketsData, ticketKey) {
-  if (!ticketsData || !Array.isArray(ticketsData.phases) || !ticketKey) return null;
-  const match = ticketKey.match(/^P(-?\d+|X)-(\d+)$/);
-  if (!match) return null;
-  const phaseId = match[1] === 'X' ? -1 : parseInt(match[1], 10);
-  const ticketId = parseInt(match[2], 10);
-  for (const phase of ticketsData.phases) {
-    if (phase.id !== phaseId) continue;
-    const ticket = (phase.tickets || []).find(t => t.id === ticketId);
-    if (ticket) return ticket;
-  }
-  return null;
+  const direct = liveTicket(ticketsData, ticketKey);
+  if (direct !== null) return direct;
+  const aliasTarget = resolveAliasTarget(ticketsData, ticketKey);
+  return aliasTarget === null ? null : liveTicket(ticketsData, aliasTarget);
 }
 
 /**
@@ -113,6 +110,7 @@ function findTicket(ticketsData, ticketKey) {
  * @returns {{passed: boolean, reason: string}}
  */
 // [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-414 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-414) --for-spec --no-implementation-order`.
 function checkKeyValidity(ticketKey, ticketsData, forConsolidate) {
   if (!ticketKey) {
     return { passed: false, reason: 'Marker has no ticket key (MUST RESOLVE) — keyless markers fail Check C' };
@@ -124,7 +122,7 @@ function checkKeyValidity(ticketKey, ticketsData, forConsolidate) {
   if (ACTIVE_STATUSES.has(ticket.status)) {
     return { passed: true, reason: 'Ticket ' + ticketKey + ' is an active obligation' };
   }
-  if (forConsolidate && COMPLETED_STATUS_RE.test(ticket.status)) {
+  if (forConsolidate && isCompletedStatus(ticket.status)) {
     return { passed: true, reason: 'Ticket ' + ticketKey + ' is completed — accepted as the find-omissions re-ticketization handoff (--for-consolidate)' };
   }
   return { passed: false, reason: 'Ticket ' + ticketKey + ' has status "' + ticket.status + '" which is not an active obligation' };

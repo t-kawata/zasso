@@ -2,6 +2,28 @@ const fs = require('fs');
 const path = require('path');
 const { CFG } = require('../../lib/tickets');
 
+/** A comment prefix: //, //!, ///, or one or more #. */
+const COMMENT_PREFIX_RE = /^(\/\/+[!/]?|#+)\s*/;
+
+/**
+ * True when the stripped comment text still reads as a statement.
+ *
+ * Prose comments legitimately contain words such as return, let and const. A comment
+ * is commented-out code only when the text has statement shape: an arrow, a
+ * declaration with punctuation, a condition, a punctuated return, a lone brace, or a
+ * whole-line call.
+ */
+// [::TICKET::] PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
+function looksLikeCommentedCode(strippedText) {
+  return /=>/.test(strippedText)
+    || /\b(function|fn)\s+[\w$]+\s*\(/.test(strippedText)
+    || /\b(let|const|var)\s+[\w$]+\s*[=;:]/.test(strippedText)
+    || /\b(if|for|while|switch)\s*\(/.test(strippedText)
+    || /\breturn\b\s*[;({[]/.test(strippedText)
+    || /^\s*[{}]\s*$/.test(strippedText)
+    || /^\s*[\w$.]+\s*\([^)]*\)\s*;\s*$/.test(strippedText);
+}
+
 const CHECKS = {
   findUnwrap: {
     name: 'unwrap_expect',
@@ -80,11 +102,9 @@ const CHECKS = {
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
-        if ((trimmed.startsWith('//') || trimmed.startsWith('#')) &&
-            (trimmed.includes('function') || trimmed.includes('=>') ||
-             trimmed.includes('if (') || trimmed.includes('for (') ||
-             trimmed.includes('return ') || trimmed.includes('let ') ||
-             trimmed.includes('const ') || trimmed.includes('var '))) {
+        if (!trimmed.startsWith('//') && !trimmed.startsWith('#')) continue;
+        const stripped = trimmed.replace(COMMENT_PREFIX_RE, '');
+        if (looksLikeCommentedCode(stripped)) {
           results.push({ line: i + 1, match: 'Commented-out code detected', file: filePath });
         }
       }

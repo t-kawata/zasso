@@ -44,8 +44,8 @@ function numericIdOfKey(key) {
   return match === null ? null : parseInt(match[1], 10);
 }
 
-/** The absorbed entries a ticket carries, with their numeric id when present. */
-// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+/** The absorbed entries a ticket carries, with their numeric id and owner when present. */
+// [::TICKET::] PX-415, PX-416, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-402) --for-spec --no-implementation-order`.
 function collectAbsorbedEntries(ticket) {
   const entries = ticket?.condensedFrom?.tickets;
   if (!Array.isArray(entries)) return [];
@@ -53,6 +53,10 @@ function collectAbsorbedEntries(ticket) {
     .map((entry) => ({
       key: typeof entry?.key === 'string' ? entry.key : null,
       id: typeof entry?.id === 'number' ? entry.id : numericIdOfKey(entry?.key),
+      generation: typeof entry?.generation === 'number'
+        ? entry.generation
+        : (ticket?.condensedFrom?.generation ?? 0),
+      originKey: typeof entry?.originKey === 'string' ? entry.originKey : null,
     }))
     .filter((entry) => entry.key !== null || entry.id !== null);
 }
@@ -64,15 +68,21 @@ function excludedPhasesOf(document, options = {}) {
 }
 
 /** The dense map of a document: old live key and absorbed key -> current key. */
-// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-402) --for-spec --no-implementation-order`.
 function buildDenseRenumberMap(phases, options = {}) {
   const excluded = new Set(options.excludedPhases ?? DEFAULT_EXCLUDED_PHASES);
   const currentGeneration = options.currentGeneration ?? 0;
   const keyMap = new Map();
   const idMap = new Map();
+  const absorbedAliases = new Map();
   const phasePlans = [];
+  const liveRefs = new Map();
+  const ticketRefs = [];
   let changed = false;
 
+  // First pass: every live key owns its own dense id. This must finish before
+  // absorbed keys are resolved, because an absorbed key's owner may be a live
+  // ticket that appears later in the array.
   for (const phase of phases ?? []) {
     if (!phase || excluded.has(phase.id)) continue;
     const tickets = Array.isArray(phase.tickets) ? phase.tickets : [];
@@ -90,33 +100,50 @@ function buildDenseRenumberMap(phases, options = {}) {
       if (ticket.id !== newId) changed = true;
       keyMap.set(oldKey, newKey);
       idMap.set(oldKey, newId);
-
-      for (const entry of collectAbsorbedEntries(ticket)) {
-        const absorbedKey = entry.key !== null
-          ? entry.key
-          : ticketKeyOf({ phaseId: phase.id, id: entry.id });
-        const owner = keyMap.get(absorbedKey);
-        if (owner !== undefined && owner !== newKey) {
-          throw Object.assign(new Error(`ticket key ${absorbedKey} is owned by ${owner} and ${newKey}`), { code: 'IDENTITY_DUPLICATE_KEY' });
-        }
-        // An absorbed key created in this operation is new history even when
-        // the survivor keeps its numeric id; without this the alias table is
-        // not rewritten and a later pass reads a dangling key. Records older
-        // than the current generation are already resolved and must not make
-        // an otherwise unchanged document look changed.
-        const historyGeneration = ticket?.condensedFrom?.generation ?? 0;
-        if (absorbedKey !== newKey && historyGeneration >= currentGeneration) changed = true;
-        keyMap.set(absorbedKey, newKey);
-        idMap.set(absorbedKey, newId);
-      }
-
+      liveRefs.set(oldKey, { newKey, newId });
+      ticketRefs.push({ ticket, phaseId: phase.id, newKey, newId });
       ticketPlans.push({ oldId: ticket.id, newId, oldKey, newKey });
     });
 
     phasePlans.push({ phaseId: phase.id, tickets: ticketPlans });
   }
 
-  return { keyMap, idMap, changed, phases: phasePlans };
+  // Second pass: an absorbed key belongs to its originKey survivor, never to a
+  // clone that inherited the ledger. A live key is never overwritten; a
+  // historical collision is resolved by the generation-qualified alias.
+  for (const ticketRef of ticketRefs) {
+    for (const entry of collectAbsorbedEntries(ticketRef.ticket)) {
+      const absorbedKey = entry.key !== null
+        ? entry.key
+        : ticketKeyOf({ phaseId: ticketRef.phaseId, id: entry.id });
+      const originRef = entry.originKey === null ? null : liveRefs.get(entry.originKey);
+      const ownerNewKey = originRef?.newKey ?? ticketRef.newKey;
+      const ownerNewId = originRef?.newId ?? ticketRef.newId;
+
+      if (originRef !== null && ownerNewKey !== ticketRef.newKey) {
+        absorbedAliases.set(`${absorbedKey}@g${entry.generation}`, ownerNewKey);
+        continue;
+      }
+
+      const liveOwner = liveRefs.get(absorbedKey);
+      if (liveOwner !== undefined) {
+        if (liveOwner.newKey !== ownerNewKey) {
+          absorbedAliases.set(`${absorbedKey}@g${entry.generation}`, ownerNewKey);
+        }
+        continue;
+      }
+
+      const existing = keyMap.get(absorbedKey);
+      if (existing !== undefined && existing !== ownerNewKey) {
+        throw Object.assign(new Error(`ticket key ${absorbedKey} is owned by ${existing} and ${ownerNewKey}`), { code: 'IDENTITY_DUPLICATE_KEY' });
+      }
+      if (absorbedKey !== ownerNewKey && entry.generation >= currentGeneration) changed = true;
+      keyMap.set(absorbedKey, ownerNewKey);
+      idMap.set(absorbedKey, ownerNewId);
+    }
+  }
+
+  return { keyMap, idMap, absorbedAliases, changed, phases: phasePlans };
 }
 
 /**
@@ -389,7 +416,7 @@ function collectKeyTokens(value, path = '$', tokens = [], skipHistorical = false
 }
 
 /** Check density, live resolution, historical resolution and alias validity. */
-// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-402) --for-spec --no-implementation-order`.
 function validateIdentity(document, options = {}) {
   const requireDense = options.requireDense !== false;
   const excluded = excludedPhasesOf(document, options);
@@ -404,7 +431,7 @@ function validateIdentity(document, options = {}) {
       const key = ticketKeyOf({ ...ticket, phaseId: phase.id });
       if (liveKeys.has(key)) findings.push({ code: 'IDENTITY_DUPLICATE_KEY', path: `$.phases[${phase.id}].tickets`, key });
       liveKeys.add(key);
-      if (ticket.phaseId !== phase.id) {
+      if (ticket.phaseId !== undefined && ticket.phaseId !== phase.id) {
         findings.push({ code: 'IDENTITY_PHASE_MISMATCH', phaseId: phase.id, ticketId: ticket.id, key });
       }
     }
@@ -514,7 +541,7 @@ function remapDocumentWithKeyMap(document, keyMap, options = {}) {
 }
 
 /** Renumber a whole document and rewrite every live reference. */
-// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-402) --for-spec --no-implementation-order`.
 function renumberDocument(document, options = {}) {
   const excluded = excludedPhasesOf(document, options);
   const generationBefore = document?.identity?.[GENERATION_FIELD] ?? 0;
@@ -561,9 +588,13 @@ function renumberDocument(document, options = {}) {
     ...(document?.identity?.legacyReferences ?? {}),
     ...(options.legacyReferences ?? {}),
   };
+  const aliases = buildAliasTable(document, plan.keyMap, generationBefore, archiveAliasMap);
+  for (const [aliasKey, target] of plan.absorbedAliases ?? []) {
+    aliases[aliasKey] = target;
+  }
   clone.identity = {
     generation,
-    aliases: buildAliasTable(document, plan.keyMap, generationBefore, archiveAliasMap),
+    aliases,
     excludedPhases: [...excluded],
     ...(Object.keys(legacyReferences).length > 0 ? { legacyReferences } : {}),
   };

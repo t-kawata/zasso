@@ -12,6 +12,7 @@
  * @verifies C003
  * @verifies C004
  * @verifies C005
+ * @verifies C011
  */
 
 const fs = require('fs');
@@ -157,6 +158,7 @@ function makeData() {
 // ======================================================================
 // PX-142 Defect 1: a resolving ticket must not inherit inspection residue
 
+// [::TICKET::] PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 (function testPX142Defect1StripsInspectionResidue() {
 // [::TICKET::] PX-142 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-142 --for-spec --no-implementation-order`.
   // The source carries ABC-inspection residue from a prior omission round:
@@ -188,7 +190,17 @@ function makeData() {
   assert(res.ticket.originalTicketKey === undefined, 'PX142/D1: originalTicketKey stripped');
   assert(!res.ticket.background.includes('[::INSPECTION_FLAGGED::]'), 'PX142/D1: sentinel block stripped from background');
   assertStrictEqual(res.ticket.status, 'todo', 'PX142/D1: status forced to todo');
-  assert(Array.isArray(res.ticket.nodeIds) && res.ticket.nodeIds[0] === 'N0001', 'PX142/D1: PRESERVE nodeIds survive');
+  // Ownership is explicit: a plain resolving ticket leaves nodeIds with the source
+  // so the mutation gate never sees two claimants. A caller that means to move the
+  // nodes sets ownershipTransfer and the clone keeps them.
+  assertStrictEqual(JSON.stringify(res.ticket.nodeIds), '[]', 'PX142/D1: nodeIds stay with the source without a transfer');
+  const transferred = createResolvingTicket({
+    ticketsData: data,
+    sourceKey: 'P8-4',
+    seed: { title: 'New', ownershipTransfer: true },
+    stubs,
+  });
+  assert(Array.isArray(transferred.ticket.nodeIds) && transferred.ticket.nodeIds[0] === 'N0001', 'PX142/D1: PRESERVE nodeIds survive an explicit ownership transfer');
 })();
 
 (function testPX142Defect1SentinelFreeBackgroundUnchanged() {

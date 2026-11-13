@@ -330,6 +330,22 @@ mutation gate: merge = `ticket-mutation-gate.js` transaction; refusal leaves Tic
 invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to the current directory (the Tickets.json root).
 gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → back to Step 1, clear all excuses, re-run.
 
+# Step 9.5 — Condense todo-only
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json --merge-status=todo
+```
+merges only contiguous all-todo groups; every non-todo status is a barrier; phase floor applies only to all-todo phases. archive → write → gates; failure restores the archive. second run NO_CHANGE.
+
+# Step 9.6 — Rebase omission convergence and rewrite markers
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/condense-rebase.js" --cwd=. --tickets=Tickets.json
+node "$CLAUDE_DIR/scripts/tickets/rewrite-stub-aliases.js" --cwd=.
+node "$CLAUDE_DIR/scripts/tickets/validate-no-external-excuses.js" --fail-on-excuse
+```
+rebase rewrites OMISSION-GAP-SCAN, OMISSION-JUDGMENT-LEDGER, OMISSION-TICKET-INDEX, OMISSION-CONVERGENCE and OMISSIONS-* to post-condense keys and acceptance criterion hashes; rewrite resolves absorbed marker keys through identity.aliases transactionally. gate exit≠0 → repair and re-run. Step 9.5 and 9.6 complete before return; conver records the post-condense digest.
+
 # Step 10 — Rename phases
 
 Run the `rename-phases.js` commands from Step 9's stdout. each re-implementation phase name **must** start with `"Omissions: "`.

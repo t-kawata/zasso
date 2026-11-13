@@ -38,6 +38,7 @@ const { mergeContracts, registryForPackage } = require('./merge-contracts-to-tic
 const { mergeFormulasToTickets } = require('./merge-formulas-to-tickets.js');
 const { generateRelatedTicketIds } = require('./generate-related-ticket-ids.js');
 const { remapTicketKeyReferences } = require('./consolidate-phase-tickets.js');
+const { buildCondenseKeyMap, acceptanceMap } = require('./condense-rebase.js');
 const {
   remapDocumentWithKeyMap,
   renumberDocument,
@@ -278,7 +279,7 @@ function buildWorkloadContext(artifacts) {
 }
 
 /** Build the condensation plan without writing anything. */
-// [::TICKET::] PX-394, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-402) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-402) --for-spec --no-implementation-order`.
 function buildPlan(artifacts, options = {}) {
   if (artifacts.ticketsDocument === null || artifacts.ticketsDocument === undefined) {
     const error = new Error('Tickets.json is unreadable');
@@ -293,6 +294,7 @@ function buildPlan(artifacts, options = {}) {
     condensePlan(phase, context, artifacts.budget, {
       components: artifacts.components,
       preserveCompleted: artifacts.preserveCompleted === true,
+      mergeStatusPolicy: artifacts.mergeStatusPolicy ?? 'todo',
       merge: options.merge !== false,
       rebuildContracts: options.rebuildContracts === true,
       generation: options.generation ?? 0,
@@ -308,7 +310,7 @@ function buildPlan(artifacts, options = {}) {
   const phaseConsolidation = planPhaseMerges(
     phases.map((phase) => ({ id: phase.phaseId, name: '', summary: '', nodeIds: [], tickets: [] })),
     phases.map((phase) => phase.after),
-    { excludedPhases: artifacts.ticketsDocument?.identity?.excludedPhases },
+    { excludedPhases: artifacts.ticketsDocument?.identity?.excludedPhases, mergeStatusPolicy: artifacts.mergeStatusPolicy ?? 'todo' },
   );
   return { phases, totalBefore, totalAfter, digest, skipped, phaseConsolidation };
 }
@@ -607,7 +609,7 @@ async function rehydrate(artifacts, document, decisions = {}) {
 }
 
 /** The version-3 partition findings for every phase of a document. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
 function partitionFindingsForDocument(artifacts, document) {
   if (artifacts.graph === null || artifacts.dirsTree === null || artifacts.view === null) return [];
   const context = buildWorkloadContext(artifacts);
@@ -616,13 +618,14 @@ function partitionFindingsForDocument(artifacts, document) {
     findings.push(...collectPartitionFindings(phase, artifacts.budget, context, {
       components: artifacts.components,
       preserveCompleted: artifacts.preserveCompleted !== false,
+      mergeStatusPolicy: artifacts.mergeStatusPolicy ?? 'todo',
     }));
   }
   return findings;
 }
 
 /** Run the post-write gates for a package. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
 function runGates(artifacts, document) {
   const partitionFindings = partitionFindingsForDocument(artifacts, document);
   if (partitionFindings.length > 0) {
@@ -632,6 +635,7 @@ function runGates(artifacts, document) {
   }
   const floorFindings = collectPhaseFloorFindings(document, {
     excludedPhases: document.identity?.excludedPhases,
+    mergeStatusPolicy: artifacts.mergeStatusPolicy ?? 'todo',
   });
   if (floorFindings.length > 0) {
     const error = new Error(floorFindings.map((entry) => `${entry.code}: ${entry.message}`).join('; '));
@@ -671,6 +675,15 @@ function restoreArchive(archivePath, ticketsPath) {
   fs.copyFileSync(archivePath, ticketsPath);
 }
 
+/** The ticket-set digest conver records at the package boundary. */
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
+function computeTicketSetDigest(document) {
+  const lines = (document?.phases ?? []).flatMap((phase) => (
+    (phase.tickets ?? []).map((ticket) => `${phase.id}:${ticket.id}:${ticket.status}`)
+  ));
+  return 'sha256:' + createHash('sha256').update(lines.join('\n')).digest('hex');
+}
+
 /**
  * Apply the plan.
  *
@@ -685,7 +698,7 @@ function restoreArchive(archivePath, ticketsPath) {
  * pass condenses that set; the loop stops when a pass merges nothing. Phase
  * count never grows, so the pass bound is the starting phase count plus one.
  */
-// [::TICKET::] PX-394, PX-396, PX-402, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402|PX-407) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402|PX-407) --for-spec --no-implementation-order`.
 function condenseToFixedPoint(artifacts, startDocument) {
   let current = JSON.parse(JSON.stringify(startDocument));
   let changed = false;
@@ -748,6 +761,7 @@ function condenseToFixedPoint(artifacts, startDocument) {
 
     const merge = mergeSmallPhases(condensed.phases, {
       excludedPhases: condensed.identity?.excludedPhases,
+      mergeStatusPolicy: artifacts.mergeStatusPolicy ?? 'todo',
     });
     if (merge.changed) {
       const remapped = remapDocumentWithKeyMap(
@@ -810,10 +824,11 @@ function condenseToFixedPoint(artifacts, startDocument) {
   return { ok: true, document: current, changed, renumbered, firstPlan };
 }
 
-// [::TICKET::] PX-394, PX-396, PX-402, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402|PX-407) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402|PX-407) --for-spec --no-implementation-order`.
 async function applyPlan(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
+  artifacts.mergeStatusPolicy = options.mergeStatusPolicy ?? 'todo';
   const generationBefore = artifacts.ticketsDocument.identity?.generation ?? 0;
   const identityBefore = validateIdentity(artifacts.ticketsDocument, { requireDense: true });
 
@@ -831,6 +846,9 @@ async function applyPlan(options = {}) {
       skipped: plan.skipped,
       ledgerRecords: countLedgerRecords(artifacts.ticketsDocument),
       repaired: 0,
+      keyMap: new Map(),
+      acceptanceMap: new Map(),
+      postCondenseDigest: computeTicketSetDigest(artifacts.ticketsDocument),
     };
   }
 
@@ -901,14 +919,18 @@ async function applyPlan(options = {}) {
     skipped: plan.skipped,
     ledgerRecords: ledgerTickets.length,
     repaired: contractFindings.length - remainingFindings.length,
+    keyMap: buildCondenseKeyMap(artifacts.ticketsDocument, document),
+    acceptanceMap: acceptanceMap(artifacts.ticketsDocument, document),
+    postCondenseDigest: computeTicketSetDigest(document),
   };
 }
 
 /** The read-only gate used by the split final step. */
-// [::TICKET::] PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
 async function gateTickets(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
+  artifacts.mergeStatusPolicy = options.mergeStatusPolicy ?? 'todo';
   const plan = buildPlan(artifacts, { merge: false });
   if (plan.totalBefore !== plan.totalAfter) {
     const findings = plan.phases
@@ -936,6 +958,7 @@ async function gateTickets(options = {}) {
   }
   const floorFindings = collectPhaseFloorFindings(artifacts.ticketsDocument, {
     excludedPhases: artifacts.ticketsDocument.identity?.excludedPhases,
+    mergeStatusPolicy: artifacts.mergeStatusPolicy ?? 'todo',
   });
   if (floorFindings.length > 0) {
     return {
@@ -989,7 +1012,7 @@ function renderPlan(plan, label) {
   return `${lines.join('\n')}\n`;
 }
 
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const args = argv.slice(2);
   const options = {
@@ -1001,8 +1024,10 @@ function parseArgs(argv) {
     budgetPath: null,
     out: null,
     preserveCompleted: !args.includes('--no-preserve-completed'),
+    mergeStatusPolicy: args.includes('--no-preserve-completed') ? 'non-completed' : 'todo',
   };
   for (const arg of args) {
+    if (arg.startsWith('--merge-status=')) options.mergeStatusPolicy = arg.slice('--merge-status='.length);
     if (arg.startsWith('--workspace=')) options.workspace = arg.slice('--workspace='.length);
     else if (arg.startsWith('--tickets=')) options.ticketsPath = arg.slice('--tickets='.length);
     else if (arg.startsWith('--budget=')) options.budgetPath = arg.slice('--budget='.length);

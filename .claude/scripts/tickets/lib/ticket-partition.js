@@ -19,21 +19,18 @@ const { createHash } = require('node:crypto');
 
 const { WORKLOAD_COMPONENTS, workloadOfTicket } = require('./ticket-workload.js');
 const { ticketKeyOf, remapLiveReferences } = require('./ticket-identity-renumber.js');
-
-/** Status ranks from least to most advanced. `remanded` is handled separately. */
-const STATUS_RANKS = Object.freeze({
-  todo: 0,
-  made: 1,
-  planned: 2,
-  done: 3,
-  reviewed: 4,
-});
-
-/** Statuses that `--preserve-completed` keeps in their own group. */
-const COMPLETED_STATUSES = Object.freeze(['done', 'reviewed']);
+const {
+  STATUS_RANKS,
+  COMPLETED_STATUSES,
+  TODO_STATUS,
+  isCompletedStatus,
+  isMergeableStatus,
+} = require('./ticket-status.js');
 
 const LEDGER_RECORD_FIELD = 'record';
 const LEDGER_ORIGIN_FIELD = 'originKey';
+const MERGE_STATUS_POLICY_TODO = 'todo';
+const MERGE_STATUS_POLICY_NON_COMPLETED = 'non-completed';
 
 /** Fields that are recomputed after the partition changes. */
 const RECOMPUTED_FIELDS = Object.freeze([
@@ -43,17 +40,13 @@ const RECOMPUTED_FIELDS = Object.freeze([
 ]);
 
 /**
- * Fields the ledger does not copy because another rule owns them.
+ * Fields the ledger does not copy verbatim.
  *
- * Derived fields are recomputed. contracts and formulaObligations are merged by
- * their own id-keyed rules. condensedFrom is the ledger itself.
+ * The record is the recovery source, so it copies every field, including the
+ * nested `condensedFrom` history. The survivor still recomputes derived fields;
+ * the pre-merge value stays in the record.
  */
-const LEDGER_EXCLUDED_FIELDS = Object.freeze([
-  ...RECOMPUTED_FIELDS,
-  'contracts',
-  'formulaObligations',
-  'condensedFrom',
-]);
+const LEDGER_EXCLUDED_FIELDS = Object.freeze([]);
 
 /** Set-valued fields unioned into the survivor. */
 const MACHINE_ARRAY_FIELDS = Object.freeze([
@@ -119,10 +112,10 @@ function overBudgetComponents(workload, budget, components = WORKLOAD_COMPONENTS
   return components.filter((component) => (workload?.[component] ?? 0) > budget[component]);
 }
 
-/** Whether a ticket's status is complete for `--preserve-completed`. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+/** Whether a ticket's status is complete for the legacy `--preserve-completed` policy. */
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
 function isCompleted(ticket) {
-  return COMPLETED_STATUSES.includes(ticket?.status);
+  return isCompletedStatus(ticket?.status);
 }
 
 /**
@@ -134,17 +127,22 @@ function isCompleted(ticket) {
  * @param {{ components?: string[], preserveCompleted?: boolean }} [options]
  * @returns {{ count: number, groups: Array<object>, forcedBoundaries: Array<object>, irreducible: Array<object>, skippedGroups: Array<object>, workloads: Array<object> }}
  */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
 function minimumContiguousPartition(tickets, context, budget, options = {}) {
   const components = options.components ?? WORKLOAD_COMPONENTS;
   const preserveCompleted = options.preserveCompleted === true;
+  const mergeStatusPolicy = options.mergeStatusPolicy ?? MERGE_STATUS_POLICY_TODO;
   const workloads = tickets.map((ticket) => workloadOfTicket(ticket, context));
   const count = tickets.length;
   if (count === 0) {
     return { count: 0, groups: [], forcedBoundaries: [], irreducible: [], skippedGroups: [], workloads };
   }
 
-  const locked = tickets.map((ticket) => preserveCompleted && isCompleted(ticket));
+  const locked = tickets.map((ticket) => (
+    mergeStatusPolicy === MERGE_STATUS_POLICY_NON_COMPLETED
+      ? preserveCompleted && isCompleted(ticket)
+      : !isMergeableStatus(ticket?.status)
+  ));
   const lockedPrefix = [0];
   for (const entry of locked) lockedPrefix.push(lockedPrefix[lockedPrefix.length - 1] + (entry ? 1 : 0));
 
@@ -228,15 +226,15 @@ function minimumContiguousPartition(tickets, context, budget, options = {}) {
 }
 
 /** The least advanced status in a group; `remanded` outranks every other status. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
 function leastAdvancedStatus(statuses) {
   const values = (statuses ?? []).filter((status) => typeof status === 'string' && status.length > 0);
-  if (values.length === 0) return 'todo';
+  if (values.length === 0) return TODO_STATUS;
   if (values.includes('remanded')) return 'remanded';
-  let result = 'todo';
+  let result = TODO_STATUS;
   let rank = Number.POSITIVE_INFINITY;
   for (const status of values) {
-    const candidate = STATUS_RANKS[status] ?? 0;
+    const candidate = isCompletedStatus(status) ? 4 : (STATUS_RANKS[status] ?? 0);
     if (candidate < rank) {
       rank = candidate;
       result = status;
@@ -399,27 +397,63 @@ function mergeContractsForGroup(members) {
   return [...byId.values()].map((serialized) => JSON.parse(serialized));
 }
 
-/** Union formula obligations by id. */
-// [::TICKET::] PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-394 --for-spec --no-implementation-order`.
+/** Union formula obligations by id; different clauses for one id are a defect. */
+// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
 function mergeFormulaObligations(members) {
   const byId = new Map();
   for (const ticket of members) {
     for (const obligation of ticket?.formulaObligations ?? []) {
       const id = obligation?.id;
-      if (typeof id === 'string' && !byId.has(id)) byId.set(id, obligation);
+      if (typeof id !== 'string') continue;
+      const serialized = stableStringify(obligation);
+      const existing = byId.get(id);
+      if (existing !== undefined && existing !== serialized) {
+        throw mergeDefect('FORMULA_OBLIGATION_CONFLICT', `formula ${id} has different clauses in the merged group`);
+      }
+      if (existing === undefined) byId.set(id, serialized);
     }
   }
-  return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id));
+  return [...byId.values()]
+    .map((serialized) => JSON.parse(serialized))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+/** Every historical ledger entry carried by an absorbed ticket, flattened. */
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
+function flattenNestedLedger(ticket, generation) {
+  const nested = ticket?.condensedFrom?.tickets;
+  if (!Array.isArray(nested)) return [];
+  const entries = [];
+  for (const entry of nested) {
+    const entryGeneration = entry?.generation ?? generation;
+    entries.push({ ...cloneJson(entry), generation: entryGeneration });
+    const inner = entry?.record?.condensedFrom?.tickets;
+    if (Array.isArray(inner)) {
+      for (const innerEntry of inner) {
+        entries.push({ ...cloneJson(innerEntry), generation: innerEntry?.generation ?? entryGeneration });
+      }
+    }
+  }
+  return entries;
 }
 
 /** The survivor ticket of a merged group and the tickets it absorbed. */
-// [::TICKET::] PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
 function mergeTicketGroup(tickets, group, options = {}) {
   const start = group?.start ?? 0;
   const end = group?.end ?? tickets.length;
   const members = tickets.slice(start, end);
   if (members.length === 0) {
     throw mergeDefect('EMPTY_GROUP', 'a merge group must contain at least one ticket');
+  }
+  if (options.mergeStatusPolicy !== MERGE_STATUS_POLICY_NON_COMPLETED) {
+    const blocked = members.filter((ticket) => !isMergeableStatus(ticket?.status));
+    if (blocked.length > 0) {
+      throw mergeDefect(
+        'NON_TODO_MERGE_GROUP',
+        `a merge group must contain only todo tickets; found ${blocked.map((ticket) => `${ticketKeyOf(ticket)}:${ticket.status}`).join(', ')}`,
+      );
+    }
   }
   const survivor = members[0];
   const absorbed = members.slice(1);
@@ -485,15 +519,18 @@ function mergeTicketGroup(tickets, group, options = {}) {
     condensedAt: options.condensedAt ?? new Date().toISOString().slice(0, 10),
     tickets: [
       ...priorLedgerEntries,
-      ...absorbed.map((ticket) => ({
-        key: ticketKeyOf(ticket),
-        id: ticket.id,
-        status: ticket.status,
-        title: ticket.title,
-        [LEDGER_ORIGIN_FIELD]: survivorKey,
-        [LEDGER_RECORD_FIELD]: collectPreservedRecord(ticket),
-        generation,
-      })),
+      ...absorbed.flatMap((ticket) => [
+        {
+          key: ticketKeyOf(ticket),
+          id: ticket.id,
+          status: ticket.status,
+          title: ticket.title,
+          [LEDGER_ORIGIN_FIELD]: survivorKey,
+          [LEDGER_RECORD_FIELD]: collectPreservedRecord(ticket),
+          generation,
+        },
+        ...flattenNestedLedger(ticket, generation),
+      ]),
     ],
   };
 
@@ -511,7 +548,7 @@ function mergeTicketGroup(tickets, group, options = {}) {
 }
 
 /** Condense one phase and return the plan, the merged tickets and the digest. */
-// [::TICKET::] PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-394|PX-396) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-396 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396) --for-spec --no-implementation-order`.
 function condensePlan(phase, context, budget, options = {}) {
   const tickets = Array.isArray(phase?.tickets) ? phase.tickets : [];
   const partition = minimumContiguousPartition(tickets, context, budget, options);
@@ -530,9 +567,7 @@ function condensePlan(phase, context, budget, options = {}) {
       if (members.length === 1) return JSON.parse(JSON.stringify(members[0]));
       return mergeTicketGroup(tickets, group, { ...options, planDigest: digest, keyMap }).ticket;
     });
-  if (mergedTickets.length === 1) {
-    delete mergedTickets[0].splitReason;
-  } else {
+  if (mergedTickets.length !== 1) {
     for (let index = 1; index < mergedTickets.length; index += 1) {
       if (partition.groups[index].locked) continue;
       mergedTickets[index].splitReason = 'budget';

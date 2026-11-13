@@ -1,3 +1,4 @@
+// @verifies C009
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -13,6 +14,7 @@ function assert(condition, message) {
   else { failed++; process.stdout.write(`  ✗ ${message}\n`); }
 }
 
+// [::TICKET::] PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function assertEq(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
   else { failed++; process.stdout.write(`  ✗ ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}\n`); }
@@ -89,6 +91,32 @@ try {
     assert(result.checks.findTodos, 'finds TODO/FIXME');
     assert(result.checks.findEmptyCatch, 'finds empty catch');
     assert(result.checks.findHardcodedPorts, 'finds hardcoded ports');
+  }
+
+  {
+    // Prose comments legitimately contain "return", "let" and a trailing semicolon.
+    // Only a comment whose stripped text still reads as a statement is commented-out code.
+    const proseFile = path.join(tmpDir, 'prose_comments.rs');
+    const commentedCodeFile = path.join(tmpDir, 'commented_code.rs');
+    fs.writeFileSync(proseFile, [
+      '// The first application and an identical redelivery return the same head;',
+      '/// The return type is a result: no recovery state can be produced.',
+      '// This prose has let and const as words.',
+      'fn ok() -> u8 { 1 }',
+    ].join('\n'));
+    fs.writeFileSync(commentedCodeFile, [
+      '// let value = compute();',
+      '// if (ready) {',
+      '// }',
+      'fn ok() -> u8 { 1 }',
+    ].join('\n'));
+
+    const proseResult = runAllChecks([proseFile]);
+    assertEq((proseResult.checks.findCommentedCode?.findings ?? []).length, 0,
+      'prose comments are not commented-out code');
+    const codeResult = runAllChecks([commentedCodeFile]);
+    assertEq(codeResult.checks.findCommentedCode.findings.length, 3,
+      'commented-out statements are detected');
   }
 
   {

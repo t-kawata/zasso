@@ -502,8 +502,9 @@ else
   echo "[evolve] consolidate-phase-tickets.js is skipped in evolve mode: renumbering would destroy every existing ticket key and status."
 fi
 # Condensation is the same script the standalone command calls. It is not skipped in
-# evolve mode: it keeps each survivor key and only removes absorbed keys.
-node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json
+# evolve mode: it keeps each survivor key and only removes absorbed keys. Default
+# merge-status=todo: every non-todo status is a barrier; R<n> is completed.
+node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json --merge-status=todo
 node "$CLAUDE_DIR/scripts/rfc-graph/project-step-contracts.js" --mode=verify
 node "$CLAUDE_DIR/scripts/sequences-slice/verify-chain.mjs" --stage=split --package="." --artifact="$ARTIFACT_PATH" --require-tickets
 node "$CLAUDE_DIR/scripts/sequences-slice/verify-implementation-order.mjs" --package="." --write

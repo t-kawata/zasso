@@ -394,7 +394,7 @@ function readStdin() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105, PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105|PX-378) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105, PX-378, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105|PX-378|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   let tmpOmissionsPath = null;
@@ -499,7 +499,9 @@ async function main() {
       cloned.foundOmissions = omissions;
       cloned.originalTicketKey = ticketKey;
       cloned.origin = { kind: 'omission', sourceTicket: ticketKey };
-      cloned.nodeIds = [];
+      // The clone re-implements its source, so it keeps the source's nodeIds. The
+      // phasify merge records the handover in the mutation manifest and clears the
+      // moved ids from the source, so the gate sees one claimant per node.
       cloned.distribution = undefined;
       cloned.formulaObligations = undefined;
       cloned.phaseId = -1;

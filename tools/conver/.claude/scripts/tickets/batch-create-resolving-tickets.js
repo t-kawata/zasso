@@ -33,7 +33,10 @@ const { runMutationGate } = require("./ticket-mutation-gate.js");
 // -- Constants --
 
 /** Statuses that mean "a marker referencing this ticket is already resolved". */
-const ACTIVE_STATUSES = new Set(["todo", "in_progress", "planned", "remanded"]);
+// [::TICKET::] PX-415 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-415 --for-spec --no-implementation-order`.
+const ACTIVE_STATUSES = new Set(["todo", "made", "in_progress", "planned", "remanded"]);
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-415 --for-spec --no-implementation-order`.
 
 /** Exit codes. */
 const EXIT_OK = 0;

@@ -794,3 +794,61 @@ Measure in tests. Reject linear scans over full source at delivery time.
 | Scaffold AI plan vs template catalog | catalog optional; AI plan minimum safe path |
 | Canonical crate names vs project crates | role mapping; reject placeholder unless member |
 
+## 30. Generic `*-law` skill verifier
+
+One verifier for every `*-law` skill. Canonical script:
+`.claude/scripts/amend-rfc-up/verify-law-skill.mjs`.
+
+Purpose: prove a skill was developed by this guide before another skill or
+command uses it. The verifier is the single source for `*-law` creation,
+development, and adoption. Do not implement a second checker.
+
+CLI:
+
+```bash
+node .claude/scripts/amend-rfc-up/verify-law-skill.mjs \
+  --skill <skill-dir> --root <project-root> --out <law-skill-verification.json>
+```
+
+Output: `law-skill-verification/v1`.
+
+| Field | Content |
+|---|---|
+| `schema` | `law-skill-verification/v1` |
+| `skill` | resolved skill path |
+| `root` | project root |
+| `checks` | one entry per check |
+| `closure_sha256` | hash over check names + statuses |
+
+Check status: `machine_verified` only pass; `failed`, `unverifiable`,
+`not_run` never pass. A skill with any non-pass check is `LAW_SKILL_INVALID`.
+
+| Check | Pass |
+|---|---|
+| `layer` | SKILL.md, okf/index.md, okf/nodes, atoms.lock.json, coverage.json, coverage.md, source/manifest.toml, scripts, dist/skill.mjs, install.js, tests |
+| `manifest` | spec_version/source_set_sha256/redaction_sha256; [[file]] path+sha256; no absolute path; source_set_sha256 recomputes |
+| `lock` | atoms.lock.json ↔ okf/nodes; one Atom = one node; content_sha256 matches |
+| `coverage` | gaps=0, overlaps=0, attributed=lines |
+| `registry` | Rule Atom ids match the rule grammar; unique; non-empty |
+| `genericBoundary` | hash-only redaction; zero forbidden token; SKILL.md has ## Procedure and no ## Rule |
+| `delivery` | structural Atom never `must`; `must` only for allowed types |
+| `runtime` | check lint / graph / coverage --lock / audit --lock exit 0 |
+| `tests` | dependency-free core tests exit 0; optional-dependency tests reported, never counted as pass |
+| `installer` | install.js copies only; no build command |
+| `determinism` | repeated check lint output identical |
+
+Rules:
+
+- The verifier never reads `okf/` rule text as a substitute for the skill's
+  delivered `context`.
+- A `*-law` skill is used only after `machine_verified` for every check.
+- `tests` runs the dependency-free core suite; a test file that imports the
+  optional dist/esbuild chain is reported as `unverifiable`, not as pass.
+- The verifier is domain-neutral; no Rust-specific path or rule ID is assumed.
+- The verifier is the same script used by `/amend-rfc-up` and by future
+  `*-law` creation/development skills. Divergent copies are a defect.
+- The reference implementation `rust-interface-law` MUST pass; each check MUST
+  have a mutated fixture that fails.
+
+Tests: `tests/amend-rfc-up/verify-law-skill.test.mjs`.
+

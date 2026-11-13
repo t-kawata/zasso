@@ -11,6 +11,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 
 const REGISTRY_FILE_NAME = 'omission-detectors.json';
 const REGISTRY_VERSION = 2;
@@ -119,14 +120,32 @@ function firstExisting(cwd, candidates) {
   return null;
 }
 
-/** The state of one artifact path. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+/** JSON artifacts are validated by parsing; every other artifact by reading. */
+const JSON_ARTIFACT_EXTENSION = '.json';
+
+/**
+ * The state of one artifact path.
+ *
+ * The rfc family resolves to RFC.md and the spec family may resolve to SPEC.md.
+ * Those are prose artifacts: requiring them to parse as JSON would report every
+ * present RFC as unreadable and leave the gate unable to measure the surface.
+ * Only a .json artifact is parsed; anything else is present when it can be read.
+ */
+// [::TICKET::] PX-415, PX-416, PX-407, PX-414 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-407|PX-414) --for-spec --no-implementation-order`.
 function artifactState(filePath, { directory = false } = {}) {
   if (!filePath) return { state: 'absent', path: null, reason: 'ARTIFACT_MISSING' };
   if (!fs.existsSync(filePath)) return { state: 'absent', path: filePath, reason: 'ARTIFACT_MISSING' };
-  if (!directory) {
+  if (directory) return { state: 'present', path: filePath, reason: null };
+
+  let content;
+  try {
+    content = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return { state: 'unreadable', path: filePath, reason: 'ARTIFACT_UNREADABLE' };
+  }
+  if (path.extname(filePath).toLowerCase() === JSON_ARTIFACT_EXTENSION) {
     try {
-      JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      JSON.parse(content);
     } catch {
       return { state: 'unreadable', path: filePath, reason: 'ARTIFACT_UNREADABLE' };
     }
@@ -226,7 +245,15 @@ function specFiles(cwd, specPath) {
  * The enumeration is from the canon. A family whose artifact is absent appears
  * in `artifacts.families` as absent and is reported by evaluateCoverage.
  */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+/** A stable acceptance asset id: the criterion text, not its array position. */
+// [::TICKET::] PX-415, PX-416, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-407) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
+function acceptanceAssetId(ticketKey, criterion) {
+  const hash = createHash('sha256').update(String(criterion)).digest('hex').slice(0, 16);
+  return ticketKey + '/acceptance/' + hash;
+}
+
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
 function enumerateSurfaceReport({ cwd, ticketsPath = null, graphPath = null, stubs = [] } = {}) {
   const collector = surfaceCollector();
   const ticketsFile = ticketsPath || path.join(cwd, 'Tickets.json');
@@ -239,7 +266,7 @@ function enumerateSurfaceReport({ cwd, ticketsPath = null, graphPath = null, stu
       const ticketKey = ticketKeyOf({ ...ticket, phaseId: ticket.phaseId ?? phase.id });
       collector.add('ticket', ticketKey, { ticketKey });
       for (const contract of ticket.contracts ?? []) collector.add('contract', contract.id, { ticketKey });
-      (ticket.acceptanceCriteria ?? []).forEach((criterion, index) => collector.add('acceptance', ticketKey + '/acceptance[' + index + ']', { ticketKey }));
+      (ticket.acceptanceCriteria ?? []).forEach((criterion) => collector.add('acceptance', acceptanceAssetId(ticketKey, criterion), { ticketKey }));
       for (const unitId of ticket.nodeIds ?? []) collector.add('unit', unitId, { ticketKey });
       for (const file of ticket.default_files ?? []) {
         collector.add('file', file, { ticketKey });
@@ -432,6 +459,8 @@ module.exports = {
   REGISTRY_FILE_NAME,
   REGISTRY_VERSION,
   REQUIRED_SURFACE_FAMILIES,
+  acceptanceAssetId,
+  artifactState,
   artifactStatus,
   createSyntheticFixture,
   dirsTreePaths,

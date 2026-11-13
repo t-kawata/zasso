@@ -86,14 +86,20 @@ function nextPhase(phases, index) {
  * @param {{ minTicketsPerPhase?: number, excludedPhases?: number[] }} [options]
  * @returns {{ phases, keyMap, changed, mergedCount, beforeCounts, afterCounts }}
  */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-407) --for-spec --no-implementation-order`.
 function mergeSmallPhases(phases, options = {}) {
   const minimum = options.minTicketsPerPhase ?? MIN_TICKETS_PER_PHASE;
   const excluded = new Set(options.excludedPhases ?? DEFAULT_EXCLUDED_PHASES);
+  const mergeStatusPolicy = options.mergeStatusPolicy ?? 'todo';
   const original = Array.isArray(phases) ? phases : [];
   const beforeCounts = original.filter(Boolean).map((phase) => ticketCount(phase));
   const working = tagWorkingPhases(original, excluded);
-  const mergedCount = mergePhaseOrder(working, minimum);
+  const barriers = new Set(
+    mergeStatusPolicy === 'todo'
+      ? working.filter((phase) => (phase?.tickets ?? []).some((ticket) => ticket.status !== 'todo')).map((phase) => phase.id)
+      : [],
+  );
+  const mergedCount = mergePhaseOrder(working, minimum, barriers);
   const survivors = working.filter((phase) => phase !== null);
   const { keyMap, changed } = assignDenseKeys(original, excluded, survivors);
   const result = rebuildPhaseOrder(original, excluded, survivors);
@@ -125,11 +131,17 @@ function tagWorkingPhases(original, excluded) {
 }
 
 /** Merge the last phase backward, then scan right-to-left. Returns the count moved. */
-function mergePhaseOrder(working, minimum) {
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
+function mergePhaseOrder(working, minimum, barriers = new Set()) {
   let mergedCount = 0;
 
   // The last phase has no following target: a small last phase moves backward.
-  if (working.length > 1 && ticketCount(working[working.length - 1]) < minimum) {
+  if (
+    working.length > 1
+    && ticketCount(working[working.length - 1]) < minimum
+    && !barriers.has(working[working.length - 1]?.id)
+    && !barriers.has(working[working.length - 2]?.id)
+  ) {
     const last = working.pop();
     appendPhase(working[working.length - 1], last);
     mergedCount += 1;
@@ -139,8 +151,10 @@ function mergePhaseOrder(working, minimum) {
   // can move into it without revisiting the phases already passed.
   for (let index = working.length - 2; index >= 0; index -= 1) {
     if (working[index] === null) continue;
+    if (barriers.has(working[index]?.id)) continue;
     const targetIndex = nextPhase(working, index);
     if (targetIndex === -1) continue;
+    if (barriers.has(working[targetIndex]?.id)) continue;
     if (ticketCount(working[index]) >= minimum) continue;
     prependPhase(working[targetIndex], working[index]);
     working[index] = null;
@@ -155,6 +169,7 @@ function mergePhaseOrder(working, minimum) {
  *
  * Excluded-phase keys map to themselves so a caller's lookup stays total.
  */
+// [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
 function assignDenseKeys(original, excluded, survivors) {
   const keyMap = new Map();
   for (const phase of original) {
@@ -184,7 +199,7 @@ function assignDenseKeys(original, excluded, survivors) {
       const sourceKey = typeof ticket.__sourceKey === 'string'
         ? ticket.__sourceKey
         : ticketKeyOf({ phaseId: oldPhaseId, id: ticket.id });
-      if (ticket.id !== newId || ticket.phaseId !== phase.id) changed = true;
+      if (ticket.id !== newId || (ticket.phaseId !== undefined && ticket.phaseId !== phase.id)) changed = true;
       registerKey(keyMap, sourceKey, newKey);
       for (const entry of collectAbsorbedEntries(ticket)) {
         const absorbedKey = entry.key !== null
@@ -267,14 +282,18 @@ function planPhaseMerges(phases, counts, options = {}) {
  * A sole phase is exempt because it has no merge target. A small final phase is
  * not exempt while an earlier phase exists: it merges backward.
  */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-407) --for-spec --no-implementation-order`.
 function collectPhaseFloorFindings(document, options = {}) {
   const minimum = options.minTicketsPerPhase ?? MIN_TICKETS_PER_PHASE;
   const excluded = new Set(options.excludedPhases ?? DEFAULT_EXCLUDED_PHASES);
+  const mergeStatusPolicy = options.mergeStatusPolicy ?? 'todo';
   const phases = (document?.phases ?? []).filter((phase) => phase && !excluded.has(phase.id));
   if (phases.length <= 1) return [];
   return phases
-    .filter((phase) => ticketCount(phase) < minimum)
+    .filter((phase) => {
+      if (mergeStatusPolicy === 'todo' && (phase.tickets ?? []).some((ticket) => ticket.status !== 'todo')) return false;
+      return ticketCount(phase) < minimum;
+    })
     .map((phase) => ({
       code: 'PHASE_BELOW_MIN_TICKETS',
       phaseId: phase.id,

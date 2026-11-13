@@ -25,6 +25,7 @@ import {
   activeOperationIdsOf,
   checkPlacement,
   derivePackagePrecedence,
+  isPastRoundStatus,
   ownersFromViewsDetailed,
   packageRelevantFindings,
   PREREQUISITE_CODES,
@@ -253,7 +254,7 @@ function workspaceSidecar(input) {
  *   document: object, artifact: object, registry: Array<object>, treeManifest: object }} packageDerivationInput
  * @returns {Array<object>} the named findings this package contributes
  */
-// [::TICKET::] PX-327, PX-328 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-327|PX-328) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-327, PX-328, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-327|PX-328|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function packagePrerequisiteFindings(packageDerivationInput) {
   const { workspaceRoot, pkg, view, graph, document, artifact, registry, treeManifest } = packageDerivationInput;
   const residualUnitIds = packageDerivationInput.residualUnitIds ?? new Set();
@@ -272,6 +273,9 @@ function packagePrerequisiteFindings(packageDerivationInput) {
   });
   const findings = [...derivation.findings];
   for (const ticket of tickets) {
+    // A past-round record keeps the set it waited for; the current graph no longer
+    // describes that round, so comparing the two would reject history forever.
+    if (isPastRoundStatus(ticket?.status)) continue;
     const expected = derivation.prerequisites.get(ticketKeyOf(ticket)) ?? [];
     const actual = Array.isArray(ticket.prerequisites) ? ticket.prerequisites : [];
     if (canonicalPrerequisites(expected) !== canonicalPrerequisites(actual)) {
@@ -398,7 +402,7 @@ function verifyWorkspace({ workspaceRoot, write }) {
 }
 
 /** Run the package gate. */
-// [::TICKET::] PX-323, PX-325, PX-327, PX-328, PX-343 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-327|PX-328|PX-343) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-323, PX-325, PX-327, PX-328, PX-343, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-323|PX-325|PX-327|PX-328|PX-343|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function verifyPackage({ packageDir, write }) {
   const ticketsPath = join(packageDir, 'Tickets.json');
   const document = readJson(ticketsPath);
@@ -508,6 +512,8 @@ function verifyPackage({ packageDir, write }) {
     }
   }
   for (const ticket of tickets) {
+    // Past-round records are history; only the active plan is compared with the graph.
+    if (isPastRoundStatus(ticket?.status)) continue;
     const derived = prerequisites.get(ticketKeyOf(ticket)) ?? [];
     const actual = Array.isArray(ticket.prerequisites) ? ticket.prerequisites : [];
     if (canonicalPrerequisites(derived) !== canonicalPrerequisites(actual)) {

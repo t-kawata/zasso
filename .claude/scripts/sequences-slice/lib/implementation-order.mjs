@@ -77,6 +77,32 @@ export function packageRelevantFindings(findings = [], {
 /** A ticket status that means the implementation is complete. */
 export const COMPLETE_STATUSES = Object.freeze(new Set(['done', 'reviewed']));
 
+/**
+ * The round-aware marker phasify-omissions writes for a ticket reviewed in round n.
+ *
+ * A package that has converged through omission rounds carries `R1`, `R2`, ... instead
+ * of `reviewed`. The marker keeps the review round observable, so completion must be
+ * judged by the marker's meaning, not by its spelling.
+ */
+const ROUND_MARKED_STATUS = /^R[1-9][0-9]*$/;
+
+/** True when the status records a completed implementation. */
+export function isCompleteStatus(status) {
+  return COMPLETE_STATUSES.has(status) || isPastRoundStatus(status);
+}
+
+/**
+ * True when the status is a past-round completion record.
+ *
+ * A round-marked ticket finished in an earlier round and is kept as history. It is not
+ * part of the active order, and the graph node ownership it recorded has since moved
+ * to the current round's tickets, so re-deriving its prerequisite set against the
+ * present graph would compare a record with a plan that no longer describes it.
+ */
+export function isPastRoundStatus(status) {
+  return typeof status === 'string' && ROUND_MARKED_STATUS.test(status);
+}
+
 const PX_PHASE_ID = -1;
 
 /** One finding with a stable code and a human-readable message. */
@@ -876,6 +902,9 @@ export function checkPlacement({ tickets = [], packageId = null, packageOrder = 
   const indexOfTicket = new Map(tickets.map((ticket, index) => [ticketKeyOf(ticket), index]));
   const currentLevel = packageOrder[packageId];
   for (const ticket of tickets) {
+    // A past-round record is not scheduled again; its entries describe the round that
+    // finished, not a position in this order.
+    if (isPastRoundStatus(ticket?.status)) continue;
     for (const entry of Array.isArray(ticket?.prerequisites) ? ticket.prerequisites : []) {
       if (entry?.kind !== 'implementation') continue;
       if (typeof entry.ticket === 'string') {
@@ -914,6 +943,7 @@ export function checkPlacement({ tickets = [], packageId = null, packageOrder = 
  * the distribution is evaluated through its own tickets, so its absence of work units is
  * not mistaken for an absence of implementation.
  */
+// [::TICKET::] PX-414 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-414 --for-spec --no-implementation-order`.
 export function evaluatePrerequisites({ prerequisites, samePackageStatuses = new Map(), packageStatuses = new Map() } = {}) {
   if (!Array.isArray(prerequisites) || prerequisites.length === 0) {
     return { ok: true, skipped: 'no-prerequisites', findings: [] };
@@ -925,7 +955,7 @@ export function evaluatePrerequisites({ prerequisites, samePackageStatuses = new
       const status = samePackageStatuses.get(entry.ticket);
       if (status === undefined) {
         findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_TICKET_MISSING, entry.ticket, `prerequisite ticket ${entry.ticket} (${entry.source}) is not in this Tickets.json`));
-      } else if (!COMPLETE_STATUSES.has(status)) {
+      } else if (!isCompleteStatus(status)) {
         findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_NOT_DONE, entry.ticket, `prerequisite ticket ${entry.ticket} is ${status}; it must be done or reviewed`));
       }
       continue;
@@ -945,7 +975,7 @@ export function evaluatePrerequisites({ prerequisites, samePackageStatuses = new
       for (const candidate of candidates) {
         if (candidate === null || candidate === undefined) continue;
         checked = true;
-        if (!COMPLETE_STATUSES.has(candidate.status)) {
+        if (!isCompleteStatus(candidate.status)) {
           findings.push(finding(PREREQUISITE_CODES.PREREQUISITE_NOT_DONE, candidate.ticket, `prerequisite ticket ${candidate.ticket} in ${entry.package} is ${candidate.status}; it must be done or reviewed`));
         }
       }

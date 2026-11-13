@@ -23,6 +23,13 @@ const { extractHeadingsOutsideFences } = require('./lib/markdown-headings.js');
 /** Separators used to tokenise a level-2 heading for headingRef coverage. */
 const HEADING_TOKEN_SEPARATORS = /[\s、。，．・：；（）\[\]{}「」『』【】　]+/;
 
+/**
+ * The append-only container `design-amendment.js` owns. Its level-2 heading is
+ * provenance, not design, so it is never a coverage obligation: the owner
+ * rederive on the following step is what brings the amended text into the graph.
+ */
+const AMENDMENT_SECTION_HEADING = 'Design Amendments';
+
 // ============================================================
 // Constants
 // ============================================================
@@ -221,6 +228,12 @@ function isHeadingCovered(heading, nodes) {
   return false;
 }
 
+/** Whether one level-2 heading is the transaction's amendment container. */
+// [::TICKET::] PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-419 --for-spec --no-implementation-order`.
+function isAmendmentContainer(heading) {
+  return heading.level === 2 && heading.text.trim() === AMENDMENT_SECTION_HEADING;
+}
+
 /**
  * Detect uncovered headings
  *
@@ -239,6 +252,7 @@ function checkCoverage(sourceLines, nodes) {
   const headings = extractHeadings(sourceLines);
 
   const uncoveredHeadings = headings
+    .filter(h => !isAmendmentContainer(h))
     .filter(h => !isHeadingCovered(h, nodes))
     .map(h => h.text);
 

@@ -33,6 +33,13 @@ import { detectOrphanContracts } from './detect-orphan-contracts.js';
 /** Prose node kinds that are not required to map to src files or tickets. */
 const PROSE_KINDS = ['rationale', 'glossary', 'requirement'];
 
+/**
+ * The append-only container `design-amendment.js` owns. Its heading records
+ * provenance rather than design, so it is not a coverage obligation; the owner
+ * rederive is what folds the amended text into the graph.
+ */
+const AMENDMENT_SECTION_HEADING = 'Design Amendments';
+
 /** Extract headings (level >= 2) from RFC source lines, skipping code blocks. */
 // [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
 function extractHeadings(rfcLines) {
@@ -119,6 +126,7 @@ function collectTicketNodeIds(tickets) {
 // [::TICKET::] PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-169 --for-spec --no-implementation-order`.
 function checkRfcHeadingCoverage(rfcLines, graphNodes) {
   return extractHeadings(rfcLines)
+    .filter((heading) => !(heading.level === 2 && heading.text.trim() === AMENDMENT_SECTION_HEADING))
     .filter((heading) => !isHeadingCovered(heading, graphNodes))
     .map((heading) => ({ severity: 'high', message: `RFC heading "## ${heading.text}" is not covered by any GRAPH node headingRef` }));
 }

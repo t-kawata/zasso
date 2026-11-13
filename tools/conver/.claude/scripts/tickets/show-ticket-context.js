@@ -1035,12 +1035,23 @@ function qualifyHistoricalValue(value, generation) {
   return value;
 }
 
-// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-402, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-402|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
 function renderCondensedFrom(ticket) {
-  const absorbed = ticket?.condensedFrom?.tickets;
-  if (!Array.isArray(absorbed) || absorbed.length === 0) return null;
+  const condensed = ticket?.condensedFrom;
+  if (!condensed || typeof condensed !== 'object') return null;
+  const absorbed = condensed.tickets;
   const lines = ['## Condensed From', ''];
-  const condensedGeneration = ticket?.condensedFrom?.generation;
+  if (!Array.isArray(absorbed) || absorbed.length === 0) {
+    // The field is the condense stage's provenance stamp and is present on every
+    // ticket it touched, even when nothing was absorbed. Emitting the section with
+    // the empty fact keeps "no absorption" distinguishable from "field not
+    // rendered": verify-spec-completeness maps the field to this heading and
+    // reports a dropped field when the heading is absent.
+    const generation = typeof condensed.generation === 'number' ? condensed.generation : 0;
+    lines.push(`- No ticket was absorbed; this ticket stands alone at generation ${generation}.`);
+    return lines.join('\n');
+  }
+  const condensedGeneration = condensed.generation;
   for (const entry of absorbed) {
     const generation = entry.generation ?? condensedGeneration;
     const historicalKey = typeof generation === 'number' ? `${entry.key}@g${generation}` : entry.key;
