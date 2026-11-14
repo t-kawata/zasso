@@ -6,16 +6,20 @@
 // enter a phase out of order. Every command runs with the package directory as
 // cwd. A repeated command escalates three times and then stops conver instead
 // of silently moving on.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import { withSession, runCommand } from "./session.js";
 import type { RunCommandOptions, AcpSession, SessionConfig } from "./session.js";
 import {
   sendSlackBoundaryComplete,
+  sendSlackFindUnfinished,
   sendSlackPhaseComplete,
   sendSlackStop,
 } from "./notifier.js";
 import type {
   BoundaryCompleteContext,
+  FindUnfinishedContext,
   PhaseCompleteContext,
   StopContext,
 } from "./notifier.js";
@@ -38,12 +42,13 @@ import {
 import type { BoundaryState, BoundaryStateIo } from "./boundary-state.js";
 import {
   clearForNextRound,
+  getGraphPathFromTickets,
   packageProgress,
   pendingTicketsOf,
   phaseProgress,
 } from "./tickets.js";
 import type { Ticket, TicketsJson } from "./tickets.js";
-import { isTerminalStatus } from "./ticket-status.js";
+import { isTerminalStatus, REMANDED_STATUS } from "./ticket-status.js";
 import {
   deriveNextAction,
   FindRoundLimitError,
@@ -99,6 +104,19 @@ export interface WorkspaceLoopOptions extends LoopOptions {
   workspace: WorkspaceModel;
 }
 
+/** One package's unfinished-find evidence, as the detector reports it. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export interface UnfinishedFindReport {
+  unfinished: boolean;
+  evidence: Array<{ kind: string }>;
+}
+
+/** Mechanical evidence seam; the default reads the installed detector script. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export type DetectUnfinishedFind = (
+  pkg: WorkspacePackage,
+) => Promise<UnfinishedFindReport>;
+
 /** Session and notification seams, injected by tests. */
 // [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 export interface PackageLoopDeps {
@@ -108,6 +126,10 @@ export interface PackageLoopDeps {
   sendSlackStop: typeof sendSlackStop;
   /** Optional so existing test seams keep their shape; the real notifier is the default. */
   sendSlackBoundaryComplete?: typeof sendSlackBoundaryComplete;
+  /** Optional second notice, sent only when a find is resumed. */
+  sendSlackFindUnfinished?: typeof sendSlackFindUnfinished;
+  /** Optional detector seam; the default shells out to the installed script. */
+  detectUnfinishedFind?: DetectUnfinishedFind;
   /** Optional file-system seam for deterministic boundary-state failures. */
   boundaryStateIo?: BoundaryStateIo;
   now: () => number;
@@ -127,6 +149,8 @@ const DEFAULT_PACKAGE_LOOP_DEPS: PackageLoopDeps = {
   sendSlackPhaseComplete,
   sendSlackStop,
   sendSlackBoundaryComplete,
+  sendSlackFindUnfinished,
+  detectUnfinishedFind: detectUnfinishedFindForPackage,
   boundaryStateIo: nodeBoundaryStateIo,
   now: Date.now,
 };
@@ -172,6 +196,86 @@ const RECOVERABLE_ERROR_MARKERS = [
 
 /** Maximum find executions in one package. */
 export const MAX_FIND_ROUNDS = 3;
+
+/**
+ * Fixed operator directive attached to a resumed find.
+ *
+ * A resumed run must not re-open the decision the operator already made: the
+ * evidence says the previous run stopped early, so the only correct action is
+ * to finish it. The wording is fixed so the invocation is deterministic.
+ */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export const FIND_RESUME_DIRECTIVE =
+  "Previous /find-omissions detected incomplete. Re-run it. Do not ask the human; decide everything and complete.";
+
+/** Build the find invocation; the graph path is always present. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export function buildFindCommand(graphPath: string, resume: boolean): string {
+  const base = `/find-omissions ${graphPath}`;
+  return resume ? `${base}\n\n${FIND_RESUME_DIRECTIVE}` : base;
+}
+
+/** Candidate location of the detector, relative to a package's enclosing tree. */
+const DETECTOR_RELATIVE_PATH = [
+  ".claude",
+  "scripts",
+  "tickets",
+  "detect-unfinished-find.js",
+];
+
+/** Walk up from the package to the tree that owns .claude/scripts. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+function resolveDetectorScript(startDirectory: string): string | null {
+  let directory = path.resolve(startDirectory);
+  for (;;) {
+    const candidate = path.join(directory, ...DETECTOR_RELATIVE_PATH);
+    if (existsSync(candidate)) return candidate;
+    const parent = path.dirname(directory);
+    if (parent === directory) return null;
+    directory = parent;
+  }
+}
+
+/**
+ * Default detector: run the same installed script /find-omissions runs itself.
+ * A missing script or a malformed run is not evidence, so it reports clean and
+ * the loop keeps its existing stop path.
+ */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+async function detectUnfinishedFindForPackage(
+  pkg: WorkspacePackage,
+): Promise<UnfinishedFindReport> {
+  const script = resolveDetectorScript(pkg.directory);
+  if (script === null) {
+    process.stderr.write(
+      `[find-detector] detector not found above ${pkg.directory}; no recovery evidence\n`,
+    );
+    return { unfinished: false, evidence: [] };
+  }
+  const result = spawnSync(
+    process.execPath,
+    [script, "--cwd=.", "--format=json"],
+    { cwd: pkg.directory, encoding: "utf8" },
+  );
+  if (result.status !== 0 && result.status !== 10) {
+    process.stderr.write(
+      `[find-detector] detector exited ${String(result.status)}: ${result.stderr ?? ""}`,
+    );
+    return { unfinished: false, evidence: [] };
+  }
+  try {
+    const parsed = JSON.parse(result.stdout) as {
+      unfinished?: boolean;
+      evidence?: Array<{ kind: string }>;
+    };
+    return {
+      unfinished: parsed.unfinished === true,
+      evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
+    };
+  } catch {
+    return { unfinished: false, evidence: [] };
+  }
+}
 
 export function isRecoverableError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
@@ -439,16 +543,18 @@ function runWithDeps<T>(
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 async function runBoundary(
   pkg: WorkspacePackage,
-  command: "/consolidate-stubs" | "/find-omissions",
+  command: string,
   options: WorkspaceLoopOptions,
   deps: PackageLoopDeps,
 ): Promise<void> {
   const runOptions = toRunCommandOptions(options);
-  printCommandHeader(command);
+  // The resume directive is a prompt suffix, not a command name; keep the
+  // header to the first line so the console stays readable.
+  printCommandHeader(command.split("\n")[0] ?? command);
   await runWithDeps(pkg, toSessionConfig(options), deps, async (session) => {
     await deps.runCommand(session, command, runOptions);
   });
-  process.stdout.write(`\n>>> ✅ ${command.replace("/", "")} 完了\n`);
+  process.stdout.write(`\n>>> ✅ ${command.split("\n")[0]?.replace("/", "") ?? command} 完了\n`);
 }
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
@@ -484,7 +590,7 @@ interface BoundaryRunResult {
 interface BoundaryRunInput {
   pkg: WorkspacePackage;
   kind: "consolidate" | "find";
-  command: "/consolidate-stubs" | "/find-omissions";
+  command: string;
   options: WorkspaceLoopOptions;
   deps: PackageLoopDeps;
   state: BoundaryState;
@@ -537,6 +643,43 @@ async function notifyBoundaryComplete(
       Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
   await notify(options.slackWebhookUrl, context);
+}
+
+/** Send the second, separate notice that a find is being resumed. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+async function notifyFindUnfinished(
+  options: WorkspaceLoopOptions,
+  pkg: WorkspacePackage,
+  ticketKey: string | null,
+  deps: PackageLoopDeps,
+): Promise<void> {
+  const notify = deps.sendSlackFindUnfinished ?? sendSlackFindUnfinished;
+  const context: FindUnfinishedContext = {
+    workspace: options.workspace.name,
+    packageName: pkg.name,
+    ticketKey,
+  };
+  await notify(options.slackWebhookUrl, context);
+}
+
+/**
+ * Run find with mechanical evidence and, when evidence exists, the fixed
+ * resume directive. The graph path is always present so the command's own
+ * argument gate cannot block the run.
+ */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+async function runFindBoundary(
+  pkg: WorkspacePackage,
+  options: WorkspaceLoopOptions,
+  deps: PackageLoopDeps,
+  state: BoundaryState,
+  resume: boolean,
+  ticketKey: string | null,
+): Promise<BoundaryRunResult> {
+  await waitForWindow(options.watcherConfig);
+  if (resume) await notifyFindUnfinished(options, pkg, ticketKey, deps);
+  const command = buildFindCommand(getGraphPathFromTickets(pkg.ticketsPath), resume);
+  return runPackageBoundary({ pkg, kind: "find", command, options, deps, state });
 }
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -691,18 +834,67 @@ export async function runPackageLoop(
         action = deriveNextAction(ticketsData, state.progress);
       } catch (error) {
         if (error instanceof InvalidTicketStatusError) {
-          return await stopAndThrow(
+          const stopContext = stopContextFor({
             options,
             pkg,
-            deps,
-            stopContextFor({
+            action: null,
+            reason: `invalid status ${error.status} on ${error.ticketKey}`,
+            ticketKey: error.ticketKey,
+          });
+
+          // `remanded` is owned by the find stage, not by the per-ticket
+          // command table. Positive mechanical evidence turns it into a
+          // resume; anything else keeps the existing stop.
+          if (error.status !== REMANDED_STATUS || options.noFind === true) {
+            return await stopAndThrow(options, pkg, deps, stopContext);
+          }
+          if (state.progress.findRounds >= MAX_FIND_ROUNDS) {
+            return await stopAndThrow(
               options,
               pkg,
-              action: null,
-              reason: `invalid status ${error.status} on ${error.ticketKey}`,
-              ticketKey: error.ticketKey,
-            }),
+              deps,
+              stopContextFor({
+                options,
+                pkg,
+                action: null,
+                reason: new FindRoundLimitError(
+                  state.progress.findRounds,
+                  MAX_FIND_ROUNDS,
+                ).message,
+              }),
+            );
+          }
+
+          await deps.sendSlackStop(options.slackWebhookUrl, stopContext);
+          const detector = deps.detectUnfinishedFind ?? detectUnfinishedFindForPackage;
+          const report = await detector(pkg);
+          if (!report.unfinished) throw new LoopStoppedError(stopContext);
+
+          const found = await runFindBoundary(
+            pkg,
+            options,
+            deps,
+            boundaryState,
+            true,
+            error.ticketKey,
           );
+          boundaryState = found.state;
+          state.progress.findRounds++;
+          state.progress.findDone = true;
+          const afterFind = readTicketsOrThrow(pkg.ticketsPath);
+          await notifyBoundaryComplete(
+            options,
+            pkg,
+            boundaryState,
+            found.addedTicketKeys,
+            deps,
+          );
+          if (!isTicketSetTerminal(afterFind)) {
+            state.progress.consolidateDone = false;
+            state.progress.findDone = false;
+            state.notifiedPhases.clear();
+          }
+          continue;
         }
         if (error instanceof FindRoundLimitError) {
           return await stopAndThrow(
@@ -787,15 +979,16 @@ export async function runPackageLoop(
         continue;
       }
 
-      await waitForWindow(options.watcherConfig);
-      const found = await runPackageBoundary({
+      const detector = deps.detectUnfinishedFind ?? detectUnfinishedFindForPackage;
+      const report = await detector(pkg);
+      const found = await runFindBoundary(
         pkg,
-        kind: "find",
-        command: "/find-omissions",
         options,
         deps,
-        state: boundaryState,
-      });
+        boundaryState,
+        report.unfinished,
+        null,
+      );
       boundaryState = found.state;
       state.progress.findRounds++;
       state.progress.findDone = true;

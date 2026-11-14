@@ -344,3 +344,41 @@ export async function sendSlackStop(
     text,
   });
 }
+
+/** A package whose previous find stopped before completion. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export interface FindUnfinishedContext {
+  workspace: string;
+  packageName: string;
+  /** The remanded ticket that triggered the recovery, when one is known. */
+  ticketKey: string | null;
+}
+
+/**
+ * Build the separate notice that a package's find is being resumed.
+ * It is deliberately a second message: the stop-format notice records what the
+ * loop saw, and this one records what it will do about it.
+ */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export function buildFindUnfinishedMessage(
+  context: FindUnfinishedContext,
+): string {
+  const ticketPart = context.ticketKey === null ? "" : ` (${context.ticketKey})`;
+  return (
+    `[${context.workspace}] ${context.packageName} — unfinished /find-omissions ` +
+    `detected; re-running before continuing${ticketPart}`
+  );
+}
+
+/** Notify Slack that an unfinished find is about to be resumed. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export async function sendSlackFindUnfinished(
+  webhookUrl: string,
+  context: FindUnfinishedContext,
+): Promise<void> {
+  await sendSlackWithRetry(webhookUrl, {
+    username: "conver",
+    icon_emoji: ":repeat:",
+    text: buildFindUnfinishedMessage(context),
+  });
+}

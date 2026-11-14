@@ -34,20 +34,35 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
-## Pre-flight — argument + consolidation prerequisite validation (mandatory)
+## Pre-flight — argument + unfinished-run + consolidation validation (mandatory)
 
-Gate:
+Argument:
+- `$ARGUMENTS` holds the GRAPH path on its first non-empty line.
+- A blank line may follow, then a fixed operator directive. The directive is an instruction, not part of the path; `validate-graph-arg.js` reads only the first non-empty line.
+- An invocation carrying a directive means a previous run is being resumed. Never ask the human about it.
+
+Gate — one invocation; the script owns the order, the reset and the verdict:
 ```bash
-node "$CLAUDE_DIR/scripts/tickets/validate-graph-arg.js" "$ARGUMENTS" || exit 2
-node "$CLAUDE_DIR/scripts/tickets/require-consolidated-manifest.js" || exit 2
+bash "$CLAUDE_DIR/scripts/tickets/find-omissions-preflight.sh" "$ARGUMENTS" || exit 2
 ```
-`require-consolidated-manifest.js`:
-- exit0 — `./manifests/CONSOLIDATED-MANIFEST-*.json` exists, **or** stub scan finds 0 stubs (0-stub tree legitimately has no manifest). 0-stub case: prints PASS on stdout instructing **SKIP Step 1**, proceed to **Step 2**.
-- exit2 — stubs exist without a manifest (cause/action message printed) → stop; consolidation prerequisite unmet.
+Read the printed `MODE:` line and act on it:
+- `MODE: CLEAN` — continue from Step 1.
+- `MODE: RESUME` — continue from Step 2. The wrapper has already removed the transient `_tmp-*` files it named; omissions that existed only in a removed scratch file are re-recorded by re-inspection. Do not ask the human; decide everything and complete.
+- exit2 — stop. The wrapper has printed which gate failed and why. Fix it and re-run.
+
+What the wrapper checks, in this order (all read-only until the reset):
+1. `validate-graph-arg.js` — the GRAPH path on the first non-empty line of `$ARGUMENTS` is readable.
+2. `require-consolidated-manifest.js` — a `./manifests/CONSOLIDATED-MANIFEST-*.json` exists, **or** the stub scan finds 0 stubs. The 0-stub pass prints **SKIP Step 1** and the wrapper carries that into its summary.
+3. `detect-unfinished-find.js` — mechanical proof that a previous run stopped before Step 9:
+   - CLEAN: no remanded ticket outside PX, no boundary `find.status` of `IN_PROGRESS`, no `_tmp-check-target-tickets-cmds-*.json`, no `_tmp-omissions-*.json`.
+   - UNFINISHED: the wrapper runs the detector once more with `--reset` to remove only the transient `_tmp-*` files it named; nothing else is edited.
+   - A malformed or missing input is reported as a stop, never as incompleteness.
+
+Safety property: the reset runs only after every read-only gate has passed, so a run blocked by an invalid graph or an unconsolidated stub tree keeps the omissions its interrupted run recorded.
 
 ## Overview
 
-flow: Step 1 re-ticketize (auto; never ask) → inspection loop: `get-next-check-target-ticket.js` → inspect → on gap: `add-omission-ticket.js` appends to `_tmp-omissions-*.json` → repeat.
+flow: Step 1 re-ticketize (auto; never ask) → inspection loop: `get-next-check-target-ticket.js` → inspect → on gap: `add-omission-ticket.js` appends to `_tmp-omissions-*.json` → repeat. A RESUME run uses the same flow; the detector has already cleared the stale queue so Step 2 rebuilds it from the current Tickets.json.
 
 ## How the Script Works
 

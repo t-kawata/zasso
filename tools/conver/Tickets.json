@@ -75988,6 +75988,300 @@
           "completedAt": "2026-09-17"
         }
       ]
+    },
+    {
+      "id": 27,
+      "phaseId": 27,
+      "status": "draft",
+      "name": "P27: Unfinished-find recovery — the command proves its own incompleteness and the loop resumes it without human judgment",
+      "externalDependencies": "",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 27,
+          "status": "reviewed",
+          "title": "find-omissions proves a previous run did not finish and resumes it mechanically",
+          "background": "### Goal\nMake /find-omissions read the package's own on-disk artifacts and decide, deterministically, that a previous run of itself was left unfinished; on that finding it enters resume mode and completes without asking a human.\n\n### Purpose\nA transient status (`remanded`), a boundary record, and leftover transient queues are the only evidence an interrupted run leaves. Without a mechanical reading of them, an operator cannot distinguish an unfinished run from a complete one, and a stale `remanded` silently blocks every later loop.\n\n### Motivation\ncrystal-adapter-observer P0-1 was `remanded` while the other six tickets were `reviewed`, the package had no omission artifacts and round=1, and the conver history held a find that ended `BLOCKED_PREREQUISITE`. That combination is an unfinished run, but only a script that reads the artifacts can say so.\n\n### Constraints\n- Generic: read only conventional package artifacts (Tickets.json status vocabulary, .conver-boundary.json, _tmp-omissions-*.json, _tmp-check-target-tickets-cmds-*.json); never branch on a workspace or package name.\n- Deterministic: the same tree produces the same verdict and the same evidence list.\n- Read-only by default. `--reset` removes only transient `_tmp-*` files; it never edits Tickets.json or the boundary record.\n- Default output is human-readable Markdown; JSON is emitted only when a machine consumer asks for it.\n- Detected incompleteness is never a reason to ask the human: the command resumes and completes.",
+          "scope": [
+            "**[Add]** `.claude/scripts/tickets/detect-unfinished-find.js` — deterministic verdict plus evidence over package-local artifacts; `--format=markdown|json`; `--reset` removes only transient `_tmp-*` files after an unfinished verdict.",
+            "**[Modify]** `.claude/commands/find-omissions.md` — pre-flight runs the detector; exit 10 means resume mode: reset the stale queue, then run Steps 1-9 to completion without questions.",
+            "**[Modify]** `.claude/scripts/tickets/validate-graph-arg.js` — accept the first non-empty line of a multi-line `$ARGUMENTS` as the GRAPH path, so a resume directive may follow the path.",
+            "**[Add tests]** `tests/detect-unfinished-find.test.cjs`, `tests/validate-graph-arg.test.cjs` (the tickets-script gate), and `tests/find-omissions-doc.test.cjs` doc-vs-tool assertions."
+          ],
+          "invariants": "- [Normal condition] A clean package (all tickets terminal or absent-of-run, no boundary find record in progress, no `_tmp-*` files) returns exit 0 and `unfinished=false`.\n- [Error invariant] Exit 10 is returned exactly when at least one evidence class is present: a `remanded` ticket outside the PX phase, a boundary `find.status` of `IN_PROGRESS`, a `_tmp-check-target-tickets-cmds-*.json`, or a `_tmp-omissions-*.json`.\n- [Internal state invariant] `--reset` removes only `_tmp-*` files; Tickets.json and .conver-boundary.json are byte-identical after any invocation.\n- [Boundary invariant] The PX phase (phaseId -1) is never inspection evidence, matching the inspection queue's existing exclusion.",
+          "acceptanceCriteria": [
+            "**[Happy path]** A package whose tickets are all `reviewed` or `R<N>`, whose boundary has no find record, and which has no `_tmp-*` files yields exit 0 and `unfinished=false`; `--format=json` carries the same verdict and an empty evidence list.",
+            "**[Incomplete: remanded]** A package with one `remanded` ticket yields exit 10 and evidence naming its key, while a `remanded` ticket in the PX phase is ignored.",
+            "**[Incomplete: boundary]** A boundary record whose `find.status` is `IN_PROGRESS` yields exit 10 even when every ticket is terminal.",
+            "**[Incomplete: leftovers]** Either a `_tmp-check-target-tickets-cmds-*.json` with an undone entry or any `_tmp-omissions-*.json` yields exit 10 and names the file.",
+            "**[Resume]** On exit 10 the command prints RESUME mode instructions; `--reset` then removes the transient files it named and reports each removal, and a second detector run returns exit 0 only if no other evidence class remains.",
+            "**[Multi-line argument]** `validateGraphArgument` receives `<graph>\\n\\n<directive>` as one argument and validates the graph path, not the directive; a directive-only argument still fails with the existing message.",
+            "**[Generic]** Fixtures use neutral names (`pkg-a`, `pkg-b`, phases 0 and 1); no fixture or implementation branch contains crystal, gaia, or doors."
+          ],
+          "testUnit": [
+            "UT-1: clean fixture → `detect()` returns `{ unfinished: false, evidence: [] }` and the CLI exits 0.",
+            "UT-2: a fixture with P1-2 `remanded` and the rest `reviewed` → `unfinished: true`, evidence class `remanded`, key `P1-2`.",
+            "UT-3: the same fixture with the `remanded` ticket at phase -1 → `unfinished: false`, proving the PX exclusion.",
+            "UT-4: boundary `find.status = IN_PROGRESS` → unfinished with class `boundary`.",
+            "UT-5: a `_tmp-check-target-tickets-cmds-<ts>.json` containing one `done:false` entry → unfinished with class `queue`; the same file with every entry `done:true` still counts as unfinished because the run never reached cleanup.",
+            "UT-6: a `_tmp-omissions-<ts>.json` → unfinished with class `omissions`.",
+            "UT-7: `--reset` after an unfinished verdict removes both transient file classes and leaves Tickets.json and the boundary record byte-identical; a clean fixture is untouched.",
+            "UT-8: `--format=json` output parses with `JSON.parse` and carries the same verdict/evidence as the Markdown path.",
+            "UT-E1: `validateGraphArgument([\"<path>\\n\\nPrevious /find-omissions detected incomplete\"])` returns 0 and the resolved path is the graph file; `validateGraphArgument([\"directive only\"])` returns 2.",
+            "UT-E2: a malformed Tickets.json or boundary file exits 20 with a named error, never 10, so a parse failure cannot masquerade as unfinished."
+          ],
+          "testIntegration": [
+            "**IT: [Integration point]:**\n  - IT-1: `node .claude/scripts/tickets/detect-unfinished-find.js --cwd=<fixture> --format=json` from the CLI, asserting the process exit code and stdout.",
+            "  - IT-2: `node .claude/scripts/tickets/validate-graph-arg.js \"<graph>\\n\\n<directive>\"`, the exact shell form the command document uses.",
+            "  - IT-3: the find-omissions document contains the detector pre-flight and the RESUME instructions, and the document's referenced flags exist in the script.",
+            "**IT: [Verification]:**\n  - IT-1 is the contract the conver loop will consume; exit code 10 and JSON must agree.",
+            "  - IT-2 proves the fixed directive can follow the graph path without breaking the existing gate.",
+            "  - IT-3 proves the AI-facing procedure consumes the detector rather than duplicating its judgment.",
+            "**IT: [Contract assertion]:** each IT asserts the observable output named in its contract, not an intermediate call."
+          ],
+          "testExceptions": [
+            "The command document's AI behaviour (that it obeys RESUME mode) is not unit-testable because it is an instruction, not code; this is not a design gap because the document test IT-3 asserts the instruction is present and the detector's exit code is the mechanical signal, so a reader cannot proceed silently past an unfinished verdict.",
+            "A process killed before writing any artifact leaves no evidence; this is not detectable by this ticket because the subject is absent state, and the boundary record's IN_PROGRESS write is the designed first artifact, which is covered by C002."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "P27-1 to .claude/scripts/tickets/detect-unfinished-find.js",
+              "precondition": "A package directory contains Tickets.json and may contain .conver-boundary.json and _tmp-* files.",
+              "postcondition": "Exit 0 with unfinished=false exactly when no remanded ticket outside PX, no IN_PROGRESS find boundary, and no _tmp file exists; exit 10 lists every evidence class found.",
+              "invariant": "The verdict is derived only from package-local conventional artifacts and is independent of workspace or package names."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "P27-1 to .claude/commands/find-omissions.md",
+              "precondition": "The pre-flight detector exits 10.",
+              "postcondition": "The command enters RESUME mode: it resets transient queues, then runs the inspection and merge Steps to completion without asking a human.",
+              "invariant": "A detected unfinished run never becomes a stopping condition."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "P27-1 to .claude/scripts/tickets/validate-graph-arg.js",
+              "precondition": "argv[0] is either a graph path or a multi-line string whose first non-empty line is a graph path.",
+              "postcondition": "The first non-empty line is resolved and validated; a directive following it does not change the verdict.",
+              "invariant": "An argument with no readable graph line still exits 2 with the existing message."
+            }
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/detect-unfinished-find.js",
+            ".claude/commands/find-omissions.md",
+            ".claude/scripts/tickets/validate-graph-arg.js",
+            "tests/detect-unfinished-find.test.cjs",
+            "tests/validate-graph-arg.test.cjs",
+            "tests/find-omissions-doc.test.cjs"
+          ],
+          "notes": "- [Implementation steps] 1) Write the detector tests red. 2) Implement the pure evidence collector and the CLI. 3) Extend the graph-argument tests red, then fix the parser. 4) Extend the command document and its doc test. 5) Run the affected tests with node --test and the package typecheck if a TypeScript surface is touched.\n- [Risks] A `_tmp-*` file can be present in a healthy tree if a future step stops cleaning it; the detector treats presence as unfinished by design, so the cleanup contract must stay mandatory.\n- [Open items] None: the verdict classes are closed and generic.",
+          "changes": [
+            {
+              "before": "no mechanical check that a previous find stopped early",
+              "after": "detect-unfinished-find.js reads remanded tickets, boundary IN_PROGRESS and _tmp-* leftovers; exit 10 starts RESUME mode",
+              "description": "The command can prove its own incompleteness from package-local artifacts and resume without asking a human."
+            },
+            {
+              "before": "$ARGUMENTS was consumed whole as the GRAPH path",
+              "after": "the first non-empty line is the GRAPH path; a directive may follow after a blank line",
+              "description": "A resumed invocation can carry the fixed directive without breaking the graph gate."
+            },
+            {
+              "before": "find-omissions pre-flight validated the graph and the consolidated manifest only",
+              "after": "pre-flight also runs the detector and documents exit 10 (resume) and exit 20 (malformed)",
+              "description": "The AI-facing procedure consumes the detector instead of judging incompleteness itself."
+            }
+          ],
+          "done_at": "2026-11-14T01:14:08.710Z",
+          "reviewed_at": "2026-11-14T01:18:25.891Z"
+        },
+        {
+          "id": 2,
+          "phaseId": 27,
+          "status": "reviewed",
+          "title": "conver resumes an unfinished find instead of halting on remanded",
+          "background": "### Goal\nWhen the package loop meets a `remanded` ticket, conver notifies Slack twice, re-runs /find-omissions with the graph path and a fixed English directive, and then continues the normal make→plan→start→review→resolve→consolidate→find order instead of exiting.\n\n### Purpose\n`remanded` is a state owned by the find stage, not a ticket state the per-ticket command table can advance. The current loop treats it as an unknown status and stops, which converts a recoverable interrupted run into a dead end. The recovery must be generic: it reads the package's own evidence and never branches on a workspace or package name.\n\n### Motivation\ncrystal-adapter-observer was run through conver and stopped on `P0-1 remanded`. The package was recoverable: six tickets were `reviewed`, the boundary had no completed find, and no unrelated state existed. An operator had to intervene by hand to continue, which the loop is supposed to avoid.\n\n### Constraints\n- No project-specific branches: crystal, gaia and doors are not named in code, tests, or messages.\n- Two Slack messages: the existing stop-format notice, then a separate unfinished-find notice, before find runs.\n- The find invocation carries the package's graph path and a fixed English directive; it is never sent without a graph.\n- Unknown statuses still stop. `--no-find` still stops: the operator explicitly disabled the only command that can resolve remanded.\n- Slack failures never stop the loop; the existing notifier contract applies.\n- The find-round limit still bounds repeated recovery.",
+          "scope": [
+            "**[Modify]** `src/runner.ts` — route `InvalidTicketStatusError` with status `remanded` into a find-resume action; invoke the detector for every find; build `/find-omissions <graph>` plus the fixed directive; persist the boundary and continue the loop.",
+            "**[Modify]** `src/notifier.ts` — add a separate unfinished-find notification builder/sender.",
+            "**[Modify]** `src/runner.test.ts`, `src/notifier.test.ts` — red tests for both notifications, the invocation string, continuation, unknown status, no-find, and the round limit.",
+            "**[Reuse]** `src/tickets.ts` — `getGraphPathFromTickets` already resolves the graph path and is currently unused by the loop; use it rather than adding a second resolver."
+          ],
+          "invariants": "- [Normal condition] A `remanded` ticket causes: stop-format Slack message, unfinished-find Slack message, one find invocation containing the graph path and the fixed directive, boundary completion persistence, then loop continuation.\n- [Error invariant] A status other than `remanded` that has no command still throws the existing stop path; a detector verdict of not-unfinished still stops rather than re-running find.\n- [Internal state invariant] `--no-find` never triggers a find re-run; the loop stops with the existing reason.\n- [Boundary invariant] The recovery counts against maxFindRounds; exceeding it stops with the existing named error.",
+          "acceptanceCriteria": [
+            "**[Happy path: remanded]** A fixture package with a terminal ticket set plus one `remanded` ticket records exactly two Slack notifications in order (stop-format, then unfinished-find) and one `/find-omissions <absolute graph path>` invocation whose prompt contains the fixed directive; the loop then reaches the new ticket set and continues without throwing.",
+            "**[Continuation]** When the resumed find changes the remanded ticket to `R<N>` and adds a `todo` omission ticket, the next recorded commands are `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket` for the new ticket, and the package does not stop.",
+            "**[Boundary-in-progress]** A package whose find boundary is `IN_PROGRESS` but whose tickets are all terminal sends only the unfinished-find notification (no invalid-status notice) and re-runs find with the fixed directive.",
+            "**[Unknown status]** A `mystery` status still sends the existing stop notification and exits; no find is invoked.",
+            "**[Detector clean]** A `remanded` ticket whose detector verdict is not unfinished still follows the existing stop path; the loop does not invent a recovery from incomplete evidence.",
+            "**[Output option]** `--no-find` with a `remanded` ticket stops with the existing reason and invokes no find.",
+            "**[Round limit]** Recovery is refused once find rounds reached maxFindRounds, using the existing FindRoundLimitError stop path.",
+            "**[Generic]** Runner and notifier tests use neutral workspace/package names; no branch inspects a project name."
+          ],
+          "testUnit": [
+            "UT-1: `buildFindCommand(pkg, resume=false)` returns `/find-omissions <graph>`; `resume=true` appends the fixed directive after a blank line.",
+            "UT-2: the stop-format notification receives workspace, package, ticket and reason `invalid status remanded on P0-1`.",
+            "UT-3: the unfinished-find notification receives workspace and package and is a separate send call from the stop-format send.",
+            "UT-4: a remanded fixture with two detector evidence classes still produces one resume invocation, not one per class.",
+            "UT-E1: unknown status produces zero unfinished-find notifications and throws LoopStoppedError.",
+            "UT-E2: detector clean verdict on remanded throws LoopStoppedError after the stop-format notification and before any find invocation.",
+            "UT-E3: `--no-find` produces zero find invocations.",
+            "UT-E4: maxFindRounds reached produces the FindRoundLimit stop reason and no invocation."
+          ],
+          "testIntegration": [
+            "**IT: [Integration point]:**\n  - IT-1: `runPackageLoop` against a synthetic package fixture with injected `runCommand`, `sendSlackStop`, `sendSlackFindUnfinished`, and detector dependencies; assert the full command and notification sequence.",
+            "  - IT-2: a second fixture where the resumed find adds a `todo` ticket; assert the four ticket commands then a second boundary with no stop.",
+            "  - IT-3: `node --test src/runner.test.ts src/notifier.test.ts` plus the detector test file, the affected set for this ticket.",
+            "**IT: [Verification]:**\n  - IT-1 verifies the exact invocation string, including the graph path, because a missing graph is what made the real find exit BLOCKED_PREREQUISITE.",
+            "  - IT-2 verifies the required post-recovery order rather than only that the loop did not throw.",
+            "  - IT-3 verifies the affected surfaces and typecheck (`npm run typecheck`) with zero failures.",
+            "**IT: [Contract assertion]:** each IT asserts recorded calls and persisted boundary state, not internal helper calls."
+          ],
+          "testExceptions": [
+            "Real Slack delivery is not asserted; the notifier contract already treats delivery failure as non-fatal and the existing notifier tests cover transport. The ticket asserts the message content and ordering through the injected sender.",
+            "A real ACP session is not started; the loop's command boundary is already injectable and the existing runner tests use the same seam, so the alternative verification is the recorded command string, which is the complete input conver controls."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "P27-2 to src/runner.ts",
+              "precondition": "deriveNextAction throws InvalidTicketStatusError with status `remanded` and `noFind` is false.",
+              "postcondition": "The loop sends the stop-format notification, sends the unfinished-find notification, invokes /find-omissions with the graph path and fixed directive, persists find completion, and continues.",
+              "invariant": "The recovery path never asks a human and never branches on a project name."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "P27-2 to src/runner.ts and src/tickets.ts",
+              "precondition": "The package Tickets.json resolves a graph path through metadata.resolvedPaths.graphPath or metadata.source.",
+              "postcondition": "Every find invocation, normal or resumed, contains that absolute graph path; the fixed directive follows it only in resume mode.",
+              "invariant": "A find is never invoked without a graph path."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "P27-2 to src/notifier.ts",
+              "precondition": "A Slack webhook URL is configured.",
+              "postcondition": "The unfinished-find notice is a second message with the workspace and package, sent before find runs.",
+              "invariant": "Neither notification failure stops the loop."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "P27-2 to src/runner.ts",
+              "precondition": "The detector says the package is not unfinished, or the status is not remanded, or noFind is true, or the find-round limit is reached.",
+              "postcondition": "The existing stop path is used and no find is invoked.",
+              "invariant": "Recovery requires positive mechanical evidence."
+            }
+          ],
+          "default_files": [
+            "src/runner.ts",
+            "src/notifier.ts",
+            "src/runner.test.ts",
+            "src/notifier.test.ts"
+          ],
+          "notes": "- [Dependency] P27-1 provides the detector script and the graph-argument parser. This ticket consumes them through an injectable dependency so the runner tests stay deterministic.\n- [Implementation steps] 1) Write runner/notifier tests red. 2) Add the fixed directive constant and the find command builder. 3) Route remanded into the resume path. 4) Apply the detector to the normal find path. 5) Run the affected tests and typecheck.\n- [Risks] The existing runner tests assert the literal `/find-omissions`; they are updated to the graph-bearing form as part of the new contract, not weakened.\n- [Open items] Installed target projects need the refreshed `.claude/scripts` and `.claude/commands`; distribution is verified by the existing install path, not by a project-name branch.",
+          "changes": [
+            {
+              "before": "a remanded ticket threw InvalidTicketStatusError and conver exited",
+              "after": "conver sends the stop-format notice, sends a separate unfinished-find notice, resumes find with the graph path and a fixed directive, and continues",
+              "description": "remanded is treated as a find-stage state with a mechanical recovery path, not an unknown status."
+            },
+            {
+              "before": "find was invoked as bare /find-omissions",
+              "after": "every find invocation carries the resolved absolute graph path; the fixed directive follows only on resume",
+              "description": "The command's graph gate can no longer block a loop-driven find, and the resume instruction travels with the invocation."
+            },
+            {
+              "before": "no Slack message existed for an unfinished find",
+              "after": "sendSlackFindUnfinished sends a one-line notice naming workspace, package and ticket",
+              "description": "Operators see both what the loop observed and what it will do about it, as two messages."
+            }
+          ],
+          "done_at": "2026-11-14T01:14:16.242Z",
+          "reviewed_at": "2026-11-14T01:18:26.274Z"
+        },
+        {
+          "id": 3,
+          "phaseId": 27,
+          "status": "reviewed",
+          "title": "The find pre-flight is one script that prints one verdict",
+          "background": "### Goal\nReplace the multi-line pre-flight block in /find-omissions with one shell script invocation that takes the command argument unchanged, runs every gate, performs the resume reset only after all read-only gates pass, and prints each gate's result plus one final verdict line.\n\n### Purpose\nControl flow embedded in prose is re-derived by the AI on every run and is easy to get wrong. A script makes the order, the exit codes and the reset decision deterministic, and its output tells the operator exactly what each gate decided.\n\n### Motivation\nThe current block runs the unfinished-find detector and its reset before the consolidated-manifest gate. A package that is blocked by the manifest gate therefore loses the omissions recorded in the interrupted run before it is stopped. The block is also copied by hand, and a `|| exit 2` on an exit-10 detector would convert a resume into a block.\n\n### Constraints\n- One invocation, one positional argument: the raw `$ARGUMENTS` (graph path on the first non-empty line, optional directive after it).\n- No `eval`; the argument is passed quoted to each node gate.\n- Read-only gates run first; reset runs last and only when all of them pass.\n- Exit 0 = continue (the MODE line says CLEAN or RESUME); exit 2 = stop. No exit 10 leaks to the caller, so `|| exit 2` is safe.\n- Output is English, one line per gate, with the evidence and the reset list.\n- Works from any package directory; the script resolves its own location.",
+          "scope": [
+            "**[Add]** `.claude/scripts/tickets/find-omissions-preflight.sh` — graph gate, consolidated-manifest gate, unfinished-find detector, deferred reset, one verdict line.",
+            "**[Modify]** `.claude/commands/find-omissions.md` — the Gate block becomes one invocation; the detailed exit semantics move to the section that describes the script.",
+            "**[Add tests]** `tests/find-omissions-preflight.test.cjs` — clean, resume, invalid graph, manifest-blocked (no reset), malformed input, multi-line argument."
+          ],
+          "invariants": "- [Normal condition] Exit 0 only when the graph gate and the manifest gate pass; the MODE line is CLEAN when the detector is clean and RESUME when it reported unfinished.\n- [Error invariant] Exit 2 for an invalid graph, a malformed Tickets.json or boundary, or a blocked manifest; no transient file is removed on any exit-2 path.\n- [Ordering invariant] The reset runs after every read-only gate, so a blocked run keeps its recorded omissions.\n- [Argument invariant] The raw argument is passed as one quoted word; a multi-line directive never changes the graph verdict.",
+          "acceptanceCriteria": [
+            "**[Clean]** Exit 0, `MODE: CLEAN`, every gate line present, no file removed.",
+            "**[Resume]** Exit 0, `MODE: RESUME`, the detector evidence printed, and the named `_tmp-*` files removed and listed.",
+            "**[Invalid graph]** Exit 2, `VERDICT: STOP`, no file removed, and the graph failure named.",
+            "**[Manifest blocked]** Stubs without a consolidated manifest: exit 2 and no reset, so a `_tmp-omissions-*` file survives.",
+            "**[Malformed]** Malformed Tickets.json: exit 2, named file, no reset.",
+            "**[Multi-line]** `<graph>\\n\\n<directive>` resolves the graph and still prints CLEAN.",
+            "**[One line]** The command document's Gate block is a single `bash ...-preflight.sh \"$ARGUMENTS\" || exit 2` line."
+          ],
+          "testUnit": [
+            "UT-1: clean fixture → exit 0, stdout has `MODE: CLEAN` and three gate lines.",
+            "UT-2: remanded fixture with a `_tmp-omissions-*` file → exit 0, `MODE: RESUME`, reset list names the file, file is gone.",
+            "UT-3: invalid graph path → exit 2, `VERDICT: STOP`, reset list empty, the transient file still exists.",
+            "UT-4: stub marker without manifests/ → exit 2 and the transient file still exists (ordering proof).",
+            "UT-5: malformed Tickets.json → exit 2, no file removed.",
+            "UT-E1: multi-line argument → exit 0 and the graph path is the one validated."
+          ],
+          "testIntegration": [
+            "**IT: [Integration point]:**\n  - IT-1: `bash .claude/scripts/tickets/find-omissions-preflight.sh \"<graph>\"` with cwd set to a fixture package.",
+            "  - IT-2: the same invocation with `<graph>\\n\\n<directive>`.",
+            "  - IT-3: the command document contains exactly one pre-flight invocation and it names the script.",
+            "**IT: [Verification]:**\n  - IT-1 verifies exit code and the one-line-per-gate output, not internal helper calls.",
+            "  - IT-2 verifies the argument form the loop actually sends.",
+            "  - IT-3 verifies the AI-facing procedure uses the wrapper rather than re-deriving the control flow.",
+            "**IT: [Contract assertion]:** stdout and exit code are the whole assertion surface."
+          ],
+          "testExceptions": [
+            "Real ACP execution is not exercised; the script's contract is its own exit code and output, and the command document is asserted to invoke it. The AI still decides Step 2 onward from the printed MODE line, which is the intended division."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "P27-3 to .claude/scripts/tickets/find-omissions-preflight.sh",
+              "precondition": "One positional argument is supplied from a package directory with Tickets.json and a graph file.",
+              "postcondition": "Every read-only gate runs; exit 0 means continue with MODE CLEAN or RESUME, exit 2 means stop; the output names each gate result.",
+              "invariant": "No transient file is removed before every read-only gate has passed."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "P27-3 to .claude/commands/find-omissions.md",
+              "precondition": "The command pre-flight is read.",
+              "postcondition": "It contains one `bash ...-preflight.sh \"$ARGUMENTS\" || exit 2` invocation and no inline gate sequence.",
+              "invariant": "The script, not the prose, owns gate order and reset timing."
+            }
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/find-omissions-preflight.sh",
+            ".claude/commands/find-omissions.md",
+            "tests/find-omissions-preflight.test.cjs"
+          ],
+          "notes": "- [Implementation steps] 1) Write the shell tests red against the missing script. 2) Implement the wrapper with read-only gates first and a deferred reset. 3) Replace the doc block and extend the doc test. 4) Run the affected set.\n- [Risks] A bash-only wrapper is acceptable here because the repository already ships `consolidate-stubs-gate.sh`; the shebang is bash and the invocation uses `bash`.\n- [Danger addressed] Exit 10 is converted to exit 0 plus `MODE: RESUME`, so a copied `|| exit 2` cannot block a resume.",
+          "changes": [
+            {
+              "before": "the pre-flight was a five-command bash block the AI rewrote each run",
+              "after": "one invocation: bash find-omissions-preflight.sh \"$ARGUMENTS\" || exit 2",
+              "description": "Gate order, exit codes and reset timing are owned by one script."
+            },
+            {
+              "before": "the detector reset transient files before the consolidated-manifest gate",
+              "after": "all read-only gates run first; the reset runs last",
+              "description": "A blocked package keeps the omissions its interrupted run recorded."
+            },
+            {
+              "before": "a detector exit 10 had to be branched by the AI, and || exit 2 would block a resume",
+              "after": "the wrapper exits 0 for both continue modes and prints MODE: CLEAN or MODE: RESUME",
+              "description": "The copied one-liner cannot turn a resume into a stop, and the output names every internal result."
+            }
+          ],
+          "done_at": "2026-11-14T01:17:23.633Z",
+          "reviewed_at": "2026-11-14T01:18:26.621Z"
+        }
+      ]
     }
   ]
 }

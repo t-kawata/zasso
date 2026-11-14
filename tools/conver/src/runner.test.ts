@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   LoopStoppedError,
+  MAX_FIND_ROUNDS,
+  FIND_RESUME_DIRECTIVE,
   runPackageLoop,
   runWorkspaceLoop,
 } from "./runner.js";
@@ -20,6 +22,7 @@ import type { BoundaryState } from "./boundary-state.js";
 import type { WorkspacePackage } from "./workspace.js";
 import type {
   BoundaryCompleteContext,
+  FindUnfinishedContext,
   PhaseCompleteContext,
   StopContext,
 } from "./notifier.js";
@@ -125,6 +128,7 @@ interface Recorded {
   phases: PhaseCompleteContext[];
   stops: StopContext[];
   boundaries: BoundaryCompleteContext[];
+  findUnfinished?: FindUnfinishedContext[];
 }
 
 // [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
@@ -132,6 +136,7 @@ function deps(
   fixture: Fixture,
   recorded: Recorded,
   advance: (command: string, fixture: Fixture) => void,
+  overrides: Partial<PackageLoopDeps> = {},
 ): PackageLoopDeps {
   return {
     withSession: async <T>(
@@ -166,7 +171,16 @@ function deps(
     ) => {
       recorded.boundaries.push(context);
     },
+    sendSlackFindUnfinished: async (
+      _url: string,
+      context: FindUnfinishedContext,
+    ) => {
+      recorded.findUnfinished ??= [];
+      recorded.findUnfinished.push(context);
+    },
+    detectUnfinishedFind: async () => ({ unfinished: false, evidence: [] }),
     now: () => 0,
+    ...overrides,
   };
 }
 
@@ -219,7 +233,8 @@ describe("runPackageLoop — strict order and cwd", () => {
       "/review-ticket P0-1",
     ]);
     assert.ok(commands.some((command) => command.startsWith("/resolve-ticket")));
-    assert.deepStrictEqual(commands.slice(-2), ["/consolidate-stubs", "/find-omissions"]);
+    assert.strictEqual(commands.at(-2), "/consolidate-stubs");
+    assert.ok(commands.at(-1)?.startsWith("/find-omissions "));
     assert.ok(recorded.sessions.length > 0);
     assert.ok(recorded.sessions.every((cwd) => cwd === fixture.directory));
     assert.strictEqual(recorded.phases.length, 1);
@@ -276,7 +291,7 @@ describe("runPackageLoop — strict order and cwd", () => {
     const recorded: Recorded = { sessions: [], commands: [], phases: [], stops: [], boundaries: [] };
     let findRounds = 0;
     const advance = (command: string, current: Fixture): void => {
-      if (command === "/find-omissions") {
+      if (command.startsWith("/find-omissions")) {
         findRounds++;
         if (findRounds === 1) {
           const data = JSON.parse(readFileSync(current.ticketsPath, "utf-8")) as TicketsJson;
@@ -382,10 +397,10 @@ describe("runPackageLoop — durable boundary completion", () => {
       deps(fixture, recorded, advanceStatus),
     );
 
-    assert.deepStrictEqual(
-      recorded.commands.map((entry) => entry.command),
-      ["/consolidate-stubs", "/find-omissions"],
-    );
+    const boundaryCommands = recorded.commands.map((entry) => entry.command);
+    assert.strictEqual(boundaryCommands[0], "/consolidate-stubs");
+    assert.ok(boundaryCommands[1]?.startsWith("/find-omissions "));
+    assert.strictEqual(boundaryCommands.length, 2);
     assert.strictEqual(recorded.boundaries.length, 1);
     assert.strictEqual(
       recorded.boundaries[0]?.lastReviewedTicketKey,
@@ -434,10 +449,9 @@ describe("runPackageLoop — durable boundary completion", () => {
     );
 
     assert.ok(recorded.commands[0]?.command.startsWith("/resolve-ticket"));
-    assert.deepStrictEqual(
-      recorded.commands.slice(-2).map((entry) => entry.command),
-      ["/consolidate-stubs", "/find-omissions"],
-    );
+    const tailCommands = recorded.commands.slice(-2).map((entry) => entry.command);
+    assert.strictEqual(tailCommands[0], "/consolidate-stubs");
+    assert.ok(tailCommands[1]?.startsWith("/find-omissions "));
   });
 
   it("continues the package when find adds a forNextRound ticket", async () => {
@@ -453,7 +467,7 @@ describe("runPackageLoop — durable boundary completion", () => {
     };
     let findRounds = 0;
     const advance = (command: string, current: Fixture): void => {
-      if (command === "/find-omissions") {
+      if (command.startsWith("/find-omissions")) {
         findRounds++;
         if (findRounds === 1) {
           const data = JSON.parse(
@@ -496,7 +510,7 @@ describe("runPackageLoop — durable boundary completion", () => {
       boundaries: [],
     };
     const advance = (command: string): void => {
-      if (command === "/find-omissions") throw new Error("find failed");
+      if (command.startsWith("/find-omissions")) throw new Error("find failed");
     };
 
     await assert.rejects(
@@ -567,10 +581,9 @@ describe("runPackageLoop — durable boundary completion", () => {
       options(),
       deps(fixture, recorded, advanceStatus),
     );
-    assert.deepStrictEqual(
-      recorded.commands.map((entry) => entry.command),
-      ["/consolidate-stubs", "/find-omissions"],
-    );
+    const firstRunCommands = recorded.commands.map((entry) => entry.command);
+    assert.strictEqual(firstRunCommands[0], "/consolidate-stubs");
+    assert.ok(firstRunCommands[1]?.startsWith("/find-omissions "));
 
     recorded.commands.length = 0;
     const processed = await runPackageLoop(
@@ -673,5 +686,328 @@ describe("runPackageLoop — durable boundary completion", () => {
       recorded.commands.filter((entry) => entry.command === "/consolidate-stubs").length,
       1,
     );
+  });
+});
+
+// P27-2 — an unfinished find is resumed, not converted into a dead end.
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+function boundaryFor(
+  data: TicketsJson,
+  findStatus: "IN_PROGRESS" | null,
+): BoundaryState {
+  const at = "1970-01-01T00:00:00.000Z";
+  return {
+    ...createBoundaryState("pkg-fixture"),
+    lastReviewedTicketKey: "P0-1",
+    lastReviewedAt: at,
+    reviewedSinceResolve: 0,
+    ticketSetDigest: computeTicketSetDigest(data),
+    consolidate: {
+      status: "COMPLETE",
+      startedAt: at,
+      finishedAt: at,
+      addedTicketKeys: [],
+    },
+    find:
+      findStatus === "IN_PROGRESS"
+        ? {
+            status: "IN_PROGRESS",
+            startedAt: at,
+            finishedAt: null,
+            addedTicketKeys: [],
+          }
+        : null,
+  };
+}
+
+function findCommandsOf(recorded: Recorded): string[] {
+  return recorded.commands
+    .map((entry) => entry.command)
+    .filter((command) => command.startsWith("/find-omissions"));
+}
+
+describe("runPackageLoop — unfinished find recovery", () => {
+  it("C001/C002/C003: a remanded ticket sends two notices and resumes find with the graph and directive", async () => {
+    const data = tickets([
+      {
+        id: 0,
+        tickets: [
+          { id: 1, status: "reviewed" },
+          { id: 2, status: "remanded" },
+        ],
+      },
+    ]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryFor(data, "IN_PROGRESS"));
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+    const events: string[] = [];
+    const advance = (command: string, current: Fixture): void => {
+      if (command.startsWith("/find-omissions")) {
+        events.push("find");
+        const next = JSON.parse(
+          readFileSync(current.ticketsPath, "utf-8"),
+        ) as TicketsJson;
+        const phase = next.phases[0];
+        const ticket = phase?.tickets.find((entry) => entry.id === 2);
+        if (ticket !== undefined) ticket.status = "R1";
+        writeFileSync(current.ticketsPath, JSON.stringify(next, null, 2));
+      }
+    };
+
+    await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advance, {
+        detectUnfinishedFind: async () => ({
+          unfinished: true,
+          evidence: [{ kind: "remanded" }],
+        }),
+        sendSlackStop: async (_url, context) => {
+          recorded.stops.push(context);
+          events.push("stop");
+        },
+        sendSlackFindUnfinished: async (_url, context) => {
+          recorded.findUnfinished ??= [];
+          recorded.findUnfinished.push(context);
+          events.push("find-unfinished");
+        },
+      }),
+    );
+
+    assert.strictEqual(recorded.stops.length, 1);
+    assert.strictEqual(recorded.stops[0]?.reason, "invalid status remanded on P0-2");
+    assert.strictEqual(recorded.stops[0]?.packageName, "fixture");
+    assert.strictEqual(recorded.findUnfinished?.length, 1);
+    assert.deepStrictEqual(events, ["stop", "find-unfinished", "find"]);
+
+    const findCommands = findCommandsOf(recorded);
+    assert.strictEqual(findCommands.length, 1);
+    assert.ok(findCommands[0]?.startsWith("/find-omissions "));
+    assert.ok(findCommands[0]?.includes(fixture.ticketsPath));
+    assert.ok(findCommands[0]?.includes(FIND_RESUME_DIRECTIVE));
+    assert.strictEqual(recorded.boundaries.length, 1);
+  });
+
+  it("C001: after the resumed find adds a ticket the loop runs make, plan, start and review", async () => {
+    const data = tickets([
+      {
+        id: 0,
+        tickets: [
+          { id: 1, status: "reviewed" },
+          { id: 2, status: "remanded" },
+        ],
+      },
+    ]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryFor(data, "IN_PROGRESS"));
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+    let findRuns = 0;
+    const advance = (command: string, current: Fixture): void => {
+      if (command.startsWith("/find-omissions")) {
+        findRuns++;
+        if (findRuns === 1) {
+          const next = JSON.parse(
+            readFileSync(current.ticketsPath, "utf-8"),
+          ) as TicketsJson;
+          const phase = next.phases[0];
+          const ticket = phase?.tickets.find((entry) => entry.id === 2);
+          if (ticket !== undefined) ticket.status = "R1";
+          phase?.tickets.push({ id: 3, phaseId: 0, status: "todo", title: "added" });
+          writeFileSync(current.ticketsPath, JSON.stringify(next, null, 2));
+        }
+        return;
+      }
+      advanceStatus(command, current);
+    };
+
+    await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advance, {
+        detectUnfinishedFind: async () => ({
+          unfinished: findRuns === 0,
+          evidence: findRuns === 0 ? [{ kind: "remanded" }] : [],
+        }),
+      }),
+    );
+
+    const commands = recorded.commands.map((entry) => entry.command);
+    const makeIndex = commands.indexOf("/make-ticket P0-3");
+    assert.ok(makeIndex >= 0, "the added ticket is picked up");
+    assert.deepStrictEqual(commands.slice(makeIndex, makeIndex + 4), [
+      "/make-ticket P0-3",
+      "/plan-ticket P0-3",
+      "/start-ticket P0-3",
+      "/review-ticket P0-3",
+    ]);
+    assert.strictEqual(findRuns, 2);
+    // The stop-format notice is sent as an alert even though the loop
+    // continues; it records what was seen, not a termination.
+    assert.strictEqual(recorded.stops.length, 1);
+    assert.ok(!findCommandsOf(recorded)[1]?.includes(FIND_RESUME_DIRECTIVE));
+  });
+
+  it("C004: an unknown status still stops without a find", async () => {
+    const fixture = writeFixture(
+      tickets([{ id: 0, tickets: [{ id: 1, status: "mystery" }] }]),
+    );
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+
+    await assert.rejects(
+      () =>
+        runPackageLoop(
+          fixture.packageEntry,
+          options(),
+          deps(fixture, recorded, advanceStatus),
+        ),
+      (error: unknown) => error instanceof LoopStoppedError,
+    );
+    assert.strictEqual(findCommandsOf(recorded).length, 0);
+    assert.strictEqual(recorded.findUnfinished?.length ?? 0, 0);
+  });
+
+  it("C004: a remanded ticket without positive evidence still stops", async () => {
+    const fixture = writeFixture(
+      tickets([{ id: 0, tickets: [{ id: 1, status: "remanded" }] }]),
+    );
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+
+    await assert.rejects(
+      () =>
+        runPackageLoop(
+          fixture.packageEntry,
+          options(),
+          deps(fixture, recorded, advanceStatus, {
+            detectUnfinishedFind: async () => ({ unfinished: false, evidence: [] }),
+          }),
+        ),
+      (error: unknown) => error instanceof LoopStoppedError,
+    );
+    assert.strictEqual(recorded.stops.length, 1);
+    assert.strictEqual(findCommandsOf(recorded).length, 0);
+  });
+
+  it("C004: --no-find still stops on remanded", async () => {
+    const fixture = writeFixture(
+      tickets([{ id: 0, tickets: [{ id: 1, status: "remanded" }] }]),
+    );
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+
+    await assert.rejects(
+      () =>
+        runPackageLoop(
+          fixture.packageEntry,
+          options({ noFind: true }),
+          deps(fixture, recorded, advanceStatus, {
+            detectUnfinishedFind: async () => ({
+              unfinished: true,
+              evidence: [{ kind: "remanded" }],
+            }),
+          }),
+        ),
+      (error: unknown) => error instanceof LoopStoppedError,
+    );
+    assert.strictEqual(findCommandsOf(recorded).length, 0);
+  });
+
+  it("C004: recovery stops at the find-round limit", async () => {
+    const fixture = writeFixture(
+      tickets([{ id: 0, tickets: [{ id: 1, status: "remanded" }] }]),
+    );
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+    const keepRemanded = (command: string, current: Fixture): void => {
+      if (!command.startsWith("/find-omissions")) return;
+      const next = JSON.parse(
+        readFileSync(current.ticketsPath, "utf-8"),
+      ) as TicketsJson;
+      const ticket = next.phases[0]?.tickets[0];
+      if (ticket !== undefined) ticket.status = "remanded";
+      writeFileSync(current.ticketsPath, JSON.stringify(next, null, 2));
+    };
+
+    await assert.rejects(
+      () =>
+        runPackageLoop(
+          fixture.packageEntry,
+          options(),
+          deps(fixture, recorded, keepRemanded, {
+            detectUnfinishedFind: async () => ({
+              unfinished: true,
+              evidence: [{ kind: "remanded" }],
+            }),
+          }),
+        ),
+      (error: unknown) => error instanceof LoopStoppedError,
+    );
+    assert.strictEqual(findCommandsOf(recorded).length, MAX_FIND_ROUNDS);
+    assert.ok(
+      recorded.stops.some((stop) => /reaching the limit/.test(stop.reason)),
+    );
+  });
+
+  it("C001: a boundary IN_PROGRESS is resumed without the invalid-status notice", async () => {
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryFor(data, "IN_PROGRESS"));
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+
+    await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advanceStatus, {
+        detectUnfinishedFind: async () => ({
+          unfinished: true,
+          evidence: [{ kind: "boundary" }],
+        }),
+      }),
+    );
+
+    assert.strictEqual(recorded.stops.length, 0);
+    assert.strictEqual(recorded.findUnfinished?.length, 1);
+    const findCommands = findCommandsOf(recorded);
+    assert.strictEqual(findCommands.length, 1);
+    assert.ok(findCommands[0]?.includes(FIND_RESUME_DIRECTIVE));
   });
 });

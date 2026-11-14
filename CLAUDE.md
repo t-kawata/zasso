@@ -168,11 +168,12 @@ gate: not Tiny → ask; stop — propose the `/make-ticket` pipeline (make → p
 
 ### Rust interface law (conditional)
 
-- Law skill built/changed: canonical verifier v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Only when a `skills/*-law` trigger matches: apply; completion `gate` 0 + `attest` ok; built/changed: v3 `dev` + `installed`, every required check `machine_verified`, record `closure`. No match → skip.
+
 
 Trigger: changed/target path matches `crates/**` unit with role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only when ticket declares interface scope.
 
-Precheck: `node "$(git rev-parse --show-toplevel)/.claude/skills/rust-interface-law/dist/skill.mjs" applies --root "$(git rev-parse --show-toplevel)" --paths "<paths>"`.
+Precheck: run `applies` as defined in `SKILL.md`; exit 3 skips.
 
 Exit 3 → skip law. Exit 0 → invoke `rust-interface-law`; completion requires `gate` exit 0 and `attest` ok.
 

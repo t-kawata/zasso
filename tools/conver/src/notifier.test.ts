@@ -12,6 +12,7 @@ import {
   sendSlackStop,
   sendSlackBoundaryComplete,
   buildBoundaryMessage,
+  buildFindUnfinishedMessage,
   formatClockTime,
   ErrorContext,
   PhaseCompleteContext,
@@ -332,5 +333,32 @@ describe("sendSlackBoundaryComplete and boundary formatting", () => {
     assert.ok(text.includes("find 09:42"));
     assert.ok(text.includes("last: P3-1"));
     assert.ok(text.includes("added 0"));
+  });
+});
+
+// P27-2 — the second notice is separate from the stop-format notice.
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+describe("buildFindUnfinishedMessage", () => {
+  it("names the workspace, the package and the ticket", () => {
+    const text = buildFindUnfinishedMessage({
+      workspace: "ws",
+      packageName: "pkg-a",
+      ticketKey: "P1-2",
+    });
+    assert.ok(text.startsWith("[ws] "));
+    assert.ok(text.includes("pkg-a"));
+    assert.ok(text.includes("unfinished /find-omissions"));
+    assert.ok(text.includes("P1-2"));
+    assert.ok(text.includes("re-running"));
+  });
+
+  it("omits the ticket suffix when no ticket is known", () => {
+    const text = buildFindUnfinishedMessage({
+      workspace: "ws",
+      packageName: "pkg-a",
+      ticketKey: null,
+    });
+    assert.ok(text.includes("pkg-a"));
+    assert.ok(!text.includes("(P"));
   });
 });

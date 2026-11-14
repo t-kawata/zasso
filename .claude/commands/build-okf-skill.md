@@ -58,7 +58,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - Concept ID is the bundle-relative path without `.md`. No synthetic identity.
 - `index.md` is a heading plus a linked list. `log.md` uses `YYYY-MM-DD` headings, newest first.
 - Body Markdown links are the graph. There is no frontmatter `links`.
-- `okf/source.md` and `okf/source.baseline.md` do not exist; source views live in `source/`.
+- The bundle contains no source view; `source/source-view.md` and `source/source.baseline.md` live outside `okf/`.
 - A stale or deprecated concept is never presented as current.
 - A required closure is complete or `BUDGET_EXCEEDED`; never truncate.
 - Generated `SKILL.md` is a traversal manual: 12 sections and at least 10 scenarios.

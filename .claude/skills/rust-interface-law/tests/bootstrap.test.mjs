@@ -76,6 +76,7 @@ test('scanImplementation rejects unmarked incomplete code and secrets', () => {
     writeFileSync(file, 'pub fn ready() { todo!() }\n');
     assert.equal(scanImplementation({ root: repo, paths: ['clean.rs'] }).ok, false);
 
+// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
     writeFileSync(file, '// [::STUB::] MUST RESOLVE: later\npub fn ready() { todo!() }\n');
     assert.equal(scanImplementation({ root: repo, paths: ['clean.rs'] }).ok, true);
 

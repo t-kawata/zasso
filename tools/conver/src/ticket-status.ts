@@ -6,6 +6,10 @@
 
 const ROUND_STATUS_PATTERN = /^R[1-9]\d*$/;
 
+/** The transient status /find-omissions sets while a ticket is being inspected. */
+// [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
+export const REMANDED_STATUS = "remanded";
+
 /**
  * True when the status is terminal: "reviewed" or a round status ("R1", "R2", ...).
  * Any other value — including "remanded" and an unknown string — is not terminal.
