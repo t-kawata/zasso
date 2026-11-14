@@ -1,0 +1,53 @@
+{
+  "schema": "law-applicability/v1",
+  "skill": "rust-interface-law",
+  "classification": "specific-case-trigger",
+  "conditions": [
+    {
+      "id": "path",
+      "terms": [
+        "crates/**"
+      ]
+    },
+    {
+      "id": "roles",
+      "terms": [
+        "rest",
+        "websocket",
+        "cli",
+        "grpc",
+        "mcp",
+        "a2a"
+      ]
+    },
+    {
+      "id": "shared",
+      "terms": [
+        "operation",
+        "core",
+        "ticket declares interface scope"
+      ]
+    }
+  ],
+  "instruction": "`rust-interface-law`: apply only when changed/target path matches `crates/**` unit role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only if ticket declares interface scope. `applies` exit 3 = skip.",
+  "applies": {
+    "discovery": "workspace-units",
+    "paths": [
+      "crates/**"
+    ],
+    "roles": [
+      "rest",
+      "websocket",
+      "cli",
+      "grpc",
+      "mcp",
+      "a2a"
+    ],
+    "sharedRoles": [
+      "operation",
+      "core"
+    ],
+    "sharedCondition": "ticket declares interface scope",
+    "skipExit": 3
+  }
+}

@@ -43,8 +43,9 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 
 - `<skill-name> <source-doc> [<source-doc> ...]` — one skill; every remaining argument is a source.
 - `<skill-name>=<source-doc> [<skill-name>=<source-doc> ...]` — one or more skills; repeated name adds a source.
+- Optional free-form block: the first blank line ends the source list; every following line is the instruction candidate. At most one skill per invocation when the block is present.
 - Mixing forms → rejected as `INVALID_ARGUMENT`. Empty argument → `INVALID_ARGUMENT`.
-- No flags. Hyphen-leading argument → `INVALID_ARGUMENT`.
+- No flags in the source list. Hyphen-leading source argument → `INVALID_ARGUMENT`.
 - Source repository-relative. Absolute accepted only inside repository; manifest stores alias.
 - Name matches `^[a-z][a-z0-9-]*-law$`.
 
@@ -60,8 +61,11 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - `SKILL.md` carries a `## Traversal Contract` section generated from `okf-core/traversal-protocol.md`: the envelope fields, the `stop|expand|back` table, `stop_when`, `must_run`, `if_back`, and the rule that an absent id exits 2.
 - The generated `SKILL.md` documents the Markdown view only: Page, Coverage, Frontier, and Decision, each with a one-line description, lossless and never truncated. It does not name a JSON output mode.
 - The JSON envelope is the verification contract: tests and verifiers pass `--format json`; the AI-facing manual stays Markdown-only.
-- Integration: six canonical lines, one per host file; skill-agnostic; marked; idempotent; CLI-free.
-- Integration gate: missing, drift, duplicate, location, CLI leak, or invalid skill → no completion.
+- Free-form trigger: if the block describes a specific-case trigger, the AI authors the instruction and conditions; the machine validates and injects. Never template-generate the instruction.
+- Trigger instruction: English, jargon-dense, telegraphic, compressed, non-essential-free, lossless, minimal characters. ASCII one line, at most 240 characters.
+- Every installed specific-case skill carries `source/applicability.json`; `applies` reads it and exits 0 inside the trigger, 3 outside.
+- Integration: one generic checkpoint line + one per-skill trigger line per host file; marked; idempotent; CLI-free; no other generated text.
+- Integration gate: missing, drift, duplicate, location, stale, CLI leak, invalid instruction, or invalid skill → no completion.
 - Identical inputs → identical lock, coverage, OKF, bundle.
 - `node --test` for impact set; never `make test`.
 
@@ -84,7 +88,9 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 
 - Sources read-only.
 - Manifest: alias path + `SHA-256` of LF-normalized text.
-- CJK anywhere → reject whole build; no silent translation.
+- CJK anywhere in a source → reject whole build; no silent translation.
+- Free-form block may be any language; the generated instruction must be English.
+- Trigger classification is AI-authored and recorded in `source/applicability.json`; ambiguous conditions → `TRIGGER_AMBIGUOUS`, no install.
 
 ## Generated Skill Layout
 
@@ -112,6 +118,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 ├── okf/sources/<doc>/<section>.md
 ├── okf-core/
 ├── source/rule-concepts.json
+├── source/applicability.json   # only when the free-form block is a specific-case trigger
 ├── source/source-view.md
 ├── source/source.baseline.md
 ├── package.json
@@ -139,8 +146,10 @@ Sibling: `<name>-law.path-alias.json` — outside the skill tree; holds `input_r
 
 ### Step 1: Parse
 
+- Split the raw invocation at the first blank line: source list, then the free-form block.
 - Absolute source → repository-relative.
 - Reject empty, hyphen-leading, bad name, mixed forms.
+- Classify the free-form block: `specific-case-trigger` when it states the only cases in which the skill may run; `general` otherwise. Record the classification and the raw block in `$LAW_OUT/build-units.json`.
 - Write `$LAW_OUT/build-units.json`; no skill write before all units pass.
 
 ### Step 2: Measure
@@ -167,6 +176,15 @@ Derive `law-profile.toml`; never copy Rust values.
 | `templates` | optional catalog; empty valid |
 | `gate_levels` | V1 process, V2 structural, V3 command, V4 attestation |
 | `language` | `en` |
+| `applicability` | free-form trigger when specific-case; AI-authored instruction, conditions, and applies predicates |
+
+Applicability record (`source/applicability.json`, `law-applicability/v1`):
+
+- `classification`: `specific-case-trigger` or `general`.
+- `conditions[]`: every condition from the free-form block, each with `id` and `terms`.
+- `instruction`: AI-authored telegraphic English; carries every `terms` token, the skill name, `applies`, `exit 3`, and `skip`.
+- `applies`: `discovery` (`workspace-units` or `path-glob`), `paths`, `roles`, `sharedRoles`, `sharedCondition`, `skipExit: 3`.
+- Never template-generate the instruction. The machine validates it; it does not write it.
 
 Write with stable sort. Profile is data: source heading change → profile change, no script edit.
 
@@ -220,6 +238,7 @@ Red first: failing tests per library.
 | `render-ai` | Markdown output | deterministic |
 | `autoconfig` | profile-driven discovery | renamed unit changes manifest, no script edit |
 | `units` | profile roles and path match | unrelated path exits 3 |
+| `applicability` | record load, instruction validation, path/role selection | trigger inside exits 0; outside exits 3; narrowed roles change the result |
 | `commands` | CLI dispatch | unknown command exits 2 |
 
 - Green: behavior, not literal test wording.
@@ -244,6 +263,8 @@ Red first: failing tests per library.
 - `okf/index.md` is a linked list; `okf/log.md` uses `YYYY-MM-DD` headings.
 - `source/rule-concepts.json` maps every rule id to its concept id, path, phase, requires, applies_to, source alias, and source span.
 - `source/source-view.md` = manifest order, `# Source: <alias>` headers, redacted source text; `source/source.baseline.md` byte-identical.
+- When the free-form block is a specific-case trigger, write `source/applicability.json`; the generated `applies` reads it.
+- `SKILL.md` description includes the AI-authored instruction; an `## Applicability` section repeats it verbatim.
 - Delivered context from okf-core; the AI uses the CLI, not raw grep.
 
 ### Step 8: Bundle and installer
@@ -254,7 +275,7 @@ Red first: failing tests per library.
 ### Step 9: Test matrix
 
 - `node --test`; optional dist/esbuild test reported, never pass.
-- Required: `atom-lock`, `redaction`, `generic-boundary`, `skill-runtime`, `integration`, `bootstrap`, `scaffold`, `context-phases`, `render`, `applicability`, `pipeline-checkpoints`, `source-rederivation`, `installed-parity`, `verifier-negative`.
+- Required: `atom-lock`, `redaction`, `generic-boundary`, `skill-runtime`, `integration`, `bootstrap`, `scaffold`, `context-phases`, `render`, `applicability`, `trigger-instruction`, `pipeline-checkpoints`, `source-rederivation`, `installed-parity`, `verifier-negative`.
 - `pipeline-checkpoints`: find host root (`LAW_HOST_ROOT`, else walk up to `.claude/commands/make-ticket.md`); assert the six canonical lines from `## Integration Contract`; assert `SKILL.md` names the five commands; use bundled `tests/fixtures/host/` only when no host; never skip.
 - Include determinism, performance, forbidden-token, leak, coverage, style: `STYLE_NOT_ENGLISH`, `STYLE_NOT_TELEGRAPHIC`, `STYLE_LOW_DENSITY`, `STYLE_REDUNDANT`.
 - Never `make test`.
@@ -286,7 +307,7 @@ node "$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs" \
   --out "$LAW_OUT/<name>-installed-verification.json"
 ```
 
-Require exit 0, 8/8 installed required checks `machine_verified`, source/installed SHA match. Then `check lint`, `check graph`, `check coverage --lock`, `check audit --lock`; `rebuild` byte-identical; forbidden-token scan; runtime scan. Any failure → no install.
+Require exit 0, 19/19 installed required checks `machine_verified`, source/installed SHA match. Then `check lint`, `check graph`, `check coverage --lock`, `check audit --lock`; `rebuild` byte-identical; forbidden-token scan; runtime scan. Any failure → no install.
 
 ### Step 11: Install
 
@@ -298,15 +319,15 @@ Require exit 0, 8/8 installed required checks `machine_verified`, source/install
 ### Step 12: Integrate
 
 - Run `verify-law-integration.mjs --mode write` with `--root "$REPO_ROOT"`, `--claude "$CLAUDE_DIR/CLAUDE.md"`, `--commands "$CLAUDE_DIR/commands"`, `--skills "$CLAUDE_DIR/skills"`.
-- It inserts or repairs the six fixed canonical lines from `## Integration Contract`; one line per file; skill-agnostic; idempotent; atomic with backup/rollback.
-- Never hand-edit a canonical line. Never add a per-skill block. Never duplicate.
-- `INTEGRATION_DUPLICATE` or `INTEGRATION_LOCATION` → stop; no write.
+- It inserts or repairs the generic checkpoint line and one per-skill trigger line from `source/applicability.json`; idempotent; atomic with backup/rollback.
+- Never hand-edit a line. Never add a second block; never duplicate a skill line; never add JSON, CLI, or metadata.
+- `INTEGRATION_DUPLICATE`, `INTEGRATION_LOCATION`, or `TRIGGER_LOCATION` → stop; no write.
 - Write only under `$CLAUDE_DIR`; never mirror the skill into another project `.claude/skills`.
 
 ### Step 12.5: Integration gate
 
 - Run `verify-law-integration.mjs --mode check --require-skill` with the same roots.
-- Require exit 0; six canonical lines; no missing, drift, duplicate, location, CLI leak, or invalid skill.
+- Require exit 0; generic + per-skill trigger lines; no missing, drift, duplicate, location, stale, CLI leak, too-long, invalid instruction, or invalid skill.
 - Failure → `INTEGRATION_*`; stop before Step 13.
 
 ### Step 13: Acceptance
@@ -354,7 +375,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 |---|---|
 | Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 3`; 36 checks; every dev-required check `machine_verified`; closure recorded |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style`, `conformance`, `lint`, `profile`, `graph`, `context`, `navigation`, `ruleIdentity`, `performance`, `traversalEnvelope`, `frontierCompleteness`, `unknownId`, `graphReach`, `facetSufficiency`, `guidanceDeterminism`, `sourceCoverage`, `aliasResolution`, `rulePreservation`, `bodyFidelity` |
-| Canonical verifier installed | installed tree; 8 required checks `machine_verified`; source/installed SHA match |
+| Canonical verifier installed | installed tree; 19 required checks `machine_verified`; source/installed SHA match |
 | Integration | `verify-law-integration.mjs --mode check --require-skill` exit 0; six canonical lines; no drift, duplicate, location, or CLI leak |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style` |
 | Bundle lint | `check lint` exit 0 |
@@ -365,6 +386,9 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | Boundary | forbidden-token scan zero; alias map outside the skill tree |
 | Applicability | `applies` 0 on target, 3 unrelated |
 | Install | installed `dist/skill.mjs` resolves sibling `okf/` |
+| Trigger contract | `source/applicability.json` valid; AI-authored instruction passes style and term coverage |
+| Trigger behavior | `applies` exit 0 inside the trigger, 3 outside; narrowing roles changes the result |
+| Trigger injection | six host files carry one exact line per installed skill; no stale, duplicate, location, CLI leak, or too-long |
 | Acceptance | strict record + generality mutations pass |
 
 ## Failure Modes
@@ -387,7 +411,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | `REGISTRY_MISMATCH` | Rule Atoms ≠ registry rows | repair IDs; reclassify |
 | `NON_DETERMINISTIC` | rebuild drift | remove timestamps, unordered iteration, absolute paths |
 | `VERIFIER_FAILED` | any check not `machine_verified` | repair; re-verify; no install |
-| `VERIFIER_V2_FAILED` | v2 check contract not satisfied | repair the artifact; re-run dev and installed |
+| `VERIFIER_V2_FAILED` | v3 check contract not satisfied | repair the artifact; re-run dev and installed |
 | `INSTALLED_SHA_MISMATCH` | source and installed differ | reinstall; no completion |
 | `INTEGRATION_MISSING` | host file or canonical line is absent | write it; re-check |
 | `INTEGRATION_DRIFT` | line differs from the canonical text | rewrite with `--mode write`; re-check |
@@ -398,35 +422,56 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | `INTEGRATION_NO_SKILL` | `--require-skill` with zero skills | install the built skill; re-check |
 | `INTEGRATION_WRITE_FAILED` | atomic write failed | restore backup; fix permissions; retry |
 | `CHECKPOINT_INVALID` | checkpoint over 5 lines or carries exact CLI | rewrite the checkpoint |
+| `TRIGGER_INVALID` | record or instruction fails validation | repair; re-verify; no install |
+| `TRIGGER_MISSING` | per-skill line absent in a host file | run `--mode write`; re-check |
+| `TRIGGER_DRIFT` | line differs from the record | run `--mode write`; re-check |
+| `TRIGGER_DUPLICATE` | more than one line for the skill | remove the extra; re-check |
+| `TRIGGER_LOCATION` | line outside the law section or not after the generic line | move it; re-check |
+| `TRIGGER_STALE` | line for an uninstalled skill | remove it; re-check |
+| `TRIGGER_CLI_LEAK` | line carries exact CLI | remove the flag; re-check |
+| `TRIGGER_TOO_LONG` | line exceeds the no-noise boundary | compress; re-check |
+| `TRIGGER_AMBIGUOUS` | free-form trigger cannot be structured | refine the conditions; no install |
 | `INSTALL_BLOCKED` | copy or post-check fail | restore backup; report |
 
 ## Integration Checkpoints
 
-- `make-ticket`: invoke each built law skill; record `Law:` scope; law skill built/changed → record v2 `dev` and `installed` closure, every required check `machine_verified`.
+- `make-ticket`: invoke each built law skill; record `Law:` scope; law skill built/changed → record v3 `dev` and `installed` closure, every required check `machine_verified`.
 - `plan-ticket`: read `Law:`; plan phases; `SKILL.md` owns exact CLI; plan v3 `dev` + `installed`; check set is 36.
-- `start-ticket`: re-run applicability; resolve; deliver context; gate; attest; before completion run v2 `dev` + `installed`; every required check `machine_verified`.
-- `review-ticket`: regenerate manifest; gate; attest; re-run v2 `dev` + `installed`; compare `closure`; state V1-only honesty.
-- `resolve-ticket`: repair gate findings; fill attestation; no status change; repair until v2 `dev` + `installed` pass.
+- `start-ticket`: re-run applicability; resolve; deliver context; gate; attest; before completion run v3 `dev` + `installed`; every required check `machine_verified`.
+- `review-ticket`: regenerate manifest; gate; attest; re-run v3 `dev` + `installed`; compare `closure`; state V1-only honesty.
+- `resolve-ticket`: repair gate findings; fill attestation; no status change; repair until v3 `dev` + `installed` pass.
 
 ## Integration Contract
 
-Six host files carry one canonical line each. Marker: `<!-- law-skill:checkpoint -->`. The line is skill-agnostic: it applies to every `skills/*-law`; exact CLI stays in `SKILL.md`. Fixed anchor: first content line after the law section heading. `--mode write` inserts or repairs; `--mode check` gates. One line per file, no per-skill block.
+Six host files carry one generic checkpoint line and one per-skill trigger line per installed specific-case `*-law`.
+
+Generic marker: `<!-- law-skill:checkpoint -->`. Fixed anchor: first content line after the law section heading.
+
+Per-skill marker: `<!-- law-skill:trigger:<name> --> <instruction>`. It sits immediately after the generic line, in skill-name order. The instruction is the AI-authored, machine-validated telegraphic English sentence; the host file carries no JSON, no CLI, no metadata, and no other generated text.
+
+Example:
 
 ```text
-<!-- law-skill:checkpoint --> Only when a `skills/*-law` trigger matches: apply; completion `gate` 0 + `attest` ok; built/changed: v2 `dev` + `installed`, every required check `machine_verified`, record `closure`. No match → skip.
-<!-- law-skill:checkpoint --> Law skill built/changed: record `Law:` scope; apply each `skills/*-law` per `SKILL.md`; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
-<!-- law-skill:checkpoint --> Law skill built/changed: plan phases from each `skills/*-law` `SKILL.md`; check set 18; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
-<!-- law-skill:checkpoint --> Law skill built/changed: apply each `skills/*-law`; `gate`; `attest`; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
-<!-- law-skill:checkpoint --> Law skill built/changed: regenerate manifest; `gate`; `attest`; re-run v2 `dev` + `installed`; every required check `machine_verified`; compare `closure`.
-<!-- law-skill:checkpoint --> Law skill built/changed: repair `gate` findings; fill `attest`; no status change; v2 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:trigger:<name>-law --> `<name>-law`: apply only when changed/target path matches `<path-glob>` unit role `<role>`; shared `<role>` only if `<condition>`. `applies` exit 3 = skip.
+```
+
+`--mode write` inserts or repairs the generic line and every installed trigger line; it removes stale lines and collapses duplicate whitespace. `--mode check` gates missing, drift, duplicate, location, stale, too-long, CLI leak, and invalid instruction.
+
+```text
+<!-- law-skill:checkpoint --> Only when a `skills/*-law` trigger matches: apply; completion `gate` 0 + `attest` ok; built/changed: v3 `dev` + `installed`, every required check `machine_verified`, record `closure`. No match → skip.
+<!-- law-skill:checkpoint --> Law skill built/changed: record `Law:` scope; apply each `skills/*-law` per `SKILL.md`; v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: plan phases from each `skills/*-law` `SKILL.md`; check set 36 (v3); v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: apply each `skills/*-law`; `gate`; `attest`; v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: regenerate manifest; `gate`; `attest`; re-run v3 `dev` + `installed`; every required check `machine_verified`; compare `closure`.
+<!-- law-skill:checkpoint --> Law skill built/changed: repair `gate` findings; fill `attest`; no status change; v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
 ```
 
 - `verify-law-integration.mjs --mode write`: idempotent, atomic, backup/rollback.
-- `verify-law-integration.mjs --mode check --require-skill`: exit 0 only when the six lines are canonical and every `skills/*-law` has `SKILL.md` + `dist/skill.mjs`.
-- `INTEGRATION_*` findings block Step 13.
+- `verify-law-integration.mjs --mode check --require-skill`: exit 0 only when the generic line and every installed per-skill trigger line are canonical and every `skills/*-law` has `SKILL.md` + `dist/skill.mjs`.
+- `INTEGRATION_*` or `TRIGGER_*` findings block Step 13.
 
 ## Completion
 
 - Every built skill: canonical verifier v3 dev and installed `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration checkpoints present.
-- Integration: six canonical lines present; `--mode check --require-skill` exit 0; no drift, duplicate, location, or CLI leak; integration closure recorded.
+- Integration: generic line and one per-skill trigger line per installed specific-case skill; `--mode check --require-skill` exit 0; no drift, duplicate, location, stale, CLI leak, or too-long; integration closure recorded.
 - Report adoption gaps; never claim V1 as rule-level proof.

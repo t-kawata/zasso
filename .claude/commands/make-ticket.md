@@ -256,6 +256,7 @@ Green without Red, test-modified Green, or stub Green → incomplete.
 ### Step 5.5: Rust interface law scope (conditional)
 
 <!-- law-skill:checkpoint --> Law skill built/changed: record `Law:` scope; apply each `skills/*-law` per `SKILL.md`; v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:trigger:rust-interface-law --> `rust-interface-law`: apply only when changed/target path matches `crates/**` unit role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only if ticket declares interface scope. `applies` exit 3 = skip.
 
 Invoke `rust-interface-law`; run `applies` on ticket target files per `SKILL.md`.
 

@@ -7,6 +7,9 @@ description: >
   Auto-discovers the Rust workspace; no prior configuration required. Resolves
   the applicable rule closure, delivers phase-scoped rule text, and blocks
   completion until machine gates pass. Do not use for non-Rust work.
+  `rust-interface-law`: apply only when changed/target path matches `crates/**`
+  unit role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only if
+  ticket declares interface scope. `applies` exit 3 = skip.
 ---
 
 # Rust Interface Law
@@ -15,6 +18,10 @@ Rule text: the OKF v0.2 bundle under `okf/`. This file is the procedure and
 entry contract. Use the CLI to traverse the bundle; do not grep raw bundle files.
 Never invent a rule id: the registry and `source/rule-concepts.json` are the
 identity source.
+
+## Applicability
+
+`rust-interface-law`: apply only when changed/target path matches `crates/**` unit role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only if ticket declares interface scope. `applies` exit 3 = skip.
 
 ## Outcome
 

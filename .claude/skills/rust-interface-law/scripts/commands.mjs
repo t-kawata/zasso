@@ -31,6 +31,7 @@ import { loadImplementationPolicy, phaseForRuleId, resolveEffectivePolicy } from
 import { checkDependencies, readCargoMetadata } from './lib/implementation-metadata.mjs';
 import { scanFiles } from './lib/implementation-scan.mjs';
 import { applyImplementationReport, checkLawIdentity } from './lib/implementation-gate.mjs';
+import { evaluateApplicability } from './lib/applicability.mjs';
 import { reconcileTemplatePlan, renderTemplatePlan } from './lib/template.mjs';
 import { scanImplementation } from './lib/process-scan.mjs';
 import {
@@ -209,10 +210,24 @@ export function appliesCommand(argv) {
     ? units.filter((unit) => unit.id === String(options.unit))
     : (paths.length > 0 ? matchUnits(paths, { units }).units : []);
   const includeShared = Boolean(options['include-shared']);
-  const applicable = matched.filter((unit) => includeShared || INTERFACE_ROLES.has(unit.role));
+  const record = loadApplicabilityRecord();
+  const trigger = record?.applies ?? null;
+  let displayMatched = matched;
+  let applicable;
+  if (trigger) {
+    const evaluationPaths = paths.length > 0 ? paths : matched.flatMap((unit) => unit.paths ?? []);
+    const evaluation = evaluateApplicability({ record, paths: evaluationPaths, units, includeShared });
+    displayMatched = options.unit ? matched : evaluation.matched;
+    applicable = options.unit
+      ? evaluation.applicable.filter((unit) => matched.some((candidate) => candidate.id === unit.id))
+      : evaluation.applicable;
+  } else {
+    applicable = matched.filter((unit) => includeShared || INTERFACE_ROLES.has(unit.role));
+  }
   const applies = applicable.length > 0;
   const phases = [...new Set(applicable.flatMap((unit) => unit.phases ?? []))]
     .sort((left, right) => PHASE_ORDER.indexOf(left) - PHASE_ORDER.indexOf(right));
+  const skillName = record?.skill ?? basename(skillRoot());
 
   process.stdout.write([
     '# Law applicability — ' + (applies ? 'APPLIES' : 'SKIP'),
@@ -221,16 +236,21 @@ export function appliesCommand(argv) {
     '|---|---|',
     '| Repository | `' + root + '` |',
     '| Paths checked | ' + paths.length + ' |',
-    '| Matched units | ' + (matched.map(labelUnit).join(', ') || '(none)') + ' |',
+    '| Matched units | ' + (displayMatched.map(labelUnit).join(', ') || '(none)') + ' |',
     '| Applicable units | ' + (applicable.map(labelUnit).join(', ') || '(none)') + ' |',
     '| Phases | ' + (phases.join(', ') || '(none)') + ' |',
     '',
     applies
-      ? 'Apply rust-interface-law for these units.'
-      : 'Skip rust-interface-law; no interface unit matched.',
+      ? 'Apply ' + skillName + ' for these units.'
+      : 'Skip ' + skillName + '; no interface unit matched.',
     '',
   ].join('\n'));
   process.exit(applies ? 0 : 3);
+}
+
+function loadApplicabilityRecord() {
+  const path = join(skillRoot(), 'source/applicability.json');
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
 }
 
 function labelUnit(unit) {
@@ -841,6 +861,7 @@ function writeAtomic(path, text) {
 
 // [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
 // Read commands hand the AI Markdown by default; machine consumers pass --format json.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function writeValue(value, options) {
   process.stdout.write(formatValue(value, options.format ?? FORMAT_MARKDOWN));
 }
@@ -1019,17 +1040,20 @@ function traversalProfile(concept) {
   return concept?.frontmatter?.['x-rule-id'] ? 'law-implement' : 'law-wiki';
 }
 
-// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function readHop(options) {
   return Number(options.hop ?? 0);
 }
 
-// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function readStack(options) {
   return String(options.from ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
 }
 
-// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function traversalPage({ bundle, id, options }) {
   const concept = bundle.byId.get(id);
   return buildTraversal({
@@ -1041,7 +1065,8 @@ function traversalPage({ bundle, id, options }) {
   });
 }
 
-// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function withEnvelope({ id, edges, page }) {
   return {
     id,
@@ -1055,7 +1080,8 @@ function withEnvelope({ id, edges, page }) {
   };
 }
 
-// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function lawEntryCommand(entry) {
   if (entry.kind === 'concept') return `${LAW_COMMAND_PREFIX} expand --id ${entry.id}`;
   if (entry.kind === 'directory') return `${LAW_COMMAND_PREFIX} list --path ${entry.path}`;
@@ -1065,7 +1091,8 @@ function lawEntryCommand(entry) {
   return `${LAW_COMMAND_PREFIX} list --path ${parentDirectory}`;
 }
 
-// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function position(options) {
   const value = options._?.[0] ?? options.id;
   if (!value) throw new Error('positional argument is required');

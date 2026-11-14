@@ -16,14 +16,24 @@ import {
   INTEGRATION_MARKER,
   LAW_SECTION_PATTERNS,
   MAX_CHECKPOINT_LENGTH,
+  MAX_TRIGGER_LINE_LENGTH,
   PIPELINE_COMMANDS,
+  TRIGGER_MARKER_PREFIX,
   anchorIndex,
   checkpointIndexes,
   findLawSection,
   isValidCheckpointLine,
+  isValidTriggerLine,
   normalizeHostText,
   outsideCheckpointIndexes,
+  outsideTriggerIndexes,
+  triggerIndexes,
 } from './law-integration/contract.mjs';
+import {
+  buildTriggerLine,
+  loadApplicability,
+  parseTriggerLine,
+} from './law-integration/applicability.mjs';
 import {
   exists,
   readText,
@@ -82,7 +92,7 @@ function finding(status, codes, extra = {}) {
 }
 
 // [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
-function inspectHostFile({ key, file }) {
+function inspectHostFile({ key, file }, triggers = []) {
   if (!exists(file)) {
     return finding('failed', ['INTEGRATION_MISSING'], { file: null, line: null });
   }
@@ -104,6 +114,7 @@ function inspectHostFile({ key, file }) {
     if (line !== CANONICAL_LINES[key] || !isValidCheckpointLine(line)) codes.push('INTEGRATION_DRIFT');
     if (lineIndex !== anchorIndex(lines, section)) codes.push('INTEGRATION_LOCATION');
   }
+  codes.push(...inspectTriggerLines(lines, section, lineIndex, triggers));
   return finding(codes.length === 0 ? 'machine_verified' : 'failed', codes, {
     file: null,
     line: lineIndex === null ? null : lineIndex + 1,
@@ -111,11 +122,54 @@ function inspectHostFile({ key, file }) {
   });
 }
 
+/**
+ * Check the per-skill trigger lines without adding any other host text.
+ *
+ * Each installed specific-case skill owns exactly one line, immediately after
+ * the generic checkpoint, in skill-name order.
+ */
+function inspectTriggerLines(lines, section, genericIndex, triggers) {
+  const codes = [];
+  const expected = triggers.map((trigger) => ({
+    name: trigger.name,
+    line: buildTriggerLine(trigger.name, trigger.instruction),
+  }));
+  const indexes = triggerIndexes(lines, section);
+  const actual = indexes.map((index) => lines[index].trim());
+
+  if (outsideTriggerIndexes(lines, section).length > 0) codes.push('TRIGGER_LOCATION');
+  for (const trigger of expected) {
+    const matching = actual.filter((line) => parseTriggerLine(line)?.skill === trigger.name);
+    if (matching.length === 0) codes.push('TRIGGER_MISSING');
+    if (matching.length > 1) codes.push('TRIGGER_DUPLICATE');
+    if (matching.length === 1 && matching[0] !== trigger.line) codes.push('TRIGGER_DRIFT');
+  }
+  const expectedSkills = new Set(expected.map((trigger) => trigger.name));
+  for (const line of actual) {
+    const parsed = parseTriggerLine(line);
+    if (!parsed || !expectedSkills.has(parsed.skill)) codes.push('TRIGGER_STALE');
+    if (line.length > MAX_TRIGGER_LINE_LENGTH) codes.push('TRIGGER_TOO_LONG');
+    if (/--(?:root|source-root|path-alias)/.test(line)) codes.push('TRIGGER_CLI_LEAK');
+    if (!isValidTriggerLine(line)) codes.push('TRIGGER_INVALID');
+  }
+  if (genericIndex !== null) {
+    for (let offset = 0; offset < expected.length; offset += 1) {
+      const expectedIndex = genericIndex + 1 + offset;
+      if (lines[expectedIndex]?.trim() !== expected[offset].line) {
+        if (actual.includes(expected[offset].line)) codes.push('TRIGGER_LOCATION');
+      }
+    }
+  }
+  if (expected.length === 0 && actual.length > 0) codes.push('TRIGGER_STALE');
+  return codes;
+}
+
 // [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
 function inspectSkills(skillsDirectory, requireSkill) {
   if (!exists(skillsDirectory)) {
     return finding(requireSkill ? 'failed' : 'skipped', requireSkill ? ['INTEGRATION_NO_SKILL'] : [], {
       discovered: [],
+      triggers: [],
     });
   }
   const discovered = fs.readdirSync(skillsDirectory, { withFileTypes: true })
@@ -123,22 +177,31 @@ function inspectSkills(skillsDirectory, requireSkill) {
     .map((entry) => entry.name)
     .sort();
   const codes = [];
+  const triggers = [];
   for (const name of discovered) {
     const skill = path.join(skillsDirectory, name);
     if (!exists(path.join(skill, 'SKILL.md')) || !exists(path.join(skill, 'dist/skill.mjs'))) {
       codes.push('INTEGRATION_SKILL_INVALID');
     }
+    const applicability = loadApplicability(skill);
+    if (applicability.status === 'invalid') codes.push('TRIGGER_INVALID');
+    if (applicability.status === 'valid'
+      && applicability.record.classification === 'specific-case-trigger') {
+      triggers.push({ name, instruction: applicability.record.instruction });
+    }
   }
+  triggers.sort((left, right) => left.name.localeCompare(right.name));
   if (discovered.length === 0) {
     return finding(requireSkill ? 'failed' : 'skipped', requireSkill ? ['INTEGRATION_NO_SKILL'] : [], {
       discovered,
+      triggers,
     });
   }
-  return finding(codes.length === 0 ? 'machine_verified' : 'failed', codes, { discovered });
+  return finding(codes.length === 0 ? 'machine_verified' : 'failed', codes, { discovered, triggers });
 }
 
 // [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
-function prepareHostFile({ key, file, relative }) {
+function prepareHostFile({ key, file, relative }, triggers = []) {
   if (!exists(file)) return { error: finding('failed', ['INTEGRATION_MISSING'], { file: relative }) };
   const original = normalizeHostText(readText(file));
   const lines = splitLines(original);
@@ -146,25 +209,26 @@ function prepareHostFile({ key, file, relative }) {
   if (!section) return { error: finding('failed', ['INTEGRATION_MISSING'], { file: relative }) };
   const outside = outsideCheckpointIndexes(lines, section);
   if (outside.length > 0) return { error: finding('failed', ['INTEGRATION_LOCATION'], { file: relative }) };
+  const outsideTriggers = outsideTriggerIndexes(lines, section);
+  if (outsideTriggers.length > 0) return { error: finding('failed', ['TRIGGER_LOCATION'], { file: relative }) };
   const indexes = checkpointIndexes(lines, section);
   if (indexes.length > 1) return { error: finding('failed', ['INTEGRATION_DUPLICATE'], { file: relative }) };
   const canonical = CANONICAL_LINES[key];
-  if (indexes.length === 1
-    && lines[indexes[0]].trim() === canonical
-    && indexes[0] === anchorIndex(lines, section)) {
-    return { key, file, relative, original, next: original, changed: false };
-  }
+  const triggerIdxs = triggerIndexes(lines, section);
+  const expectedTriggers = triggers.map((trigger) => buildTriggerLine(trigger.name, trigger.instruction));
+  const removed = new Set([...indexes, ...triggerIdxs]);
   const before = lines.slice(0, section.start + 1);
   const rest = lines
     .slice(section.start + 1, section.end)
-    .filter((line, offset) => !indexes.includes(section.start + 1 + offset))
-    .filter((line, offset, array) => !(offset === 0 && line.trim() === ''))
-    .filter((line, offset, array) => !(offset === array.length - 1 && line.trim() === ''));
+    .filter((line, offset) => !removed.has(section.start + 1 + offset));
+  while (rest.length > 0 && rest[0].trim() === '') rest.shift();
+  while (rest.length > 0 && rest[rest.length - 1].trim() === '') rest.pop();
   const after = lines.slice(section.end);
-  const nextLines = [...before, '', canonical, ''];
+  const nextLines = [...before, '', canonical, ...expectedTriggers, ''];
   if (rest.length > 0) nextLines.push(...rest, '');
   nextLines.push(...after);
-  return { key, file, relative, original, next: `${nextLines.join('\n').replace(/\n+$/, '')}\n`, changed: true };
+  const next = `${nextLines.join('\n').replace(/\n+$/, '')}\n`;
+  return { key, file, relative, original, next, changed: next !== original };
 }
 
 // [::TICKET::] PX-423 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-423 --for-spec --no-implementation-order`.
@@ -203,6 +267,10 @@ function closure({ checks, skills }) {
     lines: CANONICAL_LINES,
     files: FILE_KEYS,
     skills: skills.discovered ?? [],
+    triggers: (skills.triggers ?? []).map((trigger) => ({
+      name: trigger.name,
+      line: buildTriggerLine(trigger.name, trigger.instruction),
+    })),
   }));
 }
 
@@ -230,11 +298,12 @@ function main(argv = process.argv.slice(2)) {
   }
   const files = hostFiles(options);
   const skills = inspectSkills(options.skills, options.requireSkill);
+  const triggers = skills.triggers ?? [];
   let report;
   if (options.mode === 'write') {
     const prepared = [];
     for (const entry of files) {
-      const result = prepareHostFile(entry);
+      const result = prepareHostFile(entry, triggers);
       if (result.error) {
         prepared.push({ key: entry.key, error: result.error });
         continue;
@@ -259,7 +328,7 @@ function main(argv = process.argv.slice(2)) {
     }
   } else {
     const checks = Object.fromEntries(files.map((entry) => {
-      const result = inspectHostFile(entry);
+      const result = inspectHostFile(entry, triggers);
       return [entry.key, { ...result, file: entry.relative }];
     }));
     report = render({ mode: options.mode, root: options.root, checks, skills });

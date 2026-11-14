@@ -9,6 +9,11 @@
  */
 
 import { normalizeLf } from '../law-verify/source.mjs';
+import {
+  MAX_TRIGGER_LINE_LENGTH,
+  TRIGGER_MARKER_PREFIX,
+  isTriggerLine,
+} from './applicability.mjs';
 
 export const INTEGRATION_MARKER = '<!-- law-skill:checkpoint -->';
 export const MAX_CHECKPOINT_LENGTH = 240;
@@ -30,15 +35,23 @@ export const INTEGRATION_CODES = Object.freeze([
   'INTEGRATION_SKILL_INVALID',
   'INTEGRATION_NO_SKILL',
   'INTEGRATION_WRITE_FAILED',
+  'TRIGGER_MISSING',
+  'TRIGGER_DRIFT',
+  'TRIGGER_DUPLICATE',
+  'TRIGGER_LOCATION',
+  'TRIGGER_STALE',
+  'TRIGGER_INVALID',
+  'TRIGGER_CLI_LEAK',
+  'TRIGGER_TOO_LONG',
 ]);
 
 export const CANONICAL_LINES = Object.freeze({
-  claude: `${INTEGRATION_MARKER} Only when a \`skills/*-law\` trigger matches: apply; completion \`gate\` 0 + \`attest\` ok; built/changed: v2 \`dev\` + \`installed\`, every required check \`machine_verified\`, record \`closure\`. No match → skip.`,
-  'make-ticket': `${INTEGRATION_MARKER} Law skill built/changed: record \`Law:\` scope; apply each \`skills/*-law\` per \`SKILL.md\`; v2 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
-  'plan-ticket': `${INTEGRATION_MARKER} Law skill built/changed: plan phases from each \`skills/*-law\` \`SKILL.md\`; check set 18; v2 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
-  'start-ticket': `${INTEGRATION_MARKER} Law skill built/changed: apply each \`skills/*-law\`; \`gate\`; \`attest\`; v2 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
-  'review-ticket': `${INTEGRATION_MARKER} Law skill built/changed: regenerate manifest; \`gate\`; \`attest\`; re-run v2 \`dev\` + \`installed\`; every required check \`machine_verified\`; compare \`closure\`.`,
-  'resolve-ticket': `${INTEGRATION_MARKER} Law skill built/changed: repair \`gate\` findings; fill \`attest\`; no status change; v2 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
+  claude: `${INTEGRATION_MARKER} Only when a \`skills/*-law\` trigger matches: apply; completion \`gate\` 0 + \`attest\` ok; built/changed: v3 \`dev\` + \`installed\`, every required check \`machine_verified\`, record \`closure\`. No match → skip.`,
+  'make-ticket': `${INTEGRATION_MARKER} Law skill built/changed: record \`Law:\` scope; apply each \`skills/*-law\` per \`SKILL.md\`; v3 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
+  'plan-ticket': `${INTEGRATION_MARKER} Law skill built/changed: plan phases from each \`skills/*-law\` \`SKILL.md\`; check set 36 (v3); v3 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
+  'start-ticket': `${INTEGRATION_MARKER} Law skill built/changed: apply each \`skills/*-law\`; \`gate\`; \`attest\`; v3 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
+  'review-ticket': `${INTEGRATION_MARKER} Law skill built/changed: regenerate manifest; \`gate\`; \`attest\`; re-run v3 \`dev\` + \`installed\`; every required check \`machine_verified\`; compare \`closure\`.`,
+  'resolve-ticket': `${INTEGRATION_MARKER} Law skill built/changed: repair \`gate\` findings; fill \`attest\`; no status change; v3 \`dev\` + \`installed\`; every required check \`machine_verified\`; record \`closure\`.`,
 });
 
 export const LAW_SECTION_PATTERNS = Object.freeze({
@@ -130,6 +143,55 @@ export function isValidCheckpointLine(line) {
   if (/--(?:root|source-root|path-alias)/.test(line)) return false;
   return ['dev', 'installed', 'machine_verified', 'closure'].every((term) => line.includes(term));
 }
+
+/**
+ * Per-skill trigger line indexes inside the law section.
+ *
+ * @param {string[]} lines
+ * @param {{start:number,end:number}} section
+ * @returns {number[]}
+ */
+export function triggerIndexes(lines, section) {
+  const indexes = [];
+  for (let index = section.start + 1; index < section.end; index += 1) {
+    if (isTriggerLine(lines[index])) indexes.push(index);
+  }
+  return indexes;
+}
+
+/**
+ * Trigger line indexes anywhere outside the law section.
+ *
+ * @param {string[]} lines
+ * @param {{start:number,end:number}} section
+ * @returns {number[]}
+ */
+export function outsideTriggerIndexes(lines, section) {
+  const indexes = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (isTriggerLine(lines[index])
+      && (index <= section.start || index >= section.end)) {
+      indexes.push(index);
+    }
+  }
+  return indexes;
+}
+
+/**
+ * Whether a trigger line fits the no-noise boundary.
+ *
+ * @param {string} line
+ * @returns {boolean}
+ */
+export function isValidTriggerLine(line) {
+  const text = String(line).trim();
+  if (text.length > MAX_TRIGGER_LINE_LENGTH) return false;
+  if (!text.startsWith(TRIGGER_MARKER_PREFIX)) return false;
+  if (/--(?:root|source-root|path-alias)/.test(text)) return false;
+  return true;
+}
+
+export { MAX_TRIGGER_LINE_LENGTH, TRIGGER_MARKER_PREFIX };
 
 export function canonicalLineFor(key) {
   return CANONICAL_LINES[key] ?? null;

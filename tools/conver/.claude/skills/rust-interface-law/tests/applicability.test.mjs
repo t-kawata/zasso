@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evaluateApplicability } from '../scripts/lib/applicability.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cli = join(here, '..', 'scripts/cli.mjs');
@@ -56,4 +57,28 @@ test('applies selects interface paths and skips unrelated paths', () => {
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
+});
+
+test('the selection is driven by source/applicability.json', () => {
+  const record = JSON.parse(readFileSync(join(here, '..', 'source/applicability.json'), 'utf8'));
+  const units = [
+    { id: 'app-rest', role: 'rest', paths: ['crates/app-rest/**'] },
+    { id: 'app-core', role: 'core', paths: ['crates/app-core/**'] },
+  ];
+  const rest = evaluateApplicability({
+    record,
+    paths: ['crates/app-rest/src/lib.rs'],
+    units,
+    includeShared: false,
+  });
+  assert.equal(rest.applies, true);
+
+  const narrowed = { ...record, applies: { ...record.applies, roles: ['cli'] } };
+  const disabled = evaluateApplicability({
+    record: narrowed,
+    paths: ['crates/app-rest/src/lib.rs'],
+    units,
+    includeShared: false,
+  });
+  assert.equal(disabled.applies, false);
 });

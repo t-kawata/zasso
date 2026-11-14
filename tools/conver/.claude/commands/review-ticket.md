@@ -204,6 +204,7 @@ then: re-run `.claude/scripts/tickets/scan-crimes.sh` → verify reflected in Ma
 ### Step 5.5: Rust interface law re-verification (conditional)
 
 <!-- law-skill:checkpoint --> Law skill built/changed: regenerate manifest; `gate`; `attest`; re-run v3 `dev` + `installed`; every required check `machine_verified`; compare `closure`.
+<!-- law-skill:trigger:rust-interface-law --> `rust-interface-law`: apply only when changed/target path matches `crates/**` unit role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only if ticket declares interface scope. `applies` exit 3 = skip.
 
 `Law: not applicable` and no `target/law` → skip.
 Otherwise invoke `rust-interface-law`; per `SKILL.md`, regenerate manifest, run

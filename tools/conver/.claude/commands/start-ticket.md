@@ -457,6 +457,7 @@ the AI determines the approach based on the situation:
 ### Step 7.5: Rust interface law gate (conditional)
 
 <!-- law-skill:checkpoint --> Law skill built/changed: apply each `skills/*-law`; `gate`; `attest`; v3 `dev` + `installed`; every required check `machine_verified`; record `closure`.
+<!-- law-skill:trigger:rust-interface-law --> `rust-interface-law`: apply only when changed/target path matches `crates/**` unit role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only if ticket declares interface scope. `applies` exit 3 = skip.
 
 `Law: not applicable` → skip.
 Otherwise run `implementation-check`, `gate --implementation`, and `attest` per `SKILL.md`; exit 50 → fix findings.

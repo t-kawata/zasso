@@ -10,6 +10,7 @@ import {
   INTEGRATION_MARKER,
   MAX_CHECKPOINT_LENGTH,
 } from '../../../.claude/scripts/amend-rfc-up/law-integration/contract.mjs';
+import { TRIGGER_MARKER_PREFIX } from '../../../.claude/scripts/amend-rfc-up/law-integration/applicability.mjs';
 
 /**
  * PX-420 — executable contract for the `/build-law-skill` procedure.
@@ -533,6 +534,18 @@ export function auditIntegrationContract(text) {
   }
   if (!section.includes('verify-law-integration.mjs')) {
     add('MISSING_INTEGRATION_VERIFIER', 'integration verifier is not named');
+  }
+  if (!section.includes(TRIGGER_MARKER_PREFIX)) {
+    add('MISSING_TRIGGER_CONTRACT', 'per-skill trigger marker is not named');
+  }
+  if (!section.includes('per-skill')) {
+    add('MISSING_TRIGGER_CONTRACT', 'per-skill trigger line is not described');
+  }
+  if (!/telegraphic/i.test(section)) {
+    add('MISSING_TRIGGER_CONTRACT', 'telegraphic instruction rule is absent');
+  }
+  if (!/AI-authored/i.test(section)) {
+    add('MISSING_TRIGGER_CONTRACT', 'AI-authored instruction rule is absent');
   }
   if (!/\|\s*Integration\s*\|/.test(sectionOf(body, '## Verification Gates'))) {
     add('MISSING_INTEGRATION_GATE', 'Verification Gates lacks an Integration row');
