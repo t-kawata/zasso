@@ -1,0 +1,17 @@
+{
+  "schema": "okf-input-ledger/v1",
+  "roots": [
+    "sources"
+  ],
+  "inputs": [
+    {
+      "path": "sources/implementation-handbook.md",
+      "status": "included",
+      "reason": "markdown with claim-bearing blocks"
+    }
+  ],
+  "counts": {
+    "included": 1,
+    "excluded": 0
+  }
+}

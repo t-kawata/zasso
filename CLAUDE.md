@@ -169,9 +169,7 @@ gate: not Tiny → ask; stop — propose the `/make-ticket` pipeline (make → p
 ### Rust interface law (conditional)
 
 <!-- law-skill:checkpoint --> Only when a `skills/*-law` trigger matches: apply; completion `gate` 0 + `attest` ok; built/changed: v3 `dev` + `installed`, every required check `machine_verified`, record `closure`. No match → skip.
-
-
-Trigger: changed/target path matches `crates/**` unit with role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only when ticket declares interface scope.
+<!-- law-skill:trigger:rust-interface-law --> `rust-interface-law`: apply only when changed/target path matches `crates/**` unit role `rest|websocket|cli|grpc|mcp|a2a`; shared `operation|core` only if ticket declares interface scope. `applies` exit 3 = skip.
 
 Precheck: run `applies` as defined in `SKILL.md`; exit 3 skips.
 

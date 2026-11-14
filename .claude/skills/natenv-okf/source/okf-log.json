@@ -1,0 +1,9 @@
+{
+  "schema": "okf-log/v1",
+  "entries": [
+    {
+      "date": "2026-11-14",
+      "text": "Built 14 concepts from 1 source."
+    }
+  ]
+}

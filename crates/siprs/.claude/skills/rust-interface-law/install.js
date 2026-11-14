@@ -17,6 +17,13 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
+// The unredacted build input and its ledger are part of the portable skill.
+// Refuse a partial install that would leave the OKF form unauditable.
+if (!existsSync(join(root, 'PRE-OKF-ORIGINAL.md')) || !existsSync(join(root, 'source/pre-okf-original.json'))) {
+  process.stderr.write('install: PRE-OKF-ORIGINAL.md or source/pre-okf-original.json missing\n');
+  process.exit(1);
+}
+
 // Preserve dist/ so the bundled entry resolves okf/ as a sibling, exactly as in the source tree.
 mkdirSync(targetDistDir, { recursive: true });
 cpSync(dist, join(targetDistDir, 'skill.mjs'));
@@ -25,7 +32,7 @@ cpSync(join(root, 'okf-core'), join(targetDir, 'okf-core'), { recursive: true })
 cpSync(join(root, 'okf'), join(targetDir, 'okf'), { recursive: true });
 cpSync(join(root, 'source'), join(targetDir, 'source'), { recursive: true });
 cpSync(join(root, 'templates'), join(targetDir, 'templates'), { recursive: true });
-for (const file of ['atoms.lock.json', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md', 'package.json', 'THIRD_PARTY_NOTICES.md']) {
+for (const file of ['PRE-OKF-ORIGINAL.md', 'atoms.lock.json', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md', 'package.json', 'THIRD_PARTY_NOTICES.md']) {
   if (existsSync(join(root, file))) cpSync(join(root, file), join(targetDir, file));
 }
 // Installed mode executes the verifier's runtime fixture; the fixture is not source law.

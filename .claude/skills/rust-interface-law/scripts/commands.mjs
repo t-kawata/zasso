@@ -810,6 +810,7 @@ function renderPlanMarkdown(result) {
 }
 
 function renderImplementationReportMarkdown(report) {
+  const findings = report.findings ?? [];
   return [
     '# Implementation check — ' + (report.ok ? 'PASS' : 'FAIL'),
     '',
@@ -817,9 +818,21 @@ function renderImplementationReportMarkdown(report) {
     '|---|---|',
     ...(report.statuses ?? []).map((status) => '| ' + status.rule + ' | ' + status.status + ' |'),
     '',
-    'Findings: ' + (report.findings?.length ?? 0),
+    'Findings: ' + findings.length,
     '',
+    ...(findings.length > 0
+      ? ['## Findings', '', ...findings.map(renderImplementationFinding), '']
+      : []),
   ].join('\n');
+}
+
+function renderImplementationFinding(finding) {
+  if (typeof finding === 'string') return '- ' + finding;
+  if (finding === null || typeof finding !== 'object') return '- ' + String(finding);
+  const kind = finding.kind ?? 'finding';
+  const scope = [finding.interface, finding.package].filter(Boolean).join(' / ');
+  const message = finding.message ?? JSON.stringify(finding);
+  return `- \`${kind}\`${scope ? ` (${scope})` : ''}: ${message}`;
 }
 
 function parseArgs(argv) {

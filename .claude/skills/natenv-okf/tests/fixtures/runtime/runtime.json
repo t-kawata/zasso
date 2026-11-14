@@ -1,0 +1,11 @@
+{
+  "schema": "okf-runtime-fixture/v1",
+  "entryConcept": "pages/implementation-handbook/preamble",
+  "displayConcept": "pages/implementation-handbook/0-status-scope-non-negotiable-truth",
+  "limits": {
+    "contextBudgetBytes": 1000000,
+    "smallBudgetBytes": 1,
+    "nodeBudget": 2500,
+    "maxAnswerNodes": 20
+  }
+}

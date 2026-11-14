@@ -3403,7 +3403,7 @@
     {
       "concept_id": "sources/31-websocket/12-conformance-obligations",
       "path": "sources/31-websocket/12-conformance-obligations.md",
-      "content_sha256": "944ec6b9d87c99e86a81c88ee6dc9185d3cb8b0488d19f3681571037c1573046"
+      "content_sha256": "337004d83b6e162ec5031d58ddf8e10a10c91119806d71a35817787dca1935dd"
     },
     {
       "concept_id": "sources/31-websocket/11-implementation-contract",

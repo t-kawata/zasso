@@ -19,6 +19,7 @@ export const OKF_SKILL_NAME = /^[a-z][a-z0-9-]*-okf$/;
 export const COMMAND_SECTIONS = Object.freeze([
   '## Path Anchor',
   '## Language Protocol',
+  '## Reference Exemplars',
   '## Arguments',
   '## Invariants',
   '## Input Contract',

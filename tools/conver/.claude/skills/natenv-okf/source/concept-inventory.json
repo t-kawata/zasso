@@ -1,0 +1,89 @@
+{
+  "schema": "okf-concept-inventory/v1",
+  "entries": [
+    {
+      "id": "pages/implementation-handbook/0-status-scope-non-negotiable-truth",
+      "path": "pages/implementation-handbook/0-status-scope-non-negotiable-truth.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "3-26"
+    },
+    {
+      "id": "pages/implementation-handbook/1-host-contract-safety-preparation",
+      "path": "pages/implementation-handbook/1-host-contract-safety-preparation.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "27-72"
+    },
+    {
+      "id": "pages/implementation-handbook/10-deliberate-boundaries",
+      "path": "pages/implementation-handbook/10-deliberate-boundaries.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "535-547"
+    },
+    {
+      "id": "pages/implementation-handbook/2-files-exact-topologies-placement",
+      "path": "pages/implementation-handbook/2-files-exact-topologies-placement.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "73-142"
+    },
+    {
+      "id": "pages/implementation-handbook/3-infrastructure-acceptance-fault-injection-nat-qualification",
+      "path": "pages/implementation-handbook/3-infrastructure-acceptance-fault-injection-nat-qualification.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "143-219"
+    },
+    {
+      "id": "pages/implementation-handbook/4-pjsua-surrogate-real-rust-pjsip-client-integration",
+      "path": "pages/implementation-handbook/4-pjsua-surrogate-real-rust-pjsip-client-integration.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "220-284"
+    },
+    {
+      "id": "pages/implementation-handbook/5-rust-sut-overlay-build-isolation-external-agent-control",
+      "path": "pages/implementation-handbook/5-rust-sut-overlay-build-isolation-external-agent-control.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "285-328"
+    },
+    {
+      "id": "pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays",
+      "path": "pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "329-372"
+    },
+    {
+      "id": "pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback",
+      "path": "pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "373-438"
+    },
+    {
+      "id": "pages/implementation-handbook/8-packet-level-observation-bounded-collection-failure-triage",
+      "path": "pages/implementation-handbook/8-packet-level-observation-bounded-collection-failure-triage.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "439-493"
+    },
+    {
+      "id": "pages/implementation-handbook/9-machine-verifiable-quality-repetitions-final-gate",
+      "path": "pages/implementation-handbook/9-machine-verifiable-quality-repetitions-final-gate.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "494-534"
+    },
+    {
+      "id": "pages/implementation-handbook/appendix-a-exact-source-files",
+      "path": "pages/implementation-handbook/appendix-a-exact-source-files.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "548-2828"
+    },
+    {
+      "id": "pages/implementation-handbook/appendix-b-validation-record",
+      "path": "pages/implementation-handbook/appendix-b-validation-record.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "2829-2987"
+    },
+    {
+      "id": "pages/implementation-handbook/preamble",
+      "path": "pages/implementation-handbook/preamble.md",
+      "source": "sources/implementation-handbook.md",
+      "span": "1-2"
+    }
+  ]
+}

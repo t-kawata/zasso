@@ -1,0 +1,350 @@
+{
+  "schema": "okf-build-measurements/v1",
+  "source": {
+    "alias": "sources/implementation-handbook.md",
+    "lines": 2987,
+    "sha256": "ab2d0ddfd93ec1f195fe426c5609b4f3826fd4f6c7c935fe4b3adbeb14f2102a",
+    "bytes": 105746
+  },
+  "headings": [
+    {
+      "level": 1,
+      "title": "Simulated NAT environment — CLI-only, single-host, real-packet WAN/NAT/VoIP/P2P laboratory",
+      "line": 1
+    },
+    {
+      "level": 2,
+      "title": "0. Status; scope; non-negotiable truth",
+      "line": 3
+    },
+    {
+      "level": 2,
+      "title": "1. Host contract; safety; preparation",
+      "line": 27
+    },
+    {
+      "level": 2,
+      "title": "2. Files; exact topologies; placement",
+      "line": 73
+    },
+    {
+      "level": 2,
+      "title": "3. Infrastructure acceptance; fault injection; NAT qualification",
+      "line": 143
+    },
+    {
+      "level": 2,
+      "title": "4. PJSUA surrogate; real Rust/PJSIP client integration",
+      "line": 220
+    },
+    {
+      "level": 2,
+      "title": "5. Rust SUT overlay; build isolation; external-agent control",
+      "line": 285
+    },
+    {
+      "level": 2,
+      "title": "6. TURN coverage; TLS; NAT-side relays",
+      "line": 329
+    },
+    {
+      "level": 2,
+      "title": "7. iroh: separate local relay; pin API/schema; never public fallback",
+      "line": 373
+    },
+    {
+      "level": 2,
+      "title": "8. Packet-level observation; bounded collection; failure triage",
+      "line": 439
+    },
+    {
+      "level": 2,
+      "title": "9. Machine-verifiable quality; repetitions; final gate",
+      "line": 494
+    },
+    {
+      "level": 2,
+      "title": "10. Deliberate boundaries",
+      "line": 535
+    },
+    {
+      "level": 2,
+      "title": "Appendix A — Exact source files",
+      "line": 548
+    },
+    {
+      "level": 3,
+      "title": ".gitignore",
+      "line": 552
+    },
+    {
+      "level": 3,
+      "title": "AGENTS.md",
+      "line": 564
+    },
+    {
+      "level": 3,
+      "title": "Dockerfile",
+      "line": 579
+    },
+    {
+      "level": 3,
+      "title": "Dockerfile.iroh",
+      "line": 601
+    },
+    {
+      "level": 3,
+      "title": "Dockerfile.pjsua",
+      "line": 617
+    },
+    {
+      "level": 3,
+      "title": "Dockerfile.sut",
+      "line": 633
+    },
+    {
+      "level": 3,
+      "title": "accept/Cargo.toml",
+      "line": 647
+    },
+    {
+      "level": 3,
+      "title": "accept/tests/lab.rs",
+      "line": 656
+    },
+    {
+      "level": 3,
+      "title": "accept/tests/turn.rs",
+      "line": 694
+    },
+    {
+      "level": 3,
+      "title": "accept/tests/voip.rs",
+      "line": 714
+    },
+    {
+      "level": 3,
+      "title": "compose.double.yml",
+      "line": 755
+    },
+    {
+      "level": 3,
+      "title": "compose.iroh.yml",
+      "line": 1224
+    },
+    {
+      "level": 3,
+      "title": "compose.private.yml",
+      "line": 1254
+    },
+    {
+      "level": 3,
+      "title": "compose.single.yml",
+      "line": 1663
+    },
+    {
+      "level": 3,
+      "title": "compose.sut.example.yml",
+      "line": 2071
+    },
+    {
+      "level": 3,
+      "title": "compose.timeout.example.yml",
+      "line": 2125
+    },
+    {
+      "level": 3,
+      "title": "compose.turn-tls.yml",
+      "line": 2136
+    },
+    {
+      "level": 3,
+      "title": "config/asterisk/extensions.conf",
+      "line": 2144
+    },
+    {
+      "level": 3,
+      "title": "config/asterisk/pjsip.conf",
+      "line": 2158
+    },
+    {
+      "level": 3,
+      "title": "config/asterisk/pjsip.private.conf",
+      "line": 2215
+    },
+    {
+      "level": 3,
+      "title": "config/asterisk/rtp.conf",
+      "line": 2278
+    },
+    {
+      "level": 3,
+      "title": "config/coturn.conf",
+      "line": 2287
+    },
+    {
+      "level": 3,
+      "title": "config/fixture.json",
+      "line": 2308
+    },
+    {
+      "level": 3,
+      "title": "config/iroh-dev.toml",
+      "line": 2337
+    },
+    {
+      "level": 3,
+      "title": "config/iroh-tls.example.toml",
+      "line": 2348
+    },
+    {
+      "level": 3,
+      "title": "config/private-pbx-transport.txt",
+      "line": 2367
+    },
+    {
+      "level": 3,
+      "title": "lab",
+      "line": 2377
+    },
+    {
+      "level": 3,
+      "title": "probe/Cargo.toml",
+      "line": 2427
+    },
+    {
+      "level": 3,
+      "title": "probe/src/main.rs",
+      "line": 2436
+    },
+    {
+      "level": 3,
+      "title": "requirements.txt",
+      "line": 2498
+    },
+    {
+      "level": 3,
+      "title": "scripts/capture.sh",
+      "line": 2504
+    },
+    {
+      "level": 3,
+      "title": "scripts/check-audio.py",
+      "line": 2531
+    },
+    {
+      "level": 3,
+      "title": "scripts/fixture-nat.py",
+      "line": 2551
+    },
+    {
+      "level": 3,
+      "title": "scripts/link.sh",
+      "line": 2586
+    },
+    {
+      "level": 3,
+      "title": "scripts/make-tone.py",
+      "line": 2598
+    },
+    {
+      "level": 3,
+      "title": "scripts/node.sh",
+      "line": 2610
+    },
+    {
+      "level": 3,
+      "title": "scripts/pjsua.py",
+      "line": 2668
+    },
+    {
+      "level": 3,
+      "title": "scripts/policy.sh",
+      "line": 2709
+    },
+    {
+      "level": 3,
+      "title": "scripts/private-pbx.sh",
+      "line": 2745
+    },
+    {
+      "level": 3,
+      "title": "scripts/qualify-nat.py",
+      "line": 2759
+    },
+    {
+      "level": 3,
+      "title": "scripts/state.sh",
+      "line": 2773
+    },
+    {
+      "level": 3,
+      "title": "scripts/tls.sh",
+      "line": 2792
+    },
+    {
+      "level": 2,
+      "title": "Appendix B — Validation record",
+      "line": 2829
+    }
+  ],
+  "concepts": 14,
+  "spans": [
+    {
+      "id": "pages/implementation-handbook/preamble",
+      "span": "1-2"
+    },
+    {
+      "id": "pages/implementation-handbook/0-status-scope-non-negotiable-truth",
+      "span": "3-26"
+    },
+    {
+      "id": "pages/implementation-handbook/1-host-contract-safety-preparation",
+      "span": "27-72"
+    },
+    {
+      "id": "pages/implementation-handbook/2-files-exact-topologies-placement",
+      "span": "73-142"
+    },
+    {
+      "id": "pages/implementation-handbook/3-infrastructure-acceptance-fault-injection-nat-qualification",
+      "span": "143-219"
+    },
+    {
+      "id": "pages/implementation-handbook/4-pjsua-surrogate-real-rust-pjsip-client-integration",
+      "span": "220-284"
+    },
+    {
+      "id": "pages/implementation-handbook/5-rust-sut-overlay-build-isolation-external-agent-control",
+      "span": "285-328"
+    },
+    {
+      "id": "pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays",
+      "span": "329-372"
+    },
+    {
+      "id": "pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback",
+      "span": "373-438"
+    },
+    {
+      "id": "pages/implementation-handbook/8-packet-level-observation-bounded-collection-failure-triage",
+      "span": "439-493"
+    },
+    {
+      "id": "pages/implementation-handbook/9-machine-verifiable-quality-repetitions-final-gate",
+      "span": "494-534"
+    },
+    {
+      "id": "pages/implementation-handbook/10-deliberate-boundaries",
+      "span": "535-547"
+    },
+    {
+      "id": "pages/implementation-handbook/appendix-a-exact-source-files",
+      "span": "548-2828"
+    },
+    {
+      "id": "pages/implementation-handbook/appendix-b-validation-record",
+      "span": "2829-2987"
+    }
+  ]
+}

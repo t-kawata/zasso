@@ -40,6 +40,26 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+## Reference Exemplars
+
+The repository installs `natenv-okf` at `.claude/skills/natenv-okf`.
+It is the reference quality bar for every generated `*-okf` skill. Read its
+`SKILL.md`, `okf/`, `source/` ledgers, `dist/skill.mjs`, and verification
+reports before Step 0. Reproduce its structure and evidence discipline; do not
+copy its concepts, source text, or acceptance set.
+
+The exemplar proves these properties, and this command must reproduce them:
+
+- 13 traversal sections and at least 10 scenarios in `SKILL.md`;
+- a prerequisite graph where `required --entry <last concept>` returns a
+  transitive closure, not a flat single node;
+- coverage counts with zero unmapped headings, preamble, and lines;
+- `PRE-OKF-ORIGINAL.md` keeps the build input beside the OKF form;
+- an acceptance record whose `check_set_version` matches the current verifier.
+
+The exemplar is never a source, fixture, or acceptance target. The acceptance
+set remains the invocation's source set.
+
 ## Arguments
 
 - `<skill-name> <source-doc> [<source-doc> ...]` — one skill; every remaining argument is a source.
@@ -58,6 +78,10 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - Concept ID is the bundle-relative path without `.md`. No synthetic identity.
 - `index.md` is a heading plus a linked list. `log.md` uses `YYYY-MM-DD` headings, newest first.
 - Body Markdown links are the graph. There is no frontmatter `links`.
+- Multi-concept bundles declare a prerequisite chain: every non-preamble concept carries `x-requires` to an existing concept. `required --entry <last concept>` returns a transitive closure; a flat single-node closure is a defect.
+- Generated skill carries `PRE-OKF-ORIGINAL.md` at its root and `source/pre-okf-original.json`. The original is the LF-normalized primary build input (the first source, or the concatenation of all sources in manifest order with `<!-- pre-okf-source: <alias> -->` separators). The ledger records the source or ordered sources, `sha256`, and `bytes`.
+- `PRE-OKF-ORIGINAL.md` is the unredacted build input. It is outside `okf/` and `source/`, is never a manifest file, and is exempt from redaction and boundary scans.
+- `$OKF_OUT/okf-builds.json` records one build per skill with the current `check_set_version`, dev/installed status and counts, closures, source hash, lines, concepts, and zero unmapped counts.
 - The bundle contains no source view; `source/source-view.md` and `source/source.baseline.md` live outside `okf/`.
 - A stale or deprecated concept is never presented as current.
 - A required closure is complete or `BUDGET_EXCEEDED`; never truncate.
@@ -93,6 +117,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 ```text
 <name>-okf/
 ├── SKILL.md
+├── PRE-OKF-ORIGINAL.md
 ├── DESIGN.md
 ├── IMPLEMENTATION-LEFTOVERS.md
 ├── install.js
@@ -120,6 +145,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 ├── dist/skill.mjs
 ├── source/
 │   ├── manifest.toml
+│   ├── pre-okf-original.json
 │   ├── input-ledger.json
 │   ├── concept-inventory.json
 │   ├── coverage.json
@@ -228,6 +254,13 @@ The generated `SKILL.md` must contain these sections and at least 10 `### Scenar
 - No claim-bearing block → `INFORMATION_ZERO`; never invent a concept.
 - Write `$STAGING_DIR/source/measurements.json`; re-read → hash unchanged.
 
+### Step 2.5: Pre-OKF original
+
+- Primary input = the first accepted source. Multiple sources → concatenate in manifest order, each block preceded by `<!-- pre-okf-source: <alias> -->`.
+- Copy the LF-normalized text to `$STAGING_DIR/PRE-OKF-ORIGINAL.md`.
+- Write `$STAGING_DIR/source/pre-okf-original.json`: `schema: pre-okf-original/v1`, `source` or `sources`, `sha256`, `bytes`.
+- The file stays outside `okf/` and `source/`; never add it to the manifest, input ledger, coverage ledger, or redaction map. Missing or hash drift → `PRE_OKF_ORIGINAL_MISSING` / `PRE_OKF_ORIGINAL_DRIFT`.
+
 ### Step 3: Profile
 
 Derive `source/okf-profile.toml`; never copy another project's values.
@@ -290,6 +323,7 @@ Red first: failing tests per module.
 ### Step 7: OKF bundle
 
 - Write `okf/pages/**/*.md` with the frontmatter schema above.
+- Declare `x-requires` on every non-preamble concept, in source order or by an explicit dependency edge. The last concept's `required --entry` closure must be transitive; a flat bundle is `PREREQUISITE_GRAPH_FLAT`.
 - Write `okf/index.md` and one `index.md` per directory as linked lists.
 - Write `okf/log.md` from `source/okf-log.json`; newest date first.
 - Write `source/source-view.md` and `source/source.baseline.md` outside the bundle.
@@ -298,7 +332,7 @@ Red first: failing tests per module.
 ### Step 8: Bundle and installer
 
 - `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map, `createRequire` banner for CommonJS dependencies; resolves `okf-core/` as a sibling; `absWorkingDir` pinned to the skill root; atomic write.
-- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `scripts/`, `okf/`, `source/`, `atoms.lock.json`, `package.json`, `THIRD_PARTY_NOTICES.md`, `SKILL.md`, `DESIGN.md`, `IMPLEMENTATION-LEFTOVERS.md`, `tests/fixtures/runtime/runtime.json`; no build, judge, or target edit.
+- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `scripts/`, `okf/`, `source/`, `PRE-OKF-ORIGINAL.md`, `atoms.lock.json`, `package.json`, `THIRD_PARTY_NOTICES.md`, `SKILL.md`, `DESIGN.md`, `IMPLEMENTATION-LEFTOVERS.md`, `tests/fixtures/runtime/runtime.json`; no build, judge, or target edit.
 
 ### Step 9: Test matrix
 
@@ -386,12 +420,15 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 | Profile | required types/concepts/rules, closure |
 | Coverage | `source/coverage.json` present; `unmappedHeadings`, `unmappedPreamble`, `unmappedLines` all 0 |
 | Graph | outgoing, incoming, backlinks, index coverage |
+| Prerequisite closure | every non-preamble concept declares `x-requires`; `required --entry <last concept>` returns a transitive multi-node closure |
 | Context | required closure; `BUDGET_EXCEEDED` over budget |
 | Navigation | `show` returns body, outgoing, incoming, sources, trust, freshness |
 | Usage | 13 sections + 10 scenarios |
 | Determinism | `rebuild` prints byte-identical |
 | Distribution | shared module hashes match; alias map outside the skill tree |
+| Pre-OKF original | `PRE-OKF-ORIGINAL.md` + `source/pre-okf-original.json` present; local hash/bytes match the ledger; dev re-hash matches the source; installed copy present |
 | Install | installed `dist/skill.mjs` resolves sibling `okf/` |
+| Acceptance record | `$OKF_OUT/okf-builds.json` matches the current `check_set_version` and carries a build entry with dev/installed counts and closures |
 | Acceptance | strict record + generality mutations pass |
 
 ## Failure Modes
@@ -410,6 +447,10 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 | `CLAIM_UNSOURCED` | a concept lacks source or hash | repair provenance; no install |
 | `COVERAGE_MISSING` | `source/coverage.json` is absent | write the ledger; re-verify; no install |
 | `COVERAGE_SCHEMA` | ledger schema is not `okf-source-coverage/v1` | rewrite the ledger; re-verify; no install |
+| `PRE_OKF_ORIGINAL_MISSING` | `PRE-OKF-ORIGINAL.md` or `source/pre-okf-original.json` absent | write both; re-verify; no install |
+| `PRE_OKF_ORIGINAL_DRIFT` | local hash/bytes or dev source re-hash differs from the ledger | re-copy the original; re-verify; no install |
+| `PREREQUISITE_GRAPH_FLAT` | a multi-concept bundle lacks `x-requires` or the closure is a single node | add the prerequisite chain; re-verify; no install |
+| `ACCEPTANCE_RECORD_STALE` | `$OKF_OUT/okf-builds.json` lacks the current check set or a build entry | regenerate the record; re-verify |
 | `COVERAGE_GAP` | concept or line without a decision | re-extract; never hand-edit the lock |
 | `LINK_BROKEN` | a body link target does not exist | fix the link or add the concept; lint-only |
 | `INDEX_ORPHAN` | a concept is absent from its directory index | re-render; no hand edit |
@@ -429,5 +470,6 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 ## Completion
 
 - Every built skill: canonical verifier dev and installed `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass.
+- Every built skill carries `PRE-OKF-ORIGINAL.md` and `source/pre-okf-original.json`; multi-concept bundles have a transitive prerequisite closure; `$OKF_OUT/okf-builds.json` matches the current check set.
 - No write to `CLAUDE.md` or the make/plan/start/review/resolve commands.
 - Report adoption gaps; never claim V1 as rule-level proof.

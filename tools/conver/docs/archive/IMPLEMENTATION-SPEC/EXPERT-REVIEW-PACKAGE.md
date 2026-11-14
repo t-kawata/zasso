@@ -833,7 +833,7 @@ recycles or reassigns an address.
 The canonical interface rules are defined in Part III:
 
 - Part III.6 — REST: `REST-01` through `REST-18`.
-- Part III.7 — WebSocket: `WS-01` through `WS-32`.
+- Part III.7 — WebSocket: `WS-01` through `WS-35`.
 - Part III.8 — CLI: `CLI-01` through `CLI-14`.
 - Part III.9 — gRPC: `GRPC-01` through `GRPC-19`.
 - Part III.10 — MCP: `MCP-01` through `MCP-21`.
@@ -4451,7 +4451,7 @@ pub enum ConnectionState {
 9. Audience isolation: a REST token cannot upgrade.
 10. `cargo test -p <project>-websocket` and `cargo clippy -p
     <project>-websocket -- -D warnings`.
-11. The conformance report names `WS-01` through `WS-32`.
+11. The conformance report names `WS-01` through `WS-35`.
 
 ---
 

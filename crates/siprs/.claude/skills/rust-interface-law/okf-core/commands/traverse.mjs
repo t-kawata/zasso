@@ -164,7 +164,12 @@ function frontierFor({ bundle, concept, profile }) {
       });
     }
   }
+  const appliesTo = String(concept.frontmatter?.['x-applies-to'] ?? '');
+  const templateInterfaces = new Set(['rest', 'websocket', 'cli', 'grpc', 'mcp', 'a2a']);
   for (const action of profile.actions ?? []) {
+    // `template --rule` is not a valid command; the template command needs an
+    // interface and a unit. Emit it only where an interface template exists.
+    if (action.id === 'template' && !templateInterfaces.has(appliesTo)) continue;
     entries.push({
       id: `${concept.id}#${action.id}`,
       title: action.id,
@@ -195,10 +200,12 @@ function commandFor(profile, kind, target) {
 // [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
 function fillCommand(template, profile, concept) {
   const ruleId = concept.frontmatter?.['x-rule-id'] ?? concept.id;
+  const interfaceName = String(concept.frontmatter?.['x-applies-to'] ?? '');
   return String(template ?? '{prefix} expand --id {id}')
     .replaceAll('{prefix}', profile.commandPrefix ?? 'node "$OKF"')
     .replaceAll('{id}', concept.id)
-    .replaceAll('{ruleId}', ruleId);
+    .replaceAll('{ruleId}', ruleId)
+    .replaceAll('{interface}', interfaceName);
 }
 
 // [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.

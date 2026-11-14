@@ -10,10 +10,14 @@ import { sha256 } from '../scripts/lib/redact.mjs';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const redaction = JSON.parse(readFileSync(join(root, 'source/redaction.sha256.json'), 'utf8'));
 const forbidden = new Set(redaction.map((entry) => entry.sha256));
+// PRE-OKF-ORIGINAL.md is the unredacted build input, kept for auditability.
+// The generated source view is redacted; the original is deliberately not.
+const PRE_OKF_ORIGINAL = 'PRE-OKF-ORIGINAL.md';
 
 // @verifies C009
 test('C009 skill tree has zero forbidden identifier', () => {
   for (const file of walk(root)) {
+    if (file.endsWith(PRE_OKF_ORIGINAL)) continue;
     const text = readFileSync(file, 'utf8');
     for (const token of text.match(/[A-Za-z][A-Za-z0-9_]*/g) ?? []) {
       assert.ok(!forbidden.has(sha256(token.toLowerCase())), file + ': forbidden token');

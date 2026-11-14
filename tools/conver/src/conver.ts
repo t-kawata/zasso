@@ -285,6 +285,7 @@ export async function main(): Promise<void> {
   process.stdout.write(`  pushEnabled=${options.pushEnabled}\n`);
   process.stdout.write(`  timeoutMs=${options.timeoutMs}\n`);
   process.stdout.write(`  noFind=${options.noFind}\n`);
+  process.stdout.write(`  maxFindRounds=${options.maxFindRounds}\n`);
   process.stdout.write(`  watcherConfig=${options.watcherConfig}\n`);
 
   try {

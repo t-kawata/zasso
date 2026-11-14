@@ -1,0 +1,45 @@
+{
+  "schema": "rust-interface-law.implementation/v1",
+  "spec_version": "0.4.0",
+  "policy_sha256": "7660908d5b3709633e4942dae98b1613c1694199613a6d61c0b32259bc06a970",
+  "statuses": [],
+  "findings": [
+    {
+      "kind": "missing-dependency",
+      "interface": "rest",
+      "package": "axum",
+      "message": "required dependency axum is absent"
+    },
+    {
+      "kind": "missing-dependency",
+      "interface": "websocket",
+      "package": "axum",
+      "message": "required dependency axum is absent"
+    },
+    {
+      "kind": "missing-dependency",
+      "interface": "cli",
+      "package": "clap",
+      "message": "required dependency clap is absent"
+    },
+    {
+      "kind": "missing-dependency",
+      "interface": "grpc",
+      "package": "tonic",
+      "message": "required dependency tonic is absent"
+    },
+    {
+      "kind": "missing-dependency",
+      "interface": "mcp",
+      "package": "rmcp",
+      "message": "required dependency rmcp is absent"
+    },
+    {
+      "kind": "missing-dependency",
+      "interface": "a2a",
+      "package": "a2a-lf",
+      "message": "required dependency a2a-lf is absent"
+    }
+  ],
+  "ok": false
+}

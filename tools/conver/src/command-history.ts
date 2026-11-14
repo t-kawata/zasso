@@ -24,6 +24,14 @@ export const CROSS_PACKAGE_DIRECTIVE =
   "judgment. Do not address or consult a human; decide everything yourself and run " +
   "to completion.";
 
+/**
+ * Appended to every command sent to the agent: how to report the finished work.
+ * The operator reads the report, not the full transcript, so length and style
+ * are part of the command's contract rather than a preference.
+ */
+export const COMPLETION_REPORT_DIRECTIVE =
+  "On completion: brief telegraphic report, max 100 chars. No details.";
+
 /** Escalation texts, from a direct restatement to a final warning. */
 export const ESCALATION_MESSAGES: readonly [string, string, string] = Object.freeze([
   "The same command has already been sent for this ticket and the status has not " +
@@ -80,13 +88,14 @@ export class StopRequestedError extends Error {
 
 /**
  * Compose the text actually sent to the agent: the command, two newlines, the
- * cross-package directive, and an optional escalation message.
+ * cross-package directive, the completion report rule, and an optional
+ * escalation message.
  */
 export function composePrompt(command: string, escalationLevel: number): string {
   if (!Number.isInteger(escalationLevel) || escalationLevel < 0 || escalationLevel > MAX_ESCALATIONS) {
     throw new RangeError(`escalation level must be 0..${MAX_ESCALATIONS}: ${escalationLevel}`);
   }
-  const base = `${command}\n\n${CROSS_PACKAGE_DIRECTIVE}`;
+  const base = `${command}\n\n${CROSS_PACKAGE_DIRECTIVE}\n${COMPLETION_REPORT_DIRECTIVE}`;
   if (escalationLevel === 0) return base;
   return `${base}\n\n${ESCALATION_MESSAGES[escalationLevel - 1]}`;
 }

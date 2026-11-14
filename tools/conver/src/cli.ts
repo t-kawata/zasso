@@ -1,6 +1,7 @@
 // cli.ts — CLI引数パース（副作用ゼロの純粋関数 + 必須検証を伴うエントリ関数）
 import { parseArgs } from "node:util";
 import { VERSION } from "./settings.js";
+import { MAX_FIND_ROUNDS } from "./find-policy.js";
 
 // プロバイダー非依存化（PX-151）: -u/--url 未指定時の既定の Anthropic 互換エンドポイント。
 // 後方互換のため従来の DeepSeek エンドポイントを維持する。
@@ -32,6 +33,8 @@ export interface CliOptions {
   timeoutMs: number;
   bindReviewInOneSession: boolean;
   noFind: boolean;
+  /** Find executions allowed per package before the run stops. */
+  maxFindRounds: number;
   /** Disable the fixed progress header. */
   noDashboard: boolean;
   /** Header poll interval in seconds (5-10 recommended). */
@@ -63,6 +66,7 @@ Options:
                              Bind review in same session (default: 1)
   -w, --watcher <path>       Watcher config JSON path (exits 0 at the endpoint)
   -n, --no-find <0|1>        Skip find after all done; consolidate still runs (default: 0)
+  --max-find-rounds <num>    Find executions allowed per package before stopping (default: 5)
   --no-dashboard             Disable the fixed progress header
   --dashboard-interval <sec> Header poll interval in seconds (default: 5)
   -h, --help                 Show this message
@@ -74,6 +78,12 @@ function clampDashboardInterval(raw: string): number {
   const parsed = parseInt(raw, 10);
   if (!Number.isFinite(parsed)) return 5;
   return Math.max(1, Math.min(60, parsed));
+}
+
+/** A limit below one would stop every package before it ever reaches find. */
+function parseMaxFindRounds(raw: string): number {
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : MAX_FIND_ROUNDS;
 }
 
 export function parseCliOptions(argv: string[]): CliOptions {
@@ -92,6 +102,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       timeout: { type: "string", default: "1800" },
       "bind-review-in-one-session": { type: "string", short: "b", default: "1" },
       "no-find": { type: "string", short: "n", default: "0" },
+      "max-find-rounds": { type: "string", default: String(MAX_FIND_ROUNDS) },
       "no-dashboard": { type: "boolean", default: false },
       "dashboard-interval": { type: "string", default: "5" },
       watcher: { type: "string", short: "w" },
@@ -134,6 +145,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
     timeoutMs: parseInt(parsed.values.timeout, 10) * 1000,
     bindReviewInOneSession: parsed.values["bind-review-in-one-session"] === "1",
     noFind: parsed.values["no-find"] === "1",
+    maxFindRounds: parseMaxFindRounds(parsed.values["max-find-rounds"]),
     noDashboard: parsed.values["no-dashboard"],
     dashboardIntervalSeconds: clampDashboardInterval(parsed.values["dashboard-interval"]),
     watcherConfig: parsed.values.watcher,

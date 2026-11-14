@@ -1,0 +1,103 @@
+{
+  "schema": "okf-atoms/v2",
+  "concepts": [
+    {
+      "id": "pages/implementation-handbook/0-status-scope-non-negotiable-truth",
+      "path": "pages/implementation-handbook/0-status-scope-non-negotiable-truth.md",
+      "title": "0. Status; scope; non-negotiable truth",
+      "type": "Page",
+      "body_sha256": "d5a2d5512cc41cbee8d20f3bc7e7c2496b12a1bbed40cebd1be61702866487e3"
+    },
+    {
+      "id": "pages/implementation-handbook/1-host-contract-safety-preparation",
+      "path": "pages/implementation-handbook/1-host-contract-safety-preparation.md",
+      "title": "1. Host contract; safety; preparation",
+      "type": "Page",
+      "body_sha256": "418da351370a949bfb2ee8d1ca286f71caa62c1ad6c7a906521b943e980163e0"
+    },
+    {
+      "id": "pages/implementation-handbook/10-deliberate-boundaries",
+      "path": "pages/implementation-handbook/10-deliberate-boundaries.md",
+      "title": "10. Deliberate boundaries",
+      "type": "Page",
+      "body_sha256": "d709bd5f0c83991ea1486f578bac916cf81b8735b609e3e8e318fb91476454ef"
+    },
+    {
+      "id": "pages/implementation-handbook/2-files-exact-topologies-placement",
+      "path": "pages/implementation-handbook/2-files-exact-topologies-placement.md",
+      "title": "2. Files; exact topologies; placement",
+      "type": "Page",
+      "body_sha256": "603f68ec9d6fa03cfc0d7bafaa0528a8a143c8c9d9454373e57bbb38c561a84c"
+    },
+    {
+      "id": "pages/implementation-handbook/3-infrastructure-acceptance-fault-injection-nat-qualification",
+      "path": "pages/implementation-handbook/3-infrastructure-acceptance-fault-injection-nat-qualification.md",
+      "title": "3. Infrastructure acceptance; fault injection; NAT qualification",
+      "type": "Page",
+      "body_sha256": "9cfa3361026a55930e7c69e02e0f2cad5cd50fa27c9a6bd39cb76a17138c4525"
+    },
+    {
+      "id": "pages/implementation-handbook/4-pjsua-surrogate-real-rust-pjsip-client-integration",
+      "path": "pages/implementation-handbook/4-pjsua-surrogate-real-rust-pjsip-client-integration.md",
+      "title": "4. PJSUA surrogate; real Rust/PJSIP client integration",
+      "type": "Page",
+      "body_sha256": "7e96a4eb51212f48a25dacce8dee6ede21a552032527cddd86b59b73b79168eb"
+    },
+    {
+      "id": "pages/implementation-handbook/5-rust-sut-overlay-build-isolation-external-agent-control",
+      "path": "pages/implementation-handbook/5-rust-sut-overlay-build-isolation-external-agent-control.md",
+      "title": "5. Rust SUT overlay; build isolation; external-agent control",
+      "type": "Page",
+      "body_sha256": "38743a3132b2b88a2de0c23dac153cc10c3b7481b8d0eed508813bd1c4b6a1e8"
+    },
+    {
+      "id": "pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays",
+      "path": "pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays.md",
+      "title": "6. TURN coverage; TLS; NAT-side relays",
+      "type": "Page",
+      "body_sha256": "90c409759048976174c0a74709c86a3d52616712bfc06f2bb9532f598356d4b6"
+    },
+    {
+      "id": "pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback",
+      "path": "pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback.md",
+      "title": "7. iroh: separate local relay; pin API/schema; never public fallback",
+      "type": "Page",
+      "body_sha256": "ac9dfb25e677f18a3d7e8bf6067ca7f2e3effc1b5e4797aecebdc1965c7ebe32"
+    },
+    {
+      "id": "pages/implementation-handbook/8-packet-level-observation-bounded-collection-failure-triage",
+      "path": "pages/implementation-handbook/8-packet-level-observation-bounded-collection-failure-triage.md",
+      "title": "8. Packet-level observation; bounded collection; failure triage",
+      "type": "Page",
+      "body_sha256": "745637c1fcddc4f795a9f50537232d3509e68435457c56c79a6a1ad44aea78c0"
+    },
+    {
+      "id": "pages/implementation-handbook/9-machine-verifiable-quality-repetitions-final-gate",
+      "path": "pages/implementation-handbook/9-machine-verifiable-quality-repetitions-final-gate.md",
+      "title": "9. Machine-verifiable quality; repetitions; final gate",
+      "type": "Page",
+      "body_sha256": "deefcf68cd723ccb9a6c43433c54f3ff64f4fa1ad3432cbe97e638a117cb4429"
+    },
+    {
+      "id": "pages/implementation-handbook/appendix-a-exact-source-files",
+      "path": "pages/implementation-handbook/appendix-a-exact-source-files.md",
+      "title": "Appendix A — Exact source files",
+      "type": "Page",
+      "body_sha256": "b20a056a8f4b1ce3556e54cf8d7cb193251dc9746707db6f5933f98a51a7490f"
+    },
+    {
+      "id": "pages/implementation-handbook/appendix-b-validation-record",
+      "path": "pages/implementation-handbook/appendix-b-validation-record.md",
+      "title": "Appendix B — Validation record",
+      "type": "Page",
+      "body_sha256": "c93ee5dfea4c908caa960d882cd6421f29c3ffecc1740c16368d7c477ef04cec"
+    },
+    {
+      "id": "pages/implementation-handbook/preamble",
+      "path": "pages/implementation-handbook/preamble.md",
+      "title": "Simulated NAT environment — CLI-only, single-host, real-packet WAN/NAT/VoIP/P2P laboratory",
+      "type": "Page",
+      "body_sha256": "d09fee7f8ae08da6fbeb6be95f5e2fc3eec49d7f6df867e94f088a54bbd32d96"
+    }
+  ]
+}

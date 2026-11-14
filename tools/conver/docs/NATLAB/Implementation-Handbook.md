@@ -1,4 +1,4 @@
-# NATLAB — CLI-only, single-host, real-packet WAN/NAT/VoIP/P2P laboratory
+# Simulated NAT environment — CLI-only, single-host, real-packet WAN/NAT/VoIP/P2P laboratory
 
 ## 0. Status; scope; non-negotiable truth
 
@@ -2799,7 +2799,7 @@ umask 077
 mkdir -p config/tls private
 openssl req -x509 -newkey rsa:3072 -nodes -days 30 \
   -keyout config/tls/ca.key -out config/tls/ca.crt \
-  -subj /CN=NATLAB-TEST-ONLY-CA -addext 'basicConstraints=critical,CA:TRUE' \
+  -subj /CN=NATENV-TEST-ONLY-CA -addext 'basicConstraints=critical,CA:TRUE' \
   -addext 'keyUsage=critical,keyCertSign,cRLSign'
 for pair in 'turn:10.77.0.30' 'relay:10.77.0.40' 'pbx:10.77.0.10'; do
   n=${pair%%:*}; ip=${pair#*:}

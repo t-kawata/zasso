@@ -536,6 +536,7 @@ node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 | `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
 | `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。endpoint で exit 0） | — |
 | `-n`, `--no-find` | 全 reviewed 後の find をスキップ（consolidate は実行）（0/1） | `0` |
+| `--max-find-rounds` | パッケージごとに find を実行できる回数。上限到達で停止して Slack 通知 | `5` |
 | `--no-dashboard` | 固定進捗ヘッダーを無効化 | 無効（ヘッダー表示） |
 | `--dashboard-interval` | ヘッダーのポーリング間隔（秒） | `5` |
 | `-h`, `--help` | ヘルプ表示 | — |
@@ -557,7 +558,7 @@ conver は次の順序を機械的に守ります。
    - `done` → `/review-ticket`
    - `reviewed` / `R<n>` → 終端
    - `remanded` / 未知 → 停止
-5. **パッケージ境界** — 全チケットが終端になった後だけ `/consolidate-stubs` → `/find-omissions` を実行する。find が新チケットを追加した場合は**同一パッケージ内**で 3 へ戻る（最大3ラウンド）。
+5. **パッケージ境界** — 全チケットが終端になった後だけ `/consolidate-stubs` → `/find-omissions` を実行する。find が新チケットを追加した場合は**同一パッケージ内**で 3 へ戻る（最大5ラウンド。`--max-find-rounds` で変更可）。
 
 - すべてのコマンドは **パッケージディレクトリを cwd** として実行します。make/plan/start/review だけでなく resolve/epush/consolidate/find も同じです。
 - `-b 1`（デフォルト）では make/plan/start/review を同一セッションに結合します。各コマンドの直前には必ず `Tickets.json` を読み直します。

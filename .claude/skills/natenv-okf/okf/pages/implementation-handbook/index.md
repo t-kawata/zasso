@@ -1,0 +1,16 @@
+# implementation-handbook
+
+- [0. Status; scope; non-negotiable truth](./0-status-scope-non-negotiable-truth.md)
+- [1. Host contract; safety; preparation](./1-host-contract-safety-preparation.md)
+- [10. Deliberate boundaries](./10-deliberate-boundaries.md)
+- [2. Files; exact topologies; placement](./2-files-exact-topologies-placement.md)
+- [3. Infrastructure acceptance; fault injection; NAT qualification](./3-infrastructure-acceptance-fault-injection-nat-qualification.md)
+- [4. PJSUA surrogate; real Rust/PJSIP client integration](./4-pjsua-surrogate-real-rust-pjsip-client-integration.md)
+- [5. Rust SUT overlay; build isolation; external-agent control](./5-rust-sut-overlay-build-isolation-external-agent-control.md)
+- [6. TURN coverage; TLS; NAT-side relays](./6-turn-coverage-tls-nat-side-relays.md)
+- [7. iroh: separate local relay; pin API/schema; never public fallback](./7-iroh-separate-local-relay-pin-api-schema-never-public-fallback.md)
+- [8. Packet-level observation; bounded collection; failure triage](./8-packet-level-observation-bounded-collection-failure-triage.md)
+- [9. Machine-verifiable quality; repetitions; final gate](./9-machine-verifiable-quality-repetitions-final-gate.md)
+- [Appendix A — Exact source files](./appendix-a-exact-source-files.md)
+- [Appendix B — Validation record](./appendix-b-validation-record.md)
+- [Simulated NAT environment — CLI-only, single-host, real-packet WAN/NAT/VoIP/P2P laboratory](./preamble.md)

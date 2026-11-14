@@ -60,7 +60,20 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.verbose, true);
     assert.strictEqual(options.timeoutMs, 1800000);
     assert.strictEqual(options.bindReviewInOneSession, true);
+    assert.strictEqual(options.maxFindRounds, 5);
     assert.strictEqual(options.watcherConfig, undefined);
+  });
+
+  it("--max-find-rounds で探索ラウンド上限を指定できる", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "--max-find-rounds", "7"];
+    assert.strictEqual(parseCliOptions(argv).maxFindRounds, 7);
+  });
+
+  it("--max-find-rounds の不正値は既定の5に戻る", () => {
+    for (const raw of ["abc", "0"]) {
+      const argv = ["node", "conver.js", "-k", "k", "-s", "s", "--max-find-rounds", raw];
+      assert.strictEqual(parseCliOptions(argv).maxFindRounds, 5, `raw=${raw}`);
+    }
   });
 
   it("-w /path/to/config.json で watcherConfig に格納される", () => {

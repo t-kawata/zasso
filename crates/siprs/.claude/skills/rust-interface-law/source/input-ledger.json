@@ -45,7 +45,7 @@
     },
     {
       "alias": "sources/31-WEBSOCKET.md",
-      "sha256": "7bf6478c4e71921c418a12cbf85d578cc87ee2f5655b4021fee32e191c08272e",
+      "sha256": "36011bbdd4e9258dd7a4053f4e317580e0fce17c64caebe7d88a2ae429d99974",
       "decision": "included",
       "reason": "authoritative source document"
     },

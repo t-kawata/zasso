@@ -1,0 +1,21 @@
+{
+  "schema": "okf-source-coverage/v1",
+  "records": [
+    {
+      "source": "sources/implementation-handbook.md",
+      "lines": 2987,
+      "concepts": 14,
+      "preamble": 1,
+      "unmappedHeadings": 0,
+      "unmappedPreamble": 0,
+      "unmappedLines": 0
+    }
+  ],
+  "counts": {
+    "lines": 2987,
+    "concepts": 14,
+    "unmappedHeadings": 0,
+    "unmappedPreamble": 0,
+    "unmappedLines": 0
+  }
+}

@@ -223,6 +223,9 @@ export async function buildMiniSkillV2({
   const skillDir = mkdtempSync(join(buildRoot, `${name}-`));
   const okfDir = join(skillDir, 'okf');
   const concepts = conceptsFromSources(sources);
+  concepts.forEach((concept, index) => {
+    if (index > 0) concept.frontmatter['x-requires'] = [concepts[index - 1].id];
+  });
   for (const concept of concepts) writeConcept({ outDir: okfDir, concept });
   const bundle = await loadBundle(okfDir);
   writeDirectoryIndexes({ bundle, outDir: okfDir });
@@ -260,6 +263,15 @@ export async function buildMiniSkillV2({
   for (const [path, text] of Object.entries(sources)) writeFile(buildRoot, `${sourceDir}/${basename(path)}`, text);
   writeFile(skillDir, 'source/manifest.toml', manifest);
   writeFile(skillDir, 'source/input-ledger.json', `${JSON.stringify({ schema: 'okf-input-ledger/v1', entries: Object.keys(sources).map((path) => ({ alias: `sources/${basename(path)}`, decision: 'included' })) }, null, 2)}\n`);
+  const primaryName = Object.keys(sources)[0];
+  const primaryText = String(sources[primaryName]).replace(/\r\n?/g, '\n');
+  writeFile(skillDir, 'PRE-OKF-ORIGINAL.md', primaryText);
+  writeFile(skillDir, 'source/pre-okf-original.json', `${JSON.stringify({
+    schema: 'pre-okf-original/v1',
+    source: `sources/${basename(primaryName)}`,
+    sha256: createHash('sha256').update(primaryText, 'utf8').digest('hex'),
+    bytes: Buffer.byteLength(primaryText, 'utf8'),
+  }, null, 2)}\n`);
   writeFile(skillDir, 'source/okf-profile.toml', 'domain = "mini"\nlanguage = "en"\n');
   writeFile(skillDir, 'source/okf-log.json', `${JSON.stringify({ schema: 'okf-log/v1', entries: [{ date: BUILD_DATE, text: `Generated ${concepts.length} concepts.` }] }, null, 2)}\n`);
   writeFile(skillDir, 'source/concept-inventory.json', `${JSON.stringify({ schema: 'okf-concept-inventory/v1', entries: concepts.map((concept) => ({ id: concept.id, path: concept.path, source: concept.frontmatter.sources[0].resource })) }, null, 2)}\n`);
@@ -439,7 +451,7 @@ function installScript() {
     "mkdirSync(join(skillDir, 'dist'), { recursive: true });",
     "cpSync(join(root, 'dist/skill.mjs'), join(skillDir, 'dist/skill.mjs'));",
     "for (const part of ['okf-core', 'scripts', 'okf', 'source', 'tests/fixtures/runtime']) cpSync(join(root, part), join(skillDir, part), { recursive: true });",
-    "for (const file of ['atoms.lock.json', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md', 'package.json', 'THIRD_PARTY_NOTICES.md']) cpSync(join(root, file), join(skillDir, file));",
+    "for (const file of ['PRE-OKF-ORIGINAL.md', 'atoms.lock.json', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md', 'package.json', 'THIRD_PARTY_NOTICES.md']) cpSync(join(root, file), join(skillDir, file));",
     '',
   ].join('\n');
 }

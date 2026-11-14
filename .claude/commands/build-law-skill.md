@@ -39,6 +39,25 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
+## Reference Exemplars
+
+The repository installs `rust-interface-law` at `.claude/skills/rust-interface-law`.
+It is the reference quality bar for every generated `*-law` skill. Read its
+`SKILL.md`, `source/` ledgers, `okf/`, `dist/skill.mjs`, and verification
+reports before Step 0. Reproduce its structure and evidence discipline; do not
+copy its rules, source text, or acceptance set.
+
+The exemplar proves these properties, and this command must reproduce them:
+
+- every rule page is reachable with requirement, verification, enforcement, and source;
+- every frontier action command is executable as printed;
+- `implementation-check` prints one evidence row per finding;
+- the conformance obligation list covers every rule in the registry;
+- `PRE-OKF-ORIGINAL.md` keeps the build input beside the OKF form.
+
+The exemplar is never a source, fixture, or acceptance target. The acceptance
+set remains the invocation's source set.
+
 ## Arguments
 
 - `<skill-name> <source-doc> [<source-doc> ...]` — one skill; every remaining argument is a source.
@@ -55,6 +74,12 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - Sources read-only; writes only under `STAGING_DIR`, `SKILL_DIR`, `ALIAS_PATH`, `LAW_OUT`.
 - Canonical verifier: check_set_version 3; every dev-required check `machine_verified` is the only pass.
 - Generated skill carries input ledger, alias map, redaction review, normative inventory, delivery coverage, rule-concept map, concept body hash, `source/source-view.md`, `source/source.baseline.md`.
+- Generated skill carries `PRE-OKF-ORIGINAL.md` at its root and `source/pre-okf-original.json`. The original is the LF-normalized primary build input: `--package-path` when present, else the first source; multiple sources without a package path are concatenated in manifest order with `<!-- pre-okf-source: <alias> -->` separators. The ledger records the source alias or ordered aliases, `sha256`, and `bytes`.
+- `PRE-OKF-ORIGINAL.md` is the unredacted build input. It is outside `okf/` and `source/`, is never a manifest file, and is exempt from redaction and generic-boundary scans. Every generated artifact remains redacted.
+- Every emitted frontier action command is executable as printed. `template` takes `--interface` and `--unit`, never `--rule`; the action is omitted when the rule has no interface template.
+- `implementation-check` renders one evidence row per finding; a finding count without its rows is incomplete evidence.
+- The conformance obligation list covers every rule in the registry; a rule range that stops before the last rule is a defect.
+- `$LAW_OUT/law-builds.json` contains one non-empty build entry per built skill with `check_set_version`, dev and installed closures, installed SHA, and integration status.
 - No install before verification; failed verification leaves existing skill untouched.
 - Exact generated-skill CLI only in `SKILL.md`.
 - Source generation reads `docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md` as the primary input (`--package-path`); split documents and the registry are reconciliation inputs. `source/coverage-v3.json` proves every heading and rule row is mapped.
@@ -96,6 +121,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 
 ```text
 <name>-law/
+├── PRE-OKF-ORIGINAL.md
 ├── SKILL.md
 ├── DESIGN.md
 ├── IMPLEMENTATION-LEFTOVERS.md
@@ -105,6 +131,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 ├── coverage.md
 ├── dist/skill.mjs
 ├── source/manifest.toml
+├── source/pre-okf-original.json
 ├── source/redaction.sha256.json
 ├── source/input-ledger.json
 ├── source/redaction.review.json
@@ -158,6 +185,14 @@ Sibling: `<name>-law.path-alias.json` — outside the skill tree; holds `input_r
 - Derived-view phrase → exclude + record; ambiguous → include + `DERIVED_AMBIGUOUS`.
 - Zero normative → `RULE_ZERO`; never invent a rule.
 - Write `$STAGING_DIR/source/measurements.json`; re-read → hash unchanged.
+
+### Step 2.5: Pre-OKF original
+
+- Primary input = `--package-path` when present, else the first accepted source.
+- One primary input → copy its LF-normalized text to `$STAGING_DIR/PRE-OKF-ORIGINAL.md`.
+- Multiple sources without a package path → concatenate in manifest order, each block preceded by `<!-- pre-okf-source: <alias> -->`.
+- Write `$STAGING_DIR/source/pre-okf-original.json`: `schema: pre-okf-original/v1`, `source` or `sources`, `sha256`, `bytes`.
+- The file stays outside `okf/` and `source/`; never add it to the manifest, the input ledger, the coverage ledger, or the redaction map. Missing or hash drift → `PRE_OKF_ORIGINAL_MISSING` / `PRE_OKF_ORIGINAL_DRIFT`.
 
 ### Step 3: Profile
 
@@ -270,7 +305,7 @@ Red first: failing tests per library.
 ### Step 8: Bundle and installer
 
 - `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map, `createRequire` banner for CommonJS dependencies; resolves `okf-core/` and `okf/` siblings; `absWorkingDir` pinned to the skill root; atomic write.
-- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `okf/`, `source/`, `templates/`, `package.json`, `THIRD_PARTY_NOTICES.md`, `tests/fixtures/runtime/runtime.json`, `tests/fixtures/host/`; no build, judge, or target edit.
+- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `okf/`, `source/`, `templates/`, `PRE-OKF-ORIGINAL.md`, `package.json`, `THIRD_PARTY_NOTICES.md`, `tests/fixtures/runtime/runtime.json`, `tests/fixtures/host/`; no build, judge, or target edit.
 
 ### Step 9: Test matrix
 
@@ -383,7 +418,12 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | Coverage | `check coverage --lock` exit 0 |
 | Audit | `check audit --lock` exit 0 |
 | Reproduction | `rebuild` prints byte-identical |
-| Boundary | forbidden-token scan zero; alias map outside the skill tree |
+| Boundary | forbidden-token scan zero; alias map outside the skill tree; `PRE-OKF-ORIGINAL.md` exempt and otherwise unredacted |
+| Pre-OKF original | `PRE-OKF-ORIGINAL.md` + `source/pre-okf-original.json` present; local hash/bytes match the ledger; dev re-hash matches the primary source; installed copy present |
+| Frontier executable | every rule frontier action command is executable as printed; `template` carries `--interface` and `--unit`, never `--rule` |
+| Implementation evidence | `implementation-check` renders one row per finding, not only a count |
+| Obligation coverage | the conformance obligation list names every rule in the registry |
+| Acceptance record | `$LAW_OUT/law-builds.json` has one non-empty build per skill with `check_set_version`, dev/installed closures, installed SHA, and integration status |
 | Applicability | `applies` 0 on target, 3 unrelated |
 | Install | installed `dist/skill.mjs` resolves sibling `okf/` |
 | Trigger contract | `source/applicability.json` valid; AI-authored instruction passes style and term coverage |
@@ -405,6 +445,10 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | `ARTIFACT_MISSING` | a v2 artifact is absent | write the artifact; re-verify |
 | `LEAK_DETECTED` | forbidden token or original path | map the candidate; no install |
 | `PATH_ALIAS_MISSING` | alias absent or map inside the tree | write the sibling map; re-verify |
+| `PRE_OKF_ORIGINAL_MISSING` | `PRE-OKF-ORIGINAL.md` or `source/pre-okf-original.json` absent | write both; re-verify; no install |
+| `PRE_OKF_ORIGINAL_DRIFT` | local hash/bytes or dev source re-hash differs from the ledger | re-copy the original; re-verify; no install |
+| `FRONTIER_ACTION_INVALID` | an action command cannot run as printed, or `template` carries `--rule` | fix the profile/template command; re-verify |
+| `ACCEPTANCE_RECORD_MISSING` | `$LAW_OUT/law-builds.json` has no build entry | record the build; re-verify |
 | `NORMATIVE_ORPHAN` | normative Atom without inventory decision | add the decision; re-verify |
 | `DELIVERY_OMISSION` | fact-bearing Atom without delivery | add the ledger entry; re-verify |
 | `COVERAGE_GAP` | gap, overlap, attribution mismatch | re-extract; never hand-edit lock |
@@ -473,5 +517,6 @@ Example:
 ## Completion
 
 - Every built skill: canonical verifier v3 dev and installed `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration checkpoints present.
+- Every built skill carries `PRE-OKF-ORIGINAL.md` and `source/pre-okf-original.json`, byte-identical to the primary input; every frontier action command is executable; `implementation-check` findings are rendered; the conformance obligation list covers the registry; `$LAW_OUT/law-builds.json` has a non-empty build entry.
 - Integration: generic line and one per-skill trigger line per installed specific-case skill; `--mode check --require-skill` exit 0; no drift, duplicate, location, stale, CLI leak, or too-long; integration closure recorded.
 - Report adoption gaps; never claim V1 as rule-level proof.

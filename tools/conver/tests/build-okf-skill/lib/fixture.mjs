@@ -53,6 +53,20 @@ function write(path, text) {
   writeFileSync(path, text);
 }
 
+/**
+ * Give the fixture the same prerequisite chain a generated multi-concept
+ * bundle carries. The body is untouched, so content hashes stay valid.
+ */
+function addPrerequisiteChain(okfDir) {
+  const pages = listFiles(okfDir).filter((file) => file.endsWith('.md') && !/\/(index|log)\.md$/.test(file));
+  for (let index = 1; index < pages.length; index += 1) {
+    const text = readFileSync(pages[index], 'utf8');
+    if (/^x-requires:/m.test(text)) continue;
+    const previous = relative(okfDir, pages[index - 1]).replace(/\.md$/, '');
+    writeFileSync(pages[index], text.replace(/\n---\n/, `\nx-requires: \n  - "${previous}"\n---\n`));
+  }
+}
+
 // [::TICKET::] PX-424 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-424 --for-spec --no-implementation-order`.
 function usageManual(name) {
   return [
@@ -115,6 +129,7 @@ export function createMiniSkill({ sources, name = 'mini-okf' } = {}) {
   const skillDir = join(root, '.claude/skills', name);
   const okfDir = join(skillDir, 'okf');
   renderOkf({ lock, outDir: okfDir });
+  addPrerequisiteChain(okfDir);
 
   write(join(skillDir, 'source/manifest.toml'), renderManifestToml({ lock }));
   write(join(skillDir, 'source/claim-registry.json'), `${JSON.stringify({ schema: 'okf-claim-registry/v1', entries: registry }, null, 2)}\n`);
@@ -124,6 +139,16 @@ export function createMiniSkill({ sources, name = 'mini-okf' } = {}) {
   write(join(skillDir, 'source/redaction.sha256.json'), '[]\n');
   write(join(skillDir, 'source/redaction.review.json'), `${JSON.stringify({ schema: 'okf-redaction-review/v1', entries: [] }, null, 2)}\n`);
   write(join(skillDir, 'source/input-ledger.json'), `${JSON.stringify({ schema: 'okf-input-ledger/v1', entries: paths.map((path) => ({ alias: `sources/${path}`, decision: 'included' })) }, null, 2)}\n`);
+  // The portable build input is part of the generated skill, outside okf/.
+  const primaryPath = paths[0];
+  const primaryText = String(files[primaryPath]).replace(/\r\n?/g, '\n');
+  write(join(skillDir, 'PRE-OKF-ORIGINAL.md'), primaryText);
+  write(join(skillDir, 'source/pre-okf-original.json'), `${JSON.stringify({
+    schema: 'pre-okf-original/v1',
+    source: `sources/${primaryPath}`,
+    sha256: sha256(primaryText),
+    bytes: Buffer.byteLength(primaryText, 'utf8'),
+  }, null, 2)}\n`);
   write(join(skillDir, 'source/okf-profile.toml'), 'domain = "mini"\nlanguage = "en"\n');
   write(join(skillDir, 'atoms.lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
   write(join(skillDir, 'SKILL.md'), usageManual(name));
@@ -148,7 +173,7 @@ export function createMiniSkill({ sources, name = 'mini-okf' } = {}) {
     'mkdirSync(join(skillDir, \'dist\'), { recursive: true });',
     "cpSync(join(root, 'dist/skill.mjs'), join(skillDir, 'dist/skill.mjs'));",
     "for (const part of ['scripts', 'okf', 'source', 'tests/fixtures/runtime']) cpSync(join(root, part), join(skillDir, part), { recursive: true });",
-    "for (const file of ['atoms.lock.json', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md']) cpSync(join(root, file), join(skillDir, file));",
+    "for (const file of ['PRE-OKF-ORIGINAL.md', 'atoms.lock.json', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md']) cpSync(join(root, file), join(skillDir, file));",
     '',
   ].join('\n'));
   write(join(skillDir, 'tests/smoke.test.mjs'), "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('skill loads', () => assert.ok(true));\n");

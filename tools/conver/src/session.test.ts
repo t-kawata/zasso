@@ -24,7 +24,10 @@ import {
 import type { AcpSession, RunCommandOptions, SessionConfig } from "./session.js";
 import * as childProcess from "node:child_process";
 import { CommandTimeoutError } from "./error.js";
-import { CROSS_PACKAGE_DIRECTIVE } from "./command-history.js";
+import {
+  COMPLETION_REPORT_DIRECTIVE,
+  CROSS_PACKAGE_DIRECTIVE,
+} from "./command-history.js";
 import { MissingRuntimeDependencyError } from "./runtime-dependencies.js";
 
 // --- モック用ヘルパー ---
@@ -146,6 +149,7 @@ describe("runCommand", () => {
     assert.strictEqual(result, "result-ok");
     assert.ok(promptArg.startsWith("/test-cmd\n\n"));
     assert.ok(promptArg.includes(CROSS_PACKAGE_DIRECTIVE));
+    assert.ok(promptArg.includes(COMPLETION_REPORT_DIRECTIVE));
   });
 
   it("C001 forwards every update to onUpdate and calls onFlush at stop", async () => {

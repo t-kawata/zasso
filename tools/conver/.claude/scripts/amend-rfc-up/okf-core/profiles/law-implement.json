@@ -28,7 +28,7 @@
       "id": "template",
       "kind": "action",
       "why": "render the interface template for this rule",
-      "command": "{prefix} template --rule {ruleId}"
+      "command": "{prefix} template --interface {interface} --unit {ruleId}"
     },
     {
       "id": "implementation-check",

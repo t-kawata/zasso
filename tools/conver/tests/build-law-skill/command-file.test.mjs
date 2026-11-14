@@ -50,6 +50,7 @@ import {
   sectionOf,
   sha256Text,
   validateSource,
+  withoutSection,
 } from './lib/command-contract.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -207,8 +208,11 @@ test('C004: rule candidates are unique, grammar-valid, and source-order stable',
 // @verifies C004
 test('C004: command is standalone and names only the declared primary input', () => {
   const text = readCommand();
+  // The Reference Exemplars section is the one place the bundled exemplar may
+  // be named. Outside it, an example literal still means a fixture leak.
+  const literalScope = withoutSection(text, '## Reference Exemplars');
   for (const literal of EXAMPLE_LITERALS) {
-    assert.equal(text.includes(literal), false, literal);
+    assert.equal(literalScope.includes(literal), false, literal);
   }
   // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
   const declaredInput = 'docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md';

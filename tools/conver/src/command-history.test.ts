@@ -7,6 +7,7 @@ import {
   MAX_ESCALATIONS,
   StopRequestedError,
   composePrompt,
+  COMPLETION_REPORT_DIRECTIVE,
   CROSS_PACKAGE_DIRECTIVE,
   ESCALATION_MESSAGES,
 } from "./command-history.js";
@@ -71,6 +72,23 @@ describe("composePrompt", () => {
     const prompt = composePrompt("/make-ticket P0-1", 0);
     assert.ok(prompt.startsWith("/make-ticket P0-1\n\n"));
     assert.ok(prompt.includes(CROSS_PACKAGE_DIRECTIVE));
+  });
+
+  it("pins the completion report rule: telegraphic, max 100 chars, no details", () => {
+    assert.strictEqual(
+      COMPLETION_REPORT_DIRECTIVE,
+      "On completion: brief telegraphic report, max 100 chars. No details.",
+    );
+  });
+
+  it("carries the completion report rule at every escalation level", () => {
+    for (let level = 0; level <= MAX_ESCALATIONS; level++) {
+      const prompt = composePrompt("/consolidate-stubs", level);
+      assert.ok(
+        prompt.includes(COMPLETION_REPORT_DIRECTIVE),
+        `level=${level} lost the completion report rule`,
+      );
+    }
   });
 
   it("adds exactly one escalation message for the requested level", () => {

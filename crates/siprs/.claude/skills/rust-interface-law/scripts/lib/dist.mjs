@@ -19,7 +19,7 @@ export async function buildDist({ root }) {
     sourcemap: false,
     legalComments: 'none',
     banner: {
-      js: "import { createRequire as __okfCreateRequire } from 'node:module'; const require = __okfCreateRequire(import.meta.url);",
+      js: "import { createRequire as __okfSkillCreateRequire } from 'node:module'; const require = __okfSkillCreateRequire(import.meta.url);",
     },
     // Path comments are relative to this root; without it the bundle depends on cwd.
     absWorkingDir: absoluteRoot,

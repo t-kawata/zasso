@@ -35,6 +35,7 @@ export const PIPELINE_COMMANDS = Object.freeze([
 export const COMMAND_SECTIONS = Object.freeze([
   '## Path Anchor',
   '## Language Protocol',
+  '## Reference Exemplars',
   '## Arguments',
   '## Invariants',
   '## Input Contract',
@@ -63,6 +64,10 @@ export const FAILURE_CODES = Object.freeze([
   'ARTIFACT_MISSING',
   'LEAK_DETECTED',
   'PATH_ALIAS_MISSING',
+  'PRE_OKF_ORIGINAL_MISSING',
+  'PRE_OKF_ORIGINAL_DRIFT',
+  'FRONTIER_ACTION_INVALID',
+  'ACCEPTANCE_RECORD_MISSING',
   'NORMATIVE_ORPHAN',
   'DELIVERY_OMISSION',
   'VERIFIER_V2_FAILED',
@@ -85,6 +90,8 @@ export const CANONICAL_CHECK_CONTRACT = JSON.parse(
 export const CANONICAL_CHECKS = Object.freeze(CANONICAL_CHECK_CONTRACT.checks);
 
 export const REQUIRED_ARTIFACTS = Object.freeze([
+  'PRE-OKF-ORIGINAL.md',
+  'source/pre-okf-original.json',
   'source/input-ledger.json',
   'source/redaction.review.json',
   'source/normative-inventory.json',
@@ -177,6 +184,20 @@ export function sectionOf(text, heading) {
     body.push(lines[index]);
   }
   return body.join('\n').trim();
+}
+
+export function withoutSection(text, heading) {
+  const lines = normalizeLf(text).split('\n');
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start < 0) return text;
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^##\s/.test(lines[index])) {
+      end = index;
+      break;
+    }
+  }
+  return [...lines.slice(0, start), ...lines.slice(end)].join('\n');
 }
 
 export function parseInvocation(argv) {
@@ -667,8 +688,12 @@ export function auditCommand(text) {
     add('CHECKPOINT_TOO_LONG', 'C005', 'checkpoint block exceeds five lines');
   }
 
+  // The Reference Exemplars section is guidance, not execution: naming the
+  // bundled exemplar there is the point. Every other section must stay free of
+  // example literals, or the command starts pointing at a fixture it does not own.
+  const literalScope = withoutSection(body, '## Reference Exemplars');
   for (const literal of EXAMPLE_LITERALS) {
-    if (body.includes(literal)) {
+    if (literalScope.includes(literal)) {
       add('EXAMPLE_LITERAL_IN_EXECUTION', 'C004', `command names external fixture ${literal}`);
     }
   }

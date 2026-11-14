@@ -1,0 +1,14 @@
+{
+  "name": "natenv-okf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "OKF v0.2 wiki skill for the simulated NAT environment (single PC, virtual WAN included): traversal CLI, bundle, sources, and verification ledgers.",
+  "bin": {
+    "natenv-okf": "dist/skill.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED"
+}

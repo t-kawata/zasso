@@ -32,15 +32,17 @@ const REQUIRED_SECTIONS = [
 ];
 
 const DEV_LAYERS = [
-  'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md', 'install.js', 'atoms.lock.json',
+  'PRE-OKF-ORIGINAL.md', 'SKILL.md', 'DESIGN.md', 'IMPLEMENTATION-LEFTOVERS.md', 'install.js', 'atoms.lock.json',
   'package.json', 'THIRD_PARTY_NOTICES.md', 'okf/index.md', 'okf/log.md', 'okf/rules',
   'okf/sources', 'okf-core/index.mjs', 'scripts/cli.mjs', 'scripts/commands.mjs',
   'scripts/generate-law-bundle.mjs', 'source/manifest.toml', 'source/rule-concepts.json',
+  'source/pre-okf-original.json',
   'source/source-view.md', 'source/source.baseline.md', 'source/normative-inventory.json',
   'source/delivery.json', 'dist/skill.mjs', 'tests', 'tests/fixtures/runtime/runtime.json',
 ];
 
 const INSTALLED_LAYERS = [
+  'PRE-OKF-ORIGINAL.md', 'source/pre-okf-original.json',
   'dist/skill.mjs', 'okf/index.md', 'okf/log.md', 'okf/rules', 'okf/sources',
   'okf-core/index.mjs', 'scripts/cli.mjs', 'source/rule-concepts.json',
   'source/source-view.md', 'source/source.baseline.md', 'package.json',
@@ -94,7 +96,39 @@ export async function checkManifest({ skillPath, sourceRoot, aliasPath }) {
     if (!existsSync(absolute)) { findings.push(`${file.path}:MISSING`); continue; }
     if (sha256(readFileSync(absolute, 'utf8').replace(/\r\n?/g, '\n')) !== file.sha256) findings.push(`${file.path}:DRIFT`);
   }
-  return findings.length === 0 ? verified(`${files.length} sources re-hashed`) : failed('MANIFEST_HASH_MISMATCH', findings.join(', '));
+  findings.push(...checkPreOkfOriginal({ skillPath, sourceRoot, aliases }));
+  const preFindings = findings.filter((finding) => finding.startsWith('PRE_OKF'));
+  const sourceFindings = findings.filter((finding) => !finding.startsWith('PRE_OKF'));
+  if (sourceFindings.length > 0) return failed('MANIFEST_HASH_MISMATCH', findings.join(', '));
+  if (preFindings.length > 0) return failed(preFindings[0].split(':')[0], preFindings.join(', '));
+  return verified(`${files.length} sources re-hashed`);
+}
+
+/**
+ * PRE-OKF-ORIGINAL.md is the portable copy of the build input. A skill that
+ * ships the OKF form without the original is not independently auditable.
+ */
+function checkPreOkfOriginal({ skillPath, sourceRoot, aliases }) {
+  const findings = [];
+  const originalPath = join(skillPath, 'PRE-OKF-ORIGINAL.md');
+  const ledgerPath = join(skillPath, 'source/pre-okf-original.json');
+  if (!existsSync(originalPath)) findings.push('PRE_OKF_ORIGINAL_MISSING:file');
+  if (!existsSync(ledgerPath)) findings.push('PRE_OKF_ORIGINAL_MISSING:ledger');
+  if (findings.length > 0) return findings;
+  const record = readJson(ledgerPath);
+  if (record.schema !== 'pre-okf-original/v1') findings.push('PRE_OKF_ORIGINAL_INVALID:schema');
+  const text = readFileSync(originalPath, 'utf8').replace(/\r\n?/g, '\n');
+  const hash = sha256(text);
+  if (record.sha256 !== hash) findings.push('PRE_OKF_ORIGINAL_DRIFT:local');
+  if (record.bytes !== Buffer.byteLength(text, 'utf8')) findings.push('PRE_OKF_ORIGINAL_DRIFT:bytes');
+  const original = aliases[record.source];
+  if (!original) findings.push('PRE_OKF_ORIGINAL_SOURCE_UNMAPPED');
+  else {
+    const absolute = resolve(sourceRoot, original);
+    if (!existsSync(absolute)) findings.push('PRE_OKF_ORIGINAL_SOURCE_MISSING');
+    else if (sha256(readFileSync(absolute, 'utf8').replace(/\r\n?/g, '\n')) !== hash) findings.push('PRE_OKF_ORIGINAL_DRIFT:source');
+  }
+  return findings;
 }
 
 export async function checkLock({ skillPath }) {
@@ -150,6 +184,9 @@ export function checkGenericBoundary({ skillPath }) {
   ];
   for (const file of walk(skillPath)) {
     if (file.includes('/okf-core/') || file.includes('/tests/fixtures/')) continue;
+    // The pre-OKF original is the unredacted build input. It is the one file
+    // that must retain the real identifiers; every generated artifact is clean.
+    if (file.endsWith('/PRE-OKF-ORIGINAL.md')) continue;
     if (!file.endsWith('.md') && !file.endsWith('.mjs') && !file.endsWith('.json')) continue;
     const text = readFileSync(file, 'utf8').replace(/^.*\[::(?:TICKET|AMBIGUOUS)::\].*$/gm, '');
     for (const [pattern, code] of patterns) {
@@ -391,14 +428,31 @@ export async function checkTraversalEnvelope({ skillPath }) {
 export async function checkFrontierCompleteness({ skillPath }) {
   const bundle = await loadBundle(join(skillPath, 'okf'));
   const empty = [];
+  const invalid = [];
+  const templateInterfaces = new Set(['rest', 'websocket', 'cli', 'grpc', 'mcp', 'a2a']);
   for (const concept of bundle.concepts) {
     const profile = concept.frontmatter?.['x-rule-id'] ? 'law-implement' : 'default';
     const page = buildTraversal({ bundle, id: concept.id, profile });
     if (page.frontier.length === 0 && page.guidance.state !== 'stop') empty.push(concept.id);
+    if (!concept.frontmatter?.['x-rule-id']) continue;
+    const actions = page.frontier.filter((entry) => entry.type === 'action');
+    for (const action of actions) {
+      if (!action.command) invalid.push(`${concept.id}:${action.id}:empty`);
+      if (action.id.endsWith('#template') && !/template --interface \S+ --unit \S+/.test(action.command)) {
+        invalid.push(`${concept.id}:${action.id}:command`);
+      }
+      if (action.id.endsWith('#implementation-check') && !/implementation-check --rule \S+/.test(action.command)) {
+        invalid.push(`${concept.id}:${action.id}:command`);
+      }
+    }
+    if (templateInterfaces.has(String(concept.frontmatter?.['x-applies-to'] ?? ''))
+      && !actions.some((action) => action.id.endsWith('#template'))) {
+      invalid.push(`${concept.id}:template-missing`);
+    }
   }
-  return empty.length === 0
-    ? verified(`${bundle.concepts.length} concepts expose a frontier or an explicit stop`)
-    : failed('FRONTIER_EMPTY', empty.slice(0, 5).join(','));
+  if (empty.length > 0) return failed('FRONTIER_EMPTY', empty.slice(0, 5).join(','));
+  if (invalid.length > 0) return failed('FRONTIER_ACTION_INVALID', invalid.slice(0, 5).join(','));
+  return verified(`${bundle.concepts.length} concepts expose a frontier or an explicit stop`);
 }
 
 export function checkUnknownId({ skillPath }) {
@@ -524,7 +578,8 @@ export async function checkBodyFidelity({ skillPath }) {
   return verified(`${samples.length} sampled sections match the package text`);
 }
 
-// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-428, PX-427, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function findRuleConcept(bundle, ruleId) {
   return bundle.concepts.find((concept) => concept.frontmatter?.['x-rule-id'] === ruleId) ?? null;
 }

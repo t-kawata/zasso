@@ -94,6 +94,8 @@ export interface LoopOptions {
   timeoutMs: number;
   bindReviewInOneSession: boolean;
   noFind?: boolean;
+  /** Overrides {@link MAX_FIND_ROUNDS} for every package in this run. */
+  maxFindRounds?: number;
   watcherConfig?: WatcherConfig;
   display?: DisplayHooks;
 }
@@ -194,8 +196,8 @@ const RECOVERABLE_ERROR_MARKERS = [
   "initialize",
 ];
 
-/** Maximum find executions in one package. */
-export const MAX_FIND_ROUNDS = 3;
+import { MAX_FIND_ROUNDS } from "./find-policy.js";
+export { MAX_FIND_ROUNDS };
 
 /**
  * Fixed operator directive attached to a resumed find.
@@ -428,7 +430,7 @@ function createPackageState(
       consolidateDone: false,
       findDone: false,
       findRounds: 0,
-      maxFindRounds: MAX_FIND_ROUNDS,
+      maxFindRounds: options.maxFindRounds ?? MAX_FIND_ROUNDS,
       noFind: options.noFind === true,
     },
     notifiedPhases: new Set<number>(),
@@ -848,7 +850,7 @@ export async function runPackageLoop(
           if (error.status !== REMANDED_STATUS || options.noFind === true) {
             return await stopAndThrow(options, pkg, deps, stopContext);
           }
-          if (state.progress.findRounds >= MAX_FIND_ROUNDS) {
+          if (state.progress.findRounds >= state.progress.maxFindRounds) {
             return await stopAndThrow(
               options,
               pkg,
@@ -859,7 +861,7 @@ export async function runPackageLoop(
                 action: null,
                 reason: new FindRoundLimitError(
                   state.progress.findRounds,
-                  MAX_FIND_ROUNDS,
+                  state.progress.maxFindRounds,
                 ).message,
               }),
             );

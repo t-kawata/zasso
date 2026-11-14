@@ -41,6 +41,7 @@ const DEV_LAYERS = Object.freeze([
   'DESIGN.md',
   'IMPLEMENTATION-LEFTOVERS.md',
   'install.js',
+  'PRE-OKF-ORIGINAL.md',
   'atoms.lock.json',
   'okf/index.md',
   'okf/log.md',
@@ -49,6 +50,7 @@ const DEV_LAYERS = Object.freeze([
   'scripts/cli.mjs',
   'dist/skill.mjs',
   'source/manifest.toml',
+  'source/pre-okf-original.json',
   'source/input-ledger.json',
   'source/okf-profile.toml',
   'source/okf-log.json',
@@ -112,7 +114,39 @@ export function checkManifest({ skillPath, sourceRoot, aliasPath }) {
     }
     if (sha256Text(normalizeLf(readFileSync(absolute, 'utf8'))) !== file.sha256) findings.push(`${file.path}:DRIFT`);
   }
-  return findings.length === 0 ? verified('manifest hashes match sources') : failed('SOURCE_VIEW_DRIFT', findings.join(', '));
+  findings.push(...checkPreOkfOriginal({ skillPath, sourceRoot, aliases: aliasMap.aliases ?? {} }));
+  const preFindings = findings.filter((finding) => finding.startsWith('PRE_OKF'));
+  const sourceFindings = findings.filter((finding) => !finding.startsWith('PRE_OKF'));
+  if (sourceFindings.length > 0) return failed('SOURCE_VIEW_DRIFT', findings.join(', '));
+  if (preFindings.length > 0) return failed(preFindings[0].split(':')[0], preFindings.join(', '));
+  return verified('manifest hashes match sources');
+}
+
+/**
+ * PRE-OKF-ORIGINAL.md is the portable copy of the build input. A skill that
+ * ships the OKF form without the original is not independently auditable.
+ */
+function checkPreOkfOriginal({ skillPath, sourceRoot, aliases }) {
+  const findings = [];
+  const originalPath = join(skillPath, 'PRE-OKF-ORIGINAL.md');
+  const ledgerPath = join(skillPath, 'source/pre-okf-original.json');
+  if (!exists(originalPath)) findings.push('PRE_OKF_ORIGINAL_MISSING:file');
+  if (!exists(ledgerPath)) findings.push('PRE_OKF_ORIGINAL_MISSING:ledger');
+  if (findings.length > 0) return findings;
+  const record = readJson(ledgerPath);
+  if (record.schema !== 'pre-okf-original/v1') findings.push('PRE_OKF_ORIGINAL_INVALID:schema');
+  const text = normalizeLf(readFileSync(originalPath, 'utf8'));
+  const hash = sha256Text(text);
+  if (record.sha256 !== hash) findings.push('PRE_OKF_ORIGINAL_DRIFT:local');
+  if (record.bytes !== Buffer.byteLength(text, 'utf8')) findings.push('PRE_OKF_ORIGINAL_DRIFT:bytes');
+  const original = aliases[record.source];
+  if (!original) findings.push('PRE_OKF_ORIGINAL_SOURCE_UNMAPPED');
+  else {
+    const absolute = resolve(sourceRoot, original);
+    if (!exists(absolute)) findings.push('PRE_OKF_ORIGINAL_SOURCE_MISSING');
+    else if (sha256Text(normalizeLf(readFileSync(absolute, 'utf8'))) !== hash) findings.push('PRE_OKF_ORIGINAL_DRIFT:source');
+  }
+  return findings;
 }
 
 export async function checkLock({ skillPath }) {
@@ -367,7 +401,30 @@ export function checkContext({ skillPath }) {
   if (context.status !== 0) return failed('CONTEXT_FAILED', context.stderr);
   const tiny = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'context', '--entry', id, '--budget', '1', '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
   if (tiny.status === 0 || !tiny.stderr.includes('BUDGET_EXCEEDED')) return failed('CONTEXT_TRUNCATED', 'over-budget context did not stop');
+  const prerequisite = checkPrerequisiteClosure({ skillPath, lock });
+  if (prerequisite) return prerequisite;
   return verified('context closure and budget are enforced');
+}
+
+/**
+ * A multi-concept bundle must declare a reachable prerequisite chain. A flat
+ * bundle still retrieves one page at a time, but `required` cannot deliver the
+ * closure the traversal contract promises.
+ */
+function checkPrerequisiteClosure({ skillPath, lock }) {
+  if ((lock.concepts ?? []).length <= 1) return null;
+  const okfDir = join(skillPath, 'okf');
+  const files = listFiles(okfDir).filter((file) => file.endsWith('.md') && !/\/(index|log)\.md$/.test(file));
+  const declared = files.filter((file) => /^x-requires:/m.test(readFileSync(file, 'utf8')));
+  if (declared.length === 0) return failed('PREREQUISITE_GRAPH_FLAT', 'no concept declares x-requires');
+  const id = relative(okfDir, declared[0]).replace(/\.md$/, '');
+  const required = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'required', '--entry', id, '--root', okfDir], { encoding: 'utf8' });
+  if (required.status !== 0) return failed('CONTEXT_FAILED', required.stderr);
+  const line = required.stdout.split('\n').find((entry) => entry.startsWith('- required:'));
+  if (!line) return failed('PREREQUISITE_CLOSURE_FLAT', 'required line is absent');
+  const ids = line.replace('- required:', '').split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (ids.length <= 1) return failed('PREREQUISITE_CLOSURE_FLAT', `${id} closure is single-node`);
+  return null;
 }
 
 export function checkNavigation({ skillPath }) {

@@ -726,6 +726,17 @@ function findCommandsOf(recorded: Recorded): string[] {
     .filter((command) => command.startsWith("/find-omissions"));
 }
 
+/** Keep the sole ticket remanded so every find round leaves the same evidence. */
+function keepRemandedAfterFind(command: string, current: Fixture): void {
+  if (!command.startsWith("/find-omissions")) return;
+  const next = JSON.parse(
+    readFileSync(current.ticketsPath, "utf-8"),
+  ) as TicketsJson;
+  const ticket = next.phases[0]?.tickets[0];
+  if (ticket !== undefined) ticket.status = "remanded";
+  writeFileSync(current.ticketsPath, JSON.stringify(next, null, 2));
+}
+
 describe("runPackageLoop — unfinished find recovery", () => {
   it("C001/C002/C003: a remanded ticket sends two notices and resumes find with the graph and directive", async () => {
     const data = tickets([
@@ -951,22 +962,13 @@ describe("runPackageLoop — unfinished find recovery", () => {
       stops: [],
       boundaries: [],
     };
-    const keepRemanded = (command: string, current: Fixture): void => {
-      if (!command.startsWith("/find-omissions")) return;
-      const next = JSON.parse(
-        readFileSync(current.ticketsPath, "utf-8"),
-      ) as TicketsJson;
-      const ticket = next.phases[0]?.tickets[0];
-      if (ticket !== undefined) ticket.status = "remanded";
-      writeFileSync(current.ticketsPath, JSON.stringify(next, null, 2));
-    };
 
     await assert.rejects(
       () =>
         runPackageLoop(
           fixture.packageEntry,
           options(),
-          deps(fixture, recorded, keepRemanded, {
+          deps(fixture, recorded, keepRemandedAfterFind, {
             detectUnfinishedFind: async () => ({
               unfinished: true,
               evidence: [{ kind: "remanded" }],
@@ -978,6 +980,42 @@ describe("runPackageLoop — unfinished find recovery", () => {
     assert.strictEqual(findCommandsOf(recorded).length, MAX_FIND_ROUNDS);
     assert.ok(
       recorded.stops.some((stop) => /reaching the limit/.test(stop.reason)),
+    );
+  });
+
+  it("C004: 既定の探索ラウンド上限は5", () => {
+    assert.strictEqual(MAX_FIND_ROUNDS, 5);
+  });
+
+  it("C004: options.maxFindRounds が既定の上限を上書きする", async () => {
+    const fixture = writeFixture(
+      tickets([{ id: 0, tickets: [{ id: 1, status: "remanded" }] }]),
+    );
+    const recorded: Recorded = {
+      sessions: [],
+      commands: [],
+      phases: [],
+      stops: [],
+      boundaries: [],
+    };
+
+    await assert.rejects(
+      () =>
+        runPackageLoop(
+          fixture.packageEntry,
+          options({ maxFindRounds: 2 }),
+          deps(fixture, recorded, keepRemandedAfterFind, {
+            detectUnfinishedFind: async () => ({
+              unfinished: true,
+              evidence: [{ kind: "remanded" }],
+            }),
+          }),
+        ),
+      (error: unknown) => error instanceof LoopStoppedError,
+    );
+    assert.strictEqual(findCommandsOf(recorded).length, 2);
+    assert.ok(
+      recorded.stops.some((stop) => /limit of 2 rounds/.test(stop.reason)),
     );
   });
 

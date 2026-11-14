@@ -29,5 +29,5 @@ x-source-span: "313-327"
 9. Audience isolation: a REST token cannot upgrade.
 10. `cargo test -p <project>-websocket` and `cargo clippy -p
     <project>-websocket -- -D warnings`.
-11. The conformance report names `WS-01` through `WS-32`.
+11. The conformance report names `WS-01` through `WS-35`.
 
