@@ -1,0 +1,293 @@
+{
+  "schema": "okf-build-measurements/v1",
+  "source": {
+    "alias": "sources/pjsip-build-guide.md",
+    "lines": 484,
+    "sha256": "598534fdcf10578ee9bec6e886ae72af32fa8265d414d48bd8eee2b302325d33",
+    "bytes": 53736
+  },
+  "headings": [
+    {
+      "level": 1,
+      "title": "PJSIP 2.17 → Windows/x64 · Linux/x64 · macOS/ARM64 → Rust FFI",
+      "line": 1
+    },
+    {
+      "level": 2,
+      "title": "Local-only companion; native guest builds; raw static-library bundles; reproducible import/ABI/runtime gates",
+      "line": 2
+    },
+    {
+      "level": 2,
+      "title": "0. Read-first: correctness/safety/version boundaries",
+      "line": 5
+    },
+    {
+      "level": 2,
+      "title": "1. Contract and filesystem",
+      "line": 35
+    },
+    {
+      "level": 2,
+      "title": "2. Host/guest prerequisite verification (not VM rebuild)",
+      "line": 68
+    },
+    {
+      "level": 2,
+      "title": "3. Source acquisition: freeze once, identical per lane",
+      "line": 98
+    },
+    {
+      "level": 2,
+      "title": "4. Transport inputs to original local lab",
+      "line": 145
+    },
+    {
+      "level": 2,
+      "title": "5. Exact POSIX build: Linux/x64, Mac/ARM64",
+      "line": 170
+    },
+    {
+      "level": 3,
+      "title": "5.1 Linux",
+      "line": 173
+    },
+    {
+      "level": 3,
+      "title": "5.2 macOS",
+      "line": 180
+    },
+    {
+      "level": 3,
+      "title": "5.3 What phases actually do",
+      "line": 192
+    },
+    {
+      "level": 3,
+      "title": "5.4 Validate feature detection, not just configure exit",
+      "line": 197
+    },
+    {
+      "level": 2,
+      "title": "6. Exact Windows/x64 MSVC build",
+      "line": 207
+    },
+    {
+      "level": 3,
+      "title": "6.1 Upstream Windows native suite supplement",
+      "line": 221
+    },
+    {
+      "level": 3,
+      "title": "6.2 CRT / diagnostic variants",
+      "line": 237
+    },
+    {
+      "level": 2,
+      "title": "7. Stage audit and normalized bundle creation on Mac",
+      "line": 240
+    },
+    {
+      "level": 2,
+      "title": "8. Import artifacts into Rust project (no installation into /usr/local)",
+      "line": 288
+    },
+    {
+      "level": 2,
+      "title": "9. Build and execute Rust FFI tests in each actual OS",
+      "line": 306
+    },
+    {
+      "level": 3,
+      "title": "9.1 Mac",
+      "line": 317
+    },
+    {
+      "level": 3,
+      "title": "9.2 Linux guest",
+      "line": 333
+    },
+    {
+      "level": 3,
+      "title": "9.3 Windows guest",
+      "line": 351
+    },
+    {
+      "level": 3,
+      "title": "9.4 Test inventory and what is actually proven",
+      "line": 370
+    },
+    {
+      "level": 2,
+      "title": "10. Threading, callbacks, ownership: non-negotiable FFI rules",
+      "line": 382
+    },
+    {
+      "level": 2,
+      "title": "11. Native and end-to-end integration beyond ABI smoke",
+      "line": 389
+    },
+    {
+      "level": 2,
+      "title": "12. Diagnose wrong libraries/ABI/cache",
+      "line": 404
+    },
+    {
+      "level": 2,
+      "title": "13. Relocation/system dependencies and runtime packaging",
+      "line": 435
+    },
+    {
+      "level": 2,
+      "title": "14. Reproducibility/release gate record",
+      "line": 457
+    },
+    {
+      "level": 2,
+      "title": "15. Primary review sources",
+      "line": 462
+    },
+    {
+      "level": 2,
+      "title": "16. Implementation appendix convention",
+      "line": 483
+    }
+  ],
+  "concepts": 19,
+  "spans": [
+    {
+      "id": "pages/pjsip-build-guide/preamble",
+      "span": "1-1",
+      "requires": []
+    },
+    {
+      "id": "pages/pjsip-build-guide/local-only-companion-native-guest-builds-raw-static-library-bundles-reproducible",
+      "span": "2-4",
+      "requires": [
+        "pages/pjsip-build-guide/preamble"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/0-read-first-correctness-safety-version-boundaries",
+      "span": "5-34",
+      "requires": [
+        "pages/pjsip-build-guide/local-only-companion-native-guest-builds-raw-static-library-bundles-reproducible"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/1-contract-and-filesystem",
+      "span": "35-67",
+      "requires": [
+        "pages/pjsip-build-guide/0-read-first-correctness-safety-version-boundaries"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/2-host-guest-prerequisite-verification-not-vm-rebuild",
+      "span": "68-97",
+      "requires": [
+        "pages/pjsip-build-guide/1-contract-and-filesystem"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane",
+      "span": "98-144",
+      "requires": [
+        "pages/pjsip-build-guide/2-host-guest-prerequisite-verification-not-vm-rebuild"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/4-transport-inputs-to-original-local-lab",
+      "span": "145-169",
+      "requires": [
+        "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/5-exact-posix-build-linux-x64-mac-arm64",
+      "span": "170-206",
+      "requires": [
+        "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane",
+        "pages/pjsip-build-guide/4-transport-inputs-to-original-local-lab"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/6-exact-windows-x64-msvc-build",
+      "span": "207-239",
+      "requires": [
+        "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane",
+        "pages/pjsip-build-guide/1-contract-and-filesystem"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/7-stage-audit-and-normalized-bundle-creation-on-mac",
+      "span": "240-287",
+      "requires": [
+        "pages/pjsip-build-guide/5-exact-posix-build-linux-x64-mac-arm64",
+        "pages/pjsip-build-guide/6-exact-windows-x64-msvc-build"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/8-import-artifacts-into-rust-project-no-installation-into-usr-local",
+      "span": "288-305",
+      "requires": [
+        "pages/pjsip-build-guide/7-stage-audit-and-normalized-bundle-creation-on-mac"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/9-build-and-execute-rust-ffi-tests-in-each-actual-os",
+      "span": "306-381",
+      "requires": [
+        "pages/pjsip-build-guide/8-import-artifacts-into-rust-project-no-installation-into-usr-local"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/10-threading-callbacks-ownership-non-negotiable-ffi-rules",
+      "span": "382-388",
+      "requires": [
+        "pages/pjsip-build-guide/9-build-and-execute-rust-ffi-tests-in-each-actual-os"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/11-native-and-end-to-end-integration-beyond-abi-smoke",
+      "span": "389-403",
+      "requires": [
+        "pages/pjsip-build-guide/10-threading-callbacks-ownership-non-negotiable-ffi-rules"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/12-diagnose-wrong-libraries-abi-cache",
+      "span": "404-434",
+      "requires": [
+        "pages/pjsip-build-guide/11-native-and-end-to-end-integration-beyond-abi-smoke"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/13-relocation-system-dependencies-and-runtime-packaging",
+      "span": "435-456",
+      "requires": [
+        "pages/pjsip-build-guide/12-diagnose-wrong-libraries-abi-cache"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/14-reproducibility-release-gate-record",
+      "span": "457-461",
+      "requires": [
+        "pages/pjsip-build-guide/13-relocation-system-dependencies-and-runtime-packaging"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/15-primary-review-sources",
+      "span": "462-482",
+      "requires": [
+        "pages/pjsip-build-guide/14-reproducibility-release-gate-record"
+      ]
+    },
+    {
+      "id": "pages/pjsip-build-guide/16-implementation-appendix-convention",
+      "span": "483-484",
+      "requires": [
+        "pages/pjsip-build-guide/15-primary-review-sources"
+      ]
+    }
+  ]
+}

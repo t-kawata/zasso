@@ -483,6 +483,87 @@ reviewed チケットの**契約（Contracts）がテストコードへ正確に
 - 成功時にマニフェストとロールバックバックアップを削除（`clean-consolidation-artifacts.js`）。再実行には新たな `/consolidate-stubs` が必要
 - マージされた omission チケットは実装ループに戻り、**収束するまで再実装が繰り返される**
 
+### ナレッジスキル生成（AI 自動実行）
+
+資料となる英語 Markdown から、AI が辿れる OKF v0.2 スキルを構築します。生成物は `.claude/skills/` 配下にインストールされ、実行時は `dist/skill.mjs` が同梱の `okf/` を解決します。
+
+**共通の品質契約**
+
+- 入出力は**位置引数のみ**。フラグ、絶対パス（リポジトリ外）、CJK 資料は拒否されます
+- ビルドは `source → manifest → lock → OKF → runtime → dist` の順で、**検証前にインストールしません**
+- 正準検証器は `check_set_version: 3` の36チェック。dev と installed の両方で、必須チェックがすべて `machine_verified` であることが合格条件です
+- `rebuild` はバイト同一を出力し、`node --test` で影響範囲のテストを実行します（`make test` は禁止）
+- 生成スキル直下に **`PRE-OKF-ORIGINAL.md`** と `source/pre-okf-original.json` を置きます。前者は OKF 化前の原典（LF 正規化・非編集）、後者は原典の alias・`sha256`・`bytes` の台帳です。原典は `okf/` の外にあり、マニフェスト・被覆・秘匿化の対象にはなりません
+- 生成ツリーはチケット ID、プロジェクト名、元の絶対パス、CJK を含みません。原典だけが意図的な例外です
+- リポジトリ同梱の**理想お手本**を参照します。law は `.claude/skills/rust-interface-law`、okf は `.claude/skills/natenv-okf`。お手本は参照専用で、source・fixture・acceptance target にはなりません
+
+#### `/build-law-skill`
+
+規範文書から **`*-law` スキル**（法）を構築します。生成物は規則の OKF バンドルに加え、`applies` / `resolve` / `context` / `gate` / `attest` / `explain` / `expand` / `template` / `scaffold` などの CLI を持ちます。
+
+**使い方**
+
+```text
+# 1ソース（位置引数）
+/build-law-skill team-law=docs/team-rules.md
+
+# 複数ソースを1スキルへ（位置引数）
+/build-law-skill team-law docs/rules-a.md docs/rules-b.md
+
+# または名前を繰り返す
+/build-law-skill team-law=docs/rules-a.md team-law=docs/rules-b.md
+
+# 複数スキルを1回で
+/build-law-skill a-law=docs/a.md b-law=docs/b.md
+
+# 特定の場合だけ起動する法（自由記述トリガ）
+/build-law-skill team-law=docs/team-rules.md
+
+Apply only when the changed path matches crates/api/**.
+```
+
+- 引数の最初の空行までが source 一覧、それ以降が**自由記述の適用条件**です。自由記述があるときは1スキルだけを構築します
+- 特定ケース型の場合、AI が英語の電報文体の `instruction` と `conditions` を執筆し、機械が検証して `source/applicability.json` に記録します。`applies` は条件内で exit 0、条件外で exit 3（skip）を返します
+- 生成後、`CLAUDE.md` と `make` / `plan` / `start` / `review` / `resolve` の5コマンドへ、汎用チェックポイント行とスキル別トリガ行を**各1行ずつ**注入します。注入は冪等で、CLI・JSON・メタデータはホストファイルへ漏れません
+- **主なゲート**: 正準検証器 dev/installed、coverage の gap/overlap 0、`rebuild` バイト同一、禁止トークン 0、`gate` と `attest`、統合ゲート（`verify-law-integration.mjs --mode check --require-skill`）、frontier アクションの実行可能性、`implementation-check` の finding 明細、PRE-OKF 原典の一致
+- **出力**: `.claude/skills/<name>-law/`、隣接する `<name>-law.path-alias.json`、検証記録 `target/law/`、受け入れ記録 `target/law/law-builds.json`
+
+#### `/build-okf-skill`
+
+資料から **`*-okf` スキル**（OKF v0.2 wiki）を構築します。生成物は `list` / `expand` / `outgoing` / `incoming` / `required` / `context` / `search` / `validate` などの traversal CLI を持ち、`SKILL.md` は13セクション以上・10シナリオ以上の探索マニュアルになります。
+
+**使い方**
+
+```text
+# 1ソース
+/build-okf-skill handbook-okf docs/handbook.md
+
+# 複数ソースを1つの wiki へ
+/build-okf-skill handbook-okf docs/part-a.md docs/part-b.md
+
+# 複数スキルを1回で
+/build-okf-skill a-okf=docs/a.md b-okf=docs/b.md
+```
+
+- 概念 ID は `okf/` からの相対パス（`.md` を除く）。本文 Markdown リンクがグラフで、frontmatter に `links` は書きません
+- 複数概念のバンドルでは、preamble 以外の各概念が `x-requires` を宣言します。`required --entry <末尾概念>` が推移閉包を返さない「フラットな束」は不合格です
+- **主なゲート**: 正準検証器 dev/installed、conformance（公式3条件）、lint（壊れたリンク・孤児・未知の型/キー・stale）、coverage の `unmappedHeadings` / `unmappedPreamble` / `unmappedLines` がすべて 0、graph、context（予算超過は `BUDGET_EXCEEDED` で切り詰めない）、usage、determinism、distribution、PRE-OKF 原典の一致
+- **出力**: `.claude/skills/<name>-okf/`、隣接する `<name>-okf.path-alias.json`、検証記録 `target/okf/`、受け入れ記録 `target/okf/okf-builds.json`
+- `CLAUDE.md` やパイプラインコマンドは**変更しません**（ホスト非改変が不変条件）
+
+**生成後の確認（共通）**
+
+```bash
+# law: 適用判定 → 規則の解決 → フェーズ単位の文脈配信
+node .claude/skills/<name>-law/dist/skill.mjs applies --root "$REPO_ROOT" --paths <changed-path>
+node .claude/skills/<name>-law/dist/skill.mjs resolve --root "$REPO_ROOT" --paths <changed-path>
+
+# okf: 入口一覧 → 概念の展開 → 必須閉包
+node .claude/skills/<name>-okf/dist/skill.mjs list
+node .claude/skills/<name>-okf/dist/skill.mjs expand --id <concept-id>
+node .claude/skills/<name>-okf/dist/skill.mjs required --entry <concept-id>
+```
+
 ### 出荷ループ（人間＋AI 実行）
 
 #### `/crystalize-readme <GRAPHファイルパス>`

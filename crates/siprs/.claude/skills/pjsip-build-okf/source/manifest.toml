@@ -1,0 +1,8 @@
+spec_version = "okf-source-manifest/v1"
+source_set_sha256 = "727ff0468a6b242c190bd6113ee260c91b1d254b3c1ff2cbd48516b2d20cf1cb"
+
+[[file]]
+path = "sources/pjsip-build-guide.md"
+sha256 = "598534fdcf10578ee9bec6e886ae72af32fa8265d414d48bd8eee2b302325d33"
+lines = "484"
+bytes = "53736"

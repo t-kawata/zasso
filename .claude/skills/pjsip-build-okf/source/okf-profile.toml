@@ -1,0 +1,21 @@
+schema = "okf-profile/v1"
+domain = "pjsip-2-17-windows-x64-linux-x64-macos-arm64-rust-ffi"
+language = "en"
+types = ["Page", "Claim", "Entity", "Procedure", "Reference"]
+
+[discovery]
+aliases = ["sources/pjsip-build-guide.md"]
+source_roots = ["."]
+globs = ["**/*.md"]
+
+[detectors]
+todo = '\bTODO\b'
+fixme = '\bFIXME\b'
+hack = '\bHACK\b'
+xxx = '\bXXX\b'
+secrets = '(?i)(api[_-]?key|secret|passwd|password|token)\s*[:=]'
+
+[limits]
+max_answer_nodes = 20
+node_budget = 2500
+context_budget_bytes = 1000000

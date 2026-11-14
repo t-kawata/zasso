@@ -1,0 +1,138 @@
+{
+  "schema": "okf-atoms/v2",
+  "concepts": [
+    {
+      "id": "pages/pjsip-build-guide/0-read-first-correctness-safety-version-boundaries",
+      "path": "pages/pjsip-build-guide/0-read-first-correctness-safety-version-boundaries.md",
+      "title": "0. Read-first: correctness/safety/version boundaries",
+      "type": "Page",
+      "body_sha256": "b55105b9e51e2b1da4c3de07c452fc0eef6e54b9f4db9aa17302060a7ed52ac9"
+    },
+    {
+      "id": "pages/pjsip-build-guide/1-contract-and-filesystem",
+      "path": "pages/pjsip-build-guide/1-contract-and-filesystem.md",
+      "title": "1. Contract and filesystem",
+      "type": "Page",
+      "body_sha256": "8d5420d3e3aa3034d716fa4e5a94a9a6a33bdb6d57a1dcf5b94bb46c0c297b1b"
+    },
+    {
+      "id": "pages/pjsip-build-guide/10-threading-callbacks-ownership-non-negotiable-ffi-rules",
+      "path": "pages/pjsip-build-guide/10-threading-callbacks-ownership-non-negotiable-ffi-rules.md",
+      "title": "10. Threading, callbacks, ownership: non-negotiable FFI rules",
+      "type": "Page",
+      "body_sha256": "ceddcce54e350c9826b185e017f39094ad9629f3ac9b93ebb4d7d97ad48b9c02"
+    },
+    {
+      "id": "pages/pjsip-build-guide/11-native-and-end-to-end-integration-beyond-abi-smoke",
+      "path": "pages/pjsip-build-guide/11-native-and-end-to-end-integration-beyond-abi-smoke.md",
+      "title": "11. Native and end-to-end integration beyond ABI smoke",
+      "type": "Page",
+      "body_sha256": "1ce578b00e45f1d1e92a41882637004a3d7cb54e9ba63f103bc3beb0552c2a0b"
+    },
+    {
+      "id": "pages/pjsip-build-guide/12-diagnose-wrong-libraries-abi-cache",
+      "path": "pages/pjsip-build-guide/12-diagnose-wrong-libraries-abi-cache.md",
+      "title": "12. Diagnose wrong libraries/ABI/cache",
+      "type": "Page",
+      "body_sha256": "88e71785d921b272fd69a7b19f26bf6882599cd6f2e849272c4859ceb7797770"
+    },
+    {
+      "id": "pages/pjsip-build-guide/13-relocation-system-dependencies-and-runtime-packaging",
+      "path": "pages/pjsip-build-guide/13-relocation-system-dependencies-and-runtime-packaging.md",
+      "title": "13. Relocation/system dependencies and runtime packaging",
+      "type": "Page",
+      "body_sha256": "ef73a069d204bcdefe0ec467e5560c1e91dc8ace2d2088a9581ecf3e6d4e67ef"
+    },
+    {
+      "id": "pages/pjsip-build-guide/14-reproducibility-release-gate-record",
+      "path": "pages/pjsip-build-guide/14-reproducibility-release-gate-record.md",
+      "title": "14. Reproducibility/release gate record",
+      "type": "Page",
+      "body_sha256": "6b34e92337d3d4e5d94f62e43093cc5b1f1d92e12cfa7e671bec38f91cb57ba6"
+    },
+    {
+      "id": "pages/pjsip-build-guide/15-primary-review-sources",
+      "path": "pages/pjsip-build-guide/15-primary-review-sources.md",
+      "title": "15. Primary review sources",
+      "type": "Page",
+      "body_sha256": "4e81eb3cb1140b1ab76d6ccd7be0a69ad841ae74ab0bde9f4788eb63a487a7e9"
+    },
+    {
+      "id": "pages/pjsip-build-guide/16-implementation-appendix-convention",
+      "path": "pages/pjsip-build-guide/16-implementation-appendix-convention.md",
+      "title": "16. Implementation appendix convention",
+      "type": "Page",
+      "body_sha256": "966610a4e38f9d485fd4332f8ef8d640042f4558357e72e0f0bc1c68264ccd82"
+    },
+    {
+      "id": "pages/pjsip-build-guide/2-host-guest-prerequisite-verification-not-vm-rebuild",
+      "path": "pages/pjsip-build-guide/2-host-guest-prerequisite-verification-not-vm-rebuild.md",
+      "title": "2. Host/guest prerequisite verification (not VM rebuild)",
+      "type": "Page",
+      "body_sha256": "4c5751f8bff0ce1ba25873df5dfd78f74f20014c7cf22c2d5a52b90d2d946978"
+    },
+    {
+      "id": "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane",
+      "path": "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane.md",
+      "title": "3. Source acquisition: freeze once, identical per lane",
+      "type": "Page",
+      "body_sha256": "d13815054fc92807af607de4281e7fe77434367f332f34c8d0e95928dc73a9dc"
+    },
+    {
+      "id": "pages/pjsip-build-guide/4-transport-inputs-to-original-local-lab",
+      "path": "pages/pjsip-build-guide/4-transport-inputs-to-original-local-lab.md",
+      "title": "4. Transport inputs to original local lab",
+      "type": "Page",
+      "body_sha256": "918d2273d605221e40f83c13191cf6d131254fb891993b9f7dc01625bbf0a006"
+    },
+    {
+      "id": "pages/pjsip-build-guide/5-exact-posix-build-linux-x64-mac-arm64",
+      "path": "pages/pjsip-build-guide/5-exact-posix-build-linux-x64-mac-arm64.md",
+      "title": "5. Exact POSIX build: Linux/x64, Mac/ARM64",
+      "type": "Page",
+      "body_sha256": "7a33a9c864aefd60e26d97fbe4a6742c9e2cd8275e46dd8186bccfc9769fee76"
+    },
+    {
+      "id": "pages/pjsip-build-guide/6-exact-windows-x64-msvc-build",
+      "path": "pages/pjsip-build-guide/6-exact-windows-x64-msvc-build.md",
+      "title": "6. Exact Windows/x64 MSVC build",
+      "type": "Page",
+      "body_sha256": "f41fb36bee9b0bf4c7285637b53c350eea39ae4c491635b13f65c2c29a0c86ba"
+    },
+    {
+      "id": "pages/pjsip-build-guide/7-stage-audit-and-normalized-bundle-creation-on-mac",
+      "path": "pages/pjsip-build-guide/7-stage-audit-and-normalized-bundle-creation-on-mac.md",
+      "title": "7. Stage audit and normalized bundle creation on Mac",
+      "type": "Page",
+      "body_sha256": "2075279e8b5fee2522829383330330bea51906e1c91ad4c8fd06f519856fbc95"
+    },
+    {
+      "id": "pages/pjsip-build-guide/8-import-artifacts-into-rust-project-no-installation-into-usr-local",
+      "path": "pages/pjsip-build-guide/8-import-artifacts-into-rust-project-no-installation-into-usr-local.md",
+      "title": "8. Import artifacts into Rust project (no installation into /usr/local)",
+      "type": "Page",
+      "body_sha256": "5d84b1056bfee44038bdf44575b48f03f78300044a9e28a09cfd890071e0bfea"
+    },
+    {
+      "id": "pages/pjsip-build-guide/9-build-and-execute-rust-ffi-tests-in-each-actual-os",
+      "path": "pages/pjsip-build-guide/9-build-and-execute-rust-ffi-tests-in-each-actual-os.md",
+      "title": "9. Build and execute Rust FFI tests in each actual OS",
+      "type": "Page",
+      "body_sha256": "f35e6dcc74f66025f814a1b1d9d7424f29e64b7bb49844c9c2d307022830c6ce"
+    },
+    {
+      "id": "pages/pjsip-build-guide/local-only-companion-native-guest-builds-raw-static-library-bundles-reproducible",
+      "path": "pages/pjsip-build-guide/local-only-companion-native-guest-builds-raw-static-library-bundles-reproducible.md",
+      "title": "Local-only companion; native guest builds; raw static-library bundles; reproducible import/ABI/runtime gates",
+      "type": "Page",
+      "body_sha256": "36b046c04efe6d6e2009c81f81d0834a67036e4aa0e1cce4c9bdd4ec5ae7b2a3"
+    },
+    {
+      "id": "pages/pjsip-build-guide/preamble",
+      "path": "pages/pjsip-build-guide/preamble.md",
+      "title": "PJSIP 2.17 → Windows/x64 · Linux/x64 · macOS/ARM64 → Rust FFI",
+      "type": "Page",
+      "body_sha256": "c252db802b39f8e9ef0b25f8a2faacfb220449aee00c4cc350f8e11193afde39"
+    }
+  ]
+}

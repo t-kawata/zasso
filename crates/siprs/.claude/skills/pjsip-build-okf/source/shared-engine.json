@@ -1,0 +1,276 @@
+{
+  "schema": "okf-shared-engine/v1",
+  "esbuild": "0.27.7",
+  "modules": [
+    {
+      "copy": "dist/skill.mjs",
+      "origin": "esbuild 0.27.7, one ESM entry",
+      "sha256": "b36d3ab5ddb683971f0a1f9d5719922a27eb0c3ec5359559357e2476b1e1953a",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/adapters/okforest.mjs",
+      "sha256": "ecec8d275b986e5aa2d51c5ff83432060ec62da722d8dd4d3028ae8aeb995648",
+      "law": "adapters/okforest.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/authoring/index.mjs",
+      "sha256": "d9da68d5b5cf9443ea34e54f765b990ba2d6ee603a55d0d574b1d69eb80e89f2",
+      "law": "authoring/index.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/authoring/log.mjs",
+      "sha256": "7196c4873ce987e4e2cc3c6e2a5867d43bc7874efdce34ea946c13395ca765e9",
+      "law": "authoring/log.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/authoring/write.mjs",
+      "sha256": "9a4e0d31cbd39dd510b8e224b5f92a2f48e279cebf7a4ae5739909e5c7ea8caf",
+      "law": "authoring/write.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/bundle/classify.mjs",
+      "sha256": "f20e0e34d7677dca4cd1d4829713eaae816fff213442141b9cf5f80733f25bfa",
+      "law": "bundle/classify.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/bundle/load.mjs",
+      "sha256": "4c22db76f4eb3acbe88a47757c1a529260d339103f7e24ebafad09c73e99a216",
+      "law": "bundle/load.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/bundle/scan.mjs",
+      "sha256": "fa2c69fc3777b36110a00ed6fd2db41e365702fc950975c4d3958a2a875b7906",
+      "law": "bundle/scan.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/cli.mjs",
+      "sha256": "5fa2ee8725c8720934deef31ae47243e644976ec45893b0aa5dcf463fe71004e",
+      "law": "cli.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/commands/authoring.mjs",
+      "sha256": "13e7c88c5fd417a9075f3f1435b13c0fe67cb38a94396c10810c0e5700dc20f4",
+      "law": "commands/authoring.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/commands/context.mjs",
+      "sha256": "5cfccbc2c9fc13eeef975c9fd2ba8c03f0d5f4df4cfd3f0e42257a18e76f5e14",
+      "law": "commands/context.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/commands/navigation.mjs",
+      "sha256": "d5769bfecee43dbb3cfd4d561613e86ab873196690803d55cb638ebc86a60b69",
+      "law": "commands/navigation.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/commands/search.mjs",
+      "sha256": "2f30b17a51c537925602c1417b5fbdaf465d27e9aed3f5a4812f938065448080",
+      "law": "commands/search.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/commands/traverse.mjs",
+      "sha256": "e05e2ca5b199d25b68c1ff7cf69174442ac9d13858fd7c89e657247494e81cd9",
+      "law": "commands/traverse.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/commands/usage.mjs",
+      "sha256": "feb6841543992ae1ad005bacc8618919be9e2b38ccb2490ed4e6941a90b90189",
+      "law": "commands/usage.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/commands/validation.mjs",
+      "sha256": "41c0dd0a24b39aac6232783a91d401f5fb0a0da3597fb19060dfa4e516a62d01",
+      "law": "commands/validation.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/context/assemble.mjs",
+      "sha256": "60eb16d436a26a4ad0bafd93d9fa7ec086b8878c3910f0dba445651a7a6e1d02",
+      "law": "context/assemble.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/context/manifest.mjs",
+      "sha256": "fdcd9d9f1865e3adc2849181c128621ed3c88dc132e1ed41566c5ecdb3b2c753",
+      "law": "context/manifest.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/context/resolve-required.mjs",
+      "sha256": "1f26f565a5134e0a5af9e686a3622eb275d7dc08f95e5d348b98e28b2417940c",
+      "law": "context/resolve-required.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/graph/backlinks.mjs",
+      "sha256": "e6f2498735888821c2eeb2c4869f1d214fa314a4ac7ac7879f643748a0827c5e",
+      "law": "graph/backlinks.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/graph/build.mjs",
+      "sha256": "0d9203245a98184c118f220c88114400b235391ea66a4c3a7c7564b374d555bd",
+      "law": "graph/build.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/graph/traverse.mjs",
+      "sha256": "eb04dc2e7bcfe776ae4d255310f8c8e45381d1b3a27d6a6217f5c2068337ca0a",
+      "law": "graph/traverse.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/index.mjs",
+      "sha256": "b7c57abc5fdb0edf2fb301b91f87ad732e8e0ad5b048f34adad9004d5d7cb849",
+      "law": "index.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/library.json",
+      "sha256": "795f695375aa52894d20120a15cebe64890dbabcf86f7e3982dbf9a5b4c5b0d7",
+      "law": "library.json",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/metadata/lifecycle.mjs",
+      "sha256": "464f7ee8ac1e1a02063c549c5fa01c36aeb664974f2a034e68d04c62ea2cff5b",
+      "law": "metadata/lifecycle.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/metadata/provenance.mjs",
+      "sha256": "23778884be456c5444c859adab0b1b9a849d23bb16bb68797d7d361584e319ce",
+      "law": "metadata/provenance.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/metadata/trust.mjs",
+      "sha256": "702564617ccff1f7a6bf6f05f24b2c72799ccdcbccd68414f429e996bcb9240e",
+      "law": "metadata/trust.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/parsing/frontmatter.mjs",
+      "sha256": "0481d89628542a4aea96ecc346fc7c11316ce4275608d339782d8e3fccccc9ab",
+      "law": "parsing/frontmatter.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/parsing/markdown.mjs",
+      "sha256": "ae17b1b55b0944b18611940beb672a1fc3670cdf59e551fc7f8b6c78812a1483",
+      "law": "parsing/markdown.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/paths/containment.mjs",
+      "sha256": "be592a2afc2bd6686b438120b8f93f50e78623f3ca32f3630962f47bfebb039f",
+      "law": "paths/containment.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/paths/directory.mjs",
+      "sha256": "95a28f1a45fcc732fda861f3f1107c31a6ce57af42cc4d4f50949ed58f2cacb7",
+      "law": "paths/directory.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/paths/resolve.mjs",
+      "sha256": "dc691e74c6158acbe79a2f420e43163eb6f9a27b94e5e859e9b9a22d9f1d1fe6",
+      "law": "paths/resolve.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/profiles/default.json",
+      "sha256": "9b4e2c324272825f841e31a6afe53040ceab9a5f4b5d98000d26ff35a54b8441",
+      "law": "profiles/default.json",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/profiles/index.mjs",
+      "sha256": "86a1bd45e947d1928fb99cfb336036b98017d210bca6c9b690d827a3cfae74d6",
+      "law": "profiles/index.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/profiles/law-implement.json",
+      "sha256": "f975420e8cf91e48cdb502d09f4dae53a4e504b51e589e158159852f7825515c",
+      "law": "profiles/law-implement.json",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/profiles/law-review.json",
+      "sha256": "b8309e6768090faf91395ce1bf43fbd64f951e9827a261cc5711abffed7d2148",
+      "law": "profiles/law-review.json",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/profiles/law-wiki.json",
+      "sha256": "5f9b8ee195b41ecfb8b8be63272903bba3d6b8d22e6270b0f8f0aafb3903bdb5",
+      "law": "profiles/law-wiki.json",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/profiles/okf-wiki.json",
+      "sha256": "f9a7351e2918b3747c7d745047c7bb2844244bcda327bac071203e8ff2d2b89f",
+      "law": "profiles/okf-wiki.json",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/render/markdown.mjs",
+      "sha256": "f7a6dd0ce92c08d0b185da964ae6ecef9420246ca135b5212a26482d8f02735e",
+      "law": "render/markdown.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/traversal-protocol.md",
+      "sha256": "8e434d32d448ba69695ac8075940779a58b16cc1f477df59baa07a61b3b42d4d",
+      "law": "traversal-protocol.md",
+      "strip": "none"
+    },
+    {
+      "copy": "okf-core/validation/conformance.mjs",
+      "sha256": "410581f3036401c7f75e80f99ebf4395da6ea283821a8c05855fe6e14a5edc71",
+      "law": "validation/conformance.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/validation/lint.mjs",
+      "sha256": "63ec08d8e58aaff7e216ac82bdb9a9bc4b7ddb6530ab4d8941f3ebd0c964cc70",
+      "law": "validation/lint.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/validation/profile.mjs",
+      "sha256": "47de62677ca46787d0957821e98a69d2abe900cdd28d24b440fdb17f7ad5c435",
+      "law": "validation/profile.mjs",
+      "strip": "ticket-annotation"
+    },
+    {
+      "copy": "okf-core/vendor/okforest.mjs",
+      "sha256": "27cc301fefa549b3374d8ca0cc51c1a23d3111b872270cff1846dddbad0709b5",
+      "origin": "@okforest/okf@0.14.0 bundled with esbuild 0.27.7",
+      "strip": "none"
+    },
+    {
+      "copy": "scripts/cli.mjs",
+      "origin": "generated entry",
+      "sha256": "6f3fbe67c9a2a6366c1b7de06f2db49d360b027b09d8ee8956f010cba912524c",
+      "strip": "none"
+    }
+  ]
+}

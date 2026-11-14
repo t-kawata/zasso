@@ -1,0 +1,119 @@
+{
+  "schema": "okf-concept-inventory/v1",
+  "entries": [
+    {
+      "id": "pages/pjsip-build-guide/0-read-first-correctness-safety-version-boundaries",
+      "path": "pages/pjsip-build-guide/0-read-first-correctness-safety-version-boundaries.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "5-34"
+    },
+    {
+      "id": "pages/pjsip-build-guide/1-contract-and-filesystem",
+      "path": "pages/pjsip-build-guide/1-contract-and-filesystem.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "35-67"
+    },
+    {
+      "id": "pages/pjsip-build-guide/10-threading-callbacks-ownership-non-negotiable-ffi-rules",
+      "path": "pages/pjsip-build-guide/10-threading-callbacks-ownership-non-negotiable-ffi-rules.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "382-388"
+    },
+    {
+      "id": "pages/pjsip-build-guide/11-native-and-end-to-end-integration-beyond-abi-smoke",
+      "path": "pages/pjsip-build-guide/11-native-and-end-to-end-integration-beyond-abi-smoke.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "389-403"
+    },
+    {
+      "id": "pages/pjsip-build-guide/12-diagnose-wrong-libraries-abi-cache",
+      "path": "pages/pjsip-build-guide/12-diagnose-wrong-libraries-abi-cache.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "404-434"
+    },
+    {
+      "id": "pages/pjsip-build-guide/13-relocation-system-dependencies-and-runtime-packaging",
+      "path": "pages/pjsip-build-guide/13-relocation-system-dependencies-and-runtime-packaging.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "435-456"
+    },
+    {
+      "id": "pages/pjsip-build-guide/14-reproducibility-release-gate-record",
+      "path": "pages/pjsip-build-guide/14-reproducibility-release-gate-record.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "457-461"
+    },
+    {
+      "id": "pages/pjsip-build-guide/15-primary-review-sources",
+      "path": "pages/pjsip-build-guide/15-primary-review-sources.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "462-482"
+    },
+    {
+      "id": "pages/pjsip-build-guide/16-implementation-appendix-convention",
+      "path": "pages/pjsip-build-guide/16-implementation-appendix-convention.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "483-484"
+    },
+    {
+      "id": "pages/pjsip-build-guide/2-host-guest-prerequisite-verification-not-vm-rebuild",
+      "path": "pages/pjsip-build-guide/2-host-guest-prerequisite-verification-not-vm-rebuild.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "68-97"
+    },
+    {
+      "id": "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane",
+      "path": "pages/pjsip-build-guide/3-source-acquisition-freeze-once-identical-per-lane.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "98-144"
+    },
+    {
+      "id": "pages/pjsip-build-guide/4-transport-inputs-to-original-local-lab",
+      "path": "pages/pjsip-build-guide/4-transport-inputs-to-original-local-lab.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "145-169"
+    },
+    {
+      "id": "pages/pjsip-build-guide/5-exact-posix-build-linux-x64-mac-arm64",
+      "path": "pages/pjsip-build-guide/5-exact-posix-build-linux-x64-mac-arm64.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "170-206"
+    },
+    {
+      "id": "pages/pjsip-build-guide/6-exact-windows-x64-msvc-build",
+      "path": "pages/pjsip-build-guide/6-exact-windows-x64-msvc-build.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "207-239"
+    },
+    {
+      "id": "pages/pjsip-build-guide/7-stage-audit-and-normalized-bundle-creation-on-mac",
+      "path": "pages/pjsip-build-guide/7-stage-audit-and-normalized-bundle-creation-on-mac.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "240-287"
+    },
+    {
+      "id": "pages/pjsip-build-guide/8-import-artifacts-into-rust-project-no-installation-into-usr-local",
+      "path": "pages/pjsip-build-guide/8-import-artifacts-into-rust-project-no-installation-into-usr-local.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "288-305"
+    },
+    {
+      "id": "pages/pjsip-build-guide/9-build-and-execute-rust-ffi-tests-in-each-actual-os",
+      "path": "pages/pjsip-build-guide/9-build-and-execute-rust-ffi-tests-in-each-actual-os.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "306-381"
+    },
+    {
+      "id": "pages/pjsip-build-guide/local-only-companion-native-guest-builds-raw-static-library-bundles-reproducible",
+      "path": "pages/pjsip-build-guide/local-only-companion-native-guest-builds-raw-static-library-bundles-reproducible.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "2-4"
+    },
+    {
+      "id": "pages/pjsip-build-guide/preamble",
+      "path": "pages/pjsip-build-guide/preamble.md",
+      "source": "sources/pjsip-build-guide.md",
+      "span": "1-1"
+    }
+  ]
+}

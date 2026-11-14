@@ -1,0 +1,11 @@
+{
+  "schema": "okf-runtime-fixture/v1",
+  "entryConcept": "pages/pjsip-build-guide/preamble",
+  "displayConcept": "pages/pjsip-build-guide/0-read-first-correctness-safety-version-boundaries",
+  "limits": {
+    "contextBudgetBytes": 1000000,
+    "smallBudgetBytes": 1,
+    "nodeBudget": 2500,
+    "maxAnswerNodes": 20
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "pjsip-build-okf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "OKF v0.2 wiki skill for building PJSIP 2.17 libraries for Windows/x64, Linux/x64, and macOS/ARM64 and importing them into Rust FFI projects.",
+  "bin": {
+    "pjsip-build-okf": "dist/skill.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "okf-source-coverage/v1",
+  "records": [
+    {
+      "source": "sources/pjsip-build-guide.md",
+      "lines": 484,
+      "concepts": 19,
+      "preamble": 1,
+      "unmappedHeadings": 0,
+      "unmappedPreamble": 0,
+      "unmappedLines": 0
+    }
+  ],
+  "counts": {
+    "lines": 484,
+    "concepts": 19,
+    "unmappedHeadings": 0,
+    "unmappedPreamble": 0,
+    "unmappedLines": 0
+  }
+}
