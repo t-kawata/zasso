@@ -266,8 +266,10 @@ export function checkRetrieval({ skillPath, mode }) {
   const entry = mode === 'installed' ? join(skillPath, 'dist/skill.mjs') : join(skillPath, 'scripts/cli.mjs');
   const lock = readJson(join(skillPath, 'atoms.lock.json'));
   const query = lock.concepts?.[0]?.title?.split(/\s+/).slice(0, 2).join(' ') ?? '';
-  const first = spawnSync(process.execPath, [entry, 'search', '--query', query, '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
-  const second = spawnSync(process.execPath, [entry, 'search', '--query', query, '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  // [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+  // Retrieval verifies the JSON contract; two runs must still be byte-identical.
+  const first = spawnSync(process.execPath, [entry, 'search', '--query', query, '--root', join(skillPath, 'okf'), '--format', 'json'], { encoding: 'utf8' });
+  const second = spawnSync(process.execPath, [entry, 'search', '--query', query, '--root', join(skillPath, 'okf'), '--format', 'json'], { encoding: 'utf8' });
   if (first.status !== 0) return failed('RETRIEVAL_FAILED', first.stderr);
   if (first.stdout !== second.stdout) return failed('RETRIEVAL_NONDETERMINISTIC', 'two runs differ');
   try {
@@ -371,7 +373,9 @@ export function checkContext({ skillPath }) {
 export function checkNavigation({ skillPath }) {
   const lock = readJson(join(skillPath, 'atoms.lock.json'));
   const id = lock.concepts?.[0]?.id;
-  const show = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'show', id, '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  // [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+  // The verifier is a machine consumer; it reads the JSON contract explicitly.
+  const show = spawnSync(process.execPath, [join(skillPath, 'scripts/cli.mjs'), 'show', id, '--root', join(skillPath, 'okf'), '--format', 'json'], { encoding: 'utf8' });
   if (show.status !== 0) return failed('NAVIGATION_FAILED', show.stderr);
   let page;
   try {

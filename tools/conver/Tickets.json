@@ -66688,6 +66688,156 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-14",
           "reviewed_at": "2026-11-14T04:46:13.857Z"
+        },
+        {
+          "id": 430,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Render traversal responses as lossless AI-facing Markdown and keep JSON for verification",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-430.md",
+          "background": "Goal: give the implementing AI a lossless, self-describing Markdown view of every okf-traversal/v1 response, while keeping JSON as the canonical inspection and verification interface.\nPurpose: the AI decides stop, expand, or back from coverage and guidance. Nested JSON hides that decision; a readable document with named sections makes it explicit.\nMotivation: the current CLIs print one JSON line (okf-core cli.mjs print at line 177; law scripts/commands.mjs at lines 840, 851, 866, 875, 884, 898, 907, 960, 967, 977, 987, 996). Tests and verifiers depend on that JSON, so it must not regress.\nConstraints: no truncation, no ellipsis; no table syntax; exact enum values; executable commands; four fixed sections; the generated SKILL.md must not advertise a JSON mode; machine consumers must pass --format json explicitly.\nOut of scope: changing the envelope schema, the traversal decision logic, or the verifier check set.",
+          "scope": [
+            "Change path: add .claude/skills/rust-interface-law/okf-core/render/markdown.mjs exporting renderEnvelopeMarkdown(envelope).",
+            "Change path: change okf-core/cli.mjs to dispatch every value through a format-aware print(value, options) instead of print(value).",
+            "Change path: change .claude/skills/rust-interface-law/scripts/commands.mjs to use the same renderer for list, show, outgoing, incoming, neighbors, required, search, context.",
+            "Change detail: Page section carries id, type, title, and the full body in a fenced block; Coverage carries profile, required, present, missing, sufficient, insufficient, estimatedBytes, overfetchRatio; Frontier lists every entry as one line with id, type, kind, why, command, estBytes, priority; Decision carries state, reason, decideAfter, stopWhen, mustRun, hop, maxHops, budget, ifBack, backTo.",
+            "Change detail: every section is preceded by a one-line description of what it contains.",
+            "API: add --format markdown|json. Read commands (list, show, expand, outgoing, incoming, neighbors, required, context, search) default to markdown. Machine commands (validate, lint, trust, freshness, sources, rebuild) stay JSON.",
+            "Schema: the JSON document produced by --format json keeps the same protocol, node, coverage, frontier, guidance, and backTo values as today.",
+            "Config: no new configuration. Constants FORMAT_MARKDOWN and FORMAT_JSON live in the renderer module.",
+            "Dependency: none. The renderer imports no new package and uses the envelope only.",
+            "Non-change: the okf-traversal/v1 decision rules, frontier ordering, candidate ranking, and unknown-id exit 2 are untouched.",
+            "Non-change: the verifier check set and checks.json stay as they are.",
+            "Impact component: tests that spawn the CLI and parse JSON must add --format json, otherwise they receive Markdown.",
+            "Impact component: generated SKILL.md and traversal-protocol.md must describe Markdown only; build-okf-skill.md and build-law-skill.md retain the JSON contract for humans and verification."
+          ],
+          "default_files": [
+            ".claude/skills/rust-interface-law/okf-core/render/markdown.mjs",
+            ".claude/skills/rust-interface-law/okf-core/cli.mjs",
+            ".claude/skills/rust-interface-law/scripts/commands.mjs",
+            ".claude/skills/rust-interface-law/SKILL.md",
+            ".claude/skills/rust-interface-law/okf-core/traversal-protocol.md",
+            ".claude/commands/build-okf-skill.md",
+            ".claude/commands/build-law-skill.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy: a read command without --format prints Markdown with Page, Coverage, Frontier, and Decision sections, each with a one-line description.",
+            "Error: --format yaml exits 1 with an UNKNOWN_FORMAT code and a message naming the allowed values.",
+            "Edge: a 45-entry frontier prints all 45 entries; a body containing blank lines and a Markdown table round-trips verbatim."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "AI-facing read output",
+              "precondition": "An envelope has N frontier entries and a non-empty body.",
+              "postcondition": "The Markdown contains exactly N frontier lines and the full body text.",
+              "invariant": "The Markdown contains no ellipsis marker and no truncated line."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "decision values",
+              "precondition": "Coverage reports missing facets and guidance reports a state.",
+              "postcondition": "missing renders as the exact facet list or none; state renders as stop, expand, or back.",
+              "invariant": "No enum value is paraphrased into prose."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "executable continuation",
+              "precondition": "The envelope carries commands in frontier[].command, guidance.mustRun, and guidance.ifBack.",
+              "postcondition": "Every command in the Markdown equals one of those strings.",
+              "invariant": "A reader can copy a command and run it unchanged."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "verification interface",
+              "precondition": "A read command runs with --format json.",
+              "postcondition": "The output parses as JSON and carries the same protocol, node, coverage, frontier, guidance, and backTo values as the current implementation.",
+              "invariant": "The JSON view is unchanged by the Markdown work."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "AI-facing documentation",
+              "precondition": "A read command runs without --format.",
+              "postcondition": "The output is Markdown and contains no JSON document.",
+              "invariant": "Generated SKILL.md never tells the AI about a JSON output mode."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "section descriptions",
+              "precondition": "The Markdown renderer receives a section.",
+              "postcondition": "Each of the four sections is preceded by a one-line description of its content.",
+              "invariant": "No section appears without a description."
+            }
+          ],
+          "notes": "Implementation steps:\n1. Add render/markdown.mjs with renderEnvelopeMarkdown and the section writers.\n2. Add formatEnvelope(value, format) and route cli print through it.\n3. Default read commands to markdown; keep machine commands JSON.\n4. Update every test and verifier invocation that parses structured output to pass --format json.\n5. Update SKILL.md and traversal-protocol.md to Markdown only; update both build commands with the JSON verification contract.\n6. Rebuild law dist and mirror root, tools/conver, crates/siprs.\n\nRisks:\n- Changing the default breaks every JSON-parsing test; update them in the same commit.\n- list and search need compact Markdown renderers distinct from the envelope renderer.\n\nCaveats:\n- validate, lint, trust, freshness, sources, and rebuild stay JSON because they are machine commands.\n\nOpen items:\n- Section order is fixed as Page, Coverage, Frontier, Decision.\n\nFuture improvements:\n- A token-budgeted variant can reuse the same renderer with an explicit omission report.\nImplementation summary:\n- Changed files: render/markdown.mjs (canonical + skill mirror), okf-core/cli.mjs, scripts/commands.mjs, scripts/cli.mjs, law-verify/v3.mjs, okf-verify/checks-artifact.mjs, SKILL.md, traversal-protocol.md, build-okf-skill.md, build-law-skill.md.\n- Read commands default to Markdown: list, show, expand, outgoing, incoming, neighbors, required, context, search.\n- Machine commands stay JSON: validate, lint, trust, freshness, sources, rebuild.\n- Markdown is lossless: all frontier entries, full body, exact enum values, executable commands, and extra fields (required, artifact, edges).\n- Verification: 226 build/verifier tests + 94 skill tests pass; law verifier dev and installed machine_verified; quality 0 issues.\n- Mirrors: root .claude and crates/siprs/.claude synced; law dist rebuilt in all three trees.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Annotation: 28 files, 0 missing, 0 ambiguous\n- Tests: 226 build/verifier + 94 skill; law dev/installed machine_verified\n- Fixes applied during review: renamed fenced/valueOrNone/sourceNames to verb phrases, extracted MIN_FENCE_LENGTH, added missing annotations\n- Dependencies: consistency verified",
+          "invariants": "- Normal establishment: a read command with no --format returns Markdown generated from the same envelope that --format json returns.\n- Invariant on error: an unknown format exits 1 with UNKNOWN_FORMAT and never writes a partial document to stdout.\n- Internal invariant: Markdown is a pure function of the envelope; no data absent from the envelope appears, and no field used for a decision is omitted.\n- Boundary invariant: an empty frontier renders 'none' in Frontier and still prints the Decision section.",
+          "testUnit": [
+            "UT: [C001 Normal, Boundary, Edge] An envelope has N frontier entries and a non-empty body. The Markdown contains exactly N frontier lines and the full body text. The Markdown contains no ellipsis marker and no truncated line. renderEnvelopeMarkdown covers 45 entries and a body with blank lines and a Markdown table.",
+            "UT: [C002 Normal, Boundary] Coverage reports missing facets and guidance reports a state. missing renders as the exact facet list or none; state renders as stop, expand, or back. No enum value is paraphrased into prose; the renderer prints state and missing verbatim.",
+            "UT: [C003 Normal, Edge] The envelope carries commands in frontier[].command, guidance.mustRun, and guidance.ifBack. Every command in the Markdown equals one of those strings. A reader can copy a command and run it unchanged.",
+            "UT: [C004 Normal] A read command runs with --format json. The output parses as JSON and carries the same protocol, node, coverage, frontier, guidance, and backTo values as the current implementation. The JSON view is unchanged by the Markdown work.",
+            "UT: [C005 Normal] A read command runs without --format. The output is Markdown and contains no JSON document. Generated SKILL.md never tells the AI about a JSON output mode.",
+            "UT: [C006 Normal] The Markdown renderer receives a section. Each of the four sections is preceded by a one-line description of its content. No section appears without a description.",
+            "UT: [C001 Normal] renderEnvelopeMarkdown renders one numbered line per frontier entry; given 3 entries the Frontier section has exactly 3 lines and the body appears once verbatim.",
+            "UT: [C001 Boundary] a 45-entry frontier renders 45 numbered lines; the output contains no ellipsis character and no remaining-count text.",
+            "UT: [C001 Edge] a body containing blank lines and a Markdown table is reproduced exactly inside a fenced block.",
+            "UT: [C002 Normal] coverage.missing [source, prerequisites] renders as 'missing: source, prerequisites' and state expand renders as 'state: expand'.",
+            "UT: [C002 Boundary] coverage.missing [] renders as 'missing: none' and backTo null renders as 'backTo: none'.",
+            "UT: [C003 Normal] every command string in Frontier and Decision equals a frontier[].command, guidance.mustRun, or guidance.ifBack value from the same envelope.",
+            "UT: [C003 Edge] guidance.mustRun null renders as 'mustRun: none' and emits no command line.",
+            "UT: [C004 Normal] formatEnvelope(envelope, 'json') parses back and deep-equals the input envelope.",
+            "UT: [C005 Normal] a read command without --format emits Markdown and contains no JSON opening brace.",
+            "UT: [C006 Normal] each of Page, Coverage, Frontier, and Decision is followed by a non-empty one-line description before its first item.",
+            "UT: [Error] an unknown --format value exits 1 with code UNKNOWN_FORMAT and a message naming markdown and json.",
+            "UT: [Acceptance Happy] A read command without --format prints Markdown with Page, Coverage, Frontier, and Decision sections, each with a one-line description."
+          ],
+          "testIntegration": [
+            "IT: okf-core CLI spawn against .claude/skills/rust-interface-law/okf: show, expand, outgoing, context, list, search emit Markdown by default and JSON with --format json.",
+            "IT: law CLI spawn against dist/skill.mjs: show, expand, context --rule, list, search emit Markdown by default and JSON with --format json.",
+            "IT: generated SKILL.md contract: the AI-facing manual names the Markdown sections and never mentions a JSON output mode.",
+            "IT: build-okf-skill.md and build-law-skill.md contract: both document the JSON verification interface and --format json, while the generated manual keeps Markdown only.",
+            "IT: existing traversal tests pass --format json and still assert the same envelope fields."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Logging: log the selected format at debug level with the command name.\n- Metrics: none; this is a local CLI.\n- Error tracking: render errors carry the concept id and the failing section name.\n- Health check: exit codes 0 (ok), 1 (format or render error), 2 (unknown concept).\nStatic quality check: passed\nTranslatability: no issues\nTests: 226 build/verifier + 94 skill tests passed; law dev/installed machine_verified",
+          "investigation": "Source evidence:\n- okf-core/cli.mjs: print() at line 177 serializes every command result with JSON.stringify; runCommand dispatches list, show/page/expand, outgoing, incoming, neighbors, search/ask, required, context, validate/lint, trust, freshness, sources, rebuild.\n- okf-core/commands/traverse.mjs: buildTraversal returns protocol, node, coverage, frontier, guidance, backTo. Frontier entries already carry id, title, type, kind, why, command, estBytes, priority.\n- okf-core/cli.mjs listCommandEntries and entryCommand add a command per list entry; searchConcepts adds expand_command.\n- scripts/commands.mjs: each law command writes JSON directly (list 840, show 851, outgoing 866, incoming 875, neighbors 884, required 898 and 907, search 960, lint 967, trust 977, freshness 987, sources 996).\n- okf-core/traversal-protocol.md documents the envelope and the stop/expand/back table.\n- Tests that parse CLI JSON and must add --format json: tests/build-law-skill/law-bundle/traversal-wiring.test.mjs, tests/build-law-skill/law-bundle/package-reach.test.mjs, tests/build-okf-skill/core/cli.test.mjs, tests/build-okf-skill/core/unknown-id.test.mjs, tests/build-okf-skill/acceptance/mini-wiki-v2.test.mjs, tests/build-law-skill/acceptance/law-scenarios.mjs, and the mini-law fixture commands.\n- build-law-skill.md and build-okf-skill.md generate the AI-facing SKILL.md.",
+          "boyScoutPlan": "- Replace the generic print(value) with printJson(value) and printMarkdown(text) so the output mode is explicit at each call site.\n- Extract one writer per section (writePage, writeCoverage, writeFrontier, writeDecision) so each function has one responsibility.\n- Name the format tokens and the four section titles as constants; remove inline string literals.\n- Keep every renderer pure: input envelope, output string; no writes inside the renderer.\n- Do not swallow format errors; return the UNKNOWN_FORMAT code with the allowed values.",
+          "created_at": "2026-11-14",
+          "updated_at": "2026-11-14",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-14T06:19:04.727Z",
+          "planTestCode": [
+            "UT: [C001 Normal, Boundary, Edge] renderEnvelopeMarkdown renders every frontier entry and the full body\n```js\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { renderEnvelopeMarkdown } from '../../../.claude/scripts/amend-rfc-up/okf-core/render/markdown.mjs';\n\nconst body = '## A\\n\\n| x | y |\\n|---|---|\\n| 1 | 2 |';\nconst envelope = {\n  protocol: 'okf-traversal/v1',\n  node: { id: 'a', type: 'Section', title: 'A', body },\n  coverage: { profile: 'okf-wiki', requiredFacets: ['body'], present: ['body'], missing: [], sufficient: true, insufficient: false, estimatedBytes: 10, overfetchRatio: 1 },\n  frontier: Array.from({ length: 45 }, (_, index) => ({ id: 'r' + index, type: 'Section', kind: 'sibling-rule', why: 'same directory', command: 'node \"$OKF\" expand --id r' + index, estBytes: 1, priority: 3 })),\n  guidance: { state: 'stop', reason: 'every required facet is present', decideAfter: 'this response', mustRun: null, stopWhen: 'now', ifBack: 'node \"$OKF\" list', hop: 0, maxHops: 3, budget: { bytesUsed: 10, bytesLimit: null } },\n  backTo: null,\n};\n\ntest('C001 every frontier entry and the full body survive', () => {\n  const markdown = renderEnvelopeMarkdown(envelope);\n  const frontierLines = markdown.split('\\n').filter((line) => /^\\d+\\. `r\\d+`/.test(line));\n  assert.equal(frontierLines.length, 45);\n  assert.ok(markdown.includes(body));\n  assert.equal(markdown.includes('…'), false);\n  assert.equal(/\\.\\.\\. \\d+ more/.test(markdown), false);\n});\n```",
+            "UT: [C002 Normal, Boundary] decision values render verbatim\n```js\nconst expand = { ...envelope, coverage: { ...envelope.coverage, missing: ['source', 'prerequisites'], sufficient: false }, guidance: { ...envelope.guidance, state: 'expand', reason: 'missing facet: source,prerequisites' } };\nconst text = renderEnvelopeMarkdown(expand);\nassert.match(text, /missing: source, prerequisites/);\nassert.match(text, /state: expand/);\nconst stop = renderEnvelopeMarkdown(envelope);\nassert.match(stop, /missing: none/);\nassert.match(stop, /backTo: none/);\n```",
+            "UT: [C003 Normal, Edge] every rendered command equals an envelope command\n```js\nconst commands = new Set([\n  ...envelope.frontier.map((entry) => entry.command),\n  envelope.guidance.mustRun,\n  envelope.guidance.ifBack,\n].filter(Boolean));\nconst renderedLines = renderEnvelopeMarkdown(envelope).split('\\n').filter((line) => line.includes('node \"$'));\nfor (const line of renderedLines) {\n  const match = line.match(/node \"\\$[A-Z]+\"[^`]*/);\n  assert.ok(match, line);\n  assert.ok(commands.has(match[0].trim()), match[0]);\n}\nassert.match(renderEnvelopeMarkdown({ ...envelope, guidance: { ...envelope.guidance, mustRun: null } }), /mustRun: none/);\n```",
+            "UT: [C004 Normal] --format json reproduces the envelope\n```js\nimport { spawnSync } from 'node:child_process';\nconst CLI = '.claude/scripts/amend-rfc-up/okf-core/cli.mjs';\nconst result = spawnSync(process.execPath, [CLI, 'show', 'a', '--root', root, '--format', 'json'], { encoding: 'utf8' });\nassert.equal(result.status, 0);\nconst parsed = JSON.parse(result.stdout);\nassert.equal(parsed.protocol, 'okf-traversal/v1');\nassert.ok(Array.isArray(parsed.frontier));\nassert.equal(typeof parsed.coverage.sufficient, 'boolean');\nassert.deepEqual(Object.keys(parsed.coverage), ['profile', 'requiredFacets', 'present', 'missing', 'sufficient', 'insufficient', 'estimatedBytes', 'overfetchRatio']);\n```",
+            "UT: [C005 Normal] default output is Markdown and the AI manual does not name JSON\n```js\nconst result = spawnSync(process.execPath, [CLI, 'show', 'a', '--root', root], { encoding: 'utf8' });\nassert.equal(result.status, 0);\nassert.match(result.stdout, /## Coverage/);\nassert.match(result.stdout, /## Frontier/);\nassert.match(result.stdout, /## Decision/);\nassert.notEqual(result.stdout.trimStart()[0], '{');\nconst manual = readFileSync('.claude/skills/rust-interface-law/SKILL.md', 'utf8');\nassert.equal(manual.includes('--format json'), false);\n```",
+            "UT: [C006 Normal] each section has a one-line description\n```js\nconst document = renderEnvelopeMarkdown(envelope).replace(/```[\\s\\S]*?```/g, \"\");\nconst sections = document.split(/^## /m).slice(1);\nassert.equal(sections.length, 4);\nfor (const section of sections) {\n  const [heading, ...rest] = section.split(\"\\n\");\n  const description = rest.find((line) => line.trim().length > 0);\n  assert.ok(description && !description.startsWith(\"-\") && !description.startsWith(\"```\"), heading);\n}\n```"
+          ],
+          "planned_at": "2026-11-14T06:20:30.218Z",
+          "startedAt": "2026-11-14",
+          "changes": [
+            {
+              "before": "Every CLI read command printed one JSON line.",
+              "after": "Read commands print lossless Markdown by default; machine consumers pass --format json.",
+              "description": "Added okf-core/render/markdown.mjs and routed okf-core and law read commands through formatValue."
+            },
+            {
+              "before": "SKILL.md and traversal-protocol.md documented the JSON envelope as the AI view.",
+              "after": "They document the four-section Markdown view; build docs keep the JSON verification contract.",
+              "description": "Updated AI-facing and build documentation."
+            },
+            {
+              "before": "Tests and verifiers parsed JSON from read commands without a format flag.",
+              "after": "They pass --format json explicitly.",
+              "description": "Updated CLI, verifier, and acceptance tests."
+            }
+          ],
+          "done_at": "2026-11-14T06:34:21.076Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-14",
+          "reviewed_at": "2026-11-14T06:40:15.732Z"
         }
       ]
     },

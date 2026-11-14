@@ -4,6 +4,15 @@ Every node page and edge read returns one Traversal Envelope; a directory listin
 returns one command per entry and a search row carries its expand_command. The caller reads `coverage`
 and `guidance`; it never re-derives completeness from prose.
 
+## AI-facing view
+
+The CLI renders the envelope as Markdown with four fixed sections: Page,
+Coverage, Frontier, and Decision. Each section carries a one-line description
+of what it contains. Every frontier entry, the full body, and every command
+appear; nothing is truncated. The AI reads this view. The JSON envelope below
+is the verification contract used by tests and verifiers, not the AI-facing
+format.
+
 ## Envelope
 
 - `protocol`: `okf-traversal/v1`

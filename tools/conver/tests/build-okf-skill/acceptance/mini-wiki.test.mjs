@@ -1,3 +1,4 @@
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C003
 // @verifies C007
@@ -24,7 +25,7 @@ function runCli(skill, args) {
 test('the mini wiki answers with deterministic rows', async () => {
   const skill = await buildMiniSkillV2();
   try {
-    const rows = JSON.parse(runCli(skill, ['search', '--query', 'tokens'])).rows;
+    const rows = JSON.parse(runCli(skill, ['search', '--query', 'tokens', '--format', 'json'])).rows;
     assert.ok(rows.length > 0);
     assert.ok(rows.length <= 20);
     assert.match(rows[0].id, /^pages\//);
@@ -64,7 +65,7 @@ test('the mini wiki passes installed verification after install', async () => {
       pathAlias: skill.aliasPath,
     });
     assert.equal(report.status, 'machine_verified', JSON.stringify(report.checks));
-    const output = execFileSync(process.execPath, [join(installed, 'dist/skill.mjs'), 'search', '--query', 'session', '--root', join(installed, 'okf')], { encoding: 'utf8' });
+    const output = execFileSync(process.execPath, [join(installed, 'dist/skill.mjs'), 'search', '--query', 'session', '--root', join(installed, 'okf'), '--format', 'json'], { encoding: 'utf8' });
     assert.ok(JSON.parse(output).rows.length > 0);
   } finally {
     rmSync(skill.root, { recursive: true, force: true });

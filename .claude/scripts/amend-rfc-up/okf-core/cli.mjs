@@ -19,6 +19,7 @@ import { requiredSet, contextArtifact } from './commands/context.mjs';
 import { searchConcepts } from './commands/search.mjs';
 import { writeDirectoryIndexes } from './authoring/index.mjs';
 import { writeLog } from './authoring/log.mjs';
+import { formatValue, FORMAT_JSON, FORMAT_MARKDOWN } from './render/markdown.mjs';
 
 export async function main(argv = process.argv.slice(2)) {
   const [command, ...rest] = argv;
@@ -34,12 +35,13 @@ export async function main(argv = process.argv.slice(2)) {
   }
 }
 
-// [::TICKET::] PX-425, PX-426, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426|PX-427|PX-428) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-425, PX-426, PX-427, PX-428, PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426|PX-427|PX-428|PX-429|PX-430) --for-spec --no-implementation-order`.
 function runCommand(command, options, bundle) {
   const now = parseNow(options.now);
   const profile = options.profile ?? 'okf-wiki';
   const stack = entries(options.from);
-  if (command === 'list') return print({ entries: listCommandEntries(listDirectory(bundle, options.path ?? '')) });
+  const format = options.format ?? resolveDefaultFormat(command);
+  if (command === 'list') return print({ entries: listCommandEntries(listDirectory(bundle, options.path ?? '')) }, format);
   if (command === 'show' || command === 'page' || command === 'expand') {
     return print(showConcept({
       bundle,
@@ -48,27 +50,27 @@ function runCommand(command, options, bundle) {
       profile,
       hop: Number(options.hop ?? 0),
       stack,
-    }));
+    }), format);
   }
   if (command === 'outgoing') {
     const id = options._[0];
-    return print(withEnvelope({ id, edges: outgoingEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }));
+    return print(withEnvelope({ id, edges: outgoingEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }), format);
   }
   if (command === 'incoming') {
     const id = options._[0];
-    return print(withEnvelope({ id, edges: incomingEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }));
+    return print(withEnvelope({ id, edges: incomingEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }), format);
   }
   if (command === 'neighbors') {
     const id = options._[0];
-    return print(withEnvelope({ id, edges: neighborEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }));
+    return print(withEnvelope({ id, edges: neighborEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }), format);
   }
   if (command === 'resolve') {
-    return print(resolveReference({ fromPath: options._[0], rawTarget: options._[1], root: options.root, files: bundle.files }));
+    return print(resolveReference({ fromPath: options._[0], rawTarget: options._[1], root: options.root, files: bundle.files }), format);
   }
   if (command === 'search' || command === 'ask') {
-    return print({ query: options.query ?? '', rows: searchConcepts({ bundle, query: options.query ?? '' }) });
+    return print({ query: options.query ?? '', rows: searchConcepts({ bundle, query: options.query ?? '' }) }, format);
   }
-  if (command === 'required') return print(requiredSet({ bundle, entryIds: entries(options.entry) }));
+  if (command === 'required') return print(requiredSet({ bundle, entryIds: entries(options.entry) }), format);
   if (command === 'context') {
     const entryIds = entries(options.entry);
     const result = contextArtifact({
@@ -93,36 +95,36 @@ function runCommand(command, options, bundle) {
         guidance: page.guidance,
         backTo: page.backTo,
       }
-      : result);
+      : result, format);
   }
   if (command === 'validate' || command === 'lint') {
     const mode = command === 'lint' ? 'lint' : (options.mode ?? 'conformance');
     const findings = runValidation({ bundle, mode, now });
-    print({ mode, findings });
+    print({ mode, findings }, format);
     return findings.length === 0 ? 0 : 1;
   }
   if (command === 'trust') {
     const rows = bundle.concepts
       .filter((concept) => !options.tier || concept.trustTier === options.tier)
       .map((concept) => ({ id: concept.id, tier: concept.trustTier }));
-    return print({ rows });
+    return print({ rows }, format);
   }
   if (command === 'freshness') {
     const rows = bundle.concepts
       .filter((concept) => concept.isStale(now))
       .map((concept) => ({ id: concept.id, status: concept.status, staleAfter: concept.staleAfter ?? null }));
-    return print({ rows });
+    return print({ rows }, format);
   }
   if (command === 'sources') {
     const concept = requireConcept(bundle, options._[0]);
-    return print({ id: concept.id, sources: concept.sources });
+    return print({ id: concept.id, sources: concept.sources }, format);
   }
-  if (command === 'rebuild') return rebuild({ bundle, root: options.root, date: options.date });
+  if (command === 'rebuild') return rebuild({ bundle, root: options.root, date: options.date, format });
   return fail('UNKNOWN_COMMAND');
 }
 
-// [::TICKET::] PX-425, PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426) --for-spec --no-implementation-order`.
-function rebuild({ bundle, root, date }) {
+// [::TICKET::] PX-425, PX-426, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426|PX-430) --for-spec --no-implementation-order`.
+function rebuild({ bundle, root, date, format }) {
   const temporary = mkdtempSync(join(tmpdir(), 'okf-rebuild-'));
   try {
     writeDirectoryIndexes({ bundle, outDir: temporary });
@@ -138,7 +140,7 @@ function rebuild({ bundle, root, date }) {
         return fail('NON_DETERMINISTIC', `${file} differs from rebuild`);
       }
     }
-    return print({ ok: true, rebuilt: ['index.md', 'log.md'] });
+    return print({ ok: true, rebuilt: ['index.md', 'log.md'] }, format);
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
@@ -174,9 +176,24 @@ function parseNow(value) {
 }
 
 // [::TICKET::] PX-425, PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426) --for-spec --no-implementation-order`.
-function print(value) {
-  process.stdout.write(`${JSON.stringify(value)}\n`);
-  return 0;
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+// Machine commands keep JSON; read commands hand the AI a lossless Markdown view.
+const MACHINE_COMMANDS = new Set(['validate', 'lint', 'trust', 'freshness', 'sources', 'rebuild']);
+
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+function resolveDefaultFormat(command) {
+  return MACHINE_COMMANDS.has(command) ? FORMAT_JSON : FORMAT_MARKDOWN;
+}
+
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+function print(value, format) {
+  try {
+    process.stdout.write(formatValue(value, format));
+    return 0;
+  } catch (error) {
+    if (error.code === 'UNKNOWN_FORMAT') return fail('UNKNOWN_FORMAT', error.message, 1);
+    throw error;
+  }
 }
 
 // [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
@@ -188,8 +205,10 @@ function listCommandEntries(entries, prefix = 'node "$OKF"') {
   return entries.map((entry) => ({ ...entry, command: entryCommand(entry, prefix) }));
 }
 
-function entryCommand(entry, prefix) {
 // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
+function entryCommand(entry, prefix) {
   if (entry.kind === 'concept') return `${prefix} expand --id ${entry.id}`;
   if (entry.kind === 'directory') return `${prefix} list --path ${entry.path}`;
   const parentDirectory = entry.path.includes('/')
@@ -198,6 +217,8 @@ function entryCommand(entry, prefix) {
   return `${prefix} list --path ${parentDirectory}`;
 }
 
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 function withEnvelope({ id, edges, page }) {
   return {
     id,

@@ -26,9 +26,9 @@ import { join } from 'node:path';
 const CLI = join(process.cwd(), '.claude/skills/rust-interface-law/dist/skill.mjs');
 const LAW_PREFIX = 'node "$LAW"';
 
-// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-429|PX-430) --for-spec --no-implementation-order`.
 function run(args) {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });
+  return spawnSync(process.execPath, [CLI, ...args, '--format', 'json'], { encoding: 'utf8' });
 }
 
 // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.

@@ -58,6 +58,8 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - Exact generated-skill CLI only in `SKILL.md`.
 - Source generation reads `docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md` as the primary input (`--package-path`); split documents and the registry are reconciliation inputs. `source/coverage-v3.json` proves every heading and rule row is mapped.
 - `SKILL.md` carries a `## Traversal Contract` section generated from `okf-core/traversal-protocol.md`: the envelope fields, the `stop|expand|back` table, `stop_when`, `must_run`, `if_back`, and the rule that an absent id exits 2.
+- The generated `SKILL.md` documents the Markdown view only: Page, Coverage, Frontier, and Decision, each with a one-line description, lossless and never truncated. It does not name a JSON output mode.
+- The JSON envelope is the verification contract: tests and verifiers pass `--format json`; the AI-facing manual stays Markdown-only.
 - Integration: six canonical lines, one per host file; skill-agnostic; marked; idempotent; CLI-free.
 - Integration gate: missing, drift, duplicate, location, CLI leak, or invalid skill → no completion.
 - Identical inputs → identical lock, coverage, OKF, bundle.
@@ -351,7 +353,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | Gate | Pass |
 |---|---|
 | Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 3`; 36 checks; every dev-required check `machine_verified`; closure recorded |
-| Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style`, `conformance`, `lint`, `profile`, `graph`, `context`, `navigation`, `ruleIdentity`, `performance` |
+| Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style`, `conformance`, `lint`, `profile`, `graph`, `context`, `navigation`, `ruleIdentity`, `performance`, `traversalEnvelope`, `frontierCompleteness`, `unknownId`, `graphReach`, `facetSufficiency`, `guidanceDeterminism`, `sourceCoverage`, `aliasResolution`, `rulePreservation`, `bodyFidelity` |
 | Canonical verifier installed | installed tree; 8 required checks `machine_verified`; source/installed SHA match |
 | Integration | `verify-law-integration.mjs --mode check --require-skill` exit 0; six canonical lines; no drift, duplicate, location, or CLI leak |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style` |

@@ -58,6 +58,8 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - Exact generated-skill CLI only in `SKILL.md`.
 - Source generation reads `docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md` as the primary input (`--package-path`); split documents and the registry are reconciliation inputs. `source/coverage-v3.json` proves every heading and rule row is mapped.
 - `SKILL.md` carries a `## Traversal Contract` section generated from `okf-core/traversal-protocol.md`: the envelope fields, the `stop|expand|back` table, `stop_when`, `must_run`, `if_back`, and the rule that an absent id exits 2.
+- The generated `SKILL.md` documents the Markdown view only: Page, Coverage, Frontier, and Decision, each with a one-line description, lossless and never truncated. It does not name a JSON output mode.
+- The JSON envelope is the verification contract: tests and verifiers pass `--format json`; the AI-facing manual stays Markdown-only.
 - Integration: six canonical lines, one per host file; skill-agnostic; marked; idempotent; CLI-free.
 - Integration gate: missing, drift, duplicate, location, CLI leak, or invalid skill → no completion.
 - Identical inputs → identical lock, coverage, OKF, bundle.

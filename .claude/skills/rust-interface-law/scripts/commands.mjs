@@ -24,6 +24,7 @@ import { listDirectory, validateConformance, lintBundle, checkProfile, getOutgoi
 import { conceptBody } from '../okf-core/context/assemble.mjs';
 import { showConcept, outgoingEdges, incomingEdges, neighborEdges } from '../okf-core/commands/navigation.mjs';
 import { searchConcepts } from '../okf-core/commands/search.mjs';
+import { formatValue, FORMAT_MARKDOWN } from '../okf-core/render/markdown.mjs';
 import { resolveRequired } from '../okf-core/context/resolve-required.mjs';
 import { buildContext } from '../okf-core/context/assemble.mjs';
 import { loadImplementationPolicy, phaseForRuleId, resolveEffectivePolicy } from './lib/implementation-policy.mjs';
@@ -134,7 +135,7 @@ export async function contextCommand(argv) {
       profile: options.profile ?? 'law-implement',
       payloadIds: contextIds,
     });
-    process.stdout.write(JSON.stringify({
+    writeValue({
       required: set,
       artifact,
       protocol: page.protocol,
@@ -143,7 +144,7 @@ export async function contextCommand(argv) {
       frontier: page.frontier,
       guidance: page.guidance,
       backTo: page.backTo,
-    }) + '\n');
+    }, options);
     return;
   }
   const manifestPath = required(options, 'manifest');
@@ -158,6 +159,7 @@ export async function contextCommand(argv) {
   const phases = (manifest.phases ?? []).filter((phase) => requested.includes(phase));
   const ledgerPath = options.ledger ?? join(process.cwd(), 'target/law-ledger.json');
   const sections = [];
+  const delivered = [];
 
   for (const phase of phases) {
     const result = deliverContext({
@@ -174,10 +176,15 @@ export async function contextCommand(argv) {
       process.stdout.write(redactText('<!-- hash ' + result.hash + ' -->\n', redaction));
       continue;
     }
+    if (options.format === 'json') {
+      delivered.push({ phase, result });
+      continue;
+    }
     sections.push(renderContextMarkdown({ manifest, phase, result }));
   }
 
-  if (options.format !== 'raw') process.stdout.write(redactText(sections.join('\n---\n'), redaction));
+  if (options.format === 'json') process.stdout.write(JSON.stringify({ phases: delivered }) + '\n');
+  else if (options.format !== 'raw') process.stdout.write(redactText(sections.join('\n---\n'), redaction));
 }
 
 // [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
@@ -832,12 +839,18 @@ function writeAtomic(path, text) {
   renameSync(temporary, path);
 }
 
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+// Read commands hand the AI Markdown by default; machine consumers pass --format json.
+function writeValue(value, options) {
+  process.stdout.write(formatValue(value, options.format ?? FORMAT_MARKDOWN));
+}
+
 export async function listCommand(argv) {
   const options = parseArgs(argv);
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
   const entries = listDirectory(bundle, options.path ?? '')
     .map((entry) => ({ ...entry, command: lawEntryCommand(entry) }));
-  process.stdout.write(JSON.stringify({ path: options.path ?? '', entries }) + '\n');
+  writeValue({ path: options.path ?? '', entries }, options);
 }
 
 export async function showCommand(argv) {
@@ -848,13 +861,13 @@ export async function showCommand(argv) {
   const conceptId = resolveRuleConceptId(ruleMap, requested);
   const concept = bundle.byId.get(conceptId);
   const profile = options.profile ?? traversalProfile(concept);
-  process.stdout.write(JSON.stringify(showConcept({
+  writeValue(showConcept({
     bundle,
     id: conceptId,
     profile,
     hop: readHop(options),
     stack: readStack(options),
-  })) + '\n');
+  }), options);
 }
 
 export async function outgoingCommand(argv) {
@@ -863,7 +876,7 @@ export async function outgoingCommand(argv) {
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const conceptId = resolveRuleConceptId(ruleMap, position(options));
   const page = traversalPage({ bundle, id: conceptId, options });
-  process.stdout.write(JSON.stringify(withEnvelope({ id: conceptId, edges: outgoingEdges({ bundle, id: conceptId }), page })) + '\n');
+  writeValue(withEnvelope({ id: conceptId, edges: outgoingEdges({ bundle, id: conceptId }), page }), options);
 }
 
 export async function incomingCommand(argv) {
@@ -872,7 +885,7 @@ export async function incomingCommand(argv) {
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const conceptId = resolveRuleConceptId(ruleMap, position(options));
   const page = traversalPage({ bundle, id: conceptId, options });
-  process.stdout.write(JSON.stringify(withEnvelope({ id: conceptId, edges: incomingEdges({ bundle, id: conceptId }), page })) + '\n');
+  writeValue(withEnvelope({ id: conceptId, edges: incomingEdges({ bundle, id: conceptId }), page }), options);
 }
 
 export async function neighborsCommand(argv) {
@@ -881,7 +894,7 @@ export async function neighborsCommand(argv) {
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const conceptId = resolveRuleConceptId(ruleMap, position(options));
   const page = traversalPage({ bundle, id: conceptId, options });
-  process.stdout.write(JSON.stringify(withEnvelope({ id: conceptId, edges: neighborEdges({ bundle, id: conceptId }), page })) + '\n');
+  writeValue(withEnvelope({ id: conceptId, edges: neighborEdges({ bundle, id: conceptId }), page }), options);
 }
 
 export async function requiredCommand(argv) {
@@ -895,7 +908,7 @@ export async function requiredCommand(argv) {
     const byConcept = new Map(nodes.map((node) => [node.concept_id, node]));
     const set = resolveRequired({ bundle, entryIds: [entry.concept_id] });
     const records = set.required.map((id) => toRuleRecord(byConcept.get(id), bundle, id)).filter(Boolean);
-    process.stdout.write(JSON.stringify({ ...set, ids: [...set.required], records }) + '\n');
+    writeValue({ ...set, ids: [...set.required], records }, options);
     return;
   }
   if (options.phase) {
@@ -904,12 +917,12 @@ export async function requiredCommand(argv) {
     const required = [...new Set(phaseNodes.flatMap((node) => [node.id, ...(node.requires ?? [])]))].sort();
     const byRule = new Map(nodes.map((node) => [node.id, node]));
     const records = required.map((id) => toRuleRecord(byRule.get(id), bundle, null, id)).filter(Boolean);
-    process.stdout.write(JSON.stringify({
+    writeValue({
       phase: options.phase,
       summary: { phase: options.phase, rules: records.length },
       required,
       records,
-    }) + '\n');
+    }, options);
     return;
   }
   throw new Error('required needs --rule or --phase');
@@ -957,7 +970,7 @@ export async function searchCommand(argv) {
     query: options.query ?? '',
     commandPrefix: LAW_COMMAND_PREFIX,
   });
-  process.stdout.write(JSON.stringify({ query: options.query ?? '', rows }) + '\n');
+  writeValue({ query: options.query ?? '', rows }, options);
 }
 
 export async function lintCommand(argv) {
@@ -1006,14 +1019,17 @@ function traversalProfile(concept) {
   return concept?.frontmatter?.['x-rule-id'] ? 'law-implement' : 'law-wiki';
 }
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function readHop(options) {
   return Number(options.hop ?? 0);
 }
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function readStack(options) {
   return String(options.from ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
 }
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function traversalPage({ bundle, id, options }) {
   const concept = bundle.byId.get(id);
   return buildTraversal({
@@ -1025,6 +1041,7 @@ function traversalPage({ bundle, id, options }) {
   });
 }
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function withEnvelope({ id, edges, page }) {
   return {
     id,
@@ -1038,6 +1055,7 @@ function withEnvelope({ id, edges, page }) {
   };
 }
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function lawEntryCommand(entry) {
   if (entry.kind === 'concept') return `${LAW_COMMAND_PREFIX} expand --id ${entry.id}`;
   if (entry.kind === 'directory') return `${LAW_COMMAND_PREFIX} list --path ${entry.path}`;
@@ -1047,6 +1065,7 @@ function lawEntryCommand(entry) {
   return `${LAW_COMMAND_PREFIX} list --path ${parentDirectory}`;
 }
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function position(options) {
   const value = options._?.[0] ?? options.id;
   if (!value) throw new Error('positional argument is required');

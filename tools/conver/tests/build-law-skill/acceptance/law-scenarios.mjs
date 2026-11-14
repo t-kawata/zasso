@@ -1,3 +1,4 @@
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
@@ -19,7 +20,7 @@ export async function runLawScenarios({ skillDir, fixtureRoot }) {
 
   const run = (label, args, expectations = {}, cwd = process.cwd(), expectedExitCodes = [0]) => {
     const started = process.hrtime.bigint();
-    const result = spawnSync(process.execPath, [cli, ...args], { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const result = spawnSync(process.execPath, [cli, ...args, '--format', 'json'], { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     const latencyMs = Number(process.hrtime.bigint() - started) / 1e6;
     const parsed = parseJson(result.stdout);
     const contentOk = expectations.content

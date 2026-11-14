@@ -81,6 +81,9 @@ Promise.resolve(handler(args))
     if (typeof process.exitCode !== 'number') process.exitCode = 0;
   })
   .catch((error) => {
-    process.stderr.write('law: ' + (error.message ?? String(error)) + '\n');
+    // [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+    // A stable code in stderr lets the caller tell UNKNOWN_FORMAT from a rule miss.
+    const code = error.code ? error.code + ': ' : '';
+    process.stderr.write('law: ' + code + (error.message ?? String(error)) + '\n');
     process.exitCode = error.code === 'UNKNOWN_RULE' || error.code === 'UNKNOWN_CONCEPT' ? 2 : 1;
   });

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 /**
@@ -38,7 +39,7 @@ test('C011: the dist CLI lists and shows a concept, and the installer copies it'
   const skill = await buildMiniSkillV2();
   try {
     const bundleRoot = join(skill.skillDir, 'okf');
-    const list = spawnSync(process.execPath, [join(skill.skillDir, 'dist/skill.mjs'), 'list', '--root', bundleRoot], { encoding: 'utf8' });
+    const list = spawnSync(process.execPath, [join(skill.skillDir, 'dist/skill.mjs'), 'list', '--root', bundleRoot, '--format', 'json'], { encoding: 'utf8' });
     assert.equal(list.status, 0, list.stderr);
     const entries = JSON.parse(list.stdout).entries;
     assert.ok(entries.some((entry) => entry.kind === 'directory'));
@@ -47,7 +48,7 @@ test('C011: the dist CLI lists and shows a concept, and the installer copies it'
     const install = spawnSync(process.execPath, [join(skill.skillDir, 'install.js'), installRoot], { encoding: 'utf8' });
     assert.equal(install.status, 0, install.stderr);
     const installed = join(installRoot, '.claude/skills', basename(skill.skillDir));
-    const installedList = spawnSync(process.execPath, [join(installed, 'dist/skill.mjs'), 'list', '--root', join(installed, 'okf')], { encoding: 'utf8' });
+    const installedList = spawnSync(process.execPath, [join(installed, 'dist/skill.mjs'), 'list', '--root', join(installed, 'okf'), '--format', 'json'], { encoding: 'utf8' });
     assert.equal(installedList.status, 0, installedList.stderr);
     rmSync(installRoot, { recursive: true, force: true });
   } finally {

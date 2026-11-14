@@ -186,6 +186,8 @@ The build date is explicit (`--date` or `source/okf-log.json`). The clock is nev
 
 ## Traversal Manual
 
+The AI-facing view is Markdown with four fixed sections: Page, Coverage, Frontier, and Decision, each with a one-line description. It is lossless: every frontier entry, the full body, and every command appear, and nothing is truncated. The JSON envelope is the verification contract: tests and verifiers pass `--format json`; the generated `SKILL.md` does not name a JSON output mode.
+
 The generated `SKILL.md` must contain these sections and at least 10 `### Scenario` recipes:
 
 | Section | Must teach |

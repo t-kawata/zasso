@@ -261,7 +261,9 @@ export async function checkContext({ skillPath }) {
 }
 
 export function checkNavigation({ skillPath }) {
-  const result = spawnSync(process.execPath, [join(skillPath, 'dist/skill.mjs'), 'show', 'REST-01'], { encoding: 'utf8' });
+  // [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-430 --for-spec --no-implementation-order`.
+  // The verifier is a machine consumer; it reads the JSON contract explicitly.
+  const result = spawnSync(process.execPath, [join(skillPath, 'dist/skill.mjs'), 'show', 'REST-01', '--format', 'json'], { encoding: 'utf8' });
   if (result.status !== 0) return failed('NAVIGATION_FAILED', result.stderr);
   try {
     const page = JSON.parse(result.stdout);
@@ -522,7 +524,7 @@ export async function checkBodyFidelity({ skillPath }) {
   return verified(`${samples.length} sampled sections match the package text`);
 }
 
-// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
 function findRuleConcept(bundle, ruleId) {
   return bundle.concepts.find((concept) => concept.frontmatter?.['x-rule-id'] === ruleId) ?? null;
 }

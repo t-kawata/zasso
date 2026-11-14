@@ -10,9 +10,9 @@ import { createBasicBundle, createOneHopBundle } from '../lib/fixture-v2.mjs';
 
 const CLI = fileURLToPath(new URL('../../../.claude/scripts/amend-rfc-up/okf-core/cli.mjs', import.meta.url));
 
-// [::TICKET::] PX-425, PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-425, PX-426, PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426|PX-430) --for-spec --no-implementation-order`.
 function run(root, ...args) {
-  const result = spawnSync(process.execPath, [CLI, ...args, '--root', root], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [CLI, ...args, '--root', root, '--format', 'json'], { encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr, json: parse(result.stdout) };
 }
 

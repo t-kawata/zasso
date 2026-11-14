@@ -1,3 +1,4 @@
+// [::TICKET::] PX-430 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-430 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // @verifies C005
@@ -44,7 +45,7 @@ test('C005: a rule links to its package section', async () => {
 
 test('C005: a legacy alias resolves to its canonical concept', () => {
   const cli = join(process.cwd(), '.claude/skills/rust-interface-law/dist/skill.mjs');
-  const result = spawnSync(process.execPath, [cli, 'show', 'INV-08'], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [cli, 'show', 'INV-08', '--format', 'json'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
   assert.equal(JSON.parse(result.stdout).id, 'rules/c/ops-06');
 });

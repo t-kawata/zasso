@@ -54,39 +54,71 @@ node "$LAW" applies --root "$REPO_ROOT" --paths "$CHANGED"
 
 ## Traversal Contract
 
-Every node page and edge read returns a Traversal Envelope. A directory listing
-returns one executable command per entry, and a search row carries its
-expand_command. Do not decide coverage yourself; read `coverage` and `guidance`.
+Every node page and edge read returns a Markdown document with four fixed
+sections. A directory listing returns one executable command per entry, and a
+search row carries its expand_command. Do not decide coverage yourself; read
+the Coverage and Decision sections.
 
-```json
-{
-  "protocol": "okf-traversal/v1",
-  "node": { "id": "rules/c/rest-01", "type": "Rule", "title": "...", "body": "..." },
-  "coverage": {
-    "profile": "law-implement",
-    "requiredFacets": ["requirement", "applies_to", "verification", "enforcement", "source", "prerequisites"],
-    "present": ["requirement", "applies_to", "verification", "enforcement"],
-    "missing": ["source", "prerequisites"],
-    "sufficient": false,
-    "insufficient": false,
-    "overfetchRatio": 0.82
-  },
-  "frontier": [
-    { "id": "rules/o/app-01", "kind": "prerequisite", "command": "node \"$LAW\" expand --id rules/o/app-01", "priority": 0 },
-    { "id": "sources/part-iii-6/6-http-rules", "kind": "source-section", "command": "node \"$LAW\" expand --id sources/part-iii-6/6-http-rules", "priority": 1 }
-  ],
-  "guidance": {
-    "state": "expand",
-    "reason": "missing facet: source,prerequisites",
-    "mustRun": "node \"$LAW\" context --rule REST-01",
-    "stopWhen": "coverage.missing is empty",
-    "ifBack": "node \"$LAW\" expand --id rules/c/rest-01",
-    "hop": 0,
-    "maxHops": 3
-  },
-  "backTo": null
-}
+The document is lossless: every frontier entry, the full body, and every
+command appear. An example:
+
+````markdown
+# OKF Page — `rules/c/rest-01`
+
+## Page
+
+Page identity and body. What this concept is, and the source text the AI must read.
+
+- id: `rules/c/rest-01`
+- type: Rule
+- title: REST-01 — Credentials come only from `Authorization: Bearer`.
+- trustTier: machine-confirmed
+- freshness: status=current, stale=false, staleAfter=none
+- sources: sources/part-iii-6/6-http-rules
+
+### Body
+
+Verbatim source text the AI must read.
+
+```markdown
+# REST-01
+
+Credentials come only from `Authorization: Bearer`.
 ```
+
+## Coverage
+
+Facet coverage for the active profile. Whether the response is sufficient, and what is missing if not.
+
+- profile: law-implement
+- required: requirement, applies_to, verification, enforcement, source, prerequisites
+- present: requirement, applies_to, verification, enforcement
+- missing: source, prerequisites
+- sufficient: false
+- insufficient: false
+- estimatedBytes: 14596
+- overfetchRatio: 0.82
+
+## Frontier
+
+Every next-hop target. Each line is executable; reason and cost are included.
+
+1. `rules/o/app-01` — Rule — prerequisite — x-requires — `node "$LAW" expand --id rules/o/app-01` — 1025 B — priority 0
+2. `sources/part-iii-6/6-http-rules` — Section — source-section — body link — `node "$LAW" expand --id sources/part-iii-6/6-http-rules` — 1811 B — priority 1
+
+## Decision
+
+Decision timing and means. When to decide, when to stop, what to run next, and how to go back.
+
+- state: expand — missing facet: source,prerequisites
+- decideAfter: this response
+- stopWhen: coverage.missing is empty
+- mustRun: `node "$LAW" context --rule REST-01`
+- hop: 0 / maxHops: 3
+- budget: 14596 B used / no limit
+- ifBack: `node "$LAW" expand --id rules/c/rest-01`
+- backTo: none
+````
 
 | `guidance.state` | When the script returns it | What you do |
 |---|---|---|
