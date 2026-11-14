@@ -1,5 +1,5 @@
 {
   "path": "tests/atom-lock.test.mjs",
   "operation": "write",
-  "content": "import test from \"node:test\";\n\ntest(\"vacuous\", () => {\n  void 1;\n});\n"
+  "content": "import test from \"node:test\";\nimport assert from \"node:assert/strict\";\n\ntest(\"mutated\", () => {\n  assert.fail(\"mutated test must fail\");\n});\n"
 }

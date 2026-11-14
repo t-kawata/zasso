@@ -1,6 +1,7 @@
 # Traversal Contract
 
-Every read command returns one Traversal Envelope. The caller reads `coverage`
+Every node page and edge read returns one Traversal Envelope; a directory listing
+returns one command per entry and a search row carries its expand_command. The caller reads `coverage`
 and `guidance`; it never re-derives completeness from prose.
 
 ## Envelope

@@ -205,12 +205,17 @@ test('C004: rule candidates are unique, grammar-valid, and source-order stable',
 });
 
 // @verifies C004
-test('C004: command is standalone and names no external source fixture', () => {
+test('C004: command is standalone and names only the declared primary input', () => {
   const text = readCommand();
   for (const literal of EXAMPLE_LITERALS) {
     assert.equal(text.includes(literal), false, literal);
   }
-  assert.equal(/\bdocs\//.test(text), false);
+  // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+  const declaredInput = 'docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md';
+  const withoutDeclaredInput = text.split(declaredInput).join('');
+  assert.equal(/\bdocs\//.test(withoutDeclaredInput), false);
+  const mutated = text.replace(declaredInput, 'docs/other/FIXTURE.md');
+  assert.ok(auditCommand(mutated).some((finding) => finding.code === 'EXTERNAL_FIXTURE_REFERENCE'));
   assert.equal(text.includes('## Acceptance Fixtures'), false);
 });
 
@@ -318,10 +323,10 @@ test('C003: the command states the coverage-semantics contract', () => {
 });
 
 // @verifies C004
-test('C004: the command consumes the 26-check v3 contract', () => {
+test('C004: the command consumes the 36-check v3 contract', () => {
   const text = readCommand();
-  assert.equal(CANONICAL_CHECKS.length, 26);
-  for (const check of CANONICAL_CHECKS) assert.ok(text.includes(check.name), check.name);
+  assert.equal(CANONICAL_CHECKS.length, 36);
+  for (const check of CANONICAL_CHECKS) assert.ok(text.includes('`' + check.name + '`'), check.name);
   assert.ok(text.includes('check_set_version'));
   assert.ok(text.includes('machine_verified'));
   assert.ok(text.includes('closure'));

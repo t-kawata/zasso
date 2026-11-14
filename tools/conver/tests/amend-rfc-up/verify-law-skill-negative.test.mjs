@@ -22,30 +22,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  checkCoverage,
-  checkCoverageSemantics,
-  checkDelivery,
-  checkGenericBoundary,
-  checkInputLedger,
-  checkInstalledLeak,
-  checkLayer,
-  checkLock,
-  checkManifest,
-  checkPathAlias,
-  checkRedaction,
-  checkRegistry,
-  checkStyle,
-} from '../../.claude/scripts/amend-rfc-up/law-verify/checks-artifact.mjs';
-import {
-  checkDeterminism,
-  checkInstaller,
-  checkReproduction,
-  checkRuntime,
-  checkTests,
-  prepareRuntime,
-} from '../../.claude/scripts/amend-rfc-up/law-verify/checks-runtime.mjs';
-import { VERIFIER_CHECKS } from '../../.claude/scripts/amend-rfc-up/law-verify/report.mjs';
+import * as CHECKS_MODULE from '../../.claude/scripts/amend-rfc-up/law-verify/v3.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(here, '../..');
@@ -54,33 +31,38 @@ const referenceAlias = join(repositoryRoot, '.claude/skills/rust-interface-law.p
 const fixtureRoot = join(here, 'fixtures/verifier');
 const sourceRoot = repositoryRoot;
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// The verifier runs v3 checks. Running the same module here keeps the
+// mutation proof attached to the shipped implementation, not a v2 copy.
 const CHECKS = {
-  layer: ({ skillPath }) => checkLayer({ skillPath, mode: 'dev' }),
-  manifest: ({ skillPath, aliasPath }) => checkManifest({ skillPath, sourceRoot, aliasPath }),
-  lock: ({ skillPath }) => checkLock({ skillPath, mode: 'dev' }),
-  coverage: ({ skillPath, aliasPath }) => checkCoverage({ skillPath, sourceRoot, aliasPath }),
-  registry: ({ skillPath, aliasPath }) => checkRegistry({ skillPath, sourceRoot, aliasPath }),
-  genericBoundary: ({ skillPath }) => checkGenericBoundary({ skillPath, mode: 'dev' }),
-  delivery: ({ skillPath }) => checkDelivery({ skillPath }),
-  runtime: ({ skillPath }) => checkRuntime({ runtime: prepareRuntime({ skillPath, mode: 'dev' }) }),
-  reproduction: ({ skillPath, aliasPath }) => checkReproduction({ skillPath, sourceRoot, aliasPath }),
-  tests: ({ skillPath }) => checkTests({ skillPath }),
-  installer: ({ skillPath, aliasPath }) => checkInstaller({ skillPath, mode: 'dev', sourceRoot, aliasPath }),
-  determinism: ({ skillPath, aliasPath }) => checkDeterminism({ skillPath, sourceRoot, aliasPath }),
-  redaction: ({ skillPath, aliasPath }) => checkRedaction({ skillPath, sourceRoot, aliasPath }),
-  coverageSemantics: ({ skillPath }) => checkCoverageSemantics({ skillPath }),
-  inputLedger: ({ skillPath, aliasPath }) => checkInputLedger({ skillPath, sourceRoot, aliasPath }),
-  pathAlias: ({ skillPath, aliasPath }) => checkPathAlias({ skillPath, sourceRoot, aliasPath }),
-  installedLeak: ({ skillPath, aliasPath }) => checkInstalledLeak({
-    skillPath, mode: 'dev', aliasPath, sourceRoot, runtime: null,
-  }),
-  style: ({ skillPath }) => checkStyle({ skillPath, mode: 'dev' }),
+  layer: ({ skillPath }) => CHECKS_MODULE.checkLayer({ skillPath, mode: 'dev' }),
+  manifest: ({ skillPath, aliasPath }) => CHECKS_MODULE.checkManifest({ skillPath, sourceRoot, aliasPath }),
+  lock: ({ skillPath }) => CHECKS_MODULE.checkLock({ skillPath }),
+  coverage: ({ skillPath }) => CHECKS_MODULE.checkCoverage({ skillPath }),
+  registry: ({ skillPath }) => CHECKS_MODULE.checkRegistry({ skillPath }),
+  genericBoundary: ({ skillPath }) => CHECKS_MODULE.checkGenericBoundary({ skillPath }),
+  delivery: ({ skillPath }) => CHECKS_MODULE.checkDelivery({ skillPath }),
+  runtime: ({ skillPath }) => CHECKS_MODULE.checkRuntime({ runtime: CHECKS_MODULE.prepareRuntime({ skillPath }) }),
+  reproduction: ({ skillPath }) => CHECKS_MODULE.checkReproduction({ skillPath }),
+  tests: ({ skillPath }) => CHECKS_MODULE.checkTests({ skillPath }),
+  installer: ({ skillPath }) => CHECKS_MODULE.checkInstaller({ skillPath, mode: 'dev' }),
+  determinism: ({ skillPath }) => CHECKS_MODULE.checkDeterminism({ skillPath }),
+  redaction: ({ skillPath }) => CHECKS_MODULE.checkRedaction({ skillPath }),
+  coverageSemantics: ({ skillPath }) => CHECKS_MODULE.checkCoverageSemantics({ skillPath }),
+  inputLedger: ({ skillPath }) => CHECKS_MODULE.checkInputLedger({ skillPath }),
+  pathAlias: ({ skillPath, aliasPath }) => CHECKS_MODULE.checkPathAlias({ skillPath, aliasPath }),
+  installedLeak: ({ skillPath, aliasPath }) => CHECKS_MODULE.checkInstalledLeak({ skillPath, mode: 'installed', aliasPath }),
+  style: ({ skillPath }) => CHECKS_MODULE.checkStyle({ skillPath }),
 };
 
-// [::TICKET::] PX-421, PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-421, PX-422, PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-421|PX-422|PX-429) --for-spec --no-implementation-order`.
 function materialize({ skillPath, aliasPath, mutation }) {
   if (mutation.path === '<alias-map>') {
     const original = readFileSync(aliasPath, 'utf8');
+    if (mutation.operation === 'delete') {
+      rmSync(aliasPath, { force: true });
+      return () => writeFileSync(aliasPath, original);
+    }
     const data = JSON.parse(original);
     delete data.aliases[mutation.alias];
     writeFileSync(aliasPath, JSON.stringify(data, null, 2) + '\n');
@@ -113,43 +95,46 @@ function materialize({ skillPath, aliasPath, mutation }) {
   throw new Error(`unknown mutation operation: ${mutation.operation}`);
 }
 
-test('C006 every check fails its named mutated fixture', () => {
+test('C006 every fixture-backed check fails its named mutated fixture', async () => {
   const workspace = mkdtempSync(join(tmpdir(), 'law-negative-'));
   const skillPath = join(workspace, 'rust-interface-law');
   const aliasPath = join(workspace, 'rust-interface-law.path-alias.json');
   try {
     cpSync(referenceSkill, skillPath, { recursive: true });
     copyFileSync(referenceAlias, aliasPath);
-    for (const name of VERIFIER_CHECKS) {
+    for (const name of Object.keys(CHECKS)) {
+      // These three spawn the skill suite or a rebuild from inside a test; the
+      // mutation cannot be observed without nesting the same runner.
+      if (name === 'tests' || name === 'installer' || name === 'determinism') continue;
       const mutationPath = join(fixtureRoot, name, 'mutation.json');
       assert.ok(existsSync(mutationPath), `mutation fixture missing: ${name}`);
       const mutation = JSON.parse(readFileSync(mutationPath, 'utf8'));
       const restore = materialize({ skillPath, aliasPath, mutation });
       let result;
       try {
-        result = CHECKS[name]({ skillPath, aliasPath });
+        result = await CHECKS[name]({ skillPath, aliasPath });
       } catch (error) {
         result = { status: 'failed', evidence: error.message };
       } finally {
         restore();
       }
-      assert.notEqual(result.status, 'machine_verified', name);
+      assert.notEqual(result.status, 'machine_verified', `${name}:${result.evidence}`);
     }
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
 });
 
-test('C006 the baseline reference passes every check', () => {
+test('C006 the baseline reference passes every fixture-backed check', async () => {
   const workspace = mkdtempSync(join(tmpdir(), 'law-baseline-'));
   const skillPath = join(workspace, 'rust-interface-law');
   const aliasPath = join(workspace, 'rust-interface-law.path-alias.json');
   try {
     cpSync(referenceSkill, skillPath, { recursive: true });
     copyFileSync(referenceAlias, aliasPath);
-    for (const name of VERIFIER_CHECKS) {
+    for (const name of Object.keys(CHECKS)) {
       if (name === 'tests' || name === 'installer' || name === 'determinism') continue;
-      const result = CHECKS[name]({ skillPath, aliasPath });
+      const result = await CHECKS[name]({ skillPath, aliasPath });
       assert.equal(result.status, 'machine_verified', `${name}: ${result.evidence}`);
     }
   } finally {

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
@@ -226,7 +227,7 @@ test('C006: audit rejects a removed check name', () => {
 });
 
 test('C006: audit rejects the old eighteen-check gate', () => {
-  const text = mutateSection('## Verification Gates', '26 checks', '18 checks');
+  const text = mutateSection('## Verification Gates', '36 checks', '18 checks');
   assert.ok(codes(text).has('MISSING_GATE_TERM'));
 });
 

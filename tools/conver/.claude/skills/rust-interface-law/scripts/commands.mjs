@@ -20,7 +20,7 @@ import {
 } from './lib/autoconfig.mjs';
 import { buildManifest } from './lib/closure.mjs';
 import { loadLawNodes, loadRuleMap, loadBundle, explainRule as explainLawRule } from './lib/law-bundle.mjs';
-import { listDirectory, validateConformance, lintBundle, checkProfile, getOutgoing } from '../okf-core/index.mjs';
+import { listDirectory, validateConformance, lintBundle, checkProfile, getOutgoing, buildTraversal } from '../okf-core/index.mjs';
 import { conceptBody } from '../okf-core/context/assemble.mjs';
 import { showConcept, outgoingEdges, incomingEdges, neighborEdges } from '../okf-core/commands/navigation.mjs';
 import { searchConcepts } from '../okf-core/commands/search.mjs';
@@ -49,6 +49,8 @@ import { runScan } from './lib/scan.mjs';
 import { shouldRun } from './lib/should-run.mjs';
 
 const MUST_TYPES = new Set(['Rule', 'CodeBlock', 'ContractType', 'InterfaceBinding', 'Operation', 'Documentation', 'Conformance']);
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+const LAW_COMMAND_PREFIX = 'node "$LAW"';
 const RULE_INTERFACE_BY_PREFIX = {
   REST: 'rest',
   WS: 'websocket',
@@ -123,7 +125,25 @@ export async function contextCommand(argv) {
       requiredSet: { ...set, context: contextIds },
       budgetBytes: options.budget ? Number(options.budget) : undefined,
     });
-    process.stdout.write(JSON.stringify({ required: set, artifact }) + '\n');
+    // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+    // Context is the terminal delivery for a rule. The same coverage model that
+    // justified the closure also tells the caller it may stop.
+    const page = buildTraversal({
+      bundle,
+      id: entry.concept_id,
+      profile: options.profile ?? 'law-implement',
+      payloadIds: contextIds,
+    });
+    process.stdout.write(JSON.stringify({
+      required: set,
+      artifact,
+      protocol: page.protocol,
+      node: page.node,
+      coverage: page.coverage,
+      frontier: page.frontier,
+      guidance: page.guidance,
+      backTo: page.backTo,
+    }) + '\n');
     return;
   }
   const manifestPath = required(options, 'manifest');
@@ -815,7 +835,9 @@ function writeAtomic(path, text) {
 export async function listCommand(argv) {
   const options = parseArgs(argv);
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
-  process.stdout.write(JSON.stringify({ path: options.path ?? '', entries: listDirectory(bundle, options.path ?? '') }) + '\n');
+  const entries = listDirectory(bundle, options.path ?? '')
+    .map((entry) => ({ ...entry, command: lawEntryCommand(entry) }));
+  process.stdout.write(JSON.stringify({ path: options.path ?? '', entries }) + '\n');
 }
 
 export async function showCommand(argv) {
@@ -823,10 +845,16 @@ export async function showCommand(argv) {
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const requested = position(options);
-  const conceptId = (ruleMap.byRule.get(requested) ?? ruleMap.byAlias?.get(requested))?.concept_id ?? requested;
+  const conceptId = resolveRuleConceptId(ruleMap, requested);
   const concept = bundle.byId.get(conceptId);
-  const profile = concept?.frontmatter?.['x-rule-id'] ? 'law-implement' : 'okf-wiki';
-  process.stdout.write(JSON.stringify(showConcept({ bundle, id: conceptId, profile })) + '\n');
+  const profile = options.profile ?? traversalProfile(concept);
+  process.stdout.write(JSON.stringify(showConcept({
+    bundle,
+    id: conceptId,
+    profile,
+    hop: readHop(options),
+    stack: readStack(options),
+  })) + '\n');
 }
 
 export async function outgoingCommand(argv) {
@@ -834,7 +862,8 @@ export async function outgoingCommand(argv) {
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const conceptId = resolveRuleConceptId(ruleMap, position(options));
-  process.stdout.write(JSON.stringify({ id: conceptId, edges: outgoingEdges({ bundle, id: conceptId }) }) + '\n');
+  const page = traversalPage({ bundle, id: conceptId, options });
+  process.stdout.write(JSON.stringify(withEnvelope({ id: conceptId, edges: outgoingEdges({ bundle, id: conceptId }), page })) + '\n');
 }
 
 export async function incomingCommand(argv) {
@@ -842,7 +871,8 @@ export async function incomingCommand(argv) {
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const conceptId = resolveRuleConceptId(ruleMap, position(options));
-  process.stdout.write(JSON.stringify({ id: conceptId, edges: incomingEdges({ bundle, id: conceptId }) }) + '\n');
+  const page = traversalPage({ bundle, id: conceptId, options });
+  process.stdout.write(JSON.stringify(withEnvelope({ id: conceptId, edges: incomingEdges({ bundle, id: conceptId }), page })) + '\n');
 }
 
 export async function neighborsCommand(argv) {
@@ -850,7 +880,8 @@ export async function neighborsCommand(argv) {
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const conceptId = resolveRuleConceptId(ruleMap, position(options));
-  process.stdout.write(JSON.stringify({ id: conceptId, edges: neighborEdges({ bundle, id: conceptId }) }) + '\n');
+  const page = traversalPage({ bundle, id: conceptId, options });
+  process.stdout.write(JSON.stringify(withEnvelope({ id: conceptId, edges: neighborEdges({ bundle, id: conceptId }), page })) + '\n');
 }
 
 export async function requiredCommand(argv) {
@@ -921,7 +952,12 @@ function toRuleRecord(node, bundle, conceptId, ruleId = null) {
 export async function searchCommand(argv) {
   const options = parseArgs(argv);
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
-  process.stdout.write(JSON.stringify({ query: options.query ?? '', rows: searchConcepts({ bundle, query: options.query ?? '' }) }) + '\n');
+  const rows = searchConcepts({
+    bundle,
+    query: options.query ?? '',
+    commandPrefix: LAW_COMMAND_PREFIX,
+  });
+  process.stdout.write(JSON.stringify({ query: options.query ?? '', rows }) + '\n');
 }
 
 export async function lintCommand(argv) {
@@ -961,6 +997,62 @@ export async function sourcesCommand(argv) {
 }
 
 // [::TICKET::] PX-426, PX-425, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-427|PX-428) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// A law bundle mixes Rule pages and Section pages. Rules carry the enforcement
+// facets; Sections carry the wiki facets. One explicit decision keeps the
+// command prefix on $LAW for both.
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function traversalProfile(concept) {
+  return concept?.frontmatter?.['x-rule-id'] ? 'law-implement' : 'law-wiki';
+}
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function readHop(options) {
+  return Number(options.hop ?? 0);
+}
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function readStack(options) {
+  return String(options.from ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
+}
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function traversalPage({ bundle, id, options }) {
+  const concept = bundle.byId.get(id);
+  return buildTraversal({
+    bundle,
+    id,
+    profile: options.profile ?? traversalProfile(concept),
+    hop: readHop(options),
+    stack: readStack(options),
+  });
+}
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function withEnvelope({ id, edges, page }) {
+  return {
+    id,
+    edges,
+    protocol: page.protocol,
+    node: page.node,
+    coverage: page.coverage,
+    frontier: page.frontier,
+    guidance: page.guidance,
+    backTo: page.backTo,
+  };
+}
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function lawEntryCommand(entry) {
+  if (entry.kind === 'concept') return `${LAW_COMMAND_PREFIX} expand --id ${entry.id}`;
+  if (entry.kind === 'directory') return `${LAW_COMMAND_PREFIX} list --path ${entry.path}`;
+  const parentDirectory = entry.path.includes('/')
+    ? entry.path.slice(0, entry.path.lastIndexOf('/'))
+    : '/';
+  return `${LAW_COMMAND_PREFIX} list --path ${parentDirectory}`;
+}
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function position(options) {
   const value = options._?.[0] ?? options.id;
   if (!value) throw new Error('positional argument is required');

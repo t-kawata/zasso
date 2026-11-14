@@ -14,7 +14,7 @@ const DESCRIPTION_WEIGHT = 2;
 const BODY_WEIGHT = 1;
 const BODY_TERM_CAP = 3;
 
-export function searchConcepts({ bundle, query, limit = 20 }) {
+export function searchConcepts({ bundle, query, limit = 20, commandPrefix = 'node "$OKF"' }) {
   const terms = tokenize(query);
   if (terms.length === 0) return [];
   const documents = bundle.concepts.map((concept) => ({
@@ -45,7 +45,7 @@ export function searchConcepts({ bundle, query, limit = 20 }) {
         score: Number(score.toFixed(3)),
         why_matched: whyMatched,
         snippet: snippet(document.description || document.body, terms),
-        expand_command: `node "$OKF" expand --id ${document.concept.id}`,
+        expand_command: `${commandPrefix} expand --id ${document.concept.id}`,
       });
     }
   }

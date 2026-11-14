@@ -1,7 +1,10 @@
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // @verifies C008
 // @verifies C010
+// @verifies C004
+// @verifies C005
 /**
  * PX-424 — static contract for `/build-okf-skill`.
  */
@@ -49,8 +52,18 @@ test('C008/C010: the command carries the required sections and no integration st
   assert.equal(text.includes('verify-law-integration.mjs'), false);
 });
 
-test('C008: the check contract is okf v2 with named checks', () => {
-  assert.equal(CHECK_SET_VERSION, '2');
-  assert.equal(CHECK_NAMES.length, 30);
+test('C008: the check contract is okf v3 with named checks', () => {
+  assert.equal(CHECK_SET_VERSION, '3');
+  assert.equal(CHECK_NAMES.length, 36);
   assert.deepEqual(new Set(CHECK_NAMES).size, CHECK_NAMES.length);
+});
+
+test('C004/C005: the command declares preamble concepts and the coverage ledger', () => {
+  const text = readCommand();
+  assert.match(text, /root preamble concept/i);
+  assert.match(text, /before the first H2/i);
+  assert.ok(text.includes('source/coverage.json'));
+  for (const key of ['unmappedHeadings', 'unmappedPreamble', 'unmappedLines']) {
+    assert.ok(text.includes(key), key);
+  }
 });

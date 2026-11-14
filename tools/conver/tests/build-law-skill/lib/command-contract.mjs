@@ -659,7 +659,12 @@ export function auditCommand(text) {
       add('EXAMPLE_LITERAL_IN_EXECUTION', 'C004', `command names external fixture ${literal}`);
     }
   }
-  if (/\bdocs\//.test(body)) {
+  // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+  // The declared primary input is not an example fixture. Any other docs/
+  // reference still means the command is pointing at a source it does not own.
+  const DECLARED_PRIMARY_INPUT = 'docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md';
+  const withoutDeclaredInput = body.split(DECLARED_PRIMARY_INPUT).join('');
+  if (/\bdocs\//.test(withoutDeclaredInput)) {
     add('EXTERNAL_FIXTURE_REFERENCE', 'C004', 'command names an external source path');
   }
   if (ABSOLUTE_PATH.test(body)) add('ABSOLUTE_PATH', 'C002', 'command contains an absolute path');

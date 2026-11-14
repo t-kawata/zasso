@@ -1,6 +1,5 @@
 {
   "path": "source/input-ledger.json",
-  "operation": "replace",
-  "find": "\"decision\": \"included\"",
-  "replace": "\"decision\": \"excluded\""
+  "operation": "write",
+  "content": "{\"schema\":\"okf-input-ledger/v1\"}\n"
 }

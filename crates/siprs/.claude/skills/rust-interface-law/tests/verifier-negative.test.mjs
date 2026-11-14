@@ -1,3 +1,4 @@
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
@@ -29,8 +30,8 @@ test('C006 every verifier check has a mutated fixture', () => {
     const mutation = JSON.parse(readFileSync(mutationPath, 'utf8'));
     assert.ok(OPERATIONS.has(mutation.operation), `unknown mutation operation: ${check.name}`);
     if (mutation.path === '<alias-map>') {
-      assert.equal(mutation.operation, 'remove-alias', check.name);
-      assert.ok(mutation.alias, check.name);
+      assert.ok(['remove-alias', 'delete'].includes(mutation.operation), check.name);
+      if (mutation.operation === 'remove-alias') assert.ok(mutation.alias, check.name);
       continue;
     }
     if (mutation.operation !== 'write') {

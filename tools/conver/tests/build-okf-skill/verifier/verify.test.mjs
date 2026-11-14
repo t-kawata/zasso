@@ -18,6 +18,12 @@ import { basename, join } from 'node:path';
 import { verifyOkfSkill } from '../../../.claude/scripts/amend-rfc-up/verify-okf-skill.mjs';
 import { buildMiniSkillV2 } from '../lib/fixture-v2.mjs';
 
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+const CHECK_CONTRACT = JSON.parse(readFileSync(new URL('../../../.claude/scripts/amend-rfc-up/okf-verify/checks.json', import.meta.url), 'utf8'));
+const DEV_REQUIRED = CHECK_CONTRACT.checks.filter((check) => check.mode === 'both' || check.mode === 'dev').length;
+const INSTALLED_REQUIRED = CHECK_CONTRACT.checks.filter((check) => check.mode === 'both' || check.mode === 'installed').length;
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 function codes(report, name) {
   return new Set(report.checks[name]?.codes ?? []);
 }
@@ -33,8 +39,8 @@ test('a valid mini skill is machine verified in dev mode', async () => {
       mode: 'dev',
     });
     assert.equal(report.status, 'machine_verified', JSON.stringify(report.checks));
-    assert.equal(report.check_set_version, '2');
-    assert.equal(report.required_checks.length, 30);
+    assert.equal(report.check_set_version, CHECK_CONTRACT.check_set_version);
+    assert.equal(report.required_checks.length, DEV_REQUIRED);
     for (const name of report.required_checks) {
       assert.equal(report.checks[name].status, 'machine_verified', `${name}: ${report.checks[name].evidence}`);
     }
@@ -119,7 +125,7 @@ test('installed mode runs the installed checks', async () => {
       skipTests: true,
     });
     assert.equal(report.status, 'machine_verified', JSON.stringify(report.checks));
-    assert.equal(report.required_checks.length, 12);
+    assert.equal(report.required_checks.length, INSTALLED_REQUIRED);
     assert.equal(report.checks.manifest.status, 'not_run');
     assert.equal(report.checks.tests.status, 'not_run');
   } finally {

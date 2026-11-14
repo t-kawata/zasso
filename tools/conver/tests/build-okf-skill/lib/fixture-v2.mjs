@@ -263,6 +263,28 @@ export async function buildMiniSkillV2({
   writeFile(skillDir, 'source/okf-profile.toml', 'domain = "mini"\nlanguage = "en"\n');
   writeFile(skillDir, 'source/okf-log.json', `${JSON.stringify({ schema: 'okf-log/v1', entries: [{ date: BUILD_DATE, text: `Generated ${concepts.length} concepts.` }] }, null, 2)}\n`);
   writeFile(skillDir, 'source/concept-inventory.json', `${JSON.stringify({ schema: 'okf-concept-inventory/v1', entries: concepts.map((concept) => ({ id: concept.id, path: concept.path, source: concept.frontmatter.sources[0].resource })) }, null, 2)}\n`);
+  // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+  // The coverage ledger is the proof that every source line reached a concept.
+  // The fixture is a verified build, so its counts are zero by construction.
+  const coverageSources = Object.keys(sources).map((path) => ({
+    alias: `sources/${basename(path)}`,
+    lines: String(sources[path]).split('\n').length,
+    concepts: concepts.filter((concept) => concept.frontmatter.sources[0].resource === `sources/${basename(path)}`).length,
+    unmappedHeadings: 0,
+    unmappedPreamble: 0,
+    unmappedLines: 0,
+  }));
+  writeFile(skillDir, 'source/coverage.json', `${JSON.stringify({
+    schema: 'okf-source-coverage/v1',
+    sources: coverageSources,
+    counts: {
+      sources: coverageSources.length,
+      concepts: concepts.length,
+      unmappedHeadings: 0,
+      unmappedPreamble: 0,
+      unmappedLines: 0,
+    },
+  }, null, 2)}\n`);
   writeFile(skillDir, 'source/shared-engine.json', `${JSON.stringify({ schema: 'okf-shared-engine/v1', modules: [] }, null, 2)}\n`);
   writeFile(skillDir, 'atoms.lock.json', `${JSON.stringify(lockFromConcepts(bundle.concepts), null, 2)}\n`);
 

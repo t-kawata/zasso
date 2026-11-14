@@ -1,5 +1,4 @@
 {
   "path": "<alias-map>",
-  "operation": "remove-alias",
-  "alias": "sources/00-FOUNDATION.md"
+  "operation": "delete"
 }

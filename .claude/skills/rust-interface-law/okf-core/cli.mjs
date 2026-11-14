@@ -39,7 +39,7 @@ function runCommand(command, options, bundle) {
   const now = parseNow(options.now);
   const profile = options.profile ?? 'okf-wiki';
   const stack = entries(options.from);
-  if (command === 'list') return print({ entries: listDirectory(bundle, options.path ?? '') });
+  if (command === 'list') return print({ entries: listCommandEntries(listDirectory(bundle, options.path ?? '')) });
   if (command === 'show' || command === 'page' || command === 'expand') {
     return print(showConcept({
       bundle,
@@ -70,13 +70,30 @@ function runCommand(command, options, bundle) {
   }
   if (command === 'required') return print(requiredSet({ bundle, entryIds: entries(options.entry) }));
   if (command === 'context') {
+    const entryIds = entries(options.entry);
     const result = contextArtifact({
       bundle,
-      entryIds: entries(options.entry),
+      entryIds,
       budgetBytes: options.budget ? Number(options.budget) : undefined,
       now,
     });
-    return print(result);
+    // [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+    // Context is the terminal delivery. Reusing the entry's traversal page
+    // lets the caller read why the delivered closure is complete.
+    const page = entryIds.length === 1
+      ? buildTraversal({ bundle, id: entryIds[0], profile, payloadIds: result.artifact.concepts.map((concept) => concept.id), now })
+      : null;
+    return print(page
+      ? {
+        ...result,
+        protocol: page.protocol,
+        node: page.node,
+        coverage: page.coverage,
+        frontier: page.frontier,
+        guidance: page.guidance,
+        backTo: page.backTo,
+      }
+      : result);
   }
   if (command === 'validate' || command === 'lint') {
     const mode = command === 'lint' ? 'lint' : (options.mode ?? 'conformance');
@@ -163,6 +180,24 @@ function print(value) {
 }
 
 // [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// A directory listing is the first drill-down list. Each entry carries the
+// command that enters it, so the caller never has to derive the next step.
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function listCommandEntries(entries, prefix = 'node "$OKF"') {
+  return entries.map((entry) => ({ ...entry, command: entryCommand(entry, prefix) }));
+}
+
+function entryCommand(entry, prefix) {
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+  if (entry.kind === 'concept') return `${prefix} expand --id ${entry.id}`;
+  if (entry.kind === 'directory') return `${prefix} list --path ${entry.path}`;
+  const parentDirectory = entry.path.includes('/')
+    ? entry.path.slice(0, entry.path.lastIndexOf('/'))
+    : '/';
+  return `${prefix} list --path ${parentDirectory}`;
+}
+
 function withEnvelope({ id, edges, page }) {
   return {
     id,

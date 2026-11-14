@@ -66506,6 +66506,188 @@
           ],
           "completedAt": "2026-11-14",
           "reviewed_at": "2026-11-14T03:52:35.632Z"
+        },
+        {
+          "id": 429,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Close one-hop traversal and information-coverage gaps in built law/okf skills",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-429.md",
+          "background": "Re-inspection against the three sufficiency requirements found four concrete defects.\n\n(1) The law CLI emits the undefined variable $OKF for non-Rule pages and for every search row; SKILL.md defines only $LAW, so the drill-down command the script hands the AI cannot be executed as printed. Cause: showCommand selects okf-wiki for any concept without x-rule-id, and search.mjs hardcodes node \"$OKF\".\n\n(2) The law expand command is an alias of showCommand and never passes hop or stack, so guidance.hop stays 0, backTo stays null, and guidance.state=back is unreachable. The documented escape hatch (back at max hop) does not exist at runtime.\n\n(3) The law outgoing/incoming/neighbors commands return only {id, edges}, and context --rule returns only {required, artifact}. The guidance.mustRun target for a rule is context --rule, so after following the instruction the AI receives no coverage or guidance and cannot read the stop decision the contract promises. SKILL.md line 57 claims every read command returns a Traversal Envelope; that is false for these commands.\n\n(4) build-okf-skill.md maps one concept per level-2 section and nothing else, so text between the document H1 and the first H2 is owned by no concept. The okf coverage check compares concept-inventory ids with atoms.lock ids; it never proves that every source line is mapped. Unlike law, whose coverage-v3 records unmappedHeadings=0 and unmappedRuleRows=0, an okf build can therefore be machine_verified while silently dropping the preamble.\n\nAdditionally, the suites are red because the canonical check set moved to v3/36 in PX-427 and PX-428 but four contract surfaces still assert the old counts: build-law-skill.md enumerates 26 checks, tests/build-law-skill/command-file.test.mjs asserts 26, tests/build-okf-skill/command-file.test.mjs asserts version 2 and 30 checks, and tests/build-okf-skill/verifier/verify.test.mjs asserts 12 installed checks (canonical: 16). The law audit also rejects the declared primary input path docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md as an external fixture, which turns the PX-428 input contract into an audit failure.\n\nGoal: every one-hop response carries an executable drill-down list plus explicit stop/expand/back timing and means; every law and okf delivered context can prove why it is complete; docs, tests, and the canonical verifier agree on one check contract. Excess is acceptable only when it does not hide insufficiency, so the fix is additive and keeps legacy response fields.",
+          "scope": [
+            "Law runtime commands: .claude/skills/rust-interface-law/scripts/commands.mjs show/expand accept --profile/--hop/--from; non-Rule concepts select law-wiki; outgoing/incoming/neighbors attach protocol/node/coverage/frontier/guidance/backTo; context --rule attaches the same decision fields computed with payloadIds=contextIds; search passes the law command prefix; list entries carry an executable command",
+            "Law profile data: add okf-core/profiles/law-wiki.json (same facets as okf-wiki, commandPrefix node \"$LAW\") and register it in okf-core/profiles/index.mjs so no law response can fall back to $OKF",
+            "Shared search: okf-core/commands/search.mjs accepts commandPrefix with default node \"$OKF\" and uses it in every expand_command",
+            "Shared CLI: okf-core/cli.mjs attaches coverage/guidance/backTo to context results (payloadIds = returned concept ids) and adds a command field to every list entry (directory -> list --path, reserved -> show, concept -> expand --id)",
+            "Mirror sync: apply the same tree changes to .claude/scripts/amend-rfc-up/okf-core, tools/conver/.claude/scripts/amend-rfc-up/okf-core, .claude/skills/rust-interface-law/okf-core and crates/siprs/.claude/skills/rust-interface-law/okf-core",
+            "OKF build procedure: build-okf-skill.md defines a root preamble concept for non-empty text between the document H1 and the first H2, adds source/coverage.json to the artifact layout, and requires unmappedHeadings=0, unmappedPreamble=0, unmappedLines=0",
+            "OKF verifier: checks-artifact.mjs checkCoverage requires source/coverage.json with schema okf-source-coverage/v1 and zero unmapped counts, keeps the inventory/lock id equality, and reports COVERAGE_MISSING or COVERAGE_GAP",
+            "Law build doc: build-law-skill.md lists all 36 canonical check names in both gate tables and keeps 36 checks as the gate value",
+            "Law audit contract: tests/build-law-skill/lib/command-contract.mjs allows the declared primary input path from the command (the EXPERT-REVIEW-PACKAGE path) while still rejecting any other docs/ fixture reference",
+            "Contract tests: update tests/build-law-skill/command-file.test.mjs, tests/build-law-skill/generality.test.mjs, tests/build-okf-skill/command-file.test.mjs, tests/build-okf-skill/generality.test.mjs and tests/build-okf-skill/verifier/verify.test.mjs to derive version, dev count and installed count from checks.json instead of hardcoding 26, 30 or 12",
+            "OKF fixture: tests/build-okf-skill/lib/fixture-v2.mjs writes source/coverage.json with zero unmapped counts so the canonical dev and installed fixtures remain machine_verified",
+            "Non-change: no new verifier check id; coverage remains the existing check id and both check sets stay at 36",
+            "Impact: rust-interface-law dist/skill.mjs must be rebuilt from the updated scripts; no crates/** unit changes, so the law scope is the skill runtime only",
+            "Verifier tests: port tests/amend-rfc-up/verify-law-skill.test.mjs and verify-law-skill-negative.test.mjs to the v3 async checks, update the 18 v2-era mutation fixtures, and keep the fixture-backed mutation proof",
+            "Skill test: allow the pathAlias mutation to delete the alias map so both mutation operations stay valid"
+          ],
+          "testUnit": [
+            "UT: [C001 Normal] show sources/part-iii-6/6-http-rules returns every frontier[].command and guidance.ifBack starting with node \"$LAW\" and containing no $OKF substring",
+            "UT: [C001 Error] show with an absent id exits 2 and prints candidate ids, so an empty edge list is never mistaken for a valid answer",
+            "UT: [C001 Invariant] search --query authorization returns rows whose expand_command starts with node \"$LAW\" for every row",
+            "UT: [C002 Normal] expand --id rules/c/rest-01 --hop 1 --from rules/c/rest-01 returns guidance.hop=1 and backTo=rules/c/rest-01",
+            "UT: [C002 Boundary] expand --id rules/c/rest-01 --hop 3 --from rules/c/rest-01 returns guidance.state=back and guidance.ifBack starting with node \"$LAW\"",
+            "UT: [C002 Invariant] guidance.state=stop holds if and only if coverage.missing is empty; guidance.state=back holds only at hop >= maxHops",
+            "UT: [C002 Edge] show rules/c/rest-01 --profile law-review returns coverage.profile=law-review and the review requiredFacets",
+            "UT: [C003 Normal] outgoing, incoming and neighbors each return protocol=okf-traversal/v1, node.id, coverage, frontier and guidance",
+            "UT: [C003 Invariant] context --rule REST-01 returns coverage.sufficient=true, coverage.missing=[], guidance.state=stop and a non-empty frontier from the same bundle",
+            "UT: [C003 Error] context --rule with an unknown rule throws UNKNOWN_RULE without writing a partial artifact",
+            "UT: [C003 Boundary] list --path / returns command for every directory and concept entry, and the command uses node \"$LAW\"",
+            "UT: [C004 Normal] build-okf-skill.md contains the preamble concept rule and the source/coverage.json keys unmappedHeadings, unmappedPreamble and unmappedLines",
+            "UT: [C004 Edge] the documented rule maps a source with H1 preamble plus H2 sections to one preamble concept plus one concept per H2; a source with no H2 maps to one root concept",
+            "UT: [C004 Invariant] every non-blank source line lies in exactly one concept span, so unmappedLines=0 is the build acceptance condition",
+            "UT: [C005 Error] checkCoverage fails with COVERAGE_MISSING when source/coverage.json is absent and with COVERAGE_GAP when counts.unmappedLines or counts.unmappedPreamble is nonzero",
+            "UT: [C005 Normal] checkCoverage passes when source/coverage.json schema is okf-source-coverage/v1 and all unmapped counts are zero",
+            "UT: [C005 Invariant] a build with a nonzero coverage count cannot reach status machine_verified in dev mode",
+            "UT: [C006 Normal] build-law-skill.md contains all 36 canonical check names, the string 36 checks, and both gate rows enumerate the same set",
+            "UT: [C006 Invariant] tests derive CHECK_SET_VERSION, dev count 36 and installed count 16 from checks.json; no literal 26, 30 or 12 remains",
+            "UT: [C006 Edge] the law audit accepts the declared primary input path but still reports EXTERNAL_FIXTURE_REFERENCE for any other docs/ fixture path",
+            "UT: [C001 precondition] The law skill is installed and the CLI is asked for a non-Rule Section, a search result, or a list entry."
+          ],
+          "testIntegration": [
+            "IT: [C001,C002,C003] law CLI end-to-end: search authorization -> expand the top id with --hop 1 -> follow guidance.mustRun to context --rule -> assert coverage.sufficient=true and guidance.state=stop; every emitted command executes under LAW pointing at dist/skill.mjs",
+            "IT: [C004,C005] okf mini fixture with H1 preamble and two H2 sections: build-okf-skill procedure output passes verify-okf-skill dev mode with coverage machine_verified; removing source/coverage.json fails COVERAGE_MISSING; setting unmappedLines=1 fails COVERAGE_GAP",
+            "IT: [C006] rebuild rust-interface-law dist and run verify-law-skill.mjs dev mode: 36/36 machine_verified with closure recorded",
+            "IT: [C006] installed-mode verify-okf-skill on the mini fixture runs all 16 both/installed checks, every one machine_verified"
+          ],
+          "testExceptions": [
+            "The okf build is an AI-executed Markdown procedure, not a generator. The natural-language construction of concept bodies is not testable as a deterministic function, and this is not a design defect: the procedure output is a static artifact set, so the verifiable surface is the written source/coverage.json plus the canonical verifier. The static command test proves the procedure names the artifact and the counts; the verifier proves the build cannot be machine_verified with a nonzero unmapped count."
+          ],
+          "default_files": [
+            ".claude/skills/rust-interface-law/scripts/commands.mjs",
+            ".claude/skills/rust-interface-law/okf-core/commands/search.mjs",
+            ".claude/skills/rust-interface-law/okf-core/cli.mjs",
+            ".claude/skills/rust-interface-law/okf-core/profiles/index.mjs",
+            ".claude/skills/rust-interface-law/okf-core/profiles/law-wiki.json",
+            ".claude/scripts/amend-rfc-up/okf-core/commands/search.mjs",
+            ".claude/scripts/amend-rfc-up/okf-core/cli.mjs",
+            ".claude/scripts/amend-rfc-up/okf-core/profiles/index.mjs",
+            ".claude/scripts/amend-rfc-up/okf-core/profiles/law-wiki.json",
+            ".claude/commands/build-okf-skill.md",
+            ".claude/commands/build-law-skill.md",
+            ".claude/scripts/amend-rfc-up/okf-verify/checks-artifact.mjs",
+            "tests/build-law-skill/command-file.test.mjs",
+            "tests/build-law-skill/generality.test.mjs",
+            "tests/build-law-skill/lib/command-contract.mjs",
+            "tests/build-law-skill/law-bundle/traversal-wiring.test.mjs",
+            "tests/build-okf-skill/command-file.test.mjs",
+            "tests/build-okf-skill/generality.test.mjs",
+            "tests/build-okf-skill/verifier/verify.test.mjs",
+            "tests/build-okf-skill/lib/fixture-v2.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: every law read response carries an executable $LAW drill-down and explicit stop/expand/back guidance; hop and back are reachable; context --rule reports sufficient=true and state=stop; search rows are executable as printed",
+            "Error case: an absent id exits 2 with candidates; a missing or nonzero-coverage okf coverage ledger fails the canonical verifier with COVERAGE_MISSING or COVERAGE_GAP and blocks install",
+            "Edge case: a source with H1 preamble and no H2 produces one root concept containing the preamble; a source with H2 sections produces a preamble concept plus one concept per H2, with unmappedLines=0"
+          ],
+          "notes": "Implementation steps:\n1. Add law-wiki profile and register it; make showCommand resolve profile/hop/stack from options and default by concept type.\n2. Add a withEnvelope helper to law commands and use it for outgoing/incoming/neighbors; attach coverage/guidance/backTo to context --rule with payloadIds=contextIds and the requested profile.\n3. Let searchConcepts accept commandPrefix; law search passes node \"$LAW\"; okf-core CLI keeps the default.\n4. Add command to list entries in both CLIs.\n5. Add the preamble rule and source/coverage.json schema to build-okf-skill.md; extend checkCoverage and the mini fixture.\n6. Update the law gate table to 36 names and the law audit allowance for the declared primary input.\n7. Update the four stale test surfaces to derive counts from checks.json, add traversal-wiring tests, rebuild dist, rerun the impact set.\n\nRisks:\n- The law dist is a bundling of the skill scripts; changing scripts without rebuilding dist leaves the CLI stale.\n- The okf verifier change requires fixture-v2 to write source/coverage.json; every verifier test that builds the fixture depends on it.\n- The law audit allowance must be narrow; allowing all docs/ references would hide the external-fixture defect the audit exists to catch.\n\nCaveats:\n- The okf build remains an AI procedure; the coverage artifact is the contract, not an executed generator.\n- Frontier size can stay large for rule pages; excess is acceptable and must not be reduced by dropping required facets.\n\nFuture improvements:\n- A shared response-shape type for envelopes across law and okf CLIs.\n\nLaw: not applicable (no crates/** interface unit is changed; this ticket modifies the .claude skill runtime and the build procedures only).\nImplementation summary:\n- Law runtime: law-wiki profile, profile/hop/from wiring, envelope on outgoing/incoming/neighbors, context --rule envelope, $LAW search prefix, per-entry list commands.\n- OKF: preamble concept rule, source/coverage.json, checkCoverage schema/zero-unmapped enforcement, fixture ledger.\n- Contract surfaces: 36-check docs and tests, declared primary input allowance, v3 verifier test port, v2-era mutation fixtures updated.\n- Test results: 217 build-law/build-okf tests pass; 94 skill tests pass; 11 verifier tests pass.\n- Mirrors synced: root .claude, tools/conver/.claude, crates/siprs/.claude; dist rebuilt.\nReview report:\n- Sufficiency re-check: law show/expand/outgoing/incoming/neighbors/context/list/search emit node \"$LAW\" and no $OKF; hop/back reachable; context --rule sufficient=true and state=stop.\n- OKF: preamble concept and source/coverage.json required; COVERAGE_MISSING/SCHEMA/GAP enforced.\n- Review findings fixed: SKILL.md and traversal-protocol.md overclaimed that every read command returns an envelope; now node/edge reads carry the envelope while list/search carry per-entry commands. Removed undefined gaps/overlaps wording in build-okf-skill.\n- Annotation verify: 37 files, missing 0, ambiguous 0 after adding annotations to new definitions.\n- Pre-existing red suites (verify-law-skill* and skill verifier-negative) were v2-era: ported to v3 async checks and updated 9 mutation fixtures; now green.\n- No commit push in this review.",
+          "invariants": "- 【Normal establishment】Every law read response (show, expand, outgoing, incoming, neighbors, context --rule, list, search) exposes a next command whose prefix is node \"$LAW\"; no response contains the undefined $OKF variable.\n- 【Invariant on error】An absent concept id exits 2 with candidates; an unknown rule id raises UNKNOWN_RULE; a missing or nonzero okf coverage ledger yields COVERAGE_MISSING or COVERAGE_GAP and never machine_verified.\n- 【Internal invariant】Response changes are additive: legacy fields (body, outgoing, incoming, sources, trustTier, freshness, required, artifact) keep their names and shapes; frontier and guidance ordering stays deterministic across calls.\n- 【Boundary condition】guidance.state=stop if and only if coverage.missing is empty; state=back only when hop >= maxHops; hop is read from the CLI, not hardcoded to 0; backTo names the previous id in --from or null.",
+          "instrumentation": "- Logging: no new runtime logs; the CLI remains stdout-only JSON and stderr-only errors.\n- Metrics: not applicable (local CLI). The verifier closure already records pass counts.\n- Error tracking: error codes UNKNOWN_CONCEPT, UNKNOWN_RULE, COVERAGE_MISSING and COVERAGE_GAP are the observable signals.\n- Health check: verify-law-skill.mjs dev 36/36 and verify-okf-skill.mjs dev/installed fixtures; the presence of protocol/node/coverage/frontier/guidance in each read response is the health predicate.\nStatic quality check: 0 issues\nTranslatability: no new generic names, debug output, or magic numbers in changed code\nTests: build-law/build-okf 217 pass; skill 94 pass; verifier 11 pass; law verifier dev 36/36 machine_verified (closure 518825a4); installed 19/19 machine_verified (closure abefe857)",
+          "investigation": "Source evidence:\n\n1. tools/conver/.claude/skills/rust-interface-law/scripts/commands.mjs:823-829: showCommand sets profile = x-rule-id ? law-implement : okf-wiki, and calls showConcept without hop or stack. okf-wiki.json sets commandPrefix node \"$OKF\". Observed: show sources/part-iii-6/6-http-rules frontier[0].command = node \"$OKF\" expand --id rules/c/rest-01.\n\n2. tools/conver/.claude/skills/rust-interface-law/okf-core/commands/search.mjs:48: expand_command is the literal node \"$OKF\" expand --id ${id}. Observed: search --query idempotency row expand_command uses $OKF.\n\n3. tools/conver/.claude/skills/rust-interface-law/scripts/cli.mjs:63: expand is a direct alias of showCommand, so --hop and --from never reach showConcept. Observed: expand --id rules/c/rest-01 --hop 3 returns guidance.hop=0, backTo=null.\n\n4. tools/conver/.claude/skills/rust-interface-law/scripts/commands.mjs:832-853: outgoingCommand, incomingCommand and neighborsCommand write {id, edges} only. Observed: node \"$LAW\" outgoing --id rules/c/rest-01 has no protocol/coverage/frontier/guidance.\n\n5. tools/conver/.claude/skills/rust-interface-law/scripts/commands.mjs:102-127: the context --rule branch ignores options.profile and writes {required, artifact}. Observed: context --rule REST-01 has no coverage or guidance, yet guidance.mustRun points to it (law-implement completeTemplate).\n\n6. tools/conver/.claude/skills/rust-interface-law/okf-core/cli.mjs:166-177 defines withEnvelope for outgoing/incoming/neighbors; law commands do not reuse it. cli.mjs:72-80 returns contextArtifact without an envelope.\n\n7. tools/conver/.claude/commands/build-okf-skill.md:245: one concept per level-2 section; a document without level-2 is one root concept. There is no rule for text between H1 and the first H2. Line 342 records gaps and overlaps but defines no measure.\n\n8. tools/conver/.claude/scripts/amend-rfc-up/okf-verify/checks-artifact.mjs:137-149: checkCoverage compares inventory ids with lock ids only.\n\n9. tools/conver/.claude/commands/build-law-skill.md:354 enumerates 26 check names; the canonical law checks.json is check_set_version 3 with 36 names (lines 350 and 255 say 36).\n\n10. Baseline node --test: tests/build-law-skill/command-file.test.mjs fails 4 tests (26 vs 36, external fixture reference, traversal check names missing from the gate table); tests/build-okf-skill/command-file.test.mjs fails 1 (version 3 vs 2, 36 vs 30); tests/build-okf-skill/verifier/verify.test.mjs fails 2 (version 3 vs 2, installed 16 vs 12). tests/build-law-skill/generality.test.mjs also fails its unmutated-command and old-eighteen-check cases for the same reason.\n\n11. tools/conver/.claude/skills/rust-interface-law/SKILL.md:57 claims every read command returns a Traversal Envelope; the current implementation contradicts it for outgoing/incoming/neighbors/context/search/list.",
+          "boyScoutPlan": "Translatability fixes in touched code:\n- Extract the profile choice into selectTraversalProfile(concept) so the rule-versus-wiki decision reads as one sentence.\n- Extract withEnvelope(page) in the law commands instead of repeating five fields in three commands.\n- Extract commandPrefixFor(profile) and pass it to searchConcepts; remove the hardcoded string.\n- Replace hop/stack literals with named readers readHop(options) and readStack(options) that return validated values.\n- In the okf verifier, extract readCoverageLedger(skillPath) and unmappedCounts(counts) so the failure code is chosen by named predicates.\n- In tests, derive counts from checks.json constants instead of magic numbers.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "build-law-skill -> rust-interface-law -> one-hop read -> drill-down command",
+              "precondition": "The law skill is installed and the CLI is asked for a non-Rule Section, a search result, or a list entry.",
+              "postcondition": "Every emitted frontier[].command, guidance.mustRun, guidance.ifBack, search row expand_command and list entry command starts with node \"$LAW\" and contains no $OKF substring.",
+              "invariant": "No law response names a variable the law SKILL.md does not define; an absent id exits 2 with candidates."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "traverse.mjs guidance -> CLI hop/from options -> stop|expand|back",
+              "precondition": "expand is called with --hop N and --from id1,id2 for a rule concept.",
+              "postcondition": "guidance.hop equals N; at N=1 backTo is the last --from id; at N>=maxHops guidance.state is back and guidance.ifBack is executable with node \"$LAW\".",
+              "invariant": "state=stop if and only if coverage.missing is empty; state=back only at hop >= maxHops; hop and stack are never silently discarded."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "navigation commands -> traversal envelope -> decision timing",
+              "precondition": "outgoing, incoming, neighbors, or context --rule is called on a known concept.",
+              "postcondition": "The response includes protocol=okf-traversal/v1, node.id, coverage, frontier and guidance; context --rule reports sufficient=true, missing=[] and state=stop for REST-01.",
+              "invariant": "Every one-hop read exposes both the drill-down list and the stop/expand/back decision; legacy fields remain at their previous names."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "build-okf-skill -> concept extraction -> source coverage",
+              "precondition": "A source Markdown has an H1, a preamble paragraph before the first H2, and one or more H2 sections.",
+              "postcondition": "The build maps the preamble to a root concept, maps each H2 to one concept, and writes source/coverage.json with unmappedHeadings=0, unmappedPreamble=0 and unmappedLines=0.",
+              "invariant": "Every non-blank source line belongs to exactly one concept span; no preamble text is dropped."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "okf-verify checkCoverage -> build acceptance",
+              "precondition": "A built okf skill is verified with source/coverage.json present, absent, or carrying a nonzero unmapped count.",
+              "postcondition": "Present and zero yields coverage machine_verified; absent yields COVERAGE_MISSING; nonzero yields COVERAGE_GAP; neither failing case reaches status machine_verified.",
+              "invariant": "Coverage is proven from the written ledger, not inferred from the concept inventory alone."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "checks.json -> build command docs -> contract tests",
+              "precondition": "The canonical check sets are law v3/36 and okf v3/36 with 16 both-or-installed checks.",
+              "postcondition": "build-law-skill.md lists all 36 names; the law and okf contract tests derive version and counts from checks.json; the installed verifier test derives 16; node --test for the impacted suites passes.",
+              "invariant": "No doc or test hardcodes a stale count; the declared primary input path is accepted while other docs/ fixtures remain rejected."
+            }
+          ],
+          "created_at": "2026-11-14",
+          "updated_at": "2026-11-14",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-14T04:07:40.378Z",
+          "planTestCode": [
+            "UT: [C001 Normal] law show on a Section returns only $LAW-prefixed commands\n```js\nconst CLI = join(process.cwd(), '.claude/skills/rust-interface-law/dist/skill.mjs');\nconst run = (args) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });\nconst page = JSON.parse(run(['show', 'sources/part-iii-6/6-http-rules']).stdout);\nassert.ok(page.frontier.length > 0);\nassert.ok(page.frontier.every((entry) => entry.command.startsWith('node \"$LAW\"')));\nassert.ok(page.guidance.ifBack.startsWith('node \"$LAW\"'));\nassert.equal(JSON.stringify(page).includes('$OKF'), false);\n```",
+            "UT: [C001 Invariant] law search rows and absent ids\n```js\nconst rows = JSON.parse(run(['search', '--query', 'authorization']).stdout).rows;\nassert.ok(rows.length > 0);\nassert.ok(rows.every((row) => row.expand_command.startsWith('node \"$LAW\"')));\nconst missing = run(['show', 'NOPE-999']);\nassert.equal(missing.status, 2);\nassert.match(`${missing.stdout}${missing.stderr}`, /candidate/i);\n```",
+            "UT: [C002 Normal,Boundary,Invariant] expand honors hop and from, and back is reachable\n```js\nconst atOne = JSON.parse(run(['expand', '--id', 'rules/c/rest-01', '--hop', '1', '--from', 'rules/c/rest-01']).stdout);\nassert.equal(atOne.guidance.hop, 1);\nassert.equal(atOne.backTo, 'rules/c/rest-01');\nconst atMax = JSON.parse(run(['expand', '--id', 'rules/c/rest-01', '--hop', '3', '--from', 'rules/c/rest-01']).stdout);\nassert.equal(atMax.guidance.state, 'back');\nassert.ok(atMax.guidance.ifBack.startsWith('node \"$LAW\"'));\nassert.equal(atMax.coverage.missing.length === 0, atMax.guidance.state === 'stop');\n```",
+            "UT: [C002 Edge] show honors an explicit profile\n```js\nconst review = JSON.parse(run(['show', 'rules/c/rest-01', '--profile', 'law-review']).stdout);\nassert.equal(review.coverage.profile, 'law-review');\nassert.deepEqual(review.coverage.requiredFacets, ['requirement', 'verification', 'source']);\n```",
+            "UT: [C003 Normal,Invariant] edge commands and context carry the envelope\n```js\nfor (const command of ['outgoing', 'incoming', 'neighbors']) {\n  const result = JSON.parse(run([command, '--id', 'rules/c/rest-01']).stdout);\n  assert.equal(result.protocol, 'okf-traversal/v1');\n  assert.equal(result.node.id, 'rules/c/rest-01');\n  assert.ok(Array.isArray(result.frontier));\n  assert.ok(['stop', 'expand', 'back'].includes(result.guidance.state));\n}\nconst context = JSON.parse(run(['context', '--rule', 'REST-01']).stdout);\nassert.equal(context.coverage.sufficient, true);\nassert.deepEqual(context.coverage.missing, []);\nassert.equal(context.guidance.state, 'stop');\nassert.ok(context.frontier.length > 0);\n```",
+            "UT: [C003 Boundary] list entries carry an executable command\n```js\nconst listing = JSON.parse(run(['list', '--path', '/']).stdout);\nassert.ok(listing.entries.length > 0);\nassert.ok(listing.entries.every((entry) => typeof entry.command === 'string' && entry.command.startsWith('node \"$LAW\"')));\n```",
+            "UT: [C004 Normal,Edge] the okf build procedure names the preamble concept and coverage ledger\n```js\nconst command = readFileSync('.claude/commands/build-okf-skill.md', 'utf8');\nassert.match(command, /root preamble concept/i);\nassert.match(command, /before the first H2/i);\nassert.match(command, /one concept per level-2 section/i);\nassert.ok(command.includes('source/coverage.json'));\nfor (const key of ['unmappedHeadings', 'unmappedPreamble', 'unmappedLines']) assert.ok(command.includes(key));\n```",
+            "UT: [C005 Normal,Error,Invariant] checkCoverage proves zero unmapped and rejects missing or nonzero ledgers\n```js\nconst skill = await buildMiniSkillV2();\ntry {\n  assert.equal((await checkCoverage({ skillPath: skill.skillDir })).status, 'machine_verified');\n  const ledgerPath = join(skill.skillDir, 'source/coverage.json');\n  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));\n  ledger.counts.unmappedLines = 1;\n  writeFileSync(ledgerPath, JSON.stringify(ledger));\n  assert.ok((await checkCoverage({ skillPath: skill.skillDir })).codes.includes('COVERAGE_GAP'));\n  rmSync(ledgerPath);\n  assert.ok((await checkCoverage({ skillPath: skill.skillDir })).codes.includes('COVERAGE_MISSING'));\n} finally {\n  rmSync(skill.root, { recursive: true, force: true });\n}\n```",
+            "UT: [C006 Normal,Invariant] docs and tests derive the canonical check set\n```js\nconst lawCommand = readFileSync('.claude/commands/build-law-skill.md', 'utf8');\nconst lawChecks = JSON.parse(readFileSync('.claude/scripts/amend-rfc-up/law-verify/checks.json', 'utf8'));\nconst okfChecks = JSON.parse(readFileSync('.claude/scripts/amend-rfc-up/okf-verify/checks.json', 'utf8'));\nassert.equal(lawChecks.check_set_version, 3);\nassert.equal(lawChecks.checks.length, 36);\nassert.equal(okfChecks.checks.length, 36);\nfor (const check of lawChecks.checks) assert.ok(lawCommand.includes('`' + check.name + '`'));\nconst installed = okfChecks.checks.filter((check) => check.mode === 'both' || check.mode === 'installed').length;\nassert.equal(installed, 16);\n```",
+            "UT: [C006 Edge] the law audit accepts the declared primary input but rejects other docs fixtures\n```js\nconst command = readFileSync('.claude/commands/build-law-skill.md', 'utf8');\nassert.equal(auditCommand(command).some((finding) => finding.code === 'EXTERNAL_FIXTURE_REFERENCE'), false);\nconst mutated = command.replace('docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md', 'docs/other/FIXTURE.md');\nassert.equal(auditCommand(mutated).some((finding) => finding.code === 'EXTERNAL_FIXTURE_REFERENCE'), true);\n```"
+          ],
+          "planned_at": "2026-11-14T04:08:45.929Z",
+          "changes": [
+            {
+              "before": "law CLI emitted node \"$OKF\" for non-Rule pages, search rows and edge commands",
+              "after": "every law response emits node \"$LAW\" via law-wiki profile and commandPrefix",
+              "description": "Add law-wiki profile; pass commandPrefix to searchConcepts; list entries carry commands"
+            },
+            {
+              "before": "expand ignored --hop/--from; guidance.hop stayed 0 and back was unreachable",
+              "after": "show/expand read --profile/--hop/--from; state back and backTo are reachable",
+              "description": "Wire hop and stack into showConcept"
+            },
+            {
+              "before": "outgoing/incoming/neighbors returned bare edges; context --rule returned no coverage",
+              "after": "all four carry protocol/node/coverage/frontier/guidance/backTo",
+              "description": "Attach the traversal envelope to edge and context reads"
+            },
+            {
+              "before": "okf build mapped only H2 sections and coverage compared inventory to lock",
+              "after": "preamble becomes a root concept; source/coverage.json proves zero unmapped headings, preamble and lines",
+              "description": "Extend build procedure and checkCoverage"
+            },
+            {
+              "before": "build-law-skill.md listed 26 checks and tests asserted v2 counts",
+              "after": "docs and tests derive the v3 36-check contract; law audit accepts the declared primary input",
+              "description": "Align docs, tests and fixtures with the canonical check set"
+            }
+          ],
+          "done_at": "2026-11-14T04:40:02.927Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-14",
+          "reviewed_at": "2026-11-14T04:46:13.857Z"
         }
       ]
     },

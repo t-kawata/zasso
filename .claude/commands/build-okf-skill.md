@@ -122,6 +122,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 │   ├── manifest.toml
 │   ├── input-ledger.json
 │   ├── concept-inventory.json
+│   ├── coverage.json
 │   ├── okf-profile.toml
 │   ├── okf-log.json
 │   ├── source-view.md
@@ -243,6 +244,8 @@ Write with stable sort. Profile is data: a source heading change → profile cha
 ### Step 4: Concept extraction
 
 - One concept per level-2 section; a document without level-2 is one root concept.
+- Preamble rule: non-empty text between the document H1 and the first H2 becomes a root preamble concept `pages/<source-slug>/preamble.md`. Its `x-source-span` starts at the H1 line and ends at the line before the first H2. No preamble text is left unowned.
+- Every non-blank source line belongs to exactly one concept span: the preamble span or a section span. A line in two spans or no span is `COVERAGE_GAP`.
 - Concept path: `pages/<source-slug>/<section-slug>.md`.
 - `title` = section heading; `description` = first paragraph, at most 200 characters.
 - Body = the original section Markdown, including links and footnotes.
@@ -255,6 +258,7 @@ Write with stable sort. Profile is data: a source heading change → profile cha
 - `source/manifest.toml`: `spec_version`, `source_set_sha256`, one `[[file]]` per source; alias only.
 - `source/input-ledger.json`: `okf-input-ledger/v1`; every input under the declared roots → `included` or `excluded` + reason.
 - `source/concept-inventory.json`: `okf-concept-inventory/v1`; every concept id, path, and source alias.
+- `source/coverage.json`: `okf-source-coverage/v1`; one record per source with `lines`, `concepts`, `unmappedHeadings`, `unmappedPreamble`, `unmappedLines`; `counts` sums them. Each unmapped field must be 0. The verifier reads this ledger, not the inventory alone.
 - `source/okf-log.json`: `okf-log/v1`; explicit dated entries.
 - Redact project, product, repository, organization, user, ticket, and private-host identifiers. Keep normative constants.
 - `<name>-okf.path-alias.json`: `okf-path-alias/v1`; `input_roots` + alias → original; outside the skill tree.
@@ -297,7 +301,7 @@ Red first: failing tests per module.
 ### Step 9: Test matrix
 
 - `node --test` on explicit files; never a directory; never `make test`.
-- Required: `frontmatter`, `markdown`, `paths`, `bundle`, `graph`, `metadata`, `validation`, `context`, `authoring`, `cli`, `verifier-negative`, `installed-parity`, `source-rederivation`, `style`, `performance`.
+- Required: `frontmatter`, `markdown`, `paths`, `bundle`, `graph`, `metadata`, `validation`, `context`, `authoring`, `cli`, `coverage`, `verifier-negative`, `installed-parity`, `source-rederivation`, `style`, `performance`.
 - Include determinism, forbidden-token, leak, coverage, and style checks.
 
 ### Step 10: Verify
@@ -339,7 +343,7 @@ Require exit 0, every installed-required check `machine_verified`, source/instal
 ### Step 12: Acceptance
 
 - Acceptance set = the invocation's source set. No fixed external fixture, document name, or path.
-- Per build: run end to end; record source hashes, lines, concept counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA in `$OKF_OUT/okf-builds.json`.
+- Per build: run end to end; record source hashes, lines, concept counts, coverage counts, mode, `check_set_version`, closure, installed SHA in `$OKF_OUT/okf-builds.json`.
 - Producer proof: a synthetic mini wiki verified in dev and installed modes.
 - Mutation matrix:
 
@@ -348,6 +352,9 @@ Require exit 0, every installed-required check `machine_verified`, source/instal
 | Rename directory or file | concept id changes; source hash unchanged |
 | Reorder sources | concept set and coverage unchanged |
 | Remove a concept source | `CLAIM_UNSOURCED`; no install |
+| Remove the preamble concept | `COVERAGE_GAP` from the coverage check; no install |
+| Remove `source/coverage.json` | `COVERAGE_MISSING`; no install |
+| Set `unmappedLines` to 1 | `COVERAGE_GAP`; no install |
 | Remove a body link target | conformance passes; lint `LINK_BROKEN`; no install |
 | Remove an index row | lint `INDEX_ORPHAN`; no install |
 | Edit a source | `STALE_NODE`; no current presentation |
@@ -362,7 +369,7 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 
 ### Step 13: Report
 
-- Report per skill: name, sources, profile hash, source count, lines, concept count, gaps, overlaps, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, install path, leftovers.
+- Report per skill: name, sources, profile hash, source count, lines, concept count, preamble count, `unmappedHeadings`, `unmappedPreamble`, `unmappedLines`, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, install path, leftovers.
 - Report mutation results + adoption gaps.
 - Completion: every skill `machine_verified` in dev and installed, `rebuild` byte-identical, install verified, acceptance record pass.
 
@@ -375,6 +382,7 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 | Conformance | three official conditions only |
 | Lint | broken link, missing index, orphan, unknown type/key, stale, source mismatch |
 | Profile | required types/concepts/rules, closure |
+| Coverage | `source/coverage.json` present; `unmappedHeadings`, `unmappedPreamble`, `unmappedLines` all 0 |
 | Graph | outgoing, incoming, backlinks, index coverage |
 | Context | required closure; `BUDGET_EXCEEDED` over budget |
 | Navigation | `show` returns body, outgoing, incoming, sources, trust, freshness |
@@ -398,6 +406,8 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 | `INFORMATION_ZERO` | no claim-bearing block | stop before profile |
 | `ARTIFACT_MISSING` | a required artifact is absent | write the artifact; re-verify |
 | `CLAIM_UNSOURCED` | a concept lacks source or hash | repair provenance; no install |
+| `COVERAGE_MISSING` | `source/coverage.json` is absent | write the ledger; re-verify; no install |
+| `COVERAGE_SCHEMA` | ledger schema is not `okf-source-coverage/v1` | rewrite the ledger; re-verify; no install |
 | `COVERAGE_GAP` | concept or line without a decision | re-extract; never hand-edit the lock |
 | `LINK_BROKEN` | a body link target does not exist | fix the link or add the concept; lint-only |
 | `INDEX_ORPHAN` | a concept is absent from its directory index | re-render; no hand edit |

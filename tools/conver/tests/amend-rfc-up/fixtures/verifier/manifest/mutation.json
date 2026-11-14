@@ -1,6 +1,6 @@
 {
   "path": "source/manifest.toml",
   "operation": "replace",
-  "find": "source_set_sha256 = \"0",
-  "replace": "source_set_sha256 = \"1"
+  "find": "\nsha256 = \"f",
+  "replace": "\nsha256 = \"0"
 }

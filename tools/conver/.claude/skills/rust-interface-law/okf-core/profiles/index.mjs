@@ -1,3 +1,4 @@
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 /**
@@ -11,12 +12,14 @@
 import defaultProfile from './default.json' with { type: 'json' };
 import lawImplement from './law-implement.json' with { type: 'json' };
 import lawReview from './law-review.json' with { type: 'json' };
+import lawWiki from './law-wiki.json' with { type: 'json' };
 import okfWiki from './okf-wiki.json' with { type: 'json' };
 
 const PROFILES = new Map([
   ['default', defaultProfile],
   ['law-implement', lawImplement],
   ['law-review', lawReview],
+  ['law-wiki', lawWiki],
   ['okf-wiki', okfWiki],
 ]);
 

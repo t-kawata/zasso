@@ -54,9 +54,9 @@ node "$LAW" applies --root "$REPO_ROOT" --paths "$CHANGED"
 
 ## Traversal Contract
 
-Every read command returns a Traversal Envelope. The envelope tells you what
-you received, what is still missing, and what to run next. Do not decide
-coverage yourself; read `coverage` and `guidance`.
+Every node page and edge read returns a Traversal Envelope. A directory listing
+returns one executable command per entry, and a search row carries its
+expand_command. Do not decide coverage yourself; read `coverage` and `guidance`.
 
 ```json
 {

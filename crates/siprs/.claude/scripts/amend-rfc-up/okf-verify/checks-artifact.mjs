@@ -138,14 +138,31 @@ export async function checkCoverage({ skillPath }) {
   const lock = readJson(join(skillPath, 'atoms.lock.json'));
   const inventoryPath = join(skillPath, 'source/concept-inventory.json');
   if (!exists(inventoryPath)) return failed('COVERAGE_MISSING', inventoryPath);
+  const coveragePath = join(skillPath, 'source/coverage.json');
+  if (!exists(coveragePath)) return failed('COVERAGE_MISSING', coveragePath);
+  const coverage = readJson(coveragePath);
+  if (coverage.schema !== 'okf-source-coverage/v1') {
+    return failed('COVERAGE_SCHEMA', String(coverage.schema));
+  }
+  const unmapped = unmappedCounts(coverage.counts ?? {});
+  if (unmapped.length > 0) return failed('COVERAGE_GAP', `unmapped: ${unmapped.join(',')}`);
   const inventory = readJson(inventoryPath);
   const ids = new Set((inventory.entries ?? []).map((entry) => entry.id));
   const lockIds = new Set((lock.concepts ?? []).map((entry) => entry.id));
   const missing = [...lockIds].filter((id) => !ids.has(id));
   const extra = [...ids].filter((id) => !lockIds.has(id));
   return missing.length === 0 && extra.length === 0
-    ? verified('every concept has an inventory decision')
+    ? verified('every concept has an inventory decision and every source line is mapped')
     : failed('COVERAGE_GAP', `missing=${missing.join(',')} extra=${extra.join(',')}`);
+}
+
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+// The build writes one count per loss class. Naming them here keeps the
+// failure code derived from the data rather than from a hardcoded list.
+// [::TICKET::] PX-429 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-429 --for-spec --no-implementation-order`.
+function unmappedCounts(counts) {
+  return ['unmappedHeadings', 'unmappedPreamble', 'unmappedLines']
+    .filter((name) => counts[name] !== undefined && counts[name] !== 0);
 }
 
 export function checkRegistry({ skillPath }) {

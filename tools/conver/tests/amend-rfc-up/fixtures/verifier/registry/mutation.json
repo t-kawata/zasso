@@ -1,6 +1,6 @@
 {
-  "path": "atoms.lock.json",
+  "path": "source/rule-concepts.json",
   "operation": "replace",
-  "find": "\"id\": \"A2A-01\"",
-  "replace": "\"id\": \"A2A-99\""
+  "find": "\"rule_id\": \"REST-01\"",
+  "replace": "\"rule_id\": \"A2A-01\""
 }

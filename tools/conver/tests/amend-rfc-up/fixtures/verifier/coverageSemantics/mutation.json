@@ -1,6 +1,6 @@
 {
-  "path": "source/normative-inventory.json",
+  "path": "source/rule-concepts.json",
   "operation": "replace",
-  "find": "\"kind\": \"non-rule\"",
-  "replace": "\"kind\": \"rule\""
+  "find": "\"applies_to\": \"a2a\"",
+  "replace": "\"applies_to\": \"\""
 }
