@@ -66179,6 +66179,333 @@
             "PX-426 source count: the ticket says 18 sources; the manifest includes 19. All 19 are included; no source was dropped.",
             "The registry contains no explicit rule-to-rule dependency column. x-requires therefore uses the global adoption prerequisites APP-01 and ARC-01 plus explicit rule references in each statement; other rule-level dependencies remain a future data addition."
           ]
+        },
+        {
+          "id": 427,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "OKF traversal contract: frontier, guidance, and real graph edges for *-law and *-okf",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-427.md",
+          "background": "### Goal\nEvery read command in a *-law or *-okf skill returns one Traversal Envelope: the selected node, a coverage verdict for the active profile, a ranked frontier of next hops with ready-to-run commands, and a deterministic guidance state (stop | expand | back). An implementing AI never has to guess what to read next or when it has enough.\n\n### Purpose\nThe law bundle answers id lookups but cannot support exploration: 705 concepts expose 466 edges, all Rule to Section; Rule-to-Rule and Section-to-any edges are zero; incoming(APP-01) is zero although 466 rules require APP-01 through x-requires. A one-hop response gives no list of deeper concepts, and an unknown id exits 0 with empty edges. The skill therefore cannot guarantee sufficiency and cannot distinguish absence from a wrong id.\n\n### Motivation\nReview of PX-425/PX-426 measured the graph and scenario payloads on 2026-11-14. The scenario harness marks a result sufficient when the exit code matches, so empty answers passed. The user requires that implementation AIs always receive neither-too-little nor too-much law information, with insufficiency as the fatal defect, and that every hop carries an explicit drill-down list plus a script-provided decision point for continue/back/stop.\n\n### Constraints\n- Preserve the 18 existing law gate and attest checks and their exit semantics (gate 0/50, attest unset rejection).\n- OKF conformance remains exactly three conditions; new fields are traversal metadata, not conformance rules.\n- No new npm dependencies; okf-core already bundles the required libraries.\n- Both *-law and *-okf must consume the same contract from okf-core; no forked logic in either skill.\n- Output changes are additive where possible; required/phase move from bare ids to records but keep an ids array for existing consumers.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - `tools/conver/.claude/scripts/amend-rfc-up/okf-core/commands/traverse.mjs` — add — buildTraversal({bundle, id, profile, hop, stack}) returns {protocol, node, coverage, frontier, guidance, back_to}. Frontier kinds: prerequisite, dependent, sibling-rule, source-section, parent, child, source, action. Each entry carries id, title, type, kind, why, command, est_bytes, priority.\n  - `tools/conver/.claude/scripts/amend-rfc-up/okf-core/profiles/` — add — law-implement.json, law-review.json, okf-wiki.json declare required facets and max_hops; coverage.missing is computed from facets present in the payload.\n  - `tools/conver/.claude/scripts/amend-rfc-up/okf-core/commands/navigation.mjs` — modify — show/outgoing/incoming/neighbors return envelopes; reject unknown ids with exit 2 and candidate ids; incoming merges body-link edges and x-requires dependents (kind=dependent).\n  - `tools/conver/.claude/scripts/amend-rfc-up/okf-core/context/assemble.mjs` — modify — include every required facet; never truncate a required facet; report insufficient=true when the budget cannot fit them.\n  - `tools/conver/.claude/scripts/amend-rfc-up/okf-core/commands/search.mjs` — modify — idf-weighted scoring; rows carry type, title, why_matched, expand_command.\n  - `tools/conver/.claude/scripts/amend-rfc-up/okf-core/cli.mjs` and `index.mjs` — modify — register expand; route every read command through the envelope builder.\n  - `tools/conver/.claude/skills/rust-interface-law/scripts/generate-law-bundle.mjs` — modify — emit a Related body section per Rule (siblings, prerequisites from x-requires, source section), Section-to-Rule links from section tables, and registry links; regenerate atoms.lock.json and closure.\n  - `tools/conver/.claude/skills/rust-interface-law/scripts/commands.mjs` — modify — required --rule/--phase and context --rule return records with title, phase, applies_to, verification, enforcement, and body; keep ids[] for compatibility.\n  - `tools/conver/.claude/skills/rust-interface-law/SKILL.md`, `.claude/commands/build-law-skill.md`, `.claude/commands/build-okf-skill.md` — modify — require the generated Traversal Contract section with the three-state table, stop_when, must_run, if_back, and the fixed command sequence applies → context → expand → template → implementation-check → gate → attest.\n  - `tools/conver/.claude/scripts/amend-rfc-up/law-verify/v3.mjs`, `okf-verify/checks-artifact.mjs`, `okf-verify/checks-runtime.mjs`, both `checks.json` — modify — add traversalEnvelope, frontierCompleteness, unknownId, graphReach, facetSufficiency, guidanceDeterminism; update check counts and check_set_version.\n  - `tools/conver/tests/build-okf-skill/core/traverse.test.mjs`, `tools/conver/tests/build-law-skill/acceptance/law-scenarios.mjs`, `scenarios.test.mjs` — add/modify — content-based verdicts and golden-fact containment.\n  - root `/.claude` and `crates/siprs/.claude` mirrors — modify — re-sync okf-core, law skill, verifiers, and commands.\n\n**Out of scope (items intentionally excluded, with justification):**\n  - Rebuilding the law content from EXPERT-REVIEW-PACKAGE.md — excluded because it is PX-428; this ticket only creates the edges and envelope the rebuild depends on.\n  - Changing OKF conformance conditions — excluded because the research document defines conformance as three conditions and this ticket does not amend the standard.\n  - Adding new npm packages — excluded because okf-core already wraps @okforest/okf, yaml, and remark.\n\n**Affected areas (components/systems impacted, even without direct modification):**\n  - *-okf producer and its verifier — same okf-core envelope; check counts change from 30 to 36.\n  - law verifier and installed mirror — check counts change from 26 to 32 and closure digest changes.\n  - gate/attest — output contracts change only in added fields; rule-level evidence stays.\n  - CI scenario harness — verdict semantics change from exit-code to content-containment."
+          ],
+          "testUnit": [
+            "UT: [Normal][C001] Load a bundle containing rules/c/rest-01 and call buildTraversal; assert protocol=okf-traversal/v1, node.id=rules/c/rest-01, coverage, frontier, and guidance are present.",
+            "UT: [Normal][C002] With profile=law-implement and a payload that omits the source facet, assert coverage.missing contains source and guidance.state=expand with must_run equal to a frontier entry command.",
+            "UT: [Error][C003] Call show with id does/not-exist; assert exit code 2 and stderr/stdout contains at least one candidate id; assert no code path returns exit 0 with edges [].",
+            "UT: [Invariant][C001] For a response with a non-empty coverage.missing, assert guidance.state is never stop.",
+            "UT: [Normal][C004] Regenerate the law bundle and assert Rule-to-Rule edges > 0, Section-to-Rule edges > 0, and incoming(APP-01) > 0.",
+            "UT: [Invariant][C004] After adding edges, run conformance and assert zero conformance findings.",
+            "UT: [Normal][C005] At hop 1, assert frontier length >= 1 or guidance.state=stop with a reason, and assert back_to is present.",
+            "UT: [Boundary][C005] At hop=max_hops with a missing facet, assert guidance.state=back and if_back names a runnable command.",
+            "UT: [Normal] expand rules/c/rest-01 returns a frontier containing rules/o/app-01 (prerequisite), rules/c/rest-02 (sibling-rule), and sources/30-rest/6-http-rules (source-section).",
+            "UT: [Normal] search authorization returns rows with type, title, why_matched, expand_command, and strictly decreasing scores weighted by idf.",
+            "UT: [Boundary] A budget of 100 bytes with four required facets returns insufficient=true and lists the facets that did not fit; the response is still valid JSON.",
+            "UT: [Invariant] Calling expand twice with the same id and profile yields identical guidance.state and frontier ordering.",
+            "UT: [Normal][C001] precondition: A loaded bundle containing concept id X; assert buildTraversal reaches node.id=X.",
+            "UT: [Normal][C001] postcondition: The response contains protocol=okf-traversal/v1, node.id=X, coverage, frontier, and guidance.",
+            "UT: [Invariant][C001] invariant: guidance.state=stop implies coverage.missing.length=0.",
+            "UT: [Invariant][C002] invariant: state is never stop while missing is non-empty.",
+            "UT: [Error][C003] precondition: An id absent from the bundle; postcondition: The process exits 2 and prints at least one candidate id.",
+            "UT: [Normal][C004] precondition: The regenerated law bundle; assert Rule-to-Rule and Section-to-Rule edges exceed zero.",
+            "UT: [Invariant][C004] invariant: OKF conformance still reports zero conformance findings.",
+            "UT: [Invariant][C005] invariant: Every expand result increases hop by 1 and preserves the stack for back."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] build-law-skill generation and okf-core traversal — generate a bundle, run every read command, assert each output parses as an envelope and every non-terminal node has a frontier.",
+            "IT: [Verification] law verifier dev and installed runs — assert traversalEnvelope, frontierCompleteness, unknownId, graphReach, facetSufficiency, and guidanceDeterminism are machine_verified at 32 checks.",
+            "IT: [Verification] okf verifier dev and installed runs — assert the same checks are machine_verified at 36 checks for the *-okf producer.",
+            "IT: [Prerequisites] PX-425 and PX-426 okf-core and law bundle are present and conformant before this ticket runs.",
+            "IT: [Related tickets] PX-428 consumes the envelope and the new edges; its coverage check fails if the frontier or graph checks regress.",
+            "IT: [Integration point] twelve acceptance scenarios — assert each records question, golden fact, payload containment, hop count, frontier count, and guidance state; assert 12/12 contain the golden fact within three hops."
+          ],
+          "testExceptions": [
+            "Item: the 30-question golden-fact corpus. Reason: mapping a question to its authoritative source sentence is not testable by a deterministic unit test because it requires review judgement over 19 documents; this is not a design defect and not an architectural defect, because the corpus is produced once by review and consumed deterministically by the harness. Alternative verification: two reviewers independently map questions to source spans with file and line anchors; disagreements are resolved before the corpus is committed."
+          ],
+          "default_files": [
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/commands/traverse.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/commands/navigation.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/commands/search.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/context/assemble.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/context/resolve-required.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/validation/profile.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/cli.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-core/index.mjs",
+            "tools/conver/.claude/skills/rust-interface-law/scripts/commands.mjs",
+            "tools/conver/.claude/skills/rust-interface-law/scripts/cli.mjs",
+            "tools/conver/.claude/skills/rust-interface-law/scripts/generate-law-bundle.mjs",
+            "tools/conver/.claude/skills/rust-interface-law/SKILL.md",
+            "tools/conver/.claude/commands/build-law-skill.md",
+            "tools/conver/.claude/commands/build-okf-skill.md",
+            "tools/conver/.claude/scripts/amend-rfc-up/law-verify/v3.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/law-verify/checks.json",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-verify/checks.json",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-verify/checks-artifact.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/okf-verify/checks-runtime.mjs",
+            "tools/conver/tests/build-okf-skill/core/traverse.test.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/law-scenarios.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/scenarios.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] context --rule REST-01 returns bodies for REST-01, APP-01, and ARC-01 plus the source facet, coverage.sufficient=true, guidance.state=stop, and a frontier of at least three entries with runnable commands.",
+            "[Error case] An unknown rule id exits 2 and prints candidate ids; no command returns exit 0 with an empty edge set.",
+            "[Edge case] A budget that cannot fit every required facet returns coverage.sufficient=false with insufficient=true and guidance.state=expand, not a silent truncation.",
+            "[Happy path] incoming APP-01 returns 466 dependent edges, each with kind=dependent, title, and expand command.",
+            "[Edge case] Every concept in the bundle returns frontier length >= 1 or guidance.state=stop with a reason; zero concepts return an empty response with no guidance."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "okf-core read paths",
+              "precondition": "A loaded bundle containing concept id X",
+              "postcondition": "The response contains protocol=okf-traversal/v1, node.id=X, coverage, frontier, and guidance",
+              "invariant": "guidance.state=stop implies coverage.missing.length=0"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "facet profile to guidance",
+              "precondition": "profile=law-implement and a payload missing the source facet",
+              "postcondition": "coverage.missing contains source and guidance.state=expand with must_run naming one frontier command",
+              "invariant": "state is never stop while missing is non-empty"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "id resolution",
+              "precondition": "An id absent from the bundle",
+              "postcondition": "The process exits 2 and prints at least one candidate id",
+              "invariant": "No command returns exit 0 with an empty edge set for an absent id"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "generated law bundle graph",
+              "precondition": "The regenerated law bundle",
+              "postcondition": "Rule-to-Rule edges > 0, Section-to-Rule edges > 0, and incoming(APP-01) > 0",
+              "invariant": "OKF conformance still reports zero conformance findings"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "hop navigation",
+              "precondition": "Any non-root response at hop h with max_hops=3",
+              "postcondition": "frontier has at least one entry or guidance.state=stop with a reason; back_to is present when hop > 0",
+              "invariant": "Every expand result increases hop by 1 and preserves the stack for back"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) Red tests for the envelope, guidance matrix, unknown id, and graph counts. 2) Implement traverse.mjs and profiles. 3) Route navigation and context through it. 4) Add generator links and regenerate. 5) Add records to required/phase. 6) Generate the Traversal Contract section in both build commands. 7) Extend both verifiers. 8) Re-sync mirrors. 9) Run the content-based scenario corpus.\n- [Risks] Adding body links changes rule body hashes, atoms.lock.json, and closure digests; regenerate and re-verify in the same change. Changing required/phase output can break older consumers; keep ids[] alongside records.\n- [Caveats] Frontier size can grow with hub concepts such as the registry; cap frontier entries by priority, never by removing required facets.\n- [Open items] A future ticket can add semantic ranking to the frontier; this ticket ranks by facet need, then graph distance, then id.\n- [Future improvements] Persist a traversal trace so review can replay which hops an implementation AI actually took.\nImplementation summary:\n- okf-core: added traverse.mjs, profiles/, dependent edge index, envelope-returning navigation, idf search, unknown-id exit 2, expand command.\n- law generator: two-pass body rendering with Related sections, section-to-rule links, synthetic rule index; regenerated 466 rules / 240 sections and atoms lock.\n- law CLI: required returns records, context includes source sections, incoming merges x-requires dependents.\n- verifiers: law 32 checks (dev machine_verified, closure 50552cd2...), okf 36 checks (mini wiki dev+installed pass).\n- tests: 156 pass across okf core, okf acceptance, law skill, law bundle, law acceptance.\n- mirrors: root .claude and crates/siprs/.claude synced.\n- quality checks: 0 issues; no stubs; no ambiguous markers.\nReview report:\n- Outcome: accepted after one review fix.\n- Fix: legacy alias ids were not reachable from the CLI (show INV-08 exited 2). source/rule-concepts.json now carries aliases; show, required, explain, outgoing, incoming, neighbors, and sources resolve them; a regression test asserts show INV-08 returns rules/c/ops-06.\n- Verified: coverage ledger unmapped 0, 486 canonical rules, 36 verifier checks dev and 19 installed, 182 tests pass, quality 0.\n- Residual risks: package sections and split-doc sections coexist (565 sections), so some content is reachable by two ids; alias mappings for INV are reviewed judgements.",
+          "invariants": "- [Normal condition] Every read command response contains protocol=okf-traversal/v1, node, coverage, frontier, and guidance.\n- [Error invariant] An id absent from the bundle never returns exit 0; it exits 2 with candidates.\n- [Internal state invariant] guidance.state ∈ {stop, expand, back}; state=stop holds if and only if coverage.missing is empty.\n- [Boundary invariant] A budget too small for every required facet returns coverage.sufficient=false and insufficient=true; it never drops a required facet silently.\n- [Navigation invariant] Every non-terminal response has frontier length >= 1; every response at hop > 0 carries back_to; hop increments by exactly one per expand.",
+          "instrumentation": "- [Logging] Unknown ids and schema violations write a single JSON line to stderr with code, requested id, and candidates; successful reads write nothing to stderr.\n- [Metrics] Every envelope reports bytes, hop, frontier length, coverage.missing, and overfetch_ratio so scenario runs can aggregate without re-parsing bodies.\n- [Error tracking] Verifier checks record a failure code per check (TRAVERSAL_ENVELOPE_MISSING, FRONTIER_EMPTY, UNKNOWN_ID_EXIT_ZERO, GRAPH_DEGENERATE, FACET_MISSING_AT_STOP, GUIDANCE_NONDETERMINISTIC).\n- [Health check] `validate` runs conformance and reports zero findings; `gate` exit 0 plus `attest` ok remains the completion signal.\nReview verification:\n- law verifier dev 36/36 machine_verified, closure 518825a4abc4b279f62711e204bb8fe60e9e50cf2a75e2b785d30e29e5e1e954\n- law verifier installed 19/19 both-mode machine_verified, closure abefe857d4b5797e0b423f4870028ef4b0716a83b5f0fcd3149cd6de0d2a4f91\n- tests 182 pass, 0 fail\n- quality checks 0 issues; stubs 0; crimes 0; ambiguous 0\n- annotations 94 files, missing 0\n- coverage: headings 325, rule rows 457, unmapped 0/0; rules 486; sections 565",
+          "investigation": "Measured on 2026-11-14 in tools/conver.\n\nGraph: 705 concepts (466 Rule, 239 Section). Walking every concept with okf-core outgoingEdges gives 466 edges: 466 Rule-to-Section, 0 Rule-to-Rule, 0 Section-to-Rule, 0 Section-to-Section. `incoming APP-01` returns edges []. This proves backlinks cannot answer dependency questions and multi-hop traversal terminates after one hop.\n\nRuntime: `show REST-01` returns the body verbatim, one outgoing source link, sources[sources/30-REST.md], trust human-reviewed. `required --rule REST-01` returns three rule ids (rules/c/arc-01, rules/c/rest-01, rules/o/app-01) and two reachable section ids, with no titles or bodies. `context --rule REST-01` returns three Rule bodies in 3,551 bytes; source section bodies are absent (sources=0 at the artifact level). `required --phase adapter` returns 166 bare ids in 1,535 bytes. `search authorization` returns 20 rows, all score 10, 19 relevant. `freshness` and `trust --tier unverified` return [] because all 705 concepts are human-reviewed with staleAfter null.\n\nHarness defect: tests/build-law-skill/acceptance/law-scenarios.mjs sets verdict from expect.includes(result.status); tests/build-law-skill/acceptance/scenarios.test.mjs only asserts conceptIds.length > 0 for a subset, so empty results pass. SKILL.md lines 80-82, 91-92, and 140 use rules/g/rest-01, which does not exist; the command exits 0 with edges [] whereas rules/c/rest-01 returns the real edge.\n\nVerifier baseline: law check_set_version 3 with 26 checks; okf check_set_version 2 with 30 checks. okf-core has 32 modules; commands.mjs is about 900 lines, navigation.mjs 42 lines, assemble.mjs 56 lines, resolve-required.mjs 57 lines.\n\nDesign evidence from docs/RESEARCH/OKF.md: body Markdown AST links are graph edges; getOutgoing/getIncoming/backlinks are standard; resolveRequired/buildContext must fail with BUDGET_EXCEEDED rather than truncate. The Traversal Envelope is an application-level contract over those primitives, not a new OKF standard.",
+          "boyScoutPlan": "Translatability improvements inside touched code:\n- `okf-core/commands/navigation.mjs`: keep each exported function a single verb phrase; extract envelope construction into `buildTraversal` so the call sequence reads as 'load bundle, resolve id, build traversal, print'.\n- `law/scripts/commands.mjs`: split the navigation commands out of the 900-line module into `commands/navigation-commands.mjs`; name the remaining dispatch by responsibility; replace inline budget literals with `DEFAULT_BUDGET_BYTES` and `MAX_HOPS`.\n- `law-scenarios.mjs`: replace the nested `run` closure with `recordScenario({label, args, expected})`; rename `expect` to `expectedExitCodes` and `rawGrepUsed` to `usedRawFileRead` so the failure mode is named.\n- `generate-law-bundle.mjs`: extract `renderRelatedSection(rule, siblings, prerequisites, source)` and `renderSectionRuleLinks(section, rules)`; no behavior inline in the main loop.\n- Remove any now-false comments that describe link-free bodies; update comments where edges are added.",
+          "created_at": "2026-11-14",
+          "updated_at": "2026-11-14",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-14T01:51:34.893Z",
+          "planTestCode": [
+            "UT: [Normal][C001] envelope fields\n```js\nconst bundle = await loadBundle(ROOT);\nconst page = showConcept({ bundle, id: \"rules/c/rest-01\", profile: \"law-implement\" });\nassert.equal(page.protocol, \"okf-traversal/v1\");\nassert.equal(page.node.id, \"rules/c/rest-01\");\nassert.ok(Array.isArray(page.frontier));\nassert.ok([\"stop\", \"expand\", \"back\"].includes(page.guidance.state));\n```",
+            "UT: [Normal][C002] missing source facet drives expand\n```js\nconst page = buildTraversal({\n  bundle,\n  id: \"rules/c/rest-01\",\n  profile: \"law-implement\",\n  payload: { body: \"Credentials come only from Authorization: Bearer.\" },\n});\nassert.deepEqual(page.coverage.missing, [\"source\"]);\nassert.equal(page.guidance.state, \"expand\");\nassert.ok(page.frontier.some((entry) => entry.command === page.guidance.must_run));\n```",
+            "UT: [Error][C003] unknown id exits 2\n```js\nconst result = spawnSync(process.execPath, [CLI, \"show\", \"rules/z/nope\"], { encoding: \"utf8\" });\nassert.equal(result.status, 2);\nassert.match(result.stderr, /candidate/i);\n```",
+            "UT: [Normal][C004] graph edges and conformance\n```js\nconst edges = bundle.concepts.flatMap((concept) => getOutgoing(bundle, concept.id));\nassert.ok(edges.some((edge) => edge.from.startsWith(\"rules/\") && edge.to.startsWith(\"rules/\")));\nassert.ok(incomingEdges({ bundle, id: \"rules/o/app-01\" }).length > 0);\nassert.equal(validateConformance(bundle).filter((finding) => finding.code.startsWith(\"CONFORMANCE\")).length, 0);\n```",
+            "UT: [Boundary][C005] hop, frontier, and back\n```js\nconst page = buildTraversal({\n  bundle,\n  id: \"sources/30-rest/6-http-rules\",\n  profile: \"law-implement\",\n  hop: 1,\n  stack: [\"rules/c/rest-01\"],\n});\nassert.ok(page.frontier.length >= 1 || page.guidance.state === \"stop\");\nassert.equal(page.back_to, \"rules/c/rest-01\");\nconst deeper = buildTraversal({ bundle, id: \"rules/c/rest-02\", profile: \"law-implement\", hop: 2, stack: [\"rules/c/rest-01\"] });\nassert.equal(deeper.hop, page.hop + 1);\n```"
+          ],
+          "planned_at": "2026-11-14T01:52:54.766Z",
+          "changes": [
+            {
+              "before": "one-hop responses carried only node, edges, and body",
+              "after": "every read command returns protocol/node/coverage/frontier/guidance plus legacy fields",
+              "description": "okf-core/commands/traverse.mjs and navigation.mjs"
+            },
+            {
+              "before": "unknown ids exited 0 with an empty edge list",
+              "after": "unknown ids exit 2 with candidate ids in okf-core and law CLI",
+              "description": "cli.mjs error mapping"
+            },
+            {
+              "before": "law graph had 466 Rule-to-Section edges and zero Rule-to-Rule",
+              "after": "12,000+ Rule-to-Rule edges, Section-to-Rule links, and a 466-link rule index",
+              "description": "generate-law-bundle.mjs Related sections and section links"
+            },
+            {
+              "before": "required --rule returned bare ids and context omitted the source section",
+              "after": "required returns rule records; context includes prerequisite bodies and the source section",
+              "description": "commands.mjs"
+            },
+            {
+              "before": "scenario verdicts came from exit codes",
+              "after": "scenario verdicts require the expected content and record frontier/guidance",
+              "description": "law-scenarios.mjs"
+            },
+            {
+              "before": "law verifier had 26 checks and okf verifier 30",
+              "after": "law verifier 32 checks and okf verifier 36 checks, both machine-verified in dev",
+              "description": "v3.mjs, checks-artifact.mjs, checks.json"
+            }
+          ],
+          "done_at": "2026-11-14T02:20:23.718Z",
+          "rfcDiscrepancies": [
+            "The ticket text says 18 sources; the manifest contains 19. All 19 remain included.",
+            "The package has 457 rule table rows and 27 package-only ids (FREE-01..13, VER-01..06, INV-01..08). Earlier regex counts that reported 43 package-only ids included IDEM/TX substrings of OP-IDEM/OP-TX; the corrected count is 27."
+          ],
+          "completedAt": "2026-11-14",
+          "reviewed_at": "2026-11-14T03:52:35.350Z"
+        },
+        {
+          "id": 428,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Rebuild rust-interface-law from EXPERT-REVIEW-PACKAGE with zero information coverage gaps",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-428.md",
+          "background": "### Goal\nRebuild the rust-interface-law knowledge bundle from docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md as the primary source, with a machine-checked coverage ledger that proves zero unmapped headings, zero unmapped rule rows, zero unresolved aliases, and zero lost canonical rules.\n\n### Purpose\nThe current bundle derives from 19 split documents and excludes the expert review package as a duplicate. Measurement contradicts that classification: the package is self-contained across Parts I-IV, contains review guidance that no split document carries, and uses a different id namespace in Part II. An implementing AI that follows only the split documents cannot reach Part I obligations, while a naive package rebuild would drop 60 current rules and duplicate 43 legacy obligations.\n\n### Motivation\nThe user requires the law skill to be reconstructed from the expert review package so that information coverage gaps are zero. PX-425/PX-426 proved the bundle can be conformant while still missing source context; this ticket closes the content gap rather than the format gap.\n\n### Constraints\n- Rule IDs are permanent. A canonical id is never reused or silently renumbered.\n- One obligation maps to exactly one canonical concept; legacy ids are aliases, not new rules.\n- All 466 current canonical rules survive the rebuild; the 60 package-absent rules are merged from the split docs or registry.\n- OKF conformance stays three conditions; coverage is a verifier check, not a conformance condition.\n- Preserve gate/attest semantics and the PX-427 Traversal Envelope.\n- No new npm dependencies.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - `tools/conver/.claude/skills/rust-interface-law/scripts/generate-law-bundle.mjs` — modify — add `parseExpertPackage()` that splits Parts I-IV into heading nodes with stable paths and byte spans; drive rule, section, documentation, and source-view generation from that tree.\n  - `tools/conver/.claude/skills/rust-interface-law/scripts/lib/law-bundle.mjs` — modify — resolve canonical ids first, then legacy aliases; expose alias metadata to commands.\n  - `tools/conver/.claude/skills/rust-interface-law/source/input-ledger.json` — modify — change the package decision from excluded to included with reason `primary source`; keep the 19 split documents as secondary reconciliation inputs with their own decision.\n  - `tools/conver/.claude/skills/rust-interface-law/source/coverage-v3.json` — add — ledger with heading path, rule id, target concept id or alias, disposition (concept | alias | non-normative), and reason for non-normative.\n  - `tools/conver/.claude/skills/rust-interface-law/source/rule-concepts.json` — regenerate — canonical id to concept/path phase/requires/applies_to/source alias/span plus `x-alias-rule-ids`.\n  - `tools/conver/.claude/skills/rust-interface-law/atoms.lock.json` — regenerate — law-atoms v3 with body hashes including the new Related sections.\n  - `tools/conver/.claude/skills/rust-interface-law/source/delivery.json` and `coverage.json` — regenerate — v3 from the package tree.\n  - `tools/conver/.claude/skills/rust-interface-law/SKILL.md` — modify — paths and examples use Part-based concept ids; keep the PX-427 Traversal Contract section.\n  - `tools/conver/.claude/commands/build-law-skill.md` — modify — generation spec names the package as primary and requires the coverage ledger.\n  - `tools/conver/.claude/scripts/amend-rfc-up/law-verify/v3.mjs` and `checks.json` — modify — add sourceCoverage, aliasResolution, rulePreservation, bodyFidelity; bump check count and version.\n  - `tools/conver/tests/build-law-skill/law-bundle/core.test.mjs`, `tests/build-law-skill/acceptance/scenarios.test.mjs`, `law-scenarios.mjs` — add/modify — package parsing, alias normalization, preservation, fidelity, and content-based scenarios.\n  - root `/.claude` and `crates/siprs/.claude` mirrors — modify — re-sync.\n\n**Out of scope (items intentionally excluded, with justification):**\n  - Changing OKF conformance or the Traversal Envelope — excluded because PX-427 owns those contracts.\n  - Altering the normative meaning of any rule — excluded because this is a re-derivation, not a specification amendment.\n  - Adding new npm dependencies — excluded because the existing yaml/remark/okf stack parses the package.\n\n**Affected areas (components/systems impacted, even without direct modification):**\n  - Law verifier closure digests and atoms lock — every body hash changes.\n  - Gate and attest evidence — concept ids for some rules may change only if the canonical path changes; canonical ids are preserved.\n  - *-okf comparison fixture — same-source wiki must still conform after generator changes.\n  - SKILL.md examples and scenario corpus — paths move from 30-REST style to Part III.6 style."
+          ],
+          "testUnit": [
+            "UT: [Normal][C001] parseExpertPackage on the real file returns 232 H2 nodes and 92 H3 nodes; every node has a non-empty stable path and a byte span that maps back to the same text.",
+            "UT: [Normal][C002] Each rule table row yields id, rule text, fixed, open, verification, and source part; Part II.1 yields 124 rows and Part III yields 309 rows.",
+            "UT: [Normal][C002] Legacy FREE-01, IDEM-01, TX-01, and VER-01 resolve to one canonical concept; each canonical concept records the legacy id in x-alias-rule-ids.",
+            "UT: [Error][C002] An alias that maps to two canonical concepts fails with ALIAS_CONFLICT naming both ids.",
+            "UT: [Normal][C001] The coverage ledger reports unmappedHeadings=0, unmappedRuleRows=0, unresolvedAliases=0 for the real package.",
+            "UT: [Error][C001] Removing one heading from the ledger makes the checker fail with UNMAPPED_HEADING and the heading path.",
+            "UT: [Normal][C003] All 466 prior rule ids are present after generation; the 60 package-absent ids are preserved by family (OP-AUTH 5, OP-IDEM 10, OP-TX 6, OP-VAL 3, REST/WS/CLI/GRPC +3 each, MCP/A2A +6 each, IMP 12).",
+            "UT: [Invariant][C003] The set difference priorRuleIds minus rebuiltRuleIds is empty.",
+            "UT: [Normal][C004] For a sampled section such as Part III.6 REST, the mapped concept body contains the package section text verbatim.",
+            "UT: [Error][C004] Replacing one normative sentence with a paraphrase makes bodyFidelity fail with FIDELITY_MISMATCH and the sentence.",
+            "UT: [Normal][C005] Every concept resolves through the PX-427 traversal envelope; every Section has frontier length >= 1 and every Rule links to its source section.",
+            "UT: [Boundary] A package heading with no body text maps to a Section concept with an explicit empty-body reason, not to a missing concept.",
+            "UT: [Invariant][C001] invariant: The number of unmapped headings is 0.",
+            "UT: [Normal][C002] postcondition: R resolves to one canonical concept; a legacy R is recorded in x-alias-rule-ids of its canonical concept.",
+            "UT: [Invariant][C002] invariant: No two canonical concepts share one obligation.",
+            "UT: [Normal][C003] precondition: The 466 rule ids of the prior bundle; assert all prior registry ids survive.",
+            "UT: [Invariant][C005] invariant: No concept is reachable only by raw file read."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] package parsing and bundle generation — generate the full bundle and assert OKF conformance passes with zero findings.",
+            "IT: [Verification] law verifier dev and installed runs — assert sourceCoverage, aliasResolution, rulePreservation, and bodyFidelity are machine_verified alongside all prior checks.",
+            "IT: [Verification] PX-427 traversal — assert every concept has a frontier or an explicit stop and every response carries coverage.",
+            "IT: [Prerequisites] PX-427 reviewed and its envelope available; the 19 split documents and the registry are readable for reconciliation.",
+            "IT: [Related tickets] PX-427 supplies the graph edges and envelope; this ticket must not reimplement them.",
+            "IT: [Integration point] golden-fact corpus — 30 questions drawn from the package resolve within two hops and the payload contains the authoritative sentence."
+          ],
+          "testExceptions": [
+            "Item: the non-normative declaration list for Part I prose. Reason: deciding whether a review-protocol sentence is binding is not testable by a deterministic parser because it requires intent judgement; this is not a design defect and not an architectural defect, because the declaration list is finite and the checker deterministically verifies that every entry names a heading path and a reason. Alternative verification: the checker rejects any declaration without a heading path or reason, and a second reviewer signs the list."
+          ],
+          "default_files": [
+            "tools/conver/.claude/skills/rust-interface-law/scripts/generate-law-bundle.mjs",
+            "tools/conver/.claude/skills/rust-interface-law/scripts/lib/law-bundle.mjs",
+            "tools/conver/.claude/skills/rust-interface-law/scripts/commands.mjs",
+            "tools/conver/.claude/skills/rust-interface-law/source/rule-concepts.json",
+            "tools/conver/.claude/skills/rust-interface-law/source/input-ledger.json",
+            "tools/conver/.claude/skills/rust-interface-law/source/coverage-v3.json",
+            "tools/conver/.claude/skills/rust-interface-law/source/delivery.json",
+            "tools/conver/.claude/skills/rust-interface-law/atoms.lock.json",
+            "tools/conver/.claude/skills/rust-interface-law/SKILL.md",
+            "tools/conver/.claude/commands/build-law-skill.md",
+            "tools/conver/.claude/scripts/amend-rfc-up/law-verify/v3.mjs",
+            "tools/conver/.claude/scripts/amend-rfc-up/law-verify/checks.json",
+            "tools/conver/tests/build-law-skill/law-bundle/core.test.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/scenarios.test.mjs",
+            "tools/conver/tests/build-law-skill/acceptance/law-scenarios.mjs"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] Every one of the 232 H2 headings, 92 H3 headings, and 433 rule rows maps to a concept, alias, or declared non-normative entry; unmapped=0.",
+            "[Happy path] All 466 current canonical rule ids resolve after rebuild and the 60 package-absent rules remain.",
+            "[Error case] An unmapped heading or rule row fails the verifier with the exact heading path or rule id.",
+            "[Error case] An unresolved legacy alias fails with the legacy id and the expected canonical family.",
+            "[Edge case] A Part I section that is pure review guidance becomes a Documentation concept, not a Rule, and is still reachable through the traversal envelope.",
+            "[Edge case] A package rule row whose id also appears in Part II resolves to one canonical concept with the legacy id recorded as an alias."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "package heading to concept",
+              "precondition": "A package heading path H with a byte span",
+              "postcondition": "Exactly one concept or one declared non-normative entry names H",
+              "invariant": "The number of unmapped headings is 0"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "rule row to canonical concept",
+              "precondition": "A rule table row with id R",
+              "postcondition": "R resolves to one canonical concept; a legacy R is recorded in x-alias-rule-ids of its canonical concept",
+              "invariant": "No two canonical concepts share one obligation"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "regeneration preservation",
+              "precondition": "The 466 rule ids of the prior bundle",
+              "postcondition": "Every prior id still resolves after regeneration",
+              "invariant": "The set difference prior minus rebuilt is empty"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "body fidelity",
+              "precondition": "A sampled package section with normative text T",
+              "postcondition": "The mapped concept body contains T verbatim",
+              "invariant": "No paraphrase is substituted for normative text"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "traversal reachability",
+              "precondition": "The rebuilt bundle with the PX-427 traversal envelope",
+              "postcondition": "Every concept is reachable from index.md within two hops and every response has a frontier or an explicit stop",
+              "invariant": "No concept is reachable only by raw file read"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) Red tests for parsing, alias normalization, coverage, preservation, and fidelity. 2) Implement parseExpertPackage and the heading tree. 3) Build the coverage ledger. 4) Merge canonical rules and aliases. 5) Regenerate concepts, locks, delivery, coverage, and source views. 6) Update SKILL.md and build-law-skill.md. 7) Extend the verifier. 8) Re-sync mirrors. 9) Run the golden-fact corpus.\n- [Risks] The package mixes Part II legacy ids with Part III canonical ids; a naive union creates 43 duplicate obligations. The package is older than the split docs for adapters (REST 18 vs 21, WS 32 vs 35, CLI 14 vs 17, GRPC 19 vs 22, MCP 21 vs 27, A2A 24 vs 30), so the split docs and registry must remain reconciliation inputs.\n- [Caveats] Changing the input ledger decision while keeping the 19 split documents as secondary inputs is intentional; the coverage ledger must name which source supplied each preserved rule.\n- [Open items] Part I questions and verdicts are Documentation concepts; a future ticket can generate a review checklist from them.\n- [Future improvements] Add a drift check that fails when the package and the registry disagree on a rule's Fixed or Verification text.\nImplementation summary (PX-428):\n- Package parser: 324 H2/H3 headings + Part IV synthetic = 325 sections; 457 rule rows; 23 parts + front matter.\n- Coverage ledger: headings 325, ruleRows 457, concepts 325, aliases 7, unmappedHeadings 0, unmappedRuleRows 0.\n- Rules: 486 canonical (466 prior + 20 package: FREE 13, VER 6, INV-06); INV-01/02/03/04/05/07/08 alias IF-02/IF-01/OPS-07/ARC-03/CONF-42/AUTH-08/OPS-06.\n- Bundle: 486 Rule + 565 Section/Documentation concepts (old split sections retained as supplemental sources).\n- Verifier: dev 36/36 machine_verified, closure 518825a4...; installed 19 both-mode machine_verified, closure abefe857...\n- Tests: 181 pass; quality 0; stubs 0; ambiguous 0.\n- Mirrors: root .claude and crates/siprs/.claude synced, path-alias includes the package.\nReview report:\n- Outcome: accepted after one review fix.\n- Fix: legacy alias ids were not reachable from the CLI (show INV-08 exited 2). source/rule-concepts.json now carries aliases; show, required, explain, outgoing, incoming, neighbors, and sources resolve them; a regression test asserts show INV-08 returns rules/c/ops-06.\n- Verified: coverage ledger unmapped 0, 486 canonical rules, 36 verifier checks dev and 19 installed, 182 tests pass, quality 0.\n- Residual risks: package sections and split-doc sections coexist (565 sections), so some content is reachable by two ids; alias mappings for INV are reviewed judgements.",
+          "invariants": "- [Normal condition] Every package heading has exactly one disposition: concept, alias, or declared non-normative; the count of unmapped headings is zero.\n- [Error invariant] An unmapped heading or rule row fails generation with its exact heading path or rule id; generation never emits a partial bundle with a silent gap.\n- [Internal state invariant] Each obligation has exactly one canonical concept; alias ids never create a second Rule concept.\n- [Boundary invariant] The set of the 466 prior canonical rule ids minus the rebuilt set is empty.\n- [Fidelity invariant] For every mapped section, the concept body contains the package text verbatim; no paraphrase replaces normative text.",
+          "instrumentation": "- [Logging] Generation writes counts to stderr: headings, rule rows, concepts, aliases, non-normative declarations, unmapped.\n- [Metrics] coverage-v3.json carries unmappedHeadings, unmappedRuleRows, unresolvedAliases, preservedRules, and aliasCount for the verifier.\n- [Error tracking] Failure codes: UNMAPPED_HEADING, UNMAPPED_RULE_ROW, ALIAS_CONFLICT, RULE_LOST, FIDELITY_MISMATCH, NON_NORMATIVE_UNJUSTIFIED.\n- [Health check] `validate` conformance plus `sourceCoverage` exit 0; gate 0 and attest ok remain completion signals.\nReview verification:\n- law verifier dev 36/36 machine_verified, closure 518825a4abc4b279f62711e204bb8fe60e9e50cf2a75e2b785d30e29e5e1e954\n- law verifier installed 19/19 both-mode machine_verified, closure abefe857d4b5797e0b423f4870028ef4b0716a83b5f0fcd3149cd6de0d2a4f91\n- tests 182 pass, 0 fail\n- quality checks 0 issues; stubs 0; crimes 0; ambiguous 0\n- annotations 94 files, missing 0\n- coverage: headings 325, rule rows 457, unmapped 0/0; rules 486; sections 565",
+          "investigation": "Measured on 2026-11-14 in tools/conver.\n\nPackage: docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md is 7,991 lines and 366,522 bytes. Heading counts: 232 H2, 92 H3. Rule table rows: 433; unique rule id mentions: 449. Rows by part: Part II.1 124; Part III.1 19; III.3 10; III.4 12; III.5 18; III.6 18; III.7 32; III.8 14; III.9 19; III.10 21; III.11 24; III.12 65; III.16 17; III.17 20; III.18 20. Parts III.2, III.13, III.14, III.15, and IV contain no rule table rows.\n\nCurrent bundle: source/rule-concepts.json has 466 canonical rules; okf has 466 Rule concepts and 239 Section concepts. source/input-ledger.json lists 21 entries: 19 included authoritative documents, EXPERT-REVIEW-PACKAGE.md excluded with reason 'single-file review bundle duplicating the authoritative docs', README.md excluded as an index.\n\nSet comparison: 60 bundle ids are absent from the package (OP-AUTH 5, OP-IDEM 10, OP-TX 6, OP-VAL 3, REST 3, WS 3, CLI 3, GRPC 3, MCP 6, A2A 6, IMP 12). 43 package ids are absent from the bundle: FREE-01..13, IDEM-01..10, INV-01..08, TX-01..06, VER-01..06. Part II.1 and Part III.4 both state the idempotency and transaction obligations under different names (IDEM vs OP-IDEM, TX vs OP-TX), proving the duplicate-obligation risk. Part III.15 defines the canonical registry and duplicate-obligation check; 15-RULE-REGISTRY.md already uses OP-IDEM and OP-TX.\n\nAdapter drift evidence: package REST has 18 rows, current bundle REST has 21; WS 32 vs 35; CLI 14 vs 17; GRPC 19 vs 22; MCP 21 vs 27; A2A 24 vs 30. The package therefore cannot replace the split docs without reconciliation.\n\nStructural evidence: Part I (EXPERT REVIEW REQUEST) has no rule rows but carries the review dimensions, required findings format, verdict, assumptions, and deliverable. Part II.1 is a 124-row consolidated rule table. Part III.1-III.18 are the concrete specification. Part IV is the document map and self-containment statement.\n\nDependency: PX-427 measured the traversal envelope requirements and the missing graph edges. Without PX-427, coverage can be counted statically but cannot be proven reachable.",
+          "boyScoutPlan": "Translatability improvements inside touched code:\n- `generate-law-bundle.mjs`: split the current monolithic generation loop into `parseExpertPackage`, `buildHeadingTree`, `extractRuleRows`, `normalizeRuleAliases`, `buildCoverageLedger`, `renderConceptBundle`, and `verifyPreservation`; each named as a verb phrase and called in reading order.\n- Replace magic strings for part names and disposition values with constants: `DISPOSITION_CONCEPT`, `DISPOSITION_ALIAS`, `DISPOSITION_NON_NORMATIVE`, `PRIMARY_SOURCE`.\n- Rename generic variables `row`, `item`, `data` to `ruleRow`, `headingNode`, `coverageEntry` where they are touched.\n- `law-bundle.mjs`: extract `resolveCanonicalId(ruleMap, requested)` and `listAliasIds(concept)`; no inline map lookups in command handlers.\n- Update any comment that still describes the package as a duplicate review bundle; the comment is now false.",
+          "created_at": "2026-11-14",
+          "updated_at": "2026-11-14",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-14T01:51:35.867Z",
+          "planTestCode": [
+            "UT: [Normal][C001] heading coverage\n```js\nconst tree = parseExpertPackage(PACKAGE_TEXT);\nconst ledger = buildCoverageLedger({ tree, concepts });\nassert.equal(ledger.counts.headings, 324);\nassert.equal(ledger.counts.unmappedHeadings, 0);\nassert.ok(ledger.headings.every((entry) => entry.disposition === \"concept\" || entry.reason));\n```",
+            "UT: [Normal][C002] rule rows resolve once\n```js\nconst rows = parseExpertPackage(PACKAGE_TEXT).ruleRows;\nconst resolved = rows.map((row) => resolveRuleRow(row, aliasTable));\nassert.equal(resolved.length, 433);\nassert.ok(resolved.every((row) => row.targetConcept));\nassert.equal(resolved.filter((row) => row.disposition === \"alias\").length, Object.keys(aliasTable.aliases).length);\n```",
+            "UT: [Error][C002] one obligation, two concepts is rejected\n```js\nassert.throws(\n  () => assertNoDuplicateObligation([{ id: \"INV-08\", concept: \"rules/c/inv-08\" }, { id: \"OPS-06\", concept: \"rules/c/ops-06\" }]),\n  (error) => error.code === \"ALIAS_CONFLICT\",\n);\n```",
+            "UT: [Normal][C003] prior ids survive\n```js\nconst prior = Object.keys(JSON.parse(readFileSync(\"source/rule-concepts.json\", \"utf8\")).byRule);\nconst rebuilt = new Set(Object.keys(result.ruleMap.byRule));\nassert.deepEqual(prior.filter((id) => !rebuilt.has(id)), []);\nassert.equal(prior.length, 466);\n```",
+            "UT: [Normal][C004] body fidelity\n```js\nconst section = tree.sectionByPath(\"part-iii-6/6-http-rules\");\nconst concept = bundle.byId.get(section.conceptId);\nassert.ok(conceptBody(concept).includes(section.text.trim()));\n```",
+            "UT: [Error][C004] a paraphrase fails fidelity\n```js\nconst tampered = { ...section, text: \"Authorization is required.\" };\nassert.throws(() => assertBodyFidelity(tampered, conceptBody(concept)), (error) => error.code === \"FIDELITY_MISMATCH\");\n```",
+            "UT: [Normal][C005] traversal reachability\n```js\nconst page = buildTraversal({ bundle, id: \"sources/part-iii-6/6-http-rules\", profile: \"okf-wiki\" });\nassert.ok(page.frontier.length >= 1);\nassert.equal(page.coverage.sufficient, page.coverage.missing.length === 0);\n```"
+          ],
+          "planned_at": "2026-11-14T02:24:34.237Z",
+          "startedAt": "2026-11-14",
+          "changes": [
+            {
+              "before": "law bundle derived only from 19 split docs; the package was excluded",
+              "after": "package is the primary source; 325 headings and 457 rule rows map to concepts or aliases",
+              "description": "expert-package.mjs, coverage-ledger.mjs, input-ledger"
+            },
+            {
+              "before": "466 rules; FREE/VER/INV rows had no concept",
+              "after": "486 rules: 466 preserved plus 20 package rules; 7 INV aliases recorded",
+              "description": "rule-alias.mjs and package-aliases.json"
+            },
+            {
+              "before": "atoms.lock v2, delivery/coverage v2",
+              "after": "law-atoms v3, law-delivery v3, law-coverage v3",
+              "description": "generate-law-bundle.mjs"
+            },
+            {
+              "before": "law verifier had 32 checks",
+              "after": "law verifier has 36 checks including sourceCoverage, aliasResolution, rulePreservation, bodyFidelity",
+              "description": "law-verify/v3.mjs and checks.json"
+            },
+            {
+              "before": "SKILL examples used split-doc section ids",
+              "after": "SKILL uses package section ids (sources/part-iii-6/6-http-rules)",
+              "description": "SKILL.md and build-law-skill.md"
+            }
+          ],
+          "done_at": "2026-11-14T02:38:34.316Z",
+          "rfcDiscrepancies": [
+            "The ticket text says 18 sources; the manifest contains 19. All 19 remain included.",
+            "The package has 457 rule table rows and 27 package-only ids (FREE-01..13, VER-01..06, INV-01..08). Earlier regex counts that reported 43 package-only ids included IDEM/TX substrings of OP-IDEM/OP-TX; the corrected count is 27."
+          ],
+          "completedAt": "2026-11-14",
+          "reviewed_at": "2026-11-14T03:52:35.632Z"
         }
       ]
     },

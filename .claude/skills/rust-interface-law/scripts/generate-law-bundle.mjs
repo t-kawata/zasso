@@ -15,6 +15,9 @@ import { writeDirectoryIndexes } from '../okf-core/authoring/index.mjs';
 import { writeLog } from '../okf-core/authoring/log.mjs';
 import { loadBundle } from '../okf-core/index.mjs';
 import { redactText } from './lib/redact.mjs';
+import { parseExpertPackage } from './lib/expert-package.mjs';
+import { buildCoverageLedger } from './lib/coverage-ledger.mjs';
+import { resolveRuleRow } from './lib/rule-alias.mjs';
 
 const RULE_PATTERN = /\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+\b/g;
 const PHASE_ORDER = ['scope', 'contract', 'core', 'operation', 'adapter', 'docs', 'conformance', 'review'];
@@ -24,6 +27,7 @@ export function generateLawBundle({
   sourcePaths = null,
   outDir,
   sourceDir = join(dirname(outDir), 'source'),
+  packagePath = null,
   date = '1970-01-01',
   skillName = 'rust-interface-law',
 } = {}) {
@@ -35,6 +39,42 @@ export function generateLawBundle({
 
   const sections = buildSections({ documents, date });
   const rules = buildRules({ registry, documents, sections, date });
+  let coverageLedger = null;
+  if (packagePath && existsSync(packagePath)) {
+    const packageTree = parseExpertPackage(redactText(
+      readFileSync(packagePath, 'utf8').replace(/\r\n?/g, '\n'),
+      redaction,
+    ));
+    const aliases = loadPackageAliases(sourceDir);
+    const packageAlias = `sources/${basename(packagePath)}`;
+    const packageSections = buildPackageSectionConcepts({ tree: packageTree, date, packageAlias });
+    applyPackageRuleCoverage({
+      rules,
+      tree: packageTree,
+      aliases,
+      date,
+      packageAlias,
+      packageSections,
+    });
+    sections.push(...packageSections);
+    coverageLedger = buildCoverageLedger({
+      headings: packageTree.headings,
+      concepts: packageSections.map((section) => ({ id: section.id, sourcePath: section.coveragePath })),
+      nonNormative: loadNonNormative(sourceDir),
+      ruleRows: packageTree.ruleRows,
+      ruleConcepts: new Map(rules.filter((rule) => rule.rule_id).map((rule) => [rule.rule_id, rule.id])),
+      aliases,
+    });
+    if (coverageLedger.counts.unmappedHeadings > 0 || coverageLedger.counts.unmappedRuleRows > 0) {
+      throw Object.assign(
+        new Error(`COVERAGE_GAP: headings=${coverageLedger.counts.unmappedHeadings} rules=${coverageLedger.counts.unmappedRuleRows}`),
+        { code: 'COVERAGE_GAP', ledger: coverageLedger },
+      );
+    }
+    writeFile(join(sourceDir, 'coverage-v3.json'), `${JSON.stringify(coverageLedger, null, 2)}\n`);
+  }
+  appendSectionRuleLinks({ sections, rules });
+  sections.push(makeRuleIndexSection({ rules, date }));
 
   for (const section of sections) writeConcept({ outDir, concept: section });
   for (const rule of rules) writeConcept({ outDir, concept: rule });
@@ -43,8 +83,8 @@ export function generateLawBundle({
   const lockPath = join(dirname(outDir), 'atoms.lock.json');
   writeFile(ruleMapPath, `${JSON.stringify(renderRuleMap(rules), null, 2)}\n`);
   writeFile(lockPath, `${JSON.stringify(renderLock({ rules, sections, documents }), null, 2)}\n`);
-  writeFile(join(sourceDir, 'delivery.json'), `${JSON.stringify({ schema: 'law-delivery/v2', rules: rules.map((rule) => ({ rule_id: rule.rule_id, concept_id: rule.id, decision: 'must' })) }, null, 2)}\n`);
-  writeFile(join(sourceDir, 'coverage.json'), `${JSON.stringify({ schema: 'law-coverage/v2', rules: rules.length, sections: sections.length, sources: documents.length }, null, 2)}\n`);
+  writeFile(join(sourceDir, 'delivery.json'), `${JSON.stringify({ schema: 'law-delivery/v3', rules: rules.map((rule) => ({ rule_id: rule.rule_id, concept_id: rule.id, decision: 'must' })) }, null, 2)}\n`);
+  writeFile(join(sourceDir, 'coverage.json'), `${JSON.stringify({ schema: 'law-coverage/v3', rules: rules.length, sections: sections.length, sources: documents.length }, null, 2)}\n`);
   writeFile(join(sourceDir, 'coverage.md'), `# Coverage\n\n- Rules: ${rules.length}\n- Sections: ${sections.length}\n- Sources: ${documents.length}\n`);
   writeFile(join(sourceDir, 'okf-log.json'), `${JSON.stringify({ schema: 'okf-log/v1', entries: [{ date, text: `Generated ${rules.length} rule concepts and ${sections.length} section concepts.` }] }, null, 2)}\n`);
   writeFile(join(sourceDir, 'source-view.md'), renderSourceView(documents));
@@ -114,7 +154,7 @@ export function parseRuleRegistry(text) {
   return rows;
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-428|PX-427) --for-spec --no-implementation-order`.
 function buildSections({ documents, date }) {
   const sections = [];
   for (const document of documents) {
@@ -166,12 +206,12 @@ function makeSection({ document, documentSlug, title, body, start, end, date }) 
   };
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-427|PX-428) --for-spec --no-implementation-order`.
 function buildRules({ registry, documents, sections, date }) {
   const registryIds = new Set(registry.map((rule) => rule.id));
   const rules = registry.map((row) => {
     const location = locateRule(row.id, documents, sections);
-    const section = location?.section ?? sections[0];
+    const section = location?.section ?? null;
     const conceptId = `rules/${row.ruleClass.toLowerCase()}/${row.id.toLowerCase()}`;
     const explicit = collectRequires(row.statement, '', registryIds, row.id);
     const globalPrerequisites = row.id === 'APP-01'
@@ -210,6 +250,9 @@ function buildRules({ registry, documents, sections, date }) {
       },
       body,
       requires_rules: requiredRules,
+      section_id: section?.id ?? null,
+      _row: row,
+      _section: section,
     };
   });
 
@@ -220,10 +263,28 @@ function buildRules({ registry, documents, sections, date }) {
       .filter(Boolean)
       .sort();
   }
+
+  const bySection = new Map();
+  for (const rule of rules) {
+    if (!bySection.has(rule.section_id)) bySection.set(rule.section_id, []);
+    bySection.get(rule.section_id).push(rule);
+  }
+  for (const rule of rules) {
+    const siblings = (bySection.get(rule.section_id) ?? []).filter((entry) => entry.id !== rule.id);
+    const prerequisites = rule.requires_rules.map((id) => byRuleId.get(id)).filter(Boolean);
+    rule.body = renderRuleBody({
+      row: rule._row,
+      section: rule._section,
+      ruleId: rule.rule_id,
+      related: [...prerequisites, ...siblings],
+    });
+    delete rule._row;
+    delete rule._section;
+  }
   return rules;
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-427|PX-428) --for-spec --no-implementation-order`.
 function locateRule(ruleId, documents, sections) {
   const ordered = [...documents].sort((left, right) => {
     const leftRegistry = left.path.includes('15-RULE-REGISTRY') ? 1 : 0;
@@ -235,6 +296,7 @@ function locateRule(ruleId, documents, sections) {
     for (let index = 0; index < lines.length; index += 1) {
       if (!new RegExp(`\\b${escapeRegExp(ruleId)}\\b`).test(lines[index])) continue;
       const line = index + 1;
+      if (document.path.includes('15-RULE-REGISTRY')) return { document, line, section: null };
       const section = sections.find((entry) => entry.sourceAlias === document.alias && entry.start <= line && line <= entry.end);
       if (section) return { document, line, section };
     }
@@ -242,7 +304,7 @@ function locateRule(ruleId, documents, sections) {
   return null;
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-428|PX-427) --for-spec --no-implementation-order`.
 function collectRequires(statement, sectionBody, registryIds, selfId) {
   const text = `${statement}\n${sectionBody}`;
   const found = new Set();
@@ -252,10 +314,12 @@ function collectRequires(statement, sectionBody, registryIds, selfId) {
   return [...found].sort();
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
-function renderRuleBody({ row, section, ruleId }) {
-  const target = section ? relative(`rules/${row.ruleClass.toLowerCase()}`, section.path) : '../../15-rule-registry/registry.md';
-  return [
+// [::TICKET::] PX-426, PX-425, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-427|PX-428) --for-spec --no-implementation-order`.
+function renderRuleBody({ row, section, ruleId, related = [] }) {
+  const ruleDirectory = `rules/${row.ruleClass.toLowerCase()}`;
+  const rulePath = `${ruleDirectory}/${ruleId.toLowerCase()}.md`;
+  const target = section ? relative(ruleDirectory, section.path) : relative(ruleDirectory, 'sources/15-rule-registry/1-registry.md');
+  const lines = [
     `# ${ruleId}`,
     '',
     row.statement,
@@ -271,9 +335,323 @@ function renderRuleBody({ row, section, ruleId }) {
     '',
     `[${section?.title ?? 'Rule Registry'}](${target})`,
     '',
+  ];
+  lines.push(...renderRelatedSection({ rulePath, related }));
+  lines.push(
     `[^${ruleId.toLowerCase()}]: ${section?.sourceAlias ?? 'sources/15-RULE-REGISTRY.md'}`,
     '',
-  ].join('\n');
+  );
+  return lines.join('\n');
+}
+
+/**
+ * Render the sibling and prerequisite links that make the law graph navigable.
+ *
+ * The source citation alone leaves each rule as a leaf. These body links give
+ * the OKF graph real rule-to-rule edges and give backlinks a target.
+ */
+// [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+function renderRelatedSection({ rulePath, related }) {
+  const unique = new Map();
+  for (const rule of related) {
+    if (rule && !unique.has(rule.id)) unique.set(rule.id, rule);
+  }
+  if (unique.size === 0) return [];
+  const lines = ['## Related', ''];
+  for (const rule of unique.values()) {
+    const label = `${rule.rule_id} — ${shortStatement(rule.frontmatter.description)}`;
+    lines.push(`- [${label}](${relative(dirname(rulePath), rule.path)})`);
+  }
+  lines.push('');
+  return lines;
+}
+
+// [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+function shortStatement(statement) {
+  const text = String(statement ?? '').replace(/\s+/g, ' ').trim();
+  return text.length > 80 ? `${text.slice(0, 77)}...` : text;
+}
+
+// [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+function appendSectionRuleLinks({ sections, rules }) {
+  const bySection = new Map();
+  for (const rule of rules) {
+    if (!bySection.has(rule.section_id)) bySection.set(rule.section_id, []);
+    bySection.get(rule.section_id).push(rule);
+  }
+  for (const section of sections) {
+    const members = bySection.get(section.id) ?? [];
+    if (members.length === 0) continue;
+    const lines = ['## Rules in this section', ''];
+    for (const rule of members) {
+      const label = `${rule.rule_id} — ${shortStatement(rule.frontmatter.description)}`;
+      lines.push(`- [${label}](${relative(dirname(section.path), rule.path)})`);
+    }
+    section.body = `${section.body.trimEnd()}\n\n${lines.join('\n')}\n`;
+  }
+}
+
+// [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+function makeRuleIndexSection({ rules, date }) {
+  const lines = [
+    '# Rule index',
+    '',
+    '## Rule index',
+    '',
+  ];
+  for (const rule of [...rules].sort((left, right) => left.rule_id.localeCompare(right.rule_id))) {
+    const label = `${rule.rule_id} — ${shortStatement(rule.frontmatter.description)}`;
+    lines.push(`- [${label}](${relative('sources/15-rule-registry', rule.path)})`);
+  }
+  return {
+    id: 'sources/15-rule-registry/rule-index',
+    path: 'sources/15-rule-registry/rule-index.md',
+    title: 'Rule index',
+    frontmatter: {
+      type: 'Section',
+      title: 'Rule index',
+      description: 'Every rule concept linked from one index.',
+      sources: [{ resource: 'sources/15-RULE-REGISTRY.md', id: 'rule-index', title: 'Rule index' }],
+      generated: { by: 'build-law-skill', at: date },
+      verified: [{ by: 'human:law-review', at: date }],
+      status: 'stable',
+      'x-document': 'sources/15-RULE-REGISTRY.md',
+      'x-source-span': '1-1',
+    },
+    body: `${lines.join('\n')}\n`,
+  };
+}
+
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+function loadPackageAliases(sourceDir) {
+  const path = join(sourceDir, 'package-aliases.json');
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { aliases: {} };
+}
+
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+function loadNonNormative(sourceDir) {
+  const path = join(sourceDir, 'package-non-normative.json');
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')).entries ?? [] : [];
+}
+
+/**
+ * Turn package headings into Section concepts (Parts II/III/IV) or
+ * Documentation concepts (Part I and front matter).
+ */
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+function buildPackageSectionConcepts({ tree, date, packageAlias }) {
+  const concepts = [];
+  for (const heading of tree.headings) {
+    const documentation = heading.part === 'part-i' || heading.part === 'front';
+    const prefix = documentation ? 'docs' : 'sources';
+    const id = `${prefix}/${heading.path}`;
+    const path = `${id}.md`;
+    const children = tree.headings.filter((entry) => (
+      entry.level === 3
+      && entry.part === heading.part
+      && entry.start > heading.start
+      && entry.start < heading.end
+    ));
+    const lines = [heading.text];
+    if (children.length > 0) {
+      lines.push('', '## Subsections', '');
+      for (const child of children) {
+        const href = relative(dirname(path), `${prefix}/${child.path}.md`);
+        lines.push(`- [${child.title}](${href})`);
+      }
+    }
+    concepts.push({
+      id,
+      path,
+      title: heading.title,
+      coveragePath: heading.path,
+      frontmatter: {
+        type: documentation ? 'Documentation' : 'Section',
+        title: heading.title,
+        description: firstParagraph(heading.text).slice(0, 200),
+        sources: [{ resource: packageAlias, id: heading.path, title: heading.title }],
+        generated: { by: 'build-law-skill', at: date },
+        verified: [{ by: 'human:law-review', at: date }],
+        status: 'stable',
+        'x-document': packageAlias,
+        'x-source-span': `${heading.line}-${heading.line}`,
+        'x-coverage-path': heading.path,
+      },
+      body: `${lines.join('\n')}\n`,
+    });
+  }
+  addPartFourSection({ tree, date, packageAlias, concepts });
+  return concepts;
+}
+
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+function addPartFourSection({ tree, date, packageAlias, concepts }) {
+  const part = tree.parts.find((entry) => entry.id === 'part-iv');
+  if (!part) return;
+  const text = tree.lines.join('\n').slice(part.start, part.end).trim();
+  if (text.length < 40) return;
+  const path = 'part-iv/document-map';
+  tree.headings.push({
+    path,
+    level: 2,
+    title: 'Document map and self-containment',
+    line: part.line,
+    start: part.start,
+    end: part.end,
+    part: 'part-iv',
+    text,
+  });
+  concepts.push({
+    id: `sources/${path}`,
+    path: `sources/${path}.md`,
+    title: 'Document map and self-containment',
+    coveragePath: path,
+    frontmatter: {
+      type: 'Section',
+      title: 'Document map and self-containment',
+      description: firstParagraph(text).slice(0, 200),
+      sources: [{ resource: packageAlias, id: path, title: 'Document map' }],
+      generated: { by: 'build-law-skill', at: date },
+      verified: [{ by: 'human:law-review', at: date }],
+      status: 'stable',
+      'x-document': packageAlias,
+      'x-source-span': `${part.line}-${part.line}`,
+      'x-coverage-path': path,
+    },
+    body: `${text}\n`,
+  });
+}
+
+const PACKAGE_RULE_DEFAULTS = Object.freeze({
+  FREE: { ruleClass: 'G', parent: 'FREE', phase: 'scope', verification: 'V4 review.', gate: 'human review' },
+  VER: { ruleClass: 'G', parent: 'VER', phase: 'review', verification: 'V4 review.', gate: 'human review' },
+  INV: { ruleClass: 'C', parent: 'INV', phase: 'core', verification: 'V4 review.', gate: 'conformance driver' },
+});
+
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+function applyPackageRuleCoverage({ rules, tree, aliases, date, packageAlias, packageSections }) {
+  const byRule = new Map(rules.map((rule) => [rule.rule_id, rule]));
+  const sectionByPath = new Map(packageSections.map((section) => [section.coveragePath, section]));
+  const rows = tree.ruleRows.map((row) => ({ ...row, ...resolveRuleRow(row, aliases) }));
+
+  for (const row of rows) {
+    if (row.disposition !== 'concept' || byRule.has(row.targetConcept)) continue;
+    const rule = makePackageRule({ row, sections: sectionByPath, date, packageAlias, byRule });
+    rules.push(rule);
+    byRule.set(rule.rule_id, rule);
+  }
+
+  const rowsBySection = new Map();
+  for (const row of rows) {
+    const rule = byRule.get(row.targetConcept);
+    if (!rule || !row.sectionPath) continue;
+    if (!rowsBySection.has(row.sectionPath)) rowsBySection.set(row.sectionPath, []);
+    rowsBySection.get(row.sectionPath).push(rule);
+    rule.packageSection = sectionByPath.get(row.sectionPath) ?? null;
+  }
+
+  for (const rule of rules) {
+    if (!rule.packageSection) continue;
+    const section = rule.packageSection;
+    const siblings = (rowsBySection.get(section.coveragePath) ?? []).filter((entry) => entry.id !== rule.id);
+    const prerequisites = rule.requires_rules.map((id) => byRule.get(id)).filter(Boolean);
+    rule.body = renderRuleBody({
+      row: rowFromRule(rule),
+      section: {
+        id: section.id,
+        path: section.path,
+        title: section.title,
+        sourceAlias: packageAlias,
+      },
+      ruleId: rule.rule_id,
+      related: [...prerequisites, ...siblings],
+    });
+    rule.section_id = section.id;
+  }
+
+  const aliasIdsByTarget = new Map();
+  for (const [legacyId, entry] of Object.entries(aliases.aliases ?? {})) {
+    if (!aliasIdsByTarget.has(entry.target)) aliasIdsByTarget.set(entry.target, []);
+    aliasIdsByTarget.get(entry.target).push(legacyId);
+  }
+  for (const rule of rules) {
+    const legacyIds = aliasIdsByTarget.get(rule.rule_id) ?? [];
+    if (legacyIds.length > 0) rule.frontmatter['x-alias-rule-ids'] = legacyIds.sort();
+  }
+}
+
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+function makePackageRule({ row, sections, date, packageAlias, byRule }) {
+  const id = row.targetConcept;
+  const family = id.split('-')[0];
+  const defaults = PACKAGE_RULE_DEFAULTS[family] ?? {
+    ruleClass: 'C', parent: family, phase: 'operation', verification: 'V4 review.', gate: 'conformance driver',
+  };
+  const conceptId = `rules/${defaults.ruleClass.toLowerCase()}/${id.toLowerCase()}`;
+  const section = sections.get(row.sectionPath) ?? null;
+  const sectionForBody = section
+    ? { id: section.id, path: section.path, title: section.title, sourceAlias: packageAlias }
+    : null;
+  const prerequisites = ['APP-01', 'ARC-01']
+    .map((ruleId) => byRule.get(ruleId)?.id)
+    .filter(Boolean)
+    .sort();
+  const body = renderRuleBody({
+    row: {
+      statement: row.statement,
+      ruleClass: defaults.ruleClass,
+      applicability: 'all',
+      parent: defaults.parent,
+      sourcePart: 'Part II',
+      verification: row.verification ?? defaults.verification,
+      gate: defaults.gate,
+    },
+    section: sectionForBody,
+    ruleId: id,
+    related: [],
+  });
+  return {
+    id: conceptId,
+    concept_id: conceptId,
+    path: `${conceptId}.md`,
+    rule_id: id,
+    section_id: section?.id ?? null,
+    requires_rules: ['APP-01', 'ARC-01'].filter((ruleId) => byRule.has(ruleId) && ruleId !== id),
+    frontmatter: {
+      type: 'Rule',
+      title: `${id} — ${row.statement}`,
+      description: row.statement,
+      sources: [{ resource: packageAlias, id: id.toLowerCase(), title: id }],
+      generated: { by: 'build-law-skill', at: date },
+      verified: [{ by: 'human:law-review', at: date }],
+      status: 'stable',
+      'x-rule-id': id,
+      'x-rule-class': defaults.ruleClass,
+      'x-applies-to': 'all',
+      'x-parent': defaults.parent,
+      'x-source-part': 'Part II',
+      'x-verification': row.verification ?? defaults.verification,
+      'x-enforcement': defaults.gate,
+      'x-phase': defaults.phase,
+      'x-source-span': `${row.line}-${row.line}`,
+      'x-requires': prerequisites,
+    },
+    body,
+  };
+}
+
+// [::TICKET::] PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-428|PX-427) --for-spec --no-implementation-order`.
+function rowFromRule(rule) {
+  const frontmatter = rule.frontmatter ?? {};
+  return {
+    statement: frontmatter.description ?? rule.title,
+    ruleClass: frontmatter['x-rule-class'] ?? 'C',
+    applicability: frontmatter['x-applies-to'] ?? 'all',
+    parent: frontmatter['x-parent'] ?? '',
+    sourcePart: frontmatter['x-source-part'] ?? '',
+    verification: frontmatter['x-verification'] ?? '',
+    gate: frontmatter['x-enforcement'] ?? '',
+  };
 }
 
 // [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
@@ -296,9 +674,10 @@ function appliesFor(row) {
   return interfaceName ?? row.applicability ?? 'all';
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-428|PX-427) --for-spec --no-implementation-order`.
 function renderRuleMap(rules) {
   const byRule = {};
+  const aliases = {};
   for (const rule of rules) {
     byRule[rule.rule_id] = {
       rule_id: rule.rule_id,
@@ -311,14 +690,17 @@ function renderRuleMap(rules) {
       source_alias: rule.frontmatter.sources[0].resource,
       source_span: rule.frontmatter['x-source-span'],
     };
+    for (const legacyId of rule.frontmatter['x-alias-rule-ids'] ?? []) {
+      aliases[legacyId] = { rule_id: rule.rule_id, concept_id: rule.id };
+    }
   }
-  return { schema: 'law-rule-concepts/v1', byRule };
+  return { schema: 'law-rule-concepts/v1', byRule, aliases };
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-428|PX-427) --for-spec --no-implementation-order`.
 function renderLock({ rules, sections, documents }) {
   return {
-    schema: 'law-atoms/v2',
+    schema: 'law-atoms/v3',
     check_set_version: '3',
     rules: rules.map((rule) => ({
       rule_id: rule.rule_id,
@@ -424,6 +806,7 @@ if (process.argv[1] && process.argv[1].endsWith('generate-law-bundle.mjs')) {
     sourcePaths: option('source-paths') ? option('source-paths').split(',') : null,
     outDir: option('out'),
     sourceDir: option('source-dir') ?? undefined,
+    packagePath: option('package-path'),
     date: option('date') ?? '1970-01-01',
   });
   process.stdout.write(`${JSON.stringify({ rules: result.rules.length, sections: result.sections.length })}\n`);

@@ -10,9 +10,10 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadBundle, listDirectory, getConcept } from './index.mjs';
+import { loadBundle, listDirectory } from './index.mjs';
 import { resolveReference } from './paths/resolve.mjs';
-import { showConcept, outgoingEdges, incomingEdges, neighborEdges } from './commands/navigation.mjs';
+import { showConcept, outgoingEdges, incomingEdges, neighborEdges, requireConcept } from './commands/navigation.mjs';
+import { buildTraversal } from './commands/traverse.mjs';
 import { runValidation } from './commands/validation.mjs';
 import { requiredSet, contextArtifact } from './commands/context.mjs';
 import { searchConcepts } from './commands/search.mjs';
@@ -28,20 +29,39 @@ export async function main(argv = process.argv.slice(2)) {
     const bundle = await loadBundle(options.root);
     return runCommand(command, options, bundle);
   } catch (error) {
-    return fail(error.code ?? 'OKF_ERROR', error.message);
+    const exitCode = error.code === 'UNKNOWN_CONCEPT' ? 2 : 1;
+    return fail(error.code ?? 'OKF_ERROR', error.message, exitCode);
   }
 }
 
-// [::TICKET::] PX-425, PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-425, PX-426, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426|PX-427|PX-428) --for-spec --no-implementation-order`.
 function runCommand(command, options, bundle) {
   const now = parseNow(options.now);
+  const profile = options.profile ?? 'okf-wiki';
+  const stack = entries(options.from);
   if (command === 'list') return print({ entries: listDirectory(bundle, options.path ?? '') });
-  if (command === 'show' || command === 'page') {
-    return print(showConcept({ bundle, id: options._[0], now }));
+  if (command === 'show' || command === 'page' || command === 'expand') {
+    return print(showConcept({
+      bundle,
+      id: options._[0],
+      now,
+      profile,
+      hop: Number(options.hop ?? 0),
+      stack,
+    }));
   }
-  if (command === 'outgoing') return print({ id: options._[0], edges: outgoingEdges({ bundle, id: options._[0] }) });
-  if (command === 'incoming') return print({ id: options._[0], edges: incomingEdges({ bundle, id: options._[0] }) });
-  if (command === 'neighbors') return print({ id: options._[0], edges: neighborEdges({ bundle, id: options._[0] }) });
+  if (command === 'outgoing') {
+    const id = options._[0];
+    return print(withEnvelope({ id, edges: outgoingEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }));
+  }
+  if (command === 'incoming') {
+    const id = options._[0];
+    return print(withEnvelope({ id, edges: incomingEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }));
+  }
+  if (command === 'neighbors') {
+    const id = options._[0];
+    return print(withEnvelope({ id, edges: neighborEdges({ bundle, id }), page: buildTraversal({ bundle, id, profile }) }));
+  }
   if (command === 'resolve') {
     return print(resolveReference({ fromPath: options._[0], rawTarget: options._[1], root: options.root, files: bundle.files }));
   }
@@ -77,8 +97,8 @@ function runCommand(command, options, bundle) {
     return print({ rows });
   }
   if (command === 'sources') {
-    const concept = getConcept(bundle, options._[0]);
-    return concept ? print({ id: concept.id, sources: concept.sources }) : fail('UNKNOWN_CONCEPT');
+    const concept = requireConcept(bundle, options._[0]);
+    return print({ id: concept.id, sources: concept.sources });
   }
   if (command === 'rebuild') return rebuild({ bundle, root: options.root, date: options.date });
   return fail('UNKNOWN_COMMAND');
@@ -142,10 +162,24 @@ function print(value) {
   return 0;
 }
 
-// [::TICKET::] PX-425, PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426) --for-spec --no-implementation-order`.
-function fail(code, message = code) {
+// [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+function withEnvelope({ id, edges, page }) {
+  return {
+    id,
+    edges,
+    protocol: page.protocol,
+    node: page.node,
+    coverage: page.coverage,
+    frontier: page.frontier,
+    guidance: page.guidance,
+    backTo: page.backTo,
+  };
+}
+
+// [::TICKET::] PX-425, PX-426, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426|PX-427|PX-428) --for-spec --no-implementation-order`.
+function fail(code, message = code, exitCode = 1) {
   process.stderr.write(`${JSON.stringify({ code, message })}\n`);
-  return 1;
+  return exitCode;
 }
 
 if (

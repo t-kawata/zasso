@@ -118,9 +118,8 @@
     {
       "alias": "sources/EXPERT-REVIEW-PACKAGE.md",
       "sha256": "94d5516308c9399c5519886f5fb3b23fdd4dc32f18320f7c99064a98300c34fd",
-      "decision": "excluded",
-      "reason": "single-file review bundle duplicating the authoritative docs",
-      "phrase": "review bundle"
+      "decision": "included",
+      "reason": "primary source"
     },
     {
       "alias": "sources/README.md",

@@ -8,10 +8,10 @@ sources:
     title: "3. Step 0 — Pin the Rules and Record the Baseline"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/90-MIGRATION.md"
 x-source-span: "73-88"

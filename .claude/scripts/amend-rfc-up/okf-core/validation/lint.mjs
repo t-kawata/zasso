@@ -1,3 +1,5 @@
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 /**
  * Quality findings that conformance deliberately allows.
  */
@@ -7,7 +9,7 @@ import { bodyLines } from './conformance.mjs';
 import { directoryOf } from '../paths/directory.mjs';
 
 export const DEFAULT_ALLOWED_TYPES = Object.freeze(new Set([
-  'Rule', 'Page', 'Identity', 'Concept', 'Claim', 'Entity', 'Procedure', 'Reference', 'Section',
+  'Rule', 'Page', 'Identity', 'Concept', 'Claim', 'Entity', 'Procedure', 'Reference', 'Section', 'Documentation',
 ]));
 
 export const DEFAULT_ALLOWED_KEYS = Object.freeze(new Set([

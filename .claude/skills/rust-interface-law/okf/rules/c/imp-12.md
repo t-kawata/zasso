@@ -8,10 +8,10 @@ sources:
     title: "IMP-12"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "implementation-check"
@@ -38,6 +38,11 @@ Pipeline checkpoints MUST invoke template, implementation-check, gate, and attes
 | Enforcement | implementation-check |
 
 [13. Implementation Proof](../../sources/40-conformance/13-implementation-proof.md)
+
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
 
 [^imp-12]: sources/40-CONFORMANCE.md
 

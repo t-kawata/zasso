@@ -20,7 +20,8 @@ import {
 } from './lib/autoconfig.mjs';
 import { buildManifest } from './lib/closure.mjs';
 import { loadLawNodes, loadRuleMap, loadBundle, explainRule as explainLawRule } from './lib/law-bundle.mjs';
-import { listDirectory, validateConformance, lintBundle, checkProfile } from '../okf-core/index.mjs';
+import { listDirectory, validateConformance, lintBundle, checkProfile, getOutgoing } from '../okf-core/index.mjs';
+import { conceptBody } from '../okf-core/context/assemble.mjs';
 import { showConcept, outgoingEdges, incomingEdges, neighborEdges } from '../okf-core/commands/navigation.mjs';
 import { searchConcepts } from '../okf-core/commands/search.mjs';
 import { resolveRequired } from '../okf-core/context/resolve-required.mjs';
@@ -103,13 +104,23 @@ export async function contextCommand(argv) {
   if (options.rule) {
     const root = skillRoot();
     const ruleMap = loadRuleMap(join(root, 'source/rule-concepts.json'));
-    const entry = ruleMap.byRule.get(String(options.rule));
-    if (!entry) throw new Error('unknown rule: ' + options.rule);
+    const entry = ruleMap.byRule.get(String(options.rule)) ?? ruleMap.byAlias?.get(String(options.rule));
+    if (!entry) throw Object.assign(new Error('unknown rule: ' + options.rule), { code: 'UNKNOWN_RULE' });
     const bundle = await loadBundle(join(root, 'okf'));
     const set = resolveRequired({ bundle, entryIds: [entry.concept_id] });
+    const sourceIds = new Set();
+    for (const id of set.required) {
+      for (const edge of getOutgoing(bundle, id)) {
+        if (edge.state === 'resolved'
+          && edge.to
+          && !edge.to.startsWith('sources/15-rule-registry/')
+          && bundle.byId.get(edge.to)?.type === 'Section') sourceIds.add(edge.to);
+      }
+    }
+    const contextIds = [...new Set([...set.required, ...sourceIds])].sort();
     const artifact = buildContext({
       bundle,
-      requiredSet: { ...set, context: set.required },
+      requiredSet: { ...set, context: contextIds },
       budgetBytes: options.budget ? Number(options.budget) : undefined,
     });
     process.stdout.write(JSON.stringify({ required: set, artifact }) + '\n');
@@ -812,8 +823,10 @@ export async function showCommand(argv) {
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
   const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
   const requested = position(options);
-  const conceptId = ruleMap.byRule.get(requested)?.concept_id ?? requested;
-  process.stdout.write(JSON.stringify(showConcept({ bundle, id: conceptId })) + '\n');
+  const conceptId = (ruleMap.byRule.get(requested) ?? ruleMap.byAlias?.get(requested))?.concept_id ?? requested;
+  const concept = bundle.byId.get(conceptId);
+  const profile = concept?.frontmatter?.['x-rule-id'] ? 'law-implement' : 'okf-wiki';
+  process.stdout.write(JSON.stringify(showConcept({ bundle, id: conceptId, profile })) + '\n');
 }
 
 export async function outgoingCommand(argv) {
@@ -845,19 +858,64 @@ export async function requiredCommand(argv) {
   const bundle = await loadBundle(join(skillRoot(), 'okf'));
   if (options.rule) {
     const ruleMap = loadRuleMap(join(skillRoot(), 'source/rule-concepts.json'));
-    const entry = ruleMap.byRule.get(String(options.rule));
-    if (!entry) throw new Error('unknown rule: ' + options.rule);
-    process.stdout.write(JSON.stringify(resolveRequired({ bundle, entryIds: [entry.concept_id] })) + '\n');
+    const entry = ruleMap.byRule.get(String(options.rule)) ?? ruleMap.byAlias?.get(String(options.rule));
+    if (!entry) throw Object.assign(new Error('unknown rule: ' + options.rule), { code: 'UNKNOWN_RULE' });
+    const { nodes } = await loadLawNodes({ skillRoot: skillRoot() });
+    const byConcept = new Map(nodes.map((node) => [node.concept_id, node]));
+    const set = resolveRequired({ bundle, entryIds: [entry.concept_id] });
+    const records = set.required.map((id) => toRuleRecord(byConcept.get(id), bundle, id)).filter(Boolean);
+    process.stdout.write(JSON.stringify({ ...set, ids: [...set.required], records }) + '\n');
     return;
   }
   if (options.phase) {
-    const loaded = await loadLawNodes({ skillRoot: skillRoot() });
-    const phaseNodes = loaded.nodes.filter((node) => node.phase === options.phase);
+    const { nodes } = await loadLawNodes({ skillRoot: skillRoot() });
+    const phaseNodes = nodes.filter((node) => node.phase === options.phase);
     const required = [...new Set(phaseNodes.flatMap((node) => [node.id, ...(node.requires ?? [])]))].sort();
-    process.stdout.write(JSON.stringify({ phase: options.phase, required }) + '\n');
+    const byRule = new Map(nodes.map((node) => [node.id, node]));
+    const records = required.map((id) => toRuleRecord(byRule.get(id), bundle, null, id)).filter(Boolean);
+    process.stdout.write(JSON.stringify({
+      phase: options.phase,
+      summary: { phase: options.phase, rules: records.length },
+      required,
+      records,
+    }) + '\n');
     return;
   }
   throw new Error('required needs --rule or --phase');
+}
+
+/**
+ * A rule record carries the facts an implementer needs to act.
+ *
+ * Bare ids force a second lookup per rule; the record keeps the id for callers
+ * that only route, and the body for callers that implement.
+ */
+// [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+function toRuleRecord(node, bundle, conceptId, ruleId = null) {
+  if (node) {
+    return {
+      id: node.concept_id,
+      rule_id: node.id,
+      title: node.title,
+      phase: node.phase,
+      applies_to: node.applies_to,
+      verification: node.verification,
+      enforcement: node.enforcement,
+      body: node.body,
+    };
+  }
+  const concept = conceptId ? bundle.byId.get(conceptId) : null;
+  if (!concept) return null;
+  return {
+    id: concept.id,
+    rule_id: ruleId ?? concept.frontmatter?.['x-rule-id'] ?? null,
+    title: concept.title,
+    phase: concept.frontmatter?.['x-phase'] ?? null,
+    applies_to: concept.frontmatter?.['x-applies-to'] ?? null,
+    verification: concept.frontmatter?.['x-verification'] ?? null,
+    enforcement: concept.frontmatter?.['x-enforcement'] ?? null,
+    body: conceptBody(concept),
+  };
 }
 
 export async function searchCommand(argv) {
@@ -902,14 +960,14 @@ export async function sourcesCommand(argv) {
   process.stdout.write(JSON.stringify({ id: conceptId, sources: concept?.sources ?? [] }) + '\n');
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-427|PX-428) --for-spec --no-implementation-order`.
 function position(options) {
-  const value = options._?.[0];
+  const value = options._?.[0] ?? options.id;
   if (!value) throw new Error('positional argument is required');
   return value;
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-428, PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-428|PX-427) --for-spec --no-implementation-order`.
 function resolveRuleConceptId(ruleMap, requested) {
-  return ruleMap.byRule.get(requested)?.concept_id ?? requested;
+  return (ruleMap.byRule.get(requested) ?? ruleMap.byAlias?.get(requested))?.concept_id ?? requested;
 }

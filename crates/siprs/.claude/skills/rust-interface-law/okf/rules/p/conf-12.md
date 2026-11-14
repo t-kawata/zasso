@@ -8,10 +8,10 @@ sources:
     title: "CONF-12"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,14 @@ The oracle covers normal, failure, state, authorization, idempotency, and stream
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[7. Independent Oracle](../../sources/40-conformance/7-independent-oracle.md)
+[7. Independent Oracle](../../sources/part-iii-12/7-independent-oracle.md)
 
-[^conf-12]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-10 — Expected results are derived from the operation specification, not from one i...](conf-10.md)
+- [CONF-11 — All interfaces answering the same wrong result is a failure.](conf-11.md)
+
+[^conf-12]: sources/EXPERT-REVIEW-PACKAGE.md
 

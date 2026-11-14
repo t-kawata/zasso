@@ -8,10 +8,10 @@ sources:
     title: "11. Implementation Contract"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/34-MCP.md"
 x-source-span: "183-211"
@@ -44,4 +44,13 @@ hand-written JSON-RPC, local authoritative session map, sticky-session dependenc
 | MCP-25 | Resumable MCP profiles MUST persist event cursors and MUST pass restart replay without sticky routing. | Replay. | Retention. | V3 restart test. |
 | MCP-26 | MCP cancellation and progress MUST map to the dispatcher and MUST NOT buffer unsupported operations. | Cancellation. | Notification text. | V3 cancel/progress test. |
 | MCP-27 | MCP authorization MUST expose discovery and challenge, bind the configured audience, and MUST NOT pass a received token downstream. | Auth boundary. | Realm text. | V3 auth test. |
+
+## Rules in this section
+
+- [MCP-22 — MCP adapters MUST register generated tools through the admitted rmcp tool rou...](../../rules/c/mcp-22.md)
+- [MCP-23 — Every MCP deployment MUST declare its session and replay capabilities and MUS...](../../rules/c/mcp-23.md)
+- [MCP-24 — MCP JSON and SSE responses MUST use SDK framing and MUST share the same tool ...](../../rules/c/mcp-24.md)
+- [MCP-25 — Resumable MCP profiles MUST persist event cursors and MUST pass restart repla...](../../rules/c/mcp-25.md)
+- [MCP-26 — MCP cancellation and progress MUST map to the dispatcher and MUST NOT buffer ...](../../rules/c/mcp-26.md)
+- [MCP-27 — MCP authorization MUST expose discovery and challenge, bind the configured au...](../../rules/c/mcp-27.md)
 

@@ -8,10 +8,10 @@ sources:
     title: "CONF-02"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,15 @@ Every implemented interface has a driver.
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[4. Matrix](../../sources/40-conformance/4-matrix.md)
+[4. Matrix](../../sources/part-iii-12/4-matrix.md)
 
-[^conf-02]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-01 — Every catalog operation appears in the matrix.](conf-01.md)
+- [CONF-03 — Every cell is required or not applicable with a reason.](conf-03.md)
+- [CONF-04 — A profile absent from `RULES-PROFILE.toml` is not a non-applicable cell.](conf-04.md)
+
+[^conf-02]: sources/EXPERT-REVIEW-PACKAGE.md
 

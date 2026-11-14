@@ -8,10 +8,10 @@ sources:
     title: "13. Implementation Proof"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/40-CONFORMANCE.md"
 x-source-span: "355-367"
@@ -28,4 +28,8 @@ Implementation proof is separate from behavior proof.
 | V4 | Human attestation for SDK binding, tenant boundary, TLS trust, retention |
 
 A V1 pass is not rule-level proof. A missing implementation report, missing test, zero selected tests, or failed detector is a failure. The implementation report MUST name `IMP-01` through `IMP-12`.
+
+## Rules in this section
+
+- [IMP-12 — Pipeline checkpoints MUST invoke template, implementation-check, gate, and at...](../../rules/c/imp-12.md)
 

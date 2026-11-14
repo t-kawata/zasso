@@ -8,10 +8,10 @@ sources:
     title: "CLI-16"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "cli"
 x-enforcement: "conformance driver"
@@ -38,6 +38,13 @@ The CLI MUST reject argv credential contents and MUST read secrets only from app
 | Enforcement | conformance driver |
 
 [11. Implementation Contract](../../sources/32-cli/11-implementation-contract.md)
+
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [CLI-15 — clap parsing types MUST be generated inside the CLI adapter and MUST NOT anno...](cli-15.md)
+- [CLI-17 — The CLI MUST reserve stdout for results and MUST use the fixed exit-code tabl...](cli-17.md)
 
 [^cli-16]: sources/32-CLI.md
 

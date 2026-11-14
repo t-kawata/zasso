@@ -8,10 +8,10 @@ sources:
     title: "ERR-03"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "mapping / redaction / audit tests"
@@ -37,7 +37,16 @@ Error values MUST NOT contain secrets, tokens, passwords, or raw provider respon
 | Verification | V2 scan; V3 redaction test. |
 | Enforcement | mapping / redaction / audit tests |
 
-[1. Registry](../../sources/15-rule-registry/1-registry.md)
+[9.1 Error model](../../sources/part-ii-1/9-1-error-model.md)
 
-[^err-03]: sources/15-RULE-REGISTRY.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [ERR-01 — Operations MUST return a protocol-independent error value with `code`, `domai...](err-01.md)
+- [ERR-02 — Error codes MUST be stable identifiers; adapters MUST map them to protocol st...](err-02.md)
+- [ERR-04 — Retryability MUST be explicit. Validation and authentication errors are not r...](err-04.md)
+- [ERR-05 — Each interface MUST have one error-mapping table and one test per code.](err-05.md)
+
+[^err-03]: sources/EXPERT-REVIEW-PACKAGE.md
 

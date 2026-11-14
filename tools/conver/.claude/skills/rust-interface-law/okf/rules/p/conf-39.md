@@ -8,10 +8,10 @@ sources:
     title: "CONF-39"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,16 @@ A missing verification is a failure, not a skip.
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[13. Dependency and Rule Coverage](../../sources/40-conformance/13-dependency-and-rule-coverage.md)
+[13. Dependency and Rule Coverage](../../sources/part-iii-12/13-dependency-and-rule-coverage.md)
 
-[^conf-39]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-37 — The crate graph passes the forbidden-edge checks.](conf-37.md)
+- [CONF-38 — Every rule ID in the registry has a verdict.](conf-38.md)
+- [CONF-40 — Documentation, file existence, and fixture names are not proof.](conf-40.md)
+- [CONF-41 — The report names every failed row and every rule without evidence.](conf-41.md)
+
+[^conf-39]: sources/EXPERT-REVIEW-PACKAGE.md
 

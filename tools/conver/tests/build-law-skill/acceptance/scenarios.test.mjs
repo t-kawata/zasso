@@ -1,3 +1,5 @@
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // @verifies C007 C008
@@ -24,7 +26,8 @@ test('C007: twelve scenarios reach the authoritative rule without raw grep', asy
     if (!zeroResultScenario) assert.ok(scenario.conceptIds.length > 0, scenario.label);
     assert.ok(scenario.payloadBytes > 0, scenario.label);
     assert.ok(scenario.latencyMs >= 0, scenario.label);
-    assert.equal(scenario.rawGrepUsed, false, scenario.label);
+    assert.equal(scenario.usedRawFileRead, false, scenario.label);
+    assert.equal(scenario.contentOk, true, scenario.label);
     assert.equal(scenario.verdict, 'sufficient', `${scenario.label} exited ${scenario.status}`);
   }
 });

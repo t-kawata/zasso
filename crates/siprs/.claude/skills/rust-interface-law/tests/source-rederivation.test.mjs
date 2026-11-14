@@ -1,3 +1,5 @@
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import test from 'node:test';
@@ -53,12 +55,12 @@ test('C002 manifest hashes match the source bytes', () => {
 
 test('C002 lock rules and source spans re-derive from the registry', () => {
   const ruleMap = JSON.parse(readFileSync(join(root, 'source/rule-concepts.json'), 'utf8'));
-  assert.equal(Object.keys(ruleMap.byRule).length, 466);
+  assert.equal(Object.keys(ruleMap.byRule).length, 486);
   for (const rule of Object.values(ruleMap.byRule)) {
     assert.ok(aliasMap.aliases[rule.source_alias], rule.rule_id);
     assert.match(rule.source_span, /^\d+-\d+$/, rule.rule_id);
   }
-  assert.equal((lock.rules ?? []).length, 466);
+  assert.equal((lock.rules ?? []).length, 486);
 });
 
 test('C002 coverage partitions every source line', () => {

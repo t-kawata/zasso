@@ -8,10 +8,10 @@ sources:
     title: "GRPC-17"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "grpc"
 x-enforcement: "conformance driver"
@@ -37,7 +37,19 @@ Every reply message carries the operation's `request_id`.
 | Verification | V3 test. |
 | Enforcement | conformance driver |
 
-[5. Generated Proto](../../sources/33-grpc/5-generated-proto.md)
+[5. Generated Proto](../../sources/part-iii-9/5-generated-proto.md)
 
-[^grpc-17]: sources/33-GRPC.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [GRPC-01 — The proto is generated from the catalog and checked in.](../g/grpc-01.md)
+- [GRPC-02 — Field numbers are never reused. Removed numbers are `reserved`.](grpc-02.md)
+- [GRPC-03 — Scalars that need presence are declared `optional`.](grpc-03.md)
+- [GRPC-04 — `Context` uses the fixed field numbers from Part III.2 §8.1.](grpc-04.md)
+- [GRPC-05 — Generated protobuf types do not appear in `*-core` or `*-operation`.](../g/grpc-05.md)
+- [GRPC-18 — Typed protobuf messages are the gRPC binding; the universal JSON-bytes envelo...](grpc-18.md)
+- [GRPC-19 — A cancelled operation's result is queryable through the authorized result loo...](grpc-19.md)
+
+[^grpc-17]: sources/EXPERT-REVIEW-PACKAGE.md
 

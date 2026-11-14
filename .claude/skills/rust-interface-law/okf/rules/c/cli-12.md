@@ -8,10 +8,10 @@ sources:
     title: "CLI-12"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "cli"
 x-enforcement: "conformance driver"
@@ -37,7 +37,15 @@ Token files are checked for restrictive permissions.
 | Verification | V3 test. |
 | Enforcement | conformance driver |
 
-[8. Secrets](../../sources/32-cli/8-secrets.md)
+[8. Secrets](../../sources/part-iii-8/8-secrets.md)
 
-[^cli-12]: sources/32-CLI.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [CLI-09 — Secrets are read from a file, stdin, or TTY.](cli-09.md)
+- [CLI-10 — A secret in argv is rejected before any operation.](cli-10.md)
+- [CLI-11 — Secrets are never written to stdout, logs, or error messages.](cli-11.md)
+
+[^cli-12]: sources/EXPERT-REVIEW-PACKAGE.md
 

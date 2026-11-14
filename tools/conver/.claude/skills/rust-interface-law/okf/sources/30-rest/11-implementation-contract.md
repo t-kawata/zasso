@@ -8,10 +8,10 @@ sources:
     title: "11. Implementation Contract"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/30-REST.md"
 x-source-span: "252-277"
@@ -41,4 +41,10 @@ CORS and preflight -> protected auth -> body limit -> decode -> dispatcher -> se
 | REST-19 | REST adapters MUST use the admitted HTTP crate and call the shared dispatcher through the adapter bridge. | Admission. | Handler conversion. | V2 source; V3 route test. |
 | REST-20 | Every REST rejection path MUST use the shared semantic error renderer and the canonical request_id. | Shared renderer. | Error text. | V3 rejection fixtures. |
 | REST-21 | OpenAPI operations and schemas MUST be generated from the same operation and validation manifest used at runtime. | Generation source. | Descriptions. | V3 equality test. |
+
+## Rules in this section
+
+- [REST-19 — REST adapters MUST use the admitted HTTP crate and call the shared dispatcher...](../../rules/c/rest-19.md)
+- [REST-20 — Every REST rejection path MUST use the shared semantic error renderer and the...](../../rules/c/rest-20.md)
+- [REST-21 — OpenAPI operations and schemas MUST be generated from the same operation and ...](../../rules/c/rest-21.md)
 

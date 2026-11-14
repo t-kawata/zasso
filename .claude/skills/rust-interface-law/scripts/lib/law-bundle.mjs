@@ -1,3 +1,5 @@
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 /**
@@ -28,6 +30,7 @@ export function loadRuleMap(path) {
     rules,
     byRule: new Map(rules.map((entry) => [entry.rule_id, entry])),
     byConcept: new Map(rules.map((entry) => [entry.concept_id, entry])),
+    byAlias: new Map(Object.entries(data.aliases ?? {})),
   };
 }
 
@@ -74,7 +77,7 @@ export function toLawNode({ concept, bundle, ruleMap, now = new Date() }) {
 }
 
 export async function explainRule({ ruleId, ruleMap, skillRoot, now = new Date(), implementation = null }) {
-  const entry = ruleMap.byRule.get(ruleId);
+  const entry = ruleMap.byRule.get(ruleId) ?? ruleMap.byAlias?.get(ruleId);
   if (!entry) throw Object.assign(new Error(`unknown rule: ${ruleId}`), { code: 'UNKNOWN_RULE' });
   const bundle = await loadBundle(join(skillRoot, 'okf'));
   const concept = bundle.byId.get(entry.concept_id);

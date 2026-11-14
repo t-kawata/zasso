@@ -1,3 +1,4 @@
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 /**
@@ -27,6 +28,8 @@ import {
   validateConformance,
   lintBundle,
   checkProfile as checkBundleProfile,
+  buildTraversal,
+  loadProfile,
 } from '../okf-core/index.mjs';
 import { conceptBody } from '../okf-core/context/assemble.mjs';
 import { auditUsageManual } from '../okf-core/commands/usage.mjs';
@@ -368,6 +371,92 @@ export async function checkContainment({ skillPath }) {
   const bundle = await loadBundle(join(skillPath, 'okf'));
   const result = resolveReference({ fromPath: bundle.concepts[0]?.path ?? 'a.md', rawTarget: '../../../../etc/passwd', root: join(skillPath, 'okf'), files: bundle.files });
   return result.state === 'blocked' ? verified('root escape is blocked') : failed('CONTAINMENT_FAILED', JSON.stringify(result));
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+export async function checkTraversalEnvelope({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const concept = bundle.concepts[0];
+  if (!concept) return failed('TRAVERSAL_EMPTY_BUNDLE', 'no concepts');
+  const page = buildTraversal({ bundle, id: concept.id, profile: 'default' });
+  const fields = ['protocol', 'node', 'coverage', 'frontier', 'guidance'];
+  const missing = fields.filter((field) => !Object.hasOwn(page, field));
+  if (missing.length > 0) return failed('TRAVERSAL_ENVELOPE_MISSING', missing.join(','));
+  return page.protocol === 'okf-traversal/v1'
+    ? verified('traversal envelope carries node, coverage, frontier, and guidance')
+    : failed('TRAVERSAL_PROTOCOL', page.protocol);
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+export async function checkFrontierCompleteness({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const empty = [];
+  for (const concept of bundle.concepts) {
+    const page = buildTraversal({ bundle, id: concept.id, profile: 'okf-wiki' });
+    if (page.frontier.length === 0 && page.guidance.state !== 'stop') empty.push(concept.id);
+  }
+  return empty.length === 0
+    ? verified(`${bundle.concepts.length} concepts expose a frontier or an explicit stop`)
+    : failed('FRONTIER_EMPTY', empty.slice(0, 5).join(','));
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+export function checkUnknownId({ skillPath }) {
+  const cli = join(skillPath, 'scripts/cli.mjs');
+  const result = spawnSync(process.execPath, [cli, 'show', 'does/not/exist', '--root', join(skillPath, 'okf')], { encoding: 'utf8' });
+  if (result.status !== 2) return failed('UNKNOWN_ID_EXIT', String(result.status));
+  return /unknown|candidate/i.test(`${result.stdout}${result.stderr}`)
+    ? verified('an absent id exits 2 with a candidate message')
+    : failed('UNKNOWN_ID_MESSAGE', 'no candidate message');
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+export async function checkGraphReach({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const indexText = readFileSync(join(skillPath, 'okf/index.md'), 'utf8');
+  const targets = [...indexText.matchAll(/\]\(([^)]+)\)/g)].map((match) => match[1]);
+  if (targets.length === 0) return failed('GRAPH_INDEX_EMPTY', 'index.md has no link');
+  for (const rawTarget of targets) {
+    const normalized = rawTarget.replace(/^\.\//, '');
+    if (normalized.endsWith('/index.md')) {
+      const directory = normalized.slice(0, -'/index.md'.length);
+      if (bundle.directories.includes(directory)) {
+        return verified(`index link ${rawTarget} opens directory ${directory}`);
+      }
+    }
+    const result = resolveReference({ fromPath: 'index.md', rawTarget, root: join(skillPath, 'okf'), files: bundle.files });
+    if (['resolved', 'directory', 'non-concept'].includes(result.state)) {
+      return verified(`index link ${rawTarget} is reachable (${result.state})`);
+    }
+  }
+  return failed('GRAPH_DEGENERATE', `no index link resolved: ${targets.slice(0, 3).join(', ')}`);
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+export async function checkFacetSufficiency({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const concept = bundle.concepts.find((entry) => entry.type !== 'Rule') ?? bundle.concepts[0];
+  if (!concept) return failed('FACET_EMPTY_BUNDLE', 'no concepts');
+  const profile = loadProfile('okf-wiki');
+  const page = buildTraversal({ bundle, id: concept.id, profile, payloadIds: [concept.id] });
+  const consistent = page.coverage.sufficient === (page.coverage.missing.length === 0);
+  return consistent
+    ? verified('coverage.sufficient matches the missing facet list')
+    : failed('FACET_INCONSISTENT', JSON.stringify(page.coverage));
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+export async function checkGuidanceDeterminism({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const concept = bundle.concepts[0];
+  if (!concept) return failed('GUIDANCE_EMPTY_BUNDLE', 'no concepts');
+  const profile = loadProfile('okf-wiki');
+  const first = buildTraversal({ bundle, id: concept.id, profile });
+  const second = buildTraversal({ bundle, id: concept.id, profile });
+  return JSON.stringify(first.guidance) === JSON.stringify(second.guidance)
+    && JSON.stringify(first.frontier) === JSON.stringify(second.frontier)
+    ? verified('guidance and frontier are deterministic')
+    : failed('GUIDANCE_NONDETERMINISTIC', 'two calls differ');
 }
 
 export function checkLibrary({ skillPath }) {

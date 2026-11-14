@@ -7914,6 +7914,376 @@
       "applies_to": "all",
       "source_alias": "sources/40-CONFORMANCE.md",
       "source_span": "366-366"
+    },
+    "INV-06": {
+      "rule_id": "INV-06",
+      "concept_id": "rules/c/inv-06",
+      "path": "rules/c/inv-06.md",
+      "phase": "core",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "591-591"
+    },
+    "FREE-01": {
+      "rule_id": "FREE-01",
+      "concept_id": "rules/g/free-01",
+      "path": "rules/g/free-01.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1335-1335"
+    },
+    "FREE-02": {
+      "rule_id": "FREE-02",
+      "concept_id": "rules/g/free-02",
+      "path": "rules/g/free-02.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1336-1336"
+    },
+    "FREE-03": {
+      "rule_id": "FREE-03",
+      "concept_id": "rules/g/free-03",
+      "path": "rules/g/free-03.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1337-1337"
+    },
+    "FREE-04": {
+      "rule_id": "FREE-04",
+      "concept_id": "rules/g/free-04",
+      "path": "rules/g/free-04.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1338-1338"
+    },
+    "FREE-05": {
+      "rule_id": "FREE-05",
+      "concept_id": "rules/g/free-05",
+      "path": "rules/g/free-05.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1339-1339"
+    },
+    "FREE-06": {
+      "rule_id": "FREE-06",
+      "concept_id": "rules/g/free-06",
+      "path": "rules/g/free-06.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1340-1340"
+    },
+    "FREE-07": {
+      "rule_id": "FREE-07",
+      "concept_id": "rules/g/free-07",
+      "path": "rules/g/free-07.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1341-1341"
+    },
+    "FREE-08": {
+      "rule_id": "FREE-08",
+      "concept_id": "rules/g/free-08",
+      "path": "rules/g/free-08.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1342-1342"
+    },
+    "FREE-09": {
+      "rule_id": "FREE-09",
+      "concept_id": "rules/g/free-09",
+      "path": "rules/g/free-09.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1343-1343"
+    },
+    "FREE-10": {
+      "rule_id": "FREE-10",
+      "concept_id": "rules/g/free-10",
+      "path": "rules/g/free-10.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1344-1344"
+    },
+    "FREE-11": {
+      "rule_id": "FREE-11",
+      "concept_id": "rules/g/free-11",
+      "path": "rules/g/free-11.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1345-1345"
+    },
+    "FREE-12": {
+      "rule_id": "FREE-12",
+      "concept_id": "rules/g/free-12",
+      "path": "rules/g/free-12.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1346-1346"
+    },
+    "FREE-13": {
+      "rule_id": "FREE-13",
+      "concept_id": "rules/g/free-13",
+      "path": "rules/g/free-13.md",
+      "phase": "scope",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1347-1347"
+    },
+    "VER-01": {
+      "rule_id": "VER-01",
+      "concept_id": "rules/g/ver-01",
+      "path": "rules/g/ver-01.md",
+      "phase": "review",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1377-1377"
+    },
+    "VER-02": {
+      "rule_id": "VER-02",
+      "concept_id": "rules/g/ver-02",
+      "path": "rules/g/ver-02.md",
+      "phase": "review",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1378-1378"
+    },
+    "VER-03": {
+      "rule_id": "VER-03",
+      "concept_id": "rules/g/ver-03",
+      "path": "rules/g/ver-03.md",
+      "phase": "review",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1379-1379"
+    },
+    "VER-04": {
+      "rule_id": "VER-04",
+      "concept_id": "rules/g/ver-04",
+      "path": "rules/g/ver-04.md",
+      "phase": "review",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1380-1380"
+    },
+    "VER-05": {
+      "rule_id": "VER-05",
+      "concept_id": "rules/g/ver-05",
+      "path": "rules/g/ver-05.md",
+      "phase": "review",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1381-1381"
+    },
+    "VER-06": {
+      "rule_id": "VER-06",
+      "concept_id": "rules/g/ver-06",
+      "path": "rules/g/ver-06.md",
+      "phase": "review",
+      "requires": [
+        "rules/c/arc-01",
+        "rules/o/app-01"
+      ],
+      "required_rules": [
+        "APP-01",
+        "ARC-01"
+      ],
+      "applies_to": "all",
+      "source_alias": "sources/EXPERT-REVIEW-PACKAGE.md",
+      "source_span": "1382-1382"
+    }
+  },
+  "aliases": {
+    "INV-04": {
+      "rule_id": "ARC-03",
+      "concept_id": "rules/c/arc-03"
+    },
+    "INV-07": {
+      "rule_id": "AUTH-08",
+      "concept_id": "rules/c/auth-08"
+    },
+    "INV-05": {
+      "rule_id": "CONF-42",
+      "concept_id": "rules/p/conf-42"
+    },
+    "INV-02": {
+      "rule_id": "IF-01",
+      "concept_id": "rules/c/if-01"
+    },
+    "INV-01": {
+      "rule_id": "IF-02",
+      "concept_id": "rules/c/if-02"
+    },
+    "INV-08": {
+      "rule_id": "OPS-06",
+      "concept_id": "rules/c/ops-06"
+    },
+    "INV-03": {
+      "rule_id": "OPS-07",
+      "concept_id": "rules/c/ops-07"
     }
   }
 }

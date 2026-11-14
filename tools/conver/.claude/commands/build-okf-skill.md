@@ -61,7 +61,7 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - The bundle contains no source view; `source/source-view.md` and `source/source.baseline.md` live outside `okf/`.
 - A stale or deprecated concept is never presented as current.
 - A required closure is complete or `BUDGET_EXCEEDED`; never truncate.
-- Generated `SKILL.md` is a traversal manual: 12 sections and at least 10 scenarios.
+- Generated `SKILL.md` is a traversal manual: 13 sections and at least 10 scenarios.
 - No forced edits to `CLAUDE.md` or the make/plan/start/review/resolve commands.
 - Generated skill contains no ticket id, project name, original absolute path, or CJK.
 - Identical inputs → identical lock, OKF, and bundle.
@@ -189,6 +189,7 @@ The generated `SKILL.md` must contain these sections and at least 10 `### Scenar
 
 | Section | Must teach |
 |---|---|
+| `## Traversal Contract` | Envelope fields, `coverage.missing`, and the `stop|expand|back` table with `stop_when`, `must_run`, and `if_back`; generated from `okf-core/traversal-protocol.md` |
 | `## Start Here` | The one entry command and the one question it answers |
 | `## Directory Traversal` | `list --path /` then `list --path <directory>` |
 | `## Concept Page` | `show <concept-id>` returns body, outgoing, incoming, sources, trust, freshness |
@@ -377,7 +378,7 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 | Graph | outgoing, incoming, backlinks, index coverage |
 | Context | required closure; `BUDGET_EXCEEDED` over budget |
 | Navigation | `show` returns body, outgoing, incoming, sources, trust, freshness |
-| Usage | 12 sections + 10 scenarios |
+| Usage | 13 sections + 10 scenarios |
 | Determinism | `rebuild` prints byte-identical |
 | Distribution | shared module hashes match; alias map outside the skill tree |
 | Install | installed `dist/skill.mjs` resolves sibling `okf/` |

@@ -1,3 +1,5 @@
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
@@ -39,7 +41,7 @@ test('C006 every verifier check has a mutated fixture', () => {
 
 test('C006 the reference passes the applicable checks', () => {
   const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
-  assert.equal(contract.checks.length, 26);
+  assert.equal(contract.checks.length, 36);
   assert.equal(contract.check_set_version, '3');
   assert.ok(contract.checks.some((check) => check.name === 'verifier-negative') === false);
   assert.ok(contract.checks.some((check) => check.name === 'style'));

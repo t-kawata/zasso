@@ -8,10 +8,10 @@ sources:
     title: "OP-TX-02"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "cargo test -p <project>-operation/core"
@@ -37,7 +37,17 @@ Outbox intent is written in the same commit as the business mutation.
 | Verification | V3 crash test. |
 | Enforcement | cargo test -p <project>-operation/core |
 
-[9. Transactions, Outbox, and Recovery](../../sources/21-operation/9-transactions-outbox-and-recovery.md)
+[9. Transactions, Outbox, and Recovery](../../sources/part-iii-4/9-transactions-outbox-and-recovery.md)
 
-[^op-tx-02]: sources/21-OPERATION.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [OP-TX-01 — Repositories come from the unit of work.](op-tx-01.md)
+- [OP-TX-03 — Publication happens after commit by a relay.](op-tx-03.md)
+- [OP-TX-04 — The relay retries and deduplicates by `event_id`.](op-tx-04.md)
+- [OP-TX-05 — Irreversible effects use forward recovery or isolation, not forced compensation.](op-tx-05.md)
+- [OP-TX-06 — No unrelated external API wait occurs inside a database transaction. Database...](op-tx-06.md)
+
+[^op-tx-02]: sources/EXPERT-REVIEW-PACKAGE.md
 

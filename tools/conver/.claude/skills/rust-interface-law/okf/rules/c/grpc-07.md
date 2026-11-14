@@ -8,10 +8,10 @@ sources:
     title: "GRPC-07"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "grpc"
 x-enforcement: "conformance driver"
@@ -37,7 +37,15 @@ Missing, malformed, or wrong-audience tokens return `UNAUTHENTICATED`.
 | Verification | V3 test. |
 | Enforcement | conformance driver |
 
-[6. Authentication](../../sources/33-grpc/6-authentication.md)
+[6. Authentication](../../sources/part-iii-9/6-authentication.md)
 
-[^grpc-07]: sources/33-GRPC.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [GRPC-06 — Credentials come from gRPC metadata, not from the message body.](grpc-06.md)
+- [GRPC-08 — The adapter does not construct `VerifiedIdentity`.](grpc-08.md)
+- [GRPC-09 — The interceptor does not authorize the target; the operation does.](grpc-09.md)
+
+[^grpc-07]: sources/EXPERT-REVIEW-PACKAGE.md
 

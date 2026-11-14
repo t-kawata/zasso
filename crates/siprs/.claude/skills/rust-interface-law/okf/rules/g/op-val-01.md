@@ -8,10 +8,10 @@ sources:
     title: "OP-VAL-01"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "cargo test -p <project>-operation/core"
@@ -37,7 +37,14 @@ Every request type implements the generated `ContractValidate` and is validated 
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-operation/core |
 
-[5. Handler Protocol](../../sources/21-operation/5-handler-protocol.md)
+[5.1 Input Validation](../../sources/part-iii-4/5-1-input-validation.md)
 
-[^op-val-01]: sources/21-OPERATION.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [OP-VAL-02 — Handlers MUST NOT duplicate standard input validation that the macro already ...](../c/op-val-02.md)
+- [OP-VAL-03 — Validation failures map to `invalid_input` with field, code, and English mess...](../c/op-val-03.md)
+
+[^op-val-01]: sources/EXPERT-REVIEW-PACKAGE.md
 

@@ -8,10 +8,10 @@ sources:
     title: "IMP-08"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "implementation-check"
@@ -38,6 +38,12 @@ Template bodies MUST NOT be delivered by context; only rule text, contract table
 | Enforcement | implementation-check |
 
 [11. Adapter Support Composition](../../sources/10-contracts/11-adapter-support-composition.md)
+
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [IMP-01 — Dependency declarations MUST use the admitted crate, exact version, features,...](imp-01.md)
 
 [^imp-08]: sources/10-CONTRACTS.md
 

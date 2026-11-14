@@ -1,0 +1,53 @@
+---
+type: "Section"
+title: "6. Task Mapping"
+description: "| ID | Rule | Fixed | Open | Verification |"
+sources: 
+  - resource: "sources/EXPERT-REVIEW-PACKAGE.md"
+    id: "part-iii-11/6-task-mapping"
+    title: "6. Task Mapping"
+generated: 
+  by: "build-law-skill"
+  at: "2026-11-14"
+verified: 
+  - by: "human:law-review"
+    at: "2026-11-14"
+status: "stable"
+x-coverage-path: "part-iii-11/6-task-mapping"
+x-document: "sources/EXPERT-REVIEW-PACKAGE.md"
+x-source-span: "5259-5259"
+---
+## 6. Task Mapping
+
+| ID | Rule | Fixed | Open | Verification |
+|---|---|---|---|---|
+| A2A-05 | An A2A task maps to one operation invocation. | Mapping. | Task grouping. | V3 test. |
+| A2A-06 | A2A task state is stored only in `TaskStore`, never in business tables. | Boundary. | Task store implementation. | V2 schema review; V3 test. |
+| A2A-07 | Business state is read and written only through operations. | Boundary. | — | V2 scan; V3 test. |
+| A2A-08 | The adapter converts A2A messages to operation requests and back. | Conversion path. | Message details. | V3 test. |
+| A2A-09 | The adapter contains no business logic. | Forbidden. | — | V2 scan; V4 review. |
+| A2A-10 | Task cancellation maps to operation cancellation only when the operation supports it; otherwise it returns the operation's conflict/state result. | Cancellation mapping. | Per-operation support. | V3 test. |
+| A2A-20 | Every task is bound to a `TaskOwner` (subject and tenant); load/save require the owner. | Owner binding. | Store implementation. | V3 test. |
+| A2A-21 | The adapter authorizes protocol-owned task get/cancel/subscribe against the owner; business authorization stays in the operation. | Boundary. | Policy. | V3 bypass test. |
+| A2A-22 | Protocol errors and business execution errors are mapped separately. | Separation. | Detail. | V3 test. |
+| A2A-23 | `A2aConfig` records the adopted protocol version, transport profile, and capabilities. | Recorded. | Values. | V2 config check. |
+| A2A-24 | Every task artifact carries the operation's `request_id` in a machine-readable field. | Field. | Placement. | V3 test. |
+
+---
+
+## 7. Security
+
+## Rules in this section
+
+- [A2A-05 — An A2A task maps to one operation invocation.](../../rules/c/a2a-05.md)
+- [A2A-06 — A2A task state is stored only in `TaskStore`, never in business tables.](../../rules/c/a2a-06.md)
+- [A2A-07 — Business state is read and written only through operations.](../../rules/c/a2a-07.md)
+- [A2A-08 — The adapter converts A2A messages to operation requests and back.](../../rules/c/a2a-08.md)
+- [A2A-09 — The adapter contains no business logic.](../../rules/c/a2a-09.md)
+- [A2A-10 — Task cancellation maps to operation cancellation only when the operation supp...](../../rules/c/a2a-10.md)
+- [A2A-20 — Every task is bound to a `TaskOwner` (subject and tenant); load/save require ...](../../rules/c/a2a-20.md)
+- [A2A-21 — The adapter authorizes protocol-owned task get/cancel/subscribe against the o...](../../rules/c/a2a-21.md)
+- [A2A-22 — Protocol errors and business execution errors are mapped separately.](../../rules/c/a2a-22.md)
+- [A2A-23 — `A2aConfig` records the adopted protocol version, transport profile, and capa...](../../rules/c/a2a-23.md)
+- [A2A-24 — Every task artifact carries the operation's `request_id` in a machine-readabl...](../../rules/c/a2a-24.md)
+

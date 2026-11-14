@@ -1,0 +1,33 @@
+{
+  "schema": "law-package-aliases/v1",
+  "aliases": {
+    "INV-01": {
+      "target": "IF-02",
+      "reason": "One business implementation per operation is the same obligation as IF-02: adapters do not implement business rules."
+    },
+    "INV-02": {
+      "target": "IF-01",
+      "reason": "Every interface calls the operation is the IF-01 adapter call contract."
+    },
+    "INV-03": {
+      "target": "OPS-07",
+      "reason": "Authorization inside the operation is OPS-07."
+    },
+    "INV-04": {
+      "target": "ARC-03",
+      "reason": "No transport types in core and operation is ARC-03."
+    },
+    "INV-05": {
+      "target": "CONF-42",
+      "reason": "SSO addition leaves existing operation signatures and business references unchanged; CONF-42 states the same regression obligation."
+    },
+    "INV-07": {
+      "target": "AUTH-08",
+      "reason": "A token for one interface is rejected by another; AUTH-08 fixes the audience rule."
+    },
+    "INV-08": {
+      "target": "OPS-06",
+      "reason": "No side effect before authorization succeeds is the same obligation as OPS-06."
+    }
+  }
+}

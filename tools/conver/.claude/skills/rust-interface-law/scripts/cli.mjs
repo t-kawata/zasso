@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import {
@@ -41,6 +43,7 @@ const commands = {
   explain: explainCommand,
   list: listCommand,
   show: showCommand,
+  expand: showCommand,
   outgoing: outgoingCommand,
   incoming: incomingCommand,
   neighbors: neighborsCommand,
@@ -69,7 +72,7 @@ const commands = {
 
 const handler = commands[command];
 if (!handler) {
-  process.stderr.write('usage: skill <applies|resolve|context|explain|list|show|outgoing|incoming|neighbors|required|search|lint|validate|trust|freshness|sources|scaffold|template|implementation-check|law-identity|law-implementation|gate|scan|attest|exception|should-run|render|check|package|rebuild> [options]\n');
+  process.stderr.write('usage: skill <applies|resolve|context|explain|list|show|expand|outgoing|incoming|neighbors|required|search|lint|validate|trust|freshness|sources|scaffold|template|implementation-check|law-identity|law-implementation|gate|scan|attest|exception|should-run|render|check|package|rebuild> [options]\n');
   process.exit(2);
 }
 
@@ -79,5 +82,5 @@ Promise.resolve(handler(args))
   })
   .catch((error) => {
     process.stderr.write('law: ' + (error.message ?? String(error)) + '\n');
-    process.exitCode = 1;
+    process.exitCode = error.code === 'UNKNOWN_RULE' || error.code === 'UNKNOWN_CONCEPT' ? 2 : 1;
   });

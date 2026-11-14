@@ -1,0 +1,4716 @@
+{
+  "schema": "law-source-coverage/v3",
+  "counts": {
+    "headings": 325,
+    "ruleRows": 457,
+    "concepts": 325,
+    "aliases": 7,
+    "nonNormative": 0,
+    "unmappedHeadings": 0,
+    "unmappedRuleRows": 0
+  },
+  "headings": [
+    {
+      "path": "front/implementation-rules-for-unified-multi-interface-rust-systems",
+      "line": 3,
+      "disposition": "concept",
+      "target": "docs/front/implementation-rules-for-unified-multi-interface-rust-systems"
+    },
+    {
+      "path": "front/table-of-contents",
+      "line": 12,
+      "disposition": "concept",
+      "target": "docs/front/table-of-contents"
+    },
+    {
+      "path": "part-i/1-your-role",
+      "line": 33,
+      "disposition": "concept",
+      "target": "docs/part-i/1-your-role"
+    },
+    {
+      "path": "part-i/2-background",
+      "line": 39,
+      "disposition": "concept",
+      "target": "docs/part-i/2-background"
+    },
+    {
+      "path": "part-i/2-1-legacy-context",
+      "line": 41,
+      "disposition": "concept",
+      "target": "docs/part-i/2-1-legacy-context"
+    },
+    {
+      "path": "part-i/2-2-target-architecture",
+      "line": 49,
+      "disposition": "concept",
+      "target": "docs/part-i/2-2-target-architecture"
+    },
+    {
+      "path": "part-i/2-3-authentication-goal",
+      "line": 77,
+      "disposition": "concept",
+      "target": "docs/part-i/2-3-authentication-goal"
+    },
+    {
+      "path": "part-i/2-4-current-projects",
+      "line": 85,
+      "disposition": "concept",
+      "target": "docs/part-i/2-4-current-projects"
+    },
+    {
+      "path": "part-i/3-what-you-are-reviewing",
+      "line": 101,
+      "disposition": "concept",
+      "target": "docs/part-i/3-what-you-are-reviewing"
+    },
+    {
+      "path": "part-i/4-the-two-success-conditions-in-detail",
+      "line": 131,
+      "disposition": "concept",
+      "target": "docs/part-i/4-the-two-success-conditions-in-detail"
+    },
+    {
+      "path": "part-i/4-1-near-complete-unification",
+      "line": 133,
+      "disposition": "concept",
+      "target": "docs/part-i/4-1-near-complete-unification"
+    },
+    {
+      "path": "part-i/4-2-no-limitation-on-what-can-be-built",
+      "line": 155,
+      "disposition": "concept",
+      "target": "docs/part-i/4-2-no-limitation-on-what-can-be-built"
+    },
+    {
+      "path": "part-i/5-non-negotiable-constraints",
+      "line": 175,
+      "disposition": "concept",
+      "target": "docs/part-i/5-non-negotiable-constraints"
+    },
+    {
+      "path": "part-i/6-review-dimensions",
+      "line": 192,
+      "disposition": "concept",
+      "target": "docs/part-i/6-review-dimensions"
+    },
+    {
+      "path": "part-i/a-unification-sufficiency",
+      "line": 196,
+      "disposition": "concept",
+      "target": "docs/part-i/a-unification-sufficiency"
+    },
+    {
+      "path": "part-i/b-non-limitation",
+      "line": 206,
+      "disposition": "concept",
+      "target": "docs/part-i/b-non-limitation"
+    },
+    {
+      "path": "part-i/c-internal-consistency",
+      "line": 217,
+      "disposition": "concept",
+      "target": "docs/part-i/c-internal-consistency"
+    },
+    {
+      "path": "part-i/d-testability-and-verification",
+      "line": 225,
+      "disposition": "concept",
+      "target": "docs/part-i/d-testability-and-verification"
+    },
+    {
+      "path": "part-i/e-security",
+      "line": 233,
+      "disposition": "concept",
+      "target": "docs/part-i/e-security"
+    },
+    {
+      "path": "part-i/f-interface-adapters",
+      "line": 242,
+      "disposition": "concept",
+      "target": "docs/part-i/f-interface-adapters"
+    },
+    {
+      "path": "part-i/g-migration-feasibility",
+      "line": 251,
+      "disposition": "concept",
+      "target": "docs/part-i/g-migration-feasibility"
+    },
+    {
+      "path": "part-i/h-governance",
+      "line": 258,
+      "disposition": "concept",
+      "target": "docs/part-i/h-governance"
+    },
+    {
+      "path": "part-i/i-over-specification-and-under-specification",
+      "line": 265,
+      "disposition": "concept",
+      "target": "docs/part-i/i-over-specification-and-under-specification"
+    },
+    {
+      "path": "part-i/7-specific-questions-you-must-answer",
+      "line": 278,
+      "disposition": "concept",
+      "target": "docs/part-i/7-specific-questions-you-must-answer"
+    },
+    {
+      "path": "part-i/8-required-findings-format",
+      "line": 301,
+      "disposition": "concept",
+      "target": "docs/part-i/8-required-findings-format"
+    },
+    {
+      "path": "part-i/9-required-verdict",
+      "line": 323,
+      "disposition": "concept",
+      "target": "docs/part-i/9-required-verdict"
+    },
+    {
+      "path": "part-i/10-out-of-scope",
+      "line": 359,
+      "disposition": "concept",
+      "target": "docs/part-i/10-out-of-scope"
+    },
+    {
+      "path": "part-i/11-assumptions",
+      "line": 370,
+      "disposition": "concept",
+      "target": "docs/part-i/11-assumptions"
+    },
+    {
+      "path": "part-i/12-deliverable",
+      "line": 381,
+      "disposition": "concept",
+      "target": "docs/part-i/12-deliverable"
+    },
+    {
+      "path": "part-ii-1/0-how-to-read-this-document",
+      "line": 423,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-how-to-read-this-document"
+    },
+    {
+      "path": "part-ii-1/0-1-keywords",
+      "line": 425,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-1-keywords"
+    },
+    {
+      "path": "part-ii-1/0-2-rule-format",
+      "line": 433,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-2-rule-format"
+    },
+    {
+      "path": "part-ii-1/0-3-precedence",
+      "line": 451,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-3-precedence"
+    },
+    {
+      "path": "part-ii-1/0-4-stable-identifiers",
+      "line": 466,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-4-stable-identifiers"
+    },
+    {
+      "path": "part-ii-1/0-5-profiles",
+      "line": 471,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-5-profiles"
+    },
+    {
+      "path": "part-ii-1/0-6-verification-levels",
+      "line": 511,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-6-verification-levels"
+    },
+    {
+      "path": "part-ii-1/0-7-rule-classes",
+      "line": 522,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-7-rule-classes"
+    },
+    {
+      "path": "part-ii-1/0-8-canonical-rule-registry",
+      "line": 545,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/0-8-canonical-rule-registry"
+    },
+    {
+      "path": "part-ii-1/1-definitions",
+      "line": 562,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/1-definitions"
+    },
+    {
+      "path": "part-ii-1/2-invariants",
+      "line": 580,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/2-invariants"
+    },
+    {
+      "path": "part-ii-1/3-crate-architecture",
+      "line": 597,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/3-crate-architecture"
+    },
+    {
+      "path": "part-ii-1/3-1-required-crate-roles",
+      "line": 599,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/3-1-required-crate-roles"
+    },
+    {
+      "path": "part-ii-1/3-2-rules",
+      "line": 626,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/3-2-rules"
+    },
+    {
+      "path": "part-ii-1/4-operation-contract",
+      "line": 649,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/4-operation-contract"
+    },
+    {
+      "path": "part-ii-1/4-1-operation-catalog",
+      "line": 651,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/4-1-operation-catalog"
+    },
+    {
+      "path": "part-ii-1/4-2-envelope",
+      "line": 668,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/4-2-envelope"
+    },
+    {
+      "path": "part-ii-1/5-identity-and-authentication",
+      "line": 698,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/5-identity-and-authentication"
+    },
+    {
+      "path": "part-ii-1/5-1-identity-model",
+      "line": 700,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/5-1-identity-model"
+    },
+    {
+      "path": "part-ii-1/5-2-authentication-contracts",
+      "line": 711,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/5-2-authentication-contracts"
+    },
+    {
+      "path": "part-ii-1/5-3-per-interface-authentication",
+      "line": 745,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/5-3-per-interface-authentication"
+    },
+    {
+      "path": "part-ii-1/6-sso-extension",
+      "line": 763,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/6-sso-extension"
+    },
+    {
+      "path": "part-ii-1/7-authorization",
+      "line": 800,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/7-authorization"
+    },
+    {
+      "path": "part-ii-1/8-interface-adapters",
+      "line": 816,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/8-interface-adapters"
+    },
+    {
+      "path": "part-ii-1/8-1-common-rules",
+      "line": 818,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/8-1-common-rules"
+    },
+    {
+      "path": "part-ii-1/8-2-interface-specific-rules",
+      "line": 831,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/8-2-interface-specific-rules"
+    },
+    {
+      "path": "part-ii-1/9-errors-observability-and-security",
+      "line": 848,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/9-errors-observability-and-security"
+    },
+    {
+      "path": "part-ii-1/9-1-error-model",
+      "line": 850,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/9-1-error-model"
+    },
+    {
+      "path": "part-ii-1/9-2-observability",
+      "line": 860,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/9-2-observability"
+    },
+    {
+      "path": "part-ii-1/9-3-security",
+      "line": 870,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/9-3-security"
+    },
+    {
+      "path": "part-ii-1/10-conformance",
+      "line": 882,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/10-conformance"
+    },
+    {
+      "path": "part-ii-1/11-per-operation-specification-template",
+      "line": 897,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/11-per-operation-specification-template"
+    },
+    {
+      "path": "part-ii-1/12-application-to-projects",
+      "line": 927,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/12-application-to-projects"
+    },
+    {
+      "path": "part-ii-1/12-1-project-profile",
+      "line": 929,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/12-1-project-profile"
+    },
+    {
+      "path": "part-ii-1/12-2-crate-mapping",
+      "line": 934,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/12-2-crate-mapping"
+    },
+    {
+      "path": "part-ii-1/12-3-application-rules",
+      "line": 952,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/12-3-application-rules"
+    },
+    {
+      "path": "part-ii-1/13-rule-index",
+      "line": 966,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/13-rule-index"
+    },
+    {
+      "path": "part-ii-1/meta-and-invariants",
+      "line": 972,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/meta-and-invariants"
+    },
+    {
+      "path": "part-ii-1/architecture",
+      "line": 989,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/architecture"
+    },
+    {
+      "path": "part-ii-1/operation",
+      "line": 996,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/operation"
+    },
+    {
+      "path": "part-ii-1/identity-and-authentication",
+      "line": 1006,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/identity-and-authentication"
+    },
+    {
+      "path": "part-ii-1/sso",
+      "line": 1022,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/sso"
+    },
+    {
+      "path": "part-ii-1/authorization",
+      "line": 1030,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/authorization"
+    },
+    {
+      "path": "part-ii-1/interfaces",
+      "line": 1037,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/interfaces"
+    },
+    {
+      "path": "part-ii-1/errors-observability-security",
+      "line": 1043,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/errors-observability-security"
+    },
+    {
+      "path": "part-ii-1/conformance-and-application",
+      "line": 1051,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/conformance-and-application"
+    },
+    {
+      "path": "part-ii-1/14-completion-criteria",
+      "line": 1061,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/14-completion-criteria"
+    },
+    {
+      "path": "part-ii-1/15-documentation",
+      "line": 1088,
+      "disposition": "concept",
+      "target": "sources/part-ii-1/15-documentation"
+    },
+    {
+      "path": "part-iii-1/1-the-four-rule-classes",
+      "line": 1152,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/1-the-four-rule-classes"
+    },
+    {
+      "path": "part-iii-1/2-open-sets",
+      "line": 1166,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/2-open-sets"
+    },
+    {
+      "path": "part-iii-1/3-closed-seams",
+      "line": 1190,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/3-closed-seams"
+    },
+    {
+      "path": "part-iii-1/4-generated-mechanics",
+      "line": 1211,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/4-generated-mechanics"
+    },
+    {
+      "path": "part-iii-1/5-hand-written-layer",
+      "line": 1235,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/5-hand-written-layer"
+    },
+    {
+      "path": "part-iii-1/6-extension-model",
+      "line": 1252,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-extension-model"
+    },
+    {
+      "path": "part-iii-1/6-1-add-an-operation",
+      "line": 1254,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-1-add-an-operation"
+    },
+    {
+      "path": "part-iii-1/6-2-add-a-scope",
+      "line": 1265,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-2-add-a-scope"
+    },
+    {
+      "path": "part-iii-1/6-3-add-an-error-code",
+      "line": 1273,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-3-add-an-error-code"
+    },
+    {
+      "path": "part-iii-1/6-4-add-an-auth-method",
+      "line": 1281,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-4-add-an-auth-method"
+    },
+    {
+      "path": "part-iii-1/6-5-add-an-sso-provider",
+      "line": 1290,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-5-add-an-sso-provider"
+    },
+    {
+      "path": "part-iii-1/6-6-add-an-interface",
+      "line": 1300,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-6-add-an-interface"
+    },
+    {
+      "path": "part-iii-1/6-7-add-a-streaming-mode",
+      "line": 1310,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-7-add-a-streaming-mode"
+    },
+    {
+      "path": "part-iii-1/6-8-add-storage",
+      "line": 1319,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/6-8-add-storage"
+    },
+    {
+      "path": "part-iii-1/7-no-limitation-guarantees",
+      "line": 1329,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/7-no-limitation-guarantees"
+    },
+    {
+      "path": "part-iii-1/8-how-almost-complete-unification-is-achieved",
+      "line": 1351,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/8-how-almost-complete-unification-is-achieved"
+    },
+    {
+      "path": "part-iii-1/9-versioning-and-amendment",
+      "line": 1373,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/9-versioning-and-amendment"
+    },
+    {
+      "path": "part-iii-1/10-non-goals",
+      "line": 1386,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/10-non-goals"
+    },
+    {
+      "path": "part-iii-1/11-review-checklist",
+      "line": 1401,
+      "disposition": "concept",
+      "target": "sources/part-iii-1/11-review-checklist"
+    },
+    {
+      "path": "part-iii-2/1-identifier-types",
+      "line": 1438,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/1-identifier-types"
+    },
+    {
+      "path": "part-iii-2/2-verified-identity-and-credential-binding",
+      "line": 1572,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/2-verified-identity-and-credential-binding"
+    },
+    {
+      "path": "part-iii-2/2-1-sealed-construction",
+      "line": 1635,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/2-1-sealed-construction"
+    },
+    {
+      "path": "part-iii-2/2-2-binding-checks",
+      "line": 1648,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/2-2-binding-checks"
+    },
+    {
+      "path": "part-iii-2/2-3-delegation",
+      "line": 1664,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/2-3-delegation"
+    },
+    {
+      "path": "part-iii-2/3-authentication-contracts",
+      "line": 1676,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/3-authentication-contracts"
+    },
+    {
+      "path": "part-iii-2/4-invocation-contexts",
+      "line": 1785,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/4-invocation-contexts"
+    },
+    {
+      "path": "part-iii-2/5-operation-contract",
+      "line": 1853,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-operation-contract"
+    },
+    {
+      "path": "part-iii-2/5-1-modes",
+      "line": 1855,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-1-modes"
+    },
+    {
+      "path": "part-iii-2/5-2-authenticated-operation",
+      "line": 1866,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-2-authenticated-operation"
+    },
+    {
+      "path": "part-iii-2/5-3-anonymous-operation",
+      "line": 1932,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-3-anonymous-operation"
+    },
+    {
+      "path": "part-iii-2/5-4-streams",
+      "line": 1986,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-4-streams"
+    },
+    {
+      "path": "part-iii-2/5-5-erased-registry",
+      "line": 2041,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-5-erased-registry"
+    },
+    {
+      "path": "part-iii-2/5-6-dispatcher",
+      "line": 2148,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-6-dispatcher"
+    },
+    {
+      "path": "part-iii-2/5-7-pipeline",
+      "line": 2305,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-7-pipeline"
+    },
+    {
+      "path": "part-iii-2/5-8-errors",
+      "line": 2367,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/5-8-errors"
+    },
+    {
+      "path": "part-iii-2/6-idempotency",
+      "line": 2464,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/6-idempotency"
+    },
+    {
+      "path": "part-iii-2/7-transaction-outbox-and-events",
+      "line": 2599,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/7-transaction-outbox-and-events"
+    },
+    {
+      "path": "part-iii-2/8-wire-envelope-and-protocol-bindings",
+      "line": 2653,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/8-wire-envelope-and-protocol-bindings"
+    },
+    {
+      "path": "part-iii-2/8-1-protobuf-context",
+      "line": 2692,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/8-1-protobuf-context"
+    },
+    {
+      "path": "part-iii-2/8-1-bindings",
+      "line": 2706,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/8-1-bindings"
+    },
+    {
+      "path": "part-iii-2/9-interface-contract",
+      "line": 2727,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/9-interface-contract"
+    },
+    {
+      "path": "part-iii-2/10-conformance-harness",
+      "line": 2758,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/10-conformance-harness"
+    },
+    {
+      "path": "part-iii-2/11-rule-registry",
+      "line": 2851,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/11-rule-registry"
+    },
+    {
+      "path": "part-iii-2/12-versioning",
+      "line": 2867,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/12-versioning"
+    },
+    {
+      "path": "part-iii-2/13-what-this-document-deliberately-does-not-define",
+      "line": 2886,
+      "disposition": "concept",
+      "target": "sources/part-iii-2/13-what-this-document-deliberately-does-not-define"
+    },
+    {
+      "path": "part-iii-3/1-purpose",
+      "line": 2911,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/1-purpose"
+    },
+    {
+      "path": "part-iii-3/2-dependencies",
+      "line": 2919,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/2-dependencies"
+    },
+    {
+      "path": "part-iii-3/3-layout",
+      "line": 2937,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/3-layout"
+    },
+    {
+      "path": "part-iii-3/4-public-api",
+      "line": 2978,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/4-public-api"
+    },
+    {
+      "path": "part-iii-3/5-domain-model-rules",
+      "line": 2994,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/5-domain-model-rules"
+    },
+    {
+      "path": "part-iii-3/6-ports",
+      "line": 3011,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/6-ports"
+    },
+    {
+      "path": "part-iii-3/7-domain-errors",
+      "line": 3045,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/7-domain-errors"
+    },
+    {
+      "path": "part-iii-3/8-state-machines",
+      "line": 3064,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/8-state-machines"
+    },
+    {
+      "path": "part-iii-3/9-fixed-and-open",
+      "line": 3085,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/9-fixed-and-open"
+    },
+    {
+      "path": "part-iii-3/10-conformance-obligations",
+      "line": 3098,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/10-conformance-obligations"
+    },
+    {
+      "path": "part-iii-3/11-generated-and-hand-written",
+      "line": 3112,
+      "disposition": "concept",
+      "target": "sources/part-iii-3/11-generated-and-hand-written"
+    },
+    {
+      "path": "part-iii-4/1-purpose",
+      "line": 3135,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/1-purpose"
+    },
+    {
+      "path": "part-iii-4/2-dependencies",
+      "line": 3145,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/2-dependencies"
+    },
+    {
+      "path": "part-iii-4/3-layout",
+      "line": 3160,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/3-layout"
+    },
+    {
+      "path": "part-iii-4/4-dispatcher-and-contexts",
+      "line": 3195,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/4-dispatcher-and-contexts"
+    },
+    {
+      "path": "part-iii-4/5-handler-protocol",
+      "line": 3232,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/5-handler-protocol"
+    },
+    {
+      "path": "part-iii-4/5-1-input-validation",
+      "line": 3307,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/5-1-input-validation"
+    },
+    {
+      "path": "part-iii-4/6-anonymous-operations",
+      "line": 3317,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/6-anonymous-operations"
+    },
+    {
+      "path": "part-iii-4/7-authorization",
+      "line": 3369,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/7-authorization"
+    },
+    {
+      "path": "part-iii-4/8-idempotency",
+      "line": 3396,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/8-idempotency"
+    },
+    {
+      "path": "part-iii-4/9-transactions-outbox-and-recovery",
+      "line": 3422,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/9-transactions-outbox-and-recovery"
+    },
+    {
+      "path": "part-iii-4/10-events",
+      "line": 3452,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/10-events"
+    },
+    {
+      "path": "part-iii-4/11-errors",
+      "line": 3461,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/11-errors"
+    },
+    {
+      "path": "part-iii-4/12-registry",
+      "line": 3470,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/12-registry"
+    },
+    {
+      "path": "part-iii-4/13-fixed-and-open",
+      "line": 3478,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/13-fixed-and-open"
+    },
+    {
+      "path": "part-iii-4/14-conformance-obligations",
+      "line": 3492,
+      "disposition": "concept",
+      "target": "sources/part-iii-4/14-conformance-obligations"
+    },
+    {
+      "path": "part-iii-5/1-purpose",
+      "line": 3521,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/1-purpose"
+    },
+    {
+      "path": "part-iii-5/2-crates",
+      "line": 3529,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/2-crates"
+    },
+    {
+      "path": "part-iii-5/3-layout",
+      "line": 3548,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/3-layout"
+    },
+    {
+      "path": "part-iii-5/4-token-profile",
+      "line": 3564,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/4-token-profile"
+    },
+    {
+      "path": "part-iii-5/4-1-validation-order",
+      "line": 3581,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/4-1-validation-order"
+    },
+    {
+      "path": "part-iii-5/4-2-claims",
+      "line": 3599,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/4-2-claims"
+    },
+    {
+      "path": "part-iii-5/4-3-delegation",
+      "line": 3621,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/4-3-delegation"
+    },
+    {
+      "path": "part-iii-5/5-keys",
+      "line": 3632,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/5-keys"
+    },
+    {
+      "path": "part-iii-5/6-login-and-local-identity",
+      "line": 3653,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/6-login-and-local-identity"
+    },
+    {
+      "path": "part-iii-5/7-refresh-tokens-and-sessions",
+      "line": 3693,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/7-refresh-tokens-and-sessions"
+    },
+    {
+      "path": "part-iii-5/7-1-schema",
+      "line": 3706,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/7-1-schema"
+    },
+    {
+      "path": "part-iii-5/7-2-atomic-rotation",
+      "line": 3752,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/7-2-atomic-rotation"
+    },
+    {
+      "path": "part-iii-5/8-sso",
+      "line": 3799,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/8-sso"
+    },
+    {
+      "path": "part-iii-5/9-negative-authentication-tests",
+      "line": 3816,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/9-negative-authentication-tests"
+    },
+    {
+      "path": "part-iii-5/10-fixed-and-open",
+      "line": 3839,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/10-fixed-and-open"
+    },
+    {
+      "path": "part-iii-5/11-conformance-obligations",
+      "line": 3854,
+      "disposition": "concept",
+      "target": "sources/part-iii-5/11-conformance-obligations"
+    },
+    {
+      "path": "part-iii-6/1-purpose",
+      "line": 3883,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/1-purpose"
+    },
+    {
+      "path": "part-iii-6/2-dependencies",
+      "line": 3891,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/2-dependencies"
+    },
+    {
+      "path": "part-iii-6/3-layout",
+      "line": 3912,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/3-layout"
+    },
+    {
+      "path": "part-iii-6/4-public-api",
+      "line": 3944,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/4-public-api"
+    },
+    {
+      "path": "part-iii-6/5-generated-bindings",
+      "line": 3978,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/5-generated-bindings"
+    },
+    {
+      "path": "part-iii-6/6-http-rules",
+      "line": 4021,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/6-http-rules"
+    },
+    {
+      "path": "part-iii-6/7-error-mapping",
+      "line": 4046,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/7-error-mapping"
+    },
+    {
+      "path": "part-iii-6/8-openapi",
+      "line": 4086,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/8-openapi"
+    },
+    {
+      "path": "part-iii-6/9-fixed-and-open",
+      "line": 4098,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/9-fixed-and-open"
+    },
+    {
+      "path": "part-iii-6/10-conformance-obligations",
+      "line": 4112,
+      "disposition": "concept",
+      "target": "sources/part-iii-6/10-conformance-obligations"
+    },
+    {
+      "path": "part-iii-7/1-purpose",
+      "line": 4138,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/1-purpose"
+    },
+    {
+      "path": "part-iii-7/2-dependencies",
+      "line": 4147,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/2-dependencies"
+    },
+    {
+      "path": "part-iii-7/3-layout",
+      "line": 4165,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/3-layout"
+    },
+    {
+      "path": "part-iii-7/4-public-api",
+      "line": 4197,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/4-public-api"
+    },
+    {
+      "path": "part-iii-7/5-one-time-ticket",
+      "line": 4224,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/5-one-time-ticket"
+    },
+    {
+      "path": "part-iii-7/6-envelope",
+      "line": 4272,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/6-envelope"
+    },
+    {
+      "path": "part-iii-7/7-connection-state",
+      "line": 4342,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/7-connection-state"
+    },
+    {
+      "path": "part-iii-7/8-dispatch-and-ordering",
+      "line": 4363,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/8-dispatch-and-ordering"
+    },
+    {
+      "path": "part-iii-7/8-1-streaming",
+      "line": 4375,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/8-1-streaming"
+    },
+    {
+      "path": "part-iii-7/8-2-protocol-owned-resources",
+      "line": 4387,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/8-2-protocol-owned-resources"
+    },
+    {
+      "path": "part-iii-7/9-backpressure-and-limits",
+      "line": 4397,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/9-backpressure-and-limits"
+    },
+    {
+      "path": "part-iii-7/10-close-codes-and-cleanup",
+      "line": 4408,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/10-close-codes-and-cleanup"
+    },
+    {
+      "path": "part-iii-7/11-fixed-and-open",
+      "line": 4427,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/11-fixed-and-open"
+    },
+    {
+      "path": "part-iii-7/12-conformance-obligations",
+      "line": 4441,
+      "disposition": "concept",
+      "target": "sources/part-iii-7/12-conformance-obligations"
+    },
+    {
+      "path": "part-iii-8/1-purpose",
+      "line": 4469,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/1-purpose"
+    },
+    {
+      "path": "part-iii-8/2-dependencies",
+      "line": 4478,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/2-dependencies"
+    },
+    {
+      "path": "part-iii-8/3-layout",
+      "line": 4498,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/3-layout"
+    },
+    {
+      "path": "part-iii-8/4-public-api",
+      "line": 4530,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/4-public-api"
+    },
+    {
+      "path": "part-iii-8/5-generated-command-tree",
+      "line": 4541,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/5-generated-command-tree"
+    },
+    {
+      "path": "part-iii-8/6-modes",
+      "line": 4581,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/6-modes"
+    },
+    {
+      "path": "part-iii-8/6-1-local-mode",
+      "line": 4583,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/6-1-local-mode"
+    },
+    {
+      "path": "part-iii-8/6-2-remote-mode",
+      "line": 4622,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/6-2-remote-mode"
+    },
+    {
+      "path": "part-iii-8/7-output-and-exit-codes",
+      "line": 4648,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/7-output-and-exit-codes"
+    },
+    {
+      "path": "part-iii-8/8-secrets",
+      "line": 4675,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/8-secrets"
+    },
+    {
+      "path": "part-iii-8/9-fixed-and-open",
+      "line": 4686,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/9-fixed-and-open"
+    },
+    {
+      "path": "part-iii-8/10-conformance-obligations",
+      "line": 4699,
+      "disposition": "concept",
+      "target": "sources/part-iii-8/10-conformance-obligations"
+    },
+    {
+      "path": "part-iii-9/1-purpose",
+      "line": 4726,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/1-purpose"
+    },
+    {
+      "path": "part-iii-9/2-dependencies",
+      "line": 4736,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/2-dependencies"
+    },
+    {
+      "path": "part-iii-9/3-layout",
+      "line": 4755,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/3-layout"
+    },
+    {
+      "path": "part-iii-9/4-public-api",
+      "line": 4789,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/4-public-api"
+    },
+    {
+      "path": "part-iii-9/5-generated-proto",
+      "line": 4813,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/5-generated-proto"
+    },
+    {
+      "path": "part-iii-9/6-authentication",
+      "line": 4859,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/6-authentication"
+    },
+    {
+      "path": "part-iii-9/7-error-mapping",
+      "line": 4880,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/7-error-mapping"
+    },
+    {
+      "path": "part-iii-9/8-deadlines-streaming-and-limits",
+      "line": 4905,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/8-deadlines-streaming-and-limits"
+    },
+    {
+      "path": "part-iii-9/9-fixed-and-open",
+      "line": 4917,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/9-fixed-and-open"
+    },
+    {
+      "path": "part-iii-9/10-conformance-obligations",
+      "line": 4930,
+      "disposition": "concept",
+      "target": "sources/part-iii-9/10-conformance-obligations"
+    },
+    {
+      "path": "part-iii-10/1-purpose",
+      "line": 4958,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/1-purpose"
+    },
+    {
+      "path": "part-iii-10/2-dependencies",
+      "line": 4967,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/2-dependencies"
+    },
+    {
+      "path": "part-iii-10/3-layout",
+      "line": 4984,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/3-layout"
+    },
+    {
+      "path": "part-iii-10/4-public-api",
+      "line": 5009,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/4-public-api"
+    },
+    {
+      "path": "part-iii-10/5-tool-mapping",
+      "line": 5033,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/5-tool-mapping"
+    },
+    {
+      "path": "part-iii-10/6-authorization",
+      "line": 5049,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/6-authorization"
+    },
+    {
+      "path": "part-iii-10/7-errors",
+      "line": 5065,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/7-errors"
+    },
+    {
+      "path": "part-iii-10/8-session-and-state",
+      "line": 5090,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/8-session-and-state"
+    },
+    {
+      "path": "part-iii-10/9-fixed-and-open",
+      "line": 5104,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/9-fixed-and-open"
+    },
+    {
+      "path": "part-iii-10/10-conformance-obligations",
+      "line": 5117,
+      "disposition": "concept",
+      "target": "sources/part-iii-10/10-conformance-obligations"
+    },
+    {
+      "path": "part-iii-11/1-purpose",
+      "line": 5144,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/1-purpose"
+    },
+    {
+      "path": "part-iii-11/2-dependencies",
+      "line": 5153,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/2-dependencies"
+    },
+    {
+      "path": "part-iii-11/3-layout",
+      "line": 5172,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/3-layout"
+    },
+    {
+      "path": "part-iii-11/4-public-api",
+      "line": 5200,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/4-public-api"
+    },
+    {
+      "path": "part-iii-11/5-agent-card-and-skills",
+      "line": 5245,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/5-agent-card-and-skills"
+    },
+    {
+      "path": "part-iii-11/6-task-mapping",
+      "line": 5259,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/6-task-mapping"
+    },
+    {
+      "path": "part-iii-11/7-security",
+      "line": 5277,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/7-security"
+    },
+    {
+      "path": "part-iii-11/8-streaming-and-errors",
+      "line": 5289,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/8-streaming-and-errors"
+    },
+    {
+      "path": "part-iii-11/9-fixed-and-open",
+      "line": 5300,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/9-fixed-and-open"
+    },
+    {
+      "path": "part-iii-11/10-conformance-obligations",
+      "line": 5313,
+      "disposition": "concept",
+      "target": "sources/part-iii-11/10-conformance-obligations"
+    },
+    {
+      "path": "part-iii-12/1-purpose",
+      "line": 5340,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/1-purpose"
+    },
+    {
+      "path": "part-iii-12/2-dependencies",
+      "line": 5352,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/2-dependencies"
+    },
+    {
+      "path": "part-iii-12/3-layout",
+      "line": 5376,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/3-layout"
+    },
+    {
+      "path": "part-iii-12/4-matrix",
+      "line": 5423,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/4-matrix"
+    },
+    {
+      "path": "part-iii-12/5-cases",
+      "line": 5444,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/5-cases"
+    },
+    {
+      "path": "part-iii-12/6-fixtures-and-determinism",
+      "line": 5473,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/6-fixtures-and-determinism"
+    },
+    {
+      "path": "part-iii-12/7-independent-oracle",
+      "line": 5485,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/7-independent-oracle"
+    },
+    {
+      "path": "part-iii-12/8-authentication-and-binding",
+      "line": 5495,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/8-authentication-and-binding"
+    },
+    {
+      "path": "part-iii-12/9-security-proofs",
+      "line": 5508,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/9-security-proofs"
+    },
+    {
+      "path": "part-iii-12/10-idempotency-transactions-and-recovery",
+      "line": 5520,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/10-idempotency-transactions-and-recovery"
+    },
+    {
+      "path": "part-iii-12/11-streaming",
+      "line": 5533,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/11-streaming"
+    },
+    {
+      "path": "part-iii-12/12-drivers",
+      "line": 5545,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/12-drivers"
+    },
+    {
+      "path": "part-iii-12/13-dependency-and-rule-coverage",
+      "line": 5572,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/13-dependency-and-rule-coverage"
+    },
+    {
+      "path": "part-iii-12/14-sso-regression",
+      "line": 5584,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/14-sso-regression"
+    },
+    {
+      "path": "part-iii-12/14-1-revision-tests-0-3-0",
+      "line": 5594,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/14-1-revision-tests-0-3-0"
+    },
+    {
+      "path": "part-iii-12/15-report",
+      "line": 5624,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/15-report"
+    },
+    {
+      "path": "part-iii-12/16-fixed-and-open",
+      "line": 5657,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/16-fixed-and-open"
+    },
+    {
+      "path": "part-iii-12/17-conformance-obligations",
+      "line": 5669,
+      "disposition": "concept",
+      "target": "sources/part-iii-12/17-conformance-obligations"
+    },
+    {
+      "path": "part-iii-13/1-workspace-layout",
+      "line": 5702,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/1-workspace-layout"
+    },
+    {
+      "path": "part-iii-13/2-rules-profile-toml",
+      "line": 5747,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/2-rules-profile-toml"
+    },
+    {
+      "path": "part-iii-13/3-operation-catalog",
+      "line": 5786,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/3-operation-catalog"
+    },
+    {
+      "path": "part-iii-13/4-schema-source",
+      "line": 5856,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/4-schema-source"
+    },
+    {
+      "path": "part-iii-13/5-cargo-toml",
+      "line": 5908,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/5-cargo-toml"
+    },
+    {
+      "path": "part-iii-13/6-required-files-by-profile",
+      "line": 5951,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/6-required-files-by-profile"
+    },
+    {
+      "path": "part-iii-13/7-generated-files-and-create-once-files",
+      "line": 5976,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/7-generated-files-and-create-once-files"
+    },
+    {
+      "path": "part-iii-13/8-naming",
+      "line": 6016,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/8-naming"
+    },
+    {
+      "path": "part-iii-13/9-build-and-verification",
+      "line": 6036,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/9-build-and-verification"
+    },
+    {
+      "path": "part-iii-13/10-versioning",
+      "line": 6059,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/10-versioning"
+    },
+    {
+      "path": "part-iii-13/11-fixed-and-open",
+      "line": 6076,
+      "disposition": "concept",
+      "target": "sources/part-iii-13/11-fixed-and-open"
+    },
+    {
+      "path": "part-iii-14/1-target-state",
+      "line": 6104,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/1-target-state"
+    },
+    {
+      "path": "part-iii-14/2-migration-order",
+      "line": 6138,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/2-migration-order"
+    },
+    {
+      "path": "part-iii-14/3-step-0-pin-the-rules-and-record-the-baseline",
+      "line": 6163,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/3-step-0-pin-the-rules-and-record-the-baseline"
+    },
+    {
+      "path": "part-iii-14/4-step-1-shared-contract-crates",
+      "line": 6179,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/4-step-1-shared-contract-crates"
+    },
+    {
+      "path": "part-iii-14/5-step-2-identity-crates",
+      "line": 6191,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/5-step-2-identity-crates"
+    },
+    {
+      "path": "part-iii-14/6-step-3-operation-catalog",
+      "line": 6206,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/6-step-3-operation-catalog"
+    },
+    {
+      "path": "part-iii-14/7-step-4-crate-mapping",
+      "line": 6219,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/7-step-4-crate-mapping"
+    },
+    {
+      "path": "part-iii-14/7-1-project-c",
+      "line": 6221,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/7-1-project-c"
+    },
+    {
+      "path": "part-iii-14/7-2-project-a",
+      "line": 6239,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/7-2-project-a"
+    },
+    {
+      "path": "part-iii-14/7-3-project-b",
+      "line": 6257,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/7-3-project-b"
+    },
+    {
+      "path": "part-iii-14/8-step-5-dispatcher-and-authorization",
+      "line": 6275,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/8-step-5-dispatcher-and-authorization"
+    },
+    {
+      "path": "part-iii-14/9-step-6-conformance",
+      "line": 6288,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/9-step-6-conformance"
+    },
+    {
+      "path": "part-iii-14/10-step-7-interfaces",
+      "line": 6302,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/10-step-7-interfaces"
+    },
+    {
+      "path": "part-iii-14/11-step-8-remove-divergence",
+      "line": 6322,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/11-step-8-remove-divergence"
+    },
+    {
+      "path": "part-iii-14/12-step-9-additional-interfaces-mcp-a2a",
+      "line": 6338,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/12-step-9-additional-interfaces-mcp-a2a"
+    },
+    {
+      "path": "part-iii-14/13-per-project-completion-criteria",
+      "line": 6353,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/13-per-project-completion-criteria"
+    },
+    {
+      "path": "part-iii-14/14-risks-and-mitigations",
+      "line": 6366,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/14-risks-and-mitigations"
+    },
+    {
+      "path": "part-iii-14/15-rollback",
+      "line": 6381,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/15-rollback"
+    },
+    {
+      "path": "part-iii-14/16-fixed-and-open",
+      "line": 6399,
+      "disposition": "concept",
+      "target": "sources/part-iii-14/16-fixed-and-open"
+    },
+    {
+      "path": "part-iii-15/1-registry",
+      "line": 6427,
+      "disposition": "concept",
+      "target": "sources/part-iii-15/1-registry"
+    },
+    {
+      "path": "part-iii-15/2-duplicate-detection",
+      "line": 6862,
+      "disposition": "concept",
+      "target": "sources/part-iii-15/2-duplicate-detection"
+    },
+    {
+      "path": "part-iii-15/3-coverage",
+      "line": 6866,
+      "disposition": "concept",
+      "target": "sources/part-iii-15/3-coverage"
+    },
+    {
+      "path": "part-iii-15/4-rule-id-grammar",
+      "line": 6874,
+      "disposition": "concept",
+      "target": "sources/part-iii-15/4-rule-id-grammar"
+    },
+    {
+      "path": "part-iii-15/5-generation",
+      "line": 6884,
+      "disposition": "concept",
+      "target": "sources/part-iii-15/5-generation"
+    },
+    {
+      "path": "part-iii-16/1-purpose",
+      "line": 6903,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/1-purpose"
+    },
+    {
+      "path": "part-iii-16/2-inputs",
+      "line": 6919,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/2-inputs"
+    },
+    {
+      "path": "part-iii-16/3-outputs",
+      "line": 6937,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/3-outputs"
+    },
+    {
+      "path": "part-iii-16/4-pipeline",
+      "line": 6958,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/4-pipeline"
+    },
+    {
+      "path": "part-iii-16/5-completeness",
+      "line": 6977,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/5-completeness"
+    },
+    {
+      "path": "part-iii-16/5-1-validation-constraints",
+      "line": 7002,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/5-1-validation-constraints"
+    },
+    {
+      "path": "part-iii-16/6-english-only",
+      "line": 7023,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/6-english-only"
+    },
+    {
+      "path": "part-iii-16/7-no-rest-dependency",
+      "line": 7039,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/7-no-rest-dependency"
+    },
+    {
+      "path": "part-iii-16/8-determinism-and-versioning",
+      "line": 7050,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/8-determinism-and-versioning"
+    },
+    {
+      "path": "part-iii-16/9-rules",
+      "line": 7063,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/9-rules"
+    },
+    {
+      "path": "part-iii-16/10-fixed-and-open",
+      "line": 7087,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/10-fixed-and-open"
+    },
+    {
+      "path": "part-iii-16/11-conformance-obligations",
+      "line": 7100,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/11-conformance-obligations"
+    },
+    {
+      "path": "part-iii-16/12-example-commands",
+      "line": 7116,
+      "disposition": "concept",
+      "target": "sources/part-iii-16/12-example-commands"
+    },
+    {
+      "path": "part-iii-17/1-purpose",
+      "line": 7146,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/1-purpose"
+    },
+    {
+      "path": "part-iii-17/2-declaration-syntax",
+      "line": 7162,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/2-declaration-syntax"
+    },
+    {
+      "path": "part-iii-17/3-generated-outputs",
+      "line": 7219,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/3-generated-outputs"
+    },
+    {
+      "path": "part-iii-17/4-standard-rule-conversion",
+      "line": 7269,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/4-standard-rule-conversion"
+    },
+    {
+      "path": "part-iii-17/5-custom-rules",
+      "line": 7307,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/5-custom-rules"
+    },
+    {
+      "path": "part-iii-17/6-runtime-execution",
+      "line": 7334,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/6-runtime-execution"
+    },
+    {
+      "path": "part-iii-17/7-documentation",
+      "line": 7365,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/7-documentation"
+    },
+    {
+      "path": "part-iii-17/8-fixed-and-open",
+      "line": 7393,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/8-fixed-and-open"
+    },
+    {
+      "path": "part-iii-17/9-conformance-obligations",
+      "line": 7407,
+      "disposition": "concept",
+      "target": "sources/part-iii-17/9-conformance-obligations"
+    },
+    {
+      "path": "part-iii-18/1-crates-and-files",
+      "line": 7443,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/1-crates-and-files"
+    },
+    {
+      "path": "part-iii-18/2-runtime-types",
+      "line": 7491,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/2-runtime-types"
+    },
+    {
+      "path": "part-iii-18/3-macro-contract",
+      "line": 7577,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-macro-contract"
+    },
+    {
+      "path": "part-iii-18/3-1-input",
+      "line": 7579,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-1-input"
+    },
+    {
+      "path": "part-iii-18/3-2-parse",
+      "line": 7597,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-2-parse"
+    },
+    {
+      "path": "part-iii-18/3-3-supported-field-types",
+      "line": 7606,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-3-supported-field-types"
+    },
+    {
+      "path": "part-iii-18/3-4-emitted-code",
+      "line": 7618,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-4-emitted-code"
+    },
+    {
+      "path": "part-iii-18/3-5-compile-time-errors",
+      "line": 7699,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-5-compile-time-errors"
+    },
+    {
+      "path": "part-iii-18/3-6-schema-registration",
+      "line": 7715,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-6-schema-registration"
+    },
+    {
+      "path": "part-iii-18/3-7-runtime-validation-path",
+      "line": 7725,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/3-7-runtime-validation-path"
+    },
+    {
+      "path": "part-iii-18/4-docgen-binary",
+      "line": 7800,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/4-docgen-binary"
+    },
+    {
+      "path": "part-iii-18/4-1-subcommands",
+      "line": 7802,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/4-1-subcommands"
+    },
+    {
+      "path": "part-iii-18/4-2-registry-json",
+      "line": 7811,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/4-2-registry-json"
+    },
+    {
+      "path": "part-iii-18/4-3-render-steps",
+      "line": 7855,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/4-3-render-steps"
+    },
+    {
+      "path": "part-iii-18/4-4-check-implementations",
+      "line": 7866,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/4-4-check-implementations"
+    },
+    {
+      "path": "part-iii-18/5-ci-gates",
+      "line": 7888,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/5-ci-gates"
+    },
+    {
+      "path": "part-iii-18/6-mandatory-rules",
+      "line": 7902,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/6-mandatory-rules"
+    },
+    {
+      "path": "part-iii-18/7-fixed-and-open",
+      "line": 7929,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/7-fixed-and-open"
+    },
+    {
+      "path": "part-iii-18/8-implementer-checklist",
+      "line": 7942,
+      "disposition": "concept",
+      "target": "sources/part-iii-18/8-implementer-checklist"
+    },
+    {
+      "path": "part-iv/document-map",
+      "line": 7960,
+      "disposition": "concept",
+      "target": "sources/part-iv/document-map"
+    }
+  ],
+  "rules": [
+    {
+      "id": "INV-01",
+      "line": 586,
+      "disposition": "alias",
+      "target": "IF-02",
+      "reason": "One business implementation per operation is the same obligation as IF-02: adapters do not implement business rules."
+    },
+    {
+      "id": "INV-02",
+      "line": 587,
+      "disposition": "alias",
+      "target": "IF-01",
+      "reason": "Every interface calls the operation is the IF-01 adapter call contract."
+    },
+    {
+      "id": "INV-03",
+      "line": 588,
+      "disposition": "alias",
+      "target": "OPS-07",
+      "reason": "Authorization inside the operation is OPS-07."
+    },
+    {
+      "id": "INV-04",
+      "line": 589,
+      "disposition": "alias",
+      "target": "ARC-03",
+      "reason": "No transport types in core and operation is ARC-03."
+    },
+    {
+      "id": "INV-05",
+      "line": 590,
+      "disposition": "alias",
+      "target": "CONF-42",
+      "reason": "SSO addition leaves existing operation signatures and business references unchanged; CONF-42 states the same regression obligation."
+    },
+    {
+      "id": "INV-06",
+      "line": 591,
+      "disposition": "concept",
+      "target": "rules/c/inv-06"
+    },
+    {
+      "id": "INV-07",
+      "line": 592,
+      "disposition": "alias",
+      "target": "AUTH-08",
+      "reason": "A token for one interface is rejected by another; AUTH-08 fixes the audience rule."
+    },
+    {
+      "id": "INV-08",
+      "line": 593,
+      "disposition": "alias",
+      "target": "OPS-06",
+      "reason": "No side effect before authorization succeeds is the same obligation as OPS-06."
+    },
+    {
+      "id": "ARC-01",
+      "line": 630,
+      "disposition": "concept",
+      "target": "rules/c/arc-01"
+    },
+    {
+      "id": "ARC-02",
+      "line": 631,
+      "disposition": "concept",
+      "target": "rules/c/arc-02"
+    },
+    {
+      "id": "ARC-03",
+      "line": 632,
+      "disposition": "concept",
+      "target": "rules/c/arc-03"
+    },
+    {
+      "id": "ARC-04",
+      "line": 633,
+      "disposition": "concept",
+      "target": "rules/c/arc-04"
+    },
+    {
+      "id": "ARC-05",
+      "line": 634,
+      "disposition": "concept",
+      "target": "rules/c/arc-05"
+    },
+    {
+      "id": "ARC-06",
+      "line": 635,
+      "disposition": "concept",
+      "target": "rules/c/arc-06"
+    },
+    {
+      "id": "ARC-07",
+      "line": 636,
+      "disposition": "concept",
+      "target": "rules/c/arc-07"
+    },
+    {
+      "id": "ARC-08",
+      "line": 637,
+      "disposition": "concept",
+      "target": "rules/c/arc-08"
+    },
+    {
+      "id": "ARC-09",
+      "line": 638,
+      "disposition": "concept",
+      "target": "rules/c/arc-09"
+    },
+    {
+      "id": "ARC-10",
+      "line": 639,
+      "disposition": "concept",
+      "target": "rules/c/arc-10"
+    },
+    {
+      "id": "OPS-01",
+      "line": 672,
+      "disposition": "concept",
+      "target": "rules/c/ops-01"
+    },
+    {
+      "id": "OPS-02",
+      "line": 673,
+      "disposition": "concept",
+      "target": "rules/c/ops-02"
+    },
+    {
+      "id": "OPS-03",
+      "line": 674,
+      "disposition": "concept",
+      "target": "rules/c/ops-03"
+    },
+    {
+      "id": "OPS-04",
+      "line": 675,
+      "disposition": "concept",
+      "target": "rules/g/ops-04"
+    },
+    {
+      "id": "OPS-05",
+      "line": 676,
+      "disposition": "concept",
+      "target": "rules/g/ops-05"
+    },
+    {
+      "id": "OPS-06",
+      "line": 677,
+      "disposition": "concept",
+      "target": "rules/c/ops-06"
+    },
+    {
+      "id": "OPS-07",
+      "line": 678,
+      "disposition": "concept",
+      "target": "rules/c/ops-07"
+    },
+    {
+      "id": "OPS-08",
+      "line": 679,
+      "disposition": "concept",
+      "target": "rules/c/ops-08"
+    },
+    {
+      "id": "OPS-09",
+      "line": 680,
+      "disposition": "concept",
+      "target": "rules/c/ops-09"
+    },
+    {
+      "id": "OPS-10",
+      "line": 681,
+      "disposition": "concept",
+      "target": "rules/c/ops-10"
+    },
+    {
+      "id": "OPS-11",
+      "line": 682,
+      "disposition": "concept",
+      "target": "rules/c/ops-11"
+    },
+    {
+      "id": "OPS-12",
+      "line": 683,
+      "disposition": "concept",
+      "target": "rules/c/ops-12"
+    },
+    {
+      "id": "OPS-13",
+      "line": 684,
+      "disposition": "concept",
+      "target": "rules/g/ops-13"
+    },
+    {
+      "id": "OPS-14",
+      "line": 685,
+      "disposition": "concept",
+      "target": "rules/c/ops-14"
+    },
+    {
+      "id": "OPS-15",
+      "line": 686,
+      "disposition": "concept",
+      "target": "rules/c/ops-15"
+    },
+    {
+      "id": "OPS-16",
+      "line": 687,
+      "disposition": "concept",
+      "target": "rules/c/ops-16"
+    },
+    {
+      "id": "OPS-17",
+      "line": 688,
+      "disposition": "concept",
+      "target": "rules/c/ops-17"
+    },
+    {
+      "id": "OPS-18",
+      "line": 689,
+      "disposition": "concept",
+      "target": "rules/g/ops-18"
+    },
+    {
+      "id": "ID-01",
+      "line": 704,
+      "disposition": "concept",
+      "target": "rules/c/id-01"
+    },
+    {
+      "id": "ID-02",
+      "line": 705,
+      "disposition": "concept",
+      "target": "rules/c/id-02"
+    },
+    {
+      "id": "ID-03",
+      "line": 706,
+      "disposition": "concept",
+      "target": "rules/c/id-03"
+    },
+    {
+      "id": "ID-04",
+      "line": 707,
+      "disposition": "concept",
+      "target": "rules/c/id-04"
+    },
+    {
+      "id": "ID-05",
+      "line": 708,
+      "disposition": "concept",
+      "target": "rules/c/id-05"
+    },
+    {
+      "id": "ID-06",
+      "line": 709,
+      "disposition": "concept",
+      "target": "rules/c/id-06"
+    },
+    {
+      "id": "AUTH-01",
+      "line": 715,
+      "disposition": "concept",
+      "target": "rules/c/auth-01"
+    },
+    {
+      "id": "AUTH-02",
+      "line": 716,
+      "disposition": "concept",
+      "target": "rules/c/auth-02"
+    },
+    {
+      "id": "AUTH-03",
+      "line": 717,
+      "disposition": "concept",
+      "target": "rules/c/auth-03"
+    },
+    {
+      "id": "AUTH-04",
+      "line": 718,
+      "disposition": "concept",
+      "target": "rules/c/auth-04"
+    },
+    {
+      "id": "AUTH-05",
+      "line": 719,
+      "disposition": "concept",
+      "target": "rules/c/auth-05"
+    },
+    {
+      "id": "AUTH-06",
+      "line": 720,
+      "disposition": "concept",
+      "target": "rules/c/auth-06"
+    },
+    {
+      "id": "AUTH-07",
+      "line": 721,
+      "disposition": "concept",
+      "target": "rules/c/auth-07"
+    },
+    {
+      "id": "AUTH-08",
+      "line": 722,
+      "disposition": "concept",
+      "target": "rules/c/auth-08"
+    },
+    {
+      "id": "AUTH-09",
+      "line": 723,
+      "disposition": "concept",
+      "target": "rules/c/auth-09"
+    },
+    {
+      "id": "AUTH-10",
+      "line": 724,
+      "disposition": "concept",
+      "target": "rules/c/auth-10"
+    },
+    {
+      "id": "AUTH-11",
+      "line": 725,
+      "disposition": "concept",
+      "target": "rules/c/auth-11"
+    },
+    {
+      "id": "AUTH-12",
+      "line": 726,
+      "disposition": "concept",
+      "target": "rules/c/auth-12"
+    },
+    {
+      "id": "AUTH-13",
+      "line": 727,
+      "disposition": "concept",
+      "target": "rules/c/auth-13"
+    },
+    {
+      "id": "AUTH-14",
+      "line": 728,
+      "disposition": "concept",
+      "target": "rules/c/auth-14"
+    },
+    {
+      "id": "AUTH-15",
+      "line": 729,
+      "disposition": "concept",
+      "target": "rules/c/auth-15"
+    },
+    {
+      "id": "AUTH-16",
+      "line": 730,
+      "disposition": "concept",
+      "target": "rules/c/auth-16"
+    },
+    {
+      "id": "AUTH-17",
+      "line": 731,
+      "disposition": "concept",
+      "target": "rules/c/auth-17"
+    },
+    {
+      "id": "AUTH-18",
+      "line": 732,
+      "disposition": "concept",
+      "target": "rules/c/auth-18"
+    },
+    {
+      "id": "AUTH-19",
+      "line": 733,
+      "disposition": "concept",
+      "target": "rules/c/auth-19"
+    },
+    {
+      "id": "AUTH-20",
+      "line": 734,
+      "disposition": "concept",
+      "target": "rules/c/auth-20"
+    },
+    {
+      "id": "AUTH-21",
+      "line": 749,
+      "disposition": "concept",
+      "target": "rules/c/auth-21"
+    },
+    {
+      "id": "AUTH-22",
+      "line": 750,
+      "disposition": "concept",
+      "target": "rules/c/auth-22"
+    },
+    {
+      "id": "AUTH-23",
+      "line": 751,
+      "disposition": "concept",
+      "target": "rules/c/auth-23"
+    },
+    {
+      "id": "AUTH-24",
+      "line": 752,
+      "disposition": "concept",
+      "target": "rules/c/auth-24"
+    },
+    {
+      "id": "AUTH-25",
+      "line": 753,
+      "disposition": "concept",
+      "target": "rules/c/auth-25"
+    },
+    {
+      "id": "AUTH-26",
+      "line": 754,
+      "disposition": "concept",
+      "target": "rules/c/auth-26"
+    },
+    {
+      "id": "AUTH-27",
+      "line": 755,
+      "disposition": "concept",
+      "target": "rules/c/auth-27"
+    },
+    {
+      "id": "AUTH-28",
+      "line": 756,
+      "disposition": "concept",
+      "target": "rules/c/auth-28"
+    },
+    {
+      "id": "AUTH-29",
+      "line": 757,
+      "disposition": "concept",
+      "target": "rules/c/auth-29"
+    },
+    {
+      "id": "AUTH-30",
+      "line": 758,
+      "disposition": "concept",
+      "target": "rules/c/auth-30"
+    },
+    {
+      "id": "AUTH-31",
+      "line": 759,
+      "disposition": "concept",
+      "target": "rules/c/auth-31"
+    },
+    {
+      "id": "SSO-01",
+      "line": 769,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-01"
+    },
+    {
+      "id": "SSO-02",
+      "line": 770,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-02"
+    },
+    {
+      "id": "SSO-03",
+      "line": 771,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-03"
+    },
+    {
+      "id": "SSO-04",
+      "line": 772,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-04"
+    },
+    {
+      "id": "SSO-05",
+      "line": 773,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-05"
+    },
+    {
+      "id": "SSO-06",
+      "line": 774,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-06"
+    },
+    {
+      "id": "SSO-07",
+      "line": 775,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-07"
+    },
+    {
+      "id": "SSO-08",
+      "line": 776,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-08"
+    },
+    {
+      "id": "SSO-09",
+      "line": 777,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-09"
+    },
+    {
+      "id": "SSO-10",
+      "line": 778,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-10"
+    },
+    {
+      "id": "SSO-11",
+      "line": 779,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-11"
+    },
+    {
+      "id": "SSO-12",
+      "line": 780,
+      "disposition": "concept",
+      "target": "rules/o/c/sso-12"
+    },
+    {
+      "id": "AUTHZ-01",
+      "line": 804,
+      "disposition": "concept",
+      "target": "rules/c/authz-01"
+    },
+    {
+      "id": "AUTHZ-02",
+      "line": 805,
+      "disposition": "concept",
+      "target": "rules/c/authz-02"
+    },
+    {
+      "id": "AUTHZ-03",
+      "line": 806,
+      "disposition": "concept",
+      "target": "rules/c/authz-03"
+    },
+    {
+      "id": "AUTHZ-04",
+      "line": 807,
+      "disposition": "concept",
+      "target": "rules/c/authz-04"
+    },
+    {
+      "id": "AUTHZ-05",
+      "line": 808,
+      "disposition": "concept",
+      "target": "rules/c/authz-05"
+    },
+    {
+      "id": "AUTHZ-06",
+      "line": 809,
+      "disposition": "concept",
+      "target": "rules/c/authz-06"
+    },
+    {
+      "id": "AUTHZ-07",
+      "line": 810,
+      "disposition": "concept",
+      "target": "rules/c/authz-07"
+    },
+    {
+      "id": "AUTHZ-08",
+      "line": 811,
+      "disposition": "concept",
+      "target": "rules/c/authz-08"
+    },
+    {
+      "id": "AUTHZ-09",
+      "line": 812,
+      "disposition": "concept",
+      "target": "rules/c/authz-09"
+    },
+    {
+      "id": "IF-01",
+      "line": 822,
+      "disposition": "concept",
+      "target": "rules/c/if-01"
+    },
+    {
+      "id": "IF-02",
+      "line": 823,
+      "disposition": "concept",
+      "target": "rules/c/if-02"
+    },
+    {
+      "id": "IF-03",
+      "line": 824,
+      "disposition": "concept",
+      "target": "rules/c/if-03"
+    },
+    {
+      "id": "IF-04",
+      "line": 825,
+      "disposition": "concept",
+      "target": "rules/c/if-04"
+    },
+    {
+      "id": "IF-05",
+      "line": 826,
+      "disposition": "concept",
+      "target": "rules/c/if-05"
+    },
+    {
+      "id": "IF-06",
+      "line": 827,
+      "disposition": "concept",
+      "target": "rules/c/if-06"
+    },
+    {
+      "id": "IF-07",
+      "line": 828,
+      "disposition": "concept",
+      "target": "rules/c/if-07"
+    },
+    {
+      "id": "IF-08",
+      "line": 829,
+      "disposition": "concept",
+      "target": "rules/c/if-08"
+    },
+    {
+      "id": "ERR-01",
+      "line": 854,
+      "disposition": "concept",
+      "target": "rules/c/err-01"
+    },
+    {
+      "id": "ERR-02",
+      "line": 855,
+      "disposition": "concept",
+      "target": "rules/c/err-02"
+    },
+    {
+      "id": "ERR-03",
+      "line": 856,
+      "disposition": "concept",
+      "target": "rules/c/err-03"
+    },
+    {
+      "id": "ERR-04",
+      "line": 857,
+      "disposition": "concept",
+      "target": "rules/c/err-04"
+    },
+    {
+      "id": "ERR-05",
+      "line": 858,
+      "disposition": "concept",
+      "target": "rules/c/err-05"
+    },
+    {
+      "id": "OBS-01",
+      "line": 864,
+      "disposition": "concept",
+      "target": "rules/c/obs-01"
+    },
+    {
+      "id": "OBS-02",
+      "line": 865,
+      "disposition": "concept",
+      "target": "rules/c/obs-02"
+    },
+    {
+      "id": "OBS-03",
+      "line": 866,
+      "disposition": "concept",
+      "target": "rules/c/obs-03"
+    },
+    {
+      "id": "OBS-04",
+      "line": 867,
+      "disposition": "concept",
+      "target": "rules/c/obs-04"
+    },
+    {
+      "id": "OBS-05",
+      "line": 868,
+      "disposition": "concept",
+      "target": "rules/c/obs-05"
+    },
+    {
+      "id": "SEC-01",
+      "line": 874,
+      "disposition": "concept",
+      "target": "rules/c/sec-01"
+    },
+    {
+      "id": "SEC-02",
+      "line": 875,
+      "disposition": "concept",
+      "target": "rules/c/sec-02"
+    },
+    {
+      "id": "SEC-03",
+      "line": 876,
+      "disposition": "concept",
+      "target": "rules/c/sec-03"
+    },
+    {
+      "id": "SEC-04",
+      "line": 877,
+      "disposition": "concept",
+      "target": "rules/c/sec-04"
+    },
+    {
+      "id": "SEC-05",
+      "line": 878,
+      "disposition": "concept",
+      "target": "rules/c/sec-05"
+    },
+    {
+      "id": "APP-01",
+      "line": 956,
+      "disposition": "concept",
+      "target": "rules/o/app-01"
+    },
+    {
+      "id": "APP-02",
+      "line": 957,
+      "disposition": "concept",
+      "target": "rules/o/app-02"
+    },
+    {
+      "id": "APP-03",
+      "line": 958,
+      "disposition": "concept",
+      "target": "rules/o/app-03"
+    },
+    {
+      "id": "APP-04",
+      "line": 959,
+      "disposition": "concept",
+      "target": "rules/o/app-04"
+    },
+    {
+      "id": "APP-05",
+      "line": 960,
+      "disposition": "concept",
+      "target": "rules/o/app-05"
+    },
+    {
+      "id": "APP-06",
+      "line": 961,
+      "disposition": "concept",
+      "target": "rules/o/app-06"
+    },
+    {
+      "id": "APP-07",
+      "line": 962,
+      "disposition": "concept",
+      "target": "rules/o/app-07"
+    },
+    {
+      "id": "FREE-01",
+      "line": 1335,
+      "disposition": "concept",
+      "target": "rules/g/free-01"
+    },
+    {
+      "id": "FREE-02",
+      "line": 1336,
+      "disposition": "concept",
+      "target": "rules/g/free-02"
+    },
+    {
+      "id": "FREE-03",
+      "line": 1337,
+      "disposition": "concept",
+      "target": "rules/g/free-03"
+    },
+    {
+      "id": "FREE-04",
+      "line": 1338,
+      "disposition": "concept",
+      "target": "rules/g/free-04"
+    },
+    {
+      "id": "FREE-05",
+      "line": 1339,
+      "disposition": "concept",
+      "target": "rules/g/free-05"
+    },
+    {
+      "id": "FREE-06",
+      "line": 1340,
+      "disposition": "concept",
+      "target": "rules/g/free-06"
+    },
+    {
+      "id": "FREE-07",
+      "line": 1341,
+      "disposition": "concept",
+      "target": "rules/g/free-07"
+    },
+    {
+      "id": "FREE-08",
+      "line": 1342,
+      "disposition": "concept",
+      "target": "rules/g/free-08"
+    },
+    {
+      "id": "FREE-09",
+      "line": 1343,
+      "disposition": "concept",
+      "target": "rules/g/free-09"
+    },
+    {
+      "id": "FREE-10",
+      "line": 1344,
+      "disposition": "concept",
+      "target": "rules/g/free-10"
+    },
+    {
+      "id": "FREE-11",
+      "line": 1345,
+      "disposition": "concept",
+      "target": "rules/g/free-11"
+    },
+    {
+      "id": "FREE-12",
+      "line": 1346,
+      "disposition": "concept",
+      "target": "rules/g/free-12"
+    },
+    {
+      "id": "FREE-13",
+      "line": 1347,
+      "disposition": "concept",
+      "target": "rules/g/free-13"
+    },
+    {
+      "id": "VER-01",
+      "line": 1377,
+      "disposition": "concept",
+      "target": "rules/g/ver-01"
+    },
+    {
+      "id": "VER-02",
+      "line": 1378,
+      "disposition": "concept",
+      "target": "rules/g/ver-02"
+    },
+    {
+      "id": "VER-03",
+      "line": 1379,
+      "disposition": "concept",
+      "target": "rules/g/ver-03"
+    },
+    {
+      "id": "VER-04",
+      "line": 1380,
+      "disposition": "concept",
+      "target": "rules/g/ver-04"
+    },
+    {
+      "id": "VER-05",
+      "line": 1381,
+      "disposition": "concept",
+      "target": "rules/g/ver-05"
+    },
+    {
+      "id": "VER-06",
+      "line": 1382,
+      "disposition": "concept",
+      "target": "rules/g/ver-06"
+    },
+    {
+      "id": "CORE-01",
+      "line": 2998,
+      "disposition": "concept",
+      "target": "rules/c/core-01"
+    },
+    {
+      "id": "CORE-02",
+      "line": 2999,
+      "disposition": "concept",
+      "target": "rules/c/core-02"
+    },
+    {
+      "id": "CORE-03",
+      "line": 3000,
+      "disposition": "concept",
+      "target": "rules/c/core-03"
+    },
+    {
+      "id": "CORE-04",
+      "line": 3001,
+      "disposition": "concept",
+      "target": "rules/c/core-04"
+    },
+    {
+      "id": "CORE-05",
+      "line": 3002,
+      "disposition": "concept",
+      "target": "rules/c/core-05"
+    },
+    {
+      "id": "CORE-06",
+      "line": 3003,
+      "disposition": "concept",
+      "target": "rules/c/core-06"
+    },
+    {
+      "id": "CORE-07",
+      "line": 3004,
+      "disposition": "concept",
+      "target": "rules/c/core-07"
+    },
+    {
+      "id": "CORE-08",
+      "line": 3005,
+      "disposition": "concept",
+      "target": "rules/c/core-08"
+    },
+    {
+      "id": "CORE-09",
+      "line": 3006,
+      "disposition": "concept",
+      "target": "rules/c/core-09"
+    },
+    {
+      "id": "CORE-10",
+      "line": 3007,
+      "disposition": "concept",
+      "target": "rules/c/core-10"
+    },
+    {
+      "id": "OP-01",
+      "line": 3296,
+      "disposition": "concept",
+      "target": "rules/c/op-01"
+    },
+    {
+      "id": "OP-02",
+      "line": 3297,
+      "disposition": "concept",
+      "target": "rules/c/op-02"
+    },
+    {
+      "id": "OP-03",
+      "line": 3298,
+      "disposition": "concept",
+      "target": "rules/c/op-03"
+    },
+    {
+      "id": "OP-04",
+      "line": 3299,
+      "disposition": "concept",
+      "target": "rules/c/op-04"
+    },
+    {
+      "id": "OP-05",
+      "line": 3300,
+      "disposition": "concept",
+      "target": "rules/c/op-05"
+    },
+    {
+      "id": "OP-06",
+      "line": 3301,
+      "disposition": "concept",
+      "target": "rules/c/op-06"
+    },
+    {
+      "id": "OP-07",
+      "line": 3302,
+      "disposition": "concept",
+      "target": "rules/c/op-07"
+    },
+    {
+      "id": "OP-08",
+      "line": 3303,
+      "disposition": "concept",
+      "target": "rules/g/op-08"
+    },
+    {
+      "id": "OP-VAL-01",
+      "line": 3311,
+      "disposition": "concept",
+      "target": "rules/g/op-val-01"
+    },
+    {
+      "id": "OP-VAL-02",
+      "line": 3312,
+      "disposition": "concept",
+      "target": "rules/c/op-val-02"
+    },
+    {
+      "id": "OP-VAL-03",
+      "line": 3313,
+      "disposition": "concept",
+      "target": "rules/c/op-val-03"
+    },
+    {
+      "id": "OP-09",
+      "line": 3362,
+      "disposition": "concept",
+      "target": "rules/c/op-09"
+    },
+    {
+      "id": "OP-10",
+      "line": 3363,
+      "disposition": "concept",
+      "target": "rules/c/op-10"
+    },
+    {
+      "id": "OP-11",
+      "line": 3364,
+      "disposition": "concept",
+      "target": "rules/c/op-11"
+    },
+    {
+      "id": "OP-12",
+      "line": 3365,
+      "disposition": "concept",
+      "target": "rules/c/op-12"
+    },
+    {
+      "id": "OP-AUTH-01",
+      "line": 3388,
+      "disposition": "concept",
+      "target": "rules/c/op-auth-01"
+    },
+    {
+      "id": "OP-AUTH-02",
+      "line": 3389,
+      "disposition": "concept",
+      "target": "rules/c/op-auth-02"
+    },
+    {
+      "id": "OP-AUTH-03",
+      "line": 3390,
+      "disposition": "concept",
+      "target": "rules/c/op-auth-03"
+    },
+    {
+      "id": "OP-AUTH-04",
+      "line": 3391,
+      "disposition": "concept",
+      "target": "rules/c/op-auth-04"
+    },
+    {
+      "id": "OP-AUTH-05",
+      "line": 3392,
+      "disposition": "concept",
+      "target": "rules/c/op-auth-05"
+    },
+    {
+      "id": "OP-IDEM-01",
+      "line": 3409,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-01"
+    },
+    {
+      "id": "OP-IDEM-02",
+      "line": 3410,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-02"
+    },
+    {
+      "id": "OP-IDEM-03",
+      "line": 3411,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-03"
+    },
+    {
+      "id": "OP-IDEM-04",
+      "line": 3412,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-04"
+    },
+    {
+      "id": "OP-IDEM-05",
+      "line": 3413,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-05"
+    },
+    {
+      "id": "OP-IDEM-06",
+      "line": 3414,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-06"
+    },
+    {
+      "id": "OP-IDEM-07",
+      "line": 3415,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-07"
+    },
+    {
+      "id": "OP-IDEM-08",
+      "line": 3416,
+      "disposition": "concept",
+      "target": "rules/g/op-idem-08"
+    },
+    {
+      "id": "OP-IDEM-09",
+      "line": 3417,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-09"
+    },
+    {
+      "id": "OP-IDEM-10",
+      "line": 3418,
+      "disposition": "concept",
+      "target": "rules/c/op-idem-10"
+    },
+    {
+      "id": "OP-TX-01",
+      "line": 3440,
+      "disposition": "concept",
+      "target": "rules/c/op-tx-01"
+    },
+    {
+      "id": "OP-TX-02",
+      "line": 3441,
+      "disposition": "concept",
+      "target": "rules/c/op-tx-02"
+    },
+    {
+      "id": "OP-TX-03",
+      "line": 3442,
+      "disposition": "concept",
+      "target": "rules/c/op-tx-03"
+    },
+    {
+      "id": "OP-TX-04",
+      "line": 3443,
+      "disposition": "concept",
+      "target": "rules/c/op-tx-04"
+    },
+    {
+      "id": "OP-TX-05",
+      "line": 3444,
+      "disposition": "concept",
+      "target": "rules/c/op-tx-05"
+    },
+    {
+      "id": "OP-TX-06",
+      "line": 3445,
+      "disposition": "concept",
+      "target": "rules/c/op-tx-06"
+    },
+    {
+      "id": "IDN-07",
+      "line": 3697,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-07"
+    },
+    {
+      "id": "IDN-08",
+      "line": 3698,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-08"
+    },
+    {
+      "id": "IDN-09",
+      "line": 3699,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-09"
+    },
+    {
+      "id": "IDN-10",
+      "line": 3700,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-10"
+    },
+    {
+      "id": "IDN-11",
+      "line": 3701,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-11"
+    },
+    {
+      "id": "IDN-12",
+      "line": 3702,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-12"
+    },
+    {
+      "id": "IDN-13",
+      "line": 3703,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-13"
+    },
+    {
+      "id": "IDN-14",
+      "line": 3704,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-14"
+    },
+    {
+      "id": "IDN-15",
+      "line": 3803,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-15"
+    },
+    {
+      "id": "IDN-16",
+      "line": 3804,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-16"
+    },
+    {
+      "id": "IDN-17",
+      "line": 3805,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-17"
+    },
+    {
+      "id": "IDN-18",
+      "line": 3806,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-18"
+    },
+    {
+      "id": "IDN-19",
+      "line": 3807,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-19"
+    },
+    {
+      "id": "IDN-20",
+      "line": 3808,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-20"
+    },
+    {
+      "id": "IDN-21",
+      "line": 3809,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-21"
+    },
+    {
+      "id": "IDN-22",
+      "line": 3810,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-22"
+    },
+    {
+      "id": "IDN-23",
+      "line": 3811,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-23"
+    },
+    {
+      "id": "IDN-24",
+      "line": 3812,
+      "disposition": "concept",
+      "target": "rules/o/c/idn-24"
+    },
+    {
+      "id": "REST-01",
+      "line": 4025,
+      "disposition": "concept",
+      "target": "rules/c/rest-01"
+    },
+    {
+      "id": "REST-02",
+      "line": 4026,
+      "disposition": "concept",
+      "target": "rules/c/rest-02"
+    },
+    {
+      "id": "REST-03",
+      "line": 4027,
+      "disposition": "concept",
+      "target": "rules/c/rest-03"
+    },
+    {
+      "id": "REST-04",
+      "line": 4028,
+      "disposition": "concept",
+      "target": "rules/c/rest-04"
+    },
+    {
+      "id": "REST-05",
+      "line": 4029,
+      "disposition": "concept",
+      "target": "rules/c/rest-05"
+    },
+    {
+      "id": "REST-06",
+      "line": 4030,
+      "disposition": "concept",
+      "target": "rules/c/rest-06"
+    },
+    {
+      "id": "REST-07",
+      "line": 4031,
+      "disposition": "concept",
+      "target": "rules/c/rest-07"
+    },
+    {
+      "id": "REST-08",
+      "line": 4032,
+      "disposition": "concept",
+      "target": "rules/c/rest-08"
+    },
+    {
+      "id": "REST-09",
+      "line": 4033,
+      "disposition": "concept",
+      "target": "rules/c/rest-09"
+    },
+    {
+      "id": "REST-10",
+      "line": 4034,
+      "disposition": "concept",
+      "target": "rules/c/rest-10"
+    },
+    {
+      "id": "REST-11",
+      "line": 4035,
+      "disposition": "concept",
+      "target": "rules/c/rest-11"
+    },
+    {
+      "id": "REST-12",
+      "line": 4036,
+      "disposition": "concept",
+      "target": "rules/c/rest-12"
+    },
+    {
+      "id": "REST-13",
+      "line": 4037,
+      "disposition": "concept",
+      "target": "rules/c/rest-13"
+    },
+    {
+      "id": "REST-14",
+      "line": 4038,
+      "disposition": "concept",
+      "target": "rules/c/rest-14"
+    },
+    {
+      "id": "REST-15",
+      "line": 4039,
+      "disposition": "concept",
+      "target": "rules/c/rest-15"
+    },
+    {
+      "id": "REST-16",
+      "line": 4040,
+      "disposition": "concept",
+      "target": "rules/c/rest-16"
+    },
+    {
+      "id": "REST-17",
+      "line": 4041,
+      "disposition": "concept",
+      "target": "rules/c/rest-17"
+    },
+    {
+      "id": "REST-18",
+      "line": 4042,
+      "disposition": "concept",
+      "target": "rules/c/rest-18"
+    },
+    {
+      "id": "WS-01",
+      "line": 4264,
+      "disposition": "concept",
+      "target": "rules/c/ws-01"
+    },
+    {
+      "id": "WS-02",
+      "line": 4265,
+      "disposition": "concept",
+      "target": "rules/c/ws-02"
+    },
+    {
+      "id": "WS-03",
+      "line": 4266,
+      "disposition": "concept",
+      "target": "rules/c/ws-03"
+    },
+    {
+      "id": "WS-04",
+      "line": 4267,
+      "disposition": "concept",
+      "target": "rules/c/ws-04"
+    },
+    {
+      "id": "WS-05",
+      "line": 4268,
+      "disposition": "concept",
+      "target": "rules/c/ws-05"
+    },
+    {
+      "id": "WS-06",
+      "line": 4356,
+      "disposition": "concept",
+      "target": "rules/c/ws-06"
+    },
+    {
+      "id": "WS-07",
+      "line": 4357,
+      "disposition": "concept",
+      "target": "rules/c/ws-07"
+    },
+    {
+      "id": "WS-08",
+      "line": 4358,
+      "disposition": "concept",
+      "target": "rules/c/ws-08"
+    },
+    {
+      "id": "WS-09",
+      "line": 4359,
+      "disposition": "concept",
+      "target": "rules/c/ws-09"
+    },
+    {
+      "id": "WS-10",
+      "line": 4367,
+      "disposition": "concept",
+      "target": "rules/c/ws-10"
+    },
+    {
+      "id": "WS-11",
+      "line": 4368,
+      "disposition": "concept",
+      "target": "rules/c/ws-11"
+    },
+    {
+      "id": "WS-12",
+      "line": 4369,
+      "disposition": "concept",
+      "target": "rules/c/ws-12"
+    },
+    {
+      "id": "WS-13",
+      "line": 4370,
+      "disposition": "concept",
+      "target": "rules/c/ws-13"
+    },
+    {
+      "id": "WS-14",
+      "line": 4371,
+      "disposition": "concept",
+      "target": "rules/c/ws-14"
+    },
+    {
+      "id": "WS-23",
+      "line": 4379,
+      "disposition": "concept",
+      "target": "rules/c/ws-23"
+    },
+    {
+      "id": "WS-24",
+      "line": 4380,
+      "disposition": "concept",
+      "target": "rules/c/ws-24"
+    },
+    {
+      "id": "WS-25",
+      "line": 4381,
+      "disposition": "concept",
+      "target": "rules/c/ws-25"
+    },
+    {
+      "id": "WS-26",
+      "line": 4382,
+      "disposition": "concept",
+      "target": "rules/c/ws-26"
+    },
+    {
+      "id": "WS-27",
+      "line": 4383,
+      "disposition": "concept",
+      "target": "rules/c/ws-27"
+    },
+    {
+      "id": "WS-28",
+      "line": 4384,
+      "disposition": "concept",
+      "target": "rules/c/ws-28"
+    },
+    {
+      "id": "WS-29",
+      "line": 4385,
+      "disposition": "concept",
+      "target": "rules/c/ws-29"
+    },
+    {
+      "id": "WS-30",
+      "line": 4391,
+      "disposition": "concept",
+      "target": "rules/c/ws-30"
+    },
+    {
+      "id": "WS-31",
+      "line": 4392,
+      "disposition": "concept",
+      "target": "rules/c/ws-31"
+    },
+    {
+      "id": "WS-32",
+      "line": 4393,
+      "disposition": "concept",
+      "target": "rules/c/ws-32"
+    },
+    {
+      "id": "WS-15",
+      "line": 4401,
+      "disposition": "concept",
+      "target": "rules/c/ws-15"
+    },
+    {
+      "id": "WS-16",
+      "line": 4402,
+      "disposition": "concept",
+      "target": "rules/c/ws-16"
+    },
+    {
+      "id": "WS-17",
+      "line": 4403,
+      "disposition": "concept",
+      "target": "rules/c/ws-17"
+    },
+    {
+      "id": "WS-18",
+      "line": 4404,
+      "disposition": "concept",
+      "target": "rules/c/ws-18"
+    },
+    {
+      "id": "WS-19",
+      "line": 4420,
+      "disposition": "concept",
+      "target": "rules/c/ws-19"
+    },
+    {
+      "id": "WS-20",
+      "line": 4421,
+      "disposition": "concept",
+      "target": "rules/c/ws-20"
+    },
+    {
+      "id": "WS-21",
+      "line": 4422,
+      "disposition": "concept",
+      "target": "rules/c/ws-21"
+    },
+    {
+      "id": "WS-22",
+      "line": 4423,
+      "disposition": "concept",
+      "target": "rules/c/ws-22"
+    },
+    {
+      "id": "CLI-01",
+      "line": 4574,
+      "disposition": "concept",
+      "target": "rules/g/cli-01"
+    },
+    {
+      "id": "CLI-02",
+      "line": 4575,
+      "disposition": "concept",
+      "target": "rules/c/cli-02"
+    },
+    {
+      "id": "CLI-03",
+      "line": 4576,
+      "disposition": "concept",
+      "target": "rules/c/cli-03"
+    },
+    {
+      "id": "CLI-04",
+      "line": 4577,
+      "disposition": "concept",
+      "target": "rules/c/cli-04"
+    },
+    {
+      "id": "CLI-05",
+      "line": 4652,
+      "disposition": "concept",
+      "target": "rules/c/cli-05"
+    },
+    {
+      "id": "CLI-06",
+      "line": 4653,
+      "disposition": "concept",
+      "target": "rules/c/cli-06"
+    },
+    {
+      "id": "CLI-07",
+      "line": 4654,
+      "disposition": "concept",
+      "target": "rules/c/cli-07"
+    },
+    {
+      "id": "CLI-08",
+      "line": 4655,
+      "disposition": "concept",
+      "target": "rules/c/cli-08"
+    },
+    {
+      "id": "CLI-13",
+      "line": 4656,
+      "disposition": "concept",
+      "target": "rules/c/cli-13"
+    },
+    {
+      "id": "CLI-14",
+      "line": 4657,
+      "disposition": "concept",
+      "target": "rules/c/cli-14"
+    },
+    {
+      "id": "CLI-09",
+      "line": 4679,
+      "disposition": "concept",
+      "target": "rules/c/cli-09"
+    },
+    {
+      "id": "CLI-10",
+      "line": 4680,
+      "disposition": "concept",
+      "target": "rules/c/cli-10"
+    },
+    {
+      "id": "CLI-11",
+      "line": 4681,
+      "disposition": "concept",
+      "target": "rules/c/cli-11"
+    },
+    {
+      "id": "CLI-12",
+      "line": 4682,
+      "disposition": "concept",
+      "target": "rules/c/cli-12"
+    },
+    {
+      "id": "GRPC-01",
+      "line": 4848,
+      "disposition": "concept",
+      "target": "rules/g/grpc-01"
+    },
+    {
+      "id": "GRPC-02",
+      "line": 4849,
+      "disposition": "concept",
+      "target": "rules/c/grpc-02"
+    },
+    {
+      "id": "GRPC-03",
+      "line": 4850,
+      "disposition": "concept",
+      "target": "rules/c/grpc-03"
+    },
+    {
+      "id": "GRPC-04",
+      "line": 4851,
+      "disposition": "concept",
+      "target": "rules/c/grpc-04"
+    },
+    {
+      "id": "GRPC-05",
+      "line": 4852,
+      "disposition": "concept",
+      "target": "rules/g/grpc-05"
+    },
+    {
+      "id": "GRPC-17",
+      "line": 4853,
+      "disposition": "concept",
+      "target": "rules/c/grpc-17"
+    },
+    {
+      "id": "GRPC-18",
+      "line": 4854,
+      "disposition": "concept",
+      "target": "rules/c/grpc-18"
+    },
+    {
+      "id": "GRPC-19",
+      "line": 4855,
+      "disposition": "concept",
+      "target": "rules/c/grpc-19"
+    },
+    {
+      "id": "GRPC-06",
+      "line": 4873,
+      "disposition": "concept",
+      "target": "rules/c/grpc-06"
+    },
+    {
+      "id": "GRPC-07",
+      "line": 4874,
+      "disposition": "concept",
+      "target": "rules/c/grpc-07"
+    },
+    {
+      "id": "GRPC-08",
+      "line": 4875,
+      "disposition": "concept",
+      "target": "rules/c/grpc-08"
+    },
+    {
+      "id": "GRPC-09",
+      "line": 4876,
+      "disposition": "concept",
+      "target": "rules/c/grpc-09"
+    },
+    {
+      "id": "GRPC-10",
+      "line": 4900,
+      "disposition": "concept",
+      "target": "rules/c/grpc-10"
+    },
+    {
+      "id": "GRPC-11",
+      "line": 4901,
+      "disposition": "concept",
+      "target": "rules/c/grpc-11"
+    },
+    {
+      "id": "GRPC-12",
+      "line": 4909,
+      "disposition": "concept",
+      "target": "rules/c/grpc-12"
+    },
+    {
+      "id": "GRPC-13",
+      "line": 4910,
+      "disposition": "concept",
+      "target": "rules/c/grpc-13"
+    },
+    {
+      "id": "GRPC-14",
+      "line": 4911,
+      "disposition": "concept",
+      "target": "rules/c/grpc-14"
+    },
+    {
+      "id": "GRPC-15",
+      "line": 4912,
+      "disposition": "concept",
+      "target": "rules/c/grpc-15"
+    },
+    {
+      "id": "GRPC-16",
+      "line": 4913,
+      "disposition": "concept",
+      "target": "rules/c/grpc-16"
+    },
+    {
+      "id": "MCP-01",
+      "line": 5037,
+      "disposition": "concept",
+      "target": "rules/c/mcp-01"
+    },
+    {
+      "id": "MCP-02",
+      "line": 5038,
+      "disposition": "concept",
+      "target": "rules/c/mcp-02"
+    },
+    {
+      "id": "MCP-03",
+      "line": 5039,
+      "disposition": "concept",
+      "target": "rules/g/mcp-03"
+    },
+    {
+      "id": "MCP-04",
+      "line": 5040,
+      "disposition": "concept",
+      "target": "rules/g/mcp-04"
+    },
+    {
+      "id": "MCP-05",
+      "line": 5041,
+      "disposition": "concept",
+      "target": "rules/c/mcp-05"
+    },
+    {
+      "id": "MCP-06",
+      "line": 5042,
+      "disposition": "concept",
+      "target": "rules/c/mcp-06"
+    },
+    {
+      "id": "MCP-07",
+      "line": 5056,
+      "disposition": "concept",
+      "target": "rules/c/mcp-07"
+    },
+    {
+      "id": "MCP-08",
+      "line": 5057,
+      "disposition": "concept",
+      "target": "rules/c/mcp-08"
+    },
+    {
+      "id": "MCP-09",
+      "line": 5058,
+      "disposition": "concept",
+      "target": "rules/c/mcp-09"
+    },
+    {
+      "id": "MCP-10",
+      "line": 5059,
+      "disposition": "concept",
+      "target": "rules/c/mcp-10"
+    },
+    {
+      "id": "MCP-11",
+      "line": 5060,
+      "disposition": "concept",
+      "target": "rules/c/mcp-11"
+    },
+    {
+      "id": "MCP-12",
+      "line": 5061,
+      "disposition": "concept",
+      "target": "rules/c/mcp-12"
+    },
+    {
+      "id": "MCP-13",
+      "line": 5085,
+      "disposition": "concept",
+      "target": "rules/c/mcp-13"
+    },
+    {
+      "id": "MCP-14",
+      "line": 5086,
+      "disposition": "concept",
+      "target": "rules/c/mcp-14"
+    },
+    {
+      "id": "MCP-15",
+      "line": 5094,
+      "disposition": "concept",
+      "target": "rules/c/mcp-15"
+    },
+    {
+      "id": "MCP-16",
+      "line": 5095,
+      "disposition": "concept",
+      "target": "rules/c/mcp-16"
+    },
+    {
+      "id": "MCP-17",
+      "line": 5096,
+      "disposition": "concept",
+      "target": "rules/c/mcp-17"
+    },
+    {
+      "id": "MCP-18",
+      "line": 5097,
+      "disposition": "concept",
+      "target": "rules/c/mcp-18"
+    },
+    {
+      "id": "MCP-19",
+      "line": 5098,
+      "disposition": "concept",
+      "target": "rules/c/mcp-19"
+    },
+    {
+      "id": "MCP-20",
+      "line": 5099,
+      "disposition": "concept",
+      "target": "rules/c/mcp-20"
+    },
+    {
+      "id": "MCP-21",
+      "line": 5100,
+      "disposition": "concept",
+      "target": "rules/c/mcp-21"
+    },
+    {
+      "id": "A2A-01",
+      "line": 5249,
+      "disposition": "concept",
+      "target": "rules/g/a2a-01"
+    },
+    {
+      "id": "A2A-02",
+      "line": 5250,
+      "disposition": "concept",
+      "target": "rules/c/a2a-02"
+    },
+    {
+      "id": "A2A-03",
+      "line": 5251,
+      "disposition": "concept",
+      "target": "rules/c/a2a-03"
+    },
+    {
+      "id": "A2A-04",
+      "line": 5252,
+      "disposition": "concept",
+      "target": "rules/c/a2a-04"
+    },
+    {
+      "id": "A2A-05",
+      "line": 5263,
+      "disposition": "concept",
+      "target": "rules/c/a2a-05"
+    },
+    {
+      "id": "A2A-06",
+      "line": 5264,
+      "disposition": "concept",
+      "target": "rules/c/a2a-06"
+    },
+    {
+      "id": "A2A-07",
+      "line": 5265,
+      "disposition": "concept",
+      "target": "rules/c/a2a-07"
+    },
+    {
+      "id": "A2A-08",
+      "line": 5266,
+      "disposition": "concept",
+      "target": "rules/c/a2a-08"
+    },
+    {
+      "id": "A2A-09",
+      "line": 5267,
+      "disposition": "concept",
+      "target": "rules/c/a2a-09"
+    },
+    {
+      "id": "A2A-10",
+      "line": 5268,
+      "disposition": "concept",
+      "target": "rules/c/a2a-10"
+    },
+    {
+      "id": "A2A-20",
+      "line": 5269,
+      "disposition": "concept",
+      "target": "rules/c/a2a-20"
+    },
+    {
+      "id": "A2A-21",
+      "line": 5270,
+      "disposition": "concept",
+      "target": "rules/c/a2a-21"
+    },
+    {
+      "id": "A2A-22",
+      "line": 5271,
+      "disposition": "concept",
+      "target": "rules/c/a2a-22"
+    },
+    {
+      "id": "A2A-23",
+      "line": 5272,
+      "disposition": "concept",
+      "target": "rules/c/a2a-23"
+    },
+    {
+      "id": "A2A-24",
+      "line": 5273,
+      "disposition": "concept",
+      "target": "rules/c/a2a-24"
+    },
+    {
+      "id": "A2A-11",
+      "line": 5281,
+      "disposition": "concept",
+      "target": "rules/c/a2a-11"
+    },
+    {
+      "id": "A2A-12",
+      "line": 5282,
+      "disposition": "concept",
+      "target": "rules/c/a2a-12"
+    },
+    {
+      "id": "A2A-13",
+      "line": 5283,
+      "disposition": "concept",
+      "target": "rules/c/a2a-13"
+    },
+    {
+      "id": "A2A-14",
+      "line": 5284,
+      "disposition": "concept",
+      "target": "rules/c/a2a-14"
+    },
+    {
+      "id": "A2A-15",
+      "line": 5285,
+      "disposition": "concept",
+      "target": "rules/c/a2a-15"
+    },
+    {
+      "id": "A2A-16",
+      "line": 5293,
+      "disposition": "concept",
+      "target": "rules/c/a2a-16"
+    },
+    {
+      "id": "A2A-17",
+      "line": 5294,
+      "disposition": "concept",
+      "target": "rules/c/a2a-17"
+    },
+    {
+      "id": "A2A-18",
+      "line": 5295,
+      "disposition": "concept",
+      "target": "rules/c/a2a-18"
+    },
+    {
+      "id": "A2A-19",
+      "line": 5296,
+      "disposition": "concept",
+      "target": "rules/c/a2a-19"
+    },
+    {
+      "id": "CONF-01",
+      "line": 5437,
+      "disposition": "concept",
+      "target": "rules/p/conf-01"
+    },
+    {
+      "id": "CONF-02",
+      "line": 5438,
+      "disposition": "concept",
+      "target": "rules/p/conf-02"
+    },
+    {
+      "id": "CONF-03",
+      "line": 5439,
+      "disposition": "concept",
+      "target": "rules/p/conf-03"
+    },
+    {
+      "id": "CONF-04",
+      "line": 5440,
+      "disposition": "concept",
+      "target": "rules/p/conf-04"
+    },
+    {
+      "id": "CONF-05",
+      "line": 5477,
+      "disposition": "concept",
+      "target": "rules/p/conf-05"
+    },
+    {
+      "id": "CONF-06",
+      "line": 5478,
+      "disposition": "concept",
+      "target": "rules/p/conf-06"
+    },
+    {
+      "id": "CONF-07",
+      "line": 5479,
+      "disposition": "concept",
+      "target": "rules/p/conf-07"
+    },
+    {
+      "id": "CONF-08",
+      "line": 5480,
+      "disposition": "concept",
+      "target": "rules/p/conf-08"
+    },
+    {
+      "id": "CONF-09",
+      "line": 5481,
+      "disposition": "concept",
+      "target": "rules/p/conf-09"
+    },
+    {
+      "id": "CONF-10",
+      "line": 5489,
+      "disposition": "concept",
+      "target": "rules/p/conf-10"
+    },
+    {
+      "id": "CONF-11",
+      "line": 5490,
+      "disposition": "concept",
+      "target": "rules/p/conf-11"
+    },
+    {
+      "id": "CONF-12",
+      "line": 5491,
+      "disposition": "concept",
+      "target": "rules/p/conf-12"
+    },
+    {
+      "id": "CONF-13",
+      "line": 5499,
+      "disposition": "concept",
+      "target": "rules/p/conf-13"
+    },
+    {
+      "id": "CONF-14",
+      "line": 5500,
+      "disposition": "concept",
+      "target": "rules/p/conf-14"
+    },
+    {
+      "id": "CONF-15",
+      "line": 5501,
+      "disposition": "concept",
+      "target": "rules/p/conf-15"
+    },
+    {
+      "id": "CONF-16",
+      "line": 5502,
+      "disposition": "concept",
+      "target": "rules/p/conf-16"
+    },
+    {
+      "id": "CONF-17",
+      "line": 5503,
+      "disposition": "concept",
+      "target": "rules/p/conf-17"
+    },
+    {
+      "id": "CONF-18",
+      "line": 5504,
+      "disposition": "concept",
+      "target": "rules/p/conf-18"
+    },
+    {
+      "id": "CONF-19",
+      "line": 5512,
+      "disposition": "concept",
+      "target": "rules/p/conf-19"
+    },
+    {
+      "id": "CONF-20",
+      "line": 5513,
+      "disposition": "concept",
+      "target": "rules/p/conf-20"
+    },
+    {
+      "id": "CONF-21",
+      "line": 5514,
+      "disposition": "concept",
+      "target": "rules/p/conf-21"
+    },
+    {
+      "id": "CONF-22",
+      "line": 5515,
+      "disposition": "concept",
+      "target": "rules/p/conf-22"
+    },
+    {
+      "id": "CONF-23",
+      "line": 5516,
+      "disposition": "concept",
+      "target": "rules/p/conf-23"
+    },
+    {
+      "id": "CONF-24",
+      "line": 5524,
+      "disposition": "concept",
+      "target": "rules/p/conf-24"
+    },
+    {
+      "id": "CONF-25",
+      "line": 5525,
+      "disposition": "concept",
+      "target": "rules/p/conf-25"
+    },
+    {
+      "id": "CONF-26",
+      "line": 5526,
+      "disposition": "concept",
+      "target": "rules/p/conf-26"
+    },
+    {
+      "id": "CONF-27",
+      "line": 5527,
+      "disposition": "concept",
+      "target": "rules/p/conf-27"
+    },
+    {
+      "id": "CONF-28",
+      "line": 5528,
+      "disposition": "concept",
+      "target": "rules/p/conf-28"
+    },
+    {
+      "id": "CONF-29",
+      "line": 5529,
+      "disposition": "concept",
+      "target": "rules/p/conf-29"
+    },
+    {
+      "id": "CONF-30",
+      "line": 5537,
+      "disposition": "concept",
+      "target": "rules/p/conf-30"
+    },
+    {
+      "id": "CONF-31",
+      "line": 5538,
+      "disposition": "concept",
+      "target": "rules/p/conf-31"
+    },
+    {
+      "id": "CONF-32",
+      "line": 5539,
+      "disposition": "concept",
+      "target": "rules/p/conf-32"
+    },
+    {
+      "id": "CONF-33",
+      "line": 5540,
+      "disposition": "concept",
+      "target": "rules/p/conf-33"
+    },
+    {
+      "id": "CONF-34",
+      "line": 5541,
+      "disposition": "concept",
+      "target": "rules/p/conf-34"
+    },
+    {
+      "id": "CONF-35",
+      "line": 5567,
+      "disposition": "concept",
+      "target": "rules/p/conf-35"
+    },
+    {
+      "id": "CONF-36",
+      "line": 5568,
+      "disposition": "concept",
+      "target": "rules/p/conf-36"
+    },
+    {
+      "id": "CONF-37",
+      "line": 5576,
+      "disposition": "concept",
+      "target": "rules/p/conf-37"
+    },
+    {
+      "id": "CONF-38",
+      "line": 5577,
+      "disposition": "concept",
+      "target": "rules/p/conf-38"
+    },
+    {
+      "id": "CONF-39",
+      "line": 5578,
+      "disposition": "concept",
+      "target": "rules/p/conf-39"
+    },
+    {
+      "id": "CONF-40",
+      "line": 5579,
+      "disposition": "concept",
+      "target": "rules/p/conf-40"
+    },
+    {
+      "id": "CONF-41",
+      "line": 5580,
+      "disposition": "concept",
+      "target": "rules/p/conf-41"
+    },
+    {
+      "id": "CONF-42",
+      "line": 5588,
+      "disposition": "concept",
+      "target": "rules/p/conf-42"
+    },
+    {
+      "id": "CONF-43",
+      "line": 5589,
+      "disposition": "concept",
+      "target": "rules/p/conf-43"
+    },
+    {
+      "id": "CONF-44",
+      "line": 5590,
+      "disposition": "concept",
+      "target": "rules/p/conf-44"
+    },
+    {
+      "id": "CONF-45",
+      "line": 5600,
+      "disposition": "concept",
+      "target": "rules/p/conf-45"
+    },
+    {
+      "id": "CONF-46",
+      "line": 5601,
+      "disposition": "concept",
+      "target": "rules/p/conf-46"
+    },
+    {
+      "id": "CONF-47",
+      "line": 5602,
+      "disposition": "concept",
+      "target": "rules/p/conf-47"
+    },
+    {
+      "id": "CONF-48",
+      "line": 5603,
+      "disposition": "concept",
+      "target": "rules/p/conf-48"
+    },
+    {
+      "id": "CONF-49",
+      "line": 5604,
+      "disposition": "concept",
+      "target": "rules/p/conf-49"
+    },
+    {
+      "id": "CONF-50",
+      "line": 5605,
+      "disposition": "concept",
+      "target": "rules/p/conf-50"
+    },
+    {
+      "id": "CONF-51",
+      "line": 5606,
+      "disposition": "concept",
+      "target": "rules/p/conf-51"
+    },
+    {
+      "id": "CONF-52",
+      "line": 5607,
+      "disposition": "concept",
+      "target": "rules/p/conf-52"
+    },
+    {
+      "id": "CONF-53",
+      "line": 5608,
+      "disposition": "concept",
+      "target": "rules/p/conf-53"
+    },
+    {
+      "id": "CONF-54",
+      "line": 5609,
+      "disposition": "concept",
+      "target": "rules/p/conf-54"
+    },
+    {
+      "id": "CONF-55",
+      "line": 5610,
+      "disposition": "concept",
+      "target": "rules/p/conf-55"
+    },
+    {
+      "id": "CONF-56",
+      "line": 5611,
+      "disposition": "concept",
+      "target": "rules/p/conf-56"
+    },
+    {
+      "id": "CONF-57",
+      "line": 5612,
+      "disposition": "concept",
+      "target": "rules/p/conf-57"
+    },
+    {
+      "id": "CONF-58",
+      "line": 5613,
+      "disposition": "concept",
+      "target": "rules/p/conf-58"
+    },
+    {
+      "id": "CONF-59",
+      "line": 5614,
+      "disposition": "concept",
+      "target": "rules/p/conf-59"
+    },
+    {
+      "id": "CONF-60",
+      "line": 5615,
+      "disposition": "concept",
+      "target": "rules/p/conf-60"
+    },
+    {
+      "id": "CONF-61",
+      "line": 5616,
+      "disposition": "concept",
+      "target": "rules/p/conf-61"
+    },
+    {
+      "id": "CONF-62",
+      "line": 5617,
+      "disposition": "concept",
+      "target": "rules/p/conf-62"
+    },
+    {
+      "id": "CONF-63",
+      "line": 5618,
+      "disposition": "concept",
+      "target": "rules/p/conf-63"
+    },
+    {
+      "id": "CONF-64",
+      "line": 5619,
+      "disposition": "concept",
+      "target": "rules/p/conf-64"
+    },
+    {
+      "id": "CONF-65",
+      "line": 5620,
+      "disposition": "concept",
+      "target": "rules/p/conf-65"
+    },
+    {
+      "id": "BP-01",
+      "line": 6512,
+      "disposition": "concept",
+      "target": "rules/c/bp-01"
+    },
+    {
+      "id": "BP-02",
+      "line": 6513,
+      "disposition": "concept",
+      "target": "rules/c/bp-02"
+    },
+    {
+      "id": "BP-03",
+      "line": 6514,
+      "disposition": "concept",
+      "target": "rules/c/bp-03"
+    },
+    {
+      "id": "BP-04",
+      "line": 6515,
+      "disposition": "concept",
+      "target": "rules/c/bp-04"
+    },
+    {
+      "id": "BP-05",
+      "line": 6516,
+      "disposition": "concept",
+      "target": "rules/c/bp-05"
+    },
+    {
+      "id": "BP-06",
+      "line": 6517,
+      "disposition": "concept",
+      "target": "rules/c/bp-06"
+    },
+    {
+      "id": "BP-07",
+      "line": 6518,
+      "disposition": "concept",
+      "target": "rules/c/bp-07"
+    },
+    {
+      "id": "BP-08",
+      "line": 6519,
+      "disposition": "concept",
+      "target": "rules/c/bp-08"
+    },
+    {
+      "id": "BP-09",
+      "line": 6520,
+      "disposition": "concept",
+      "target": "rules/c/bp-09"
+    },
+    {
+      "id": "BP-10",
+      "line": 6521,
+      "disposition": "concept",
+      "target": "rules/g/bp-10"
+    },
+    {
+      "id": "BP-11",
+      "line": 6522,
+      "disposition": "concept",
+      "target": "rules/c/bp-11"
+    },
+    {
+      "id": "BP-12",
+      "line": 6523,
+      "disposition": "concept",
+      "target": "rules/c/bp-12"
+    },
+    {
+      "id": "BP-13",
+      "line": 6524,
+      "disposition": "concept",
+      "target": "rules/c/bp-13"
+    },
+    {
+      "id": "BP-14",
+      "line": 6525,
+      "disposition": "concept",
+      "target": "rules/c/bp-14"
+    },
+    {
+      "id": "BP-15",
+      "line": 6526,
+      "disposition": "concept",
+      "target": "rules/c/bp-15"
+    },
+    {
+      "id": "BP-16",
+      "line": 6527,
+      "disposition": "concept",
+      "target": "rules/c/bp-16"
+    },
+    {
+      "id": "BP-17",
+      "line": 6528,
+      "disposition": "concept",
+      "target": "rules/c/bp-17"
+    },
+    {
+      "id": "BP-18",
+      "line": 6529,
+      "disposition": "concept",
+      "target": "rules/c/bp-18"
+    },
+    {
+      "id": "BP-19",
+      "line": 6530,
+      "disposition": "concept",
+      "target": "rules/g/bp-19"
+    },
+    {
+      "id": "BP-20",
+      "line": 6531,
+      "disposition": "concept",
+      "target": "rules/c/bp-20"
+    },
+    {
+      "id": "DOC-01",
+      "line": 6621,
+      "disposition": "concept",
+      "target": "rules/g/doc-01"
+    },
+    {
+      "id": "DOC-02",
+      "line": 6622,
+      "disposition": "concept",
+      "target": "rules/c/doc-02"
+    },
+    {
+      "id": "DOC-03",
+      "line": 6623,
+      "disposition": "concept",
+      "target": "rules/c/doc-03"
+    },
+    {
+      "id": "DOC-04",
+      "line": 6624,
+      "disposition": "concept",
+      "target": "rules/c/doc-04"
+    },
+    {
+      "id": "DOC-05",
+      "line": 6625,
+      "disposition": "concept",
+      "target": "rules/c/doc-05"
+    },
+    {
+      "id": "DOC-06",
+      "line": 6626,
+      "disposition": "concept",
+      "target": "rules/g/doc-06"
+    },
+    {
+      "id": "DOC-07",
+      "line": 6627,
+      "disposition": "concept",
+      "target": "rules/c/doc-07"
+    },
+    {
+      "id": "DOC-08",
+      "line": 6628,
+      "disposition": "concept",
+      "target": "rules/c/doc-08"
+    },
+    {
+      "id": "DOC-09",
+      "line": 6629,
+      "disposition": "concept",
+      "target": "rules/g/doc-09"
+    },
+    {
+      "id": "DOC-10",
+      "line": 6630,
+      "disposition": "concept",
+      "target": "rules/c/doc-10"
+    },
+    {
+      "id": "DOC-11",
+      "line": 6631,
+      "disposition": "concept",
+      "target": "rules/g/doc-11"
+    },
+    {
+      "id": "DOC-12",
+      "line": 6632,
+      "disposition": "concept",
+      "target": "rules/g/doc-12"
+    },
+    {
+      "id": "DOC-13",
+      "line": 6633,
+      "disposition": "concept",
+      "target": "rules/c/doc-13"
+    },
+    {
+      "id": "DOC-14",
+      "line": 6634,
+      "disposition": "concept",
+      "target": "rules/c/doc-14"
+    },
+    {
+      "id": "DOC-15",
+      "line": 6635,
+      "disposition": "concept",
+      "target": "rules/g/doc-15"
+    },
+    {
+      "id": "DOC-16",
+      "line": 6636,
+      "disposition": "concept",
+      "target": "rules/c/doc-16"
+    },
+    {
+      "id": "DOC-17",
+      "line": 6637,
+      "disposition": "concept",
+      "target": "rules/c/doc-17"
+    },
+    {
+      "id": "VAL-01",
+      "line": 6809,
+      "disposition": "concept",
+      "target": "rules/c/val-01"
+    },
+    {
+      "id": "VAL-02",
+      "line": 6810,
+      "disposition": "concept",
+      "target": "rules/c/val-02"
+    },
+    {
+      "id": "VAL-03",
+      "line": 6811,
+      "disposition": "concept",
+      "target": "rules/c/val-03"
+    },
+    {
+      "id": "VAL-04",
+      "line": 6812,
+      "disposition": "concept",
+      "target": "rules/c/val-04"
+    },
+    {
+      "id": "VAL-05",
+      "line": 6813,
+      "disposition": "concept",
+      "target": "rules/c/val-05"
+    },
+    {
+      "id": "VAL-06",
+      "line": 6814,
+      "disposition": "concept",
+      "target": "rules/c/val-06"
+    },
+    {
+      "id": "VAL-07",
+      "line": 6815,
+      "disposition": "concept",
+      "target": "rules/c/val-07"
+    },
+    {
+      "id": "VAL-08",
+      "line": 6816,
+      "disposition": "concept",
+      "target": "rules/c/val-08"
+    },
+    {
+      "id": "VAL-09",
+      "line": 6817,
+      "disposition": "concept",
+      "target": "rules/c/val-09"
+    },
+    {
+      "id": "VAL-10",
+      "line": 6818,
+      "disposition": "concept",
+      "target": "rules/c/val-10"
+    },
+    {
+      "id": "VAL-11",
+      "line": 6819,
+      "disposition": "concept",
+      "target": "rules/c/val-11"
+    },
+    {
+      "id": "VAL-12",
+      "line": 6820,
+      "disposition": "concept",
+      "target": "rules/g/val-12"
+    },
+    {
+      "id": "VAL-13",
+      "line": 6821,
+      "disposition": "concept",
+      "target": "rules/c/val-13"
+    },
+    {
+      "id": "VAL-14",
+      "line": 6822,
+      "disposition": "concept",
+      "target": "rules/c/val-14"
+    },
+    {
+      "id": "VAL-15",
+      "line": 6823,
+      "disposition": "concept",
+      "target": "rules/c/val-15"
+    },
+    {
+      "id": "VAL-16",
+      "line": 6824,
+      "disposition": "concept",
+      "target": "rules/g/val-16"
+    },
+    {
+      "id": "VAL-17",
+      "line": 6825,
+      "disposition": "concept",
+      "target": "rules/c/val-17"
+    },
+    {
+      "id": "VAL-18",
+      "line": 6826,
+      "disposition": "concept",
+      "target": "rules/c/val-18"
+    },
+    {
+      "id": "VAL-19",
+      "line": 6827,
+      "disposition": "concept",
+      "target": "rules/g/val-19"
+    },
+    {
+      "id": "VAL-20",
+      "line": 6828,
+      "disposition": "concept",
+      "target": "rules/g/val-20"
+    }
+  ],
+  "unmapped": []
+}

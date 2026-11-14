@@ -8,10 +8,10 @@ sources:
     title: "CONF-09"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,16 @@ A mutation case must assert the resulting state, not only the response.
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[6. Fixtures and Determinism](../../sources/40-conformance/6-fixtures-and-determinism.md)
+[6. Fixtures and Determinism](../../sources/part-iii-12/6-fixtures-and-determinism.md)
 
-[^conf-09]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-05 — Every case names a fixture with setup and reset.](conf-05.md)
+- [CONF-06 — IDs and time are deterministic in fixtures.](conf-06.md)
+- [CONF-07 — Generated IDs and timestamps use semantic matchers, not exact equality.](conf-07.md)
+- [CONF-08 — A case must not depend on the order of another case.](conf-08.md)
+
+[^conf-09]: sources/EXPERT-REVIEW-PACKAGE.md
 

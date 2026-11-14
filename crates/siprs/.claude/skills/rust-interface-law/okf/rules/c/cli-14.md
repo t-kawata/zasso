@@ -8,10 +8,10 @@ sources:
     title: "CLI-14"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "cli"
 x-enforcement: "conformance driver"
@@ -37,7 +37,17 @@ The remote client is a protocol client, not an interface-adapter dependency.
 | Verification | V2 dependency check. |
 | Enforcement | conformance driver |
 
-[7. Output and Exit Codes](../../sources/32-cli/7-output-and-exit-codes.md)
+[7. Output and Exit Codes](../../sources/part-iii-8/7-output-and-exit-codes.md)
 
-[^cli-14]: sources/32-CLI.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [CLI-05 — Data goes to stdout; progress and diagnostics go to stderr.](cli-05.md)
+- [CLI-06 — `--json` emits one JSON value; `--jsonl` emits one JSON object per line.](cli-06.md)
+- [CLI-07 — Human output is not parsed by scripts; JSON is the machine contract.](cli-07.md)
+- [CLI-08 — Exit codes follow the fixed table.](cli-08.md)
+- [CLI-13 — JSON/JSONL output includes the operation's `request_id`.](cli-13.md)
+
+[^cli-14]: sources/EXPERT-REVIEW-PACKAGE.md
 

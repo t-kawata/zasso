@@ -1,3 +1,5 @@
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 import test from 'node:test';
@@ -36,17 +38,17 @@ function runIngest(args, cwd = repoRoot) {
   });
 }
 
-test('19 docs generate 466 rule concepts and zero gaps', () => {
+test('19 docs and the expert package generate 486 rule concepts and zero gaps', () => {
   const manifest = readFileSync(join(root, 'source/manifest.toml'), 'utf8');
   const sources = (manifest.match(/\[\[file\]\]/g) ?? []).length;
   const lock = JSON.parse(readFileSync(join(root, 'atoms.lock.json'), 'utf8'));
   const ruleMap = JSON.parse(readFileSync(join(root, 'source/rule-concepts.json'), 'utf8'));
   const rules = lock.rules ?? [];
   assert.equal(sources, 19);
-  assert.equal(rules.length, 466);
-  assert.equal(new Set(rules.map((rule) => rule.rule_id)).size, 466);
-  assert.equal(Object.keys(ruleMap.byRule).length, 466);
-  assert.equal(new Set(Object.values(ruleMap.byRule).map((rule) => rule.concept_id)).size, 466);
+  assert.equal(rules.length, 486);
+  assert.equal(new Set(rules.map((rule) => rule.rule_id)).size, 486);
+  assert.equal(Object.keys(ruleMap.byRule).length, 486);
+  assert.equal(new Set(Object.values(ruleMap.byRule).map((rule) => rule.concept_id)).size, 486);
 });
 
 // @verifies C001

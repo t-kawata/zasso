@@ -1,3 +1,5 @@
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 // @verifies C011
 /**
  * Canonical *-okf skill verifier, check-set v1.
@@ -23,6 +25,8 @@ import {
   checkDistribution,
   checkFreshness,
   checkGraph,
+  checkGraphReach,
+  checkGuidanceDeterminism,
   checkIndexlog,
   checkLayer,
   checkLibrary,
@@ -37,8 +41,12 @@ import {
   checkRetrieval,
   checkSources,
   checkStyle,
+  checkTraversalEnvelope,
+  checkFrontierCompleteness,
+  checkFacetSufficiency,
   checkTrust,
   checkUsage,
+  checkUnknownId,
 } from './okf-verify/checks-artifact.mjs';
 import {
   checkInstaller,
@@ -116,6 +124,12 @@ export async function verifyOkfSkill({
     sources: () => checkSources({ skillPath: resolvedSkillPath }),
     context: () => checkContext({ skillPath: resolvedSkillPath }),
     navigation: () => checkNavigation({ skillPath: resolvedSkillPath }),
+    traversalEnvelope: () => checkTraversalEnvelope({ skillPath: resolvedSkillPath }),
+    frontierCompleteness: () => checkFrontierCompleteness({ skillPath: resolvedSkillPath }),
+    unknownId: () => checkUnknownId({ skillPath: resolvedSkillPath }),
+    graphReach: () => checkGraphReach({ skillPath: resolvedSkillPath }),
+    facetSufficiency: () => checkFacetSufficiency({ skillPath: resolvedSkillPath }),
+    guidanceDeterminism: () => checkGuidanceDeterminism({ skillPath: resolvedSkillPath }),
     containment: () => checkContainment({ skillPath: resolvedSkillPath }),
     library: () => checkLibrary({ skillPath: resolvedSkillPath }),
     performance: () => checkPerformance({ skillPath: resolvedSkillPath }),

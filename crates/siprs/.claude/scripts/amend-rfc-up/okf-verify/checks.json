@@ -1,35 +1,149 @@
 {
-  "check_set_version": "2",
+  "check_set_version": "3",
   "checks": [
-    { "name": "layer", "mode": "both" },
-    { "name": "manifest", "mode": "dev" },
-    { "name": "lock", "mode": "both" },
-    { "name": "coverage", "mode": "dev" },
-    { "name": "registry", "mode": "dev" },
-    { "name": "boundary", "mode": "both" },
-    { "name": "provenance", "mode": "dev" },
-    { "name": "citation", "mode": "dev" },
-    { "name": "graph", "mode": "both" },
-    { "name": "freshness", "mode": "dev" },
-    { "name": "conflicts", "mode": "dev" },
-    { "name": "retrieval", "mode": "both" },
-    { "name": "usage", "mode": "both" },
-    { "name": "runtime", "mode": "dev" },
-    { "name": "tests", "mode": "dev" },
-    { "name": "installer", "mode": "both" },
-    { "name": "determinism", "mode": "dev" },
-    { "name": "distribution", "mode": "both" },
-    { "name": "style", "mode": "dev" },
-    { "name": "conformance", "mode": "both" },
-    { "name": "lint", "mode": "dev" },
-    { "name": "profile", "mode": "dev" },
-    { "name": "indexlog", "mode": "dev" },
-    { "name": "trust", "mode": "dev" },
-    { "name": "sources", "mode": "dev" },
-    { "name": "context", "mode": "both" },
-    { "name": "navigation", "mode": "both" },
-    { "name": "containment", "mode": "both" },
-    { "name": "library", "mode": "dev" },
-    { "name": "performance", "mode": "dev" }
+    {
+      "name": "layer",
+      "mode": "both"
+    },
+    {
+      "name": "manifest",
+      "mode": "dev"
+    },
+    {
+      "name": "lock",
+      "mode": "both"
+    },
+    {
+      "name": "coverage",
+      "mode": "dev"
+    },
+    {
+      "name": "registry",
+      "mode": "dev"
+    },
+    {
+      "name": "boundary",
+      "mode": "both"
+    },
+    {
+      "name": "provenance",
+      "mode": "dev"
+    },
+    {
+      "name": "citation",
+      "mode": "dev"
+    },
+    {
+      "name": "graph",
+      "mode": "both"
+    },
+    {
+      "name": "freshness",
+      "mode": "dev"
+    },
+    {
+      "name": "conflicts",
+      "mode": "dev"
+    },
+    {
+      "name": "retrieval",
+      "mode": "both"
+    },
+    {
+      "name": "usage",
+      "mode": "both"
+    },
+    {
+      "name": "runtime",
+      "mode": "dev"
+    },
+    {
+      "name": "tests",
+      "mode": "dev"
+    },
+    {
+      "name": "installer",
+      "mode": "both"
+    },
+    {
+      "name": "determinism",
+      "mode": "dev"
+    },
+    {
+      "name": "distribution",
+      "mode": "both"
+    },
+    {
+      "name": "style",
+      "mode": "dev"
+    },
+    {
+      "name": "conformance",
+      "mode": "both"
+    },
+    {
+      "name": "lint",
+      "mode": "dev"
+    },
+    {
+      "name": "profile",
+      "mode": "dev"
+    },
+    {
+      "name": "indexlog",
+      "mode": "dev"
+    },
+    {
+      "name": "trust",
+      "mode": "dev"
+    },
+    {
+      "name": "sources",
+      "mode": "dev"
+    },
+    {
+      "name": "context",
+      "mode": "both"
+    },
+    {
+      "name": "navigation",
+      "mode": "both"
+    },
+    {
+      "name": "containment",
+      "mode": "both"
+    },
+    {
+      "name": "library",
+      "mode": "dev"
+    },
+    {
+      "name": "performance",
+      "mode": "dev"
+    },
+    {
+      "name": "traversalEnvelope",
+      "mode": "both"
+    },
+    {
+      "name": "frontierCompleteness",
+      "mode": "dev"
+    },
+    {
+      "name": "unknownId",
+      "mode": "both"
+    },
+    {
+      "name": "graphReach",
+      "mode": "both"
+    },
+    {
+      "name": "facetSufficiency",
+      "mode": "both"
+    },
+    {
+      "name": "guidanceDeterminism",
+      "mode": "dev"
+    }
   ]
 }

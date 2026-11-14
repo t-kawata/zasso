@@ -1,15 +1,23 @@
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js` --ticket-key=PX-427 --for-spec --no-implementation-order`.
 /**
- * Navigation commands return the one-hop payload.
+ * Navigation commands return the one-hop payload and its traversal envelope.
+ *
+ * The legacy fields stay at the top level so existing callers keep working;
+ * protocol, coverage, frontier, and guidance are additive. An absent id
+ * throws UNKNOWN_CONCEPT so the CLI can exit 2 instead of returning empty
+ * edges that look like a valid answer.
  */
 
 import { getConcept, getOutgoing, getIncoming } from '../adapters/okforest.mjs';
 import { conceptBody } from '../context/assemble.mjs';
+import { buildTraversal, unknownConcept } from './traverse.mjs';
 
-export function showConcept({ bundle, id, now = new Date() }) {
-  const concept = getConcept(bundle, id);
-  if (!concept) throw Object.assign(new Error(`unknown concept: ${id}`), { code: 'UNKNOWN_CONCEPT' });
+export function showConcept({ bundle, id, now = new Date(), profile = 'okf-wiki', hop = 0, stack = [] }) {
+  const concept = requireConcept(bundle, id);
+  const page = buildTraversal({ bundle, id, profile, hop, stack, now });
   return {
     id: concept.id,
     path: concept.path,
@@ -26,17 +34,27 @@ export function showConcept({ bundle, id, now = new Date() }) {
       stale: concept.isStale(now),
       staleAfter: concept.staleAfter ?? null,
     },
+    ...page,
   };
 }
 
 export function outgoingEdges({ bundle, id }) {
+  requireConcept(bundle, id);
   return getOutgoing(bundle, id);
 }
 
 export function incomingEdges({ bundle, id }) {
+  requireConcept(bundle, id);
   return getIncoming(bundle, id);
 }
 
 export function neighborEdges({ bundle, id }) {
+  requireConcept(bundle, id);
   return [...getOutgoing(bundle, id), ...getIncoming(bundle, id)];
+}
+
+export function requireConcept(bundle, id) {
+  const concept = getConcept(bundle, id);
+  if (!concept) throw unknownConcept(bundle, id);
+  return concept;
 }

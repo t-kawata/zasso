@@ -8,10 +8,10 @@ sources:
     title: "11. Implementation Contract"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/35-A2A.md"
 x-source-span: "193-221"
@@ -44,4 +44,13 @@ in-memory task store in production, sticky session, ad-hoc SSE, separate send/st
 | A2A-28 | A2A `message/send` and `message/stream` MUST share the same operation invocation and terminal semantics. | Dual mode. | Event payload. | V3 dual-mode test. |
 | A2A-29 | A2A cancellation, disconnect, and resubscribe MUST be distinct and MUST use durable event cursors. | State separation. | Timing. | V3 cancel/resubscribe. |
 | A2A-30 | A2A auth and agent card MUST declare and enforce the configured security scheme and audience. | Security. | Scheme set. | V3 auth/card test. |
+
+## Rules in this section
+
+- [A2A-25 — A2A send and stream methods MUST use one shared executor and SDK wire framing.](../../rules/c/a2a-25.md)
+- [A2A-26 — Production A2A task state, execution claims, idempotency records, and event l...](../../rules/c/a2a-26.md)
+- [A2A-27 — Every task, cancellation, and replay access MUST bind subject and tenant at t...](../../rules/c/a2a-27.md)
+- [A2A-28 — A2A `message/send` and `message/stream` MUST share the same operation invocat...](../../rules/c/a2a-28.md)
+- [A2A-29 — A2A cancellation, disconnect, and resubscribe MUST be distinct and MUST use d...](../../rules/c/a2a-29.md)
+- [A2A-30 — A2A auth and agent card MUST declare and enforce the configured security sche...](../../rules/c/a2a-30.md)
 

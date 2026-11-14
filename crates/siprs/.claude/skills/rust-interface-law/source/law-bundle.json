@@ -1,9 +1,9 @@
 {
   "schema": "law-bundle/v1",
   "skill": "rust-interface-law",
-  "generated_at": "2026-11-13",
-  "rules": 466,
-  "sections": 239,
+  "generated_at": "2026-11-14",
+  "rules": 486,
+  "sections": 565,
   "sources": [
     "sources/00-FOUNDATION.md",
     "sources/10-CONTRACTS.md",

@@ -8,10 +8,10 @@ sources:
     title: "CONF-30"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,16 @@ Server stream items, EOF, error, and cancel match the operation contract.
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[11. Streaming](../../sources/40-conformance/11-streaming.md)
+[11. Streaming](../../sources/part-iii-12/11-streaming.md)
 
-[^conf-30]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-31 — Client stream input, EOF, and cancel match the contract.](conf-31.md)
+- [CONF-32 — Bidi streams preserve independent half-close and cancellation.](conf-32.md)
+- [CONF-33 — Backpressure is observable and bounded.](conf-33.md)
+- [CONF-34 — A cancelled operation's result is queryable through the authorized result loo...](conf-34.md)
+
+[^conf-30]: sources/EXPERT-REVIEW-PACKAGE.md
 

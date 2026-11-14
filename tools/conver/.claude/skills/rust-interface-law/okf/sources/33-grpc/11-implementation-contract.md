@@ -8,10 +8,10 @@ sources:
     title: "11. Implementation Contract"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/33-GRPC.md"
 x-source-span: "229-254"
@@ -41,4 +41,10 @@ protobuf types in core or operation contracts, manual HTTP/2, service business l
 | GRPC-20 | gRPC services MUST implement generated tonic traits and MUST keep protobuf types outside core and operation contracts. | Generation and boundary. | Message fields. | V2 graph; V3 service test. |
 | GRPC-21 | Every gRPC streaming shape MUST propagate deadlines, input half-close, and cancellation to the matching dispatcher stream method. | Four shapes. | Stream internals. | V3 four-shape tests. |
 | GRPC-22 | Non-loopback gRPC exposure MUST use the declared TLS boundary and shared redacted status mapping. | TLS and details. | Certificate source. | V3 TLS/status test. |
+
+## Rules in this section
+
+- [GRPC-20 — gRPC services MUST implement generated tonic traits and MUST keep protobuf ty...](../../rules/c/grpc-20.md)
+- [GRPC-21 — Every gRPC streaming shape MUST propagate deadlines, input half-close, and ca...](../../rules/c/grpc-21.md)
+- [GRPC-22 — Non-loopback gRPC exposure MUST use the declared TLS boundary and shared reda...](../../rules/c/grpc-22.md)
 

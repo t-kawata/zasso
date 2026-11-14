@@ -19,6 +19,8 @@ import {
   checkProfile as checkBundleProfile,
   resolveRequired,
   buildContext,
+  buildTraversal,
+  loadProfile,
 } from '../okf-core/index.mjs';
 import { conceptBody } from '../okf-core/context/assemble.mjs';
 import { status } from './source.mjs';
@@ -99,7 +101,7 @@ export async function checkLock({ skillPath }) {
   const lockPath = join(skillPath, 'atoms.lock.json');
   if (!existsSync(lockPath)) return failed('LAYER_MISSING', 'atoms.lock.json is missing');
   const lock = readJson(lockPath);
-  if (lock.schema !== 'law-atoms/v2') return failed('LOCK_INVALID', 'schema');
+  if (lock.schema !== 'law-atoms/v3') return failed('LOCK_INVALID', 'schema');
   const bundle = await loadBundle(join(skillPath, 'okf'));
   const findings = [];
   for (const record of [...(lock.rules ?? []), ...(lock.sections ?? [])]) {
@@ -276,8 +278,8 @@ export function checkRuleIdentity({ skillPath }) {
   const result = spawnSync(process.execPath, [join(skillPath, 'dist/skill.mjs'), 'explain', '--rule', 'REST-01'], { encoding: 'utf8' });
   if (result.status !== 0) return failed('RULE_IDENTITY_FAILED', result.stderr);
   if (!result.stdout.includes('REST-01')) return failed('RULE_IDENTITY_FAILED', 'rule id absent');
-  return Object.keys(ruleMap.byRule ?? {}).length === 466
-    ? verified('466 rule ids resolve')
+  return Object.keys(ruleMap.byRule ?? {}).length === 486
+    ? verified('486 rule ids resolve')
     : failed('RULE_IDENTITY_COUNT', String(Object.keys(ruleMap.byRule ?? {}).length));
 }
 
@@ -299,7 +301,7 @@ export function prepareRuntime({ skillPath }) {
   const root = join(temporary, 'fixtures');
   cpSync(join(skillPath, 'tests/fixtures/runtime'), root, { recursive: true });
   const failures = [];
-  const run = (args, cwd = root) => spawnSync(process.execPath, [dist, ...args], { cwd, encoding: 'utf8' });
+  const run = (args, cwd = root) => spawnSync(process.execPath, [dist, ...args], { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   try {
     if (run(['applies', '--root', join(root, fixture.applies.root), '--paths', fixture.applies.paths.join(',')], join(root, fixture.applies.root)).status !== fixture.applies.expect) failures.push('applies applicable');
     if (run(['applies', '--root', join(root, fixture.unrelated.root), '--paths', fixture.unrelated.paths.join(',')], join(root, fixture.unrelated.root)).status !== fixture.unrelated.expect) failures.push('applies unrelated');
@@ -368,6 +370,161 @@ export function checkDeterminism({ skillPath }) {
 function directoryOf(path) {
   const slash = path.lastIndexOf('/');
   return slash < 0 ? '' : path.slice(0, slash);
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+export async function checkTraversalEnvelope({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const concept = findRuleConcept(bundle, 'REST-01');
+  if (!concept) return failed('TRAVERSAL_CONCEPT_MISSING', 'REST-01');
+  const page = buildTraversal({ bundle, id: concept.id, profile: 'law-implement' });
+  const fields = ['protocol', 'node', 'coverage', 'frontier', 'guidance'];
+  const missing = fields.filter((field) => !Object.hasOwn(page, field));
+  if (missing.length > 0) return failed('TRAVERSAL_ENVELOPE_MISSING', missing.join(','));
+  if (page.protocol !== 'okf-traversal/v1') return failed('TRAVERSAL_PROTOCOL', page.protocol);
+  if (!Array.isArray(page.frontier)) return failed('TRAVERSAL_FRONTIER_INVALID', typeof page.frontier);
+  return verified('traversal envelope carries node, coverage, frontier, and guidance');
+}
+
+export async function checkFrontierCompleteness({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const empty = [];
+  for (const concept of bundle.concepts) {
+    const profile = concept.frontmatter?.['x-rule-id'] ? 'law-implement' : 'default';
+    const page = buildTraversal({ bundle, id: concept.id, profile });
+    if (page.frontier.length === 0 && page.guidance.state !== 'stop') empty.push(concept.id);
+  }
+  return empty.length === 0
+    ? verified(`${bundle.concepts.length} concepts expose a frontier or an explicit stop`)
+    : failed('FRONTIER_EMPTY', empty.slice(0, 5).join(','));
+}
+
+export function checkUnknownId({ skillPath }) {
+  const cli = join(skillPath, 'dist/skill.mjs');
+  const result = spawnSync(process.execPath, [cli, 'show', 'rules/z/does-not-exist'], { encoding: 'utf8' });
+  if (result.status !== 2) return failed('UNKNOWN_ID_EXIT', String(result.status));
+  return /unknown|candidate/i.test(`${result.stdout}${result.stderr}`)
+    ? verified('an absent id exits 2 with a candidate message')
+    : failed('UNKNOWN_ID_MESSAGE', 'no candidate message');
+}
+
+export async function checkGraphReach({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  let ruleToRule = 0;
+  let sectionToRule = 0;
+  for (const concept of bundle.concepts) {
+    for (const edge of getOutgoing(bundle, concept.id)) {
+      const target = bundle.byId.get(edge.to);
+      if (!target) continue;
+      if (concept.type === 'Rule' && target.type === 'Rule') ruleToRule += 1;
+      if (concept.type === 'Section' && target.type === 'Rule') sectionToRule += 1;
+    }
+  }
+  const app = findRuleConcept(bundle, 'APP-01');
+  const dependents = app ? getIncoming(bundle, app.id).filter((edge) => edge.kind === 'dependent').length : 0;
+  return ruleToRule > 0 && sectionToRule > 0 && dependents > 0
+    ? verified(`rule-to-rule ${ruleToRule}, section-to-rule ${sectionToRule}, APP-01 dependents ${dependents}`)
+    : failed('GRAPH_DEGENERATE', `rule-to-rule ${ruleToRule}, section-to-rule ${sectionToRule}, dependents ${dependents}`);
+}
+
+export async function checkFacetSufficiency({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const ruleMap = readJson(join(skillPath, 'source/rule-concepts.json'));
+  const entry = ruleMap.byRule?.['REST-01'];
+  if (!entry) return failed('FACET_RULE_MISSING', 'REST-01');
+  const set = resolveRequired({ bundle, entryIds: [entry.concept_id] });
+  const contextIds = new Set(set.required);
+  for (const id of set.required) {
+    for (const edge of getOutgoing(bundle, id)) {
+      if (edge.state === 'resolved'
+        && edge.to
+        && !edge.to.startsWith('sources/15-rule-registry/')
+        && bundle.byId.get(edge.to)?.type === 'Section') contextIds.add(edge.to);
+    }
+  }
+  const page = buildTraversal({ bundle, id: entry.concept_id, profile: 'law-implement', payloadIds: [...contextIds] });
+  if (page.coverage.missing.length > 0) return failed('FACET_MISSING_AT_STOP', page.coverage.missing.join(','));
+  if (page.guidance.state !== 'stop') return failed('FACET_GUIDANCE', page.guidance.state);
+  return verified(`${page.coverage.requiredFacets.length} facets satisfied by the required context`);
+}
+
+export async function checkGuidanceDeterminism({ skillPath }) {
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const concept = findRuleConcept(bundle, 'REST-01');
+  if (!concept) return failed('GUIDANCE_CONCEPT_MISSING', 'REST-01');
+  const first = buildTraversal({ bundle, id: concept.id, profile: loadProfile('law-implement') });
+  const second = buildTraversal({ bundle, id: concept.id, profile: loadProfile('law-implement') });
+  return JSON.stringify(first.guidance) === JSON.stringify(second.guidance)
+    && JSON.stringify(first.frontier) === JSON.stringify(second.frontier)
+    ? verified('guidance and frontier are deterministic')
+    : failed('GUIDANCE_NONDETERMINISTIC', 'two calls differ');
+}
+
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+export function checkSourceCoverage({ skillPath }) {
+  const path = join(skillPath, 'source/coverage-v3.json');
+  if (!existsSync(path)) return failed('SOURCE_COVERAGE_MISSING', path);
+  const ledger = readJson(path);
+  const counts = ledger.counts ?? {};
+  const clean = counts.unmappedHeadings === 0 && counts.unmappedRuleRows === 0;
+  return clean
+    ? verified(`headings ${counts.headings}, rule rows ${counts.ruleRows}, aliases ${counts.aliases}, unmapped 0`)
+    : failed('SOURCE_COVERAGE_GAP', JSON.stringify(counts));
+}
+
+export function checkAliasResolution({ skillPath }) {
+  const aliases = readJson(join(skillPath, 'source/package-aliases.json')).aliases ?? {};
+  const ruleMap = readJson(join(skillPath, 'source/rule-concepts.json'));
+  for (const [legacyId, entry] of Object.entries(aliases)) {
+    if (!entry.target || !entry.reason) return failed('ALIAS_INCOMPLETE', legacyId);
+    if (!ruleMap.byRule?.[entry.target]) return failed('ALIAS_TARGET_MISSING', `${legacyId}->${entry.target}`);
+    if (ruleMap.byRule?.[legacyId]) return failed('ALIAS_DUPLICATED_RULE', legacyId);
+  }
+  return verified(`${Object.keys(aliases).length} aliases resolve to canonical rules`);
+}
+
+export function checkRulePreservation({ skillPath }) {
+  const ruleMap = readJson(join(skillPath, 'source/rule-concepts.json'));
+  const ids = Object.keys(ruleMap.byRule ?? {});
+  if (ids.length !== 486) return failed('RULE_COUNT_CHANGED', String(ids.length));
+  for (const id of ['FREE-01', 'VER-06', 'INV-06', 'REST-01', 'WS-33', 'IMP-01']) {
+    if (!ruleMap.byRule?.[id]) return failed('RULE_LOST', id);
+  }
+  return verified('466 prior rules plus 20 package rules are present');
+}
+
+export async function checkBodyFidelity({ skillPath }) {
+  const { pathToFileURL } = await import('node:url');
+  const modulePath = pathToFileURL(join(skillPath, 'scripts/lib/expert-package.mjs')).href;
+  const { parseExpertPackage } = await import(modulePath);
+  const packagePath = [
+    join(process.cwd(), 'docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md'),
+    join(skillPath, '../../../docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md'),
+  ].find((candidate) => existsSync(candidate));
+  if (!packagePath) return failed('FIDELITY_SOURCE_MISSING', 'EXPERT-REVIEW-PACKAGE.md');
+  const tree = parseExpertPackage(readFileSync(packagePath, 'utf8'));
+  const bundle = await loadBundle(join(skillPath, 'okf'));
+  const samples = [
+    'part-iii-6/6-http-rules',
+    'part-iii-4/4-operation-contract',
+    'part-iii-12/1-conformance-matrix',
+    'part-i/4-the-two-success-conditions-in-detail',
+  ];
+  for (const path of samples) {
+    const heading = tree.headings.find((entry) => entry.path === path);
+    if (!heading) continue;
+    const prefix = path.startsWith('part-i/') ? 'docs' : 'sources';
+    const concept = bundle.byId.get(`${prefix}/${path}`);
+    if (!concept) return failed('FIDELITY_CONCEPT_MISSING', path);
+    if (!conceptBody(concept).includes(heading.text.trim())) return failed('FIDELITY_MISMATCH', path);
+  }
+  return verified(`${samples.length} sampled sections match the package text`);
+}
+
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+function findRuleConcept(bundle, ruleId) {
+  return bundle.concepts.find((concept) => concept.frontmatter?.['x-rule-id'] === ruleId) ?? null;
 }
 
 // [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.

@@ -1,5 +1,5 @@
 # Coverage
 
-- Rules: 466
-- Sections: 239
+- Rules: 486
+- Sections: 565
 - Sources: 19

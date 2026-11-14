@@ -56,6 +56,8 @@ Record the printed path as `CLAUDE_DIR`. Use that literal path below. Do not run
 - Generated skill carries input ledger, alias map, redaction review, normative inventory, delivery coverage, rule-concept map, concept body hash, `source/source-view.md`, `source/source.baseline.md`.
 - No install before verification; failed verification leaves existing skill untouched.
 - Exact generated-skill CLI only in `SKILL.md`.
+- Source generation reads `docs/archive/IMPLEMENTATION-SPEC/EXPERT-REVIEW-PACKAGE.md` as the primary input (`--package-path`); split documents and the registry are reconciliation inputs. `source/coverage-v3.json` proves every heading and rule row is mapped.
+- `SKILL.md` carries a `## Traversal Contract` section generated from `okf-core/traversal-protocol.md`: the envelope fields, the `stop|expand|back` table, `stop_when`, `must_run`, `if_back`, and the rule that an absent id exits 2.
 - Integration: six canonical lines, one per host file; skill-agnostic; marked; idempotent; CLI-free.
 - Integration gate: missing, drift, duplicate, location, CLI leak, or invalid skill → no completion.
 - Identical inputs → identical lock, coverage, OKF, bundle.
@@ -348,7 +350,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 
 | Gate | Pass |
 |---|---|
-| Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 3`; 26 checks; every dev-required check `machine_verified`; closure recorded |
+| Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 3`; 36 checks; every dev-required check `machine_verified`; closure recorded |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style`, `conformance`, `lint`, `profile`, `graph`, `context`, `navigation`, `ruleIdentity`, `performance` |
 | Canonical verifier installed | installed tree; 8 required checks `machine_verified`; source/installed SHA match |
 | Integration | `verify-law-integration.mjs --mode check --require-skill` exit 0; six canonical lines; no drift, duplicate, location, or CLI leak |
@@ -399,7 +401,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 ## Integration Checkpoints
 
 - `make-ticket`: invoke each built law skill; record `Law:` scope; law skill built/changed → record v2 `dev` and `installed` closure, every required check `machine_verified`.
-- `plan-ticket`: read `Law:`; plan phases; `SKILL.md` owns exact CLI; plan v2 `dev` + `installed`; check set is 18.
+- `plan-ticket`: read `Law:`; plan phases; `SKILL.md` owns exact CLI; plan v3 `dev` + `installed`; check set is 36.
 - `start-ticket`: re-run applicability; resolve; deliver context; gate; attest; before completion run v2 `dev` + `installed`; every required check `machine_verified`.
 - `review-ticket`: regenerate manifest; gate; attest; re-run v2 `dev` + `installed`; compare `closure`; state V1-only honesty.
 - `resolve-ticket`: repair gate findings; fill attestation; no status change; repair until v2 `dev` + `installed` pass.

@@ -8,10 +8,10 @@ sources:
     title: "CONF-29"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,17 @@ No unrelated external API wait occurs inside a database transaction; transaction
 | Verification | V2 architecture scan; V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[10. Idempotency, Transactions, and Recovery](../../sources/40-conformance/10-idempotency-transactions-and-recovery.md)
+[10. Idempotency, Transactions, and Recovery](../../sources/part-iii-12/10-idempotency-transactions-and-recovery.md)
 
-[^conf-29]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-24 — Concurrent claims for the same namespace and key produce one execution.](conf-24.md)
+- [CONF-25 — A replay re-authorizes before returning the stored result.](conf-25.md)
+- [CONF-26 — Same key with a different canonical request returns conflict.](conf-26.md)
+- [CONF-27 — A crash after business commit but before publication is recovered; the event ...](conf-27.md)
+- [CONF-28 — Irreversible effects follow the declared recovery policy.](conf-28.md)
+
+[^conf-29]: sources/EXPERT-REVIEW-PACKAGE.md
 

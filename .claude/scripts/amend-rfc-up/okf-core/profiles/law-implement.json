@@ -1,0 +1,47 @@
+{
+  "id": "law-implement",
+  "requiredFacets": [
+    "requirement",
+    "applies_to",
+    "verification",
+    "enforcement",
+    "source",
+    "prerequisites"
+  ],
+  "facetKinds": {
+    "requirement": [
+      "source-section"
+    ],
+    "source": [
+      "source-section"
+    ],
+    "prerequisites": [
+      "prerequisite"
+    ]
+  },
+  "maxHops": 3,
+  "commandPrefix": "node \"$LAW\"",
+  "expandTemplate": "{prefix} expand --id {id}",
+  "contextTemplate": "{prefix} context --rule {ruleId}",
+  "actions": [
+    {
+      "id": "template",
+      "kind": "action",
+      "why": "render the interface template for this rule",
+      "command": "{prefix} template --rule {ruleId}"
+    },
+    {
+      "id": "implementation-check",
+      "kind": "action",
+      "why": "check the implementation against the rule",
+      "command": "{prefix} implementation-check --rule {ruleId}"
+    },
+    {
+      "id": "gate",
+      "kind": "action",
+      "why": "run the gate before completion",
+      "command": "{prefix} gate --implementation"
+    }
+  ],
+  "completeTemplate": "{prefix} context --rule {ruleId}"
+}

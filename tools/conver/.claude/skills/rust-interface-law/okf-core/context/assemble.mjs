@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { getConcept, getOutgoing, getIncoming } from '../adapters/okforest.mjs';
 
 export const DEFAULT_BUDGET_BYTES = 1_000_000;
+const EDGE_SUMMARY_LIMIT = 50;
 
 export function buildContext({ bundle, requiredSet, budgetBytes = DEFAULT_BUDGET_BYTES, now = new Date() }) {
   const concepts = [];
@@ -15,11 +16,15 @@ export function buildContext({ bundle, requiredSet, budgetBytes = DEFAULT_BUDGET
     const concept = getConcept(bundle, id);
     if (!concept) continue;
     const body = conceptBody(concept);
+    const outgoing = getOutgoing(bundle, id);
+    const incoming = getIncoming(bundle, id);
     concepts.push({
       id,
       body,
-      outgoing: getOutgoing(bundle, id),
-      incoming: getIncoming(bundle, id),
+      outgoing: outgoing.slice(0, EDGE_SUMMARY_LIMIT).map(summarizeEdge),
+      outgoingCount: outgoing.length,
+      incoming: incoming.slice(0, EDGE_SUMMARY_LIMIT).map(summarizeEdge),
+      incomingCount: incoming.length,
       sources: concept.sources,
       trustTier: concept.trustTier,
       freshness: {
@@ -53,4 +58,20 @@ export function conceptBody(concept) {
 // [::TICKET::] PX-425, PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-425|PX-426) --for-spec --no-implementation-order`.
 function hashText(text) {
   return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/**
+ * Keep the hop direction and kind without repeating every edge field.
+ *
+ * A hub concept can carry hundreds of edges; repeating rawTarget and line for
+ * each one turns a context answer into an edge dump.
+ */
+// [::TICKET::] PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-427|PX-428) --for-spec --no-implementation-order`.
+function summarizeEdge(edge) {
+  return {
+    from: edge.from ?? null,
+    to: edge.to ?? null,
+    kind: edge.kind ?? null,
+    origin: edge.origin ?? null,
+  };
 }

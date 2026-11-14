@@ -8,10 +8,10 @@ sources:
     title: "CONF-23"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,16 @@ Protocol-owned resources (WS subscriptions, A2A tasks, MCP sessions) are authori
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[9. Security Proofs](../../sources/40-conformance/9-security-proofs.md)
+[9. Security Proofs](../../sources/part-iii-12/9-security-proofs.md)
 
-[^conf-23]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-19 — No interface can bypass operation authorization.](conf-19.md)
+- [CONF-20 — An adapter cannot construct `VerifiedIdentity`.](conf-20.md)
+- [CONF-21 — The trusted constructor is not reachable from adapter crates; allowed call si...](conf-21.md)
+- [CONF-22 — A compile-fail test is not treated as a general proof of non-bypass.](conf-22.md)
+
+[^conf-23]: sources/EXPERT-REVIEW-PACKAGE.md
 

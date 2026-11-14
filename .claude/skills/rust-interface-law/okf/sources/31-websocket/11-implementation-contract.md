@@ -8,10 +8,10 @@ sources:
     title: "11. Implementation Contract"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/31-WEBSOCKET.md"
 x-source-span: "328-353"
@@ -41,4 +41,10 @@ Query-string ticket, unbounded channel, blocking send in async task, operation i
 | WS-33 | Origin validation and ticket redemption MUST complete before WebSocket acceptance. | Pre-accept. | Header name. | V3 pre-accept probe. |
 | WS-34 | All connection queues and dispatch concurrency MUST be bounded, with overload producing the configured 1013 close path. | Bounds. | Capacity values. | V3 overload test. |
 | WS-35 | Stream input closure, output termination, and cancellation MUST be distinct states with deterministic cleanup. | State model. | Timing. | V3 lifecycle test. |
+
+## Rules in this section
+
+- [WS-33 — Origin validation and ticket redemption MUST complete before WebSocket accept...](../../rules/c/ws-33.md)
+- [WS-34 — All connection queues and dispatch concurrency MUST be bounded, with overload...](../../rules/c/ws-34.md)
+- [WS-35 — Stream input closure, output termination, and cancellation MUST be distinct s...](../../rules/c/ws-35.md)
 

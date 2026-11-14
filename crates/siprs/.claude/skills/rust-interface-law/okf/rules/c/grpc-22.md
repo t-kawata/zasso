@@ -8,10 +8,10 @@ sources:
     title: "GRPC-22"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "grpc"
 x-enforcement: "conformance driver"
@@ -38,6 +38,13 @@ Non-loopback gRPC exposure MUST use the declared TLS boundary and shared redacte
 | Enforcement | conformance driver |
 
 [11. Implementation Contract](../../sources/33-grpc/11-implementation-contract.md)
+
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [GRPC-20 — gRPC services MUST implement generated tonic traits and MUST keep protobuf ty...](grpc-20.md)
+- [GRPC-21 — Every gRPC streaming shape MUST propagate deadlines, input half-close, and ca...](grpc-21.md)
 
 [^grpc-22]: sources/33-GRPC.md
 

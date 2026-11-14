@@ -1,0 +1,25 @@
+{
+  "id": "okf-wiki",
+  "requiredFacets": [
+    "body",
+    "provenance",
+    "hierarchy",
+    "siblings"
+  ],
+  "facetKinds": {
+    "hierarchy": [
+      "parent",
+      "child",
+      "directory"
+    ],
+    "siblings": [
+      "sibling-rule",
+      "backlink"
+    ]
+  },
+  "maxHops": 3,
+  "commandPrefix": "node \"$OKF\"",
+  "expandTemplate": "{prefix} expand --id {id}",
+  "contextTemplate": "{prefix} context --entry {id}",
+  "actions": []
+}

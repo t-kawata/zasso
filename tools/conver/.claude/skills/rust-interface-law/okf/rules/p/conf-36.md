@@ -8,10 +8,10 @@ sources:
     title: "CONF-36"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,13 @@ A driver that cannot exercise a required boundary reports `Fail`, not `NotApplic
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[12. Drivers](../../sources/40-conformance/12-drivers.md)
+[12. Drivers](../../sources/part-iii-12/12-drivers.md)
 
-[^conf-36]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-35 — TLS, real upgrade, and CLI process boundaries are covered out-of-process.](conf-35.md)
+
+[^conf-36]: sources/EXPERT-REVIEW-PACKAGE.md
 

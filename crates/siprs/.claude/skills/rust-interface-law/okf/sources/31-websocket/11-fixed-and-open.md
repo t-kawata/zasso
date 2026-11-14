@@ -8,10 +8,10 @@ sources:
     title: "11. Fixed and Open"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/31-WEBSOCKET.md"
 x-source-span: "299-312"

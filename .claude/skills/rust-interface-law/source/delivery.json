@@ -1,5 +1,5 @@
 {
-  "schema": "law-delivery/v2",
+  "schema": "law-delivery/v3",
   "rules": [
     {
       "rule_id": "A2A-01",
@@ -2329,6 +2329,106 @@
     {
       "rule_id": "IMP-12",
       "concept_id": "rules/c/imp-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "INV-06",
+      "concept_id": "rules/c/inv-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-01",
+      "concept_id": "rules/g/free-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-02",
+      "concept_id": "rules/g/free-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-03",
+      "concept_id": "rules/g/free-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-04",
+      "concept_id": "rules/g/free-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-05",
+      "concept_id": "rules/g/free-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-06",
+      "concept_id": "rules/g/free-06",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-07",
+      "concept_id": "rules/g/free-07",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-08",
+      "concept_id": "rules/g/free-08",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-09",
+      "concept_id": "rules/g/free-09",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-10",
+      "concept_id": "rules/g/free-10",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-11",
+      "concept_id": "rules/g/free-11",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-12",
+      "concept_id": "rules/g/free-12",
+      "decision": "must"
+    },
+    {
+      "rule_id": "FREE-13",
+      "concept_id": "rules/g/free-13",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VER-01",
+      "concept_id": "rules/g/ver-01",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VER-02",
+      "concept_id": "rules/g/ver-02",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VER-03",
+      "concept_id": "rules/g/ver-03",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VER-04",
+      "concept_id": "rules/g/ver-04",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VER-05",
+      "concept_id": "rules/g/ver-05",
+      "decision": "must"
+    },
+    {
+      "rule_id": "VER-06",
+      "concept_id": "rules/g/ver-06",
       "decision": "must"
     }
   ]

@@ -8,10 +8,10 @@ sources:
     title: "OP-IDEM-05"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "cargo test -p <project>-operation/core"
@@ -37,7 +37,21 @@ A replay calls `replay_authorize` against the recorded target and never re-runs 
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-operation/core |
 
-[8. Idempotency](../../sources/21-operation/8-idempotency.md)
+[8. Idempotency](../../sources/part-iii-4/8-idempotency.md)
 
-[^op-idem-05]: sources/21-OPERATION.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [OP-IDEM-01 — The namespace includes subject, tenant, and operation.](op-idem-01.md)
+- [OP-IDEM-02 — `claim` is atomic; concurrent claims produce one `Acquired`.](op-idem-02.md)
+- [OP-IDEM-03 — `same-transaction` stores the result in the business commit.](op-idem-03.md)
+- [OP-IDEM-04 — `external` uses a lease and `recover_expired`.](op-idem-04.md)
+- [OP-IDEM-06 — Same key + different canonical request returns `conflict`.](op-idem-06.md)
+- [OP-IDEM-07 — Failed results are stored and replayed according to policy.](op-idem-07.md)
+- [OP-IDEM-08 — A claim carries a generation and fencing token; `complete`, `fail`, and `rene...](../g/op-idem-08.md)
+- [OP-IDEM-09 — `same-transaction` requires `ExecutionScope::complete` before `uow.commit`; t...](op-idem-09.md)
+- [OP-IDEM-10 — External side effects carry the fencing token or an equivalent deduplication/...](op-idem-10.md)
+
+[^op-idem-05]: sources/EXPERT-REVIEW-PACKAGE.md
 

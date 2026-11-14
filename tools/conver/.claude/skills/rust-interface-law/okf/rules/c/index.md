@@ -185,6 +185,7 @@
 - [IMP-10 — Every project MUST pin the law spec_version, dist hash, and policy hash; a mismatch fails unless a scoped exception exists.](./imp-10.md)
 - [IMP-11 — Every implementation rule MUST have a detector or an explicit attestation row.](./imp-11.md)
 - [IMP-12 — Pipeline checkpoints MUST invoke template, implementation-check, gate, and attest through a bounded wrapper.](./imp-12.md)
+- [INV-06 — Conformance tests, not documentation, prove compliance.](./inv-06.md)
 - [MCP-01 — Every applicable catalog operation has one MCP tool.](./mcp-01.md)
 - [MCP-02 — The tool name is `operation_id` with `.` replaced by `_`, optionally prefixed.](./mcp-02.md)
 - [MCP-05 — The tool handler converts input, calls the dispatcher, and maps the result.](./mcp-05.md)

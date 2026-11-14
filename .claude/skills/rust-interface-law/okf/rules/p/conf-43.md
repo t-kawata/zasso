@@ -8,10 +8,10 @@ sources:
     title: "CONF-43"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "conformance"
 x-enforcement: "cargo test -p <project>-conformance"
@@ -37,7 +37,14 @@ An external ID token is rejected as an access token on every interface.
 | Verification | V3 test. |
 | Enforcement | cargo test -p <project>-conformance |
 
-[14. SSO Regression](../../sources/40-conformance/14-sso-regression.md)
+[14. SSO Regression](../../sources/part-iii-12/14-sso-regression.md)
 
-[^conf-43]: sources/40-CONFORMANCE.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](../c/arc-01.md)
+- [CONF-42 — After SSO is added, existing operation signatures, subject IDs, and business ...](conf-42.md)
+- [CONF-44 — An internal access token is rejected as an external ID token.](conf-44.md)
+
+[^conf-43]: sources/EXPERT-REVIEW-PACKAGE.md
 

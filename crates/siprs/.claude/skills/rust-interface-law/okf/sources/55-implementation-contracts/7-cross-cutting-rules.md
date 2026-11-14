@@ -8,10 +8,10 @@ sources:
     title: "7. Cross-Cutting Rules"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-document: "sources/55-IMPLEMENTATION-CONTRACTS.md"
 x-source-span: "105-123"
@@ -34,4 +34,16 @@ x-source-span: "105-123"
 | IMP-12 | Pipeline checkpoints MUST invoke template, implementation-check, gate, and attest through a bounded wrapper. | Process. | Wrapper name. | command inspection. |
 
 ---
+
+## Rules in this section
+
+- [IMP-02 — The gate MUST reject every unresolved dependency, feature, source, advisory, ...](../../rules/c/imp-02.md)
+- [IMP-03 — Adapter dependency edges MUST reach the dispatcher and identity contracts and...](../../rules/c/imp-03.md)
+- [IMP-04 — Core and operation-contract crates MUST NOT depend on protocol SDKs or genera...](../../rules/c/imp-04.md)
+- [IMP-05 — Required source calls MUST be resolved by identity, and unresolved analysis M...](../../rules/c/imp-05.md)
+- [IMP-06 — Generated adapter output MUST equal regeneration from the admitted template a...](../../rules/c/imp-06.md)
+- [IMP-07 — Scaffold MUST NOT overwrite an existing file; an existing file without a mark...](../../rules/c/imp-07.md)
+- [IMP-09 — Missing implementation reports, missing tests, zero selected tests, and faile...](../../rules/c/imp-09.md)
+- [IMP-10 — Every project MUST pin the law spec_version, dist hash, and policy hash; a mi...](../../rules/c/imp-10.md)
+- [IMP-11 — Every implementation rule MUST have a detector or an explicit attestation row.](../../rules/c/imp-11.md)
 

@@ -8,10 +8,10 @@ sources:
     title: "MCP-06"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "mcp"
 x-enforcement: "conformance driver"
@@ -37,7 +37,17 @@ The tool handler contains no business logic.
 | Verification | V2 scan; V4 review. |
 | Enforcement | conformance driver |
 
-[5. Tool Mapping](../../sources/34-mcp/5-tool-mapping.md)
+[5. Tool Mapping](../../sources/part-iii-10/5-tool-mapping.md)
 
-[^mcp-06]: sources/34-MCP.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [MCP-01 — Every applicable catalog operation has one MCP tool.](mcp-01.md)
+- [MCP-02 — The tool name is `operation_id` with `.` replaced by `_`, optionally prefixed.](mcp-02.md)
+- [MCP-03 — The tool input schema is generated from the operation request.](../g/mcp-03.md)
+- [MCP-04 — The tool output schema is generated from the operation response.](../g/mcp-04.md)
+- [MCP-05 — The tool handler converts input, calls the dispatcher, and maps the result.](mcp-05.md)
+
+[^mcp-06]: sources/EXPERT-REVIEW-PACKAGE.md
 

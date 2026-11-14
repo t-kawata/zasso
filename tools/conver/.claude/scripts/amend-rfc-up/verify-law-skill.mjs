@@ -1,3 +1,5 @@
+// [::TICKET::] PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-428 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-427 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-427 --for-spec --no-implementation-order`.
 /**
  * Canonical *-law skill verifier, check-set v3.
  *
@@ -82,6 +84,16 @@ export async function verifyLawSkill({
     context: () => checks.checkContext({ skillPath: resolvedSkillPath }),
     navigation: () => checks.checkNavigation({ skillPath: resolvedSkillPath }),
     ruleIdentity: () => checks.checkRuleIdentity({ skillPath: resolvedSkillPath }),
+    traversalEnvelope: () => checks.checkTraversalEnvelope({ skillPath: resolvedSkillPath }),
+    frontierCompleteness: () => checks.checkFrontierCompleteness({ skillPath: resolvedSkillPath }),
+    unknownId: () => checks.checkUnknownId({ skillPath: resolvedSkillPath }),
+    graphReach: () => checks.checkGraphReach({ skillPath: resolvedSkillPath }),
+    facetSufficiency: () => checks.checkFacetSufficiency({ skillPath: resolvedSkillPath }),
+    guidanceDeterminism: () => checks.checkGuidanceDeterminism({ skillPath: resolvedSkillPath }),
+    sourceCoverage: () => checks.checkSourceCoverage({ skillPath: resolvedSkillPath }),
+    aliasResolution: () => checks.checkAliasResolution({ skillPath: resolvedSkillPath }),
+    rulePreservation: () => checks.checkRulePreservation({ skillPath: resolvedSkillPath }),
+    bodyFidelity: () => checks.checkBodyFidelity({ skillPath: resolvedSkillPath }),
     performance: () => checks.checkPerformance({ skillPath: resolvedSkillPath }),
   };
 

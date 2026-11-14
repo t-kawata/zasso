@@ -19,7 +19,7 @@ export async function measureLawPerformance({ skillDir, syntheticConcepts = 2500
   return { law, scenarios: { totalMs, count: scenarios.length }, synthetic };
 }
 
-// [::TICKET::] PX-426, PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-426, PX-425, PX-427, PX-428 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-426|PX-425|PX-427|PX-428) --for-spec --no-implementation-order`.
 async function measureBundle(root) {
   const startedLoad = performance.now();
   const bundle = await loadBundle(root);
@@ -34,7 +34,13 @@ async function measureBundle(root) {
   const showMs = performance.now() - startedShow;
   const startedContext = performance.now();
   const set = resolveRequired({ bundle, entryIds: [rule.id] });
-  buildContext({ bundle, requiredSet: set, budgetBytes: 1_000_000 });
+  const contextIds = [...new Set(set.required.flatMap((id) => {
+    const concept = bundle.byId.get(id);
+    return [id, ...getOutgoing(bundle, id)
+      .filter((edge) => edge.state === 'resolved' && concept && bundle.byId.get(edge.to)?.type === 'Section')
+      .map((edge) => edge.to)];
+  }))].sort();
+  buildContext({ bundle, requiredSet: { ...set, context: contextIds }, budgetBytes: 1_000_000 });
   const contextMs = performance.now() - startedContext;
   return { concepts: bundle.concepts.length, loadMs, listMs, showMs, contextMs, rss: process.memoryUsage().rss };
 }

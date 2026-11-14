@@ -8,10 +8,10 @@ sources:
     title: "GRPC-11"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "grpc"
 x-enforcement: "conformance driver"
@@ -37,7 +37,13 @@ Rich details are encoded as `google.rpc.Status` details or the JSON detail field
 | Verification | V3 redaction test. |
 | Enforcement | conformance driver |
 
-[7. Error Mapping](../../sources/33-grpc/7-error-mapping.md)
+[7. Error Mapping](../../sources/part-iii-9/7-error-mapping.md)
 
-[^grpc-11]: sources/33-GRPC.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [GRPC-10 — Every category maps to the status above.](grpc-10.md)
+
+[^grpc-11]: sources/EXPERT-REVIEW-PACKAGE.md
 

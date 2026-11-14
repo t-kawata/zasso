@@ -1,0 +1,10 @@
+{
+  "id": "default",
+  "requiredFacets": ["body"],
+  "facetKinds": {},
+  "maxHops": 3,
+  "commandPrefix": "node \"$OKF\"",
+  "expandTemplate": "{prefix} expand --id {id}",
+  "contextTemplate": "{prefix} context --entry {id}",
+  "actions": []
+}

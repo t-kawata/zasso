@@ -8,10 +8,10 @@ sources:
     title: "VAL-15"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "cargo test + docgen --check validation"
@@ -37,7 +37,68 @@ Every field rule appears in every applicable interface's documentation.
 | Verification | V3 completeness test. |
 | Enforcement | cargo test + docgen --check validation |
 
-[7. Documentation](../../sources/47-validation/7-documentation.md)
+[1. Registry](../../sources/part-iii-15/1-registry.md)
 
-[^val-15]: sources/47-VALIDATION.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [BP-01 — This blueprint is the mandatory implementation method for validation and docu...](bp-01.md)
+- [BP-02 — Every request type uses `#[contract::input]` and implements `ContractValidate`.](bp-02.md)
+- [BP-03 — The macro emits the validator, descriptor, schema registration, and inventory...](bp-03.md)
+- [BP-04 — `Operation::Request` has a `ContractValidate` bound. `validate_json` runs bef...](bp-04.md)
+- [BP-05 — `validation-contract` owns the runtime types and `inventory` registrations in...](bp-05.md)
+- [BP-06 — Rule parameters are const-friendly and serialized to the exact JSON format in...](bp-06.md)
+- [BP-07 — `*-docgen` provides the four subcommands in §4.1 and depends on the operation...](bp-07.md)
+- [BP-08 — The schema registry is authoritative for all interfaces; `utoipa` output is c...](bp-08.md)
+- [BP-09 — Completeness, English, secrets, and determinism checks follow §4.4 and the ex...](bp-09.md)
+- [BP-10 — Generated documentation is written atomically and sorted deterministically.](../g/bp-10.md)
+- [BP-11 — A missing operation/interface/field/rule/description fails the build.](bp-11.md)
+- [BP-12 — Custom rules require `id`, `check`, `fields`, `description`, and `code`; cond...](bp-12.md)
+- [BP-13 — Unknown or type-incompatible rules fail compilation with a span.](bp-13.md)
+- [BP-14 — No adapter implements interface-specific input validation.](bp-14.md)
+- [BP-15 — Documentation is English-only; non-English prose fails the English check.](bp-15.md)
+- [BP-16 — Documentation and examples contain no secrets.](bp-16.md)
+- [BP-17 — Documentation records `spec_version` and input digests.](bp-17.md)
+- [BP-18 — REST is not required for schema dump or docgen; a non-REST project uses the s...](bp-18.md)
+- [BP-19 — Generated files carry the generated marker and are never hand-edited.](../g/bp-19.md)
+- [BP-20 — A feature that cannot follow the blueprint requires an amendment to this docu...](bp-20.md)
+- [DOC-01 — Every implemented interface MUST have generated usage documentation.](../g/doc-01.md)
+- [DOC-02 — The operation catalog is the authoritative operation list and binding map.](doc-02.md)
+- [DOC-03 — The generator MUST consume a neutral schema registry, not parse Rust source.](doc-03.md)
+- [DOC-04 — `utoipa`/OpenAPI MAY be used as a schema source and REST output, but MUST NOT...](doc-04.md)
+- [DOC-05 — Interface-specific documentation MUST come from interface bindings, not be in...](doc-05.md)
+- [DOC-06 — Documentation generation MUST NOT require a running REST server or REST adapter.](../g/doc-06.md)
+- [DOC-07 — Every operation section MUST include schema, examples, auth, errors, idempote...](doc-07.md)
+- [DOC-08 — Every implemented interface MUST have a reference section for every applicabl...](doc-08.md)
+- [DOC-09 — OpenAPI and Swagger UI MUST be generated from the same schema registry as the...](../g/doc-09.md)
+- [DOC-10 — A missing operation, interface, field, error category, auth statement, or exa...](doc-10.md)
+- [DOC-11 — Generated documentation MUST be English-only; a non-English string fails the ...](../g/doc-11.md)
+- [DOC-12 — Generation MUST be deterministic for the same inputs and version.](../g/doc-12.md)
+- [DOC-13 — Documentation and examples MUST NOT contain secrets, tokens, or passwords.](doc-13.md)
+- [DOC-14 — Documentation MUST record `spec_version` and the input digest.](doc-14.md)
+- [DOC-15 — Documentation generation MUST be part of CI/conformance; a missing artifact f...](../g/doc-15.md)
+- [DOC-16 — Input constraints MUST be documented from the `ValidationDescriptor`, not fro...](doc-16.md)
+- [DOC-17 — Custom validation rules MUST appear as readable English text in every applica...](doc-17.md)
+- [VAL-01 — Every request input constraint is declared once in `#[rule(...)]`.](val-01.md)
+- [VAL-02 — The macro generates the runtime validator, schema, and descriptor from the sa...](val-02.md)
+- [VAL-03 — Standard rules follow the conversion table in §4.](val-03.md)
+- [VAL-04 — A rule whose unit or regex dialect does not match the schema keyword MUST be ...](val-04.md)
+- [VAL-05 — Unknown rules and rules applied to an incompatible type MUST be compile-time ...](val-05.md)
+- [VAL-06 — Every standard and custom rule carries an `error_code`.](val-06.md)
+- [VAL-07 — Custom rules require `id`, `check`, `fields`, `description`, and `code`.](val-07.md)
+- [VAL-08 — Conditional rules require `when` and an English condition description.](val-08.md)
+- [VAL-09 — A custom rule without a description fails compilation.](val-09.md)
+- [VAL-10 — The runtime and the descriptor use the same `check` function and `code`.](val-10.md)
+- [VAL-11 — Adapters do not implement interface-specific input validation.](val-11.md)
+- [VAL-12 — The generated validator runs after typed conversion and before the idempotenc...](../g/val-12.md)
+- [VAL-13 — Validation failures map to `invalid_input` with field, code, and English mess...](val-13.md)
+- [VAL-14 — The same input produces the same validation result through every interface.](val-14.md)
+- [VAL-16 — Hand-written constraint lists are forbidden; documentation is generated from ...](../g/val-16.md)
+- [VAL-17 — Custom rules appear as readable English text in every interface reference, no...](val-17.md)
+- [VAL-18 — Validation descriptions, messages, and examples are English-only.](val-18.md)
+- [VAL-19 — Validation descriptors and generated documentation contain no secrets or sens...](../g/val-19.md)
+- [VAL-20 — Generation is deterministic for the same descriptor set and version.](../g/val-20.md)
+
+[^val-15]: sources/EXPERT-REVIEW-PACKAGE.md
 

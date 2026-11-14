@@ -8,10 +8,10 @@ sources:
     title: "REST-20"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "rest"
 x-enforcement: "conformance driver"
@@ -38,6 +38,13 @@ Every REST rejection path MUST use the shared semantic error renderer and the ca
 | Enforcement | conformance driver |
 
 [11. Implementation Contract](../../sources/30-rest/11-implementation-contract.md)
+
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [REST-19 — REST adapters MUST use the admitted HTTP crate and call the shared dispatcher...](rest-19.md)
+- [REST-21 — OpenAPI operations and schemas MUST be generated from the same operation and ...](rest-21.md)
 
 [^rest-20]: sources/30-REST.md
 

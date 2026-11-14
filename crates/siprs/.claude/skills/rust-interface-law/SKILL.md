@@ -26,6 +26,7 @@ identity source.
 | `gate` | `gate-report.json` | Per-rule status; exit 0 pass, 50 blocked |
 | `attest` | `attestation.json` | One row per `must` rule with `rule`, `concept_id`, and evidence |
 | `explain` | stdout | One rule: requirement, verification, enforcement, one-hop neighborhood |
+| `expand` | stdout | Traversal envelope for one concept id; same output as `show` |
 | `template` | stdout + plan JSON | Interface template plan; `--reconcile` marks `merge-required`; no write |
 | `implementation-check` | `implementation-report.json` | Dependency, feature, edge, source, and template checks |
 | `law-identity` | stdout | Compare manifest spec_version, dist hash, and policy hash |
@@ -51,6 +52,55 @@ mkdir -p "$LAW_OUT"
 node "$LAW" applies --root "$REPO_ROOT" --paths "$CHANGED"
 ```
 
+## Traversal Contract
+
+Every read command returns a Traversal Envelope. The envelope tells you what
+you received, what is still missing, and what to run next. Do not decide
+coverage yourself; read `coverage` and `guidance`.
+
+```json
+{
+  "protocol": "okf-traversal/v1",
+  "node": { "id": "rules/c/rest-01", "type": "Rule", "title": "...", "body": "..." },
+  "coverage": {
+    "profile": "law-implement",
+    "requiredFacets": ["requirement", "applies_to", "verification", "enforcement", "source", "prerequisites"],
+    "present": ["requirement", "applies_to", "verification", "enforcement"],
+    "missing": ["source", "prerequisites"],
+    "sufficient": false,
+    "insufficient": false,
+    "overfetchRatio": 0.82
+  },
+  "frontier": [
+    { "id": "rules/o/app-01", "kind": "prerequisite", "command": "node \"$LAW\" expand --id rules/o/app-01", "priority": 0 },
+    { "id": "sources/part-iii-6/6-http-rules", "kind": "source-section", "command": "node \"$LAW\" expand --id sources/part-iii-6/6-http-rules", "priority": 1 }
+  ],
+  "guidance": {
+    "state": "expand",
+    "reason": "missing facet: source,prerequisites",
+    "mustRun": "node \"$LAW\" context --rule REST-01",
+    "stopWhen": "coverage.missing is empty",
+    "ifBack": "node \"$LAW\" expand --id rules/c/rest-01",
+    "hop": 0,
+    "maxHops": 3
+  },
+  "backTo": null
+}
+```
+
+| `guidance.state` | When the script returns it | What you do |
+|---|---|---|
+| `stop` | `coverage.missing` is empty | Implement or answer; no further read |
+| `expand` | a required facet is missing and a hop remains | Run `guidance.mustRun` exactly |
+| `back` | maximum hop reached, or no frontier fills the missing facet | Run `guidance.ifBack` and continue from the parent |
+
+`coverage.missing` is the only definition of insufficiency. `overfetchRatio` is
+a report, not a failure. A budget that cannot fit required facets returns
+`insufficient: true` and never truncates them.
+
+An absent id is an error: the CLI exits 2 and prints candidates. An empty edge
+list with exit 0 is never a valid answer for an absent id.
+
 ## Directory Traversal
 
 The bundle is a tree. Start at the root index, then enter the class or source
@@ -68,7 +118,7 @@ node "$LAW" list --path sources
 sources, its trust tier, and its freshness in one call.
 
 ```bash
-node "$LAW" show rules/g/rest-01 --root "$REPO_ROOT"
+node "$LAW" show rules/c/rest-01 --root "$REPO_ROOT"
 ```
 
 ## Outgoing and Incoming
@@ -77,9 +127,9 @@ node "$LAW" show rules/g/rest-01 --root "$REPO_ROOT"
 `neighbors` returns both.
 
 ```bash
-node "$LAW" outgoing rules/g/rest-01
-node "$LAW" incoming rules/g/rest-01
-node "$LAW" neighbors rules/g/rest-01
+node "$LAW" outgoing rules/c/rest-01
+node "$LAW" incoming rules/c/rest-01
+node "$LAW" neighbors rules/c/rest-01
 ```
 
 ## Multi-Hop Reach
@@ -94,12 +144,16 @@ node "$LAW" outgoing <returned-rule-id>
 
 ## Required Context
 
-`required` computes the `x-requires` closure. `context` adds bodies and one-hop
-edges. A required set is complete or the command fails; it is never truncated.
+`required` computes the `x-requires` closure and returns rule records
+(`id`, `rule_id`, `title`, `phase`, `applies_to`, `verification`,
+`enforcement`, `body`). `context` adds bodies, one-hop edges, and the source
+section the rule came from. A required set is complete or the command fails; it
+is never truncated.
 
 ```bash
 node "$LAW" required --rule REST-01 --root "$REPO_ROOT"
 node "$LAW" context --rule REST-01 --budget 1000000 --root "$REPO_ROOT"
+node "$LAW" required --phase adapter --root "$REPO_ROOT"
 ```
 
 ## Zero Results
@@ -137,7 +191,7 @@ Every rule concept carries `sources[]` objects. Cite the rule id and the source
 id. A rule without a source is a defect.
 
 ```bash
-node "$LAW" sources rules/g/rest-01 --root "$REPO_ROOT"
+node "$LAW" sources rules/c/rest-01 --root "$REPO_ROOT"
 ```
 
 ## Gate and Attest
@@ -182,7 +236,7 @@ Expected: exit 0, the REST unit, and the adapter-phase rules.
 ### Scenario 2 — What does REST-01 require?
 
 ```bash
-node "$LAW" show rules/g/rest-01 --root "$REPO_ROOT"
+node "$LAW" show rules/c/rest-01 --root "$REPO_ROOT"
 ```
 
 Expected: the body, verification, enforcement, sources, trust, and freshness.
@@ -263,7 +317,7 @@ Expected: zero `INDEX_ORPHAN` and zero unreachable rules.
 ### Scenario 12 — What is the full one-hop neighborhood of a rule?
 
 ```bash
-node "$LAW" neighbors rules/g/rest-01 --root "$REPO_ROOT"
+node "$LAW" neighbors rules/c/rest-01 --root "$REPO_ROOT"
 ```
 
 Expected: body-linked outgoing rules and backlinked incoming rules.

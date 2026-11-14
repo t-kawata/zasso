@@ -8,10 +8,10 @@ sources:
     title: "AUTH-31"
 generated: 
   by: "build-law-skill"
-  at: "2026-11-13"
+  at: "2026-11-14"
 verified: 
   - by: "human:law-review"
-    at: "2026-11-13"
+    at: "2026-11-14"
 status: "stable"
 x-applies-to: "all"
 x-enforcement: "negative-auth suite"
@@ -37,7 +37,22 @@ Delegation MUST preserve `actor` and `on_behalf_of`, and the verifier MUST rejec
 | Verification | V3 test. |
 | Enforcement | negative-auth suite |
 
-[1. Registry](../../sources/15-rule-registry/1-registry.md)
+[5.3 Per-interface authentication](../../sources/part-ii-1/5-3-per-interface-authentication.md)
 
-[^auth-31]: sources/15-RULE-REGISTRY.md
+## Related
+
+- [APP-01 — A project MUST declare its profiles and MUST list every unimplemented interfa...](../o/app-01.md)
+- [ARC-01 — Each crate MUST have one primary runtime role from §3.1. Additional roles (`t...](arc-01.md)
+- [AUTH-21 — REST MUST accept only `Authorization: Bearer <token>`. Other schemes, multipl...](auth-21.md)
+- [AUTH-22 — WebSocket MUST use a short-lived, single-use, client-bound one-time ticket. L...](auth-22.md)
+- [AUTH-23 — gRPC MUST read credentials from metadata and map auth failures to `UNAUTHENTI...](auth-23.md)
+- [AUTH-24 — CLI MUST store tokens in an OS-protected store or a `0600` file, never in arg...](auth-24.md)
+- [AUTH-25 — CLI local execution MUST establish an explicit principal and MUST NOT grant i...](auth-25.md)
+- [AUTH-26 — MCP MUST implement the authentication discovery/challenge required by the ado...](auth-26.md)
+- [AUTH-27 — A2A MUST implement the security mechanism required by the adopted A2A specifi...](auth-27.md)
+- [AUTH-28 — Authentication requirement (`Required`/`Anonymous`) MUST be separate from sco...](auth-28.md)
+- [AUTH-29 — `VerifiedIdentity` MUST carry the credential binding: interface, audience, me...](auth-29.md)
+- [AUTH-30 — A session ticket and a local identity issuer MUST create a new binding. A tok...](auth-30.md)
+
+[^auth-31]: sources/EXPERT-REVIEW-PACKAGE.md
 
