@@ -19,6 +19,55 @@ const STEP_CONTRACT_ID_BASE = 500;
 /** The number of C5xx ids the projection reserves for one package. */
 const STEP_CONTRACT_ID_COUNT = 500;
 
+/** The positional id of the sidecar row at `index`, before collision handling. */
+// [::TICKET::] PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-431 --for-spec --no-implementation-order`.
+function stepContractIdAt(index) {
+  return `C${String(STEP_CONTRACT_ID_BASE + index).padStart(3, '0')}`;
+}
+
+/** The contract ids a graph's edges claim, or an empty set when it has no edges. */
+export function edgeContractIds(graph) {
+  return new Set((graph?.edges ?? [])
+    .flatMap((edge) => (edge.contracts ?? []).map((contract) => contract.id)));
+}
+
+/**
+ * The ticket-contract id of every sidecar row.
+ *
+ * The reserved C5xx range is not exclusive: an authored graph edge may also use a
+ * C5xx id. A row whose positional id is already claimed therefore takes the highest
+ * free id in the range instead, so the two contracts stay distinct inside one ticket
+ * while every other row keeps its stable positional id.
+ *
+ * @param {Array<object>} rows — sidecar rows in order
+ * @param {Iterable<string>} [reservedIds] — ids the graph already claims
+ * @returns {string[]} — one id per row, in row order
+ */
+export function assignStepContractIds(rows, reservedIds = new Set()) {
+  const reserved = new Set(reservedIds ?? []);
+  const positional = (rows ?? []).map((_, index) => stepContractIdAt(index));
+  const positionalIds = new Set(positional);
+  const substitutes = [];
+  const substituteCount = positional.filter((id) => reserved.has(id)).length;
+  for (let index = STEP_CONTRACT_ID_COUNT - 1;
+    index >= 0 && substitutes.length < substituteCount; index -= 1) {
+    const candidate = stepContractIdAt(index);
+    if (!positionalIds.has(candidate) && !reserved.has(candidate)) {
+      substitutes.push(candidate);
+    }
+  }
+  if (substitutes.length < substituteCount) {
+    throw new Error(`STEP_CONTRACT_ID_EXHAUSTED: ${substituteCount} rows collide and only ${substitutes.length} ids are free`);
+  }
+  let substituteIndex = 0;
+  return positional.map((id) => {
+    if (!reserved.has(id)) return id;
+    const substitute = substitutes[substituteIndex];
+    substituteIndex += 1;
+    return substitute;
+  });
+}
+
 /** The graph edge note schema limit, in characters. */
 export const STEP_NOTE_LIMIT = 240;
 
@@ -186,15 +235,18 @@ export function stepNotesByEdge(graph, sidecar) {
 /**
  * The ticket-contract entry one sidecar row projects to.
  *
- * The id is stable for the sidecar order. A package whose steps exceed the reserved
- * range is refused by the caller rather than silently reusing an id.
+ * The default id is positional. A caller that knows the graph passes the id
+ * `assignStepContractIds` resolved, so a row whose position the graph claims takes a
+ * free id instead. A package whose steps exceed the reserved range is refused by the
+ * caller rather than silently reusing an id.
  *
  * @param {object} row
  * @param {number} index
+ * @param {string} [id] — the assigned id, defaulting to the positional one
  * @returns {object}
  */
-// [::TICKET::] PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-318 --for-spec --no-implementation-order`.
-export function stepContractEntry(row, index) {
+// [::TICKET::] PX-318, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-318|PX-431) --for-spec --no-implementation-order`.
+export function stepContractEntry(row, index, id = stepContractIdAt(index)) {
   if (!Number.isInteger(index) || index < 0 || index >= STEP_CONTRACT_ID_COUNT) {
     throw new Error(`STEP_CONTRACT_ID_EXHAUSTED: sidecar row ${index} has no C5xx id`);
   }
@@ -203,7 +255,7 @@ export function stepContractEntry(row, index) {
   const postcondition = factText(row?.contract?.post) || prose || '(none)';
   const invariant = factText(row?.contract?.invariants) || prose || '(none)';
   return {
-    id: `C${String(STEP_CONTRACT_ID_BASE + index).padStart(3, '0')}`,
+    id,
     sourceEdge: `step:${row.stepId}`,
     stepId: row.stepId,
     sequenceId: row.sequenceId,

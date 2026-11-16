@@ -110,6 +110,64 @@ function runHashBridge(args, cwd) {
   return parsed.findings ?? [];
 }
 
+/**
+ * The integrity findings of the append-only amendment chains.
+ *
+ * A ledger records the digest immediately after its own append. A later amendment moves
+ * the file, so comparing every ledger with the current bytes would reject the second
+ * amendment by construction. The ledgers for one artifact are therefore read as a hash
+ * chain: each afterDigest must equal the next beforeDigest, and only the last afterDigest
+ * must reproduce the file. The amendment being applied is not a ledger yet, so the caller
+ * passes it as the pending tail and it closes the chain for the post-append gate run.
+ *
+ * @param {string} ledgerDirectory — the `amendments/` directory
+ * @param {object|null} [pendingAmendment] — { artifactPath, beforeDigest, afterDigest }
+ * @returns {object[]} — gate findings
+ */
+// [::TICKET::] PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-431 --for-spec --no-implementation-order`.
+function amendmentChainFindings(ledgerDirectory, pendingAmendment = null) {
+  const findings = [];
+  const chains = new Map();
+  for (const name of fs.readdirSync(ledgerDirectory).filter((entry) => entry.endsWith('.json')).sort()) {
+    const ledgerPath = path.join(ledgerDirectory, name);
+    try {
+      const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+      if (!ledger.artifactPath || !fs.existsSync(ledger.artifactPath)) continue;
+      const entries = chains.get(ledger.artifactPath) ?? [];
+      entries.push({ ledgerPath, ledger });
+      chains.set(ledger.artifactPath, entries);
+    } catch (error) {
+      findings.push({ code: 'AMENDMENT_LEDGER_UNREADABLE', asset: ledgerPath, problem: error.message, fixes: [], rerun: 'repair or remove the ledger entry' });
+    }
+  }
+  if (pendingAmendment?.artifactPath) {
+    const entries = chains.get(pendingAmendment.artifactPath) ?? [];
+    entries.push({ ledgerPath: null, ledger: pendingAmendment, pending: true });
+    chains.set(pendingAmendment.artifactPath, entries);
+  }
+  for (const [artifactPath, entries] of chains) {
+    entries.sort((left, right) => {
+      if (left.pending === true) return 1;
+      if (right.pending === true) return -1;
+      const leftAt = String(left.ledger.createdAt ?? '');
+      const rightAt = String(right.ledger.createdAt ?? '');
+      if (leftAt !== rightAt) return leftAt < rightAt ? -1 : 1;
+      return left.ledgerPath < right.ledgerPath ? -1 : 1;
+    });
+    for (let index = 1; index < entries.length; index += 1) {
+      if (entries[index - 1].ledger.afterDigest !== entries[index].ledger.beforeDigest) {
+        findings.push({ code: 'AMENDMENT_CHAIN_MISMATCH', asset: artifactPath, problem: 'the previous afterDigest does not equal this ledger beforeDigest', fixes: [], rerun: 'design-amendment.js --dry-run' });
+      }
+    }
+    const latest = entries[entries.length - 1].ledger;
+    const digest = createHash('sha256').update(fs.readFileSync(artifactPath)).digest('hex');
+    if (digest !== latest.afterDigest) {
+      findings.push({ code: 'AMENDMENT_LEDGER_MISMATCH', asset: artifactPath, problem: 'recorded afterDigest does not match the file', fixes: [], rerun: 'design-amendment.js --dry-run' });
+    }
+  }
+  return findings;
+}
+
 /** The default runner of each gate. */
 const DEFAULT_RUNNERS = Object.freeze({
 // [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
@@ -220,23 +278,10 @@ const DEFAULT_RUNNERS = Object.freeze({
     const parsed = parseJsonOutput(result.stdout);
     return { findings: (parsed.findings ?? []).map((entry) => toFinding(entry, ticketKey)), unverifiable: [] };
   },
-  'amendment-integrity'({ cwd }) {
+  'amendment-integrity'({ cwd, pendingAmendment = null }) {
     const ledgerDirectory = path.join(cwd, 'amendments');
     if (!fs.existsSync(ledgerDirectory)) return { findings: [], unverifiable: [] };
-    const findings = [];
-    for (const name of fs.readdirSync(ledgerDirectory).filter((entry) => entry.endsWith('.json')).sort()) {
-      try {
-        const ledger = JSON.parse(fs.readFileSync(path.join(ledgerDirectory, name), 'utf8'));
-        if (!ledger.artifactPath || !fs.existsSync(ledger.artifactPath)) continue;
-        const digest = createHash('sha256').update(fs.readFileSync(ledger.artifactPath)).digest('hex');
-        if (digest !== ledger.afterDigest) {
-          findings.push({ code: 'AMENDMENT_LEDGER_MISMATCH', asset: ledger.artifactPath, problem: 'recorded afterDigest does not match the file', fixes: [], rerun: 'design-amendment.js --dry-run' });
-        }
-      } catch (error) {
-        findings.push({ code: 'AMENDMENT_LEDGER_UNREADABLE', asset: path.join(ledgerDirectory, name), problem: error.message, fixes: [], rerun: 'repair or remove the ledger entry' });
-      }
-    }
-    return { findings, unverifiable: [] };
+    return { findings: amendmentChainFindings(ledgerDirectory, pendingAmendment), unverifiable: [] };
   },
 });
 
@@ -248,8 +293,8 @@ const DEFAULT_RUNNERS = Object.freeze({
  *           runners?: object }} input
  * @returns {{ gates: object[], findings: object[], unverifiable: object[] }}
  */
-// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
-function runGateManifest({ cwd, ticketKey, ticketsPath = null, presentKinds = [], runners = {} }) {
+// [::TICKET::] PX-400, PX-405, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405|PX-431) --for-spec --no-implementation-order`.
+function runGateManifest({ cwd, ticketKey, ticketsPath = null, presentKinds = [], runners = {}, pendingAmendment = null }) {
   const gates = [];
   const findings = [];
   const unverifiable = [];
@@ -266,7 +311,7 @@ function runGateManifest({ cwd, ticketKey, ticketsPath = null, presentKinds = []
       continue;
     }
     try {
-      const result = runner({ cwd, ticketKey, ticketsPath }) ?? { findings: [] };
+      const result = runner({ cwd, ticketKey, ticketsPath, pendingAmendment }) ?? { findings: [] };
       const gateFindings = (result.findings ?? []).map((entryFinding) => toFinding(entryFinding, entry.name));
       findings.push(...gateFindings);
       unverifiable.push(...(result.unverifiable ?? []));

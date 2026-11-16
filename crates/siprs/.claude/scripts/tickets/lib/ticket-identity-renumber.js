@@ -68,7 +68,7 @@ function excludedPhasesOf(document, options = {}) {
 }
 
 /** The dense map of a document: old live key and absorbed key -> current key. */
-// [::TICKET::] PX-415, PX-416, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-402) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-402, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-402|PX-431) --for-spec --no-implementation-order`.
 function buildDenseRenumberMap(phases, options = {}) {
   const excluded = new Set(options.excludedPhases ?? DEFAULT_EXCLUDED_PHASES);
   const currentGeneration = options.currentGeneration ?? 0;
@@ -84,7 +84,20 @@ function buildDenseRenumberMap(phases, options = {}) {
   // absorbed keys are resolved, because an absorbed key's owner may be a live
   // ticket that appears later in the array.
   for (const phase of phases ?? []) {
-    if (!phase || excluded.has(phase.id)) continue;
+    if (!phase) continue;
+    if (excluded.has(phase.id)) {
+      // An excluded phase is not condensed, but its tickets are still live. A
+      // reference from another ticket names that live key and must resolve to
+      // itself; treating it as absorbed history would be a false dangling edge.
+      for (const ticket of Array.isArray(phase.tickets) ? phase.tickets : []) {
+        const key = ticketKeyOf({ ...ticket, phaseId: phase.id });
+        const newId = ticket.id;
+        keyMap.set(key, key);
+        idMap.set(key, newId);
+        liveRefs.set(key, { newKey: key, newId });
+      }
+      continue;
+    }
     const tickets = Array.isArray(phase.tickets) ? phase.tickets : [];
     const liveKeys = new Set();
     const ticketPlans = [];

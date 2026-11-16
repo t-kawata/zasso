@@ -13,7 +13,7 @@ const COMMENT_PREFIX_RE = /^(\/\/+[!/]?|#+)\s*/;
  * declaration with punctuation, a condition, a punctuated return, a lone brace, or a
  * whole-line call.
  */
-// [::TICKET::] PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-414, PX-417, PX-418, PX-419, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-414|PX-417|PX-418|PX-419|PX-431) --for-spec --no-implementation-order`.
 function looksLikeCommentedCode(strippedText) {
   return /=>/.test(strippedText)
     || /\b(function|fn)\s+[\w$]+\s*\(/.test(strippedText)
@@ -22,6 +22,21 @@ function looksLikeCommentedCode(strippedText) {
     || /\breturn\b\s*[;({[]/.test(strippedText)
     || /^\s*[{}]\s*$/.test(strippedText)
     || /^\s*[\w$.]+\s*\([^)]*\)\s*;\s*$/.test(strippedText);
+}
+
+/**
+ * True for a Rust method receiver, which binds the instance rather than carrying a
+ * caller-supplied value.
+ *
+ * The arity budget counts arguments, so `self`, `&self`, `&mut self` and the typed
+ * `self: Box<Self>` forms must not consume a slot. Only Rust has a receiver, so the
+ * extension gates the answer and a JavaScript argument that happens to be named
+ * `self` still counts.
+ */
+// [::TICKET::] PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-431 --for-spec --no-implementation-order`.
+function isReceiver(param, filePath) {
+  if (!filePath.endsWith('.rs')) return false;
+  return /^(&\s*(mut\s+)?|mut\s+)?self\b/.test(param);
 }
 
 const CHECKS = {
@@ -165,10 +180,10 @@ const CHECKS = {
       const re = /(?:fn|function)\s+\w+\s*\(([^)]*)\)/g;
       let match;
       while ((match = re.exec(content)) !== null) {
-        const params = match[1].split(',').filter(p => p.trim());
+        const params = match[1].split(',').filter(p => p.trim() && !isReceiver(p.trim(), filePath));
         if (params.length > CFG.review.maxParams) {
           const lineNum = content.substring(0, match.index).split('\n').length;
-          results.push({ line: lineNum, match: `${params.length} params (max: ${CFG.review.maxParams})`, file: filePath });
+          results.push({ line: lineNum, match: `${params.length} args (max: ${CFG.review.maxParams})`, file: filePath });
         }
       }
       return results;

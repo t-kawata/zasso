@@ -190,8 +190,8 @@ function changedWrites(snapshots) {
 }
 
 /** Run the injected gate function or the fixed manifest. */
-// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
-function runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter }) {
+// [::TICKET::] PX-400, PX-405, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405|PX-431) --for-spec --no-implementation-order`.
+function runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter, pendingAmendment = null }) {
   if (typeof gateRunner === 'function') {
     const result = gateRunner({ cwd, ticketKey, presentKinds: states.filter((state) => state.state === ARTIFACT_STATES.PRESENT).map((state) => state.kind) });
     if (Array.isArray(result)) return { findings: result, unverifiable: [] };
@@ -200,7 +200,7 @@ function runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter
   const presentKinds = (statesAfter ?? states)
     .filter((state) => state.state === ARTIFACT_STATES.PRESENT)
     .map((state) => state.kind);
-  return runGateManifest({ cwd, ticketKey, ticketsPath, presentKinds });
+  return runGateManifest({ cwd, ticketKey, ticketsPath, presentKinds, pendingAmendment });
 }
 
 /**
@@ -294,7 +294,7 @@ function writeLedger({ cwd, ticketKey, artifact, target, claim, beforeDigest, af
  *           allowUnverifiable?: boolean }} input
  * @returns {Promise<object>}
  */
-// [::TICKET::] PX-400, PX-405 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-400, PX-405, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-400|PX-405|PX-431) --for-spec --no-implementation-order`.
 async function runAmendment({
   cwd = process.cwd(),
   ticketKey,
@@ -368,7 +368,12 @@ async function runAmendment({
 
   await rebuildDesignHashes({ cwd });
   const statesAfter = resolveArtifactStates({ cwd, overrides });
-  const after = runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter });
+  // The amendment is appended but its ledger is written only after the gates pass, so
+  // the post-append gate run sees it as the pending tail of that artifact's hash chain.
+  const pendingAmendment = typeof applied.afterDigest === 'string'
+    ? { artifactPath: target.path, beforeDigest: applied.beforeDigest ?? null, afterDigest: applied.afterDigest }
+    : null;
+  const after = runGates({ gateRunner, cwd, ticketKey, ticketsPath, states, statesAfter, pendingAmendment });
   const newFindings = diffFindings(before.findings, after.findings);
 
   if (newFindings.length > 0) {

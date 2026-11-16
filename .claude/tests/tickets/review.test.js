@@ -1,4 +1,5 @@
-// @verifies C009
+// @verifies C009 C007
+// [::TICKET::] PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-431 --for-spec --no-implementation-order`.
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -117,6 +118,37 @@ try {
     const codeResult = runAllChecks([commentedCodeFile]);
     assertEq(codeResult.checks.findCommentedCode.findings.length, 3,
       'commented-out statements are detected');
+  }
+
+  // A receiver binds the instance; it is not a caller-supplied argument. Counting
+  // it would make a five-argument method permanently over the budget.
+  {
+    const methodFile = path.join(tmpDir, 'method_receiver.rs');
+    fs.writeFileSync(methodFile, [
+      'impl Port {',
+      '    fn quote(&self, ctx: &Context, frame: &Frame, visible: &Visible, schema: &Schema, deadline: &Deadline) -> Outcome {',
+      '        route(ctx, frame, visible, schema, deadline)',
+      '    }',
+      '}',
+      'fn route(_ctx: &Context, _frame: &Frame, _visible: &Visible, _schema: &Schema, _deadline: &Deadline) -> Outcome {',
+      '    Outcome::Ok',
+      '}',
+    ].join('\n'));
+    const result = runAllChecks([methodFile]);
+    assertEq((result.checks.findManyParams?.findings ?? []).length, 0,
+      'a method receiver is not counted as an argument');
+  }
+  // `self` is an ordinary argument outside Rust: only a Rust receiver may be excluded.
+  {
+    const selfFile = path.join(tmpDir, 'js_self.js');
+    fs.writeFileSync(selfFile, [
+      'function build(self, first, second, third, fourth, fifth) {',
+      '  return self;',
+      '}',
+    ].join('\n'));
+    const result = runAllChecks([selfFile]);
+    assertEq((result.checks.findManyParams?.findings ?? []).length, 1,
+      'a JavaScript argument named self still counts');
   }
 
   {

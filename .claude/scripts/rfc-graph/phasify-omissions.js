@@ -31,6 +31,10 @@ const path = require('path');
 const { directionOf, isHardEdge, providerConsumerEdge } = require('./lib/edge-order.js');
 const { writeLine } = require('../lib/cli-output');
 const { runMutationGate } = require('../tickets/ticket-mutation-gate.js');
+const {
+  refreshTicketDistributionDigests,
+  writeTicketDistributionAggregate,
+} = require('../tickets/add-tickets-for-phase.js');
 
 /** Normalize a hard edge to consumer -> provider for the phase merger. */
 // [::TICKET::] PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-344 --for-spec --no-implementation-order`.
@@ -945,7 +949,7 @@ function backupTickets(sourcePath, targetPath) {
  * @throws {TypeError} On null/invalid input
  */
 // [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108, PX-144, PX-145, PX-146, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-108|PX-144|PX-145|PX-146|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108, PX-144, PX-145, PX-146, PX-414, PX-417, PX-418, PX-419, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-108|PX-144|PX-145|PX-146|PX-414|PX-417|PX-418|PX-419|PX-431) --for-spec --no-implementation-order`.
 function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
   if (!ticketsData || typeof ticketsData !== 'object') {
     throw new TypeError('ticketsData must be a non-null object');
@@ -992,6 +996,53 @@ function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
         return !movedFilePaths.has(filePath);
       });
     }
+    // A distribution unit is owned through the graph node that carries it. Moving the
+    // node without moving the unit leaves the source claiming a unit its phase graph no
+    // longer carries and the clone owning a node whose unit it does not declare.
+    if (Array.isArray(source.distribution && source.distribution.units)
+        && Array.isArray(transfer.nodeIds) && transfer.nodeIds.length > 0) {
+      const movedNodeIds = new Set(transfer.nodeIds);
+      const movedUnits = source.distribution.units.filter(function(unit) {
+        return (Array.isArray(unit && unit.placement && unit.placement.nodeIds) ? unit.placement.nodeIds : [])
+          .some(function(nodeId) { return movedNodeIds.has(nodeId); });
+      });
+      if (movedUnits.length > 0) {
+        source.distribution.units = source.distribution.units.filter(function(unit) {
+          return movedUnits.indexOf(unit) === -1;
+        });
+        const target = ticketsByKey.get(transfer.to);
+        if (target !== undefined) {
+          target.distribution = target.distribution || {
+            sourceMapDigest: source.distribution.sourceMapDigest,
+            sourceViewDigest: source.distribution.sourceViewDigest,
+            units: [],
+          };
+          if (!Array.isArray(target.distribution.units)) target.distribution.units = [];
+          for (const unit of movedUnits) {
+            if (!target.distribution.units.some(function(entry) { return entry.unitId === unit.unitId; })) {
+              target.distribution.units.push(JSON.parse(JSON.stringify(unit)));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // The handover above moved distribution units between tickets, and a ticket digest
+  // covers those units. Refresh the per-ticket digests and the aggregate before the
+  // mutation gate reads them, so a correct handover is not refused as a stale chain.
+  refreshTicketDistributionDigests(merged.phases);
+  writeTicketDistributionAggregate(merged);
+
+  // The same handover moved node claims between tickets, so each phase's nodeIds must be
+  // the union its tickets now cover. A phase still naming nodes it handed away reads as
+  // missing those nodes, and the clone's nodes read as cross-phase extras.
+  for (const phase of merged.phases) {
+    const covered = new Set();
+    for (const ticket of (phase.tickets || [])) {
+      for (const nodeId of (ticket.nodeIds || [])) covered.add(nodeId);
+    }
+    phase.nodeIds = [...covered].sort();
   }
 
   // Round transition (PX-144): release every ticket for the next round. The flag

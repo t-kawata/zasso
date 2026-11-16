@@ -66838,6 +66838,257 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-14",
           "reviewed_at": "2026-11-14T06:40:15.732Z"
+        },
+        {
+          "id": 431,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Upstream generic convergence-engine fixes found during target-project implementation",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-431.md",
+          "background": "Goal: absorb into conver every generic defect fix that automated implementation made in target projects, and recover two fixes that a later install erased from a target and never reached conver.\nPurpose: install.js treats conver as the single .claude authority and removes target-only files, so a fix that lives only in a target is lost on the next install.\nMotivation: two target repositories diverged during automated implementation. Seven script changes and six test changes survive there. Two further fixes (stage receipt provenance and amendment ledger hash chain) were overwritten by a later install and are absent from conver.\nConstraints: the implementation is generic. It must not name a target repository, a target ticket key, a target path, or a target-specific graph id. Every rule is expressed over the data shape the script already accepts.\nOut of scope: target-specific OKF skill bundles and their source handbooks; settings.local.json, which the installer excludes by design.",
+          "scope": [
+            "Change path: scripts/rfc-graph/lib/step-contracts.mjs adds stepContractIdAt, edgeContractIds and assignStepContractIds, and stepContractEntry accepts an assigned id.",
+            "Change path: scripts/tickets/merge-contracts-to-tickets.js allocates step ids over the whole sidecar, preserves authored contracts whose id the graph does not derive, removes the contracts key when nothing remains, and writes one trailing newline.",
+            "Change path: scripts/rfc-graph/phasify-omissions.js moves a distribution unit with the graph nodes that carry it, refreshes ticket distribution digests, writes the aggregate, and recomputes phase.nodeIds as the union of its tickets.",
+            "Change path: scripts/tickets/add-omission-ticket.js clears condensedFrom on the clone so one absorbed key has one claimant.",
+            "Change path: scripts/tickets/consolidate-stubs-gate.sh passes with zero markers and no manifest, and fails when markers remain without a manifest.",
+            "Change path: scripts/tickets/lib/ticket-identity-renumber.js maps excluded-phase live keys to themselves instead of treating them as absorbed history.",
+            "Change path: scripts/tickets/review/run-quality-checks.js excludes a Rust receiver from the parameter budget while a JavaScript argument named self still counts.",
+            "Change path: scripts/rfc-graph/lib/stage-receipt.js rebuilds owned receipt fields on top of the previous receipt so unowned provenance such as a promoted mutation survives.",
+            "Change path: scripts/tickets/amendment-gate-manifest.js validates amendment ledgers as a hash chain and accepts a pending tail; design-amendment.js passes the amendment it just appended.",
+            "Change path: .claude/tests/tickets/lib, .claude/tests/tickets and .claude/tests/rfc-graph gain the Red tests for all ten contracts.",
+            "Change detail: every comment and test fixture is phrased over the generic data shape; no target repository name, target ticket key, target path, or target graph id appears.",
+            "Non-change: the OKF skill bundles and project-local sources stay out of scope.",
+            "Non-change: settings.local.json is not mirrored.",
+            "Impact component: a target install mirrors these files from conver, so the fixes become available to every project.",
+            "Impact component: existing callers of stepContractEntry and recordStageReceipt remain compatible because the new parameters have defaults."
+          ],
+          "testUnit": [
+            "UT: [C001 Normal] mergeContracts deletes the contracts key when a ticket derives none and keeps a graph-derived contract in the array.",
+            "UT: [C001 Normal] mergeContracts keeps an authored contract whose id the graph does not derive and replaces a graph-derived contract with the graph projection.",
+            "UT: [C002 Normal] assignStepContractIds gives each row its positional C5xx id when the graph claims none.",
+            "UT: [C002 Boundary] a row whose positional id the graph claims takes the highest free C5xx id and no id is returned twice.",
+            "UT: [C002 Error] a collision count larger than the free range throws STEP_CONTRACT_ID_EXHAUSTED.",
+            "UT: [C003 Normal] mergePhasifyToTickets moves a distribution unit whose placement.nodeIds includes a transferred node from the source to the clone, refreshes both ticket distribution digests, writes the aggregate, and recomputes phase.nodeIds as the union of its tickets.",
+            "UT: [C004 Normal] an omission clone does not carry the source condensedFrom key, so one absorbed key remains claimed by one ticket.",
+            "UT: [C005 Normal] consolidate-stubs-gate exits 0 with zero markers and no manifest and exits non-zero when markers remain without a manifest.",
+            "UT: [C005 Error] consolidate-stubs-gate exits non-zero for a manifest that names a marker already resolved.",
+            "UT: [C006 Normal] renumberDocument resolves a reference to an excluded-phase ticket key to itself and reports no dangling reference.",
+            "UT: [C007 Normal] run-quality-checks does not count a Rust receiver (self, &self, &mut self) toward maxParams.",
+            "UT: [C007 Boundary] a JavaScript argument named self still counts toward maxParams.",
+            "UT: [C008 Normal] recordStageReceipt refreshes stage, sourceDigest, inputDigests, outputDigest, gateVerdicts and recordedAt while preserving an unowned mutation field.",
+            "UT: [C008 Boundary] a status with no receipt or a non-object receipt rebuilds without inventing fields.",
+            "UT: [C009 Normal] amendment-integrity accepts a chained pair of ledgers whose afterDigest equals the next beforeDigest and whose last afterDigest equals the file.",
+            "UT: [C009 Error] amendment-integrity reports AMENDMENT_CHAIN_MISMATCH for a broken chain and AMENDMENT_LEDGER_MISMATCH for a stale tail.",
+            "UT: [C009 Boundary] a pendingAmendment closes a chain whose ledger is not yet written.",
+            "UT: [C010 Normal] atomicWrite writes exactly one trailing newline.",
+            "UT: [C001 Contract] precondition: A ticket derives no contract from the graph, registry or step sidecar, or carries an authored contract whose id the graph does not derive. postcondition: The ticket omits the contracts key when nothing remains and keeps the authored contract beside the graph projection otherwise. invariant: The ticket never carries an empty contracts array.",
+            "UT: [C002 Contract] precondition: A sidecar row has a positional C5xx id that a graph edge also claims, and the reserved range has a free id. postcondition: The row receives the highest free C5xx id and every other row keeps its positional id. invariant: No two step rows share an id and no step id equals a graph-claimed id.",
+            "UT: [C003 Contract] precondition: A clone takes ownership of graph nodes that carry a distribution unit. postcondition: The unit moves from the source ticket to the clone, both per-ticket digests and the aggregate are refreshed, and each phase nodeIds equals the union of its tickets. invariant: A unit is declared by exactly one ticket and a phase names exactly the nodes its tickets cover.",
+            "UT: [C004 Contract] precondition: An omission clone is created from a source ticket that has condensedFrom. postcondition: The clone carries no condensedFrom key. invariant: One absorbed key is claimed by one ticket.",
+            "UT: [C005 Contract] precondition: The tree has zero stub markers and no consolidated manifest, or has markers and no manifest. postcondition: The gate exits 0 only for zero markers; otherwise it exits non-zero with the marker count. invariant: A marker never passes the gate without a manifest.",
+            "UT: [C006 Contract] precondition: A reference names a ticket in a phase excluded from condensation. postcondition: The reference resolves to the same live key and no dangling reference is reported. invariant: An excluded phase is never treated as absorbed history.",
+            "UT: [C007 Contract] precondition: A Rust method signature has a receiver and five arguments, or a JavaScript function has six parameters including one named self. postcondition: The Rust method is within the budget and the JavaScript function is over it. invariant: Only a Rust receiver is excluded from the argument count.",
+            "UT: [C008 Contract] precondition: A status carries a receipt with an unowned field such as a promoted mutation, or carries no receipt. postcondition: Owned fields are refreshed and the unowned field survives; no field is invented when no receipt exists. invariant: A rebuild never erases provenance it does not own.",
+            "UT: [C009 Contract] precondition: Two or more ledgers describe one artifact, and the amendment just appended may not have its ledger yet. postcondition: Each afterDigest equals the next beforeDigest and the last afterDigest equals the file, with the pending amendment closing the chain. invariant: A valid multi-amendment chain yields no finding.",
+            "UT: [C010 Contract] precondition: Tickets.json is serialized and written atomically. postcondition: The file ends with exactly one newline. invariant: A rehydration does not produce a whole-file end-of-file diff.",
+            "UT: [Acceptance Happy] each of the ten contracts is implemented in conver and its Red test passes.",
+            "UT: [Acceptance Error] invalid index, exhausted C5xx range, broken ledger chain, stale ledger tail and an unmarked stub each produce the specified error or exit code.",
+            "UT: [Acceptance Edge] an empty contracts result, two amendments of one artifact, an excluded phase, zero stub markers and a receipt without a previous value each behave as specified."
+          ],
+          "testIntegration": [
+            "IT: run the new tests together with the existing merge-contracts, phasify, identity, review, stage-receipt and amendment-gate suites under .claude/tests.",
+            "IT: run install.js --no-install-deps into a temporary empty target and verify the mirrored .claude contains every changed script and test.",
+            "IT: run the impact set of the changed scripts against a target-shaped fixture; no test depends on a repository name, ticket key, or graph id."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/rfc-graph/lib/step-contracts.mjs",
+            ".claude/scripts/tickets/merge-contracts-to-tickets.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/scripts/tickets/add-omission-ticket.js",
+            ".claude/scripts/tickets/consolidate-stubs-gate.sh",
+            ".claude/scripts/tickets/lib/ticket-identity-renumber.js",
+            ".claude/scripts/tickets/review/run-quality-checks.js",
+            ".claude/scripts/rfc-graph/lib/stage-receipt.js",
+            ".claude/scripts/tickets/amendment-gate-manifest.js",
+            ".claude/scripts/tickets/design-amendment.js",
+            ".claude/tests/tickets/lib/merge-contracts-empty.test.cjs",
+            ".claude/tests/tickets/lib/merge-contracts-step-ids.test.cjs",
+            ".claude/tests/tickets/lib/omission-unit-transfer.test.cjs",
+            ".claude/tests/tickets/lib/ticket-identity-excluded-live-keys.test.cjs",
+            ".claude/tests/tickets/consolidate-stubs-gate.test.cjs",
+            ".claude/tests/tickets/review.test.js",
+            ".claude/tests/rfc-graph/stage-receipt.test.cjs",
+            ".claude/tests/tickets/amendment-gate-manifest.test.cjs",
+            ".claude/scripts/rfc-graph/stage-receipt.js",
+            ".claude/tests/tickets/lib/omission-clone-identity.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy: each of the ten contracts is implemented in conver and its Red test passes.",
+            "Error: invalid index, exhausted C5xx range, broken ledger chain, stale ledger tail and an unmarked stub each produce the specified error or exit code.",
+            "Edge: an empty contracts result, two amendments of one artifact, an excluded phase, zero stub markers and a receipt without a previous value each behave as specified."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "contract merge",
+              "precondition": "A ticket derives no contract from the graph, registry or step sidecar, or carries an authored contract whose id the graph does not derive.",
+              "postcondition": "The ticket omits the contracts key when nothing remains and keeps the authored contract beside the graph projection otherwise.",
+              "invariant": "The ticket never carries an empty contracts array."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "step contract id allocation",
+              "precondition": "A sidecar row has a positional C5xx id that a graph edge also claims, and the reserved range has a free id.",
+              "postcondition": "The row receives the highest free C5xx id and every other row keeps its positional id.",
+              "invariant": "No two step rows share an id and no step id equals a graph-claimed id."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "omission distribution handover",
+              "precondition": "A clone takes ownership of graph nodes that carry a distribution unit.",
+              "postcondition": "The unit moves from the source ticket to the clone, both per-ticket digests and the aggregate are refreshed, and each phase nodeIds equals the union of its tickets.",
+              "invariant": "A unit is declared by exactly one ticket and a phase names exactly the nodes its tickets cover."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "omission clone identity",
+              "precondition": "An omission clone is created from a source ticket that has condensedFrom.",
+              "postcondition": "The clone carries no condensedFrom key.",
+              "invariant": "One absorbed key is claimed by one ticket."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "consolidate stub gate",
+              "precondition": "The tree has zero stub markers and no consolidated manifest, or has markers and no manifest.",
+              "postcondition": "The gate exits 0 only for zero markers; otherwise it exits non-zero with the marker count.",
+              "invariant": "A marker never passes the gate without a manifest."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "ticket identity renumbering",
+              "precondition": "A reference names a ticket in a phase excluded from condensation.",
+              "postcondition": "The reference resolves to the same live key and no dangling reference is reported.",
+              "invariant": "An excluded phase is never treated as absorbed history."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "quality arity check",
+              "precondition": "A Rust method signature has a receiver and five arguments, or a JavaScript function has six parameters including one named self.",
+              "postcondition": "The Rust method is within the budget and the JavaScript function is over it.",
+              "invariant": "Only a Rust receiver is excluded from the argument count."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "stage receipt rebuild",
+              "precondition": "A status carries a receipt with an unowned field such as a promoted mutation, or carries no receipt.",
+              "postcondition": "Owned fields are refreshed and the unowned field survives; no field is invented when no receipt exists.",
+              "invariant": "A rebuild never erases provenance it does not own."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "amendment integrity",
+              "precondition": "Two or more ledgers describe one artifact, and the amendment just appended may not have its ledger yet.",
+              "postcondition": "Each afterDigest equals the next beforeDigest and the last afterDigest equals the file, with the pending amendment closing the chain.",
+              "invariant": "A valid multi-amendment chain yields no finding."
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "ticket file serialization",
+              "precondition": "Tickets.json is serialized and written atomically.",
+              "postcondition": "The file ends with exactly one newline.",
+              "invariant": "A rehydration does not produce a whole-file end-of-file diff."
+            }
+          ],
+          "notes": "Implementation steps:\n1. Add the Red tests under .claude/tests for all ten contracts.\n2. Implement the pure helpers and the merge rules.\n3. Run the impact set and the install mirror check.\nRisks:\n- mergeContracts changes the serialized Tickets.json shape; run every merge-contracts caller.\n- The amendment chain sorts ledgers by createdAt, so a ledger without createdAt falls back to its filename.\nCaveats:\n- The stage receipt preserves only a plain-object previous receipt; an array is ignored.\nOpen items:\n- None.\nFuture improvements:\n- Extract a shared contract-id allocator if another contract family needs the same collision rule.\nImplementation summary:\n- Changed files: step-contracts.mjs, merge-contracts-to-tickets.js, phasify-omissions.js, add-omission-ticket.js, consolidate-stubs-gate.sh, ticket-identity-renumber.js, run-quality-checks.js, stage-receipt.js, amendment-gate-manifest.js, design-amendment.js; eight test files under .claude/tests.\n- Key changes: contract ownership is decided by the graph id set; step ids yield to graph-claimed ids; distribution units follow node ownership; the omission clone drops the source ledger; the stub gate accepts a zero-marker tree; excluded phases stay live; only a Rust receiver is excluded from arity; receipt rebuilds preserve unowned provenance; amendment ledgers are a hash chain.\n- Genericity: no target repository name, target ticket key, target path, or target graph id appears in the implementation or test fixtures. Every rule is expressed over the data shape the script already accepts.\n- Test results: 25 node:test cases, 23 review cases, 4 gate cases, 223 scripts cases, 80 add-omission cases, 10 phasify-fornextround cases, and the full phasify harness passed. The known PX-142 baseline is unchanged.\n- Quality: 0 issues on the nine implementation files and the eight non-fixture test files. tests/tickets/review.test.js deliberately contains unwrap, debug, unsafe, TODO and many-parameter fixtures because those strings are the checker input; the findings are the fixture, not the implementation.\n- Install mirror: install.js -t <temporary target> --no-install-deps reproduced every changed file.\n- Annotation: 18 files, 0 ambiguous after resolution. Five definition-less test files carry a file-level annotation.\nReview report:\n- Pending /review-ticket.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Annotation: 18 files, 0 missing, 0 ambiguous\n- Tests: impact set passed; the PX-142 baseline is unchanged\n- Install mirror: install.js reproduced every changed file\n- Contracts: verify-final-contracts 100% (1 checked contract, 1 fulfilled)\n- Targets: verifiedEmpty\n- Formula obligations: RFC-FORMULAS.json absent, 10c skipped\n- Dependencies: consistency verified",
+          "invariants": "- Normal condition: each changed script produces the specified result for the data shapes it already accepts, without naming a repository, ticket key, or graph id.\n- Error invariant: an invalid index, an exhausted id range, a broken ledger chain, or a marker without a manifest is reported by code and exit status, never silently accepted.\n- Internal state invariant: a rebuild or merge changes only the fields it owns; unowned provenance survives.\n- Boundary invariant: an empty collection (contracts, units, stubs, receipts) is represented as absence or an explicit empty result, never as a fabricated entry.",
+          "instrumentation": "- Logging: none added; the scripts are CLI tools whose stdout is the contract.\n- Metrics: none.\n- Error tracking: new failures carry a stable code (STEP_CONTRACT_ID_EXHAUSTED, AMENDMENT_CHAIN_MISMATCH, AMENDMENT_LEDGER_MISMATCH) or a non-zero exit with the offending path.\n- Health check: the impact-set tests under .claude/tests exit 0.\nStatic quality check: passed (0 issues on 9 implementation files and 8 test files; tests/tickets/review.test.js deliberately contains defect fixtures)\nTranslatability: no issues\nTests: 25 node:test + 23 review + 4 gate + 223 scripts + 80 add-omission + 10 phasify-fornextround + the phasify harness passed",
+          "investigation": "Source evidence:\n- conver/.claude/scripts/tickets/merge-contracts-to-tickets.js:291 assigns ticket.contracts = mergedContracts unconditionally, so an empty array is written and an authored contract is discarded.\n- conver/.claude/scripts/rfc-graph/lib/step-contracts.mjs:197 computes the step id from the row index only; a graph edge may claim the same C5xx id.\n- conver/.claude/scripts/rfc-graph/phasify-omissions.js:991 moves nodeIds and default_files but not distribution.units, and leaves phase.nodeIds stale.\n- conver/.claude/scripts/tickets/add-omission-ticket.js:499-506 clones the source object and clears distribution and formulaObligations but not condensedFrom.\n- conver/.claude/scripts/tickets/consolidate-stubs-gate.sh:17 requires a manifest, so a zero-marker tree aborts.\n- conver/.claude/scripts/tickets/lib/ticket-identity-renumber.js:84 skips excluded phases entirely, so a reference to a live excluded-phase ticket is reported as unresolved.\n- conver/.claude/scripts/tickets/review/run-quality-checks.js:163 counts every comma-separated parameter, including a Rust receiver.\n- conver/.claude/scripts/rfc-graph/lib/stage-receipt.js:95 rebuilds the receipt from owned fields only; ticket-mutation-gate.js:361 writes receipt.mutation and rebuild-design-hashes.js:85 then drops it.\n- conver/.claude/scripts/tickets/amendment-gate-manifest.js:223 compares every ledger afterDigest with the current file, so a second amendment is rejected by construction.\nProvenance:\n- crystal commit e1abd756 (2026-11-14) carried the stage-receipt and amendment-chain fixes plus their tests; the 2026-11-14 21:26/21:48 installs replaced those files with conver versions. The fixes are recovered from git history and re-expressed generically.\n- doors commits 784d6a1, 5b31412 and 205f9ee carry the contract, unit, clone, gate, renumber and receiver fixes and their tests. Each is re-expressed over the generic data shape.\n- A recursive comparison of the three .claude trees found no other divergent file outside the OKF skill bundles and settings.local.json.",
+          "boyScoutPlan": "- Extract stepContractIdAt so the positional id formula has one definition.\n- Name the reserved-id set and the exhaustion error; remove inline index arithmetic.\n- Extract isReceiver and gate it on the .rs extension so the rule is explicit.\n- Extract amendmentChainFindings so the runner stays a dispatcher.\n- Merge the previous receipt as a base and overwrite owned keys, so ownership is visible in one object literal.\n- Keep every new helper a pure function of its arguments; no repository reads inside the rule.",
+          "created_at": "2026-11-16",
+          "updated_at": "2026-11-16",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-16T00:49:06.273Z",
+          "planTestCode": [
+            "UT: [C001 Normal] a ticket that derives no contract omits the key\n```js\nconst ticket = { id: 1, phaseId: 0, nodeIds: [] };\nmergeContracts([ticket], { nodes: [], edges: [] }, [], null);\nassert.strictEqual(Object.hasOwn(ticket, 'contracts'), false);\n```",
+            "UT: [C001 Normal] an authored contract survives while a graph-derived contract is refreshed\n```js\nconst ticket = { id: 1, phaseId: 0, nodeIds: ['N0001'], contracts: [{ id: 'authored-1', sourceEdge: 'manual', precondition: 'kept' }] };\nconst graph = { nodes: [{ id: 'N0001' }, { id: 'N0002' }], edges: [{ from: 'N0001', to: 'N0002', contracts: [{ id: 'C001', precondition: 'new' }] }] };\nmergeContracts([ticket], graph, [], null);\nassert.strictEqual(ticket.contracts.some((entry) => entry.id === 'authored-1'), true);\nassert.strictEqual(ticket.contracts.find((entry) => entry.id === 'C001').precondition, 'new');\n```",
+            "UT: [C002 Normal] positional ids are kept when the graph claims nothing\n```js\nconst ids = assignStepContractIds(rows, new Set());\nassert.deepStrictEqual(ids, ['C500', 'C501']);\n```",
+            "UT: [C002 Boundary] a colliding row takes the highest free reserved id\n```js\nconst ids = assignStepContractIds(rows, new Set(['C500']));\nassert.strictEqual(ids[0], 'C999');\nassert.strictEqual(new Set(ids).size, ids.length);\nassert.strictEqual(ids.includes('C500'), false);\n```",
+            "UT: [C002 Error] an exhausted range is refused\n```js\nassert.throws(() => assignStepContractIds(rows, claimedEveryId), /STEP_CONTRACT_ID_EXHAUSTED/);\n```",
+            "UT: [C003 Normal] the unit moves with the node and the phase union is recomputed\n```js\nconst merged = mergePhasifyToTickets(tickets, phasified);\nassert.strictEqual(merged.phases[0].tickets[1].distribution.units.length, 1);\nassert.strictEqual(merged.phases[0].tickets[0].distribution.units.length, 0);\nassert.deepStrictEqual(merged.phases[0].nodeIds, ['N0002']);\n```",
+            "UT: [C004 Normal] the clone keeps no condensedFrom\n```js\nconst clone = buildClone({ condensedFrom: { tickets: [{ key: 'PX-1' }] } });\nassert.strictEqual(Object.hasOwn(clone, 'condensedFrom'), false);\n```",
+            "UT: [C005 Normal] zero markers without a manifest pass and markers without a manifest fail\n```js\nconst pass = spawnSync('bash', [gate], { cwd: emptyTree });\nassert.strictEqual(pass.status, 0);\nconst fail = spawnSync('bash', [gate], { cwd: treeWithOneMarker });\nassert.notStrictEqual(fail.status, 0);\n```",
+            "UT: [C005 Error] a stale manifest fails\n```js\nconst stale = spawnSync('bash', [gate], { cwd: treeWithResolvedMarker });\nassert.notStrictEqual(stale.status, 0);\n```",
+            "UT: [C006 Normal] an excluded-phase live key resolves to itself\n```js\nconst result = renumberDocument(document);\nassert.deepStrictEqual(result.findings, []);\nassert.strictEqual(result.keyMap.get('PX-1'), 'PX-1');\n```",
+            "UT: [C007 Normal] a Rust receiver is not an argument\n```js\nconst result = runAllChecks([rustMethodFile]);\nassert.strictEqual((result.checks.findManyParams.findings ?? []).length, 0);\n```",
+            "UT: [C007 Boundary] a JavaScript argument named self still counts\n```js\nconst result = runAllChecks([javascriptSelfFile]);\nassert.strictEqual((result.checks.findManyParams.findings ?? []).length, 1);\n```",
+            "UT: [C008 Normal] an unowned receipt field survives the rebuild\n```js\nconst rebuilt = recordStageReceipt({ receipt: previous }, receiptInput);\nassert.deepStrictEqual(rebuilt.receipt.mutation, mutation);\nassert.notStrictEqual(rebuilt.receipt.outputDigest, previous.outputDigest);\n```",
+            "UT: [C008 Boundary] no previous receipt invents no field\n```js\nconst rebuilt = recordStageReceipt({}, receiptInput);\nassert.strictEqual(Object.hasOwn(rebuilt.receipt, 'mutation'), false);\n```",
+            "UT: [C009 Normal] a valid chain yields no finding\n```js\nconst result = DEFAULT_RUNNERS['amendment-integrity']({ cwd: directory });\nassert.strictEqual(result.findings.length, 0);\n```",
+            "UT: [C009 Error] a broken chain and a stale tail are both named\n```js\nassert.strictEqual(result.findings.some((finding) => finding.code === 'AMENDMENT_CHAIN_MISMATCH'), true);\nassert.strictEqual(result.findings.some((finding) => finding.code === 'AMENDMENT_LEDGER_MISMATCH'), true);\n```",
+            "UT: [C009 Boundary] a pending amendment closes the chain\n```js\nconst result = DEFAULT_RUNNERS['amendment-integrity']({ cwd: directory, pendingAmendment });\nassert.strictEqual(result.findings.length, 0);\n```",
+            "UT: [C010 Normal] atomicWrite ends with one newline\n```js\natomicWrite(targetPath, '{}');\nassert.strictEqual(fs.readFileSync(targetPath, 'utf8'), '{}\\n');\n```"
+          ],
+          "planned_at": "2026-11-16T00:49:37.382Z",
+          "startedAt": "2026-11-16",
+          "changes": [
+            {
+              "before": "stepContractEntry derived the id from the row index only",
+              "after": "assignStepContractIds and edgeContractIds resolve a free C5xx id when the graph claims the positional one; stepContractEntry accepts the assigned id",
+              "description": "scripts/rfc-graph/lib/step-contracts.mjs: step contract ids no longer collide with graph edge contract ids"
+            },
+            {
+              "before": "mergeContracts wrote contracts unconditionally, discarded authored contracts and wrote no trailing newline",
+              "after": "mergeContracts rebuilds graph and step projections, keeps authored and registry contracts, deletes the key when empty, and atomicWrite ends with one newline",
+              "description": "scripts/tickets/merge-contracts-to-tickets.js: contract ownership and serialization"
+            },
+            {
+              "before": "mergePhasifyToTickets moved nodeIds and default_files only",
+              "after": "the distribution unit moves with the node, ticket digests and the aggregate are refreshed, and each phase nodeIds is the union of its tickets",
+              "description": "scripts/rfc-graph/phasify-omissions.js: distribution unit handover"
+            },
+            {
+              "before": "the omission clone was built inline and inherited every source field",
+              "after": "buildOmissionClone keeps node ownership but clears distribution, formulaObligations and condensedFrom",
+              "description": "scripts/tickets/add-omission-ticket.js: one absorbed key has one claimant"
+            },
+            {
+              "before": "the gate required a consolidated manifest even with zero markers",
+              "after": "zero markers without a manifest pass; markers without a manifest fail with the marker count",
+              "description": "scripts/tickets/consolidate-stubs-gate.sh: zero-stub tree state"
+            },
+            {
+              "before": "excluded phases were skipped entirely, so a live excluded key read as unresolved history",
+              "after": "an excluded phase maps each live key and id to itself and registers it as a live reference",
+              "description": "scripts/tickets/lib/ticket-identity-renumber.js: excluded-phase live keys"
+            },
+            {
+              "before": "every comma-separated parameter counted toward the arity budget",
+              "after": "a Rust receiver is excluded on .rs files while a JavaScript argument named self still counts",
+              "description": "scripts/tickets/review/run-quality-checks.js: receiver-aware arity check"
+            },
+            {
+              "before": "recordStageReceipt rebuilt the receipt from owned fields only",
+              "after": "the previous receipt is the base and the owned fields are written over it, so an unowned mutation survives",
+              "description": "scripts/rfc-graph/lib/stage-receipt.js: receipt provenance preservation"
+            },
+            {
+              "before": "amendment-integrity compared every ledger afterDigest with the current file",
+              "after": "ledgers form a hash chain, the last afterDigest matches the file, and a pending amendment closes the chain",
+              "description": "scripts/tickets/amendment-gate-manifest.js and design-amendment.js: append-only chain validation"
+            },
+            {
+              "before": "no tests covered the ten behaviours",
+              "after": "eight test files cover C001-C010, including the recovered stage-receipt and amendment-chain suites",
+              "description": ".claude/tests: generic Red tests for every contract"
+            }
+          ],
+          "done_at": "2026-11-16T00:55:44.518Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-16",
+          "reviewed_at": "2026-11-16T00:56:27.340Z"
         }
       ]
     },

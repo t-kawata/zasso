@@ -311,6 +311,35 @@ function lookupTicket(ticketsData, ticketKey) {
 }
 
 /**
+ * Build the clone that carries one source ticket's omission work.
+ *
+ * The clone keeps the source's nodeIds and default files because it re-implements
+ * them; the phasify merge records the handover and clears the moved ids from the
+ * source. The source stays live and keeps the units, formulas and condensation
+ * ledger it already owns, so copying any of those would leave two claimants for
+ * one owned key.
+ *
+ * @param {object} sourceTicket — the ticket the omission was found on
+ * @param {string} ticketKey — the source ticket key
+ * @param {Array<object>} omissions — the found omissions
+ * @returns {object} — a new ticket object for the omission phase
+ */
+// [::TICKET::] PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-431 --for-spec --no-implementation-order`.
+function buildOmissionClone(sourceTicket, ticketKey, omissions) {
+  return {
+    ...sourceTicket,
+    foundOmissions: omissions,
+    originalTicketKey: ticketKey,
+    origin: { kind: 'omission', sourceTicket: ticketKey },
+    distribution: undefined,
+    formulaObligations: undefined,
+    condensedFrom: undefined,
+    phaseId: -1,
+    status: 'todo',
+  };
+}
+
+/**
  * Find the latest _tmp-omissions-*.json in CWD by scanning for files matching the pattern.
  * @returns {string|null} — Absolute path, or null if none found
  */
@@ -394,7 +423,7 @@ function readStdin() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105, PX-378, PX-414, PX-417, PX-418, PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105|PX-378|PX-414|PX-417|PX-418|PX-419) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105, PX-378, PX-414, PX-417, PX-418, PX-419, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105|PX-378|PX-414|PX-417|PX-418|PX-419|PX-431) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   let tmpOmissionsPath = null;
@@ -490,22 +519,16 @@ async function main() {
     } else {
       // Create new clone with originalTicketKey
       const ticketsData = JSON.parse(fs.readFileSync(resolvedTicketsPath, 'utf8'));
-      const cloned = lookupTicket(ticketsData, ticketKey);
-      if (!cloned) {
+      const sourceTicket = lookupTicket(ticketsData, ticketKey);
+      if (!sourceTicket) {
         console.error('[add-omission-ticket] Error: Ticket not found:', ticketKey);
         process.exit(1);
       }
 
-      cloned.foundOmissions = omissions;
-      cloned.originalTicketKey = ticketKey;
-      cloned.origin = { kind: 'omission', sourceTicket: ticketKey };
       // The clone re-implements its source, so it keeps the source's nodeIds. The
       // phasify merge records the handover in the mutation manifest and clears the
       // moved ids from the source, so the gate sees one claimant per node.
-      cloned.distribution = undefined;
-      cloned.formulaObligations = undefined;
-      cloned.phaseId = -1;
-      cloned.status = 'todo';
+      const cloned = buildOmissionClone(sourceTicket, ticketKey, omissions);
 
       const updatedData = appendTicket(data, cloned);
 
@@ -569,6 +592,7 @@ module.exports = {
   findOrCreateTmpOmissions,
   formatTimestamp,
   lookupTicket,
+  buildOmissionClone,
   validateFoundOmissions,
   findCloneByOriginalKey,
   appendFoundOmissions,

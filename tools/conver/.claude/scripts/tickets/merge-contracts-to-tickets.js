@@ -26,6 +26,8 @@ const {
   projectionMatches,
 } = require('../sequences-slice/lib/boundary-contract.mjs');
 const {
+  assignStepContractIds,
+  edgeContractIds,
   readStepContractSidecar,
   stepContractEntry,
 } = require('../rfc-graph/lib/step-contracts.mjs');
@@ -83,12 +85,16 @@ function registryContracts(registryPath) {
 }
 
 /**
- * Atomic write using temp file + rename
+ * Atomic write using temp file + rename.
+ *
+ * The trailing newline matches the JSON files this repository checks in, so a
+ * rehydration does not turn a semantic change into a whole-file end-of-file diff.
  */
-// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-314 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-314) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-68, PX-69, PX-70, PX-71, PX-314, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-68|PX-69|PX-70|PX-71|PX-314|PX-431) --for-spec --no-implementation-order`.
 function atomicWrite(targetPath, serializedTickets) {
   const tmpPath = targetPath + '.tmp.' + process.pid;
-  fs.writeFileSync(tmpPath, serializedTickets, 'utf8');
+  const serializedWithNewline = serializedTickets.replace(/\n+$/, '') + '\n';
+  fs.writeFileSync(tmpPath, serializedWithNewline, 'utf8');
   fs.renameSync(tmpPath, targetPath);
 }
 
@@ -223,9 +229,17 @@ function registryContractsForTicket(ticket, registry) {
  * @returns {Array<object>}
  */
 // [::TICKET::] PX-312, PX-313, PX-318 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-312|PX-313|PX-318) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-330, PX-344 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-330|PX-344) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-330, PX-344, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-330|PX-344|PX-431) --for-spec --no-implementation-order`.
 function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const edges = graph.edges || [];
+  // A contract id the graph derives is rebuilt from the graph. Any other existing
+  // contract is authored (a per-ticket amendment clause, for instance) and must
+  // survive a rehydration that otherwise rebuilds the list from the graph alone.
+  const graphContractIds = edgeContractIds(graph);
+  // The step ids are allocated over the whole sidecar so a row keeps the same id
+  // regardless of which ticket it lands on, and a graph-claimed position yields.
+  const stepRows = stepSidecar?.steps ?? [];
+  const stepIds = assignStepContractIds(stepRows, graphContractIds);
 
   // Build nodeId → ticketId mapping for cross-ticket edge detection
   const nodeToTicket = {};
@@ -284,14 +298,44 @@ function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = nu
           .map((step) => step?.stepId)
           .filter((stepId) => typeof stepId === 'string' && stepId.length > 0),
       );
-      for (const [index, row] of (stepSidecar.steps ?? []).entries()) {
+      for (const [index, row] of stepRows.entries()) {
         if (!localStepIds.has(row.stepId)) continue;
         if (mergedContracts.some((entry) => entry.stepId === row.stepId)) continue;
-        mergedContracts.push(stepContractEntry(row, index));
+        mergedContracts.push(stepContractEntry(row, index, stepIds[index]));
       }
     }
 
-    ticket.contracts = mergedContracts;
+    // The graph is the source of truth for every contract id it derives: a rehydration
+    // reproduces the edge projection instead of keeping a stale authored copy. A contract
+    // whose id the graph does not derive is authored (a per-ticket amendment clause) and
+    // survives. A registry projection keeps the object the ticket already carries.
+    //
+    // A step projection is rebuilt from the sidecar like an edge projection is rebuilt
+    // from the graph: it is identified by its stepId, not by its id, because the id moves
+    // when the graph claims the positional id. A carried step copy is discarded so a stale
+    // body, a stale id, or a step the sidecar no longer holds cannot survive the rebuild.
+    // The field is removed only when nothing remains, because the validator rejects [].
+    const carriedContracts = Array.isArray(ticket.contracts) ? ticket.contracts : [];
+    const existingById = new Map(
+      carriedContracts
+        .filter((contract) => contract && typeof contract.id === 'string'
+          && typeof contract.stepId !== 'string')
+        .map((contract) => [contract.id, contract]),
+    );
+    const finalContracts = [];
+    for (const derived of mergedContracts) {
+      if (typeof derived.stepId === 'string') {
+        finalContracts.push(derived);
+        continue;
+      }
+      const existing = existingById.get(derived.id);
+      const keepExisting = existing !== undefined && !graphContractIds.has(derived.id);
+      finalContracts.push(keepExisting ? existing : derived);
+      existingById.delete(derived.id);
+    }
+    for (const remaining of existingById.values()) finalContracts.push(remaining);
+    if (finalContracts.length > 0) ticket.contracts = finalContracts;
+    else delete ticket.contracts;
   }
 
   return tickets;
@@ -310,14 +354,18 @@ function mergeContracts(tickets, graph, registryContracts = [], stepSidecar = nu
  * @param {string[]} [registryBoundaryIds]
  * @returns {Array<{code: string, ticketId: number|null, boundaryId?: string, contractId?: string}>}
  */
-// [::TICKET::] PX-306, PX-312, PX-313, PX-318, PX-322 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-312|PX-313|PX-318|PX-322) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-306, PX-312, PX-313, PX-318, PX-322, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-306|PX-312|PX-313|PX-318|PX-322|PX-431) --for-spec --no-implementation-order`.
 function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], stepSidecar = null) {
   const findings = [];
   const edgeLabels = new Set((graph.edges || []).map((edge) => edge.from + '→' + edge.to));
   const rows = normalizeRegistryContracts(registryContracts);
   const rowById = new Map(rows.map((row) => [row.boundary_id, row]));
   const registryIds = new Set(rows.map((row) => row.boundary_id));
-  const stepEntries = new Map((stepSidecar?.steps ?? []).map((row, index) => [row.stepId, stepContractEntry(row, index)]));
+  // Verification resolves the same ids the merge assigned, so a step the graph pushed
+  // off its positional id is still compared against its own row.
+  const stepRows = stepSidecar?.steps ?? [];
+  const stepIds = assignStepContractIds(stepRows, edgeContractIds(graph));
+  const stepEntries = new Map(stepRows.map((row, index) => [row.stepId, stepContractEntry(row, index, stepIds[index])]));
   for (const ticket of tickets) {
     const unitIds = (ticket.nodeIds || []).filter(isUnitId);
     const contracts = Array.isArray(ticket.contracts) ? ticket.contracts : [];
@@ -382,13 +430,13 @@ function verifyMergedBoundaryContracts(tickets, graph, registryContracts = [], s
       if (typeof contract?.stepId === 'string') ticketStepContracts.set(contract.stepId, contract);
     }
   }
-  for (const [index, row] of (stepSidecar?.steps ?? []).entries()) {
+  for (const [index, row] of stepRows.entries()) {
     const contract = ticketStepContracts.get(row.stepId);
     if (contract === undefined) {
       findings.push({ code: 'CONTRACT_CHAIN_OPEN', ticketId: null, stepId: row.stepId });
       continue;
     }
-    const expected = stepContractEntry(row, index);
+    const expected = stepContractEntry(row, index, stepIds[index]);
     if (contract.digest !== expected.digest
         || contract.precondition !== expected.precondition
         || contract.postcondition !== expected.postcondition
@@ -466,4 +514,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { mergeContracts, verifyMergedBoundaryContracts, parseArgs, registryForPackage };
+module.exports = { mergeContracts, verifyMergedBoundaryContracts, parseArgs, registryForPackage, atomicWrite };

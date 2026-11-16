@@ -90,8 +90,12 @@ function readStageReceipts(directory, rfcDigest) {
  *
  * The caller passes the already-computed output digest; recomputing it here would let
  * the status and the receipt disagree if the file moved between the two reads.
+ *
+ * A receipt may also carry provenance this function does not own, such as the mutation
+ * that promoted Tickets.json. The previous receipt is the base and only the owned keys
+ * are replaced, so a rebuild refreshes the receipt without erasing that provenance.
  */
-// [::TICKET::] PX-377 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-377) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-377, PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-377|PX-431) --for-spec --no-implementation-order`.
 function recordStageReceipt(status, receiptInput) {
   const {
     stage,
@@ -103,9 +107,15 @@ function recordStageReceipt(status, receiptInput) {
   } = receiptInput;
   const inputDigests = {};
   for (const [name, filePath] of Object.entries(inputs)) inputDigests[name] = digestFile(filePath);
+  const previousReceipt = status?.[RECEIPT_FIELD] !== null
+    && typeof status?.[RECEIPT_FIELD] === 'object'
+    && !Array.isArray(status?.[RECEIPT_FIELD])
+    ? status[RECEIPT_FIELD]
+    : {};
   return {
     ...status,
     [RECEIPT_FIELD]: {
+      ...previousReceipt,
       stage,
       sourceDigest: digestFile(rfcPath),
       inputDigests,
