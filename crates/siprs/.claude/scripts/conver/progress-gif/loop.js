@@ -26,6 +26,14 @@ export const HOLD_END_FRAMES = 12;
 export const STAGE_WEIGHT = Object.freeze([3, 3, 6, 3, 6, 6, 6, 6, 6, 14, 8, 6, 3, 6, 6, 4, 0]);
 const STAGE_INDEX = Object.freeze(Object.fromEntries(STAGE_ORDER.map((stage, index) => [stage, index])));
 
+/**
+ * Stages whose command runs once for the whole workspace. A recorder that
+ * attributes them to whichever package directory happened to be current would
+ * fill only one circle, so the timeline normalizes them to the workspace.
+ */
+export const WORKSPACE_STAGES = new Set(['educe', 'smooth']);
+const IMPLEMENTATION_PROGRESS_STAGES = new Set(['make', 'plan', 'start', 'review', 'resolve', 'consolidate', 'find']);
+
 /** The execution role of one history record. */
 export const COMMAND_ROLES = Object.freeze({
   PIPELINE: 'pipeline',
@@ -561,6 +569,9 @@ export function classifyCommandRole(record = {}, context = {}) {
       ? COMMAND_ROLES.PIPELINE
       : COMMAND_ROLES.MAINTENANCE;
   }
+  // Implementation commands repeat once per ticket. A second make-ticket is the
+  // next ticket, not a revision of the first, so it must still advance progress.
+  if (IMPLEMENTATION_PROGRESS_STAGES.has(record.stage)) return COMMAND_ROLES.PIPELINE;
   const firstForPackage = record.firstForPackage ?? context.firstForPackage;
   if (firstForPackage === false) return COMMAND_ROLES.REVISION;
   return COMMAND_ROLES.PIPELINE;
@@ -605,9 +616,12 @@ export function replayHistoryProgress(records = [], packages = []) {
   for (const record of ordered) {
     if (record.event !== 'finish') continue;
     if (record.status !== 'COMPLETE' && record.stage !== 'drill') continue;
-    const key = `${record.stage}\u0000${record.packageId ?? ''}`;
-    const reviewProgress = record.packageId
-      ? (reviewCounts.get(record.packageId) || 0) / (ticketCounts.get(record.packageId) || 1)
+    // A workspace command is one run for every circle, regardless of the
+    // directory the recorder attributed it to.
+    const packageId = WORKSPACE_STAGES.has(record.stage) ? null : (record.packageId ?? null);
+    const key = `${record.stage}\u0000${packageId ?? ''}`;
+    const reviewProgress = packageId
+      ? (reviewCounts.get(packageId) || 0) / (ticketCounts.get(packageId) || 1)
       : (workspaceReviewed ? 1 : 0);
     const role = classifyCommandRole(record, {
       firstForPackage: !firstSeen.has(key),
@@ -615,23 +629,24 @@ export function replayHistoryProgress(records = [], packages = []) {
     });
     const recordedAt = Date.parse(record.at);
     runs.push({
-      t: recordedAt, prec: 'ms', stage: record.stage, packageId: record.packageId ?? null,
+      t: recordedAt, prec: 'ms', stage: record.stage, packageId,
       status: record.status, runId: record.runId, command: record.command,
       role, evidence: 'history',
     });
     if (record.status === 'COMPLETE' && record.stage === 'review') {
-      if (record.packageId) reviewCounts.set(record.packageId, (reviewCounts.get(record.packageId) || 0) + 1);
+      if (packageId) reviewCounts.set(packageId, (reviewCounts.get(packageId) || 0) + 1);
       else workspaceReviewed = true;
     }
     if (record.status !== 'COMPLETE') continue;
-    if (role !== COMMAND_ROLES.PIPELINE && role !== COMMAND_ROLES.EVOLUTION) continue;
-    const ticketCount = record.packageId ? (ticketCounts.get(record.packageId) || 1) : 1;
+    // Every completed run carries progress. Maintenance and revision runs stay
+    // out of the headline (see advanceStageFrontier) but must still fill a bar.
+    const ticketCount = packageId ? (ticketCounts.get(packageId) || 1) : 1;
     const inc = Number.isFinite(record.delta) && record.delta > 0
       ? record.delta
       : (STAGE_INDEX[record.stage] >= STAGE_INDEX.make && STAGE_INDEX[record.stage] <= STAGE_INDEX.find ? 1 / ticketCount : 1);
     if (!(inc > 0)) continue;
     events.push({
-      t: recordedAt, prec: 'ms', stage: record.stage, packageId: record.packageId ?? null,
+      t: recordedAt, prec: 'ms', stage: record.stage, packageId,
       inc, evidence: record.source || 'history', timeSource: 'history',
       recordId: record.backfillId || record.runId,
       recordSource: record.source || 'history', role,
@@ -639,6 +654,139 @@ export function replayHistoryProgress(records = [], packages = []) {
     firstSeen.add(key);
   }
   return { events, runs };
+}
+
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
+function stageVectorOf(pkg) {
+  return STAGE_ORDER.map((stage) => Number(pkg && pkg.stages && pkg.stages[stage]) || 0);
+}
+
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
+function checkpointTargets(packages, referenceSnapshot) {
+  const targets = new Map();
+  const referenceById = new Map(((referenceSnapshot && referenceSnapshot.packages) || []).map((pkg) => [pkg.id, pkg]));
+  for (const pkg of packages) {
+    const end = gateImplementationProgress(stageVectorOf(pkg));
+    const referencePkg = referenceById.get(pkg.id);
+    const reference = referencePkg ? gateImplementationProgress(stageVectorOf(referencePkg)) : end;
+    for (let index = 0; index < STAGE_ORDER.length; index += 1) {
+      const stage = STAGE_ORDER[index];
+      if (WORKSPACE_STAGES.has(stage)) {
+        const key = `${stage}\u0000`;
+        const current = targets.get(key) || { reference: 0, end: 0 };
+        targets.set(key, { reference: Math.max(current.reference, reference[index]), end: Math.max(current.end, end[index]) });
+      } else {
+        targets.set(`${stage}\u0000${pkg.id}`, { reference: reference[index], end: end[index] });
+      }
+    }
+  }
+  return targets;
+}
+
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
+function distributeSegment(events, target, ticketStage) {
+  if (events.length === 0) return;
+  if (ticketStage) {
+    const share = target / events.length;
+    for (const event of events) event.inc = share;
+    return;
+  }
+  events.forEach((event, index) => { event.inc = index === 0 ? target : 0; });
+}
+
+/**
+ * Reconcile the history clock with the two display checkpoints.
+ *
+ * The previous snapshot is the state the last accepted animation had reached;
+ * the current artifact model is the end state. Event times are never changed:
+ * only the increment each real run contributes is distributed so the bar is at
+ * the reference value by the reference time and at the artifact value at the end.
+ * A stage the reference marks complete but no run explains receives one
+ * boundary checkpoint event, not a fabricated command time.
+ */
+export function reconcileProgressToReference(events = [], packages = [], options = {}) {
+  const { referenceSnapshot = null, cutoffs = {}, initialT = 0, receiptEvents = [] } = options;
+  const hasReference = Boolean(referenceSnapshot && Array.isArray(referenceSnapshot.packages));
+  const referenceT = hasReference && Number.isFinite(Date.parse(referenceSnapshot.generatedAt))
+    ? Date.parse(referenceSnapshot.generatedAt)
+    : Number.POSITIVE_INFINITY;
+  const targets = checkpointTargets(packages, referenceSnapshot);
+  const grouped = new Map();
+  for (const event of events) {
+    const key = `${event.stage}\u0000${event.packageId ?? ''}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(event);
+  }
+  const packageBoundaries = Object.values(cutoffs.packages || {})
+    .map((value) => (typeof value === 'string' ? Date.parse(value) : value))
+    .filter(Number.isFinite);
+  const rootBoundary = typeof cutoffs.root === 'string' ? Date.parse(cutoffs.root) : cutoffs.root;
+  // A workspace command must precede the package stages that consume it, so its
+  // checkpoint sits at the earliest target boundary, not only the root file's.
+  const workspaceBoundary = [rootBoundary, ...packageBoundaries].filter(Number.isFinite).reduce(
+    (earliest, value) => Math.min(earliest, value),
+    Number.POSITIVE_INFINITY,
+  );
+  const receiptsByKey = new Map();
+  for (const receipt of receiptEvents) {
+    const key = `${receipt.stage}\u0000${receipt.packageId ?? ''}`;
+    const list = receiptsByKey.get(key) || [];
+    list.push(receipt);
+    receiptsByKey.set(key, list);
+  }
+  for (const list of receiptsByKey.values()) list.sort((left, right) => left.t - right.t);
+  const checkpointEvents = [];
+  const completionEvents = [];
+  const uncovered = [];
+  for (const [key, target] of targets) {
+    const [stage, packageId] = key.split('\u0000');
+    const list = (grouped.get(key) || []).slice().sort((left, right) => left.t - right.t);
+    const before = list.filter((event) => event.t <= referenceT);
+    const after = list.filter((event) => event.t > referenceT);
+    const ticketStage = stage === 'make' || stage === 'plan' || stage === 'start' || stage === 'review';
+    distributeSegment(before, target.reference, ticketStage);
+    // Without an accepted reference checkpoint there is nothing to restore, so
+    // a stage with no run stays empty rather than borrowing the artifact value.
+    if (hasReference && target.reference > 0 && before.length === 0) {
+      const rawBoundary = WORKSPACE_STAGES.has(stage)
+        ? workspaceBoundary
+        : cutoffs.packages && cutoffs.packages[packageId];
+      const boundary = typeof rawBoundary === 'string' ? Date.parse(rawBoundary) : rawBoundary;
+      const at = Number.isFinite(boundary) ? Math.min(boundary, referenceT) : (list[0] ? list[0].t : initialT);
+      checkpointEvents.push({
+        t: at, prec: 'ms', stage, packageId: packageId || null, inc: target.reference,
+        evidence: 'reference', timeSource: 'history',
+        recordId: `checkpoint:${key}`, recordSource: 'reference', role: COMMAND_ROLES.PIPELINE,
+        checkpoint: true,
+      });
+    }
+    const remaining = hasReference
+      ? Math.max(0, target.end - target.reference)
+      : (list.length === 0 ? target.end : 0);
+    // A missing post-reference run may still have an exact command-written
+    // receipt (status receipt.recordedAt, manifest or omission stamp). Recover
+    // that run; only a stage with no receipt is left uncovered.
+    let afterEvents = after;
+    if (hasReference && after.length === 0 && remaining > 0) {
+      const receipt = (receiptsByKey.get(key) || []).find((candidate) => candidate.t > referenceT);
+      if (receipt) {
+        afterEvents = [receipt];
+        completionEvents.push(receipt);
+      }
+    }
+    distributeSegment(afterEvents, remaining, ticketStage);
+    if (remaining > 0 && afterEvents.length === 0) {
+      uncovered.push({
+        code: 'UNCOVERED_ARTIFACT_STAGE',
+        stage,
+        packageId: packageId || null,
+        detail: `artifact target ${target.end} has no run after the reference checkpoint`,
+      });
+    }
+  }
+  const nextEvents = [...events, ...checkpointEvents, ...completionEvents]
+    .sort((left, right) => left.t - right.t || STAGE_ORDER.indexOf(left.stage) - STAGE_ORDER.indexOf(right.stage));
+  return { events: nextEvents, checkpointEvents, completionEvents, uncovered };
 }
 
 /** Derive one stage fraction per stage in STAGE_ORDER for one package. */
@@ -1652,7 +1800,7 @@ export function createFrameState(model, timeline) {
  * just ran: a stage or run event sets the displayed stage, including a revisit of
  * an earlier stage. A growth marker never moves the frontier in either path.
  */
-// [::TICKET::] PX-375, PX-391, PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-375|PX-391|PX-433) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-375, PX-391, PX-433, PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-375|PX-391|PX-433|PX-434) --for-spec --no-implementation-order`.
 function advanceStageFrontier(state, event) {
   if (event.kind === 'run') {
     if (event.role === COMMAND_ROLES.PIPELINE || event.role === COMMAND_ROLES.EVOLUTION) {
@@ -1662,6 +1810,8 @@ function advanceStageFrontier(state, event) {
     return;
   }
   if (event.kind !== 'stage') return;
+  // A maintenance or revision run fills a bar but must not claim the headline.
+  if (event.role && event.role !== COMMAND_ROLES.PIPELINE && event.role !== COMMAND_ROLES.EVOLUTION) return;
   if (state.chronological) {
     state.lastStageIndex = STAGE_INDEX[event.stage];
   } else {
@@ -1782,7 +1932,7 @@ export function frameFromState(state, model, index) {
  * orderT === evidenceT, so its prefix is unchanged.
  */
 // [::TICKET::] PX-374, PX-381, PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381|PX-391) --for-spec --no-implementation-order`.
-export function progressAt(model, timestamp) {
+export function progressStateAt(model, timestamp) {
   const timeline = buildTimeline(model);
   const state = createFrameState(model, timeline);
   for (const event of timeline.timeline) {
@@ -1790,7 +1940,11 @@ export function progressAt(model, timestamp) {
     if (orderTime > timestamp) continue;
     applyEvent(state, event);
   }
-  return frameFromState(state, model, 0).overallProgress;
+  return frameFromState(state, model, 0);
+}
+
+export function progressAt(model, timestamp) {
+  return progressStateAt(model, timestamp).overallProgress;
 }
 
 /**

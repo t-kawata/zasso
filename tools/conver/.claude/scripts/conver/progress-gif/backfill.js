@@ -19,6 +19,7 @@ import {
   readBackfillFile,
 } from './history.js';
 import { STAGE_ORDER } from './loop.js';
+import { parseStamp } from './parse.js';
 
 export { BACKFILL_FILE_NAME, HISTORY_CONFIDENCE as BACKFILL_CONFIDENCE, HISTORY_SOURCES as BACKFILL_SOURCES, readBackfillFile };
 
@@ -103,7 +104,7 @@ function drillFraction(status) {
 
 /** Collect every evidence item the backfill may use. */
 export function collectBackfillEvidence({ root, packages = [], historyRecords = [], readGit = readGitFirstCommit }) {
-  const evidence = { history: [], status: [], tickets: [], git: [], warnings: [] };
+  const evidence = { history: [], status: [], ticket: [], git: [], warnings: [] };
   const add = (bucket, entry) => {
     if (entry && entry.stage && Number.isFinite(Date.parse(entry.at))) bucket.push(entry);
   };
@@ -133,6 +134,15 @@ export function collectBackfillEvidence({ root, packages = [], historyRecords = 
     });
   } else {
     evidence.warnings.push('[backfill] educe: no git first commit');
+  }
+
+  const smoothStatus = readJson(path.join(root, 'smooth-sequences', 'status.json'), evidence.warnings, 'smooth-sequences/status.json');
+  const smoothAt = isoAt(smoothStatus && smoothStatus.measuredAt) || statusTime(smoothStatus);
+  if (smoothAt !== null) {
+    add(evidence.status, {
+      stage: 'smooth', packageId: null, at: smoothAt,
+      evidenceKey: 'smooth-sequences/status.json', confidence: 'exact',
+    });
   }
 
   for (const pkg of packages) {
@@ -172,13 +182,13 @@ export function collectBackfillEvidence({ root, packages = [], historyRecords = 
     for (const ticket of tickets) {
       const key = ticket.key || ticket.id;
       for (const [stage, field] of [['make', 'made_at'], ['plan', 'planned_at'], ['start', 'done_at']]) {
-        add(evidence.tickets, {
+        add(evidence.ticket, {
           stage, packageId: pkg.id, ticketKey: key, at: isoAt(ticket[field]),
           evidenceKey: `${pkg.id}/Tickets.json#${key}.${field}`, confidence: 'exact', delta: 1 / ticketCount,
         });
       }
       const reviewAt = isoAt(ticket.reviewed_at) || (ticket.status === 'reviewed' ? isoAt(ticket.completedAt) : null);
-      add(evidence.tickets, {
+      add(evidence.ticket, {
         stage: 'review', packageId: pkg.id, ticketKey: key, at: reviewAt,
         evidenceKey: `${pkg.id}/Tickets.json#${key}.reviewed_at`, confidence: 'exact', delta: 1 / ticketCount,
       });
@@ -191,6 +201,44 @@ export function collectBackfillEvidence({ root, packages = [], historyRecords = 
         add(evidence.status, { stage, packageId: pkg.id, at, evidenceKey: `${pkg.id}/${file}`, confidence: 'exact' });
       }
     }
+
+    const manifests = path.join(dir, 'manifests');
+    if (fs.existsSync(manifests)) {
+      for (const name of fs.readdirSync(manifests)) {
+        const match = /^CONSOLIDATED-MANIFEST-(\d{14})\.json$/.exec(name);
+        const stamp = match ? parseStamp(match[1]) : null;
+        if (stamp) {
+          add(evidence.status, {
+            stage: 'consolidate', packageId: pkg.id, at: new Date(stamp.t).toISOString(),
+            evidenceKey: `${pkg.id}/manifests/${name}`, confidence: 'approx',
+          });
+        }
+      }
+    }
+
+    const omissions = path.join(dir, 'omissions');
+    if (fs.existsSync(omissions)) {
+      for (const name of fs.readdirSync(omissions)) {
+        const match = /^OMISSIONS-(\d{14})\.json$/.exec(name);
+        const stamp = match ? parseStamp(match[1]) : null;
+        if (stamp) {
+          add(evidence.status, {
+            stage: 'find', packageId: pkg.id, at: new Date(stamp.t).toISOString(),
+            evidenceKey: `${pkg.id}/omissions/${name}`, confidence: 'approx',
+          });
+        }
+      }
+    }
+  }
+
+  const malfeasance = readJson(path.join(root, 'Malfeasance.json'), evidence.warnings, 'Malfeasance.json');
+  for (const record of (malfeasance && malfeasance.records) || []) {
+    const at = isoAt(record.resolvedAt) || isoAt(record.resolved_at) || isoAt(record.updated_at);
+    if (at === null || !record.packageId) continue;
+    add(evidence.status, {
+      stage: 'resolve', packageId: record.packageId, at,
+      evidenceKey: `Malfeasance.json#${record.id ?? ''}`, confidence: 'exact',
+    });
   }
 
   return evidence;
@@ -203,12 +251,62 @@ function roleFor(entry) {
   return 'pipeline';
 }
 
+/**
+ * The live log boundary for one target directory. Backfill is a strict
+ * pre-history estimate: a record at or after the first live finish is never
+ * re-estimated, because the live log already owns that period.
+ */
+export function readHistoryCutoff(targetDir) {
+  const file = path.join(targetDir, '.conver-history.jsonl');
+  if (!fs.existsSync(file)) return Number.POSITIVE_INFINITY;
+  let earliest = Number.POSITIVE_INFINITY;
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      const record = JSON.parse(line);
+      if (record.event !== 'finish') continue;
+      const at = Date.parse(record.at);
+      if (Number.isFinite(at) && at < earliest) earliest = at;
+    } catch { /* a malformed line is surfaced by the history reader */ }
+  }
+  return earliest;
+}
+
+/** Read every target boundary once, keyed by package id. */
+export function collectHistoryCutoffs(root, packages = []) {
+  const cutoffs = { root: readHistoryCutoff(root), packages: {} };
+  for (const pkg of packages) {
+    cutoffs.packages[pkg.id] = readHistoryCutoff(path.join(root, pkg.path || ''));
+  }
+  return cutoffs;
+}
+
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
+function cutoffFor(entry, cutoffs) {
+  const raw = entry.stage === 'educe' || entry.stage === 'smooth'
+    ? cutoffs.root
+    : cutoffs.packages?.[entry.packageId];
+  const at = typeof raw === 'string' ? Date.parse(raw) : raw;
+  return Number.isFinite(at) ? at : Number.POSITIVE_INFINITY;
+}
+
 /** Build deterministic, provenance-labelled records from the collected evidence. */
-export function buildBackfillRecords(evidence) {
+export function buildBackfillRecords(evidence, options = {}) {
+  const cutoffs = options.cutoffs || {};
   const entries = [];
-  for (const source of HISTORY_SOURCES) {
-    for (const entry of evidence[source] || []) {
+  // The live log is authoritative; backfill never re-emits it. The collector
+  // still reports history evidence for previews, but it is not a record source.
+  const ticketEvidence = evidence.ticket || evidence.tickets || [];
+  const sources = [
+    ['status', evidence.status || []],
+    ['ticket', ticketEvidence],
+    ['git', evidence.git || []],
+  ];
+  for (const [source, bucket] of sources) {
+    for (const entry of bucket) {
       if (!entry || !entry.stage || !Number.isFinite(Date.parse(entry.at))) continue;
+      // Strict partition: only the era before the target's live log is estimated.
+      if (!(Date.parse(entry.at) < cutoffFor(entry, cutoffs))) continue;
       entries.push({ ...entry, source, at: isoAt(entry.at), role: roleFor({ ...entry, source }) });
     }
   }

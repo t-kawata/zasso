@@ -15,7 +15,8 @@ import {
   ticketsOf,
   ticketKeyOf,
 } from './progress-gif/parse.js';
-import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, buildTimeline, clamp01, displayDateKey, progressAt, replayHistoryProgress } from './progress-gif/loop.js';
+import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, buildTimeline, clamp01, displayDateKey, progressAt, replayHistoryProgress, reconcileProgressToReference, STAGE_ORDER } from './progress-gif/loop.js';
+import { collectHistoryCutoffs } from './progress-gif/backfill.js';
 import { historyRunMarkers, mergeHistoryRecords } from './progress-gif/history.js';
 import { aggregateUsage, dailySeries, expandHome } from './progress-gif/usage.js';
 import { CACHE_FILE_NAME } from './progress-gif/usage-cache.js';
@@ -60,6 +61,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
     scale: 1,
     maxBytes: DEFAULT_MAX_BYTES,
     snapshotDir: null,
+    referenceSnapshot: null,
+    allowUncovered: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -75,6 +78,9 @@ export function parseArgs(argv = process.argv.slice(2)) {
     else if (argument === '--scale') options.scale = Math.max(0.5, Math.min(3, Number(argv[++index]) || 1));
     else if (argument === '--max-bytes') options.maxBytes = Math.max(1, Number(argv[++index]) || DEFAULT_MAX_BYTES);
     else if (argument === '--snapshot-dir') options.snapshotDir = argv[++index];
+    else if (argument === '--reference-snapshot') options.referenceSnapshot = argv[++index];
+    else if (argument.startsWith('--reference-snapshot=')) options.referenceSnapshot = argument.slice('--reference-snapshot='.length);
+    else if (argument === '--allow-uncovered') options.allowUncovered = true;
     else throw new Error(`unknown argument: ${argument}\nusage: node draw-progress-gif.js -t <workspace> [options]`);
   }
   if (!options.target) throw new Error('usage: node draw-progress-gif.js -t <workspace> [options]: target is required');
@@ -194,6 +200,37 @@ function growthEventsOf(pkg, artifacts) {
   }));
 }
 
+/**
+ * Exact command-written receipts that can complete a run missing from the live
+ * log. These are not estimates: the producing command wrote the timestamp.
+ */
+export function receiptEventsOf(packageId, artifacts) {
+  const events = [];
+  const add = (stage, value, evidenceKey) => {
+    const at = typeof value === 'number' ? value : Date.parse(value);
+    if (!Number.isFinite(at)) return;
+    events.push({
+      stage, packageId, t: at, prec: 'ms', evidence: 'status', timeSource: 'history',
+      recordId: `receipt:${packageId}:${stage}:${at}`, recordSource: 'status', role: 'pipeline',
+      receipt: true, evidenceKey,
+    });
+  };
+  const receiptOf = (status) => status && status.receipt && (status.receipt.recordedAt || status.receipt.recorded_at);
+  for (const [stage, status] of [
+    ['graphify', artifacts.graphStatus],
+    ['boundify', artifacts.boundifyStatus],
+    ['split', artifacts.splitStatus],
+  ]) add(stage, receiptOf(status), `${packageId}/${stage}`);
+  for (const item of artifacts.manifests || []) add('consolidate', item.t, `${packageId}/${item.name}`);
+  for (const item of artifacts.omissions || []) {
+    add('find', item.t, `${packageId}/${item.name}`);
+    // The model credits consolidation when omission evidence exists, so the
+    // omission run is the receipt for a consolidate bar with no manifest.
+    if ((artifacts.manifests || []).length === 0) add('consolidate', item.t, `${packageId}/${item.name}`);
+  }
+  return events;
+}
+
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
 function initialTimeOf(root, tree, alloc, treePath) {
   const manifest = (tree.run && parseTimestamp(tree.run.generated_at))
@@ -221,6 +258,7 @@ export function analyzeWorkspace(root, options = {}) {
   const artifactRuns = [];
   const historyRecords = [];
   const backfillRecords = [];
+  const receiptEvents = [];
   const packageDirs = new Set(discovered.packages.map((pkg) => pkg.dir));
   for (const pkg of discovered.packages) {
     const artifacts = discoverPackageArtifacts(root, pkg, warnings);
@@ -233,6 +271,7 @@ export function analyzeWorkspace(root, options = {}) {
     artifactRuns.push(...historyRunMarkers(pkg.id, artifacts.historyRecords));
     historyRecords.push(...artifacts.historyRecords);
     backfillRecords.push(...(artifacts.backfillRecords || []));
+    receiptEvents.push(...receiptEventsOf(pkg.id, artifacts));
   }
   artifactRuns.push(...historyRunMarkers(null, workspaceArtifacts.historyRecords));
   historyRecords.push(...workspaceArtifacts.historyRecords);
@@ -241,7 +280,12 @@ export function analyzeWorkspace(root, options = {}) {
   const mergedRecords = mergeHistoryRecords(historyRecords, backfillRecords);
   const historyMode = mergedRecords.some((record) => record.event === 'finish');
   const replay = historyMode ? replayHistoryProgress(mergedRecords, packages) : null;
-  const events = historyMode ? replay.events : artifactEvents;
+  const referenceSnapshot = historyMode ? readReferenceSnapshot(root, options, warnings) : null;
+  const cutoffs = historyMode ? collectHistoryCutoffs(root, discovered.packages) : {};
+  const reconciled = historyMode
+    ? reconcileProgressToReference(replay.events, packages, { referenceSnapshot, cutoffs, initialT, receiptEvents })
+    : { events: artifactEvents, checkpointEvents: [], uncovered: [] };
+  const events = historyMode ? reconciled.events : artifactEvents;
   const runs = historyMode ? replay.runs : artifactRuns;
   const earliestEventT = events.reduce((earliest, event) => Math.min(earliest, event.t), Number.POSITIVE_INFINITY);
   const timelineInitialT = historyMode && Number.isFinite(earliestEventT)
@@ -254,10 +298,26 @@ export function analyzeWorkspace(root, options = {}) {
   });
   model.historyRecordCount = mergedRecords.length;
   model.backfillCount = backfillRecords.length;
+  model.referenceSnapshot = referenceSnapshot;
+  model.receiptCount = receiptEvents.length;
+  model.completionCount = (reconciled.completionEvents || []).length;
+  model.checkpointCount = reconciled.checkpointEvents.length;
+  model.uncovered = reconciled.uncovered;
   // The future-sanity bound is anchored to the render clock, not to the
   // workspace origin, so a legitimate late stage is never mistaken for skew.
   if (Number.isFinite(options.now)) model.analysisTime = options.now;
-  const previous = readPreviousProgress(root, options, warnings, model);
+  let previous = readPreviousProgress(root, options, warnings, model);
+  if (referenceSnapshot && Number.isFinite(Date.parse(referenceSnapshot.generatedAt))) {
+    const referenceT = Date.parse(referenceSnapshot.generatedAt);
+    // A repair must compare against the last accepted snapshot, not the broken
+    // render it is replacing.
+    previous = {
+      value: progressAt(model, referenceT),
+      t: referenceT,
+      source: 'reference',
+      path: options.referenceSnapshot || null,
+    };
+  }
   model.previousProgress = previous && Number.isFinite(previous.value) ? clamp01(previous.value) : null;
   if (previous) {
     model.previousRender = { t: previous.t, source: previous.source, path: previous.path };
@@ -276,6 +336,20 @@ function readPreviousSnapshot(root, options, warnings) {
   const snapshotDir = snapshotDirectory(root, options, path.join(root, 'progress-gif'));
   const newest = listSnapshots(snapshotDir, Number.isFinite(options.now) ? options.now : Date.now())[0];
   return newest ? readSnapshot(newest.path) : null;
+}
+
+/**
+ * The accepted visual checkpoint. A repair passes the last known-good snapshot
+ * explicitly, because the newest snapshot may be the broken render being replaced.
+ */
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
+function readReferenceSnapshot(root, options, warnings) {
+  if (options.referenceSnapshot) {
+    const snapshot = readSnapshot(path.resolve(options.referenceSnapshot));
+    if (snapshot) return snapshot;
+    warnings.push(`[snapshot] ${options.referenceSnapshot}: unreadable; falling back to the newest snapshot`);
+  }
+  return readPreviousSnapshot(root, options, warnings);
 }
 
 /**
@@ -417,11 +491,18 @@ export async function run(root, options) {
     model.warnings.push(...fitted.warnings);
   }
   const frames = buildFrames(model, options);
+  const finalFrame = frames[frames.length - 1];
+  const finalPackages = model.packages.map((pkg, index) => ({
+    id: pkg.id,
+    stages: Object.fromEntries(STAGE_ORDER.map((stage, stageIndex) => [stage, finalFrame.pi[index][stageIndex]])),
+  }));
   const violations = validateTimeline({
     model,
     timeline: buildTimeline(model),
-    previousSnapshot: readPreviousSnapshot(root, options, model.warnings),
+    previousSnapshot: model.referenceSnapshot,
     artifactModel: { packages: model.packages },
+    finalModel: { packages: finalPackages },
+    uncovered: model.uncovered || [],
   });
   model.timelineHealth = {
     mode: model.timelineMode,
@@ -429,9 +510,12 @@ export async function run(root, options) {
     warnings: violations.filter((violation) => violation.severity === 'warning').map((violation) => violation.code),
     eventCount: model.events.length,
     backfillCount: model.backfillCount || 0,
+    checkpointCount: model.checkpointCount || 0,
+    uncovered: (model.uncovered || []).map((entry) => `${entry.stage}:${entry.packageId || 'workspace'}`),
     finalStateParity: violations.some((violation) => violation.code === 'FINAL_STATE_MISMATCH') ? 'mismatch' : 'ok',
   };
-  const fatal = violations.filter((violation) => violation.severity !== 'warning');
+  const fatal = violations.filter((violation) => violation.severity !== 'warning'
+    && !(options.allowUncovered && (violation.code === 'UNCOVERED_ARTIFACT_STAGE' || violation.code === 'FINAL_STATE_MISMATCH')));
   if (fatal.length > 0) {
     for (const violation of fatal) {
       process.stderr.write(`[timeline] ${violation.code} ${violation.packageId ?? ''} ${violation.stage ?? ''} ${violation.detail}\n`);
@@ -457,7 +541,6 @@ export async function run(root, options) {
   });
   const htmlPath = `${base}.html`;
   writeHtmlFile(htmlPath, html);
-  const finalFrame = frames[frames.length - 1];
   const overallProgress = finalFrame && Number.isFinite(finalFrame.overallProgress)
     ? finalFrame.overallProgress
     : null;

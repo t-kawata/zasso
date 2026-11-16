@@ -67461,6 +67461,79 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-16",
           "reviewed_at": "2026-11-16T04:55:31.873Z"
+        },
+        {
+          "id": 434,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Restore pre-history backfill and reference checkpoint for the progress timeline",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-434.md",
+          "background": "PX-433 made the history log the timeline clock, but the 2026-11-16 renders collapsed because the pre-history was never backfilled and the previous snapshot was not used as a checkpoint. This ticket restores a strict pre-history estimate, uses the accepted snapshot as a state checkpoint, and fails closed on structural order breakage.",
+          "scope": [
+            "Strict per-target history cutoff for backfill",
+            "Reference snapshot checkpoint and two-point progress scaling",
+            "Workspace-scoped educe/smooth normalization",
+            "All implementation runs carry progress",
+            "Causal order and previous-state validation",
+            "Uncovered artifact targets are named"
+          ],
+          "testUnit": [
+            "UT: backfill emits only evidence before the target history cutoff",
+            "UT: backfill never re-emits live history",
+            "UT: repeated implementation runs all carry progress",
+            "UT: educe is workspace-scoped",
+            "UT: events are scaled to the reference checkpoint and artifact end",
+            "UT: previous snapshot without timelineHealth anchors validation",
+            "UT: explain before educe is a causal violation"
+          ],
+          "testIntegration": [
+            "IT: gaia render reaches 39.28% and zero violations",
+            "IT: crystal render reaches 59.83% and zero violations",
+            "IT: doors render names its two post-history gaps"
+          ],
+          "testExceptions": [
+            "Cannot test the real three-repository snapshots in unit tests because their evidence is workspace data; the integration run covers them"
+          ],
+          "default_files": [
+            "tools/conver/.claude/scripts/conver/progress-gif/backfill.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/loop.js",
+            "tools/conver/.claude/scripts/conver/progress-gif/validator.js",
+            "tools/conver/.claude/scripts/conver/draw-progress-gif.js",
+            "tools/conver/.claude/scripts/conver/backfill-history.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: only evidence before each target history file is backfilled",
+            "Error case: a causal order violation or previous-state mismatch blocks HTML publication",
+            "Edge case: a missing post-history record is named as UNCOVERED_ARTIFACT_STAGE, not estimated"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "backfill-cutoff",
+              "precondition": "A target directory has a .conver-history.jsonl",
+              "postcondition": "Only evidence strictly before the first finish is emitted",
+              "invariant": "No live record is re-emitted"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "reference-checkpoint",
+              "precondition": "A previous snapshot exists",
+              "postcondition": "The displayed state at the snapshot time matches its package stages",
+              "invariant": "The current artifact is the end state"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "causal-order",
+              "precondition": "A timeline has stage events",
+              "postcondition": "educe precedes explain, graphify precedes boundify, boundify precedes split",
+              "invariant": "A consumer never precedes its producer"
+            }
+          ],
+          "startedAt": "2026-11-16",
+          "completedAt": "2026-11-16",
+          "done_at": "2026-11-16T05:40:09.842Z",
+          "instrumentation": "TDD impact set: 145 tests passed. Quality: 0 findings. Annotations verified. Real renders with zero timeline violations: gaia 39.28%, crystal 59.83%, doors 47.05%.",
+          "notes": "Strict pre-history cutoff; previous snapshot checkpoint; workspace scope; every implementation run carries progress; causal and previous-state validation; uncovered stages are named, never estimated.\nDoors completion used exact command-written receipts only: boundify pkg-0005 status receipt.recordedAt; consolidate pkg-0008 omission stamp. No post-history estimation remains."
         }
       ]
     },

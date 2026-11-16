@@ -1,3 +1,4 @@
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
 // PX-433 @verifies C001
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -67,10 +68,11 @@ test('C001: buildBackfillRecords is deterministic and provenance-labelled', () =
   const ids = first.map((record) => record.backfillId);
   assert.equal(new Set(ids).size, ids.length);
   assert.equal(first.find((record) => record.source === 'git').confidence, 'approx');
-  assert.equal(first.find((record) => record.source === 'history').confidence, 'exact');
+  assert.equal(first.some((record) => record.source === 'history'), false);
+  assert.equal(first.find((record) => record.source === 'ticket').confidence, 'exact');
 });
 
-test('C001: history wins over a status duplicate for the same stage and package', () => {
+test('C001: the live log is never re-emitted; status evidence supplies the backfill record', () => {
   const at = '2026-11-07T12:30:54.038Z';
   const evidence = {
     history: [historyRecord({ at })],
@@ -82,8 +84,7 @@ test('C001: history wins over a status duplicate for the same stage and package'
   const graphify = records.filter((record) => record.stage === 'graphify' && record.packageId === 'pkg-1');
 
   assert.equal(graphify.length, 1);
-  assert.equal(graphify[0].source, 'history');
-  assert.equal(graphify[0].confidence, 'exact');
+  assert.equal(graphify[0].source, 'status');
 });
 
 test('C001: writeBackfillFile is idempotent', () => {

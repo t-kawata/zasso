@@ -1,3 +1,4 @@
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
 // PX-433 @verifies C003
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,7 +36,7 @@ test('C003: pre-review consolidate-stubs is maintenance; post-review is pipeline
   assert.equal(classifyCommandRole({ command: 'graphify-rfc', firstForPackage: false }), COMMAND_ROLES.REVISION);
 });
 
-test('C003: maintenance and revision produce run markers but no stage event', () => {
+test('C003: maintenance and revision produce progress events without claiming the headline', () => {
   const packages = [packageModel({ id: 'pkg-1', total: 10 })];
   const records = [
     record({ stage: 'consolidate', command: 'consolidate-stubs', at: '2026-11-14T17:18:00.000Z', role: 'maintenance' }),
@@ -44,11 +45,20 @@ test('C003: maintenance and revision produce run markers but no stage event', ()
   ];
   const replay = replayHistoryProgress(records, packages);
 
-  assert.equal(replay.events.filter((event) => event.stage === 'consolidate').length, 0);
-  assert.equal(replay.events.filter((event) => event.stage === 'graphify').length, 0);
+  const consolidate = replay.events.filter((event) => event.stage === 'consolidate');
+  const graphify = replay.events.filter((event) => event.stage === 'graphify');
+  assert.equal(consolidate.length, 1);
+  assert.equal(consolidate[0].role, 'maintenance');
+  assert.equal(graphify.length, 1);
+  assert.equal(graphify[0].role, 'revision');
   assert.equal(replay.events.filter((event) => event.stage === 'make').length, 1);
   assert.equal(replay.runs.length, 3);
   assert.equal(replay.runs.find((run) => run.stage === 'consolidate').role, 'maintenance');
+
+  const model = makeModel({ packages, events: replay.events, runs: replay.runs });
+  const state = createFrameState(model, buildTimeline(model));
+  for (const event of buildTimeline(model).timeline) applyEvent(state, event);
+  assert.notEqual(state.lastStage, 'consolidate');
 });
 
 test('C003: only pipeline and evolution runs move the headline', () => {

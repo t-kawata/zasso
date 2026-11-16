@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-434 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-434 --for-spec --no-implementation-order`.
 /**
  * Build a provenance-labelled backfill ledger for the progress timeline.
  *
@@ -16,6 +17,7 @@ import { discoverPackageArtifacts, discoverPackages, readManifests } from './pro
 import {
   buildBackfillRecords,
   collectBackfillEvidence,
+  collectHistoryCutoffs,
   renderBackfillLedger,
   writeBackfillFile,
 } from './progress-gif/backfill.js';
@@ -59,7 +61,8 @@ export function main(argv = process.argv.slice(2)) {
   const historyRecords = readWorkspaceHistory(root, discovered.packages, warnings);
   const evidence = collectBackfillEvidence({ root, packages: discovered.packages, historyRecords });
   warnings.push(...evidence.warnings);
-  const records = buildBackfillRecords(evidence);
+  const cutoffs = collectHistoryCutoffs(root, discovered.packages);
+  const records = buildBackfillRecords(evidence, { cutoffs });
 
   if (options.output) {
     fs.writeFileSync(path.resolve(options.output), `${renderBackfillLedger(records)}\n`, 'utf8');
