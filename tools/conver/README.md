@@ -1331,6 +1331,12 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 HTML viewer under `<workspace>/progress-gif/YYYYMMDDhhmmss.html` and opens it. The browser
 Canvas renders the board and downloads `YYYYMMDDhhmmss.gif`.
 
+The timeline is a replay of `.conver-history.jsonl` plus the provenance-labelled
+`.conver-history.backfill.jsonl`; artifact mtimes never order an event. Rebuild a workspace's
+pre-history once with `node .claude/scripts/conver/backfill-history.js --root=<workspace>
+--dry-run`, then `--apply`; validate with `node .claude/scripts/conver/validate-timeline.js
+--root=<workspace>`. The full invariant is in `docs/progress-gif/TIMELINE-CONTRACT.md`.
+
 The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a dark board with a
 package grid on the left, a vertical 17-stage ladder on the right, and one circular cell per
 package. The cell interior is a phyllotaxis dot field; dots light up with stage progress and

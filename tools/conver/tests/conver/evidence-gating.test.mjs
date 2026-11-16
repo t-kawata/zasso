@@ -117,8 +117,10 @@ test('C002: history wins when it is earlier than the status runId', () => {
   assert.equal(split.timeSource, 'history');
 });
 
-test('C002: status wins when it is earlier than the history finish', () => {
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+test('C002: history is the only clock when a status file is earlier', () => {
   const statusTime = Date.parse('2026-11-04T12:00:00.000Z');
+  const historyTime = Date.parse('2026-11-04T13:00:00.000Z');
   const root = onePackage({
     'pkg-1/Tickets.json': emptyTickets(),
     'pkg-1/RFC-SPLIT-Status.json': splitStatus(`${statusTime}000000-1`),
@@ -128,8 +130,8 @@ test('C002: status wins when it is earlier than the history finish', () => {
   const model = analyzeWorkspace(root, { sourceScan: false });
   const split = model.events.find((event) => event.stage === 'split');
 
-  assert.equal(split.t, statusTime);
-  assert.equal(split.timeSource, 'status');
+  assert.equal(split.t, historyTime);
+  assert.equal(split.timeSource, 'history');
 });
 
 test('C002: a history finish without a status credits split progress', () => {
@@ -170,8 +172,8 @@ test('C002: the earliest COMPLETE finish wins over a later one', () => {
   assert.equal(split.t, Date.parse(first));
 });
 
-test('C002: later artifact mtimes do not move an earlier status completion', () => {
-  const statusTime = Date.parse('2026-10-26T00:35:54.000Z');
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+test('C002: a status file and mtime cannot create a second educe clock', () => {
   const historyTime = Date.parse('2026-11-04T13:16:11.398Z');
   const root = onePackage({
     'educe-sequences/status.json': {
@@ -187,11 +189,9 @@ test('C002: later artifact mtimes do not move an earlier status completion', () 
   const model = analyzeWorkspace(root, { sourceScan: false });
   const educeEvents = model.events.filter((event) => event.stage === 'educe');
 
-  assert.ok(educeEvents.length > 0);
-  assert.ok(educeEvents.every((event) => event.t <= Date.parse('2026-10-27T00:00:00Z')));
-  assert.ok(educeEvents.every((event) => event.t < historyTime));
-  assert.ok(educeEvents.every((event) => event.timeSource !== 'history'));
-  assert.ok(educeEvents.every((event) => event.t !== statusTime || event.timeSource === 'status'));
+  assert.equal(educeEvents.length, 1);
+  assert.equal(educeEvents[0].t, historyTime);
+  assert.equal(educeEvents[0].timeSource, 'history');
 });
 
 test('C009: graphify and boundify artifacts without status or history are uncredited and warned', () => {

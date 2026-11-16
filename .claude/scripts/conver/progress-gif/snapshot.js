@@ -76,7 +76,12 @@ export function computePreviousProgress(snapshot) {
   return clamp01(computeDensity(globalStage));
 }
 
-/** Project a model onto the compact snapshot shape written after every run. */
+/**
+ * Project a model onto the compact snapshot shape written after every run.
+ * `timelineHealth` arrives through `extra`; older snapshots without it remain
+ * readable.
+ */
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
 export function snapshotFromModel(model, extra = {}) {
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   return {

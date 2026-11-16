@@ -10,7 +10,16 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** The file every package and the workspace root may carry. */
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
 export const HISTORY_FILE_NAME = '.conver-history.jsonl';
+
+/** The provenance-labelled sibling written by the one-time backfill. */
+export const BACKFILL_FILE_NAME = '.conver-history.backfill.jsonl';
+
+/** The provenance fields a backfill record may carry. */
+export const HISTORY_SOURCES = Object.freeze(['history', 'status', 'ticket', 'git']);
+export const HISTORY_CONFIDENCE = Object.freeze(['exact', 'approx', 'unknown']);
+export const HISTORY_ROLES = Object.freeze(['pipeline', 'maintenance', 'revision', 'evolution']);
 
 /** The schema version this reader accepts. */
 export const HISTORY_SCHEMA_VERSION = 1;
@@ -64,6 +73,12 @@ export function validateHistoryRecord(record) {
   if (typeof record.at !== 'string' || Number.isNaN(Date.parse(record.at))) return 'has no ISO-8601 at';
   if (record.event === 'finish' && !HISTORY_STATUSES.includes(record.status)) return 'has an unknown status';
   if (record.event === 'finish' && !Array.isArray(record.addedTicketKeys)) return 'has no addedTicketKeys';
+  if (record.source !== undefined && !HISTORY_SOURCES.includes(record.source)) return 'has an unknown source';
+  if (record.confidence !== undefined && !HISTORY_CONFIDENCE.includes(record.confidence)) return 'has an unknown confidence';
+  if (record.role !== undefined && !HISTORY_ROLES.includes(record.role)) return 'has an unknown role';
+  if (record.backfillId !== undefined && (typeof record.backfillId !== 'string' || record.backfillId.length === 0)) return 'has an invalid backfillId';
+  if (record.ticketKey !== undefined && typeof record.ticketKey !== 'string') return 'has an invalid ticketKey';
+  if (record.delta !== undefined && (!Number.isFinite(record.delta) || record.delta < 0)) return 'has an invalid delta';
   return null;
 }
 
@@ -121,6 +136,54 @@ export function appendHistoryRecord(targetDir, record) {
 
   appendFileSync(file, `${line}\n`, 'utf8');
   return { ok: true, appended: true };
+}
+
+/**
+ * Merge live history with the backfill ledger. A live record wins when both
+ * describe the same backfillId, so the one-time migration can never overwrite
+ * a command-written record.
+ */
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+export function mergeHistoryRecords(historyRecords = [], backfillRecords = []) {
+  const byId = new Map();
+  const add = (record) => {
+    const key = record.backfillId || `${record.runId}\u0000${record.event}`;
+    if (!byId.has(key)) byId.set(key, record);
+  };
+  for (const record of historyRecords) add(record);
+  for (const record of backfillRecords) add(record);
+  return [...byId.values()].sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
+}
+
+/** Read the provenance-labelled backfill ledger; a bad line is a warning. */
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+export function readBackfillFile(file) {
+  if (!existsSync(file)) return { records: [], warnings: [] };
+  let text;
+  try {
+    text = readFileSync(file, 'utf8');
+  } catch (error) {
+    return { records: [], warnings: [`[backfill] ${file}: ${error.message}`] };
+  }
+  const records = [];
+  const warnings = [];
+  text.split('\n').forEach((line, index) => {
+    if (line.trim() === '') return;
+    let record;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      warnings.push(`[backfill] ${file}: line ${index + 1} is not JSON`);
+      return;
+    }
+    const problem = validateHistoryRecord(record);
+    if (problem !== null) {
+      warnings.push(`[backfill] ${file}: line ${index + 1} ${problem}`);
+      return;
+    }
+    records.push(record);
+  });
+  return { records, warnings };
 }
 
 /**

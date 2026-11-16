@@ -106,7 +106,8 @@ test('C004: two COMPLETE runs emit two markers and never exceed progress 1', () 
   assert.ok(frames.every((frame) => frame.pi.every((stages) => stages[DRILL_INDEX] <= 1)));
 });
 
-test('C005: a BLOCKED_PREREQUISITE run is not drawn and adds no progress', () => {
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+test('C005: a BLOCKED_PREREQUISITE drill attempt is a marker with no progress', () => {
   const root = historyWorkspace({
     drillStatus: { state: 'DONE', currentStep: '1-12', updatedAt: '2026-11-05T00:00:00.000Z' },
     records: [finish('run-1', '2026-11-04T12:00:00.000Z', 'BLOCKED_PREREQUISITE')],
@@ -116,8 +117,9 @@ test('C005: a BLOCKED_PREREQUISITE run is not drawn and adds no progress', () =>
   const frames = buildFrames(model, { frames: 40 });
   const markers = frames.flatMap((frame) => frame.runs || []).filter((run) => run.stage === 'drill');
 
-  assert.equal(markers.length, 0);
-  assert.ok(frames.every((frame) => frame.pi.every((stages) => stages[DRILL_INDEX] <= 1)));
+  assert.equal(markers.length, 1);
+  assert.equal(markers[0].status, 'BLOCKED_PREREQUISITE');
+  assert.ok(frames.every((frame) => frame.pi.every((stages) => stages[DRILL_INDEX] === 0)));
 });
 
 test('C005: a start-only run is not drawn and adds no progress and no growth', () => {

@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
+  HISTORY_ROLES,
   HISTORY_STAGES,
   HISTORY_STATUSES,
   appendHistoryRecord,
@@ -23,7 +24,7 @@ import {
   readHistoryFile,
 } from './progress-gif/history.js';
 
-const USAGE = 'usage: run-history.js start|finish --command=<name> --stage=<stage> [--status=<status>] [--added-ticket-key=<key>] [--root=<dir>] [--package=<id>]';
+const USAGE = 'usage: run-history.js start|finish --command=<name> --stage=<stage> [--status=<status>] [--added-ticket-key=<key>] [--root=<dir>] [--package=<id>] [--role=<pipeline|maintenance|revision|evolution>] [--ticket-key=<key>] [--delta=<number>]';
 
 /** Walk up from start until the workspace tree manifest is found. */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
@@ -107,12 +108,30 @@ function readFinishes(targetDir) {
   );
 }
 
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+function optionalRoleFields(options) {
+  if (options.role !== undefined && !HISTORY_ROLES.includes(options.role)) {
+    return { warning: `[history] unknown role ${options.role}` };
+  }
+  if (options.delta !== undefined && (!Number.isFinite(options.delta) || options.delta < 0)) {
+    return { warning: `[history] invalid delta ${options.delta}` };
+  }
+  const fields = {};
+  if (options.role !== undefined) fields.role = options.role;
+  if (options.ticketKey !== undefined) fields.ticketKey = options.ticketKey;
+  if (options.delta !== undefined) fields.delta = options.delta;
+  return { fields };
+}
+
 /** Append a start record. Never throws; a failure is returned as a warning. */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
-export function recordStart({ root, cwd, command, stage, packageId } = {}) {
+export function recordStart(options = {}) {
+  const { root, cwd, command, stage, packageId, role, ticketKey, delta } = options;
   const target = resolveTarget({ root, cwd, packageId });
   if (!target.ok) return target;
   if (!HISTORY_STAGES.includes(stage)) return { ok: false, warning: `[history] unknown stage ${stage}` };
+  const optional = optionalRoleFields({ role, ticketKey, delta });
+  if (optional.warning) return { ok: false, warning: optional.warning };
 
   try {
     return appendHistoryRecord(target.targetDir, {
@@ -123,6 +142,7 @@ export function recordStart({ root, cwd, command, stage, packageId } = {}) {
       stage,
       packageId: target.packageId,
       at: new Date().toISOString(),
+      ...optional.fields,
     });
   } catch (error) {
     return { ok: false, warning: `[history] ${error.message}` };
@@ -136,11 +156,13 @@ export function recordStart({ root, cwd, command, stage, packageId } = {}) {
  */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 export function recordFinish(options = {}) {
-  const { root, cwd, command, stage, status, addedTicketKeys = [], packageId } = options;
+  const { root, cwd, command, stage, status, addedTicketKeys = [], packageId, role, ticketKey, delta } = options;
   const target = resolveTarget({ root, cwd, packageId });
   if (!target.ok) return target;
   if (!HISTORY_STAGES.includes(stage)) return { ok: false, warning: `[history] unknown stage ${stage}` };
   if (!HISTORY_STATUSES.includes(status)) return { ok: false, warning: `[history] unknown status ${status}` };
+  const optional = optionalRoleFields({ role, ticketKey, delta });
+  if (optional.warning) return { ok: false, warning: optional.warning };
 
   try {
     const { records } = readHistoryFile(historyPathOf(target.targetDir));
@@ -168,6 +190,7 @@ export function recordFinish(options = {}) {
       at: new Date().toISOString(),
       status,
       addedTicketKeys: [...new Set(addedTicketKeys)],
+      ...optional.fields,
     });
   } catch (error) {
     return { ok: false, warning: `[history] ${error.message}` };
@@ -204,7 +227,7 @@ export async function withRunHistory(options, work) {
 
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 export function parseArgs(argv) {
-  const options = { operation: null, command: null, stage: null, status: 'COMPLETE', root: null, packageId: undefined, addedTicketKeys: [] };
+  const options = { operation: null, command: null, stage: null, status: 'COMPLETE', root: null, packageId: undefined, addedTicketKeys: [], role: undefined, ticketKey: undefined, delta: undefined };
   for (const argument of argv) {
     if (!argument.startsWith('--') && options.operation === null) options.operation = argument;
     else if (argument.startsWith('--command=')) options.command = argument.slice('--command='.length);
@@ -215,6 +238,12 @@ export function parseArgs(argv) {
       const value = argument.slice('--package='.length);
       options.packageId = value === '' || value === 'null' ? null : value;
     } else if (argument.startsWith('--added-ticket-key=')) options.addedTicketKeys.push(argument.slice('--added-ticket-key='.length));
+    else if (argument.startsWith('--role=')) options.role = argument.slice('--role='.length);
+    else if (argument.startsWith('--ticket-key=')) options.ticketKey = argument.slice('--ticket-key='.length);
+    else if (argument.startsWith('--delta=')) {
+      const value = Number(argument.slice('--delta='.length));
+      options.delta = Number.isFinite(value) ? value : argument.slice('--delta='.length);
+    }
   }
   return options;
 }

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { HISTORY_FILE_NAME, readHistoryFile } from './history.js';
+import { BACKFILL_FILE_NAME, HISTORY_FILE_NAME, readBackfillFile, readHistoryFile } from './history.js';
 
 export const DECOY_RE = /(\.delta\.json$|\.bak$|\.p22-ja\.bak$)/;
 export const SKIP_DIRS = new Set(['node_modules', '.git', 'target', 'dist', 'archive', 'progress-gif', 'vendor', 'fixtures']);
@@ -287,6 +287,7 @@ function collectStampedFiles(dir, pattern) {
 }
 
 /** Read every artifact the progress model can use from one package directory. */
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
 export function discoverPackageArtifacts(root, pkg, warnings) {
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const dir = pkg.dir;
@@ -332,10 +333,15 @@ export function discoverPackageArtifacts(root, pkg, warnings) {
   const history = readHistoryFile(artifacts.historyPath);
   artifacts.historyRecords = history.records;
   warnings.push(...history.warnings);
+  artifacts.backfillPath = path.join(dir, BACKFILL_FILE_NAME);
+  const backfill = readBackfillFile(artifacts.backfillPath);
+  artifacts.backfillRecords = backfill.records;
+  warnings.push(...backfill.warnings);
   return artifacts;
 }
 
 /** Read the workspace-level educe and smooth artifacts. */
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
 export function discoverWorkspaceArtifacts(root, warnings) {
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const sequences = listDir(root)
@@ -348,6 +354,9 @@ export function discoverWorkspaceArtifacts(root, warnings) {
   const historyPath = path.join(root, HISTORY_FILE_NAME);
   const history = readHistoryFile(historyPath);
   warnings.push(...history.warnings);
+  const backfillPath = path.join(root, BACKFILL_FILE_NAME);
+  const backfill = readBackfillFile(backfillPath);
+  warnings.push(...backfill.warnings);
   return {
     sequencesPath: sequences.length === 1 ? sequences[0] : null,
     educeStatus: readOptional(path.join(root, 'educe-sequences'), 'status.json', warnings),
@@ -356,5 +365,7 @@ export function discoverWorkspaceArtifacts(root, warnings) {
     smoothCertificate: readOptional(path.join(root, 'smooth-sequences'), 'COMPLETION-CERTIFICATE.json', warnings),
     historyPath,
     historyRecords: history.records,
+    backfillPath,
+    backfillRecords: backfill.records,
   };
 }

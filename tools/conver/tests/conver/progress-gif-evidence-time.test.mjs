@@ -286,10 +286,27 @@ test('resolve stage: timed crime records leave no floating-point remainder for a
   assert.equal(events.filter((event) => event.stage === 'resolve').length, 3);
 });
 
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
 test('resolve stage: the RESOLVE ladder bar reaches full after the recorded resolve run', () => {
+  const prerequisites = [
+    { stage: 'make', command: 'make-ticket', at: '2026-10-29T00:00:00.000Z' },
+    { stage: 'plan', command: 'plan-ticket', at: '2026-10-29T01:00:00.000Z' },
+    { stage: 'start', command: 'start-ticket', at: '2026-10-29T02:00:00.000Z' },
+    { stage: 'review', command: 'review-ticket', at: '2026-10-30T00:00:00.000Z' },
+  ].map((entry, index) => ({
+    v: 1,
+    runId: `2026102900000000${index}-${entry.command}-test`,
+    event: 'finish',
+    stage: entry.stage,
+    command: entry.command,
+    packageId: null,
+    at: entry.at,
+    status: 'COMPLETE',
+    addedTicketKeys: [],
+  }));
   const root = writeWorkspace({
     packages: [{ id: 'pkg-1', path: 'pkg-1' }],
-    files: { '.conver-history.jsonl': `${JSON.stringify(resolveHistory(null))}\n` },
+    files: { '.conver-history.jsonl': [...prerequisites, resolveHistory(null)].map((record) => JSON.stringify(record)).join('\n') + '\n' },
   });
   const model = analyzeWorkspace(root, { sourceScan: false });
   const frames = buildFrames(model, { frames: 40 });

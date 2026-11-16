@@ -5,6 +5,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -67,6 +68,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -129,6 +131,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -191,6 +194,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -253,6 +257,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -315,6 +320,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -377,6 +383,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -439,6 +446,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -501,6 +509,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -563,6 +572,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -625,6 +635,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -687,6 +698,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -749,6 +761,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -811,6 +824,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -873,6 +887,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -935,6 +950,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -997,6 +1013,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -1059,6 +1076,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -1121,6 +1139,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",
@@ -1183,6 +1202,7 @@
     "evidenceT": 1793491200000,
     "prec": "ms",
     "stage": "educe",
+    "timelineMode": "estimated",
     "packages": [
       {
         "id": "pkg-1",

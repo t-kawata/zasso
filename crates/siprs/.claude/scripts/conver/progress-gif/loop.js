@@ -25,6 +25,16 @@ export const HOLD_END_FRAMES = 12;
 // density. The explicit zero keeps every stage weighted in one positional array.
 export const STAGE_WEIGHT = Object.freeze([3, 3, 6, 3, 6, 6, 6, 6, 6, 14, 8, 6, 3, 6, 6, 4, 0]);
 const STAGE_INDEX = Object.freeze(Object.fromEntries(STAGE_ORDER.map((stage, index) => [stage, index])));
+
+/** The execution role of one history record. */
+export const COMMAND_ROLES = Object.freeze({
+  PIPELINE: 'pipeline',
+  MAINTENANCE: 'maintenance',
+  REVISION: 'revision',
+  EVOLUTION: 'evolution',
+});
+
+const COMMAND_ROLE_VALUES = new Set(Object.values(COMMAND_ROLES));
 const STAGE_WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
 // Only command-written evidence is trusted as a clock. An artifact mtime is
 // copied by a checkout, so it must yield to these sources.
@@ -525,12 +535,110 @@ export function historyDrillTime(records, packageId) {
  * phase-one sub-steps carry the fraction and the later gates keep it complete, so
  * a drill that advanced past phase one is never shown as zero.
  */
-function drillProgressFraction(status) {
+export function drillProgressFraction(status) {
   if (status.state === 'COMPLETE') return 1;
   const step = String(status.currentStep || '');
   const phaseOneStep = DRILL_PHASE1_STEP.exec(step);
   if (phaseOneStep) return Math.min(1, Number(phaseOneStep[1]) / DRILL_PHASE1_STEPS);
   return DRILL_GATE_STEP.test(step) ? 1 : 0;
+}
+
+/**
+ * The role a history record plays in the timeline.
+ *
+ * A maintenance or revision command is a real execution and is drawn as a run
+ * marker, but it must not advance the pipeline ladder. An evolution command
+ * (drill/amend) moves the headline and is also a marker.
+ */
+export function classifyCommandRole(record = {}, context = {}) {
+  if (record.role && COMMAND_ROLE_VALUES.has(record.role)) return record.role;
+  const command = String(record.command || '');
+  if (record.stage === 'drill' || record.stage === 'amend'
+    || command === 'drill-rfc-down' || command === 'amend-rfc-up') return COMMAND_ROLES.EVOLUTION;
+  if (command.includes('consolidate-stubs') || command.includes('find-omissions')) {
+    const reviewProgress = Number(record.reviewProgress ?? context.reviewProgress);
+    return Number.isFinite(reviewProgress) && reviewProgress > 0
+      ? COMMAND_ROLES.PIPELINE
+      : COMMAND_ROLES.MAINTENANCE;
+  }
+  const firstForPackage = record.firstForPackage ?? context.firstForPackage;
+  if (firstForPackage === false) return COMMAND_ROLES.REVISION;
+  return COMMAND_ROLES.PIPELINE;
+}
+
+/**
+ * Display gating for the per-package implementation loop.
+ *
+ * The stored fractions may arrive out of order (a later batch's find can run
+ * before an earlier batch's review). The display never shows a later stage
+ * ahead of its predecessor; the stored value is revealed when the predecessor
+ * catches up.
+ */
+export function gateImplementationProgress(progress) {
+  const gated = progress.slice();
+  for (let index = STAGE_INDEX.plan; index <= STAGE_INDEX.find; index += 1) {
+    gated[index] = Math.min(gated[index], gated[index - 1]);
+  }
+  return gated;
+}
+
+/**
+ * Replay merged history/backfill records into stage events and run markers.
+ *
+ * The live log is the clock: every event time is the record's own `at`. No
+ * artifact mtime and no per-stage display date participates in the ordering.
+ */
+export function replayHistoryProgress(records = [], packages = []) {
+  const ticketCounts = new Map(packages.map((pkg) => [pkg.id, Math.max(1, Number(pkg.tickets && pkg.tickets.total) || 0)]));
+  const reviewCounts = new Map();
+  let workspaceReviewed = false;
+  const firstSeen = new Set();
+  const events = [];
+  const runs = [];
+  const ordered = [...records]
+    .filter((record) => Number.isFinite(Date.parse(record.at)))
+    .sort((left, right) => Date.parse(left.at) - Date.parse(right.at)
+      || (STAGE_INDEX[left.stage] ?? 99) - (STAGE_INDEX[right.stage] ?? 99)
+      || String(left.packageId ?? '').localeCompare(String(right.packageId ?? ''))
+      || String(left.runId || '').localeCompare(String(right.runId || '')));
+
+  for (const record of ordered) {
+    if (record.event !== 'finish') continue;
+    if (record.status !== 'COMPLETE' && record.stage !== 'drill') continue;
+    const key = `${record.stage}\u0000${record.packageId ?? ''}`;
+    const reviewProgress = record.packageId
+      ? (reviewCounts.get(record.packageId) || 0) / (ticketCounts.get(record.packageId) || 1)
+      : (workspaceReviewed ? 1 : 0);
+    const role = classifyCommandRole(record, {
+      firstForPackage: !firstSeen.has(key),
+      reviewProgress,
+    });
+    const recordedAt = Date.parse(record.at);
+    runs.push({
+      t: recordedAt, prec: 'ms', stage: record.stage, packageId: record.packageId ?? null,
+      status: record.status, runId: record.runId, command: record.command,
+      role, evidence: 'history',
+    });
+    if (record.status === 'COMPLETE' && record.stage === 'review') {
+      if (record.packageId) reviewCounts.set(record.packageId, (reviewCounts.get(record.packageId) || 0) + 1);
+      else workspaceReviewed = true;
+    }
+    if (record.status !== 'COMPLETE') continue;
+    if (role !== COMMAND_ROLES.PIPELINE && role !== COMMAND_ROLES.EVOLUTION) continue;
+    const ticketCount = record.packageId ? (ticketCounts.get(record.packageId) || 1) : 1;
+    const inc = Number.isFinite(record.delta) && record.delta > 0
+      ? record.delta
+      : (STAGE_INDEX[record.stage] >= STAGE_INDEX.make && STAGE_INDEX[record.stage] <= STAGE_INDEX.find ? 1 / ticketCount : 1);
+    if (!(inc > 0)) continue;
+    events.push({
+      t: recordedAt, prec: 'ms', stage: record.stage, packageId: record.packageId ?? null,
+      inc, evidence: record.source || 'history', timeSource: 'history',
+      recordId: record.backfillId || record.runId,
+      recordSource: record.source || 'history', role,
+    });
+    firstSeen.add(key);
+  }
+  return { events, runs };
 }
 
 /** Derive one stage fraction per stage in STAGE_ORDER for one package. */
@@ -1058,7 +1166,7 @@ function parseStampFromMtime(file) {
 export function buildModel(input) {
   const {
     workspaceRoot, tree, allocate, packages, events, growthEvents, runs = [],
-    warnings, initialT, previousProgress = null,
+    warnings, initialT, previousProgress = null, timelineMode = 'estimated',
   } = input;
   const normalizedPreviousProgress = Number.isFinite(previousProgress)
     ? clamp01(previousProgress)
@@ -1087,6 +1195,7 @@ export function buildModel(input) {
     growthEvents: sortedGrowth,
     runs: sortedRuns,
     previousProgress: normalizedPreviousProgress,
+    timelineMode,
     totals,
     warnings: warnings || [],
   };
@@ -1228,7 +1337,7 @@ function createPackageModels(model) {
  * Group the model by stage. The ordinal order clock only needs the stage groups;
  * run and growth markers are decorations that never advance the stage frontier.
  */
-// [::TICKET::] PX-381 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-381 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-381, PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-381|PX-433) --for-spec --no-implementation-order`.
 function collectStageGroups(model) {
   const stageGroups = new Map();
   const decorations = [];
@@ -1246,6 +1355,9 @@ function collectStageGroups(model) {
       seq: seq++,
       timeSource: event.timeSource,
       evidence: event.evidence,
+      recordId: event.recordId,
+      recordSource: event.recordSource,
+      role: event.role,
     };
     const group = stageGroups.get(event.stage) || [];
     group.push(entry);
@@ -1275,6 +1387,8 @@ function collectStageGroups(model) {
       prec: run.prec || 'ms',
       status: run.status,
       runId: run.runId,
+      command: run.command,
+      role: run.role,
       seq: seq++,
       evidence: run.evidence,
     });
@@ -1538,17 +1652,21 @@ export function createFrameState(model, timeline) {
  * just ran: a stage or run event sets the displayed stage, including a revisit of
  * an earlier stage. A growth marker never moves the frontier in either path.
  */
-// [::TICKET::] PX-375, PX-391 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-375|PX-391) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-375, PX-391, PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-375|PX-391|PX-433) --for-spec --no-implementation-order`.
 function advanceStageFrontier(state, event) {
-  if (state.chronological) {
-    if (event.kind === 'stage' || event.kind === 'run') {
+  if (event.kind === 'run') {
+    if (event.role === COMMAND_ROLES.PIPELINE || event.role === COMMAND_ROLES.EVOLUTION) {
       state.lastStageIndex = STAGE_INDEX[event.stage];
       state.lastStage = STAGE_ORDER[state.lastStageIndex];
     }
     return;
   }
   if (event.kind !== 'stage') return;
-  state.lastStageIndex = Math.max(state.lastStageIndex, STAGE_INDEX[event.stage]);
+  if (state.chronological) {
+    state.lastStageIndex = STAGE_INDEX[event.stage];
+  } else {
+    state.lastStageIndex = Math.max(state.lastStageIndex, STAGE_INDEX[event.stage]);
+  }
   state.lastStage = STAGE_ORDER[state.lastStageIndex];
 }
 
@@ -1594,18 +1712,19 @@ export function applyEvent(state, event) {
 /** Project the current state into one frame payload. */
 // [::TICKET::] PX-374, PX-381, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-374|PX-381|PX-411) --for-spec --no-implementation-order`.
 export function frameFromState(state, model, index) {
+  const displayProgress = state.packageModels.map((pkg) => gateImplementationProgress(pkg.progress));
   const packageFrames = state.packageModels.map((pkg) => ({
     id: pkg.id,
     name: pkg.name,
     path: pkg.path,
     total: pkg.total,
     reviewedRatio: packageReviewedRatioAt((model.packages || [])[pkg.index], state.lastT),
-    density: computeDensity(pkg.progress),
+    density: computeDensity(displayProgress[pkg.index]),
   }));
   const globalStage = STAGE_ORDER.map((stage, stageIndex) => {
     const weight = state.packageModels.reduce((sum, pkg) => sum + pkg.weight, 0);
     if (weight <= 0) return 0;
-    const weighted = state.packageModels.reduce((sum, pkg) => sum + pkg.progress[stageIndex] * pkg.weight, 0);
+    const weighted = state.packageModels.reduce((sum, pkg) => sum + displayProgress[pkg.index][stageIndex] * pkg.weight, 0);
     return weighted / weight;
   });
   // Models built before the availability flag keep the old "records mean available" rule.
@@ -1630,8 +1749,9 @@ export function frameFromState(state, model, index) {
     evidenceT: state.lastEvidenceT,
     prec: state.lastPrec,
     stage: state.lastStage,
+    timelineMode: model.timelineMode === 'history' ? 'history' : 'estimated',
     packages: packageFrames,
-    pi: state.packageModels.map((pkg) => pkg.progress.slice()),
+    pi: displayProgress.map((progress) => progress.slice()),
     globalStage,
     overallProgress: computeDensity(globalStage),
     active: state.active.slice(),

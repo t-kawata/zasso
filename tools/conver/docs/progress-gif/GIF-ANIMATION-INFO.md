@@ -793,11 +793,16 @@ round counting. Missing `status` = `todo`.
 
 ## 8. Timeline reconstruction
 
+> **Superseded for history-backed workspaces by §19 and `TIMELINE-CONTRACT.md`.** This
+> section documents the ordinal estimated fallback used only when a workspace has no
+> `.conver-history.jsonl` and no `.conver-history.backfill.jsonl`. In the history-backed
+> path, `record.at` is the only order time and artifact mtime is never used.
+
 The GIF shows a process; the data is a snapshot. Reconstruct events as follows.
 
 ### 8.1 Event sources and precedence
 
-For each atom or stage transition, choose the first available time:
+For the no-history estimated path only, choose the first available time:
 
 1. explicit ISO timestamp in JSON (`generatedAt`, `measuredAt`, `updatedAt`, `createdAt`,
    `completedAt`, `detected_at`, `generationStartedAt`, `resolvedAt`);
@@ -829,11 +834,13 @@ Sort by time, then by stage index, then by package build order. When many files 
 commit/mtime (a clone or a version bump), treat them as one burst; the animation shows a
 single condensation pulse rather than 100 simultaneous births.
 
-Within one package, **stage time must be non-decreasing**: after computing each stage's
+Within one package in the estimated path, **stage time must be non-decreasing**: after computing each stage's
 time, clamp `t_s = max(t_s, t_{s-1})`. This is mandatory. A graph file can be regenerated
 after boundify (gaia's graph mtimes are newer than its Dirs-Tree), so mtime alone can put
 graphify after boundify. The status `runId` is authoritative for graphify/boundify/split
-and normally restores the true order; the clamp protects the timeline when it does not.
+and normally restores the true order; the clamp protects the estimated timeline when it does
+not. The history-backed path does not use this clamp; it uses the record order and the
+per-package implementation gate described in §19.
 
 ### 8.4 Warped animation time
 
@@ -1414,7 +1421,7 @@ grep -R --line-number --fixed-strings '[::STUB::]' \
 | **Atom** | One realised design/implementation unit, the particle of the animation. |
 | **Density** | Realised mass relative to expected mass, normalised per package and across the workspace. |
 | **Cell** | The spatial region belonging to one package. |
-| **Stage** | One of the 16 commands in the fixed label list. |
+| **Stage** | One of the 17 commands in the fixed label list. |
 | **Sub-stage** | Internal progress of a stage (steps, statuses, counts) encoded visually, never as text. |
 | **Scaffold** | Design-stage filaments (nodes/edges/contracts) that later matter fills. |
 | **Inclusion** | A dark knot or crack: unresolved stub or omission. |
@@ -1423,6 +1430,25 @@ grep -R --line-number --fixed-strings '[::STUB::]' \
 | **Verification** | An unchanged output digest; it advances no generation. |
 
 ---
+
+## 19. History-only timeline and backfill (PX-433)
+
+The timeline is a replay of the command log, not a projection of final artifact state. The
+ordering clock is the record's `at`; artifact mtime and the per-stage display estimate never
+order an event. See `docs/progress-gif/TIMELINE-CONTRACT.md` for the full contract.
+
+- `.conver-history.jsonl` is the live append-only log.
+- `.conver-history.backfill.jsonl` is the provenance-labelled one-time rebuild. A live record
+  wins on a duplicate `backfillId`.
+- Roles separate `pipeline` from `maintenance`, `revision`, and `evolution`. Maintenance and
+  revision are run markers only; evolution (drill/amend) moves the headline.
+- Per-package implementation progress is displayed as
+  `make <= plan <= start <= review <= resolve <= consolidate <= find`.
+- Blocked and repair drill attempts are evolution markers with zero drill progress; a
+  successful drill progresses from `drills/Status.json`.
+- `validate-timeline.js` fails closed on a missing record, collapsed order time, order skew,
+  or a history-to-history previous-progress mismatch. `FINAL_STATE_MISMATCH` is a warning.
+- Snapshots carry `timelineHealth`; older snapshots without it remain readable.
 
 ### Final instruction to the external AI
 

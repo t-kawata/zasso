@@ -15,13 +15,14 @@ import {
   ticketsOf,
   ticketKeyOf,
 } from './progress-gif/parse.js';
-import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, clamp01, displayDateKey, progressAt } from './progress-gif/loop.js';
-import { historyRunMarkers } from './progress-gif/history.js';
+import { derivePackageState, reconstructTicketGrowth, buildModel, buildFrames, buildTimeline, clamp01, displayDateKey, progressAt, replayHistoryProgress } from './progress-gif/loop.js';
+import { historyRunMarkers, mergeHistoryRecords } from './progress-gif/history.js';
 import { aggregateUsage, dailySeries, expandHome } from './progress-gif/usage.js';
 import { CACHE_FILE_NAME } from './progress-gif/usage-cache.js';
 import { computeLayout, formatPercent } from './progress-gif/layout.js';
 import { renderHtml } from './progress-gif/html.js';
 import { countUnresolvedStubs } from './progress-gif/stubs.js';
+import { validateTimeline } from './progress-gif/validator.js';
 import { fitFramesToCeiling } from './progress-gif/engine.js';
 import { DEFAULT_FRAMES, clampFrames } from './progress-gif/viewer.js';
 import { loadFontBundle, collectUsedText } from './progress-gif/fonts.js';
@@ -215,9 +216,11 @@ export function analyzeWorkspace(root, options = {}) {
   }
   const registry = Array.isArray(alloc.contract_registry) ? alloc.contract_registry : [];
   const packages = [];
-  const events = [];
+  const artifactEvents = [];
   const growthEvents = [];
-  const runs = [];
+  const artifactRuns = [];
+  const historyRecords = [];
+  const backfillRecords = [];
   const packageDirs = new Set(discovered.packages.map((pkg) => pkg.dir));
   for (const pkg of discovered.packages) {
     const artifacts = discoverPackageArtifacts(root, pkg, warnings);
@@ -225,15 +228,32 @@ export function analyzeWorkspace(root, options = {}) {
     artifacts.unresolvedStubs = options.sourceScan === false ? 0 : countUnresolvedStubs(pkg.dir, nested);
     const state = derivePackageState(pkg, artifacts, workspaceArtifacts, registry, warnings);
     packages.push(state.packageModel);
-    events.push(...state.events);
+    artifactEvents.push(...state.events);
     growthEvents.push(...growthEventsOf(pkg, artifacts));
-    runs.push(...historyRunMarkers(pkg.id, artifacts.historyRecords));
+    artifactRuns.push(...historyRunMarkers(pkg.id, artifacts.historyRecords));
+    historyRecords.push(...artifacts.historyRecords);
+    backfillRecords.push(...(artifacts.backfillRecords || []));
   }
-  runs.push(...historyRunMarkers(null, workspaceArtifacts.historyRecords));
+  artifactRuns.push(...historyRunMarkers(null, workspaceArtifacts.historyRecords));
+  historyRecords.push(...workspaceArtifacts.historyRecords);
+  backfillRecords.push(...(workspaceArtifacts.backfillRecords || []));
+
+  const mergedRecords = mergeHistoryRecords(historyRecords, backfillRecords);
+  const historyMode = mergedRecords.some((record) => record.event === 'finish');
+  const replay = historyMode ? replayHistoryProgress(mergedRecords, packages) : null;
+  const events = historyMode ? replay.events : artifactEvents;
+  const runs = historyMode ? replay.runs : artifactRuns;
+  const earliestEventT = events.reduce((earliest, event) => Math.min(earliest, event.t), Number.POSITIVE_INFINITY);
+  const timelineInitialT = historyMode && Number.isFinite(earliestEventT)
+    ? Math.min(initialT, earliestEventT)
+    : initialT;
   const model = buildModel({
     workspaceRoot: root, tree, allocate: alloc, packages, events, growthEvents, runs,
-    warnings, initialT, previousProgress: null,
+    warnings, initialT: timelineInitialT, previousProgress: null,
+    timelineMode: historyMode ? 'history' : 'estimated',
   });
+  model.historyRecordCount = mergedRecords.length;
+  model.backfillCount = backfillRecords.length;
   // The future-sanity bound is anchored to the render clock, not to the
   // workspace origin, so a legitimate late stage is never mistaken for skew.
   if (Number.isFinite(options.now)) model.analysisTime = options.now;
@@ -248,6 +268,14 @@ export function analyzeWorkspace(root, options = {}) {
 // [::TICKET::] PX-349, PX-353 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-353) --for-spec --no-implementation-order`.
 function snapshotDirectory(root, options, outputDir = path.join(root, 'progress-gif')) {
   return options.snapshotDir || path.join(outputDir, 'snapshots');
+}
+
+/** Read the newest snapshot for the previous-progress round-trip check. */
+// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+function readPreviousSnapshot(root, options, warnings) {
+  const snapshotDir = snapshotDirectory(root, options, path.join(root, 'progress-gif'));
+  const newest = listSnapshots(snapshotDir, Number.isFinite(options.now) ? options.now : Date.now())[0];
+  return newest ? readSnapshot(newest.path) : null;
 }
 
 /**
@@ -389,9 +417,30 @@ export async function run(root, options) {
     model.warnings.push(...fitted.warnings);
   }
   const frames = buildFrames(model, options);
+  const violations = validateTimeline({
+    model,
+    timeline: buildTimeline(model),
+    previousSnapshot: readPreviousSnapshot(root, options, model.warnings),
+    artifactModel: { packages: model.packages },
+  });
+  model.timelineHealth = {
+    mode: model.timelineMode,
+    violations: violations.map((violation) => violation.code),
+    warnings: violations.filter((violation) => violation.severity === 'warning').map((violation) => violation.code),
+    eventCount: model.events.length,
+    backfillCount: model.backfillCount || 0,
+    finalStateParity: violations.some((violation) => violation.code === 'FINAL_STATE_MISMATCH') ? 'mismatch' : 'ok',
+  };
+  const fatal = violations.filter((violation) => violation.severity !== 'warning');
+  if (fatal.length > 0) {
+    for (const violation of fatal) {
+      process.stderr.write(`[timeline] ${violation.code} ${violation.packageId ?? ''} ${violation.stage ?? ''} ${violation.detail}\n`);
+    }
+    return { model, frames, output: null, violations };
+  }
   if (options.dryRun) {
     process.stdout.write(markdownReport(model, options, null, estimatedLayout, frames));
-    return { model, frames, output: null };
+    return { model, frames, output: null, violations };
   }
   const outputDir = path.join(root, 'progress-gif');
   fs.mkdirSync(outputDir, { recursive: true });
@@ -415,12 +464,12 @@ export async function run(root, options) {
   const snapshotPath = writeSnapshot(
     snapshotDirectory(root, options, outputDir),
     stamp,
-    snapshotFromModel(model, { overallProgress }),
+    snapshotFromModel(model, { overallProgress, timelineHealth: model.timelineHealth }),
   );
   const output = { html: htmlPath, snapshot: snapshotPath };
   process.stdout.write(markdownReport(model, options, output, estimatedLayout, frames));
   if (options.open) openBrowser(htmlPath);
-  return { model, frames, output };
+  return { model, frames, output, violations };
 }
 
 // [::TICKET::] PX-349 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-349 --for-spec --no-implementation-order`.
@@ -449,7 +498,10 @@ export async function main() {
       throw new WorkspaceError(`target is not a directory: ${root}`, 2, 'Pass an existing workspace directory with -t.');
     }
     if (!stat.isDirectory()) throw new WorkspaceError(`target is not a directory: ${root}`, 2, 'Pass an existing workspace directory with -t.');
-    await run(root, options);
+    const result = await run(root, options);
+    if (result && Array.isArray(result.violations) && result.violations.some((violation) => violation.severity !== 'warning')) {
+      process.exitCode = 1;
+    }
   } catch (error) {
     if (error instanceof WorkspaceError) {
       process.stderr.write(`[ERROR] ${error.message}\nCause: ${error.message}\nAction: ${error.action || 'Fix the input and re-run.'}\n`);
