@@ -64,14 +64,18 @@ export function resolvePackageId(root, cwd = process.cwd(), explicit = null) {
   return entry?.id ?? null;
 }
 
-// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-366, PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-366|PX-432) --for-spec --no-implementation-order`.
 function packageDirOf(root, packageId) {
   const tree = readTree(root);
   const entry = (tree?.workspace?.packages ?? []).find((candidate) => candidate.id === packageId);
-  return entry ? path.resolve(root, entry.path ?? '.') : root;
+  return entry ? path.resolve(root, entry.path ?? '.') : null;
 }
 
-/** The directory whose .conver-history.jsonl receives the record. */
+/**
+ * The directory whose .conver-history.jsonl receives the record, or null when a
+ * named package is absent from the workspace tree. A null target is a warning:
+ * silently writing at the root would make the record look workspace-scoped.
+ */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 export function historyTargetDir(root, packageId) {
   return packageId === null ? root : packageDirOf(root, packageId);
@@ -83,13 +87,15 @@ function newRunId(command) {
   return `${stamp}-${command}-${randomBytes(3).toString('hex')}`;
 }
 
-// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-366, PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-366|PX-432) --for-spec --no-implementation-order`.
 function resolveTarget(options) {
   const cwd = options.cwd ?? process.cwd();
   const root = options.root ?? resolveWorkspaceRoot(cwd);
   if (root === null) return { ok: false, warning: '[history] no WORKSPACIFY-TREE-MANIFEST.json above the working directory' };
   const packageId = resolvePackageId(root, cwd, options.packageId ?? null);
-  return { ok: true, root, cwd, packageId, targetDir: historyTargetDir(root, packageId) };
+  const targetDir = historyTargetDir(root, packageId);
+  if (targetDir === null) return { ok: false, warning: `[history] unknown package ${packageId}` };
+  return { ok: true, root, cwd, packageId, targetDir };
 }
 
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.

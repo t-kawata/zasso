@@ -1,5 +1,6 @@
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 // PX-366 @verifies C003 @verifies C004 @verifies C005 @verifies C006
+// PX-432 @verifies C004
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,6 +13,7 @@ import { STAGE_ORDER, buildFrames } from '../../.claude/scripts/conver/progress-
 
 const GOLDEN = JSON.parse(fs.readFileSync(new URL('./fixtures/no-history-frames.json', import.meta.url), 'utf8'));
 const DRILL_INDEX = STAGE_ORDER.indexOf('drill');
+const AMEND_INDEX = STAGE_ORDER.indexOf('amend');
 
 /** A finish record for the one package in the fixture. */
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
@@ -40,6 +42,16 @@ function start(runId, at) {
     stage: 'drill',
     packageId: 'pkg-1',
     at,
+  };
+}
+
+/** One COMPLETE amend finish for the package in the fixture. */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
+function amendFinish(runId, at, status = 'COMPLETE') {
+  return {
+    ...finish(runId, at, status),
+    command: 'amend-rfc-up',
+    stage: 'amend',
   };
 }
 
@@ -224,4 +236,30 @@ test('C002: a malformed history line is a model warning and the draw survives', 
 
   assert.equal(model.warnings.some((warning) => /line 1/.test(warning)), true);
   assert.doesNotThrow(() => buildFrames(model, { frames: 10 }));
+});
+
+test('C004: a COMPLETE amend finish draws AMEND without changing overall progress', () => {
+  const drillAt = '2026-11-03T12:00:00.000Z';
+  const at = '2026-11-04T12:00:00.000Z';
+  const withAmend = historyWorkspace({ records: [finish('drill-1', drillAt), amendFinish('amend-1', at)] });
+  const withoutAmend = historyWorkspace({ records: [finish('drill-1', drillAt)] });
+  const marked = buildFrames(analyzeWorkspace(withAmend, { sourceScan: false }), { frames: 40 });
+  const baseline = buildFrames(analyzeWorkspace(withoutAmend, { sourceScan: false }), { frames: 40 });
+
+  assert.ok(marked.some((frame) => (frame.runs || []).some((run) => run.stage === 'amend')));
+  assert.ok(marked.some((frame) => frame.globalStage[AMEND_INDEX] > 0));
+  assert.ok(marked.some((frame) => frame.stage === 'amend'));
+  const beforeAmend = marked.filter((frame) => frame.t < Date.parse(at));
+  assert.ok(beforeAmend.length > 0);
+  assert.ok(beforeAmend.every((frame) => frame.globalStage[AMEND_INDEX] === 0));
+  assert.equal(marked.at(-1).overallProgress, baseline.at(-1).overallProgress);
+});
+
+test('C004: a BLOCKED amend finish is not drawn and adds no progress', () => {
+  const at = '2026-11-04T12:00:00.000Z';
+  const root = historyWorkspace({ records: [amendFinish('amend-1', at, 'BLOCKED_PREREQUISITE')] });
+  const frames = buildFrames(analyzeWorkspace(root, { sourceScan: false }), { frames: 20 });
+
+  assert.ok(frames.every((frame) => frame.globalStage[AMEND_INDEX] === 0));
+  assert.ok(frames.every((frame) => !(frame.runs || []).some((run) => run.stage === 'amend')));
 });

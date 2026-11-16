@@ -1,4 +1,5 @@
 // PX-366 @verifies C001 @verifies C002
+// PX-432 @verifies C006
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,9 +9,11 @@ import path from 'node:path';
 import { writeWorkspace } from './fixtures.mjs';
 import {
   HISTORY_FILE_NAME,
+  HISTORY_STAGES,
   appendHistoryRecord,
   readHistoryFile,
 } from '../../.claude/scripts/conver/progress-gif/history.js';
+import { STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import {
   resolveWorkspaceRoot,
   resolvePackageId,
@@ -230,4 +233,40 @@ test('withRunHistory records BLOCKED_PREREQUISITE when the work throws', async (
   const { records } = readHistoryFile(path.join(root, 'pkg-1', HISTORY_FILE_NAME));
 
   assert.equal(records.filter((record) => record.event === 'finish')[0].status, 'BLOCKED_PREREQUISITE');
+});
+
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
+test('HISTORY_STAGES keeps the same vocabulary as STAGE_ORDER', () => {
+  assert.deepEqual(HISTORY_STAGES, STAGE_ORDER);
+});
+
+test('an amend finish is accepted and written to the named package history', () => {
+  const root = createRoot();
+  const cwd = path.join(root, 'pkg-1');
+
+  assert.equal(recordStart({ root, cwd, command: 'amend-rfc-up', stage: 'amend', packageId: 'pkg-1' }).ok, true);
+  assert.equal(recordFinish({ root, cwd, command: 'amend-rfc-up', stage: 'amend', packageId: 'pkg-1', status: 'COMPLETE' }).ok, true);
+
+  const { records, warnings } = readHistoryFile(path.join(cwd, HISTORY_FILE_NAME));
+
+  assert.equal(warnings.length, 0);
+  assert.deepEqual(records.map((record) => [record.event, record.stage, record.packageId]), [
+    ['start', 'amend', 'pkg-1'],
+    ['finish', 'amend', 'pkg-1'],
+  ]);
+});
+
+test('an unknown explicit package id is refused and writes no root history', () => {
+  const root = createRoot();
+  const result = recordStart({
+    root,
+    cwd: path.join(root, 'pkg-1'),
+    command: 'amend-rfc-up',
+    stage: 'amend',
+    packageId: 'missing',
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.warning, /unknown package/);
+  assert.equal(fs.existsSync(path.join(root, HISTORY_FILE_NAME)), false);
 });

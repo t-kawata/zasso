@@ -1,6 +1,7 @@
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // PX-351 @verifies C001 @verifies C004 @verifies C005
 // PX-380 @verifies C001 @verifies C002 @verifies C006
+// PX-432 @verifies C002
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -30,6 +31,7 @@ import {
   DEFAULT_COLUMNS,
   MIN_COLUMNS,
   MAX_COLUMNS,
+  BOARD_GUTTER,
 } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { makeModel, packageModel, withPackageCount } from './models.mjs';
@@ -76,10 +78,11 @@ function colourDistance(left, right) {
   return Math.hypot(first[0] - second[0], first[1] - second[1], first[2] - second[2]);
 }
 
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
 test('the base board keeps the sample cell size while showing eight columns', () => {
   const layout = computeLayout(withPackageCount(5), { measureText: measure });
   assert.equal(layout.width, 796);
-  assert.equal(layout.height, 384);
+  assert.equal(layout.height, 399);
   assert.equal(layout.grid.x, 12);
   assert.equal(layout.grid.y, 72);
   assert.equal(layout.grid.width, 576);
@@ -87,16 +90,27 @@ test('the base board keeps the sample cell size while showing eight columns', ()
   assert.equal(layout.grid.columns, DEFAULT_COLUMNS);
   assert.equal(layout.ladder.x, 600);
   assert.equal(layout.ladder.y, 72);
-  assert.equal(layout.ladder.rows.length, 16);
+  assert.equal(layout.ladder.rows.length, 17);
   assert.deepEqual(layout.ladder.rows.map((row) => row.stage), STAGE_ORDER);
+  assert.equal(layout.ladder.rows.at(-2).stage, 'drill');
+  assert.equal(layout.ladder.rows.at(-1).stage, 'amend');
+  assert.equal(layout.ladder.rows.at(-1).group, 'evolution');
+  assert.equal(layout.ladder.rows.at(-1).colour, groupColor('drill'));
   assert.equal(layout.cells.length, 5);
   assert.ok(layout.cells.every((cell) => cell.dots.length >= 100));
+});
+
+test('the ladder highlight stays inside the canvas', () => {
+  const layout = computeLayout(withPackageCount(1), { measureText: measure });
+  const last = layout.ladder.rows.at(-1);
+
+  assert.ok(last.y + 15 <= layout.height - BOARD_GUTTER);
 });
 
 test('fourteen packages still fit the one-screen base height', () => {
   const layout = computeLayout(withPackageCount(14), { measureText: measure });
   assert.equal(layout.width, 796);
-  assert.equal(layout.height, 384);
+  assert.equal(layout.height, 399);
   assert.equal(layout.grid.columns, DEFAULT_COLUMNS);
 });
 
@@ -126,7 +140,7 @@ test('the column count controls rows and can widen the board', () => {
   assert.equal(wide.grid.columns, 10);
   assert.equal(wide.grid.rows, 3);
   assert.equal(wide.width, 940);
-  assert.equal(wide.height, 392);
+  assert.equal(wide.height, 399);
   const narrow = computeLayout(withPackageCount(29), { measureText: measure, columns: 5 });
   assert.equal(narrow.grid.columns, 5);
   assert.equal(narrow.grid.rows, 6);
@@ -335,7 +349,7 @@ function measureGlyphRun(text, size) {
 }
 
 test('every stage carries a Japanese and an English caption', () => {
-  assert.equal(STAGE_ORDER.length, 16);
+  assert.equal(STAGE_ORDER.length, 17);
   for (const stage of STAGE_ORDER) {
     const japanese = stageCaption(stage, 'ja');
     const english = stageCaption(stage, 'en');
@@ -346,6 +360,8 @@ test('every stage carries a Japanese and an English caption', () => {
   }
   assert.equal(stageCaption('educe', 'ja'), '設計書から要実装操作を抽出し各部へ配布');
   assert.equal(stageCaption('educe', 'en'), 'List design operations for builders');
+  assert.equal(stageCaption('amend', 'ja'), '必要な部だけ設計を改訂し証跡を残す');
+  assert.equal(stageCaption('amend', 'en'), 'Amend design only where revision is needed');
 });
 
 test('stageCaption returns null for an unknown, empty or unsupported input', () => {

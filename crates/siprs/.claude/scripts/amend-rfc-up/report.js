@@ -10,12 +10,18 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
 
 const REPORT_JSON_BASENAME = 'amend-rfc-up-report.json';
 const REPORT_MARKDOWN_BASENAME = 'amend-rfc-up-report.md';
 const REPORT_DIRECTORY = 'amend';
 const DEFAULT_ROW_LIMIT = 50;
 const BLOCKED_ARTIFACT_STATES = new Set(['blocked', 'rolled-back']);
+const RUN_HISTORY = Object.freeze({ command: 'amend-rfc-up', stage: 'amend' });
+const FINISH_STATUS_BY_OUTCOME = Object.freeze({
+  DESIGN_AMENDED: 'COMPLETE',
+  BLOCKED: 'BLOCKED_PREREQUISITE',
+});
 
 function fail(code, message, details = {}) {
   const error = new Error(message);
@@ -183,6 +189,20 @@ function assertNoFalseComplete({ report }) {
   return { ok: true };
 }
 
+/**
+ * Close one history run per package in the report. NO_CHANGE and unknown
+ * outcomes write no finish: a replay with no design change is not a stage
+ * completion and must not move the bar.
+ */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
+function recordAmendmentFinishes(report, record = recordRunHistory) {
+  const status = FINISH_STATUS_BY_OUTCOME[report && report.outcome];
+  if (!status) return [];
+  const packageIds = Object.keys((report && report.packages) || {});
+  for (const packageId of packageIds) record('finish', { ...RUN_HISTORY, status, packageId });
+  return packageIds;
+}
+
 /** Write both report forms under the package's amend/ directory. */
 // [::TICKET::] PX-418 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-418 --for-spec --no-implementation-order`.
 function writeReport({ packageDir, report }) {
@@ -213,6 +233,7 @@ function readJsonInput(value) {
   return JSON.parse(text);
 }
 
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const command = argv[0];
   const packageDir = path.resolve(argumentValue(argv, 'package') || process.cwd());
@@ -224,6 +245,7 @@ function main(argv = process.argv.slice(2)) {
     const report = readJsonInput(argumentValue(argv, 'report'));
     if (!report) throw fail('REPORT_INPUT_MISSING', '--report=@file is required');
     const written = writeReport({ packageDir, report });
+    recordAmendmentFinishes(report);
     process.stdout.write(`${JSON.stringify({ ok: true, ...written })}\n`);
     return 0;
   } catch (error) {
@@ -238,6 +260,7 @@ module.exports = {
   REPORT_JSON_BASENAME,
   REPORT_MARKDOWN_BASENAME,
   assertNoFalseComplete,
+  recordAmendmentFinishes,
   renderReportJson,
   renderReportMarkdown,
   writeReport,

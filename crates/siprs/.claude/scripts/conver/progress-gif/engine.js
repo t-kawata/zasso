@@ -1,4 +1,4 @@
-import { STAGE_ORDER } from './loop.js';
+import { STAGE_ORDER, topScoringStage } from './loop.js';
 import {
   groupColor,
   formatDate,
@@ -641,14 +641,6 @@ function drawHeader(ctx, layout, frame, options) {
 }
 
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
-function findTopStage(progress) {
-  for (let index = STAGE_ORDER.length - 1; index >= 0; index -= 1) {
-    if (progress[index] > 0.001) return STAGE_ORDER[index];
-  }
-  return STAGE_ORDER[0];
-}
-
-// [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 function collectActiveStages(frame, packageIndex) {
   const stages = new Set();
   for (const activeCell of frame.active || []) {
@@ -688,7 +680,7 @@ function drawPackageProgressBar(ctx, cell, view) {
   }
 }
 
-// [::TICKET::] PX-350, PX-351, PX-401, PX-411 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-401|PX-411) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-350, PX-351, PX-401, PX-411, PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-350|PX-351|PX-401|PX-411|PX-432) --for-spec --no-implementation-order`.
 function drawCell(ctx, layout, cell, frame) {
   const scale = layout.scale;
   const view = frame.packages[cell.packageIndex];
@@ -696,7 +688,7 @@ function drawCell(ctx, layout, cell, frame) {
   const progress = frame.pi[cell.packageIndex] || new Array(STAGE_ORDER.length).fill(0);
   const total = view.total;
   const radius = radiusForArea(total, layout.grid.minTotal, layout.grid.maxTotal, layout.grid.minRadius, layout.grid.maxRadius);
-  const stage = findTopStage(progress);
+  const stage = topScoringStage(progress);
   const hue = groupColor(stage);
   const centre = { x: cell.centerX, y: cell.centerY };
   const density = view.density || 0;

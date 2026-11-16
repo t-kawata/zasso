@@ -1,4 +1,5 @@
 // PX-370 @verifies C001 @verifies C002 @verifies C003 @verifies C004
+// PX-432 @verifies C008
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -15,7 +16,7 @@ import {
   SNAPSHOT_SCHEMA,
 } from '../../.claude/scripts/conver/progress-gif/snapshot.js';
 import { parseStamp } from '../../.claude/scripts/conver/progress-gif/parse.js';
-import { buildFrames, computeDensity, progressAt, STAGE_ORDER } from '../../.claude/scripts/conver/progress-gif/loop.js';
+import { buildFrames, computeDensity, progressAt, STAGE_ORDER, STAGE_WEIGHT } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { computeLayout, formatPercent } from '../../.claude/scripts/conver/progress-gif/layout.js';
 import { drawFrame } from '../../.claude/scripts/conver/progress-gif/engine.js';
 import { eventsForEveryStage, makeModel, withPackageCount } from './models.mjs';
@@ -120,11 +121,11 @@ function createRecordingContext() {
     fillText(text, x, y) { calls.push(['fillText', text, x, y, ctx.font, ctx.textAlign]); },
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
     measureText(text) { return { width: String(text).length * 6 }; },
-// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-370, PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-370|PX-432) --for-spec --no-implementation-order`.
     setLineDash(values) { calls.push(['dash', ...values]); },
-// [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-370, PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-370|PX-432) --for-spec --no-implementation-order`.
     save() { calls.push(['save']); },
-// [::TICKET::] PX-370, PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-370|PX-374) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-370, PX-374, PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-370|PX-374|PX-432) --for-spec --no-implementation-order`.
     restore() { calls.push(['restore']); },
 // [::TICKET::] PX-370 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-370 --for-spec --no-implementation-order`.
     createRadialGradient(...args) {
@@ -286,8 +287,7 @@ test('C003 zero draws no marker and values above one clamp to the bar edge', () 
 
 test('C003 the marker does not change the fill width, percent text, or overallProgress', () => {
   const withMarker = renderFrameWithPrevious(0.42);
-  const withoutMarker = renderFrameWithPrevious(undefined);
-  assert.equal(withMarker.frame.overallProgress, withoutMarker.frame.overallProgress);
+  const withoutMarker = renderFrameWithPrevious(undefined);  assert.equal(withMarker.frame.overallProgress, withoutMarker.frame.overallProgress);
   assert.equal(markerCalls(withoutMarker.calls, withoutMarker.layout).length, 0);
 
   const fillWidth = (calls) => calls
@@ -358,4 +358,17 @@ test('distribution: install.js copies the four changed sources unchanged', () =>
     const copy = path.join(target, '.claude', 'scripts', 'conver', relative);
     assert.equal(digest(copy), digest(source), relative);
   }
+});
+
+test('C008 a legacy snapshot without an amend stage keeps its previous progress', () => {
+  const legacy = {
+    schema: SNAPSHOT_SCHEMA,
+    packages: [{ id: 'pkg-1', obligations: { total: 1 }, stages: { drill: 1 } }],
+  };
+  const scoringWeight = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
+  const expected = STAGE_WEIGHT[STAGE_ORDER.indexOf('drill')] / scoringWeight;
+
+  assert.equal(Object.hasOwn(legacy.packages[0].stages, 'amend'), false);
+  assert.equal(computePreviousProgress(legacy), expected);
+  assert.equal(Number.isFinite(computePreviousProgress(legacy)), true);
 });

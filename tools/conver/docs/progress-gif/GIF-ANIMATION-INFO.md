@@ -4,7 +4,7 @@ Status: design input for an external design/implementation AI.
 Implementation source of truth: `.claude/scripts/conver/draw-progress-gif.js` and
 `.claude/scripts/conver/progress-gif/`, scoped by ticket `PX-350`.
 Visual baseline: `docs/progress-gif/samples/sample-progress.html`. The implementation keeps
-the sample's board grammar (phyllotaxis dot field, additive glow, vertical 16-stage ladder,
+the sample's board grammar (phyllotaxis dot field, additive glow, vertical 17-stage ladder,
 stage-weighted timeline, held final frame) and applies only the agreed improvements.
 Corrections and source-verified facts: see `docs/progress-gif/GIF-ANIMATION-INFO-SUPPLEMENT.md`.
 Synthetic parser fixtures: see `docs/fixtures/gif-animation/`.
@@ -52,7 +52,7 @@ plan   start    review resolve consolidate find crystalize drill
 4. one full-width overall-progress bar under the title, with the percent at its right end;
 5. one package name under each cell, wrapped to at most two lines, after removing a common
    prefix that ends at `-`, `_`, `.` or `/`;
-6. the 16 stage names in the right-hand ladder.
+6. the 17 stage names in the right-hand ladder.
 
 This text set is the PX-351 improvement over the original two-string brief. The overall
 progress is the stage-weighted ladder completion, not the reviewed-obligation ratio. There
@@ -1224,7 +1224,7 @@ Write these tests first; each must fail for absence of implementation.
    `~/shyme/gaia/progress-gif/YYYYMMDDhhmmss.gif`.
 2. The target is validated as a completed workspacify workspace; failures exit 2 with the
    exact cause and remedy.
-3. All 16 stage names are reachable; the label is always one of the fixed 16.
+3. All 17 stage names are reachable; the label is always one of the fixed 17.
 4. Only date and stage are rendered as text.
 5. Density rises visibly as artifacts accumulate; sub-stage work is visible through motion
    and composition, not text.

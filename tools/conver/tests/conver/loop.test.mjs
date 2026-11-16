@@ -4,13 +4,17 @@
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // PX-350 @verifies C001 @verifies C003 @verifies C004 @verifies C005
+// PX-432 @verifies C001 @verifies C003 @verifies C004 @verifies C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   STAGE_ORDER,
+  STAGE_GROUP,
   STAGE_WEIGHT,
   LOOP_GROUPS,
+  computeDensity,
+  topScoringStage,
   reconstructTicketGrowth,
   buildFrames,
   buildModel,
@@ -29,11 +33,11 @@ import { HOLD_END_FRAMES, HOLD_START_FRAMES } from '../../.claude/scripts/conver
 import { INITIAL_TIME, eventsForEveryStage, makeModel, packageModel, stageEvent, withPackageCount } from './models.mjs';
 import { ticket } from './fixtures.mjs';
 
-test('STAGE_ORDER is the fixed 16-stage order', () => {
+test('STAGE_ORDER is the fixed 17-stage order ending with amend', () => {
   assert.deepEqual(STAGE_ORDER, [
     'educe', 'explain', 'grill', 'smooth', 'graphify', 'boundify', 'split',
     'make', 'plan', 'start', 'review', 'resolve', 'consolidate', 'find',
-    'crystalize', 'drill',
+    'crystalize', 'drill', 'amend',
   ]);
 });
 
@@ -43,6 +47,120 @@ test('LOOP_GROUPS covers every stage exactly once', () => {
   assert.deepEqual(LOOP_GROUPS.map((group) => group.name), [
     'workspacify', 'upstream', 'implementation', 'shipping', 'evolution',
   ]);
+  assert.deepEqual(LOOP_GROUPS.find((group) => group.name === 'evolution').stages, ['drill', 'amend']);
+});
+
+test('STAGE_WEIGHT keeps one weight per stage and amend is non-scoring', () => {
+  assert.equal(STAGE_WEIGHT.length, STAGE_ORDER.length);
+  assert.equal(STAGE_WEIGHT[STAGE_ORDER.indexOf('amend')], 0);
+  for (const stage of STAGE_ORDER) {
+    assert.equal(Object.hasOwn(STAGE_GROUP, stage), true, `${stage} has a group`);
+  }
+});
+
+test('topScoringStage ignores the zero-weight amend stage', () => {
+  const progress = new Array(STAGE_ORDER.length).fill(0);
+  progress[STAGE_ORDER.indexOf('drill')] = 1;
+  progress[STAGE_ORDER.indexOf('amend')] = 1;
+
+  assert.equal(topScoringStage(progress), 'drill');
+
+  progress[STAGE_ORDER.indexOf('drill')] = 0;
+  assert.equal(topScoringStage(progress), STAGE_ORDER[0]);
+});
+
+test('computeDensity does not change when amend progress changes', () => {
+  const amendIndex = STAGE_ORDER.indexOf('amend');
+  const withAmend = STAGE_ORDER.map((stage, index) => (index === amendIndex ? 1 : 0.5));
+  const withoutAmend = STAGE_ORDER.map((stage, index) => (index === amendIndex ? 0 : 0.5));
+
+  assert.equal(computeDensity(withAmend), computeDensity(withoutAmend));
+});
+
+/** Minimal artifact bag for a package whose only evidence is history. */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
+function makeArtifacts(historyRecords) {
+  return {
+    info: null,
+    explain: null,
+    designTree: null,
+    designTreePath: null,
+    status: null,
+    graphPath: null,
+    graph: null,
+    graphStatus: null,
+    dirsPath: null,
+    dirs: null,
+    boundifyStatus: null,
+    ticketsPath: null,
+    tickets: null,
+    splitStatus: null,
+    malfeasance: null,
+    crystalize: null,
+    drillStatus: null,
+    drillTree: null,
+    drillRounds: [],
+    ticketSnapshots: [],
+    omissions: [],
+    manifests: [],
+    historyPath: '/tmp/pkg-1/.conver-history.jsonl',
+    historyRecords,
+  };
+}
+
+/** One COMPLETE amend finish for pkg-1 at the given instant. */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
+function amendFinish(at = '2026-11-16T00:00:00.000Z') {
+  return {
+    v: 1,
+    runId: 'amend-run-1',
+    event: 'finish',
+    command: 'amend-rfc-up',
+    stage: 'amend',
+    packageId: 'pkg-1',
+    at,
+    status: 'COMPLETE',
+    addedTicketKeys: [],
+  };
+}
+
+test('amend progress is credited only by a COMPLETE history finish', () => {
+  const finish = amendFinish();
+  const artifacts = makeArtifacts([finish]);
+
+  assert.equal(stageProgressOf(artifacts, {}, 'pkg-1', []).amend, 1);
+
+  const events = stageEventsOf({ id: 'pkg-1', dir: '/tmp/pkg-1' }, artifacts, {}, []);
+  const amendEvents = events.filter((event) => event.stage === 'amend');
+  assert.equal(amendEvents.length, 1);
+  assert.equal(amendEvents[0].t, Date.parse(finish.at));
+  assert.equal(amendEvents[0].inc, 1);
+  assert.equal(amendEvents[0].timeSource, 'history');
+});
+
+test('a start-only or BLOCKED amend run does not credit amend', () => {
+  const finish = amendFinish();
+  const started = { ...finish, event: 'start', status: undefined };
+  const blocked = { ...finish, status: 'BLOCKED_PREREQUISITE' };
+
+  assert.equal(stageProgressOf(makeArtifacts([started]), {}, 'pkg-1', []).amend, 0);
+  assert.equal(stageProgressOf(makeArtifacts([blocked]), {}, 'pkg-1', []).amend, 0);
+});
+
+test('derivePackageState keeps the amend event at its finish time, never at initialT', () => {
+  const finish = amendFinish();
+  const state = derivePackageState(
+    { id: 'pkg-1', name: 'pkg-1', path: 'pkg-1' },
+    makeArtifacts([finish]),
+    { initialT: INITIAL_TIME },
+    [],
+    [],
+  );
+
+  const amendEvents = state.events.filter((event) => event.stage === 'amend');
+  assert.equal(amendEvents.length, 1);
+  assert.equal(amendEvents[0].t, Date.parse(finish.at));
+  assert.notEqual(amendEvents[0].t, INITIAL_TIME);
 });
 
 test('reconstructTicketGrowth diffs snapshots and assigns the find stage', () => {

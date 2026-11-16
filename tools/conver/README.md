@@ -1332,7 +1332,7 @@ HTML viewer under `<workspace>/progress-gif/YYYYMMDDhhmmss.html` and opens it. T
 Canvas renders the board and downloads `YYYYMMDDhhmmss.gif`.
 
 The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a dark board with a
-package grid on the left, a vertical 16-stage ladder on the right, and one circular cell per
+package grid on the left, a vertical 17-stage ladder on the right, and one circular cell per
 package. The cell interior is a phyllotaxis dot field; dots light up with stage progress and
 an additive glow rises with density. The sample grammar was established first; the board
 was later widened with the speed/seek controls and the overall progress bar. The ladder labels

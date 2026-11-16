@@ -4,7 +4,7 @@ import { computePackageObligations, countTicketContracts, isReviewedStatus } fro
 export const STAGE_ORDER = Object.freeze([
   'educe', 'explain', 'grill', 'smooth', 'graphify', 'boundify', 'split',
   'make', 'plan', 'start', 'review', 'resolve', 'consolidate', 'find',
-  'crystalize', 'drill',
+  'crystalize', 'drill', 'amend',
 ]);
 
 export const LOOP_GROUPS = Object.freeze([
@@ -12,7 +12,7 @@ export const LOOP_GROUPS = Object.freeze([
   { name: 'upstream', stages: ['explain', 'grill', 'smooth', 'graphify', 'boundify', 'split'] },
   { name: 'implementation', stages: ['make', 'plan', 'start', 'review', 'resolve', 'consolidate', 'find'] },
   { name: 'shipping', stages: ['crystalize'] },
-  { name: 'evolution', stages: ['drill'] },
+  { name: 'evolution', stages: ['drill', 'amend'] },
 ]);
 
 export const STAGE_GROUP = Object.freeze(Object.fromEntries(
@@ -21,7 +21,9 @@ export const STAGE_GROUP = Object.freeze(Object.fromEntries(
 
 export const HOLD_START_FRAMES = 4;
 export const HOLD_END_FRAMES = 12;
-export const STAGE_WEIGHT = Object.freeze([3, 3, 6, 3, 6, 6, 6, 6, 6, 14, 8, 6, 3, 6, 6, 4]);
+// AMEND is on-demand, so it is drawn but never contributes to the overall
+// density. The explicit zero keeps every stage weighted in one positional array.
+export const STAGE_WEIGHT = Object.freeze([3, 3, 6, 3, 6, 6, 6, 6, 6, 14, 8, 6, 3, 6, 6, 4, 0]);
 const STAGE_INDEX = Object.freeze(Object.fromEntries(STAGE_ORDER.map((stage, index) => [stage, index])));
 const STAGE_WEIGHT_SUM = STAGE_WEIGHT.reduce((sum, weight) => sum + weight, 0);
 // Only command-written evidence is trusted as a clock. An artifact mtime is
@@ -41,6 +43,10 @@ const STAGE_TIMESTAMP_FIELDS = Object.freeze({
   review: 'reviewed_at',
 });
 const EXPLICIT_COMPLETION_STAGES = new Set(['make', 'plan', 'start', 'review', 'resolve']);
+// These stages are credited only by a history event. Without this guard, the
+// artifact-presence fallback would place the event at initialT and fill the bar
+// before the command actually ran.
+const HISTORY_ONLY_STAGES = new Set(['amend']);
 // Phase 1 of the drill has twelve sub-steps (1-1..1-12). Steps 2-1..5-1 are the
 // graphify / boundify / split / verify gates that follow it.
 const DRILL_PHASE1_STEPS = 12;
@@ -527,7 +533,7 @@ function drillProgressFraction(status) {
   return DRILL_GATE_STEP.test(step) ? 1 : 0;
 }
 
-/** Derive the 16 stage fractions for one package from evidence and artifacts. */
+/** Derive one stage fraction per stage in STAGE_ORDER for one package. */
 // [::TICKET::] PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-374 --for-spec --no-implementation-order`.
 export function stageProgressOf(artifacts, workspaceArtifacts = {}, packageId = null, warnings = []) {
   const stages = Object.fromEntries(STAGE_ORDER.map((stage) => [stage, 0]));
@@ -669,6 +675,10 @@ export function stageProgressOf(artifacts, workspaceArtifacts = {}, packageId = 
     stages.drill = drillProgressFraction(artifacts.drillStatus);
   } else if (drillEvidence.hasHistory) {
     stages.drill = 1;
+  }
+  const amendEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'amend', packageId);
+  if (amendEvidence.hasHistory) {
+    stages.amend = 1;
   }
   return stages;
 }
@@ -1014,6 +1024,19 @@ export function stageEventsOf(pkg, artifacts, workspaceArtifacts = {}, warnings 
     });
   }
 
+  const amendEvidence = resolveExecutionEvidence(artifacts, workspaceArtifacts, 'amend', pkg.id);
+  if (amendEvidence.executed) {
+    emitStageEvent(events, {
+      stage: 'amend',
+      packageId: pkg.id,
+      inc: stages.amend,
+      evidence: 'history',
+      evidenceInfo: amendEvidence,
+      initialT,
+      warnings,
+    });
+  }
+
   return events;
 }
 
@@ -1156,6 +1179,19 @@ export function computeDensity(progress) {
   let weighted = 0;
   for (let index = 0; index < STAGE_ORDER.length; index += 1) weighted += STAGE_WEIGHT[index] * progress[index];
   return weighted / STAGE_WEIGHT_SUM;
+}
+
+/**
+ * The highest stage that contributes to the density score. A zero-weight stage
+ * such as AMEND is drawn but must never choose the package's cell colour.
+ */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
+export function topScoringStage(progress) {
+  for (let index = STAGE_ORDER.length - 1; index >= 0; index -= 1) {
+    if (STAGE_WEIGHT[index] <= 0) continue;
+    if (progress[index] > 0.001) return STAGE_ORDER[index];
+  }
+  return STAGE_ORDER[0];
 }
 
 /**
@@ -1718,6 +1754,9 @@ export function derivePackageState(pkg, artifacts, workspaceArtifacts, registry,
     if (stages[stage] <= 0) continue;
     // An implementation stage is drawn only from its explicit completion field.
     if (EXPLICIT_COMPLETION_STAGES.has(stage)) continue;
+    // A history-only stage already carries its own event; an initial-time
+    // presence event would fill the bar before the command ran.
+    if (HISTORY_ONLY_STAGES.has(stage)) continue;
     if (!isStageCoveredFor(events, stage, pkg.id)) {
       events.push({ t: workspaceArtifacts.initialT || 0, prec: 'ms', stage, packageId: pkg.id, inc: stages[stage], evidence: 'artifact-presence' });
     }

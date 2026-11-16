@@ -14,6 +14,7 @@ const { assertChangeDag, assertCrossPackageImpacts, validateArtifactChange } = r
 const { validateRuleCoverage } = require('./rules.js');
 const { extractObligations, validateObligationCoverage } = require('./obligations.js');
 const { assertSurfaceCoverage } = require('./workspace.js');
+const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
 
 const REQUEST_SCHEMA = 'amend-rfc-up.request/v2';
 const LEGACY_REQUEST_SCHEMA = 'amend-rfc-up.request/v1';
@@ -218,6 +219,20 @@ function validateChangeRequest({ request, packages = null, materialPaths = null 
   return { ok: true };
 }
 
+const RUN_HISTORY = Object.freeze({ command: 'amend-rfc-up', stage: 'amend' });
+
+/**
+ * Open one history run per package the request actually changes. The command
+ * markdown carries no history instruction; request.js is the first script that
+ * knows the full package set, so it is the natural start bracket.
+ */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
+function recordAmendmentStarts(request, record = recordRunHistory) {
+  const packageIds = [...new Set((request.changes || []).map((change) => change.package).filter(Boolean))];
+  for (const packageId of packageIds) record('start', { ...RUN_HISTORY, packageId });
+  return packageIds;
+}
+
 // [::TICKET::] PX-418 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-418 --for-spec --no-implementation-order`.
 function argumentValue(args, name) {
   const prefix = `--${name}=`;
@@ -235,7 +250,7 @@ function readJsonInput(value) {
 }
 
 // [::TICKET::] PX-418 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-418 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-419 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-419 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-419, PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-419|PX-432) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   try {
     const instructionText = argumentValue(argv, 'instruction')
@@ -268,6 +283,7 @@ function main(argv = process.argv.slice(2)) {
       obligationCoverage: readJsonInput(coverageInput) || [],
     });
     validateChangeRequest({ request, packages: request.packages, materialPaths });
+    recordAmendmentStarts(request);
     process.stdout.write(`${JSON.stringify(request)}\n`);
     return 0;
   } catch (error) {
@@ -287,5 +303,6 @@ module.exports = {
   classifyMaterial,
   normalizeRequest,
   parseInstruction,
+  recordAmendmentStarts,
   validateChangeRequest,
 };

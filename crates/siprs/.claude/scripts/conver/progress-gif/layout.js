@@ -1,5 +1,6 @@
 import { STAGE_ORDER, STAGE_GROUP, STAGE_WEIGHT } from './loop.js';
 
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
 const COLOUR_GROUP_BY_STAGE = Object.freeze({
   educe: 'discovery', explain: 'discovery',
   grill: 'dialogue', smooth: 'dialogue',
@@ -9,6 +10,7 @@ const COLOUR_GROUP_BY_STAGE = Object.freeze({
   consolidate: 'convergence', find: 'convergence',
   crystalize: 'shipping',
   drill: 'evolution',
+  amend: 'evolution',
 });
 
 const GROUP_COLOURS = Object.freeze({
@@ -50,6 +52,7 @@ export const STAGE_CAPTIONS = Object.freeze({
     find: '実装の欠陥・矛盾の検知とチケット化',
     crystalize: '各部単位での完全なREADME化',
     drill: '各部RFCの改訂による品質向上',
+    amend: '必要な部だけ設計を改訂し証跡を残す',
   }),
   en: Object.freeze({
     educe: 'List design operations for builders',
@@ -68,6 +71,7 @@ export const STAGE_CAPTIONS = Object.freeze({
     find: 'Find gaps and conflicts; create tickets',
     crystalize: 'Write a complete README per team',
     drill: "Evolve each team's RFC to raise quality",
+    amend: 'Amend design only where revision is needed',
   }),
 });
 
@@ -144,6 +148,9 @@ export const LADDER_X = 528;
 export const LADDER_Y = 72;
 export const LADDER_ROW_HEIGHT = 18;
 export const LADDER_GROUP_GAP = 3;
+// The engine's row highlight starts 3px above the row and is 18px tall, so a
+// row's drawn extent reaches 15px below its baseline.
+const LADDER_HIGHLIGHT_BOTTOM_OFFSET = 15;
 export const LADDER_LABEL_CENTER_OFFSET = 6;
 export const LADDER_BAR_X = 670;
 export const LADDER_BAR_WIDTH = 42;
@@ -327,7 +334,7 @@ function buildLadderRows(scale, ladderX) {
   return rows;
 }
 
-/** Compute the fixed 724-wide board; only the row count grows the height. */
+/** Compute the fixed 724-wide board; package rows and the ladder extent grow the height. */
 // [::TICKET::] PX-380 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-380 --for-spec --no-implementation-order`.
 export function computeLayout(model, options = {}) {
   const scale = Math.max(0.5, Math.min(3, Number(options.scale) || 1));
@@ -345,7 +352,8 @@ export function computeLayout(model, options = {}) {
   const contentWidth = GRID_X + columns * MAX_CELL + BOARD_GUTTER + LADDER_BLOCK_WIDTH;
   const baseWidth = Math.max(BOARD_WIDTH, contentWidth);
   const ladderX = baseWidth - LADDER_BLOCK_WIDTH;
-  const baseHeight = Math.max(BASE_HEIGHT, GRID_Y + rows * cellHeight + 8);
+  const ladderBottom = buildLadderRows(1, ladderX).at(-1).y + LADDER_HIGHLIGHT_BOTTOM_OFFSET;
+  const baseHeight = Math.max(BASE_HEIGHT, GRID_Y + rows * cellHeight + 8, ladderBottom + BOARD_GUTTER);
   const widths = packages.map((pkg) => Number(pkg.obligations && pkg.obligations.total) || 0);
   const minTotal = widths.length > 0 ? Math.min(...widths) : 0;
   const maxTotal = widths.length > 0 ? Math.max(...widths) : 0;

@@ -2,6 +2,7 @@
 // [::TICKET::] PX-351 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-351 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-350 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-350 --for-spec --no-implementation-order`.
 // PX-349 @verifies C001 @verifies C002 @verifies C003 @verifies C004 @verifies C005 @verifies C006
+// PX-432 @verifies C002
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -107,13 +108,14 @@ test('an explicit --fps sets the initial speed while the default stays 180 ms', 
   assert.equal(explicit.speedMs, 200);
 });
 
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
 test('a manifests-only workspace exits zero and writes HTML and a snapshot', () => {
   const { root } = materializeBundle('workspace-min.json');
   const before = hashTree(root);
   const result = run(['-t', root, '--no-open', '--no-source-scan']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /PASS:/);
-  assert.match(result.stdout, /canvas: 796x384/);
+  assert.match(result.stdout, /canvas: 796x399/);
   assert.match(result.stdout, /overall progress: \d+%/);
   const outputDir = path.join(root, 'progress-gif');
   const html = fs.readdirSync(outputDir).filter((name) => name.endsWith('.html'));

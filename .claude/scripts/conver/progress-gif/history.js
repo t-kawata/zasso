@@ -32,10 +32,11 @@ export const HISTORY_STATUSES = Object.freeze([
  * list equals STAGE_ORDER, so a stage added to the renderer cannot silently disappear
  * from the history validator.
  */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
 export const HISTORY_STAGES = Object.freeze([
   'educe', 'explain', 'grill', 'smooth', 'graphify', 'boundify', 'split',
   'make', 'plan', 'start', 'review', 'resolve', 'consolidate', 'find',
-  'crystalize', 'drill',
+  'crystalize', 'drill', 'amend',
 ]);
 
 /** A single record must stay small enough to append atomically. */

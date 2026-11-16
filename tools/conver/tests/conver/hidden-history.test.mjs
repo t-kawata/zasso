@@ -1,4 +1,5 @@
 // PX-366 @verifies C007
+// PX-432 @verifies C006
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,6 +15,7 @@ const HISTORY_FILE = '.conver-history.jsonl';
  * Commands whose history is written by a script the command already executes on
  * every path. The command markdown carries no instruction.
  */
+// [::TICKET::] PX-432 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-432 --for-spec --no-implementation-order`.
 const HIDDEN = Object.freeze({
   'grill-me-for-rfc': ['grill-me-for-rfc/update-status.js', 'grill-me-for-rfc/complete-run.js'],
   'graphify-rfc': ['rfc-graph/update-step-status.js'],
@@ -31,6 +33,7 @@ const HIDDEN = Object.freeze({
   ],
   'crystalize-readme': ['crystalize-readme/derive-output-paths.js', 'crystalize-readme/loop-drive-readme.js'],
   'drill-rfc-down': ['drill-rfc-down/preflight.cjs', 'drill-rfc-down/verify-step.js'],
+  'amend-rfc-up': ['amend-rfc-up/request.js', 'amend-rfc-up/report.js'],
 });
 
 /** The only command whose run cannot be bracketed by a script it already runs. */
