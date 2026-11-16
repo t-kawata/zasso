@@ -68,10 +68,15 @@ export function validateTimeline(options = {}) {
   }
 
   const previousMode = previousSnapshot && previousSnapshot.timelineHealth && previousSnapshot.timelineHealth.mode;
+  const previousSnapshotT = previousSnapshot && Number.isFinite(Date.parse(previousSnapshot.generatedAt))
+    ? Date.parse(previousSnapshot.generatedAt)
+    : (model.previousRender && model.previousRender.t);
   if (previousMode === 'history'
-    && Number.isFinite(model.previousRender && model.previousRender.t)
+    && Number.isFinite(previousSnapshotT)
     && Number.isFinite(previousSnapshot && previousSnapshot.overallProgress)) {
-    const current = progressAt(model, model.previousRender.t);
+    // A pinned reference and the newest rendered snapshot are different clocks.
+    // Compare against the snapshot's own generatedAt, not the display marker.
+    const current = progressAt(model, previousSnapshotT);
     if (Math.abs(current - previousSnapshot.overallProgress) > PREVIOUS_PROGRESS_EPSILON) {
       violations.push(violation('PREVIOUS_PROGRESS_MISMATCH', {
         packageId: null,

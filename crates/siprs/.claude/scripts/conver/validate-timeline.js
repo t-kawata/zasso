@@ -14,7 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { analyzeWorkspace } from './draw-progress-gif.js';
-import { buildTimeline } from './progress-gif/loop.js';
+import { buildTimeline, progressStateAt, STAGE_ORDER } from './progress-gif/loop.js';
 import { listSnapshots, readSnapshot } from './progress-gif/snapshot.js';
 import { validateTimeline } from './progress-gif/validator.js';
 
@@ -50,7 +50,21 @@ export function main(argv = process.argv.slice(2)) {
   const previousSnapshot = options.previous
     ? readSnapshot(options.previous)
     : (newest ? readSnapshot(newest.path) : null);
-  const violations = validateTimeline({ model, timeline, previousSnapshot, artifactModel: { packages: model.packages } });
+  const finalState = progressStateAt(model, Number.POSITIVE_INFINITY);
+  const finalModel = {
+    packages: model.packages.map((pkg, index) => ({
+      id: pkg.id,
+      stages: Object.fromEntries(STAGE_ORDER.map((stage, stageIndex) => [stage, finalState.pi[index][stageIndex]])),
+    })),
+  };
+  const violations = validateTimeline({
+    model,
+    timeline,
+    previousSnapshot,
+    artifactModel: { packages: model.packages },
+    finalModel,
+    uncovered: model.uncovered || [],
+  });
   const fatal = violations.filter((violation) => violation.severity !== 'warning');
 
   if (options.json) {

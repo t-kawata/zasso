@@ -67532,8 +67532,8 @@
           "startedAt": "2026-11-16",
           "completedAt": "2026-11-16",
           "done_at": "2026-11-16T05:40:09.842Z",
-          "instrumentation": "TDD impact set: 145 tests passed. Quality: 0 findings. Annotations verified. Real renders with zero timeline violations: gaia 39.28%, crystal 59.83%, doors 47.05%.",
-          "notes": "Strict pre-history cutoff; previous snapshot checkpoint; workspace scope; every implementation run carries progress; causal and previous-state validation; uncovered stages are named, never estimated.\nDoors completion used exact command-written receipts only: boundify pkg-0005 status receipt.recordedAt; consolidate pkg-0008 omission stamp. No post-history estimation remains."
+          "instrumentation": "TDD impact set: 146 tests passed. Quality: 0 findings. Annotations verified. External no-flag runs: gaia 39%, crystal 60%, doors 47%, validate-timeline 0 violations each. Real renders: gaia 39.28%, crystal 59.83%, doors 47.05%.",
+          "notes": "Strict pre-history cutoff; previous snapshot checkpoint; workspace scope; every implementation run carries progress; causal and previous-state validation; uncovered stages are named, never estimated.\nDoors completion used exact command-written receipts only: boundify pkg-0005 status receipt.recordedAt; consolidate pkg-0008 omission stamp. No post-history estimation remains.\nSnapshots pin the accepted reference; subsequent no-flag renders reuse it. Final artifacts: gaia 20261116145337.html, crystal 20261116145338.html, doors 20261116145338.html. External no-flag validation: 0 violations on all three."
         }
       ]
     },

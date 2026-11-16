@@ -60,7 +60,7 @@ test('C005: events before the reference are scaled to the reference state, later
   assert.ok(Math.abs(final.pi[0][MAKE] - 1) < 1e-9);
 });
 
-test('C005: a reference value with no earlier run receives one boundary checkpoint event', () => {
+test('C005: an implementation value with no earlier run is checkpointed at the reference time', () => {
   const pkg = makePackage();
   const events = [makeEvent('2026-11-06T10:00:00.000Z', 'after')];
   const reconciled = reconcileProgressToReference(events, [pkg], {
@@ -72,8 +72,21 @@ test('C005: a reference value with no earlier run receives one boundary checkpoi
   assert.equal(reconciled.checkpointEvents[0].inc, 0.5);
   assert.equal(reconciled.checkpointEvents[0].recordSource, 'reference');
   assert.equal(reconciled.checkpointEvents[0].timeSource, 'history');
-  assert.equal(reconciled.checkpointEvents[0].t, Date.parse(T0));
+  assert.equal(reconciled.checkpointEvents[0].t, Date.parse(REFERENCE));
   assert.equal(reconciled.events.find((event) => event.recordId === 'after').inc, 0.5);
+});
+
+test('C005: a workspace value with no earlier run is checkpointed at the boundary', () => {
+  const pkg = makePackage();
+  pkg.stages = { ...pkg.stages, make: 0, educe: 1 };
+  const reconciled = reconcileProgressToReference([], [pkg], {
+    referenceSnapshot: referenceSnapshot({ educe: 1 }),
+    cutoffs: { root: T0, packages: { 'pkg-1': T0 } },
+  });
+
+  const checkpoint = reconciled.checkpointEvents.find((event) => event.stage === 'educe');
+  assert.equal(Boolean(checkpoint), true);
+  assert.equal(checkpoint.t, Date.parse(T0));
 });
 
 test('C006: a previous snapshot without timelineHealth still anchors the state check', () => {

@@ -752,7 +752,13 @@ export function reconcileProgressToReference(events = [], packages = [], options
         ? workspaceBoundary
         : cutoffs.packages && cutoffs.packages[packageId];
       const boundary = typeof rawBoundary === 'string' ? Date.parse(rawBoundary) : rawBoundary;
-      const at = Number.isFinite(boundary) ? Math.min(boundary, referenceT) : (list[0] ? list[0].t : initialT);
+      const boundaryAt = Number.isFinite(boundary) ? Math.min(boundary, referenceT) : (list[0] ? list[0].t : initialT);
+      // An implementation stage is not pre-history just because its circle was
+      // empty at the boundary. The previous render proves it was done by the
+      // reference time, so that is the earliest honest checkpoint.
+      const at = IMPLEMENTATION_PROGRESS_STAGES.has(stage) && Number.isFinite(referenceT)
+        ? referenceT
+        : boundaryAt;
       checkpointEvents.push({
         t: at, prec: 'ms', stage, packageId: packageId || null, inc: target.reference,
         evidence: 'reference', timeSource: 'history',

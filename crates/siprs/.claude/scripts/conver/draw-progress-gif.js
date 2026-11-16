@@ -349,7 +349,14 @@ function readReferenceSnapshot(root, options, warnings) {
     if (snapshot) return snapshot;
     warnings.push(`[snapshot] ${options.referenceSnapshot}: unreadable; falling back to the newest snapshot`);
   }
-  return readPreviousSnapshot(root, options, warnings);
+  const newest = readPreviousSnapshot(root, options, warnings);
+  // A render pins the accepted checkpoint it used. Later renders reuse that
+  // baseline instead of treating the newly rendered final state as the
+  // checkpoint, which would erase intermediate state.
+  if (newest && newest.reference && Number.isFinite(Date.parse(newest.reference.generatedAt))) {
+    return newest.reference;
+  }
+  return newest;
 }
 
 /**
@@ -544,10 +551,17 @@ export async function run(root, options) {
   const overallProgress = finalFrame && Number.isFinite(finalFrame.overallProgress)
     ? finalFrame.overallProgress
     : null;
+  const reference = model.referenceSnapshot
+    ? {
+      generatedAt: model.referenceSnapshot.generatedAt,
+      packages: model.referenceSnapshot.packages,
+      runs: model.referenceSnapshot.runs,
+    }
+    : null;
   const snapshotPath = writeSnapshot(
     snapshotDirectory(root, options, outputDir),
     stamp,
-    snapshotFromModel(model, { overallProgress, timelineHealth: model.timelineHealth }),
+    snapshotFromModel(model, { overallProgress, timelineHealth: model.timelineHealth, reference }),
   );
   const output = { html: htmlPath, snapshot: snapshotPath };
   process.stdout.write(markdownReport(model, options, output, estimatedLayout, frames));
