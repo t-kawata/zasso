@@ -67465,7 +67465,7 @@
         {
           "id": 434,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "Restore pre-history backfill and reference checkpoint for the progress timeline",
           "specPath": "~/shyme/zasso/tools/conver/specs/PX-434.md",
           "background": "PX-433 made the history log the timeline clock, but the 2026-11-16 renders collapsed because the pre-history was never backfilled and the previous snapshot was not used as a checkpoint. This ticket restores a strict pre-history estimate, uses the accepted snapshot as a state checkpoint, and fails closed on structural order breakage.",
@@ -67533,7 +67533,149 @@
           "completedAt": "2026-11-16",
           "done_at": "2026-11-16T05:40:09.842Z",
           "instrumentation": "TDD impact set: 146 tests passed. Quality: 0 findings. Annotations verified. External no-flag runs: gaia 39%, crystal 60%, doors 47%, validate-timeline 0 violations each. Real renders: gaia 39.28%, crystal 59.83%, doors 47.05%.",
-          "notes": "Strict pre-history cutoff; previous snapshot checkpoint; workspace scope; every implementation run carries progress; causal and previous-state validation; uncovered stages are named, never estimated.\nDoors completion used exact command-written receipts only: boundify pkg-0005 status receipt.recordedAt; consolidate pkg-0008 omission stamp. No post-history estimation remains.\nSnapshots pin the accepted reference; subsequent no-flag renders reuse it. Final artifacts: gaia 20261116145337.html, crystal 20261116145338.html, doors 20261116145338.html. External no-flag validation: 0 violations on all three."
+          "notes": "Strict pre-history cutoff; previous snapshot checkpoint; workspace scope; every implementation run carries progress; causal and previous-state validation; uncovered stages are named, never estimated.\nDoors completion used exact command-written receipts only: boundify pkg-0005 status receipt.recordedAt; consolidate pkg-0008 omission stamp. No post-history estimation remains.\nSnapshots pin the accepted reference; subsequent no-flag renders reuse it. Final artifacts: gaia 20261116145337.html, crystal 20261116145338.html, doors 20261116145338.html. External no-flag validation: 0 violations on all three.",
+          "reviewed_at": "2026-11-16T07:40:59.650Z"
+        },
+        {
+          "id": 435,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Judge cross-midnight watcher windows by the current calendar day",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-435.md",
+          "background": "Goal: Make the watcher days and daysOfWeek filters match the calendar day of each evaluated instant, so a cross-midnight window such as 19:05-09:30 with daysOfWeek [1,2,3,4,5] runs on Monday 00:00-09:30 in Asia/Tokyo.\n\nPurpose: The shipped DeepSeek off-peak watcher config at .claude/scripts/conver/watcher-config-deepseek-off-peek.json must keep the watcher working through the intended night window on every weekday, including Monday early morning.\n\nMotivation: The current implementation attributes the after-midnight side of a cross-midnight window to the window start day. Monday 00:00-09:30 is therefore attributed to Sunday, which is absent from [1,2,3,4,5]; no filter matches, and the watcher waits from Monday 00:00 until Monday 19:05. This contradicts the documented contract that daysOfWeek lists the days on which execution is allowed (tools/conver/README.md:728) and the natural meaning of the config. The shipped default config tools/conver/watcher-config.json has the same hole.\n\nConstraints: days and daysOfWeek must use the localized calendar day of the instant (config.timezone) for both same-day and cross-midnight windows. Keep the AND semantics between days and daysOfWeek. Keep existing validation rules and error messages. Add no dependencies. Do not change the user watcher config; it must work unchanged after the fix. The config deliberately excludes 13:00-15:00 and uses 19:05/09:30 as margins; those choices are out of scope. Update tests and docs without weakening tests. The old start-day contract in PX-173 C004 is superseded by this ticket, so rewrite those tests in the Red phase. Rebuild the distributable bundle after Green.",
+          "scope": [
+            "Change path: tools/conver/src/time-window.ts — action: modify — detail: replace isAllowedDay with isAllowedWeekday(weekday, daysOfWeek); the cross-midnight tail is no longer attributed to (weekday + 6) % 7. Before: after-midnight judged by window start day. After: every segment judged by the instant localized weekday.",
+            "Change path: tools/conver/src/time-window.ts — action: add/remove — detail: add exported getLocalizedIsoDate(now, timezone) that formats the localized calendar date; remove getWindowStartIsoDate and shiftIsoDate. Before: date formatting existed only for the start date. After: one date formatter shared by watcher.ts and time-window.ts.",
+            "Change path: tools/conver/src/watcher.ts — action: modify — detail: evaluate filter.days against getLocalizedIsoDate(now, config.timezone) instead of getWindowStartIsoDate(now, filter.startTime, filter.endTime, config.timezone). Before: exact dates matched the window start date. After: exact dates match the instant calendar date.",
+            "Change path: tools/conver/src/time-window.test.ts — action: modify — detail: rewrite the C004 start-day case; add Monday 00:00/00:05/09:30/09:31/18:00/19:04/19:05, Tuesday 00:00, Saturday 00:00, and single-day cross-midnight cases under Asia/Tokyo and UTC.",
+            "Change path: tools/conver/src/watcher.test.ts — action: modify — detail: rewrite the cross-midnight days cases to current-date matching; add the shipped config integration test with repo-relative URL loading.",
+            "Change path: tools/conver/README.md — action: modify — detail: update lines 728, 733 and 766 to state current-calendar-day matching and the need to list both days for both halves of a cross-midnight window.",
+            "Change path: tools/conver/dist/conver.js — action: rebuild — detail: run the package build after Green so the distributable bundle contains the fix.",
+            "Change path: .claude/scripts/conver/conver.js — action: update — detail: copy the rebuilt bundle so the config is executed by the fixed code; check-bundle-fresh must pass.",
+            "API contract: WatcherConfig and WatcherFilter shapes are unchanged; no signature change. Behavior of days/daysOfWeek on cross-midnight windows changes as specified. Data schema: no change. Config/env: no change; the user config is not edited. Dependencies: none added or removed.",
+            "Non-change: .claude/scripts/conver/watcher-config-deepseek-off-peek.json — reason: the config already expresses the intended night window and buffers; this ticket fixes the interpreter, not the config.",
+            "Non-change: daytime 13:00-15:00 and the 09:30-10:00 / 19:00-19:05 margins — reason: the user intentionally excludes daytime and adds margins; they are out of scope.",
+            "Affected component: watcher scheduling on every cross-midnight filter with days or daysOfWeek — nature: behavior change that closes an under-run — response: add the tests above and document the new contract.",
+            "Affected component: tools/conver/watcher-config.json default example — nature: Monday 00:00-09:30 now runs — response: no edit; the restored run is the intended behavior."
+          ],
+          "testUnit": [
+            "UT: [Normal] @verifies C002 isInTimeWindow with daysOfWeek:[1,2,3,4,5], 19:05-09:30, Asia/Tokyo returns true at Monday 2026-11-16 00:00 JST (2026-11-15T15:00:00Z), 00:05 JST (2026-11-15T15:05:00Z), and 09:30 JST (2026-11-16T00:30:00Z); false at 09:31 JST (2026-11-16T00:31:00Z) and 18:00 JST (2026-11-16T09:00:00Z); true at 19:05 JST (2026-11-16T10:05:00Z).",
+            "UT: [Normal] @verifies C002 isInTimeWindow with daysOfWeek:[1,2,3,4,5], 19:05-09:30, Asia/Tokyo returns true at Tuesday 2026-11-17 00:00 JST (2026-11-16T15:00:00Z) and false at Saturday 2026-11-21 00:00 JST (2026-11-20T15:00:00Z) for this filter alone.",
+            "UT: [Normal] @verifies C002 isInTimeWindow with daysOfWeek:[1], 22:00-06:00 returns true at Monday 23:00 JST (2026-11-16T14:00:00Z) and Monday 03:00 JST (2026-11-15T18:00:00Z); false at Tuesday 03:00 JST (2026-11-16T18:00:00Z) and Tuesday 23:00 JST (2026-11-17T14:00:00Z); with daysOfWeek:[1,2], Tuesday 03:00 JST becomes true.",
+            "UT: [Boundary] @verifies C002 isInTimeWindow treats both ends of a cross-midnight window as inclusive on the current calendar day: Monday 09:30 JST true and 09:31 JST false; Monday 19:04 JST false and 19:05 JST true.",
+            "UT: [Normal] @verifies C001 isInTimeWindow keeps current-weekday matching for a same-day window: daysOfWeek:[2], 09:00-17:00, Tuesday 10:00 JST (2026-11-17T01:00:00Z) true and Monday 10:00 JST (2026-11-16T01:00:00Z) false.",
+            "UT: [Normal] @verifies C003 isWithinAnyFilter with days:['2026-11-11'], 22:00-06:00, Asia/Tokyo returns true at Wednesday 2026-11-11 02:00 JST (2026-11-10T17:00:00Z) and false at Tuesday 2026-11-10 23:00 JST (2026-11-10T14:00:00Z).",
+            "UT: [Invariant] @verifies C003 The days comparison uses the localized calendar date of the instant, not the window-start date; a cross-midnight filter with days:['2026-11-10'] is true at 2026-11-10 23:00 JST and false at 2026-11-11 01:00 JST and 02:00 JST.",
+            "UT: [Error] validateWatcherConfig still rejects invalid daysOfWeek ([], [7], [1,1], [1.5]) and invalid days (bad format, impossible date, duplicate, empty) with the existing error messages.",
+            "Contract C001 — precondition: A filter with startTime <= endTime, a non-empty daysOfWeek, and a valid Asia/Tokyo instant. postcondition: isInTimeWindow returns true iff the localized weekday of the instant is in daysOfWeek and the localized time is within [startTime, endTime]. invariant: The day predicate uses the instant localized weekday, never a window-start weekday.",
+            "Contract C002 — precondition: A filter with startTime > endTime, a non-empty daysOfWeek, and a valid Asia/Tokyo instant. postcondition: isInTimeWindow returns true iff the localized weekday of the instant is in daysOfWeek and the localized time is >= startTime or <= endTime. invariant: The after-midnight side is judged by the instant calendar day; it is not attributed to the previous day.",
+            "Contract C003 — precondition: A filter with startTime > endTime, a non-empty days array of YYYY-MM-DD dates, and a valid instant. postcondition: isWithinAnyFilter returns true iff the localized calendar date of the instant is in days and the time is within [startTime, endTime]. invariant: days uses the instant localized calendar date, never the window-start date.",
+            "Contract C004 — precondition: The config in .claude/scripts/conver/watcher-config-deepseek-off-peek.json is loaded with timezone Asia/Tokyo. postcondition: Monday 2026-11-16 00:00 Asia/Tokyo is within a filter; Monday 2026-11-16 09:31 is outside every filter. invariant: No config edit is required to close the Monday-morning gap."
+          ],
+          "testIntegration": [
+            "IT: [Shipped config] @verifies C004 loadWatcherConfig reads .claude/scripts/conver/watcher-config-deepseek-off-peek.json through a repo-relative URL and isWithinAnyFilter returns true at Monday 2026-11-16 00:00 JST (2026-11-15T15:00:00Z) and false at Monday 2026-11-16 09:31 JST (2026-11-16T00:31:00Z).",
+            "IT: [Weekend + weekday filters] isWithinAnyFilter with the shipped config returns true at Sunday 2026-11-15 20:00 JST (2026-11-15T11:00:00Z), true at Monday 2026-11-16 00:00 JST, false at Monday 2026-11-16 13:00 JST (2026-11-16T04:00:00Z, intentionally excluded daytime), and true at Monday 2026-11-16 19:05 JST (2026-11-16T10:05:00Z)."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            "tools/conver/src/time-window.ts",
+            "tools/conver/src/watcher.ts",
+            "tools/conver/src/time-window.test.ts",
+            "tools/conver/src/watcher.test.ts",
+            "tools/conver/README.md"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: with Asia/Tokyo, filter {daysOfWeek:[1,2,3,4,5], startTime:'19:05', endTime:'09:30'}, Monday 2026-11-16 00:00, 00:05, and 09:30 return true; Monday 09:31 and 18:00 return false; Monday 19:05 returns true.",
+            "Happy path: with the same filter, Tuesday 2026-11-17 00:00 returns true (current weekday), and Saturday 2026-11-21 00:00 returns false for this filter alone.",
+            "Happy path: with {daysOfWeek:[1], startTime:'22:00', endTime:'06:00'}, Monday 23:00 and Monday 03:00 return true; Tuesday 03:00 and Tuesday 23:00 return false; adding 2 to daysOfWeek makes Tuesday 03:00 true.",
+            "Edge case: with {days:['2026-11-11'], startTime:'22:00', endTime:'06:00'}, Wednesday 2026-11-11 02:00 returns true, while Tuesday 2026-11-10 23:00 returns false.",
+            "Integration: isWithinAnyFilter with the shipped DeepSeek off-peak config returns true for Monday 2026-11-16 00:00 and false for Monday 2026-11-16 09:31, proving the intended gap is closed without a config change.",
+            "Error case: invalid days and daysOfWeek still fail validateWatcherConfig with the existing messages."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "daysOfWeek on a same-day window",
+              "precondition": "A filter with startTime <= endTime, a non-empty daysOfWeek, and a valid Asia/Tokyo instant.",
+              "postcondition": "isInTimeWindow returns true iff the localized weekday of the instant is in daysOfWeek and the localized time is within [startTime, endTime].",
+              "invariant": "The day predicate uses the instant localized weekday, never a window-start weekday."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "daysOfWeek on a cross-midnight window",
+              "precondition": "A filter with startTime > endTime, a non-empty daysOfWeek, and a valid Asia/Tokyo instant.",
+              "postcondition": "isInTimeWindow returns true iff the localized weekday of the instant is in daysOfWeek and the localized time is >= startTime or <= endTime.",
+              "invariant": "The after-midnight side is judged by the instant calendar day; it is not attributed to the previous day."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "days on a cross-midnight window",
+              "precondition": "A filter with startTime > endTime, a non-empty days array of YYYY-MM-DD dates, and a valid instant.",
+              "postcondition": "isWithinAnyFilter returns true iff the localized calendar date of the instant is in days and the time is within [startTime, endTime].",
+              "invariant": "days uses the instant localized calendar date, never the window-start date."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "shipped DeepSeek off-peak config",
+              "precondition": "The config in .claude/scripts/conver/watcher-config-deepseek-off-peek.json is loaded with timezone Asia/Tokyo.",
+              "postcondition": "Monday 2026-11-16 00:00 Asia/Tokyo is within a filter; Monday 2026-11-16 09:31 is outside every filter.",
+              "invariant": "No config edit is required to close the Monday-morning gap."
+            }
+          ],
+          "notes": "- Implementation steps: (1) rewrite isAllowedWeekday to daysOfWeek.includes(weekday); (2) add getLocalizedIsoDate and use it for filter.days; (3) remove getWindowStartIsoDate and shiftIsoDate; (4) update README lines 728, 733 and 766; (5) run the impact tests, rebuild dist, and copy .claude/scripts/conver/conver.js.\n- Risks: a cross-midnight window with a single selected day no longer continues into the next day; document that both days must be listed to cover both halves.\n- Caveats: the config intentionally excludes 13:00-15:00 and uses 19:05/09:30 as margins; do not widen the window in this ticket.\n- Open items: none.\n- Future improvements: add a named attribution mode only if a real need appears; do not keep the start-day behavior as the default.\nImplementation summary:\n- Changed files: tools/conver/src/time-window.ts, tools/conver/src/watcher.ts, tools/conver/src/time-window.test.ts, tools/conver/src/watcher.test.ts, tools/conver/README.md, tools/conver/VERSION.json, tools/conver/dist/conver.js, tools/conver/.claude/scripts/conver/conver.js, .claude/scripts/conver/conver.js\n- Key changes: cross-midnight days/daysOfWeek now use the instant's localized calendar day; getLocalizedIsoDate replaces getWindowStartIsoDate.\n- Red: 8 new assertions failed before implementation.\n- Test results: 86 tests passed in the impact set (time-window, watcher, step-timer, conver, cron-scheduler); 0 failed.\n- Quality checks: 0 issues.\n- Bundle: v0.0.121 built with make build-conver; check-bundle-fresh pass; root .claude copy identical.\nReview report:\n- Status gate: pass (done)\n- Crimes/stubs/excuses: 0 open, 0 stubs, 0 excuse findings\n- Annotation verify: 6 source files, no missing, no ambiguous\n- Compile: tsc clean; tests 86 pass, 0 fail\n- Quality: 0 issues; translatability greps clean\n- Bundle freshness: pass; root .claude copy byte-identical\n- Boy Scout: isAllowedDay renamed to isAllowedWeekday; getLocalizedIsoDate extracted; getWindowStartIsoDate/shiftIsoDate removed; MINUTES_PER_HOUR extracted\n- Commit: not created in this session (user authorization not given); no push performed",
+          "invariants": "- 【Normal establishment】For every validated filter and instant, daysOfWeek matches iff the localized calendar weekday of the instant is in the list; days matches iff the localized calendar date is in the list.\n- 【Invariant on error】Invalid days or daysOfWeek are rejected by validateWatcherConfig before isInTimeWindow runs; isInTimeWindow never throws for a validated config.\n- 【Internal state invariant】isInTimeWindow and isWithinAnyFilter are pure: they read the Date and config without mutation and return a boolean.\n- 【Boundary invariant】Same-day and cross-midnight windows use the same day predicate; startTime and endTime are inclusive; the after-midnight side is judged by the instant calendar day, not the window start day.",
+          "instrumentation": "- Logging: no new runtime logs; waitForWindow already prints the outside-window wait and the resume message.\n- Metrics: none; the watcher is a local CLI.\n- Error tracking: validateWatcherConfig continues to report invalid days and daysOfWeek with the existing messages.\n- Health check: none added; the endpoint/termination behavior is unchanged.\nStatic quality check: passed (0 issues)\nTranslatability: no generic variables, no debug output, MINUTES_PER_HOUR extracted\nTests: 86 passed in the impact set (time-window, watcher, step-timer, conver, cron-scheduler)\nBundle freshness: pass (v0.0.121)",
+          "investigation": "- time-window.ts:63-88 isInTimeWindow reads the localized hour/minute/weekday once, then delegates to isAllowedDay, isWithinSameDayWindow or isWithinCrossDayWindow.\n- time-window.ts:195-210 isAllowedDay contains the defect: startMinutes > endMinutes && currentMinutes <= endMinutes selects (weekday + 6) % 7, so the after-midnight side is judged by the window start day.\n- time-window.ts:172-187 getWindowStartIsoDate applies the same previous-day shift for exact dates; watcher.ts:244-269 uses it before isInTimeWindow.\n- time-window.test.ts:204-217 C004 explicitly asserts the old start-day behavior (Mon 22:00-06:00 + [1]: Mon 23:00 true, Tue 03:00 true, Tue 23:00 false, Sun 23:00 false).\n- watcher.test.ts:200-229 asserts the old start-date attribution for filter.days (days:['2026-11-10'] matches 2026-11-11 01:00 and 02:00 JST).\n- README.md:728 calls daysOfWeek the days on which execution is allowed; README.md:733 and 766 document the start-day attribution, so the docs and the field contract disagree.\n- The user config .claude/scripts/conver/watcher-config-deepseek-off-peek.json has filters [{daysOfWeek:[0,6],00:00-23:59},{daysOfWeek:[1,2,3,4,5],19:05-09:30}]. Executing the current isWithinAnyFilter yields WAIT from Monday 2026-11-16 00:00 through 19:04 and RUN from 19:05; the shipped default tools/conver/watcher-config.json has the same hole.\n- The fix is confined to the day predicate. The cron schedule (*/5 in config.timezone), waitForWindow loop, and endpoint logic are correct and need no change.\n- Build path: tools/conver/Makefile build-conver runs scripts/build-conver.mjs --increment, writes dist/conver.js, and copies it to .claude/scripts/conver/conver.js; check-bundle-fresh compares the committed bundle with a fresh build.",
+          "boyScoutPlan": "- Rename isAllowedDay to isAllowedWeekday so the function states the domain concept it filters.\n- Extract getLocalizedIsoDate so the YYYY-MM-DD formatting is expressed once and watcher.ts does not reimplement padding.\n- Remove getWindowStartIsoDate and shiftIsoDate; dead helpers after the semantic change violate the Boy Scout rule.\n- Keep isInTimeWindow as the single entry point that reads the clock parts once and delegates to named predicates.\n- No hardcoded values: the HH:mm pattern remains a named constant; the weekday index map remains the single convention source.",
+          "created_at": "2026-11-16",
+          "updated_at": "2026-11-16",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-16T07:29:04.971Z",
+          "planTestCode": [
+            "C001 — same-day window keeps current-weekday matching\n```ts\n// C001: same-day window keeps current-weekday matching.\nconst tuesdayNoon = new Date(\"2026-11-17T01:00:00Z\"); // Tue 10:00 JST\nconst mondayNoon = new Date(\"2026-11-16T01:00:00Z\");  // Mon 10:00 JST\nassert.strictEqual(isInTimeWindow(tuesdayNoon, \"09:00\", \"17:00\", \"Asia/Tokyo\", [2]), true);\nassert.strictEqual(isInTimeWindow(mondayNoon, \"09:00\", \"17:00\", \"Asia/Tokyo\", [2]), false);\n```",
+            "C002 — cross-midnight window is judged by the instant calendar day\n```ts\n// C002: cross-midnight window is judged by the instant calendar day.\nconst mondayMidnight = new Date(\"2026-11-15T15:00:00Z\"); // Mon 00:00 JST\nconst monday0930 = new Date(\"2026-11-16T00:30:00Z\");\nconst monday0931 = new Date(\"2026-11-16T00:31:00Z\");\nconst monday1905 = new Date(\"2026-11-16T10:05:00Z\");\nconst monday1904 = new Date(\"2026-11-16T10:04:00Z\");\nassert.strictEqual(isInTimeWindow(mondayMidnight, \"19:05\", \"09:30\", \"Asia/Tokyo\", [1,2,3,4,5]), true);\nassert.strictEqual(isInTimeWindow(monday0930, \"19:05\", \"09:30\", \"Asia/Tokyo\", [1,2,3,4,5]), true);\nassert.strictEqual(isInTimeWindow(monday0931, \"19:05\", \"09:30\", \"Asia/Tokyo\", [1,2,3,4,5]), false);\nassert.strictEqual(isInTimeWindow(monday1904, \"19:05\", \"09:30\", \"Asia/Tokyo\", [1,2,3,4,5]), false);\nassert.strictEqual(isInTimeWindow(monday1905, \"19:05\", \"09:30\", \"Asia/Tokyo\", [1,2,3,4,5]), true);\nconst tuesday0300 = new Date(\"2026-11-16T18:00:00Z\");\nassert.strictEqual(isInTimeWindow(tuesday0300, \"22:00\", \"06:00\", \"Asia/Tokyo\", [1]), false);\nassert.strictEqual(isInTimeWindow(tuesday0300, \"22:00\", \"06:00\", \"Asia/Tokyo\", [1,2]), true);\n```",
+            "C003 — exact dates use the instant calendar date\n```ts\n// C003: exact dates use the instant calendar date.\nconst crossMidnight = config({ filters: [{ days: [\"2026-11-11\"], startTime: \"22:00\", endTime: \"06:00\" }] });\nassert.strictEqual(isWithinAnyFilter(crossMidnight, new Date(\"2026-11-10T17:00:00Z\")), true); // Wed 02:00 JST\nassert.strictEqual(isWithinAnyFilter(crossMidnight, new Date(\"2026-11-10T14:00:00Z\")), false); // Tue 23:00 JST\n```",
+            "C004 — shipped DeepSeek config closes the Monday-morning gap\n```ts\n// C004: the shipped config must close the Monday-morning gap without an edit.\nconst configPath = fileURLToPath(new URL(\"../../../.claude/scripts/conver/watcher-config-deepseek-off-peek.json\", import.meta.url));\nconst shipped = loadWatcherConfig(configPath);\nassert.strictEqual(isWithinAnyFilter(shipped, new Date(\"2026-11-15T15:00:00Z\")), true); // Mon 00:00 JST\nassert.strictEqual(isWithinAnyFilter(shipped, new Date(\"2026-11-16T00:31:00Z\")), false); // Mon 09:31 JST\nassert.strictEqual(isWithinAnyFilter(shipped, new Date(\"2026-11-16T04:00:00Z\")), false); // Mon 13:00 JST intentional\nassert.strictEqual(isWithinAnyFilter(shipped, new Date(\"2026-11-16T10:05:00Z\")), true); // Mon 19:05 JST\n```"
+          ],
+          "planned_at": "2026-11-16T07:29:51.400Z",
+          "startedAt": "2026-11-16",
+          "changes": [
+            {
+              "before": "isAllowedDay attributed the after-midnight side to (weekday + 6) % 7 (window start day).",
+              "after": "isAllowedWeekday checks daysOfWeek against the instant's localized weekday for every segment.",
+              "description": "Cross-midnight daysOfWeek now matches the calendar day of the execution, so Monday 00:00-09:30 runs for [1,2,3,4,5] 19:05-09:30."
+            },
+            {
+              "before": "getWindowStartIsoDate returned the previous day for the after-midnight side; watcher.ts used it for filter.days.",
+              "after": "getLocalizedIsoDate returns the instant's localized calendar date; watcher.ts compares filter.days against it.",
+              "description": "Exact dates use the current calendar date; getWindowStartIsoDate and shiftIsoDate were removed."
+            },
+            {
+              "before": "time-window.test.ts asserted start-day attribution (Tue 03:00 active for [1]).",
+              "after": "Tests assert current-calendar-day behavior and add Monday 00:00/09:30/09:31, Tuesday 00:00, Saturday 00:00, and both-day listing cases.",
+              "description": "Red tests failed before the implementation and pass after."
+            },
+            {
+              "before": "watcher.test.ts asserted start-date attribution for filter.days.",
+              "after": "Tests assert current-date matching and add the shipped DeepSeek off-peak config integration test.",
+              "description": "The shipped config now returns true at Monday 00:00 JST and false at 09:31 JST without an edit."
+            },
+            {
+              "before": "README described start-day attribution for cross-midnight windows.",
+              "after": "README states current-calendar-day matching and the need to list both days.",
+              "description": "Docs now match the implementation contract."
+            },
+            {
+              "before": "dist/conver.js and .claude/scripts/conver/conver.js carried the old day predicate.",
+              "after": "Rebuilt bundles v0.0.121 contain the fix; check-bundle-fresh passes.",
+              "description": "Deployed bundle and root .claude copy are byte-identical to a fresh build."
+            }
+          ],
+          "done_at": "2026-11-16T07:34:43.426Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-16",
+          "reviewed_at": "2026-11-16T07:35:53.861Z"
         }
       ]
     },

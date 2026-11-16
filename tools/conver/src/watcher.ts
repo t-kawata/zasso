@@ -6,7 +6,7 @@
 // single-window shape is normalized to a one-element filter list so existing
 // workspace configs keep working without being edited.
 import { readFileSync } from "node:fs";
-import { getWindowStartIsoDate, isInTimeWindow } from "./time-window.js";
+import { getLocalizedIsoDate, isInTimeWindow } from "./time-window.js";
 
 const TIME_FORMAT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_FORMAT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -241,16 +241,12 @@ export function loadWatcherConfig(configPath: string): WatcherConfig {
  * True when the instant matches at least one filter. Filters are evaluated in
  * order and the first match wins; no match means the firing waits.
  */
+// [::TICKET::] PX-435 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-435 --for-spec --no-implementation-order`.
 export function isWithinAnyFilter(config: WatcherConfig, now: Date): boolean {
   for (const filter of config.filters) {
     if (filter.days !== undefined) {
-      const startDate = getWindowStartIsoDate(
-        now,
-        filter.startTime,
-        filter.endTime,
-        config.timezone,
-      );
-      if (!filter.days.includes(startDate)) continue;
+      const currentDate = getLocalizedIsoDate(now, config.timezone);
+      if (!filter.days.includes(currentDate)) continue;
     }
     if (
       !isInTimeWindow(

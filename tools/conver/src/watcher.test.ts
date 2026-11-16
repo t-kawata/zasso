@@ -1,9 +1,11 @@
+// [::TICKET::] PX-435 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-435 --for-spec --no-implementation-order`.
 // watcher.test.ts — prioritized filters, days and legacy config normalization.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   isWithinAnyFilter,
   loadWatcherConfig,
@@ -197,7 +199,8 @@ describe("isWithinAnyFilter", () => {
     assert.strictEqual(isWithinAnyFilter(wrongWeekday, NOON_TOKYO), false);
   });
 
-  it("attributes a cross-midnight window to its start date for days", () => {
+  // @verifies C003
+  it("matches a cross-midnight window by the current calendar date for days", () => {
     const crossMidnight = config({
       filters: [
         {
@@ -208,14 +211,15 @@ describe("isWithinAnyFilter", () => {
       ],
     });
     assert.strictEqual(isWithinAnyFilter(crossMidnight, LATE_TOKYO), true);
-    assert.strictEqual(isWithinAnyFilter(crossMidnight, AFTER_MIDNIGHT_TOKYO), true);
+    assert.strictEqual(isWithinAnyFilter(crossMidnight, AFTER_MIDNIGHT_TOKYO), false);
     assert.strictEqual(
       isWithinAnyFilter(crossMidnight, new Date("2026-11-10T16:00:00Z")),
-      true,
+      false,
     );
   });
 
-  it("rejects an after-midnight time whose start date is the previous day", () => {
+  // @verifies C003
+  it("matches an after-midnight time whose current date is listed", () => {
     const crossMidnight = config({
       filters: [
         {
@@ -225,6 +229,23 @@ describe("isWithinAnyFilter", () => {
         },
       ],
     });
-    assert.strictEqual(isWithinAnyFilter(crossMidnight, AFTER_MIDNIGHT_TOKYO), false);
+    assert.strictEqual(isWithinAnyFilter(crossMidnight, AFTER_MIDNIGHT_TOKYO), true);
+    assert.strictEqual(isWithinAnyFilter(crossMidnight, LATE_TOKYO), false);
+  });
+
+  // @verifies C004
+  it("closes the Monday-morning gap in the shipped DeepSeek off-peak config", () => {
+    const shippedPath = fileURLToPath(
+      new URL(
+        "../../../.claude/scripts/conver/watcher-config-deepseek-off-peek.json",
+        import.meta.url,
+      ),
+    );
+    const shipped = loadWatcherConfig(shippedPath);
+    assert.strictEqual(isWithinAnyFilter(shipped, new Date("2026-11-15T11:00:00Z")), true);
+    assert.strictEqual(isWithinAnyFilter(shipped, new Date("2026-11-15T15:00:00Z")), true);
+    assert.strictEqual(isWithinAnyFilter(shipped, new Date("2026-11-16T00:31:00Z")), false);
+    assert.strictEqual(isWithinAnyFilter(shipped, new Date("2026-11-16T04:00:00Z")), false);
+    assert.strictEqual(isWithinAnyFilter(shipped, new Date("2026-11-16T10:05:00Z")), true);
   });
 });

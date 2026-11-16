@@ -725,12 +725,12 @@ stateDiagram-v2
 | `packages` | 対象パッケージ名（任意）。CLI `-P` と同じ解決規則 | 空配列不可、重複不可 |
 | `filters` | 優先順に評価するフィルター配列。**低いindexが優先** | 非空 |
 | `filters[].days` | 実行を許可する日付（`YYYY-MM-DD`） | 実在日付のみ、重複不可、空配列不可 |
-| `filters[].daysOfWeek` | 実行を許可する曜日（0=日〜6=土） | 0..6、重複不可、空配列不可 |
+| `filters[].daysOfWeek` | 実行を許可する曜日（0=日〜6=土）。各瞬間の現地曜日で判定 | 0..6、重複不可、空配列不可 |
 | `filters[].startTime` | 稼働開始時刻（HH:mm、24時間表記） | 例: `"09:00"` |
 | `filters[].endTime` | 稼働終了時刻（HH:mm、24時間表記） | 例: `"19:00"` |
 
 - フィルターは先頭から評価し、**最初にマッチしたフィルターだけ**を見ます。どれにもマッチしなければその発火は待機します。
-- `days` と `daysOfWeek` は AND です。日跨ぎ窓では `days` も `daysOfWeek` と同じく**窓の開始日**で判定します。
+- `days` と `daysOfWeek` は AND です。どちらも**その瞬間の現地の日付・曜日**で判定します。日跨ぎ窓では両側が別の暦日になるため、両側を動かしたい場合は両方の日付・曜日を列挙します。
 - 旧形式（トップレベルの `intervalMinutes` + `startTime` + `endTime` + `daysOfWeek`）は1要素の `filters` に正規化して受け入れます。既存ワークスペースの設定を編集する必要はありません。
 - `intervalMinutes` はフィルター単位には設定できません。時間帯ごとに異なる間隔が必要になった場合は別チケットで拡張します。
 
@@ -763,7 +763,7 @@ flowchart TD
 - **境界 Slack**: consolidate と find の完了時に 1 通だけ、`[workspace] package consolidate HH:mm / find HH:mm TZ (last: KEY) — added N` を送ります。find が追加したチケットがあれば `added N` で示し、`-n 1` で find を省略した場合は `find skipped` と表示します。
 - **`-n 1` の注意**: `-n 1` は find のみを省略し、consolidate は実行します。endpoint 判定では find を `SKIPPED` として記録します。
 
-> 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）では、`days` と `daysOfWeek` の両方を**窓の開始日**で判定します（例: 月22:00〜火06:00 + `daysOfWeek: [1]` は月曜夜〜火曜未明が連続して稼働）。
+> 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）では、`days` と `daysOfWeek` の両方を**その瞬間の現地暦日**で判定します。月曜夜から火曜未明まで連続して稼働させたい場合は `daysOfWeek: [1,2]` のように両方の曜日を列挙します。
 
 ---
 

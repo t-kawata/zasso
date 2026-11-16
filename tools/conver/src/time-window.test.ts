@@ -1,3 +1,4 @@
+// [::TICKET::] PX-435 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-435 --for-spec --no-implementation-order`.
 // time-window.test.ts — time-window.ts のユニットテスト
 //
 // テスト対象: isInTimeWindow()
@@ -201,18 +202,55 @@ describe("isInTimeWindow — daysOfWeek", () => {
     assert.strictEqual(isInTimeWindow(instant, "00:00", "23:59", "America/New_York", [1]), false);
   });
 
-  // --- C004: 日跨ぎ窓（開始日帰属・連続性） ---
+  // --- C004: 日跨ぎ窓（現在の暦日で判定） ---
 
-  // @verifies C004
-  it("日跨ぎ窓 22:00-06:00 + daysOfWeek=[1]: 月23時 active / 火03時 active / 火23時 inactive / 日23時 inactive", () => {
+  // @verifies C002
+  it("日跨ぎ窓 22:00-06:00 + daysOfWeek=[1]: 月23時 active / 火03時 inactive / 火23時 inactive / 日23時 inactive", () => {
     assert.strictEqual(isInTimeWindow(new Date("2026-08-24T23:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
-    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T03:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T03:00:00Z"), "22:00", "06:00", "UTC", [1]), false);
     assert.strictEqual(isInTimeWindow(new Date("2026-08-25T23:00:00Z"), "22:00", "06:00", "UTC", [1]), false);
     assert.strictEqual(isInTimeWindow(new Date("2026-08-23T23:00:00Z"), "22:00", "06:00", "UTC", [1]), false);
   });
 
-  it("日跨ぎ窓の開始時刻ちょうど（22:00）と終了時刻ちょうど（06:00）で active", () => {
+  // @verifies C002
+  it("日跨ぎ窓の両側を動かすには両方の曜日を列挙する: [1,2] で火03時 active", () => {
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T03:00:00Z"), "22:00", "06:00", "UTC", [1, 2]), true);
+  });
+
+  it("日跨ぎ窓の開始時刻ちょうど（22:00）は active、終了時刻ちょうど（06:00）は現在の曜日で判定", () => {
     assert.strictEqual(isInTimeWindow(new Date("2026-08-24T22:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
-    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T06:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T06:00:00Z"), "22:00", "06:00", "UTC", [1]), false);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T06:00:00Z"), "22:00", "06:00", "UTC", [1, 2]), true);
+  });
+
+  // --- PX-435: weekdays 19:05-09:30 includes Monday early morning (Asia/Tokyo) ---
+  describe("cross-midnight with weekday filter (Asia/Tokyo)", () => {
+    const weekdays = [1, 2, 3, 4, 5];
+
+    // @verifies C002
+    it("Monday 00:00-09:30 is active and 09:31 is inactive", () => {
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-15T15:00:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), true);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-15T15:05:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), true);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T00:30:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), true);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T00:31:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), false);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T09:00:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), false);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T10:04:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), false);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T10:05:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), true);
+    });
+
+    // @verifies C002
+    it("Tuesday 00:00 is active and Saturday 00:00 is inactive for the weekday filter", () => {
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T15:00:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), true);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-20T15:00:00Z"), "19:05", "09:30", "Asia/Tokyo", weekdays), false);
+    });
+
+    // @verifies C002
+    it("single-day cross-midnight windows stop at midnight for the unlisted day", () => {
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T14:00:00Z"), "22:00", "06:00", "Asia/Tokyo", [1]), true);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-15T18:00:00Z"), "22:00", "06:00", "Asia/Tokyo", [1]), true);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T18:00:00Z"), "22:00", "06:00", "Asia/Tokyo", [1]), false);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-17T14:00:00Z"), "22:00", "06:00", "Asia/Tokyo", [1]), false);
+      assert.strictEqual(isInTimeWindow(new Date("2026-11-16T18:00:00Z"), "22:00", "06:00", "Asia/Tokyo", [1, 2]), true);
+    });
   });
 });

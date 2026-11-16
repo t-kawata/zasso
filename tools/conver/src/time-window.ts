@@ -13,6 +13,9 @@
 /** "HH:mm" 形式（24時間表記）の検証用正規表現 */
 const TIME_FORMAT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/** 1時間の分数 — "HH:mm" を分スケールへ変換する */
+const MINUTES_PER_HOUR = 60;
+
 /**
  * "HH:mm" 形式の時刻文字列をパースし、0時からの経過分数を返す。
  * バリデーションも兼ねており、不正な形式の場合はエラーを投げる。
@@ -28,7 +31,7 @@ function parseTimeToMinutes(timeStr: string): number {
   }
 
   const [hours, minutes] = timeStr.split(":").map(Number);
-  return hours * 60 + minutes;
+  return hours * MINUTES_PER_HOUR + minutes;
 }
 
 /** 曜日名（"Sun"〜"Sat"）→ 曜日番号（0=日曜〜6=土曜） */
@@ -47,8 +50,8 @@ const WEEKDAY_INDEX: Record<string, number> = {
  * あるかを判定する純粋関数。
  *
  * startTime > endTime の場合は日跨ぎ（深夜跨ぎ）の時間枠として扱う。
- * daysOfWeek が指定された場合、曜日フィルタを適用する。日跨ぎ窓では
- * 「窓インスタンスの開始日」の曜日で判定し、窓の連続性を保つ。
+ * daysOfWeek が指定された場合、その瞬間の現地曜日でフィルタする。
+ * 日跨ぎ窓でも開始日帰属はせず、実行される暦日で判定する。
  * タイムゾーン変換は Intl.DateTimeFormat.formatToParts で行うため、
  * 外部ライブラリへの依存はない。
  *
@@ -73,10 +76,10 @@ export function isInTimeWindow(
 
   // 設定タイムゾーンの壁時計で時・分・曜日を取得
   const { hour, minute, weekday } = getLocalizedDateTimeParts(now, timezone);
-  const currentMinutes = hour * 60 + minute;
+  const currentMinutes = hour * MINUTES_PER_HOUR + minute;
 
-  // 曜日フィルタ（未指定は全曜日）
-  if (!isAllowedDay(currentMinutes, startMinutes, endMinutes, weekday, daysOfWeek)) {
+  // 曜日フィルタ（未指定は全曜日）。日跨ぎ窓でもその瞬間の現地曜日で判定する。
+  if (!isAllowedWeekday(weekday, daysOfWeek)) {
     return false;
   }
 
@@ -152,61 +155,25 @@ function toIsoDate(parts: Pick<LocalizedDateTimeParts, "year" | "month" | "day">
   return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
-/** Shift an ISO calendar date by whole days without DST arithmetic. */
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
-function shiftIsoDate(isoDate: string, deltaDays: number): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const shifted = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + deltaDays));
-  return toIsoDate({
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate(),
-  });
-}
-
 /**
- * The calendar date on which the current window instance started, in the
- * configured timezone. A cross-midnight window viewed after midnight belongs
- * to the previous day, which is the date `days` filters must match.
+ * The calendar date of the instant in the configured timezone (YYYY-MM-DD).
+ * A cross-midnight window does not shift this date: `days` filters match the
+ * day on which the execution actually happens.
  */
-export function getWindowStartIsoDate(
-  now: Date,
-  startTime: string,
-  endTime: string,
-  timezone: string,
-): string {
-  const startMinutes = parseTimeToMinutes(startTime);
-  const endMinutes = parseTimeToMinutes(endTime);
-  const parts = getLocalizedDateTimeParts(now, timezone);
-  const currentMinutes = parts.hour * 60 + parts.minute;
-  const isoDate = toIsoDate(parts);
-  if (startMinutes > endMinutes && currentMinutes <= endMinutes) {
-    return shiftIsoDate(isoDate, -1);
-  }
-  return isoDate;
+export function getLocalizedIsoDate(now: Date, timezone: string): string {
+  return toIsoDate(getLocalizedDateTimeParts(now, timezone));
 }
 
 /**
  * 曜日フィルタ。daysOfWeek が未指定・空配列の場合は全曜日を許可する。
- * 日跨ぎ窓（startMinutes > endMinutes）の深夜側は前日開始の窓インスタンス
- * とみなし、前日の曜日で判定する（開始日帰属）。
+ * 日跨ぎ窓でも、その瞬間の現地曜日で判定する。
  */
-// [::TICKET::] PX-173 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-173 --for-spec --no-implementation-order`.
-function isAllowedDay(
-  currentMinutes: number,
-  startMinutes: number,
-  endMinutes: number,
-  weekday: number,
-  daysOfWeek?: number[],
-): boolean {
+// [::TICKET::] PX-435 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-435 --for-spec --no-implementation-order`.
+function isAllowedWeekday(weekday: number, daysOfWeek?: number[]): boolean {
   if (daysOfWeek === undefined || daysOfWeek.length === 0) {
     return true;
   }
-  const windowStartDay =
-    startMinutes > endMinutes && currentMinutes <= endMinutes
-      ? (weekday + 6) % 7
-      : weekday;
-  return daysOfWeek.includes(windowStartDay);
+  return daysOfWeek.includes(weekday);
 }
 
 /** 同一日内の時間窓判定（境界を含む） */
