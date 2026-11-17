@@ -1,0 +1,11 @@
+{
+  "services": {
+    "turn": {
+      "command": [
+        "turnserver",
+        "-c",
+        "/lab-config/coturn-tls.conf"
+      ]
+    }
+  }
+}

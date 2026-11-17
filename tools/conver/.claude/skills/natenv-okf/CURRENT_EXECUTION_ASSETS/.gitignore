@@ -1,0 +1,6 @@
+private/
+artifacts/
+generated/
+compose.json
+inventory.json
+__pycache__/

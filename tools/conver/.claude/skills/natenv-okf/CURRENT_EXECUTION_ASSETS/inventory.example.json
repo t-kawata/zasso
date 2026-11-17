@@ -1,0 +1,24 @@
+{
+  "nodes": {
+    "infra": {
+      "backend": "ssh",
+      "target": "lab@192.168.240.2"
+    },
+    "win-b": {
+      "backend": "direct",
+      "vm": "wan-b",
+      "credential_clixml": "C:\\WanSecrets\\guest.xml"
+    },
+    "mac-b": {
+      "backend": "tart",
+      "vm": "wan-b"
+    },
+    "linux-host": {
+      "backend": "local",
+      "shell": [
+        "/bin/bash",
+        "-se"
+      ]
+    }
+  }
+}

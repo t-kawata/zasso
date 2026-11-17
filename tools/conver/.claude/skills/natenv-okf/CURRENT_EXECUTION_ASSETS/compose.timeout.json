@@ -1,0 +1,10 @@
+{
+  "services": {
+    "ra": {
+      "sysctls": {
+        "net.netfilter.nf_conntrack_udp_timeout": "10",
+        "net.netfilter.nf_conntrack_udp_timeout_stream": "10"
+      }
+    }
+  }
+}
