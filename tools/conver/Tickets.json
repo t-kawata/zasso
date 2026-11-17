@@ -69081,6 +69081,248 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-17",
           "reviewed_at": "2026-11-17T08:03:37.692Z"
+        },
+        {
+          "id": 442,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Workspace-level proof isolation and legacy artifact migration",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-442.md",
+          "background": "### Goal\nMake /find-omissions converge on a real package whose tests depend on files outside the package and whose v1 artifacts predate PX-441 input binding, without changing conver.js or the boundary contract.\n\n### Purpose\nThe doors crates/pjsip-prebuilt migration exposed gaps that PX-441 alone cannot close: the proof engine copies only the package, so cargo tests that include_str ../../../doors-core/... cannot compile; 324 v1 proofs and 452 v1 judgments have no input/evidence digest; an unrepairable repair record blocks the v3 repair gate; existing rust proofs use cargo test without -- --exact while the adapter adds it; and conflict groups can remain unticketed because conver ignores find's exit code and stops on the ticket set.\n\n### Motivation\nA package can be complete under the old artifacts and still fail to re-enter the new loop. The harness must migrate safely and must make every v3 blocker visible as a ticket or a repair, otherwise conver can declare an endpoint while the v3 terminal verdict is still 10.\n\n### Constraints\nNo conver.js, src/next-action.ts, src/runner.ts or src/boundary-state.ts change. No weakening of the v3 terminal predicate. No silent reuse of an unbound proof or judgment. No project-name hardcoding in harness defaults or tests.",
+          "notes": "Law: not applicable — target files are Node harness scripts under .claude/scripts, not crates/** interface units.\n\n- [Implementation steps] 1) Add proof-workspace.js with external-path discovery and layout-preserving isolation. 2) Wire runDetectionProof/runProofEntries to use it. 3) Add proof-migration.js and migrate-omission-artifacts.js for adoption, re-proof, judgment binding, repair closure and ticket planning. 4) Add repair-status.js and use it in the gate and find runner. 5) Prefer proof.command for existing proofs; change the Rust runner to cargo test {test}. 6) Extend blockerEntriesOf/remainderEntriesOf for conflicts, unclassified clauses and unstable targets. 7) Update find-omissions.md. 8) Add e2e workspace and migration tests.\n- [Risks] Copying external paths can be expensive. Mitigation: copy only discovered/configured paths, never the whole repository by default. A workspace copy can still be large; the report names the copied roots. Adoption is fail-closed on any mismatch.\n- [Caveats] A mutation target that is a harness artifact is never adopted; it becomes a ticket. A judgment whose evidence is newer than the ledger enumeration is never bound. A repair with an unrepairable status and an open diagnostic ticket remains blocked through open-tickets.\n- [Open items] Per-language include discovery is generic (include_str/include_bytes); other build systems can declare proofWorkspaceRoots in config.\n- [Future improvements] Share the discovery with build systems that expose a dependency graph; add a --workspace-copy-cache to avoid repeated copies.\nImplementation summary:\n- New modules: lib/proof-workspace.js, lib/proof-migration.js, lib/repair-status.js, lib/blocker-plan.js, migrate-omission-artifacts.js\n- Modified: find-omissions-run.js, proof-plan.js, proof-engine.js, proof-inputs.js, coverage-map.js, omission-detection-gate.js, run-detection-proofs.js, apply-omission-findings.js, adapters/rust.js, find-omissions.md\n- New tests: proof-workspace, proof-migration, repair-status, blocker-ticket-planning, e2e-proof-workspace, e2e-legacy-migration (26 tests)\n- Red evidence: all six new files failed before implementation\n- Verification: 157 tests passed (26 new + 131 impact); 0 quality issues; 0 stubs; 0 open crimes; 0 external excuses\n- Standalone CLI smoke: report-only wrote nothing, apply wrote CONTRACT-COVERAGE.json, adoption fields present\n- Doors projection (read-only): 62 blocker groups (15 conflict, 18 unmapped, 14 unclassified, 15 proof-missing), 44 tickets created, 9 reused, 1 phase; 310 adopted proofs remain reusable\n- Boundary: conver.js and .conver-boundary.json unchanged\n- Planner defect found during C009: a new phase could reuse a completed owner's key and collapse unrelated groups; fixed by matching remediation tickets only by their own group\nReview report:\n- Contract audit: C001-C010 verified against source and tests\n- C001 workspace layout preservation and config-declared roots tested\n- C002 missing and escaping includes fail closed; no package-only fallback\n- C003 unstable targets dropped once, ticketed once, never PROVEN\n- C004/C005 adoption and binding are fail-closed and idempotent\n- C006 unrepairable closed; open diagnostic ticket blocks through open-tickets\n- C007 stored command template preserves inputsDigest\n- C008 bare-id runner proven with a fake cargo fixture\n- C009 every blocking class maps to one group per contract\n- C010 report fields, second-run zero, report-only byte-identical, unsupported version named\n- Issues found and fixed during review: proofDropped now yields to a verified non-testable disposition; runDetectionProof JSDoc names the workspace parameter\n- Doors question: resync the PX-442 harness into doors before starting conver there; the old harness lacks workspace isolation and migration",
+          "invariants": "- [Normal condition] A proof experiment runs in an isolated tree that preserves the package and every external input required by its mutation and its tests; the command cwd is the package inside that tree.\n- [Error invariant] A missing or unreadable required external path yields PROOF_WORKSPACE_INCOMPLETE and REPAIR_REQUIRED, never PROVEN, and never a package-only fallback.\n- [Internal state invariant] A proof is adopted only when source, test, command, closure, engine, adapter and toolchain inputs match; a harness artifact is never a stable mutation target.\n- [Boundary invariant] conver.js and .conver-boundary.json are unchanged; report-only writes nothing; migration is idempotent and leaves no partial artifact.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] .claude/scripts/tickets/lib/proof-workspace.js (new), lib/proof-migration.js (new), migrate-omission-artifacts.js (new), lib/proof-engine.js, lib/proof-plan.js, lib/proof-inputs.js, lib/coverage-map.js, lib/judgment-ledger.js, lib/repair-status.js (new), omission-detection-gate.js, find-omissions-run.js, lib/adapters/rust.js, .claude/commands/find-omissions.md\n  - [Action] Add workspace-level proof isolation and a legacy migration command; change repair-status semantics, command selection, blocker-to-ticket mapping and the Rust runner.\n  - [What specifically changes] Proofs run in a tree containing the package plus every required external path; v1 proofs are adopted only on exact input match or re-proven; v1 judgments are bound to current evidence only when the evidence predates the ledger enumeration; unrepairable repairs become closed when their diagnostic ticket is terminal; existing proofs keep their stored command; conflict and unclassified blockers always produce tickets.\n  - [Before → After] Before: package-only isolation fails on sibling include_str, all v1 proofs stale, all v1 judgments invalid, unrepairable blocks forever, conflict remainder can be unticketed. After: workspace isolation compiles, eligible proofs and judgments migrate once, terminal blockers map to tickets, and conver cannot stop with an unticketed v3 remainder.\n  - [API contract change] New resolveProofWorkspace, classifyMutationTarget, adoptLegacyProof, bindLegacyJudgment, isOpenRepair, blockerEntriesOf. runDetectionProof accepts a workspace; runProofEntries passes cwd; resolveProofPlan prefers proof.command for existing proofs. No conver.js API change.\n  - [Data schema change] Proof records gain workspaceRoots/legacyAdoptedAt; judgment records gain fileDigest/evidenceDigest/legacyBoundAt; repair records gain closedAt/resolution. All additive to version 1.\n  - [Config/env change] Optional project config proofWorkspaceRoots[]; absent means discovery from mutation files and include_str/include_bytes paths.\n  - [Dependency added/removed] None. Node built-ins only.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] Editing conver.js or src/runner.ts to inspect /find-omissions exit codes.\n  - [Why excluded] The harness must map every blocker to a ticket/repair; conver's boundary contract stays unchanged.\n  - [Excluded item] Auto-repairing the source conflict texts.\n  - [Why excluded] Conflict resolution is normative work and must be a ticket, not a guessed edit.\n  - [Excluded item] Adopting a proof or judgment whose evidence changed after the record was made.\n  - [Why excluded] That would silently bless stale evidence; such records must be re-proven or re-judged.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] Proof engine, proof plan, coverage scan, judgment ledger, repair gate, find runner, Rust adapter, command procedure.\n  - [Nature of impact] Correctness (workspace completeness, migration safety), performance (larger isolated copies only when required), data format (additive proof/judgment/repair fields).\n  - [Corresponding change needed Y/N + details] Y for the named harness files; N for conver.js and .conver-boundary.json."
+          ],
+          "testUnit": [
+            "UT: [Normal][C001 Precondition] resolveProofWorkspace receives cwd, the proof mutation files and the include_str/include_bytes paths; it returns an isolated tree that contains the package and every external path at the same relative location. Postcondition: runDetectionProof uses the package directory inside that tree as cwd and reads each external file. Invariant: no required external path is omitted and cleanup removes the whole tree.",
+            "UT: [Normal][C001] A fixture package has src/tests/contract.rs with include_str!(\"../../../sibling/SPEC.md\") and a proof mutation on src/impl.rs. resolveProofWorkspace copies the package and sibling/SPEC.md preserving layout; the included text is readable in the isolated tree.",
+            "UT: [Error][C002 Precondition] A required external path is absent or unreadable, or the copy fails. Postcondition: resolveProofWorkspace returns PROOF_WORKSPACE_INCOMPLETE with the missing path and runDetectionProof returns REPAIR_REQUIRED, never PROVEN. Invariant: the real tree is not mutated and package-only isolation is not used.",
+            "UT: [Boundary][C002] An external path that is a directory is copied recursively; an external path that escapes every configured root is reported, not silently skipped.",
+            "UT: [Normal][C003 Precondition] classifyMutationTarget receives Tickets.json, OMISSION-*.json, CONVER-*.json and _tmp-* and returns UNSTABLE_PROOF_TARGET. Postcondition: migrating such a proof removes its proof record and creates or reuses an omission ticket requiring a stable target. Invariant: the clause remains unresolved and is never marked PROVEN.",
+            "UT: [Boundary][C003] A stable source or normative file returns STABLE_PROOF_TARGET; a harness-prefixed source file such as CONVER-utils.js is stable because it is not a harness artifact.",
+            "UT: [Normal][C004 Precondition] A v1 PROVEN proof has restored=true and its source, test and command digests equal the current inputs, the mutation target is stable and the lockfile predates verifiedAt. Postcondition: adoptLegacyProof writes inputsVersion, inputsDigest, inputs, closureScope, engineVersion, adapterVersion, toolchainDigest and legacyAdoptedAt; isProofFresh returns true. Invariant: a single mismatch leaves the proof stale.",
+            "UT: [Error][C004] Any source, test, command, closure, engine, adapter or toolchain mismatch, restored=false, or unknown input prevents adoption; the proof is re-proven or left stale, never adopted.",
+            "UT: [Boundary][C004] adoptLegacyProof is idempotent: a second call reports already-adopted and changes no bytes; --report-only writes no artifact.",
+            "UT: [Normal][C005 Precondition] A v1 judgment lacks evidenceDigest and every cited evidence file mtime is not newer than the ledger enumeration timestamp. Postcondition: bindLegacyJudgment writes evidence records with fileDigest and evidenceDigest plus legacyBoundAt; judgeCoverage reuses the judgment. Invariant: a file newer than enumeration leaves the judgment unrecorded.",
+            "UT: [Error][C005] A missing or unreadable evidence file is never bound; the judgment remains unrecorded and requires re-judgment. A judgment with no cited file may be bound by its status, normativeSource and reason.",
+            "UT: [Boundary][C005] Binding is idempotent and report-only writes nothing; a second bind reports zero changes.",
+            "UT: [Normal][C006 Precondition] A repair record has status unrepairable and its diagnostic ticket is terminal or absent. Postcondition: isOpenRepair returns false; the gate repair check and pendingRepairs ignore the record. Invariant: pending and in_progress are open, and an unrepairable record with an open diagnostic ticket stays blocked through the open-tickets gate.",
+            "UT: [Boundary][C006] completed and false_positive are closed; an unknown status is open by default.",
+            "UT: [Normal][C007 Precondition] An existing proof stores command C while the adapter runner is R. Postcondition: resolveProofPlan returns C for the existing proof and R for a new proof; commandDigest matches C; re-proof executes C. Invariant: an adapter-runner change alone does not invalidate an existing proof.",
+            "UT: [Boundary][C007] A proof without a stored command uses the adapter runner; a disposition proof plan command is used only when neither exists.",
+            "UT: [Normal][C008 Precondition] The Rust test id is a bare function name and the adapter runner contains -- --exact. Postcondition: the default runner is cargo test {test} and the bare id matches one test. Invariant: no default --exact is emitted for bare ids.",
+            "UT: [Error][C008] cargo test <bare-id> -- --exact lists zero tests in the fixture, while cargo test <bare-id> lists one; the adapter must choose the matching form.",
+            "UT: [Normal][C009 Precondition] The v3 remainder contains conflict groups, unclassified clauses, unmapped clauses, proof-missing clauses or unstable-target clauses. Postcondition: blockerEntriesOf emits one deduplicated group per contract for every blocking class; plan.created and plan.reused cover all blockers. Invariant: a conflict stays a blocker even when every conflicting clause is PROVEN.",
+            "UT: [Error][C009] A conflict group with all clauses PROVEN still produces a ticket entry; a group already owned by an open ticket is reused, not duplicated.",
+            "UT: [Boundary][C009] An unclassified clause produces a group; a resolved non-testable disposition produces none.",
+            "UT: [Normal][C010 Precondition] migrate-omission-artifacts runs non-report-only on v1 artifacts. Postcondition: the report lists adopted, reproved, dropped, workspaceFindings, judgmentsBound, judgmentsUnbound, ticketsCreated and ticketsReused; a second run reports zero changes. Invariant: conver.js and .conver-boundary.json are byte-identical.",
+            "UT: [Boundary][C010] --report-only leaves every file byte-identical and executes no proof; an unsupported artifact version is a named finding, not a crash.",
+            "UT: [C001 precondition] A proof mutation target or a test/source include_str/include_bytes path resolves outside the package but inside the project; the caller supplies cwd, mutation files and include paths.",
+            "UT: [C001 postcondition] resolveProofWorkspace returns an isolated tree that preserves the package and every required external path at the same relative location; runDetectionProof runs with the package directory in that tree as cwd.",
+            "UT: [C001 invariant] No required external path is omitted; cleanup removes the whole tree; package-only isolation is not used when an external path is required.",
+            "UT: [C002 precondition] A required external path is missing or unreadable, or the isolated copy fails.",
+            "UT: [C002 postcondition] resolveProofWorkspace returns PROOF_WORKSPACE_INCOMPLETE with the missing path and runDetectionProof returns REPAIR_REQUIRED, never PROVEN.",
+            "UT: [C002 invariant] The real tree is not mutated and the harness never silently falls back to a package-only copy.",
+            "UT: [C003 precondition] A proof mutation targets a harness artifact such as Tickets.json, OMISSION-*, CONVER-* or _tmp-*.",
+            "UT: [C003 postcondition] classifyMutationTarget returns UNSTABLE_PROOF_TARGET; migration drops the proof and creates or reuses an omission ticket requiring a stable target.",
+            "UT: [C003 invariant] The clause remains unresolved and is never marked PROVEN; a stable source or normative file is not dropped.",
+            "UT: [C004 precondition] A v1 proof is PROVEN with restored=true and its source, test and command digests equal the current inputs; the mutation target is stable and the lockfile predates verifiedAt.",
+            "UT: [C004 postcondition] adoptLegacyProof writes inputsVersion, inputsDigest, inputs, closureScope, engineVersion, adapterVersion, toolchainDigest and legacyAdoptedAt; isProofFresh returns true.",
+            "UT: [C004 invariant] Any mismatch or unknown input prevents adoption; adoption is idempotent and report-only writes nothing.",
+            "UT: [C005 precondition] A v1 judgment lacks evidenceDigest and every cited evidence file is not newer than the ledger enumeration timestamp.",
+            "UT: [C005 postcondition] bindLegacyJudgment writes evidence records with fileDigest and evidenceDigest plus legacyBoundAt; judgeCoverage reuses the judgment.",
+            "UT: [C005 invariant] A file newer than enumeration or an unreadable file leaves the judgment unrecorded; binding is idempotent and report-only writes nothing.",
+            "UT: [C006 precondition] A repair record has status unrepairable and its diagnostic ticket is terminal or absent.",
+            "UT: [C006 postcondition] isOpenRepair returns false and the gate repair check and pendingRepairs ignore the record.",
+            "UT: [C006 invariant] pending and in_progress are open; an unrepairable record with an open diagnostic ticket remains blocked through open-tickets; completed and false_positive are closed.",
+            "UT: [C007 precondition] An existing proof stores command C while the adapter runner is R.",
+            "UT: [C007 postcondition] resolveProofPlan returns C for the existing proof and R for a new proof; commandDigest matches C and re-proof executes C.",
+            "UT: [C007 invariant] An adapter-runner change alone does not invalidate an existing proof; a proof without a stored command uses the adapter runner.",
+            "UT: [C008 precondition] The Rust test id is a bare function name and the adapter runner contains -- --exact.",
+            "UT: [C008 postcondition] The default runner is cargo test {test} and the bare id matches one test.",
+            "UT: [C008 invariant] No default --exact is emitted unless test ids are fully qualified.",
+            "UT: [C009 precondition] The v3 remainder contains conflict groups, unclassified clauses, unmapped or proof-missing clauses, or unstable-target clauses.",
+            "UT: [C009 postcondition] blockerEntriesOf emits one deduplicated group per contract for every blocking class and the planner covers all blockers.",
+            "UT: [C009 invariant] A conflict stays a blocker even when every conflicting clause is PROVEN; an already-owned group is reused, not duplicated.",
+            "UT: [C010 precondition] Migration or a find run executes on a package with v1 or v2 artifacts.",
+            "UT: [C010 postcondition] The migration report lists adopted, reproved, dropped, workspaceFindings, judgmentsBound, judgmentsUnbound, ticketsCreated and ticketsReused; a second run reports zero changes.",
+            "UT: [C010 invariant] conver.js and .conver-boundary.json are byte-identical; report-only leaves the workspace byte-identical; an unsupported version is a named finding, not a crash."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] e2e-proof-workspace: package plus sibling include_str file, stale proof re-run. [Verification] PROVEN, restored, second run reused. [Prerequisites] PX-441. [Related tickets] PX-441, PX-442.",
+            "IT: [Integration point] e2e-legacy-migration: v1 proofs, judgments, repairs. [Verification] adopt/drop/bind/close counts and zero duplicate tickets on rerun. [Prerequisites] v1 readers. [Related tickets] PX-441, PX-442.",
+            "IT: [Integration point] repair-status: pending, in_progress, unrepairable, completed. [Verification] gate and pendingRepairs agree. [Prerequisites] none. [Related tickets] PX-437, PX-442.",
+            "IT: [Integration point] blocker-ticket-planning: conflict/unclassified/PROVEN-conflict. [Verification] ticket plan covers every blocker. [Prerequisites] planOmissionTickets. [Related tickets] PX-437, PX-442.",
+            "IT: [Integration point] doors-like report-only: migrated artifacts. [Verification] boundary byte-identical, expected proofCache, no repair blocker. [Prerequisites] fixture. [Related tickets] PX-413, PX-442.",
+            "IT: [Acceptance] [Happy path] A package with an external include_str dependency migrates its v1 proofs and judgments, re-proves only the unstable or mismatched proofs, creates no duplicate tickets, and a second find run reuses every adopted proof with zero repair blockers.",
+            "IT: [Acceptance] [Error case] A missing external include path yields PROOF_WORKSPACE_INCOMPLETE and REPAIR_REQUIRED, never PROVEN; a mutation on Tickets.json is dropped and ticketed; an evidence file newer than the ledger enumeration leaves its judgment unrecorded.",
+            "IT: [Acceptance] [Edge case] An unrepairable repair with a terminal diagnostic ticket is closed, while the same record with an open diagnostic ticket still blocks through open-tickets; a PROVEN conflict still yields a conflict ticket."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] migrate-omission-artifacts prints adopted, reproved, dropped, workspaceFindings, judgmentsBound, judgmentsUnbound, ticketsCreated and ticketsReused.\n- [Metrics] Each proof result records workspaceRoots and workspaceFinding; each migration writes a summary digest.\n- [Error tracking] PROOF_WORKSPACE_INCOMPLETE, UNSTABLE_PROOF_TARGET, LEGACY_EVIDENCE_NEWER and REPAIR_UNTERMINAL_DIAGNOSTIC are named findings with the path or record key.\n- [Health check] The v3 proof gate fails on REPAIR_REQUIRED; the repair gate uses isOpenRepair; report-only executes no proof and writes nothing.\nStatic quality check: passed (0 issues)\nTranslatability: no generic/single-letter variables or debug output in changed source\nTests: 158 passed (27 new + 131 impact)\nAnnotation: 20 files verified, 0 missing, 0 ambiguous\nStubs: 0; Crimes: 0; External excuses: 0",
+          "acceptanceCriteria": [
+            "[Happy path] A package with an external include_str dependency migrates its v1 proofs and judgments, re-proves only the unstable or mismatched proofs, creates no duplicate tickets, and a second find run reuses every adopted proof with zero repair blockers.",
+            "[Error case] A missing external include path yields PROOF_WORKSPACE_INCOMPLETE and REPAIR_REQUIRED, never PROVEN; a mutation on Tickets.json is dropped and ticketed; an evidence file newer than the ledger enumeration leaves its judgment unrecorded.",
+            "[Edge case] An unrepairable repair with a terminal diagnostic ticket is closed, while the same record with an open diagnostic ticket still blocks through open-tickets; a PROVEN conflict still yields a conflict ticket."
+          ],
+          "investigation": "- PX-441 proof-engine.js:56 copies only cwd; line 102 joins the mutation file to that root. Tests that include_str ../../../doors-core/... fail to compile in the package-only copy.\n- doors/crates/pjsip-prebuilt report-only under the PX-441 harness: 324 v1 proofs, 0 inputsDigest; 452 v1 judgments, 0 evidenceDigest; 1 unrepairable repair (P5-1, R8); 45 conflicts / 97 keys; 5 proofs mutate files outside the package; 14 proofs mutate Tickets.json.\n- omission-detection-gate.js:127 and find-omissions-run.js:408 treat every status other than completed as open, so unrepairable blocks the v3 gate forever.\n- proof-plan.js:35 prefers adapter.runner over proof.command; rust.js:18 uses cargo test {test} -- --exact. Actual doors run: --exact lists 0 tests, without exact lists 1.\n- find-omissions-run.js:104-107 plans tickets only for applicability TESTABLE and status !== PROVEN; conflict groups and unclassified clauses can remain unticketed while the v3 remainder stays nonzero.\n- conver src/runner.ts:546-621 ignores the find command exit code and marks the boundary complete; src/boundary-state.ts:101-121 makes endpoint depend on the ticket set. An unticketed v3 remainder can therefore be dropped.\n- judgment-ledger.js:169-180 treats a missing evidenceDigest as invalid; v1 judgments need a controlled binding or re-judgment.\n- Doors migration evidence: 310/324 source digests matched current files; 14 mismatched Tickets.json proofs; all 324 mutation find strings still present; Cargo.lock and all .rs files predate the proofs, so the 310 adoption was input-safe.",
+          "boyScoutPlan": "- Extract external-path discovery and layout-preserving copy into proof-workspace.js with verb-phrase functions resolveProofWorkspace, discoverExternalInputs, copyRequiredPaths and cleanupWorkspace.\n- Extract migration decisions into proof-migration.js with classifyMutationTarget, adoptLegacyProof and bindLegacyJudgment; one decision per function.\n- Extract repair status semantics into repair-status.js with isOpenRepair and the OPEN_REPAIR_STATUSES constant; use it in both the gate and the runner.\n- Replace the single boolean open-repair test with the named predicate so the gate narrates why a record is open or closed.\n- Replace the hardcoded Rust runner with a named constant and a comment explaining bare-id matching.\n- Keep comments why-only; no empty catch; return named findings for every failure.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "proof workspace",
+              "precondition": "A proof mutation target or a test/source include_str/include_bytes path resolves outside the package but inside the project; the caller supplies cwd, mutation files and include paths.",
+              "postcondition": "resolveProofWorkspace returns an isolated tree that preserves the package and every required external path at the same relative location; runDetectionProof runs with the package directory in that tree as cwd.",
+              "invariant": "No required external path is omitted; cleanup removes the whole tree; package-only isolation is not used when an external path is required."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "workspace failure",
+              "precondition": "A required external path is missing or unreadable, or the isolated copy fails.",
+              "postcondition": "resolveProofWorkspace returns PROOF_WORKSPACE_INCOMPLETE with the missing path and runDetectionProof returns REPAIR_REQUIRED, never PROVEN.",
+              "invariant": "The real tree is not mutated and the harness never silently falls back to a package-only copy."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "mutation stability",
+              "precondition": "A proof mutation targets a harness artifact such as Tickets.json, OMISSION-*, CONVER-* or _tmp-*.",
+              "postcondition": "classifyMutationTarget returns UNSTABLE_PROOF_TARGET; migration drops the proof and creates or reuses an omission ticket requiring a stable target.",
+              "invariant": "The clause remains unresolved and is never marked PROVEN; a stable source or normative file is not dropped."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "legacy proof adoption",
+              "precondition": "A v1 proof is PROVEN with restored=true and its source, test and command digests equal the current inputs; the mutation target is stable and the lockfile predates verifiedAt.",
+              "postcondition": "adoptLegacyProof writes inputsVersion, inputsDigest, inputs, closureScope, engineVersion, adapterVersion, toolchainDigest and legacyAdoptedAt; isProofFresh returns true.",
+              "invariant": "Any mismatch or unknown input prevents adoption; adoption is idempotent and report-only writes nothing."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "legacy judgment binding",
+              "precondition": "A v1 judgment lacks evidenceDigest and every cited evidence file is not newer than the ledger enumeration timestamp.",
+              "postcondition": "bindLegacyJudgment writes evidence records with fileDigest and evidenceDigest plus legacyBoundAt; judgeCoverage reuses the judgment.",
+              "invariant": "A file newer than enumeration or an unreadable file leaves the judgment unrecorded; binding is idempotent and report-only writes nothing."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "repair status",
+              "precondition": "A repair record has status unrepairable and its diagnostic ticket is terminal or absent.",
+              "postcondition": "isOpenRepair returns false and the gate repair check and pendingRepairs ignore the record.",
+              "invariant": "pending and in_progress are open; an unrepairable record with an open diagnostic ticket remains blocked through open-tickets; completed and false_positive are closed."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "command compatibility",
+              "precondition": "An existing proof stores command C while the adapter runner is R.",
+              "postcondition": "resolveProofPlan returns C for the existing proof and R for a new proof; commandDigest matches C and re-proof executes C.",
+              "invariant": "An adapter-runner change alone does not invalidate an existing proof; a proof without a stored command uses the adapter runner."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "rust runner",
+              "precondition": "The Rust test id is a bare function name and the adapter runner contains -- --exact.",
+              "postcondition": "The default runner is cargo test {test} and the bare id matches one test.",
+              "invariant": "No default --exact is emitted unless test ids are fully qualified."
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "blocker to ticket",
+              "precondition": "The v3 remainder contains conflict groups, unclassified clauses, unmapped or proof-missing clauses, or unstable-target clauses.",
+              "postcondition": "blockerEntriesOf emits one deduplicated group per contract for every blocking class and the planner covers all blockers.",
+              "invariant": "A conflict stays a blocker even when every conflicting clause is PROVEN; an already-owned group is reused, not duplicated."
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "boundary and observability",
+              "precondition": "Migration or a find run executes on a package with v1 or v2 artifacts.",
+              "postcondition": "The migration report lists adopted, reproved, dropped, workspaceFindings, judgmentsBound, judgmentsUnbound, ticketsCreated and ticketsReused; a second run reports zero changes.",
+              "invariant": "conver.js and .conver-boundary.json are byte-identical; report-only leaves the workspace byte-identical; an unsupported version is a named finding, not a crash."
+            }
+          ],
+          "created_at": "2026-11-17",
+          "updated_at": "2026-11-17",
+          "default_files": [
+            ".claude/scripts/tickets/lib/proof-workspace.js",
+            ".claude/scripts/tickets/lib/proof-migration.js",
+            ".claude/scripts/tickets/migrate-omission-artifacts.js",
+            ".claude/scripts/tickets/lib/proof-engine.js",
+            ".claude/scripts/tickets/lib/proof-plan.js",
+            ".claude/scripts/tickets/lib/proof-inputs.js",
+            ".claude/scripts/tickets/lib/coverage-map.js",
+            ".claude/scripts/tickets/lib/judgment-ledger.js",
+            ".claude/scripts/tickets/lib/repair-status.js",
+            ".claude/scripts/tickets/omission-detection-gate.js",
+            ".claude/scripts/tickets/find-omissions-run.js",
+            ".claude/scripts/tickets/lib/adapters/rust.js",
+            ".claude/commands/find-omissions.md",
+            "tests/tickets/proof-workspace.test.cjs",
+            "tests/tickets/proof-migration.test.cjs",
+            "tests/tickets/repair-status.test.cjs",
+            "tests/tickets/blocker-ticket-planning.test.cjs",
+            "tests/tickets/e2e-proof-workspace.test.cjs",
+            "tests/tickets/e2e-legacy-migration.test.cjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-17T08:23:48.321Z",
+          "planTestCode": [
+            "UT: C001 precondition/postcondition — workspace preserves the package and every external include path at the same relative location.\n```js\nconst project = fs.mkdtempSync(path.join(os.tmpdir(), 'px442-ws-'));\nfs.mkdirSync(path.join(project, '.git'));\nfs.mkdirSync(path.join(project, 'pkg/src/tests'), { recursive: true });\nfs.mkdirSync(path.join(project, 'shared'), { recursive: true });\nfs.writeFileSync(path.join(project, 'pkg/src/tests/contract.rs'), 'const SPEC: &str = include_str!(\"../../../shared/SPEC.md\");\\n');\nfs.writeFileSync(path.join(project, 'pkg/src/impl.rs'), 'pub fn f() { 1 }\\n');\nfs.writeFileSync(path.join(project, 'shared/SPEC.md'), 'alpha spec\\n');\nconst workspace = resolveProofWorkspace({ cwd: path.join(project, 'pkg'), mutationFiles: ['src/impl.rs'], includeFiles: ['src/tests/contract.rs'] });\nassert.equal(workspace.ok, true);\nassert.equal(fs.readFileSync(path.join(workspace.root, 'shared/SPEC.md'), 'utf8'), 'alpha spec\\n');\nassert.equal(fs.readFileSync(path.join(workspace.packageRoot, 'src/tests/contract.rs'), 'utf8').includes('include_str!'), true);\nassert.deepEqual(workspace.workspaceRoots, ['shared/SPEC.md']);\nworkspace.cleanup();\nassert.equal(fs.existsSync(workspace.root), false);\n```",
+            "UT: C002 precondition/postcondition/invariant — a missing external include yields PROOF_WORKSPACE_INCOMPLETE and REPAIR_REQUIRED, never PROVEN.\n```js\nconst workspace = resolveProofWorkspace({ cwd: pkg, includeFiles: ['src/tests/contract.rs'] });\nassert.equal(workspace.ok, false);\nassert.equal(workspace.code, 'PROOF_WORKSPACE_INCOMPLETE');\nassert.deepEqual(workspace.missing, ['shared/SPEC.md']);\nconst result = runDetectionProof({\n  clause: { key: KEY },\n  testId: 'alpha',\n  testDigest: 'sha256:test',\n  mutation: { file: 'src/impl.rs', find: '1', replace: '2' },\n  command: 'node runner.js',\n  workspace,\n});\nassert.equal(result.status, 'REPAIR_REQUIRED');\nassert.notEqual(result.status, 'PROVEN');\nassert.equal(fs.readFileSync(path.join(pkg, 'src/impl.rs'), 'utf8'), 'pub fn f() { 1 }\\n');\n```",
+            "UT: C003 precondition/postcondition/invariant — harness artifacts are UNSTABLE_PROOF_TARGET and stable sources are not dropped.\n```js\nassert.equal(classifyMutationTarget({ file: 'Tickets.json' }), 'UNSTABLE_PROOF_TARGET');\nassert.equal(classifyMutationTarget({ file: 'OMISSION-REPAIRS.json' }), 'UNSTABLE_PROOF_TARGET');\nassert.equal(classifyMutationTarget({ file: 'CONVER-report.json' }), 'UNSTABLE_PROOF_TARGET');\nassert.equal(classifyMutationTarget({ file: '_tmp-omissions-1.json' }), 'UNSTABLE_PROOF_TARGET');\nassert.equal(classifyMutationTarget({ file: 'CONVER-utils.js' }), 'STABLE_PROOF_TARGET');\nassert.equal(classifyMutationTarget({ file: 'src/lib.rs' }), 'STABLE_PROOF_TARGET');\n```",
+            "UT: C004 precondition/postcondition/invariant — a matching v1 proof is adopted once, isProofFresh is true, and any mismatch prevents adoption.\n```js\nconst adopted = adoptLegacyProof({ cwd, clauseKey: KEY, coverageEntry, proof: legacyProof, adapter: rustAdapter });\nassert.equal(adopted.ok, true);\nassert.equal(adopted.proof.inputsVersion, 1);\nassert.equal(adopted.proof.closureScope, 'package');\nassert.equal(typeof adopted.proof.inputsDigest, 'string');\nassert.equal(isProofFresh({ proof: adopted.proof, inputs: adopted.proof.inputs }), true);\nconst again = adoptLegacyProof({ cwd, clauseKey: KEY, coverageEntry, proof: adopted.proof, adapter: rustAdapter });\nassert.equal(again.alreadyAdopted, true);\nassert.equal(JSON.stringify(again.proof), JSON.stringify(adopted.proof));\nconst mismatch = adoptLegacyProof({ cwd, clauseKey: KEY, coverageEntry, proof: { ...legacyProof, digests: { ...legacyProof.digests, source: 'sha256:changed' } }, adapter: rustAdapter });\nassert.equal(mismatch.ok, false);\nassert.equal(mismatch.code, 'LEGACY_SOURCE_CHANGED');\n```",
+            "UT: C005 precondition/postcondition/invariant — a v1 judgment binds to current evidence only when the evidence is not newer than the enumeration.\n```js\nconst bound = bindLegacyJudgment({ judgment: legacyJudgment, cwd, enumerationAt: '2999-01-01T00:00:00Z' });\nassert.equal(bound.ok, true);\nassert.equal(bound.judgment.evidence[0].fileDigest.startsWith('sha256:'), true);\nassert.equal(typeof bound.judgment.evidenceDigest, 'string');\nassert.equal(typeof bound.judgment.legacyBoundAt, 'string');\nconst reuse = judgeCoverage({ version: 1, enumeration: { obligations: 1, at: '2026-11-17T00:00:00Z' }, obligations: [obligation], judgments: [bound.judgment] }, { cwd });\nassert.equal(reuse.recorded, 1);\nassert.deepEqual(reuse.invalid, []);\nconst newer = bindLegacyJudgment({ judgment: legacyJudgment, cwd, enumerationAt: '2020-01-01T00:00:00Z' });\nassert.equal(newer.ok, false);\nassert.equal(newer.code, 'LEGACY_EVIDENCE_NEWER');\n```",
+            "UT: C006 precondition/postcondition/invariant — pending and in_progress are open; unrepairable follows its diagnostic ticket; completed and false_positive are closed.\n```js\nassert.equal(isOpenRepair({ repair: { status: 'pending' } }), true);\nassert.equal(isOpenRepair({ repair: { status: 'in_progress' } }), true);\nassert.equal(isOpenRepair({ repair: { status: 'completed' } }), false);\nassert.equal(isOpenRepair({ repair: { status: 'false_positive' } }), false);\nassert.equal(isOpenRepair({ repair: { status: 'unrepairable', ticketKey: 'P5-1' } }), false);\nassert.equal(isOpenRepair({ repair: { status: 'unrepairable' } }), false);\nassert.equal(isOpenRepair({ repair: { status: 'unknown_status' } }), true);\nconst gate = runV3Gate({ cwd, v3Artifacts: artifacts, dispositions, repairs: [{ status: 'unrepairable', ticketKey: 'P5-1' }], openTickets: 1 });\nassert.equal(gate.gates.find((entry) => entry.name === 'repair').ok, true);\nassert.equal(gate.gates.find((entry) => entry.name === 'open-tickets').ok, false);\n```",
+            "UT: C007 precondition/postcondition/invariant — an existing proof keeps its stored command template; a new proof uses the adapter runner.\n```js\nconst adapter = { id: 'rust', version: 1, runner: 'cargo test {test}' };\nconst existing = { key: KEY, tests: [{ id: 'alpha', digest: 'sha256:t' }], proof: { status: 'PROVEN', command: 'cargo test alpha', inputs: { commandTemplate: 'cargo test {test}' } } };\nconst plan = resolveProofPlan({ coverageEntry: existing, disposition: null, adapter });\nassert.equal(plan.commandTemplate, 'cargo test {test}');\nconst computed = computeProofInputs({ cwd, clauseKey: KEY, coverageEntry: existing, commandTemplate: plan.commandTemplate, adapter });\nassert.equal(computed.inputs.commandDigest, sha256Of('cargo test alpha'));\nconst fresh = resolveProofPlan({ coverageEntry: { key: KEY, proof: null }, disposition: null, adapter });\nassert.equal(fresh.commandTemplate, 'cargo test {test}');\nassert.notEqual(sha256Of('cargo test alpha'), sha256Of('cargo test beta'));\n```",
+            "UT: C008 precondition/postcondition/invariant — the Rust runner uses the matching bare-id form and emits no default --exact.\n```js\nassert.equal(RUST_RUNNER, 'cargo test {test}');\nassert.equal(RUST_RUNNER.includes('--exact'), false);\nassert.equal(RUST_RUNNER.replace('{test}', 'alpha_matches_one'), 'cargo test alpha_matches_one');\nconst fakeBin = path.join(fixture, 'bin');\nfs.mkdirSync(fakeBin, { recursive: true });\nfs.writeFileSync(path.join(fakeBin, 'cargo'), '#!/bin/sh\\ncase \"$*\" in *--exact*) echo \"0 tests\";; *) echo \"running 1 test\";; esac\\n', { mode: 0o755 });\nconst env = { ...process.env, PATH: fakeBin + path.delimiter + process.env.PATH };\nconst exact = spawnSync('cargo', ['test', 'alpha_matches_one', '--', '--exact'], { cwd: fixture, env, encoding: 'utf8' });\nconst bare = spawnSync('cargo', ['test', 'alpha_matches_one'], { cwd: fixture, env, encoding: 'utf8' });\nassert.match(String(bare.stdout), /1 test/);\nassert.match(String(exact.stdout), /0 tests/);\n```",
+            "UT: C009 precondition/postcondition/invariant — every blocking class emits one group per contract, including a conflict whose clauses are PROVEN.\n```js\nconst entries = blockerEntriesOf({ inventory, coverage, testIndex });\nassert.equal(new Set(entries.map((entry) => entry.group)).size, entries.length);\nassert.equal(entries.some((entry) => entry.blockingClass === 'conflict' && entry.contractId === 'C001'), true);\nassert.equal(entries.some((entry) => entry.blockingClass === 'unclassified' && entry.contractId === 'C008'), true);\nassert.equal(entries.some((entry) => entry.blockingClass === 'unmapped'), true);\nassert.equal(entries.some((entry) => entry.blockingClass === 'proof-missing'), true);\nconst conflictOnly = blockerEntriesOf({\n  inventory: { ...inventory, clauses: [clause], conflicts: [{ code: 'CLAUSE_TEXT_CONFLICT', contractId: 'C001', keys: [KEY] }] },\n  coverage: { clauses: [{ key: KEY, status: 'PROVEN', applicability: 'TESTABLE' }] },\n  testIndex: { tests: [] },\n});\nassert.equal(conflictOnly.length, 1);\nassert.equal(conflictOnly[0].blockingClass, 'conflict');\n```",
+            "UT: C010 precondition/postcondition/invariant — migration is observable, idempotent, and report-only preserves bytes.\n```js\nconst first = migrateArtifacts({ cwd, coverage, ledger, repairs, ticketsData, inventory, testIndex, dispositions, adapters });\nassert.equal(first.report.adopted, 1);\nassert.equal(first.report.dropped, 1);\nassert.equal(first.report.judgmentsBound, 1);\nassert.equal(first.report.ticketsCreated, 1);\nconst second = migrateArtifacts({ cwd, coverage: first.coverage, ledger: first.ledger, repairs: first.repairs, ticketsData: first.ticketsData, inventory, testIndex, dispositions, adapters });\nassert.equal(second.report.adopted, 0);\nassert.equal(second.report.dropped, 0);\nassert.equal(second.report.judgmentsBound, 0);\nassert.equal(second.report.ticketsCreated, 0);\nconst boundaryBefore = fs.readFileSync(path.join(cwd, '.conver-boundary.json'), 'utf8');\nconst projection = migrateArtifacts({ cwd, coverage: first.coverage, ledger: first.ledger, repairs: first.repairs, ticketsData: first.ticketsData, inventory, testIndex, dispositions, adapters, reportOnly: true });\nassert.equal(fs.readFileSync(path.join(cwd, '.conver-boundary.json'), 'utf8'), boundaryBefore);\nassert.equal(projection.report.adopted, 0);\n```"
+          ],
+          "planned_at": "2026-11-17T08:32:16.245Z",
+          "startedAt": "2026-11-17",
+          "changes": [
+            {
+              "before": "proof-engine.js copied only the package directory, so a sibling include_str path could not compile",
+              "after": "proof-workspace.js mirrors the project root, keeps the package at its project-relative path and copies every required external include",
+              "description": "workspace-level proof isolation with a per-external-set pool"
+            },
+            {
+              "before": "v1 proofs had no input tuple and v1 judgments had no evidence digest, so every old record was stale",
+              "after": "proof-migration.js adopts a proof only on exact source/test/command digests and binds a judgment only when its evidence predates the enumeration",
+              "description": "legacy proof adoption and judgment binding"
+            },
+            {
+              "before": "an unrepairable repair record blocked the repair gate forever",
+              "after": "repair-status.js closes unrepairable; its open diagnostic ticket is counted by the open-tickets gate",
+              "description": "one repair-status predicate for the gate and the find runner"
+            },
+            {
+              "before": "the adapter runner overrode a stored command and the Rust runner emitted -- --exact",
+              "after": "the recorded command template wins for an existing proof; the Rust runner is cargo test {test}",
+              "description": "command compatibility and bare-id matching"
+            },
+            {
+              "before": "conflict, unclassified and unmapped clauses could remain unticketed while the v3 remainder was nonzero",
+              "after": "blocker-plan.js maps every blocking class to one deduplicated group per contract",
+              "description": "blocker-to-ticket mapping"
+            },
+            {
+              "before": "planOmissionTickets created one phase per ticket and matched a remediation ticket by the owner key",
+              "after": "one omission phase per plan; a remediation ticket matches only its own group",
+              "description": "planner deduplication correction exposed by C009"
+            },
+            {
+              "before": "find-omissions.md had no migration step",
+              "after": "Step 0.45 documents migration, workspace isolation, blocker mapping and the standalone CLI",
+              "description": "command procedure append"
+            }
+          ],
+          "done_at": "2026-11-17T08:42:05.650Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-17",
+          "reviewed_at": "2026-11-17T08:44:15.803Z"
         }
       ]
     },

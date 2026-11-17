@@ -18,6 +18,7 @@ const {
 } = require('./lib/omission-detectors.js');
 const { DISPOSITIONS_FILE_NAME, loadDispositions } = require('./lib/dispositions.js');
 const { isCompletedStatus } = require('./lib/ticket-status.js');
+const { isOpenRepair } = require('./lib/repair-status.js');
 const { requireSupportedVersion } = require('./lib/versioned-json.js');
 const {
   calibrationVerdict,
@@ -65,7 +66,7 @@ function runMetaControl({ registry, surfaces = null }) {
  * A project-condition problem is a gate failure and exit 10, never a process
  * failure. The gates are evaluated in the order the repair ladder consumes them.
  */
-// [::TICKET::] PX-437, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440, PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441|PX-442) --for-spec --no-implementation-order`.
 function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [], openTickets = 0, dispositions = [], convergence = {}, proofInputsByKey = null } = {}) {
   const { inventory = null, testIndex = null, coverage = null, dispositionFindings = [] } = v3Artifacts;
   const inputsByKey = proofInputsByKey ?? v3Artifacts.proofInputsByKey ?? new Map();
@@ -124,7 +125,7 @@ function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [], openTi
     problem: null,
   });
 
-  const openRepairs = (repairs ?? []).filter((repair) => repair.status !== 'completed');
+  const openRepairs = (repairs ?? []).filter((repair) => isOpenRepair({ repair }));
   gates.push({
     name: 'repair',
     ok: inventoryUsable && testIndexUsable && openRepairs.length === 0,

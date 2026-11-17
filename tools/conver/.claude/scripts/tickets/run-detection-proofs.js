@@ -87,7 +87,7 @@ function legacyEntriesOf({ cwd, coverage }) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441|PX-442) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
@@ -126,7 +126,7 @@ function main() {
   const built = inventory !== null && testIndex !== null
     ? buildProofEntries({ cwd, inventory, testIndex, coverage, dispositions, adapters })
     : legacyEntriesOf({ cwd, coverage });
-  const run = runProofEntries({ entries: built.entries, mode, budget, timeoutMs });
+  const run = runProofEntries({ entries: built.entries, mode, budget, timeoutMs, cwd });
 
   const byKey = new Map((coverage.clauses ?? []).map((clause) => [clause.key, clause]));
   for (const result of run.results) {

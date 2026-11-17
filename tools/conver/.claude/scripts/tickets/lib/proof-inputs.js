@@ -67,6 +67,15 @@ function isHarnessArtifact(file) {
   return reportName && (extension === '.json' || extension === '.md');
 }
 
+const STABLE_PROOF_TARGET = 'STABLE_PROOF_TARGET';
+const UNSTABLE_PROOF_TARGET = 'UNSTABLE_PROOF_TARGET';
+
+/** Whether a mutation target can carry a reusable proof experiment. */
+// [::TICKET::] PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-442 --for-spec --no-implementation-order`.
+function classifyMutationTarget({ file }) {
+  return isHarnessArtifact(file) ? UNSTABLE_PROOF_TARGET : STABLE_PROOF_TARGET;
+}
+
 /** Whether a value is a non-empty string. */
 // [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
 function isNonEmptyString(value) {
@@ -240,7 +249,7 @@ function mutationOf({ coverageEntry, mutation }) {
  * @param {{cwd:string, clauseKey:string, coverageEntry?:object|null, testEntry?:object|null, mutation?:object|null, commandTemplate?:string|null, adapter?:object|null}} input
  * @returns {{ok:boolean, inputs?:object, inputsDigest?:string, findings?:object[], code?:string, field?:string}}
  */
-// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-441|PX-442) --for-spec --no-implementation-order`.
 function computeProofInputs({ cwd, clauseKey, coverageEntry = null, testEntry = null, mutation = null, commandTemplate = null, adapter = null }) {
   const resolvedMutation = mutationOf({ coverageEntry, mutation });
   if (!isNonEmptyString(resolvedMutation?.file) || !isNonEmptyString(resolvedMutation?.find)) {
@@ -304,6 +313,7 @@ function computeProofInputs({ cwd, clauseKey, coverageEntry = null, testEntry = 
     ok: true,
     inputs,
     inputsDigest: inputsDigestOf(inputs),
+    closureFiles: closure.files,
     findings: closure.findings,
   };
 }
@@ -339,7 +349,10 @@ module.exports = {
   HARNESS_ARTIFACT_NAMES,
   LOCKFILE_NAMES,
   PROOF_INPUTS_VERSION,
+  STABLE_PROOF_TARGET,
+  UNSTABLE_PROOF_TARGET,
   canonicalize,
+  classifyMutationTarget,
   closureDigestOf,
   computeProofInputs,
   fileDigestOf,

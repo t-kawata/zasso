@@ -8,8 +8,14 @@
  */
 
 const { resolveMappedTests } = require('./coverage-map.js');
-const { runDetectionProof, runProofs } = require('./proof-engine.js');
-const { computeProofInputs, invalidationReasonOf } = require('./proof-inputs.js');
+const { SOURCE_RESTORE_FAILED, runDetectionProof, runProofs } = require('./proof-engine.js');
+const {
+  UNSTABLE_PROOF_TARGET,
+  classifyMutationTarget,
+  computeProofInputs,
+  invalidationReasonOf,
+} = require('./proof-inputs.js');
+const { createProofWorkspacePool } = require('./proof-workspace.js');
 
 /** The adapter that produced one mapped test. */
 // [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
@@ -26,15 +32,18 @@ function mappedTestFor({ clause, testIndex, coverageEntry }) {
 }
 
 /** The mutation and command a clause may use. */
-// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-441|PX-442) --for-spec --no-implementation-order`.
 function resolveProofPlan({ coverageEntry, disposition, adapter }) {
   const mutation = coverageEntry?.proof?.mutation
     ?? disposition?.proof?.mutation
     ?? coverageEntry?.mutation
     ?? null;
-  const commandTemplate = adapter?.runner
-    ?? disposition?.proof?.command
+  // The recorded template is part of the input tuple. Using the resolved
+  // command instead would change inputsDigest and invalidate a valid proof.
+  const commandTemplate = coverageEntry?.proof?.inputs?.commandTemplate
     ?? coverageEntry?.proof?.command
+    ?? disposition?.proof?.command
+    ?? adapter?.runner
     ?? null;
   return { mutation, commandTemplate };
 }
@@ -86,13 +95,16 @@ function buildProofInputsByKey({ cwd, inventory, testIndex, coverage, dispositio
 }
 
 /** A runnable proof entry, or the reason the clause has no runnable plan. */
-// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-441|PX-442) --for-spec --no-implementation-order`.
 function proofEntryFor({ cwd, clause, coverageEntry, testIndex, disposition, adapters, defaultAdapter }) {
   const testEntry = mappedTestFor({ clause, testIndex, coverageEntry });
   const adapter = adapterForTest({ testEntry, adapters, defaultAdapter });
   const plan = resolveProofPlan({ coverageEntry, disposition, adapter });
   if (plan.mutation === null || plan.commandTemplate === null) {
     return { ok: false, code: 'PROOF_PLAN_MISSING', key: clause.key };
+  }
+  if (classifyMutationTarget({ file: plan.mutation.file }) === UNSTABLE_PROOF_TARGET) {
+    return { ok: false, code: UNSTABLE_PROOF_TARGET, field: 'mutation', key: clause.key };
   }
   const computed = computeProofInputs({
     cwd,
@@ -115,6 +127,7 @@ function proofEntryFor({ cwd, clause, coverageEntry, testIndex, disposition, ada
       mutation: plan.mutation,
       command: plan.commandTemplate,
       inputs: computed.inputs,
+      files: computed.closureFiles ?? [],
     },
   };
 }
@@ -148,22 +161,36 @@ function buildProofEntries({ cwd, inventory, testIndex, coverage, dispositions =
 }
 
 /** Execute the stale or missing entries. */
-// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
-function runProofEntries({ entries, mode = 'changed', budget = 0, timeoutMs }) {
-  return runProofs({
-    clauses: entries,
-    mode,
-    budget,
-    runProof: (entry) => runDetectionProof({
-      clause: { key: entry.key },
-      testId: entry.test.id,
-      testDigest: entry.test.digest,
-      mutation: entry.mutation,
-      command: entry.command,
-      inputs: entry.inputs,
-      timeoutMs,
-    }),
-  });
+// [::TICKET::] PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-441|PX-442) --for-spec --no-implementation-order`.
+function runProofEntries({ entries, mode = 'changed', budget = 0, timeoutMs, cwd = process.cwd(), workspaceRoots = undefined }) {
+  const pool = createProofWorkspacePool({ cwd, workspaceRoots });
+  try {
+    return runProofs({
+      clauses: entries,
+      mode,
+      budget,
+      runProof: (entry) => {
+        const workspace = pool.workspaceFor({
+          mutationFiles: [entry.mutation?.file].filter((file) => typeof file === 'string' && file.length > 0),
+          includeFiles: [entry.test?.file, ...(entry.files ?? [])].filter((file) => typeof file === 'string' && file.length > 0),
+        });
+        const result = runDetectionProof({
+          clause: { key: entry.key },
+          testId: entry.test.id,
+          testDigest: entry.test.digest,
+          mutation: entry.mutation,
+          command: entry.command,
+          inputs: entry.inputs,
+          workspace: workspace.ok ? { ...workspace, shared: true } : workspace,
+          timeoutMs,
+        });
+        if (result.status === SOURCE_RESTORE_FAILED && workspace.poolKey !== undefined) pool.evict(workspace.poolKey);
+        return result;
+      },
+    });
+  } finally {
+    pool.cleanupAll();
+  }
 }
 
 /** Count reuse, reruns and invalidation reasons for one run. */
