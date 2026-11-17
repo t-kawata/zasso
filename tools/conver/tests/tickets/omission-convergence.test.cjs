@@ -1,3 +1,4 @@
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-406 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-406 --for-spec --no-implementation-order`.
 'use strict';
 
@@ -37,20 +38,25 @@ test('C004: only a normative finding is must-fix; an unsourced observation is im
 });
 
 // @verifies C004
-test('C004: convergence requires every surface adjudicated, no unticketed must-fix, non-increasing debt, two identical runs and no new ticket', () => {
+test('C004: convergence requires remainder zero, no expired deferral, no unclassified clause, non-increasing debt, two stable digests and no new ticket', () => {
   const state = {
-    unrecorded: [],
-    unticketedMustFix: [],
+    remainder: 0,
+    expiredDeferred: 0,
+    unclassified: 0,
     debt: { before: 2, after: 2 },
-    runs: [{ digest: 'd' }, { digest: 'd' }],
+    runs: [
+      { inventoryDigest: 'i', coverageDigest: 'c' },
+      { inventoryDigest: 'i', coverageDigest: 'c' },
+    ],
     newTickets: 0,
   };
 
   assert.equal(isConverged(state), true);
-  assert.equal(isConverged({ ...state, unrecorded: [{ surface: 'contract' }] }), false);
-  assert.equal(isConverged({ ...state, unticketedMustFix: [{ surface: 'contract' }] }), false);
+  assert.equal(isConverged({ ...state, remainder: 1 }), false);
+  assert.equal(isConverged({ ...state, expiredDeferred: 1 }), false);
+  assert.equal(isConverged({ ...state, unclassified: 1 }), false);
   assert.equal(isConverged({ ...state, debt: { before: 2, after: 3 } }), false);
-  assert.equal(isConverged({ ...state, runs: [{ digest: 'a' }, { digest: 'b' }] }), false);
+  assert.equal(isConverged({ ...state, runs: [{ inventoryDigest: 'a', coverageDigest: 'c' }, { inventoryDigest: 'b', coverageDigest: 'c' }] }), false);
   assert.equal(isConverged({ ...state, newTickets: 1 }), false);
 });
 

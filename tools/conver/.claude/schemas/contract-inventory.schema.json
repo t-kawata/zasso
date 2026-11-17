@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "conver://schemas/contract-inventory.schema.json",
+  "title": "CONTRACT-INVENTORY",
+  "type": "object",
+  "required": ["version", "scope", "digest", "clauses", "conflicts", "reconciliation"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "const": 1 },
+    "scope": { "type": "string", "minLength": 1 },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "clauses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "contractId", "element", "text", "textHash", "source", "owners"],
+        "additionalProperties": true,
+        "properties": {
+          "key": { "type": "string", "pattern": "^clause\\|" },
+          "contractId": { "type": "string", "minLength": 1 },
+          "element": { "type": "string", "minLength": 1 },
+          "ordinal": { "type": ["integer", "null"] },
+          "text": { "type": "string", "minLength": 1 },
+          "textHash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+          "source": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["artifact", "locator"],
+              "additionalProperties": false,
+              "properties": {
+                "artifact": { "type": "string", "minLength": 1 },
+                "locator": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "owners": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "conflicts": { "type": "array" },
+    "reconciliation": {
+      "type": "object",
+      "required": ["sourceElements", "emitted", "excluded", "unaccounted"],
+      "additionalProperties": true,
+      "properties": {
+        "sourceElements": { "type": "integer", "minimum": 0 },
+        "emitted": { "type": "integer", "minimum": 0 },
+        "excluded": { "type": "integer", "minimum": 0 },
+        "unaccounted": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": { "type": "array" }
+  }
+}

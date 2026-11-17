@@ -1,3 +1,4 @@
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
 /**
  * find-omissions-doc.test.cjs — P27-1.
  *
@@ -30,8 +31,26 @@ test("C002: pre-flight is one wrapper invocation with a MODE verdict", () => {
   );
   assert.ok(/MODE: RESUME/.test(doc), "RESUME mode is named");
   assert.ok(/MODE: CLEAN/.test(doc), "CLEAN mode is named");
-  assert.ok(/exit2|exit 2/.test(doc), "the stop code is documented");
   assert.ok(!/DETECT=\$\?/.test(preflight), "the AI no longer writes the control flow");
+});
+
+test("C002: the v3 command exposes exit 0 and 10, never a project-condition stop", () => {
+  assert.ok(/find-omissions-run\.js/.test(doc), "the non-interactive full flow is named");
+  assert.ok(/exit 10|exit code 10|10 —/.test(doc), "the work code is documented");
+  assert.ok(/exit 0|exit code 0|0 —/.test(doc), "the complete code is documented");
+  assert.ok(/remainder = 0/.test(doc), "the terminal condition is the measured remainder");
+  assert.ok(/no project-condition stop|never stops|no blocker-stop/i.test(doc), "a blocker is work, never a stop");
+});
+
+test("C002: the v3 command preserves existing tickets and names the repair ladder", () => {
+  assert.ok(/Step 0\.1/.test(doc), "Step 0.1 inventory is documented");
+  assert.ok(/Step 0\.5/.test(doc), "Step 0.5 gate is documented");
+  assert.ok(/completed tickets? (?:are|is) not reopened|never reopened/i.test(doc), "completed tickets are not reopened");
+  assert.ok(/repair ladder|repair ticket/i.test(doc), "blockers route to the repair ladder");
+});
+
+test("C002: the v3 command is language-neutral and carries no evidence-project names", () => {
+  assert.equal(/\bgaia\b|\bcrystal\b|\bdoors\b/.test(doc), false);
 });
 
 test("C002: pre-flight runs the unfinished-find detector inside the wrapper", () => {

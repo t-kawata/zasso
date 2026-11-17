@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "description": "The fixed detector registry for the omission detection gate. A surface is covered only when the registered detector kind matches the surface requirement; a missing detector or artifact is visible, never a clean run.",
   "surfaceRequirements": {
     "spec": "judgment",
@@ -9,6 +9,7 @@
     "dirs-tree": "mechanical",
     "ticket": "mechanical",
     "contract": "mechanical",
+    "contract-clause": "mechanical",
     "acceptance": "mechanical",
     "operation": "mechanical",
     "sequence-step": "mechanical",
@@ -195,6 +196,70 @@
       "repair": "fix-quality-issue"
     },
     {
+      "id": "contract-inventory",
+      "kind": "inventory",
+      "surfaces": ["contract-clause"],
+      "inputs": ["inventory", "source"],
+      "scope": "package",
+      "calibration": { "seed": "drop a source element" },
+      "runner": {
+        "script": "tickets/build-contract-inventory.js",
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--cwd=${cwd}"]
+      },
+      "findingCodes": ["INVENTORY_SOURCE_UNACCOUNTED", "INVENTORY_DIGEST_MISMATCH", "REPAIR_REQUIRED"],
+      "repair": "rebuild-inventory"
+    },
+    {
+      "id": "test-index",
+      "kind": "inventory",
+      "surfaces": ["contract-clause"],
+      "inputs": ["test-index", "source"],
+      "scope": "package",
+      "calibration": { "seed": "drop a test entry" },
+      "runner": {
+        "script": "tickets/build-test-index.js",
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--cwd=${cwd}"]
+      },
+      "findingCodes": ["TEST_FILE_UNACCOUNTED", "ADAPTER_MISSING", "REPAIR_REQUIRED"],
+      "repair": "rebuild-test-index"
+    },
+    {
+      "id": "clause-coverage",
+      "kind": "mechanical",
+      "surfaces": ["contract-clause"],
+      "inputs": ["inventory", "test-index", "coverage"],
+      "scope": "clause",
+      "calibration": { "seed": "remove the mapping" },
+      "runner": {
+        "script": "tickets/scan-clause-coverage.js",
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--cwd=${cwd}"]
+      },
+      "findingCodes": ["CLAUSE_UNMAPPED", "CLAUSE_UNCLASSIFIED", "TEST_MISSING", "TEST_IGNORED"],
+      "repair": "author-and-prove-test"
+    },
+    {
+      "id": "detection-proof",
+      "kind": "proof",
+      "surfaces": ["contract-clause"],
+      "inputs": ["coverage", "test-index", "proof"],
+      "scope": "clause",
+      "calibration": { "seed": "leave the suite green" },
+      "runner": {
+        "script": "tickets/run-detection-proofs.js",
+        "scope": "package",
+        "output": "json-findings",
+        "args": ["--cwd=${cwd}", "--proofs=changed"]
+      },
+      "findingCodes": ["CLAUSE_PROOF_MISSING", "CLAUSE_PROOF_STALE", "CLAUSE_PROOF_FAILED", "CLAUSE_PROOF_UNSTABLE", "REPAIR_REQUIRED"],
+      "repair": "author-and-prove-test"
+    },
+    {
       "id": "contract-translation",
       "kind": "judgment",
       "surfaces": ["contract"],
@@ -230,6 +295,12 @@
       "obligation": "check that both sides of every boundary agree on the shared clauses"
     }
   ],
+  "clauseSeeds": [
+    { "detectorId": "contract-inventory", "surface": "contract-clause" },
+    { "detectorId": "test-index", "surface": "contract-clause" },
+    { "detectorId": "clause-coverage", "surface": "contract-clause" },
+    { "detectorId": "detection-proof", "surface": "contract-clause" }
+  ],
   "seeds": [
     { "detectorId": "contract-delivery", "surface": "contract" },
     { "detectorId": "operation-delivery", "surface": "operation" },
@@ -242,6 +313,7 @@
     { "detectorId": "chain", "surface": "sequence-step" },
     { "detectorId": "incomplete-implementation", "surface": "file" },
     { "detectorId": "stub-marker", "surface": "stub" },
-    { "detectorId": "quality-danger", "surface": "danger" }
+    { "detectorId": "quality-danger", "surface": "danger" },
+    { "detectorId": "clause-coverage", "surface": "contract-clause" }
   ]
 }

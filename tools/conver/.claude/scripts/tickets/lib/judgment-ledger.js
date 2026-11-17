@@ -25,8 +25,9 @@ const JUDGMENT_STATUS = Object.freeze({
 const STATUS_SET = new Set(Object.values(JUDGMENT_STATUS));
 
 /** The identity of one judgment across repeated rounds. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
 function judgmentKey(judgment) {
+  if (typeof judgment?.obligationKey === 'string' && judgment.obligationKey.length > 0) return judgment.obligationKey;
   return [judgment?.surface ?? '', judgment?.assetId ?? '', judgment?.criterion ?? ''].join('|');
 }
 
@@ -70,12 +71,13 @@ function mergeObligations(ledger, obligations) {
  * and criterion replaces the first. A verdict for an obligation the scan did not
  * enumerate is refused, so the AI cannot invent coverage.
  */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
-function recordJudgment(ledger, judgment) {
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
+function recordJudgment(ledger, judgment, context = {}) {
   if (!judgment || typeof judgment !== 'object' || Array.isArray(judgment)) {
     return { ok: false, code: 'JUDGMENT_INVALID', problem: 'judgment must be an object' };
   }
-  for (const field of ['surface', 'assetId', 'criterion']) {
+  const requiredFields = isNonEmptyString(judgment.obligationKey) ? ['criterion'] : ['surface', 'assetId', 'criterion'];
+  for (const field of requiredFields) {
     if (!isNonEmptyString(judgment[field])) {
       return { ok: false, code: 'JUDGMENT_INVALID', problem: field + ' is required' };
     }
@@ -101,12 +103,29 @@ function recordJudgment(ledger, judgment) {
     return { ok: false, code: 'OBLIGATION_UNKNOWN', problem: 'the scan did not enumerate this obligation' };
   }
 
-  const record = { ...judgment, evidence: Array.isArray(judgment.evidence) ? judgment.evidence : [] };
+  if (judgment.status === JUDGMENT_STATUS.PASS) {
+    if (context.applicability === 'TESTABLE' && (context.proof === null || context.proof === undefined || context.proof.status !== 'PROVEN')) {
+      return { ok: false, code: 'EVIDENCE_UNPROVEN', problem: 'PASS on a TESTABLE clause requires a fresh proof' };
+    }
+    const referencedTest = (judgment.evidence ?? []).map((entry) => entry?.test).find(isNonEmptyString);
+    if (referencedTest !== undefined && Array.isArray(context.testIndex?.tests)) {
+      const test = context.testIndex.tests.find((entry) => entry.id === referencedTest);
+      if (test === undefined) return { ok: false, code: 'TEST_MISSING', problem: 'referenced test is absent from TEST-INDEX.json' };
+      if (test.ignored === true) return { ok: false, code: 'TEST_IGNORED', problem: 'referenced test is ignored or skipped' };
+    }
+    if (typeof context.exists === 'function') {
+      const unresolved = (judgment.evidence ?? []).find((entry) => isNonEmptyString(entry?.file) && context.exists(entry.file) === false);
+      if (unresolved !== undefined) return { ok: false, code: 'EVIDENCE_UNRESOLVED', problem: 'evidence file does not exist: ' + unresolved.file };
+    }
+  }
+
+  const record = { ...judgment, obligationKey: judgmentKey(judgment), evidence: Array.isArray(judgment.evidence) ? judgment.evidence : [] };
   const key = judgmentKey(record);
   ledger.judgments = Array.isArray(ledger.judgments) ? ledger.judgments : [];
   const existing = ledger.judgments.findIndex((entry) => judgmentKey(entry) === key);
   if (existing === -1) ledger.judgments.push(record);
   else ledger.judgments[existing] = record;
+  if (judgment.status === JUDGMENT_STATUS.NOT_VERIFIABLE) return { ok: true, judgment: record, route: 'repair' };
   return { ok: true, judgment: record };
 }
 
@@ -118,7 +137,7 @@ function recordJudgment(ledger, judgment) {
  * PASS. A ledger with no enumeration block is INCOMPLETE: it never enumerated
  * the obligations, so its empty judgment list proves nothing.
  */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
 function judgeCoverage(ledger) {
   const judgments = Array.isArray(ledger?.judgments) ? ledger.judgments : [];
   const obligations = Array.isArray(ledger?.obligations) ? ledger.obligations : [];
@@ -133,7 +152,7 @@ function judgeCoverage(ledger) {
   else if ((byStatus.FAIL ?? 0) > 0) verdict = JUDGMENT_STATUS.FAIL;
   else if (notVerifiable.length > 0) verdict = JUDGMENT_STATUS.NOT_VERIFIABLE;
 
-  return { unrecorded, byStatus, recorded: judgments.length, notVerifiable, verdict };
+  return { unrecorded, byStatus, recorded: judgments.length, notVerifiable, remainder: unrecorded.length + notVerifiable.length, verdict };
 }
 
 /** Read the ledger beside the package, or null when it does not exist. */

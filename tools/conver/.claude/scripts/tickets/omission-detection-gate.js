@@ -22,6 +22,8 @@ const {
 } = require('./lib/omission-calibration.js');
 const { runGapScan } = require('./omission-gap-scan.js');
 const { convergenceReport, readState } = require('./lib/omission-convergence.js');
+const { scanClauseCoverage } = require('./lib/coverage-map.js');
+const { runClauseCalibration } = require('./lib/omission-calibration.js');
 
 /** Read `--name=value` from the argument list. */
 // [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
@@ -51,9 +53,133 @@ function runMetaControl({ registry, surfaces = null }) {
   return { findings: [...findings, ...failures], failures, ok: failures.length === 0 };
 }
 
+/**
+ * PX-437 — the ordered v3 gates over measured artifacts.
+ *
+ * A project-condition problem is a gate failure and exit 10, never a process
+ * failure. The gates are evaluated in the order the repair ladder consumes them.
+ */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [] } = {}) {
+  const { inventory = null, testIndex = null, coverage = null } = v3Artifacts;
+  const gates = [];
+
+  const inventoryUsable = inventory !== null
+    && typeof inventory.digest === 'string'
+    && Array.isArray(inventory.clauses)
+    && inventory.clauses.length > 0;
+  gates.push({
+    name: 'inventory',
+    ok: inventoryUsable,
+    findings: (inventory?.findings ?? []).filter((finding) => finding.code === 'INVENTORY_SOURCE_UNACCOUNTED'),
+    problem: inventoryUsable ? null : 'no digest-bound inventory with at least one clause',
+  });
+
+  const testIndexUsable = testIndex !== null
+    && Array.isArray(testIndex.tests)
+    && (testIndex.findings ?? []).length === 0;
+  gates.push({
+    name: 'test-index',
+    ok: testIndexUsable,
+    findings: testIndex?.findings ?? [],
+    problem: testIndexUsable ? null : 'no complete test index with an identified adapter',
+  });
+
+  const scan = inventoryUsable && testIndexUsable
+    ? scanClauseCoverage({
+        inventory,
+        testIndex,
+        coverage: coverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] },
+      })
+    : null;
+  const findings = scan?.findings ?? [];
+  const codes = new Set(findings.map((finding) => finding.code));
+
+  gates.push({
+    name: 'coverage',
+    ok: scan !== null && !['CLAUSE_UNMAPPED', 'CLAUSE_UNCLASSIFIED', 'TEST_MISSING', 'TEST_IGNORED'].some((code) => codes.has(code)),
+    findings: findings.filter((finding) => ['CLAUSE_UNMAPPED', 'CLAUSE_UNCLASSIFIED', 'TEST_MISSING', 'TEST_IGNORED'].includes(finding.code)),
+    problem: null,
+  });
+  gates.push({
+    name: 'proof',
+    ok: scan !== null && !['CLAUSE_PROOF_MISSING', 'CLAUSE_PROOF_STALE', 'CLAUSE_PROOF_FAILED', 'UNSTABLE'].some((code) => codes.has(code)),
+    findings: findings.filter((finding) => ['CLAUSE_PROOF_MISSING', 'CLAUSE_PROOF_STALE', 'CLAUSE_PROOF_FAILED', 'UNSTABLE'].includes(finding.code)),
+    problem: null,
+  });
+
+  const openRepairs = (repairs ?? []).filter((repair) => repair.status !== 'completed');
+  gates.push({
+    name: 'repair',
+    ok: inventoryUsable && testIndexUsable && openRepairs.length === 0,
+    findings: openRepairs,
+    problem: openRepairs.length === 0 ? null : 'an automatic repair or repair ticket remains open',
+  });
+
+  const measured = coverage?.remainder ?? {};
+  const scanRemainder = scan?.remainder ?? { remainder: 0, total: 0, debt: 0, notApplicable: 0, structural: 0, expiredDeferred: 0, unclassified: 0, unmapped: 0, unproven: 0, staleProof: 0, conflict: 0, duplicateOwner: 0 };
+  const remainder = {
+    ...scanRemainder,
+    ...measured,
+    remainder: Math.max(scanRemainder.remainder ?? 0, measured.remainder ?? 0),
+    expiredDeferred: Math.max(scanRemainder.expiredDeferred ?? 0, measured.expiredDeferred ?? 0),
+    unclassified: Math.max(scanRemainder.unclassified ?? 0, measured.unclassified ?? 0),
+  };
+  gates.push({ name: 'remainder', ok: remainder.remainder === 0, findings: [], problem: null });
+  gates.push({ name: 'debt', ok: (remainder.expiredDeferred ?? 0) === 0, findings: [], problem: null });
+  gates.push({
+    name: 'convergence',
+    ok: remainder.remainder === 0 && (remainder.expiredDeferred ?? 0) === 0 && (remainder.unclassified ?? 0) === 0,
+    findings: [],
+    problem: null,
+  });
+
+  const calibration = runClauseCalibration();
+  const undetected = calibration.seeds.filter((seed) => seed.applicable !== true || seed.detected !== true || (seed.cleanFindings ?? []).length > 0);
+  gates.push({
+    name: 'anti-gaming',
+    ok: undetected.length === 0,
+    findings: undetected.map((seed) => ({ code: 'CALIBRATION_FAILED', detectorId: seed.checkId })),
+    problem: null,
+  });
+
+  const counts = {
+    clauses: {
+      total: remainder.total ?? 0,
+      proven: remainder.proven ?? 0,
+      design: remainder.design ?? 0,
+      process: remainder.process ?? 0,
+      external: remainder.external ?? 0,
+      notApplicable: remainder.notApplicable ?? 0,
+      deferred: remainder.deferred ?? 0,
+      expiredDeferred: remainder.expiredDeferred ?? 0,
+      unmapped: remainder.unmapped ?? 0,
+      unproven: remainder.unproven ?? 0,
+      unclassified: remainder.unclassified ?? 0,
+      structural: remainder.structural ?? 0,
+    },
+    remainder: remainder.remainder,
+    debt: remainder.debt ?? 0,
+    repairs: (repairs ?? []).length,
+  };
+  const complete = gates.every((gate) => gate.ok) && counts.remainder === 0;
+  return {
+    version: 3,
+    gates,
+    counts,
+    remainder: counts.remainder,
+    debt: counts.debt,
+    repairs: counts.repairs,
+    findings,
+    complete,
+    exitCode: complete ? 0 : 10,
+  };
+}
+
 /** The gate over the real package. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
-function runDetectionGate({ cwd, ticketsPath = null, graphPath = null, registry = null, surfaces = null, reportOnly = false, requireConverged = false } = {}) {
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
+function runDetectionGate({ cwd, ticketsPath = null, graphPath = null, registry = null, surfaces = null, reportOnly = false, requireConverged = false, v3Artifacts = undefined, repairs = [] } = {}) {
+  if (v3Artifacts !== undefined) return runV3Gate({ cwd, v3Artifacts, repairs });
   const loaded = registry ?? loadRegistry({ cwd });
   const gap = runGapScan({ cwd, ticketsPath: ticketsPath || path.join(cwd, 'Tickets.json'), graphPath, registry: loaded, reportOnly });
   const enumerated = surfaces ?? gap.surfaces;
@@ -134,4 +260,5 @@ module.exports = {
   runDetectionGate,
   runMetaControl,
   runNegativeControl,
+  runV3Gate,
 };

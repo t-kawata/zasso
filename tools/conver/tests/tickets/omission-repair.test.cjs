@@ -1,3 +1,4 @@
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
 'use strict';
 
 /**
@@ -251,13 +252,24 @@ test('C004: one stable key creates one ticket and no new ticket is created on re
 });
 
 // @verifies C004
-test('C004: convergence requires adjudication, no unticketed must-fix, non-increasing debt, two identical runs and no new ticket', () => {
-  const state = { unrecorded: [], unticketedMustFix: [], debt: { before: 1, after: 1 }, runs: [{ digest: 'd' }, { digest: 'd' }], newTickets: 0 };
+test('C004: convergence requires remainder zero, no expired deferral, no unclassified clause, non-increasing debt, two stable digests and no new ticket', () => {
+  const state = {
+    remainder: 0,
+    expiredDeferred: 0,
+    unclassified: 0,
+    debt: { before: 1, after: 1 },
+    runs: [
+      { inventoryDigest: 'i', coverageDigest: 'c' },
+      { inventoryDigest: 'i', coverageDigest: 'c' },
+    ],
+    newTickets: 0,
+  };
   assert.equal(isConverged(state), true);
-  assert.equal(isConverged({ ...state, unrecorded: [{ surface: 'contract' }] }), false);
-  assert.equal(isConverged({ ...state, unticketedMustFix: [{ surface: 'contract' }] }), false);
+  assert.equal(isConverged({ ...state, remainder: 1 }), false);
+  assert.equal(isConverged({ ...state, expiredDeferred: 1 }), false);
+  assert.equal(isConverged({ ...state, unclassified: 1 }), false);
   assert.equal(isConverged({ ...state, debt: { before: 1, after: 2 } }), false);
-  assert.equal(isConverged({ ...state, runs: [{ digest: 'a' }, { digest: 'b' }] }), false);
+  assert.equal(isConverged({ ...state, runs: [{ inventoryDigest: 'a', coverageDigest: 'c' }, { inventoryDigest: 'b', coverageDigest: 'c' }] }), false);
   assert.equal(isConverged({ ...state, newTickets: 1 }), false);
 });
 

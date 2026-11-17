@@ -18,11 +18,12 @@ const fs = require('fs');
 const path = require('path');
 
 const { CONTRACT_ID_SOURCE } = require('./lib/contract-id');
+const { parseClauseKey } = require('./lib/contract-clause.js');
 
-// The Gate S/R annotation grammar is the contract-id grammar. A registry boundary
-// contract is identified by contract-<boundary_id>, not by a C-number, so the scanner
-// must accept both forms.
-const VERIFIES_RE = new RegExp(`@verifies\\s+(${CONTRACT_ID_SOURCE})`, 'g');
+// The Gate S/R annotation grammar now accepts the contract-id, the clause-level
+// `<contract-id>/<element>[#<ordinal>]` form and the canonical `clause|...` key.
+// The broader token class is what lets the canonical key survive the scan.
+const VERIFIES_RE = /@verifies\s+([A-Za-z0-9_|./#-]+)/g;
 const REQUIRES_RE = new RegExp(`@requires\\s+(${CONTRACT_ID_SOURCE})`, 'g');
 const ASSERT_INV_RE = new RegExp(`@assert-invariant\\s+(${CONTRACT_ID_SOURCE})`, 'g');
 
@@ -50,10 +51,12 @@ function parseArgs() {
  * @param {Set<string>} expectedIds — Set of expected contract IDs
  * @returns {{ covered: Set<string>, missing: string[], unknown: Array<{file: string, id: string}> }}
  */
-// [::TICKET::] PX-70, PX-71, PX-326 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-70|PX-71|PX-326) --for-spec --no-implementation-order`.
-function scanContractCoverage(content, expectedIds) {
+// [::TICKET::] PX-70, PX-71, PX-326, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-70|PX-71|PX-326|PX-437) --for-spec --no-implementation-order`.
+function scanContractCoverage(content, expectedIds, options = {}) {
   const foundIds = new Set();
   const unknownAnnotations = [];
+  const coveredClauses = new Set();
+  const clausePattern = /^([^/|]+)\/([^/#]+)(#\d+)?$/;
 
   VERIFIES_RE.lastIndex = 0;
   REQUIRES_RE.lastIndex = 0;
@@ -63,6 +66,24 @@ function scanContractCoverage(content, expectedIds) {
   let m;
   while ((m = VERIFIES_RE.exec(content)) !== null) {
     const id = m[1];
+    if (id.startsWith('clause|')) {
+      coveredClauses.add(id);
+      const parsed = parseClauseKey(id);
+      if (parsed !== null && expectedIds.has(parsed.contractId)) foundIds.add(parsed.contractId);
+      else unknownAnnotations.push({ id, type: '@verifies' });
+      continue;
+    }
+    const clauseMatch = id.match(clausePattern);
+    if (clauseMatch !== null) {
+      const contractId = clauseMatch[1];
+      if (expectedIds.has(contractId)) {
+        foundIds.add(contractId);
+        coveredClauses.add(contractId + '/' + clauseMatch[2] + (clauseMatch[3] ?? ''));
+      } else {
+        unknownAnnotations.push({ id, type: '@verifies' });
+      }
+      continue;
+    }
     if (expectedIds.has(id)) foundIds.add(id);
     else unknownAnnotations.push({ id, type: '@verifies' });
   }
@@ -80,10 +101,14 @@ function scanContractCoverage(content, expectedIds) {
   }
 
   const missing = [...expectedIds].filter(id => !foundIds.has(id));
+  const clauseKeys = Array.isArray(options.clauseKeys) ? options.clauseKeys : [];
+  const missingClauses = clauseKeys.filter((key) => !coveredClauses.has(key));
 
   return {
     covered: foundIds,
     missing,
+    coveredClauses,
+    missingClauses,
     unknown: unknownAnnotations
   };
 }

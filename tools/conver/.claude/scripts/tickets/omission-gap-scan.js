@@ -24,6 +24,7 @@ const {
 } = require('./lib/omission-detectors.js');
 const { classifyFinding, stableFindingKey, diffAgainstBaseline } = require('./lib/omission-convergence.js');
 const { createLedger, judgeCoverage, mergeObligations, readLedger, writeLedger } = require('./lib/judgment-ledger.js');
+const { scanClauseCoverage } = require('./lib/coverage-map.js');
 
 const DETECTOR_FAILED = 'DETECTOR_FAILED';
 const DEFAULT_SEVERITY = 'high';
@@ -72,15 +73,16 @@ function deriveNormativeSource(surface, assetId, ticketKey) {
 }
 
 /** Normalize one detector finding into the shared envelope. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
 function normalizeFinding(detector, rawFinding) {
   const surface = detector.findingSurfaces?.[rawFinding.code] ?? rawFinding.surface ?? detector.surfaces?.[0] ?? 'unknown';
-  const assetId = rawFinding.assetId ?? rawFinding.asset ?? rawFinding.subject ?? rawFinding.file ?? 'unknown';
+  const assetId = rawFinding.assetId ?? rawFinding.asset ?? rawFinding.subject ?? rawFinding.key ?? rawFinding.file ?? 'unknown';
   const criterion = rawFinding.criterion ?? detector.criterion ?? detector.id;
   const ticketKey = rawFinding.ticketKey ?? inferTicketKey(assetId);
   const normativeSource = rawFinding.normativeSource ?? deriveNormativeSource(surface, assetId, ticketKey);
+  const stableKey = rawFinding.key !== undefined ? rawFinding.key : stableFindingKey({ surface, assetId, criterion });
   const finding = {
-    stableKey: stableFindingKey({ surface, assetId, criterion }),
+    stableKey,
     surface,
     assetId,
     criterion,
@@ -303,8 +305,8 @@ function enumerateStubs({ cwd, ticketsPath }) {
 }
 
 /** Run the full gap scan. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
-function runGapScan({ cwd, ticketsPath = null, graphPath = null, registry = null, reportOnly = false } = {}) {
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
+function runGapScan({ cwd, ticketsPath = null, graphPath = null, registry = null, reportOnly = false, v3Artifacts = null } = {}) {
   const loaded = registry ?? loadRegistry({ cwd });
   const ticketsFile = ticketsPath || path.join(cwd, 'Tickets.json');
   const stubs = enumerateStubs({ cwd, ticketsPath: ticketsFile });
@@ -329,7 +331,25 @@ function runGapScan({ cwd, ticketsPath = null, graphPath = null, registry = null
   const judgments = judgeCoverage(ledger);
   const deduped = dedupeFindings(findings);
   const artifactStates = Object.fromEntries(Object.entries(surfaceReport.artifacts.families).map(([family, state]) => [family, { state: state.state, reason: state.reason }]));
-  const digest = digestValue({ surfaces: surfaceReport.surfaces, findings: deduped, artifacts: artifactStates, obligations });
+
+  let v3 = null;
+  if (v3Artifacts?.inventory !== undefined && v3Artifacts?.testIndex !== undefined) {
+    const scan = scanClauseCoverage({
+      inventory: v3Artifacts.inventory,
+      testIndex: v3Artifacts.testIndex,
+      coverage: v3Artifacts.coverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] },
+    });
+    const coverageDigest = v3Artifacts.coverage?.digest ?? digestValue({ clauses: v3Artifacts.coverage?.clauses ?? [], remainder: v3Artifacts.coverage?.remainder ?? null });
+    v3 = {
+      bindingValid: scan.bindingValid,
+      remainder: scan.remainder,
+      findings: scan.findings,
+      inventoryDigest: v3Artifacts.inventory.digest ?? null,
+      coverageDigest,
+    };
+  }
+
+  const digest = digestValue({ surfaces: surfaceReport.surfaces, findings: deduped, artifacts: artifactStates, obligations, v3 });
 
   return {
     version: loaded.version,
@@ -342,6 +362,7 @@ function runGapScan({ cwd, ticketsPath = null, graphPath = null, registry = null
     blocked,
     coverage,
     judgments,
+    v3,
     digest,
   };
 }

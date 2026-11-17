@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "conver://schemas/disposition.schema.json",
+  "title": "Clause disposition",
+  "type": "object",
+  "required": ["version", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "key": { "type": "string", "pattern": "^clause\\|" },
+    "status": {
+      "type": "string",
+      "enum": ["TESTABLE", "DESIGN_PREDICATE", "PROCESS", "EXTERNAL", "NOT_APPLICABLE_VERIFIED", "DEFERRED"]
+    },
+    "ruleId": { "type": "string" },
+    "normativeSource": { "type": "string" },
+    "evidence": { "type": "array" },
+    "evidenceDigest": { "type": "string", "pattern": "^sha256:" },
+    "owner": { "type": "string" },
+    "reason": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "expiresAt": { "type": "string" }
+  }
+}

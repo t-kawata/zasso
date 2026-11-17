@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "conver://schemas/test-index.schema.json",
+  "title": "TEST-INDEX",
+  "type": "object",
+  "required": ["version", "tests", "digest", "reconciliation"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "const": 1 },
+    "language": { "type": "string" },
+    "runner": { "type": ["string", "null"] },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "file", "name", "kind", "ignored", "skipReason", "annotations", "digest", "adapter"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "file": { "type": ["string", "null"] },
+          "name": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "ignored": { "type": "boolean" },
+          "skipReason": { "type": ["string", "null"] },
+          "annotations": { "type": "array", "items": { "type": "string" } },
+          "digest": { "type": "string", "pattern": "^sha256:" },
+          "adapter": {
+            "type": "object",
+            "required": ["id", "version"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "version": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "required": ["files", "indexed", "reported"],
+      "additionalProperties": true,
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "indexed": { "type": "integer", "minimum": 0 },
+        "reported": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": { "type": "array" }
+  }
+}

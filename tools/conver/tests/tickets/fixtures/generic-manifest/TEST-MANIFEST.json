@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "language": "manifest",
+  "runner": "node runner.js {test}",
+  "tests": [
+    { "id": "save", "file": "save.spec.js", "name": "save", "kind": "unit", "ignored": false, "skipReason": null, "annotations": ["verifies:clause|pkg-alpha|C001|precondition|abcdef0123456789"] },
+    { "id": "load", "file": "load.spec.js", "name": "load", "kind": "unit", "ignored": true, "skipReason": "pending fixture", "annotations": [] }
+  ]
+}
