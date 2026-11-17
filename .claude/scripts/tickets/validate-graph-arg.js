@@ -1,62 +1,66 @@
 #!/usr/bin/env node
 
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 /**
- * validate-graph-arg.js — Validate the GRAPH argument for /find-omissions
+ * validate-graph-arg.js — Validate the GRAPH artifact for /find-omissions
  *
- * Exits 0 if a readable GRAPH file path is provided.
- * Exits 2 (with message) if missing or not found.
+ * The graph is a package-local artifact, so the gate resolves it from the
+ * current directory and never from the argument. An explicit path cannot
+ * override the package, and a stale caller's path cannot block a resolvable one.
+ * Exits 0 when the package resolves its graph, 2 otherwise.
  */
 
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
+const { resolveGraphPath } = require('../lib/resolve-graph-path.js');
 
 /** The first /find-omissions gate also opens its run. */
 const RUN_HISTORY = { command: 'find-omissions', stage: 'find' };
 
 /**
- * Extract the GRAPH path from the first non-empty line of one argument.
+ * Name the verdict so a reader can act without re-running the resolver.
  *
- * A resumed run appends a fixed directive after a blank line, so $ARGUMENTS is
- * "<graph>\n\n<directive>" in a single shell word. Reading only the first
- * non-empty line keeps the graph gate and the directive from competing.
+ * @param {{reason: string, candidates: string[], detail?: string}} resolution
+ * @param {string} directory
  */
-// [::TICKET::] P27-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-1 --for-spec --no-implementation-order`.
-function firstNonEmptyLine(argument) {
-  if (typeof argument !== 'string') return '';
-  for (const line of argument.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (trimmed !== '') return trimmed;
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
+function reportBlockedGraph(resolution, directory) {
+  console.error(
+    '[find-omissions] BLOCKED: ' + resolution.reason + ' graph artifact in ' + directory + '.',
+  );
+  if (resolution.reason === 'AMBIGUOUS') {
+    console.error('Candidates: ' + resolution.candidates.join(', '));
   }
-  return '';
+  if (resolution.reason === 'MISSING') {
+    console.error('Expected RFC-GRAPH.json, or exactly one *-GRAPH.json.');
+  }
+  if (resolution.detail !== undefined) {
+    console.error(resolution.detail);
+  }
 }
 
 /**
  * Return the gate's exit code instead of exiting, so the decision is testable
  * and the CLI wrapper below is the only place that owns process termination.
+ *
+ * The argument is accepted and ignored: a resumed run may carry a directive,
+ * and no argument is a graph path.
+ *
+ * @param {string[]} _argv — accepted for the CLI shape, never read
+ * @param {{cwd?: string}} [options]
+ * @returns {0|2}
  */
-// [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
-// [::TICKET::] P27-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-1 --for-spec --no-implementation-order`.
-function validateGraphArgument(argv = process.argv.slice(2)) {
-  const argument = firstNonEmptyLine(argv[0]);
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
+function validateGraphArgument(_argv = process.argv.slice(2), options = {}) {
+  const directory = path.resolve(options.cwd ?? process.cwd());
+  const resolution = resolveGraphPath(directory);
 
-  if (!argument) {
-    console.error('[find-omissions] BLOCKED: No GRAPH path specified.');
-    console.error('Usage: /find-omissions </path/to/*-GRAPH.json>');
-    return 2;
-  }
+  if (resolution.reason === 'FOUND') return 0;
 
-  const resolved = path.resolve(argument);
-
-  if (!fs.existsSync(resolved)) {
-    console.error('[find-omissions] BLOCKED: GRAPH file not found: ' + resolved);
-    console.error('Verify the path and re-run /find-omissions with a valid GRAPH file.');
-    return 2;
-  }
-
-  return 0;
+  reportBlockedGraph(resolution, directory);
+  return 2;
 }
 
 if (require.main === module) {

@@ -13,9 +13,12 @@
  * Usage:
  *   node phasify-omissions.js \
  *     --omissions=<OMISSIONS-*.json> \
- *     --graph=<RFC-ROOT-GRAPH.json> \
+ *     [--graph=<RFC-ROOT-GRAPH.json>] \
  *     --tickets=<Tickets.json> \
  *     [--min-nodes=N] [--output=<path>] [--dry-run] [--verbose]
+ *
+ * Omit --graph to resolve the package artifact from CWD: RFC-GRAPH.json, or
+ * the unique *-GRAPH.json.
  *
  * Exit codes:
  *   0 = Success (✅PASS)
@@ -30,6 +33,7 @@ const fs = require('fs');
 const path = require('path');
 const { directionOf, isHardEdge, providerConsumerEdge } = require('./lib/edge-order.js');
 const { writeLine } = require('../lib/cli-output');
+const { resolveGraphPath } = require('../lib/resolve-graph-path.js');
 const { runMutationGate } = require('../tickets/ticket-mutation-gate.js');
 const {
   refreshTicketDistributionDigests,
@@ -110,7 +114,24 @@ function findLatestOmissions() {
   return path.resolve(matches[0]);
 }
 
+/**
+ * Resolve Step 9's graph: an explicit --graph wins, otherwise the package
+ * artifact. /find-omissions calls this without --graph.
+ *
+ * @param {string} graphPathArgument — an already resolved --graph value, or ''
+ * @param {string} cwd — package directory
+ * @returns {{path: string|null, reason: string, candidates: string[]}}
+ */
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
+function resolveGraphPathArgument(graphPathArgument, cwd) {
+  if (graphPathArgument) {
+    return { path: path.resolve(graphPathArgument), reason: 'FOUND', candidates: [] };
+  }
+  return resolveGraphPath(cwd);
+}
+
 // [::TICKET::] PX-107, PX-108, PX-109, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-107|PX-108|PX-109|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const opts = {
     omissionsPath: '',
@@ -187,10 +208,18 @@ function parseArguments(argv) {
     console.error('[phasify-omissions] Auto-discovered OMISSIONS: ' + found);
   }
 
-  if (!opts.graphPath) {
-    console.error('[ERROR] Missing required argument: --graph=<PATH>');
+  const graphResolution = resolveGraphPathArgument(opts.graphPath, process.cwd());
+  if (graphResolution.reason !== 'FOUND') {
+    console.error('[ERROR] ' + graphResolution.reason + ' graph artifact in ' + process.cwd() + '.');
+    if (graphResolution.reason === 'AMBIGUOUS') {
+      console.error('Candidates: ' + graphResolution.candidates.join(', '));
+    }
+    if (graphResolution.reason === 'MISSING') {
+      console.error('Expected RFC-GRAPH.json, or exactly one *-GRAPH.json.');
+    }
     process.exit(2);
   }
+  opts.graphPath = graphResolution.path;
 
   return opts;
 }
@@ -1978,6 +2007,7 @@ if (require.main === module) {
 
 module.exports = {
   parseArguments,
+  resolveGraphPathArgument,
   extractOmissionSubgraph,
   dedupTickets,
   autoMinSize,

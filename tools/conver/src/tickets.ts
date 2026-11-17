@@ -4,9 +4,9 @@
 // 責務: node:fs.readFileSync で Tickets.json を読み込み、以下の操作を提供する
 // - loadPendingTickets: 未処理（status ≠ "reviewed"）チケットの抽出
 // - checkAllReviewed:   全チケットが reviewed 状態か判定
-// - getGraphPathFromTickets: /find-omissions へ渡す *-GRAPH.json の絶対パスを解決
 //
 // 読み取りが主務。clearForNextRound のみ、runLoop 起動時の安全網として書き込みを行う（PX-145）。
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -210,52 +210,6 @@ function toHomeRelativeDeep<T>(value: T): T {
     return converted as T;
   }
   return value;
-}
-
-/** GRAPH ファイル名の接尾辞 — graphify の命名規約（<source>.md → <source>-GRAPH.json） */
-const GRAPH_FILE_SUFFIX = "-GRAPH.json";
-
-/**
- * パス先頭の ~ をホームディレクトリに展開する。
- * validate-graph-arg.js は path.resolve() のみを行うため、~ を素通しすると
- * 存在チェック（fs.existsSync）に失敗する。ここで展開してから返す。
- * @param p チルダ付きの可能性があるパス
- * @returns チルダ展開済みのパス
- */
-// [::TICKET::] PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-116 --for-spec --no-implementation-order`.
-function expandTilde(p: string): string {
-  return p.startsWith("~") ? path.join(os.homedir(), p.slice(1)) : p;
-}
-
-/**
- * metadata.source から GRAPH ファイルパスを導出する。
- * @param source RFC markdown のパス（metadata.source）
- * @returns 導出したパス。source が無ければ undefined
- */
-// [::TICKET::] PX-116 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-116 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-117 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-117 --for-spec --no-implementation-order`.
-function deriveGraphPath(source?: string): string | undefined {
-  if (!source) return undefined;
-  return source.replace(/\.md$/, "") + GRAPH_FILE_SUFFIX;
-}
-
-/**
- * /find-omissions へ渡す *-GRAPH.json の絶対パスを返す。
- * 優先順位:
- *   1. metadata.resolvedPaths.graphPath（主経路）
- *   2. metadata.source からの導出（fallback）
- *   3. ticketsPath（最終 fallback）
- * いずれもチルダ展開 + path.resolve で絶対パスに正規化して返す。
- * @param ticketsPath Tickets.json のファイルパス
- * @returns GRAPH ファイルの絶対パス（常に非空文字列）
- */
-export function getGraphPathFromTickets(ticketsPath: string): string {
-  const raw = readFileSync(ticketsPath, "utf-8");
-  const ticketsData: TicketsJson = JSON.parse(raw);
-  const graphPath =
-    ticketsData.metadata?.resolvedPaths?.graphPath ??
-    deriveGraphPath(ticketsData.metadata?.source);
-  return path.resolve(expandTilde(graphPath ?? ticketsPath));
 }
 
 /**

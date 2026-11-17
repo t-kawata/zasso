@@ -1,4 +1,5 @@
 // [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 /**
  * find-omissions-doc.test.cjs — P27-1.
  *
@@ -73,9 +74,18 @@ test("C002: the documented flags exist in the detector", () => {
   assert.ok(script.includes("--format"), "--format is accepted");
 });
 
-test("C003: the argument note names the first non-empty line as the graph path", () => {
+test("C006: the command takes no graph argument and resolves the package artifact", () => {
+  const frontmatter = doc.split("---")[1] ?? "";
+  assert.ok(!/argument-hint/.test(frontmatter), "no argument hint is declared");
+  assert.ok(!/\$ARGUMENTS/.test(doc), "the command substitutes no argument");
+  assert.ok(!/--graph=/.test(doc), "no graph flag is documented");
+  assert.ok(/RFC-GRAPH\.json/.test(doc), "the package artifact is named");
   assert.ok(
-    /first non-empty line/i.test(doc),
-    "a resume directive after the graph path is explained",
+    /find-omissions-preflight\.sh"\s*\|\|\s*exit 2/.test(doc),
+    "the wrapper runs with no positional graph",
+  );
+  assert.ok(
+    /phasify-omissions\.js"(?![^\n]*--graph=)/.test(doc),
+    "Step 9 carries no graph argument",
   );
 });

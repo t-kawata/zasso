@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # find-omissions-preflight.sh — one-shot gate for /find-omissions.
 #
-# The command file calls this once with the raw $ARGUMENTS. The script owns the
-# gate order, the resume decision and the reset timing, so the AI never
+# The command file calls this once from the package directory. The script owns
+# the gate order, the resume decision and the reset timing, so the AI never
 # re-derives that control flow from prose.
 #
 # Ordering is a safety property, not a preference: every read-only gate runs
-# before the reset. A package blocked by a malformed graph or by an
+# before the reset. A package blocked by an unresolvable graph artifact or by an
 # unconsolidated stub tree keeps the omissions its interrupted run recorded.
 #
 # Exit codes:
@@ -17,12 +17,12 @@
 # `... || exit 2` must never turn a resume into a block.
 #
 # [::TICKET::] P27-3 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-3 --for-spec --no-implementation-order`.
+# [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 set -uo pipefail
 
 # Resolve the gates from this script's own location so the wrapper works from
 # any package directory and never trusts an externally supplied CLAUDE_DIR.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GRAPH_ARGUMENT="${1-}"
 
 print_gate() {
   local position="$1"
@@ -42,16 +42,16 @@ stop() {
 
 printf '== find-omissions pre-flight ==\n'
 
-# Gate 1 — graph argument. Read-only. The validator reads the first non-empty
-# line, so a resume directive after a blank line is harmless.
-GRAPH_OUTPUT="$(node "$SCRIPT_DIR/validate-graph-arg.js" "$GRAPH_ARGUMENT" 2>&1)"
+# Gate 1 — graph artifact. Read-only. The graph is resolved from the package
+# directory; a resume directive is not a path and is ignored.
+GRAPH_OUTPUT="$(node "$SCRIPT_DIR/validate-graph-arg.js" 2>&1)"
 GRAPH_STATUS=$?
 if [ "$GRAPH_STATUS" -ne 0 ]; then
-  print_gate "1/3" "graph argument" "FAIL"
+  print_gate "1/3" "graph artifact" "FAIL"
   print_detail "$GRAPH_OUTPUT"
   stop
 fi
-print_gate "1/3" "graph argument" "OK"
+print_gate "1/3" "graph artifact" "OK"
 
 # Gate 2 — consolidated manifest. Read-only. Its zero-stub pass carries the
 # "SKIP Step 1" instruction, which the summary must preserve.

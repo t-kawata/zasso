@@ -1,3 +1,4 @@
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 // tickets.test.ts — tickets.ts のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
 //
@@ -6,12 +7,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync, readFileSync, mkdtempSync } from "node:fs";
-import path, { join } from "node:path";
+import { join } from "node:path";
 import os, { tmpdir } from "node:os";
 import {
   loadPendingTickets,
   checkAllReviewed,
-  getGraphPathFromTickets,
   countPhasesAndTickets,
   clearForNextRound,
   pendingTicketsOf,
@@ -306,48 +306,6 @@ describe("round-aware status (R<round>)", () => {
     });
     const result = loadPendingTickets(path);
     assert.ok(result.every((t) => !/^R\d+$/.test(t.status)));
-  });
-});
-
-describe("getGraphPathFromTickets", () => {
-  // @verifies C002
-  it("resolvedPaths.graphPath あり → チルダ展開済み絶対パスを返す", () => {
-    const ticketsPath = writeTempTickets({
-      title: "Test",
-      metadata: {
-        source: "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
-        resolvedPaths: { graphPath: "~/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json" },
-        generatedAt: "2026-07-28",
-      },
-      phases: [],
-    });
-    const expected = path.resolve(os.homedir(), "shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json");
-    assert.strictEqual(getGraphPathFromTickets(ticketsPath), expected);
-    assert.ok(!getGraphPathFromTickets(ticketsPath).includes("~"));
-  });
-
-  // @verifies C003
-  it("resolvedPaths なし + source あり → <source .md 除去>-GRAPH.json を導出", () => {
-    const ticketsPath = writeTempTickets({
-      title: "Test",
-      metadata: { source: "tools/conver/RFC_ROOT.md", generatedAt: "2026-06-25" },
-      phases: [],
-    });
-    const expected = path.resolve("tools/conver/RFC_ROOT-GRAPH.json");
-    assert.strictEqual(getGraphPathFromTickets(ticketsPath), expected);
-  });
-
-  // @verifies C004
-  it("resolvedPaths.graphPath も metadata.source もない → ticketsPath を返す", () => {
-    const ticketsPath = writeTempTickets({ title: "Test", phases: [] });
-    assert.strictEqual(getGraphPathFromTickets(ticketsPath), ticketsPath);
-    assert.notStrictEqual(getGraphPathFromTickets(ticketsPath), undefined);
-  });
-
-  // @verifies C002 C003 C004
-  it("戻り値は常に非空文字列", () => {
-    const ticketsPath = writeTempTickets({ title: "Test", phases: [] });
-    assert.ok(getGraphPathFromTickets(ticketsPath).length > 0);
   });
 });
 

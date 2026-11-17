@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+const { resolveGraphPath } = require('../../lib/resolve-graph-path.js');
 
 const REGISTRY_FILE_NAME = 'omission-detectors.json';
 const REGISTRY_VERSION = 3;
@@ -160,9 +161,10 @@ function artifactState(filePath, { directory = false } = {}) {
  * Dirs-Tree, sequences view or formula sidecar is notMeasured, never clean.
  */
 // [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 function artifactStatus({ cwd, ticketsPath = null, graphPath = null } = {}) {
   const ticketsFile = ticketsPath || path.join(cwd, 'Tickets.json');
-  const graph = graphPath || firstExisting(cwd, ['RFC-GRAPH.json']) || uniqueSibling(cwd, '-GRAPH.json');
+  const graph = graphPath || resolveGraphPath(cwd).path;
   const dirsTree = firstExisting(cwd, ['RFC-Dirs-Tree.json']) || uniqueSibling(cwd, '-Dirs-Tree.json');
   const sequences = firstExisting(cwd, ['SEQUENCES.json']) || uniqueSibling(cwd, '-sequences.json');
   const formulas = firstExisting(cwd, ['RFC-FORMULAS.json']) || uniqueSibling(cwd, '-FORMULAS.json');

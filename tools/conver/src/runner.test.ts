@@ -8,6 +8,7 @@ import {
   LoopStoppedError,
   MAX_FIND_ROUNDS,
   FIND_RESUME_DIRECTIVE,
+  buildFindCommand,
   runPackageLoop,
   runWorkspaceLoop,
 } from "./runner.js";
@@ -234,7 +235,7 @@ describe("runPackageLoop — strict order and cwd", () => {
     ]);
     assert.ok(commands.some((command) => command.startsWith("/resolve-ticket")));
     assert.strictEqual(commands.at(-2), "/consolidate-stubs");
-    assert.ok(commands.at(-1)?.startsWith("/find-omissions "));
+    assert.strictEqual(commands.at(-1), "/find-omissions");
     assert.ok(recorded.sessions.length > 0);
     assert.ok(recorded.sessions.every((cwd) => cwd === fixture.directory));
     assert.strictEqual(recorded.phases.length, 1);
@@ -399,7 +400,7 @@ describe("runPackageLoop — durable boundary completion", () => {
 
     const boundaryCommands = recorded.commands.map((entry) => entry.command);
     assert.strictEqual(boundaryCommands[0], "/consolidate-stubs");
-    assert.ok(boundaryCommands[1]?.startsWith("/find-omissions "));
+    assert.strictEqual(boundaryCommands[1], "/find-omissions");
     assert.strictEqual(boundaryCommands.length, 2);
     assert.strictEqual(recorded.boundaries.length, 1);
     assert.strictEqual(
@@ -451,7 +452,7 @@ describe("runPackageLoop — durable boundary completion", () => {
     assert.ok(recorded.commands[0]?.command.startsWith("/resolve-ticket"));
     const tailCommands = recorded.commands.slice(-2).map((entry) => entry.command);
     assert.strictEqual(tailCommands[0], "/consolidate-stubs");
-    assert.ok(tailCommands[1]?.startsWith("/find-omissions "));
+    assert.strictEqual(tailCommands[1], "/find-omissions");
   });
 
   it("continues the package when find adds a forNextRound ticket", async () => {
@@ -583,7 +584,7 @@ describe("runPackageLoop — durable boundary completion", () => {
     );
     const firstRunCommands = recorded.commands.map((entry) => entry.command);
     assert.strictEqual(firstRunCommands[0], "/consolidate-stubs");
-    assert.ok(firstRunCommands[1]?.startsWith("/find-omissions "));
+    assert.strictEqual(firstRunCommands[1], "/find-omissions");
 
     recorded.commands.length = 0;
     const processed = await runPackageLoop(
@@ -737,8 +738,22 @@ function keepRemandedAfterFind(command: string, current: Fixture): void {
   writeFileSync(current.ticketsPath, JSON.stringify(next, null, 2));
 }
 
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
+describe("buildFindCommand", () => {
+  it("C004: a find without resume carries no argument", () => {
+    assert.strictEqual(buildFindCommand(false), "/find-omissions");
+  });
+
+  it("C004: a resumed find carries only the fixed directive", () => {
+    assert.strictEqual(
+      buildFindCommand(true),
+      `/find-omissions\n\n${FIND_RESUME_DIRECTIVE}`,
+    );
+  });
+});
+
 describe("runPackageLoop — unfinished find recovery", () => {
-  it("C001/C002/C003: a remanded ticket sends two notices and resumes find with the graph and directive", async () => {
+  it("C001/C002/C003/C004: a remanded ticket sends two notices and resumes find with the directive", async () => {
     const data = tickets([
       {
         id: 0,
@@ -799,9 +814,10 @@ describe("runPackageLoop — unfinished find recovery", () => {
 
     const findCommands = findCommandsOf(recorded);
     assert.strictEqual(findCommands.length, 1);
-    assert.ok(findCommands[0]?.startsWith("/find-omissions "));
-    assert.ok(findCommands[0]?.includes(fixture.ticketsPath));
-    assert.ok(findCommands[0]?.includes(FIND_RESUME_DIRECTIVE));
+    assert.strictEqual(
+      findCommands[0],
+      `/find-omissions\n\n${FIND_RESUME_DIRECTIVE}`,
+    );
     assert.strictEqual(recorded.boundaries.length, 1);
   });
 

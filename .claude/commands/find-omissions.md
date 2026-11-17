@@ -1,6 +1,5 @@
 ---
 description: Inspect reviewed tickets for contract-to-test gaps and record omissions.
-argument-hint: </path/to/*-GRAPH.json>
 disable-model-invocation: true
 ---
 
@@ -34,16 +33,15 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 | Runtime logs | English |
 | Every other non-user-directed context | English |
 
-## Pre-flight — argument + unfinished-run + consolidation validation (mandatory)
+## Pre-flight — graph artifact + unfinished-run + consolidation validation (mandatory)
 
-Argument:
-- `$ARGUMENTS` holds the GRAPH path on its first non-empty line.
-- A blank line may follow, then a fixed operator directive. The directive is an instruction, not part of the path; `validate-graph-arg.js` reads only the first non-empty line.
-- An invocation carrying a directive means a previous run is being resumed. Never ask the human about it.
+Graph argument: none.
+- The GRAPH is a package artifact: `RFC-GRAPH.json` in the current directory, or the unique `*-GRAPH.json` when the canonical name is absent. `validate-graph-arg.js` resolves it; no argument selects or overrides it.
+- An optional fixed operator directive may accompany the invocation. It is an instruction, not a path. An invocation carrying one means a previous run is being resumed; the detector decides the mode. Never ask the human about it.
 
 Gate — one invocation; the script owns the order, the reset and the verdict:
 ```bash
-bash "$CLAUDE_DIR/scripts/tickets/find-omissions-preflight.sh" "$ARGUMENTS" || exit 2
+bash "$CLAUDE_DIR/scripts/tickets/find-omissions-preflight.sh" || exit 2
 ```
 Read the printed `MODE:` line and act on it:
 - `MODE: CLEAN` — continue from Step 1.
@@ -51,7 +49,7 @@ Read the printed `MODE:` line and act on it:
 - exit2 — stop. The wrapper has printed which gate failed and why. Fix it and re-run.
 
 What the wrapper checks, in this order (all read-only until the reset):
-1. `validate-graph-arg.js` — the GRAPH path on the first non-empty line of `$ARGUMENTS` is readable.
+1. `validate-graph-arg.js` — the package GRAPH artifact resolves to exactly one file. `MISSING` (no artifact) and `AMBIGUOUS` (two candidates) are distinct stops.
 2. `require-consolidated-manifest.js` — a `./manifests/CONSOLIDATED-MANIFEST-*.json` exists, **or** the stub scan finds 0 stubs. The 0-stub pass prints **SKIP Step 1** and the wrapper carries that into its summary.
 3. `detect-unfinished-find.js` — mechanical proof that a previous run stopped before Step 9:
    - CLEAN: no remanded ticket outside PX, no boundary `find.status` of `IN_PROGRESS`, no `_tmp-check-target-tickets-cmds-*.json`, no `_tmp-omissions-*.json`.
@@ -102,7 +100,7 @@ check for: too-broad assertions (`assert!(result.is_ok())` when field checks are
 ### Step 0 — Deterministic detection and judgment ledger (mandatory, additive)
 
 ```bash
-node "$CLAUDE_DIR/scripts/tickets/omission-gap-scan.js" --cwd=. --tickets=Tickets.json --graph="$ARGUMENTS" --out=OMISSION-GAP-SCAN.json
+node "$CLAUDE_DIR/scripts/tickets/omission-gap-scan.js" --cwd=. --tickets=Tickets.json --out=OMISSION-GAP-SCAN.json
 ```
 
 must-fix findings → `apply-omission-findings.js`: one ticket per stable key; unsourced → improvement backlog; design surface → `DESIGN-AMENDMENT-QUEUE.json`.
@@ -113,7 +111,7 @@ echo '{"surface":"contract","assetId":"C001","criterion":"A","status":"PASS","ev
 then:
 ```bash
 node "$CLAUDE_DIR/scripts/tickets/apply-omission-findings.js" --cwd=. --report=OMISSION-GAP-SCAN.json
-node "$CLAUDE_DIR/scripts/tickets/omission-detection-gate.js" --cwd=. --tickets=Tickets.json --graph="$ARGUMENTS" --require-converged
+node "$CLAUDE_DIR/scripts/tickets/omission-detection-gate.js" --cwd=. --tickets=Tickets.json --require-converged
 ```
 
 gate exit≠0 → uncovered / notMeasured / blocked / calibration failed / convergence not reached: repair and re-run; do not proceed.
@@ -362,7 +360,7 @@ removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`
 # Step 9 — Merge into Tickets.json
 
 ```bash
-node "$CLAUDE_DIR/scripts/rfc-graph/phasify-omissions.js" --graph="$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/rfc-graph/phasify-omissions.js"
 ```
 computes optimal phase/ticket boundaries from Steps 2–7's omissions, merges mechanically into Tickets.json. mechanical merge → generic phase names (P6, P7, ...); stdout lists each phase's node titles/ticket info + the exact `rename-phases.js` commands (follow in Step 10).
 mutation gate: merge = `ticket-mutation-gate.js` transaction; refusal leaves Tickets.json + backup + snapshot untouched, exits non-zero with the named finding.

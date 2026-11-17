@@ -42,7 +42,6 @@ import {
 import type { BoundaryState, BoundaryStateIo } from "./boundary-state.js";
 import {
   clearForNextRound,
-  getGraphPathFromTickets,
   packageProgress,
   pendingTicketsOf,
   phaseProgress,
@@ -210,10 +209,11 @@ export { MAX_FIND_ROUNDS };
 export const FIND_RESUME_DIRECTIVE =
   "Previous /find-omissions detected incomplete. Re-run it. Do not ask the human; decide everything and complete.";
 
-/** Build the find invocation; the graph path is always present. */
+/** Build the find invocation; the command resolves its graph from the package. */
 // [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
-export function buildFindCommand(graphPath: string, resume: boolean): string {
-  const base = `/find-omissions ${graphPath}`;
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
+export function buildFindCommand(resume: boolean): string {
+  const base = "/find-omissions";
   return resume ? `${base}\n\n${FIND_RESUME_DIRECTIVE}` : base;
 }
 
@@ -665,22 +665,30 @@ async function notifyFindUnfinished(
 }
 
 /**
+ * One find boundary request: the package, the loop context, the durable state
+ * and whether this run resumes an interrupted find.
+ */
+interface FindBoundaryRequest {
+  pkg: WorkspacePackage;
+  options: WorkspaceLoopOptions;
+  deps: PackageLoopDeps;
+  state: BoundaryState;
+  resume: boolean;
+  ticketKey: string | null;
+}
+
+/**
  * Run find with mechanical evidence and, when evidence exists, the fixed
- * resume directive. The graph path is always present so the command's own
- * argument gate cannot block the run.
+ * resume directive. No argument is passed: the command resolves its graph from
+ * the package directory, so conver never injects a path.
  */
 // [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
-async function runFindBoundary(
-  pkg: WorkspacePackage,
-  options: WorkspaceLoopOptions,
-  deps: PackageLoopDeps,
-  state: BoundaryState,
-  resume: boolean,
-  ticketKey: string | null,
-): Promise<BoundaryRunResult> {
+// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
+async function runFindBoundary(request: FindBoundaryRequest): Promise<BoundaryRunResult> {
+  const { pkg, options, deps, state, resume, ticketKey } = request;
   await waitForWindow(options.watcherConfig);
   if (resume) await notifyFindUnfinished(options, pkg, ticketKey, deps);
-  const command = buildFindCommand(getGraphPathFromTickets(pkg.ticketsPath), resume);
+  const command = buildFindCommand(resume);
   return runPackageBoundary({ pkg, kind: "find", command, options, deps, state });
 }
 
@@ -872,14 +880,14 @@ export async function runPackageLoop(
           const report = await detector(pkg);
           if (!report.unfinished) throw new LoopStoppedError(stopContext);
 
-          const found = await runFindBoundary(
+          const found = await runFindBoundary({
             pkg,
             options,
             deps,
-            boundaryState,
-            true,
-            error.ticketKey,
-          );
+            state: boundaryState,
+            resume: true,
+            ticketKey: error.ticketKey,
+          });
           boundaryState = found.state;
           state.progress.findRounds++;
           state.progress.findDone = true;
@@ -983,14 +991,14 @@ export async function runPackageLoop(
 
       const detector = deps.detectUnfinishedFind ?? detectUnfinishedFindForPackage;
       const report = await detector(pkg);
-      const found = await runFindBoundary(
+      const found = await runFindBoundary({
         pkg,
         options,
         deps,
-        boundaryState,
-        report.unfinished,
-        null,
-      );
+        state: boundaryState,
+        resume: report.unfinished,
+        ticketKey: null,
+      });
       boundaryState = found.state;
       state.progress.findRounds++;
       state.progress.findDone = true;

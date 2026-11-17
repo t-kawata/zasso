@@ -8,6 +8,7 @@
  *   C003 a CONSOLIDATED-MANIFEST-*.json exists -> exit 0 (legacy unchanged)
  *   C004 a throwing stub scan is never treated as 0 stubs -> decision 'block' (exit 2)
  * [::TICKET::] PX-148 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-148 --for-spec --no-implementation-order`.
+ * [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
  */
 
 const test = require("node:test");
@@ -108,15 +109,19 @@ test("C003/C004 invariant: the gate decision is deterministic for identical tree
   assert.strictEqual(decideGate(dirA), decideGate(dirB), "same empty tree → same decision");
 });
 
-// @verifies C001 (PX-148 contract)
-test("C001: the pre-flight block in find-omissions.md carries both gates in order", () => {
+// @verifies C001 (PX-148 contract), C006 (PX-439 contract)
+test("C001: the pre-flight block in find-omissions.md documents both gates in order", () => {
   const doc = fs.readFileSync(FIND_OMISSIONS, "utf8");
   const preflight = doc.split("## Pre-flight")[1].split("## Overview")[0] || "";
-  const gate1 = preflight.indexOf('validate-graph-arg.js" "$ARGUMENTS" || exit 2');
-  const gate2 = preflight.indexOf('require-consolidated-manifest.js" || exit 2');
+  const gate1 = preflight.indexOf("`validate-graph-arg.js`");
+  const gate2 = preflight.indexOf("`require-consolidated-manifest.js`");
   assert.ok(gate1 !== -1, "validate-graph-arg gate present");
   assert.ok(gate2 !== -1, "require-consolidated-manifest gate present");
   assert.ok(gate1 < gate2, "validate-graph-arg runs before the manifest gate");
+  assert.ok(
+    /find-omissions-preflight\.sh"\s*\|\|\s*exit 2/.test(preflight),
+    "the wrapper takes no graph argument",
+  );
 });
 
 // @verifies C003 (PX-148 contract)

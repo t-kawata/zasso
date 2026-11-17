@@ -68438,6 +68438,128 @@
             }
           ],
           "done_at": "2026-11-17T05:10:43.176Z"
+        },
+        {
+          "id": 439,
+          "phaseId": -1,
+          "status": "done",
+          "title": "find-omissions: derive GRAPH from cwd, remove the command argument and the conver injection",
+          "background": "### Goal\n/find-omissions resolves its GRAPH from the package directory and accepts no GRAPH argument. conver.js invokes it without a path.\n\n### Purpose\nThe graph is a package-local artifact, already resolved by artifactStatus (RFC-GRAPH.json first, else the unique *-GRAPH.json). Passing a path duplicates that resolver, lets an external path override the package artifact, and lets conver inject a path that may not exist.\n\n### Motivation\nconver derives a path from Tickets.json metadata. When metadata.source is not an RFC markdown the derivation yields a nonexistent path, so Gate 1 stops the run before /find-omissions starts. P27-2 added the injection only to satisfy the gate.\n\n### Constraints\n- One resolver shared by validate-graph-arg.js, omission-detectors.js and phasify-omissions.js.\n- Missing and ambiguous graphs both fail closed with a named reason.\n- No test weakening; node --test on explicit files; never make test.\n- dist/ is regenerated from src/.",
+          "scope": [
+            "Change path: .claude/commands/find-omissions.md — action: modify — detail: remove argument-hint, the $ARGUMENTS graph contract, and every --graph=\"$ARGUMENTS\"; the pre-flight takes no positional path; Step 9 phasify derives the graph; before: the command required a GRAPH path; after: it resolves the package artifact itself.",
+            "Change path: .claude/scripts/lib/resolve-graph-path.js — action: add — detail: one resolver: RFC-GRAPH.json, else the unique *-GRAPH.json; returns the path or a MISSING/AMBIGUOUS verdict with sorted candidates; before: validate-graph-arg validated an argument and omission-detectors carried an inline copy; after: one shared resolver.",
+            "Change path: .claude/scripts/tickets/validate-graph-arg.js — action: modify — detail: resolve the graph from cwd, ignore argv for graph selection, keep exit 0/2 and the run-history bracket; before: an empty argument failed with exit 2; after: an unresolvable package fails with exit 2 and a resolvable one passes with or without an argument.",
+            "Change path: .claude/scripts/tickets/find-omissions-preflight.sh — action: modify — detail: call validate-graph-arg.js without a positional path; before: it forwarded $1; after: Gate 1 reads the package artifact.",
+            "Change path: .claude/scripts/tickets/lib/omission-detectors.js — action: modify — detail: artifactStatus uses the shared resolver; before: inline firstExisting/uniqueSibling pair; after: one resolver with the same semantics.",
+            "Change path: .claude/scripts/rfc-graph/phasify-omissions.js — action: modify — detail: --graph becomes optional and resolves from cwd when absent; an unresolved package exits 2 naming MISSING or AMBIGUOUS; before: --graph was a hard requirement; after: the command can call it without a path.",
+            "Change path: src/runner.ts — action: modify — detail: buildFindCommand(resume) emits /find-omissions with no path; remove the getGraphPathFromTickets call and the argument-gate rationale; before: the command always carried a derived path; after: conver passes no path.",
+            "Change path: src/tickets.ts — action: modify — detail: remove getGraphPathFromTickets and its private helpers now that no consumer remains; before: conver used it to build the find command; after: dead code removed.",
+            "Change path: tests/lib/resolve-graph-path.test.cjs — action: add — detail: red-first tests for direct name, unique suffix, missing, and ambiguous candidates; before: no resolver contract; after: every verdict is pinned.",
+            "Change path: tests/validate-graph-arg.test.cjs — action: modify — detail: red-first inversion: an explicit path no longer selects the graph; cwd resolution, directive-only arguments, missing and ambiguous packages; before: empty argument and missing file were the pinned failures; after: the package artifact is the only source.",
+            "Change path: tests/find-omissions-preflight.test.cjs — action: modify — detail: invoke the wrapper with no graph argument, and prove a missing or ambiguous graph stops before the reset; before: every case forwarded a path; after: no case forwards one.",
+            "Change path: tests/find-omissions-doc.test.cjs — action: modify — detail: assert no argument-hint, no $ARGUMENTS, no --graph=, and a no-argument Step 9; before: the doc pinned the first-non-empty-line contract; after: it pins cwd resolution.",
+            "Change path: tests/require-consolidated-manifest.test.cjs — action: modify — detail: the gate-order assertion reads the new no-argument preflight call; before: it pinned validate-graph-arg.js\" \"$ARGUMENTS; after: it pins validate-graph-arg.js\".",
+            "Change path: src/runner.test.ts — action: modify — detail: find commands equal /find-omissions with the optional directive and carry no path; before: every find command asserted a trailing path; after: no path is present.",
+            "Change path: src/tickets.test.ts — action: modify — detail: remove the getGraphPathFromTickets block with the removed function; before: the dead resolver was pinned; after: no test names it.",
+            "Change path: dist/** — action: modify — detail: rebuild from src; before: dist carried the path injection; after: dist matches source."
+          ],
+          "acceptanceCriteria": [
+            "C001: /find-omissions requires no GRAPH argument and resolves RFC-GRAPH.json or the unique *-GRAPH.json from cwd.",
+            "C002: a package with no graph and a package with two graphs exit 2 with a named MISSING/AMBIGUOUS reason; neither removes transient files.",
+            "C003: an explicit path argument neither selects nor overrides the resolved graph.",
+            "C004: conver emits /find-omissions and /find-omissions\\n\\n<directive> with no graph path.",
+            "C005: phasify-omissions resolves the graph when --graph is omitted.",
+            "C006: the command document carries no argument-hint, no $ARGUMENTS, and no --graph= assignment."
+          ],
+          "testUnit": [
+            "UT: C001 [Normal] RFC-GRAPH.json present -> resolver returns it.",
+            "UT: C001 [Normal] no RFC-GRAPH.json, unique RFC-ROOT-GRAPH.json -> resolver returns it.",
+            "UT: C002 [Error] no graph -> MISSING with no path.",
+            "UT: C002 [Error] two *-GRAPH.json files -> AMBIGUOUS with sorted candidates and no path.",
+            "UT: C003 [Boundary] a valid path argument with no graph in cwd -> validateGraphArgument exits 2.",
+            "UT: C003 [Boundary] a directive-only argument with a graph in cwd -> validateGraphArgument exits 0.",
+            "UT: C004 [Normal] buildFindCommand(false) === '/find-omissions'.",
+            "UT: C004 [Normal] buildFindCommand(true) appends the fixed resume directive after a blank line.",
+            "UT: C005 [Normal] phasify --omissions/--tickets without --graph resolves the cwd graph.",
+            "UT: C005 [Error] phasify without --graph and without a resolvable graph exits 2 naming the reason.",
+            "UT: C006 [Invariant] the command document contains no argument-hint, no $ARGUMENTS, no --graph=."
+          ],
+          "testIntegration": [
+            "IT: the pre-flight wrapper runs from a package with RFC-GRAPH.json and prints MODE CLEAN without any positional argument.",
+            "IT: the pre-flight wrapper stops before the reset when the package has no graph or two graphs.",
+            "IT: the e2e find-omissions fixture, which already has RFC-GRAPH.json in cwd, is unchanged and green."
+          ],
+          "testExceptions": [
+            "ET: a malformed or missing graph still stops, never reported as clean.",
+            "ET: an argument that looks like a path is not interpreted as one."
+          ],
+          "invariants": "One resolver is the only graph locator. No argument can override the package artifact. A missing or ambiguous artifact fails closed before any transient file is removed. Existing non-graph behavior is unchanged. Tests are rewritten for the new contract, never weakened.",
+          "notes": "Implementation summary: /find-omissions now takes no graph argument; every consumer resolves RFC-GRAPH.json or the unique *-GRAPH.json from the package directory. An argument is ignored rather than rejected, so a stale caller carrying a path or a resume directive remains harmless. Missing and ambiguous artifacts fail closed before the pre-flight reset. Verification: 169 node --test assertions across the impact set (including the omission e2e and hidden-history suites), 8 phasify-srcdir harness checks, 223 ticket-scripts harness checks, tsc --noEmit clean, run-quality-checks 0 issues, scan-incomplete-implementations 0 findings in touched files.",
+          "default_files": [
+            ".claude/commands/find-omissions.md",
+            ".claude/scripts/lib/resolve-graph-path.js",
+            ".claude/scripts/tickets/validate-graph-arg.js",
+            ".claude/scripts/tickets/find-omissions-preflight.sh",
+            ".claude/scripts/tickets/lib/omission-detectors.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            "src/runner.ts",
+            "src/tickets.ts"
+          ],
+          "created_at": "2026-11-17",
+          "updated_at": "2026-11-17",
+          "changes": [
+            {
+              "before": "find-omissions.md declared argument-hint and passed $ARGUMENTS as the graph path.",
+              "after": "The command declares no argument; the pre-flight takes no path and Step 9 calls phasify with no --graph.",
+              "description": "Removed the graph argument from the command document and every call site."
+            },
+            {
+              "before": "No shared graph locator; validate-graph-arg validated an argument and omission-detectors carried an inline copy.",
+              "after": "One resolver: RFC-GRAPH.json first, else the unique *-GRAPH.json, returning FOUND/MISSING/AMBIGUOUS/UNREADABLE with sorted candidates.",
+              "description": "Added .claude/scripts/lib/resolve-graph-path.js."
+            },
+            {
+              "before": "An empty or nonexistent argument failed with exit 2.",
+              "after": "The package artifact is resolved from cwd; the argument is ignored; MISSING and AMBIGUOUS fail with exit 2 and are named.",
+              "description": "Rewrote validate-graph-arg.js around the shared resolver."
+            },
+            {
+              "before": "Gate 1 forwarded $1 to the validator and labelled it a graph argument.",
+              "after": "Gate 1 calls the validator with no argument and labels the check graph artifact.",
+              "description": "Updated find-omissions-preflight.sh."
+            },
+            {
+              "before": "artifactStatus resolved RFC-GRAPH.json or a unique *-GRAPH.json inline.",
+              "after": "artifactStatus calls the shared resolver.",
+              "description": "Removed the duplicate graph resolution from omission-detectors.js."
+            },
+            {
+              "before": "--graph was a required phasify argument and a missing one printed Missing required argument.",
+              "after": "--graph is optional; omission resolves the cwd artifact and exits 2 naming MISSING or AMBIGUOUS.",
+              "description": "Taught phasify-omissions.js to resolve its graph."
+            },
+            {
+              "before": "conver emitted `/find-omissions <graph path>` and derived the path from Tickets.json metadata.",
+              "after": "conver emits `/find-omissions` with only the optional resume directive.",
+              "description": "buildFindCommand takes resume only; runFindBoundary takes one request object."
+            },
+            {
+              "before": "getGraphPathFromTickets, expandTilde, deriveGraphPath and GRAPH_FILE_SUFFIX had no consumer after the conver change.",
+              "after": "The helpers and their tests are removed.",
+              "description": "Removed the dead graph-path derivation from tickets.ts."
+            },
+            {
+              "before": "The tests pinned the argument contract and the injected conver path.",
+              "after": "The tests pin cwd resolution, MISSING/AMBIGUOUS stops, the no-argument command and the path-free find command.",
+              "description": "Added two test files and inverted six existing ones without weakening unrelated assertions."
+            },
+            {
+              "before": "dist/conver.js carried the path injection.",
+              "after": "dist/conver.js is rebuilt from source.",
+              "description": "Rebuilt the ignored bundle locally; dist is not tracked."
+            }
+          ],
+          "done_at": "2026-11-17T05:47:25.604Z"
         }
       ]
     },
