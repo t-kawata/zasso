@@ -2,11 +2,11 @@
 'use strict';
 
 /**
- * PX-436 — run detection proofs.
+ * PX-436, PX-441 — run detection proofs.
  *
  * The coverage map records the mutation and command that prove each clause.
- * This script executes the missing or stale proofs, never the runtime ones in
- * `changed` mode, and writes the proof records back. A project-condition
+ * This script executes only the missing or stale proofs, never the runtime ones
+ * in `changed` mode, and writes the proof records back. A project-condition
  * failure is a result, never a process failure.
  */
 
@@ -14,10 +14,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { writeTemporaryThenRename } = require('./lib/atomic-write.js');
-const { runDetectionProof, runProofs } = require('./lib/proof-engine.js');
 const { requireSupportedVersion } = require('./lib/versioned-json.js');
+const { DISPOSITIONS_FILE_NAME, loadDispositions } = require('./lib/dispositions.js');
+const {
+  buildProofEntries,
+  proofCacheOf,
+  runProofEntries,
+} = require('./lib/proof-plan.js');
+const { computeProofInputs } = require('./lib/proof-inputs.js');
+const { resolveAdapters } = require('./build-test-index.js');
 
 const COVERAGE_FILE_NAME = 'CONTRACT-COVERAGE.json';
+const INVENTORY_FILE_NAME = 'CONTRACT-INVENTORY.json';
+const INDEX_FILE_NAME = 'TEST-INDEX.json';
 const DEFAULT_TIMEOUT_MS = 30000;
 
 /** Read `--name=value` from the argument list. */
@@ -35,41 +44,58 @@ function readJsonIfPresent(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-/** A proof entry the engine can run, or a repair result. */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+/** A proof entry the legacy coverage shape can name, or a repair result. */
+// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
 function proofEntryOf(clause) {
-  const test = Array.isArray(clause?.tests) ? clause.tests[0] : null;
+  const test = Array.isArray(clause?.tests) && clause.tests.length > 0 ? clause.tests[0] : null;
   return {
     key: clause?.key ?? null,
     test: test ?? null,
     proof: clause?.proof ?? null,
-    mutation: clause?.mutation ?? null,
-    command: clause?.command ?? null,
+    mutation: clause?.proof?.mutation ?? clause?.mutation ?? null,
+    command: clause?.proof?.command ?? clause?.command ?? null,
   };
 }
 
-/** Run one entry, or report the input it is missing. */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
-function runEntry({ entry, timeoutMs }) {
-  if (entry.test === null || entry.mutation === null || entry.command === null) {
-    return { status: 'REPAIR_REQUIRED', reason: 'PROOF_INPUT_MISSING', clauseKey: entry.key, restored: false };
+/** Build entries from a coverage map that has no test index beside it. */
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+function legacyEntriesOf({ cwd, coverage }) {
+  const entries = [];
+  const missing = [];
+  for (const clause of (coverage.clauses ?? []).filter((entry) => entry.applicability === 'TESTABLE')) {
+    const plan = proofEntryOf(clause);
+    if (plan.test === null || plan.mutation === null || plan.command === null) {
+      missing.push({ key: clause.key, code: 'PROOF_PLAN_MISSING', field: null });
+      continue;
+    }
+    const computed = computeProofInputs({
+      cwd,
+      clauseKey: clause.key,
+      coverageEntry: clause,
+      testEntry: plan.test,
+      mutation: plan.mutation,
+      commandTemplate: plan.command,
+      adapter: null,
+    });
+    if (!computed.ok) {
+      missing.push({ key: clause.key, code: computed.code, field: computed.field ?? null });
+      continue;
+    }
+    entries.push({ ...plan, inputs: computed.inputs });
   }
-  return runDetectionProof({
-    clause: { key: entry.key },
-    testId: entry.test.id,
-    testDigest: entry.test.digest,
-    mutation: entry.mutation,
-    command: entry.command,
-    timeoutMs,
-  });
+  return { entries, missing };
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
   const coveragePath = path.resolve(cwd, argumentValue(args, 'coverage') ?? COVERAGE_FILE_NAME);
+  const inventoryPath = path.resolve(cwd, argumentValue(args, 'inventory') ?? INVENTORY_FILE_NAME);
+  const indexPath = path.resolve(cwd, argumentValue(args, 'index') ?? INDEX_FILE_NAME);
+  const dispositionsPath = path.resolve(cwd, argumentValue(args, 'dispositions') ?? DISPOSITIONS_FILE_NAME);
+  const configPath = argumentValue(args, 'config');
   const outPath = path.resolve(cwd, argumentValue(args, 'out') ?? COVERAGE_FILE_NAME);
   const reportOnly = args.includes('--report-only');
   const mode = argumentValue(args, 'proofs') === 'all' ? 'all' : 'changed';
@@ -90,15 +116,17 @@ function main() {
     return;
   }
 
-  const entries = (coverage.clauses ?? [])
-    .filter((clause) => clause.applicability === 'TESTABLE')
-    .map(proofEntryOf);
-  const run = runProofs({
-    clauses: entries,
-    mode,
-    budget,
-    runProof: (entry) => runEntry({ entry, timeoutMs }),
-  });
+  const inventory = readJsonIfPresent(inventoryPath);
+  const testIndex = readJsonIfPresent(indexPath);
+  const clauseKeys = new Set((inventory?.clauses ?? coverage.clauses ?? []).map((clause) => clause.key));
+  const loaded = loadDispositions({ cwd, filePath: dispositionsPath, clauseKeys });
+  const dispositions = [...loaded.byKey.values()];
+  const adapters = resolveAdapters({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null });
+
+  const built = inventory !== null && testIndex !== null
+    ? buildProofEntries({ cwd, inventory, testIndex, coverage, dispositions, adapters })
+    : legacyEntriesOf({ cwd, coverage });
+  const run = runProofEntries({ entries: built.entries, mode, budget, timeoutMs });
 
   const byKey = new Map((coverage.clauses ?? []).map((clause) => [clause.key, clause]));
   for (const result of run.results) {
@@ -117,6 +145,14 @@ function main() {
     skipped: run.skipped,
     notRun: run.notRun,
     results: run.results,
+    proofCache: proofCacheOf({
+      total: built.entries.length + built.missing.length,
+      entries: built.entries,
+      run,
+      missing: built.missing,
+    }),
+    missing: built.missing,
+    dispositionFindings: loaded.findings,
   }) + '\n');
   process.exit(0);
 }
@@ -126,7 +162,7 @@ if (require.main === module) main();
 module.exports = {
   COVERAGE_FILE_NAME,
   DEFAULT_TIMEOUT_MS,
+  legacyEntriesOf,
   main,
   proofEntryOf,
-  runEntry,
 };

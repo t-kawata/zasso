@@ -68849,6 +68849,238 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-17",
           "reviewed_at": "2026-11-17T06:42:20.043Z"
+        },
+        {
+          "id": 441,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Incremental source-bound proof reuse across repeated find runs",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-441.md",
+          "background": "### Goal\nMake repeated /find-omissions runs reuse only the proofs whose experiment inputs are unchanged, and re-prove every proof whose inputs changed, without touching conver.js or the .conver-boundary.json schema.\n\n### Purpose\nconver runs find at a package boundary after every ticket is terminal. When find adds tickets, the implementation loop runs, source and tests change, and find runs again up to MAX_FIND_ROUNDS=5. A run can also resume after an interrupted find or a destroyed boundary record. The harness must distinguish these cases per clause instead of per run.\n\n### Motivation\nThe v3 harness currently gets both directions wrong. isProofFresh compares only the mapped test digest, although proof-engine records digests.source, so an implementation-only change keeps a stale proof PROVEN. Conversely scanClauseCoverage nulls every proof when the whole inventory or test-index digest changes, so one added test re-proves all TESTABLE clauses. The find runner also never invokes the proof runner. This ticket removes both defects.\n\n### Constraints\nconver.js and .conver-boundary.json are unchanged. The v3 terminal predicate keeps its strictness, including two identical measurements and zero remainder. No language-specific vocabulary enters harness defaults or tests. Old proof and judgment records must migrate safely and must never be silently reused.",
+          "notes": "Law: not applicable — target files are Node harness scripts under .claude/scripts, not crates/** interface units.\n\n- [Implementation steps] 1) Add lib/proof-inputs.js with canonicalisation, mutation digest, closure resolution, package source set and toolchain fingerprint. 2) Change isProofFresh and evaluateClause to consume the tuple. 3) Remove global proof nulling from scanClauseCoverage and accept proofInputsByKey. 4) Persist the tuple in runDetectionProof and select proofs per entry in runProofs. 5) Wire proof execution into find-omissions-run.js before the gate. 6) Add evidenceDigest to the judgment ledger. 7) Let lib/dispositions.js validate an optional TESTABLE proof plan {mutation, command}; 8) Update the command procedure and report counts.\n- [Risks] A wrong dependency closure can reuse a proof that should be stale. Mitigation: closureScope is explicit, unknown closure falls back to package scope, and unsupported languages stay package-scoped. File-level closure is implemented for TypeScript/JavaScript only in this ticket.\n- [Caveats] The toolchain fingerprint is a lockfile plus runtime plus runner string, not a full dependency-tree hash. A lockfile change invalidates all proofs, which is intentionally conservative. Proof execution still copies the project into an isolated workspace.\n- [Open items] File-level closure for Rust, Python, Go, Swift, C/C++ and C# is future work; until then their proofs are crate/module/package scoped.\n- [Future improvements] Share the closure computation with build systems that already expose a dependency graph, and add a periodic --proofs=all audit for cache-drift detection.\nImplementation summary:\n- New: lib/proof-inputs.js, lib/proof-plan.js.\n- Modified: coverage-map.js, proof-engine.js, dispositions.js, judgment-ledger.js, run-detection-proofs.js, scan-clause-coverage.js, find-omissions-run.js, omission-detection-gate.js, omission-gap-scan.js, omission-calibration.js, adapters/typescript.js, find-omissions.md.\n- Tests: 140 impact-set tests passed; new suites cover input tuple, freshness, incremental reuse, proof plan, judgment freshness, TypeScript closure and two-round e2e reuse.\n- Quality checks: 0 issues.\n- conver.js and .conver-boundary.json were not modified.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Dependencies: consistency verified\n- Issues found and fixes applied:\n  1) judgment-ledger CLI ignored --cwd when recording and reporting, so evidence digests were bound to the process directory. Fixed to pass cwd; added CLI regression test.\n  2) Harness artifact matching excluded any source file whose name began with OMISSION-/CONVER-. Narrowed to JSON/Markdown report extensions so a real CONVER-*.js source still participates in the package digest; added test.\n  3) Report-only proofCache reported notRun=0 while stale proofs existed. Fixed to count unexecuted stale entries.\n  4) Closure resolution and adapter loading could throw out of the runner. Wrapped both as fail-closed findings (PROOF_INPUTS_UNKNOWN / empty adapters).\n  5) A convergence-only failure created an open repair ticket, blocking the next identical run that proves the fixed point. Suppressed repair creation for convergence-only failures.\n- Boundary: conver.js and .conver-boundary.json untouched; e2e asserts the boundary file is byte-identical.",
+          "invariants": "- [Normal condition] A PROVEN proof is reusable only when its recorded inputsDigest equals the recomputed digest of clauseKey, mutationFile, mutationFileDigest, mutationDigest, testId, testDigest, commandDigest, closureScope, closureDigest, engineVersion, adapterVersion and toolchainDigest.\n- [Error invariant] Any missing, unreadable or unknown input yields CLAUSE_PROOF_STALE or PROOF_INPUTS_UNKNOWN, never PROVEN; CLAUSE_PROOF_FAILED, UNSTABLE and SOURCE_RESTORE_FAILED are never reused.\n- [Internal state invariant] CONTRACT-COVERAGE.json is a derived view. A global inventory or test-index digest mismatch is a finding, never a reason to null every proof; the per-clause input tuple alone decides reuse.\n- [Boundary invariant] closureScope is explicit. An adapter without a valid dependency closure falls back to scope=package over package source files that exclude harness artifacts; --report-only executes zero proofs and writes zero files.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] .claude/scripts/tickets/lib/proof-inputs.js (new), lib/coverage-map.js, lib/proof-engine.js, lib/dispositions.js, lib/adapters/helpers.js, lib/adapters/typescript.js, lib/judgment-ledger.js, run-detection-proofs.js, scan-clause-coverage.js, find-omissions-run.js, omission-detection-gate.js, .claude/commands/find-omissions.md\n  - [Action] Add a proof-input tuple module; modify proof freshness, proof execution, coverage scanning, judgment freshness, gate wiring and the command procedure.\n  - [What specifically changes] Replace test-digest-only freshness with an inputsDigest equality check; stop nulling all proofs on a global digest mismatch; compute and persist closureScope/closureDigest/toolchainDigest; run stale proofs inside find-omissions-run.js; resolve a missing proof plan from a TESTABLE disposition and report PROOF_PLAN_MISSING as a repair; bind judgments to an evidenceDigest.\n  - [Before → After] Before: source-only edits reuse stale proofs and one added test re-proves everything. After: a changed mutation target, test, command, closure, engine or toolchain invalidates exactly the affected clauses; unaffected clauses are reused.\n  - [API contract change] isProofFresh takes a complete inputs object; scanClauseCoverage takes proofInputsByKey; runProofs entries carry inputs; judgeCoverage takes a cwd-backed evidence resolver. No conver.js API changes.\n  - [Data schema change] Proof records gain inputsDigest, inputs, closureScope and engineVersion; judgment records gain evidenceDigest; a TESTABLE disposition may carry an optional proof plan {mutation, command}. Version 1 readers accept and classify old records as stale.\n  - [Config/env change] None. No new environment variable or CLI flag is required; optional --proofs=all and --proof-budget remain compatible.\n  - [Dependency added/removed] None. Only Node built-ins are used.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] Editing conver.js, src/next-action.ts, src/runner.ts or src/boundary-state.ts.\n  - [Why excluded] The harness can solve the repeated-run problem inside /find-omissions; conver's boundary contract must stay unchanged.\n  - [Excluded item] File-level dependency closure for Rust, Go, Swift, C/C++ and C# in this ticket.\n  - [Why excluded] Their safe fallback is crate/module/package scope; inventing an unverified import graph would create unsafe reuse. The adapter interface is defined now so later tickets can add it.\n  - [Excluded item] Weakening the two-identical-measurements or zero-remainder terminal predicate.\n  - [Why excluded] Proof reuse must make the second measurement cheap, not make the verdict weaker.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] /find-omissions runner, proof engine, coverage map, v3 gate, judgment ledger.\n  - [Nature of impact] Performance (fewer proof executions), correctness (source-bound freshness), data format (additive proof and judgment fields).\n  - [Corresponding change needed Y/N + details] Y for the named harness files; N for conver.js. The boundary state and Tickets.json writer remain byte-compatible."
+          ],
+          "testUnit": [
+            "UT: [Normal][C001 Precondition] A PROVEN proof carries inputsDigest over clauseKey, mutationFile, mutationFileDigest, mutationDigest, testId, testDigest, commandDigest, closureScope, closureDigest, engineVersion, adapterVersion and toolchainDigest. isProofFresh returns true only when every current input equals the recorded value. Postcondition: all equal => true; one changed => false with the changed field named. Invariant: missing or unknown field => false.",
+            "UT: [Error][C001 Postcondition] Each single-field mismatch — mutation file content, mutation instruction, mapped test, runner command, closure, engine version, adapter version, toolchain — produces CLAUSE_PROOF_STALE, never PROVEN.",
+            "UT: [Boundary][C001 Invariant] A proof with restored=false, status UNSTABLE, status CLAUSE_PROOF_FAILED, status SOURCE_RESTORE_FAILED, or no inputsDigest returns false and is never reused.",
+            "UT: [Invariant][C001] inputsDigest is canonical: object key order and insignificant whitespace do not change the digest; changing any single value changes it.",
+            "UT: [Normal][C002 Precondition] Coverage built against old inventory and test-index digests, with a clause whose own input tuple is unchanged, reports bindingValid=false and still marks that clause PROVEN by reusing its proof.",
+            "UT: [Error][C002 Postcondition] A clause whose mutation target content changed becomes CLAUSE_PROOF_STALE while an unrelated clause stays PROVEN; no global proof nulling occurs.",
+            "UT: [Boundary][C002 Invariant] Adding one test file changes the test-index digest but does not invalidate proofs of clauses mapped to other tests.",
+            "UT: [Invariant][C002] Changing one clause's contract text invalidates that clause only; the other clauses keep their proofs.",
+            "UT: [Normal][C003 Precondition] find-omissions-run with N TESTABLE clauses where some proofs are fresh executes only stale or missing proofs, records inputsDigest, and reports proofCache.reused, proofCache.rerun and proofCache.missing. Postcondition: reused + rerun + missing equals N for TESTABLE clauses. Invariant: a fresh proof is never executed again.",
+            "UT: [Error][C003 Postcondition] A failing or timed-out proof is written as CLAUSE_PROOF_FAILED or UNSTABLE, is never reused, and keeps exit 10.",
+            "UT: [Boundary][C003 Invariant] --report-only executes zero proofs and writes zero files; two report-only runs are byte-identical and report the same proofCache counts.",
+            "UT: [Invariant][C003] The terminal gate proof gate fails when any TESTABLE clause is stale, missing or failed; a reused proof is accepted only with a matching inputsDigest.",
+            "UT: [Normal][C004 Precondition] adapter.dependencyClosure returns {scope:'file', files:[...]}; closureDigest is computed over sorted path:sha256(content) and the proof records closureScope='file'.",
+            "UT: [Error][C004 Postcondition] adapter missing, throwing, returning an invalid scope or returning unreadable files falls back to scope='package' over package source files; unknown closure never yields file-level reuse.",
+            "UT: [Boundary][C004 Invariant] The package source set excludes CONTRACT-INVENTORY.json, TEST-INDEX.json, CONTRACT-COVERAGE.json, OMISSION-*.json, CONVER-*.json, Tickets.json, _tmp-* and .conver-*; ticket additions alone therefore do not invalidate proofs.",
+            "UT: [Invariant][C004] A file-scope proof is reusable when an unrelated file changes; a package-scope proof becomes stale when any included package source file changes.",
+            "UT: [Normal][C005 Precondition] toolchainDigest = sha256 of the runtime version, the adapter runner string and the first existing lockfile among package-lock.json, pnpm-lock.yaml, yarn.lock, Cargo.lock, go.sum and Package.resolved.",
+            "UT: [Error][C005 Postcondition] A lockfile content change or runtime change invalidates all proofs; no lockfile still yields a deterministic digest from runtime and runner.",
+            "UT: [Boundary][C005 Invariant] A missing lockfile is not an error and is represented explicitly in the digest input.",
+            "UT: [Normal][C006 Precondition] A judgment records evidenceDigest over status, normativeSource, evidence entries with full-file digests, and reason. Unchanged evidence is reused without re-judging.",
+            "UT: [Error][C006 Postcondition] When an evidence file content changes, judgeCoverage treats the judgment as unrecorded or stale and it must be re-judged.",
+            "UT: [Boundary][C006 Invariant] A judgment without evidenceDigest is invalid; PASS on a TESTABLE clause still requires a PROVEN proof.",
+            "UT: [Normal][C007 Precondition] /find-omissions is invoked from a conver package boundary; Tickets.json gains added tickets; exit codes remain 0 for complete and 10 for incomplete. Postcondition: the boundary record schema is unchanged. Invariant: cache state never affects endpoint decisions.",
+            "UT: [Error][C007] A stale or missing proof never produces exit 0; a cache hit never suppresses a ticket, an open repair or an open ticket.",
+            "UT: [Boundary][C007 Invariant] No file under src/ or dist/ that constitutes conver.js is modified by this ticket.",
+            "UT: [Normal][C008 Precondition] A v1 proof without inputsDigest and a v1 judgment without evidenceDigest are read without crashing. Postcondition: they are reported stale once and re-proven or re-judged. Invariant: no legacy record is silently reused.",
+            "UT: [Error][C008 Postcondition] Report proofCache.invalidatedBy counts clause, source, test, command, closure, toolchain, engine and unknown reasons; the counts sum to the TESTABLE clause count.",
+            "UT: [Boundary][C008 Invariant] An unsupported proof-input version or an unreadable artifact is a finding, not a crash and not a PROVEN result.",
+            "UT: [Normal][C003 proof plan] A TESTABLE disposition may carry proof {mutation:{file,find,replace}, command}. When a proof is missing, find-omissions-run uses that plan, records inputsDigest, and reuses the stored mutation on later invalidation.",
+            "UT: [Error][C003 proof plan] A TESTABLE clause with no existing mutation and no disposition proof plan yields REPAIR_REQUIRED with code PROOF_PLAN_MISSING, a repair item, and exit 10; it is never silently skipped or marked PROVEN.",
+            "UT: [Boundary][C003 command resolution] A stale proof reuses the stored mutation and the current adapter runner template; the resolved command digest is recomputed, so a runner change invalidates the proof instead of reusing the old command.",
+            "UT: [C001 precondition] A PROVEN proof exists with inputsDigest over clauseKey, mutationFile, mutationFileDigest, mutationDigest, testId, testDigest, commandDigest, closureScope, closureDigest, engineVersion, adapterVersion and toolchainDigest.",
+            "UT: [C001 postcondition] isProofFresh returns true if and only if every recorded input equals the current recomputed value; otherwise it returns false and names the changed field.",
+            "UT: [C001 invariant] A missing, unreadable or unknown input never yields true; restored must be true and status must be PROVEN.",
+            "UT: [C002 precondition] Coverage was built against older inventory and test-index digests, and a given clause's own input tuple is unchanged.",
+            "UT: [C002 postcondition] The clause remains PROVEN by reusing its proof while bindingValid is false; no global proof nulling occurs.",
+            "UT: [C002 invariant] Only clauses whose own tuple changed become stale; unrelated clauses keep their proofs.",
+            "UT: [C003 precondition] find-omissions-run executes non-report-only with N TESTABLE clauses and a mixture of fresh, stale and missing proofs.",
+            "UT: [C003 postcondition] It executes only stale or missing proofs whose mutation and command are available (from the existing proof or a TESTABLE disposition proof plan), persists inputsDigest, reports reused/rerun/missing counts, and exits 0 or 10 under the unchanged terminal predicate.",
+            "UT: [C003 invariant] A fresh proof is never executed; report-only executes no proof and writes no file; a missing proof plan is PROOF_PLAN_MISSING and a repair item; a failed or unstable proof keeps exit 10.",
+            "UT: [C004 precondition] The adapter may expose dependencyClosure returning a scope in {file, crate, module, package} and a file list, or may be absent, throw or return invalid data.",
+            "UT: [C004 postcondition] A valid result is persisted as closureScope plus closureDigest; an absent, throwing or invalid result falls back to scope=package over the package source set.",
+            "UT: [C004 invariant] Unknown closure never yields file-level reuse; the package source set excludes harness artifacts and ticket additions alone invalidate nothing.",
+            "UT: [C005 precondition] The current runtime version, adapter runner string and the first existing lockfile are observable.",
+            "UT: [C005 postcondition] toolchainDigest changes when any of them changes; a missing lockfile still yields a deterministic digest.",
+            "UT: [C005 invariant] Any toolchainDigest change invalidates all proofs; a lockfile is never silently excluded.",
+            "UT: [C006 precondition] A judgment records status, normativeSource, evidence entries with full-file digests, reason and evidenceDigest.",
+            "UT: [C006 postcondition] judgeCoverage reuses the judgment only when the recomputed evidenceDigest matches; otherwise the obligation is unrecorded or stale.",
+            "UT: [C006 invariant] A judgment without evidenceDigest is invalid; PASS on a TESTABLE clause still requires a PROVEN proof.",
+            "UT: [C007 precondition] /find-omissions runs from a conver package boundary and may add tickets to Tickets.json.",
+            "UT: [C007 postcondition] Exit codes remain 0 for complete and 10 for incomplete, ticket additions keep their shape, and .conver-boundary.json is neither read nor written by the change.",
+            "UT: [C007 invariant] Cache state never alters boundary endpoint decisions; no conver.js file is modified.",
+            "UT: [C008 precondition] A v1 proof may lack inputsDigest and a v1 judgment may lack evidenceDigest; proof-input version may be unsupported.",
+            "UT: [C008 postcondition] Such records are read without crashing, reported stale once, re-proven or re-judged, and counted under invalidatedBy reasons that sum to the TESTABLE clause count.",
+            "UT: [C008 invariant] No legacy or unsupported record is silently reused or turned into PROVEN.",
+            "IT: [Acceptance] [Happy path] Two consecutive find runs on an unchanged package reuse every fresh TESTABLE proof, execute zero proofs on the second run, and reach exit 0 with the v3 terminal verdict.",
+            "IT: [Acceptance] [Error case] Changing a mutation-target source file without changing its test makes exactly that clause stale and re-proven; a TESTABLE clause without a proof plan yields PROOF_PLAN_MISSING and a repair item; changing a lockfile or the proof engine invalidates all proofs with a named reason.",
+            "IT: [Acceptance] [Edge case] An adapter without dependencyClosure falls back to package scope, so an unrelated file change re-proves all clauses, while ticket additions and harness artifact rewrites alone invalidate nothing."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] tests/tickets/e2e-find-omissions.test.cjs drives find-omissions-run.js twice over a fixture package, adds one ticket between runs, and changes one mutation-target source file. [Verification] Run 1 proves all TESTABLE clauses; run 2 reuses the unaffected proofs and re-runs only the affected clause. [Prerequisites] PX-436 proof engine and PX-440 v3 artifacts exist. [Related tickets] PX-436, PX-437, PX-440.",
+            "IT: [Integration point] A resumed run with unchanged source, tests, command, engine and toolchain executes zero proofs and reports proofCache.reused equal to the TESTABLE count. [Verification] The gate reaches terminal when remainder is zero. [Prerequisites] A completed first find run. [Related tickets] PX-441.",
+            "IT: [Integration point] report-only mode is run twice against the same fixture. [Verification] stdout is byte-identical, proofCache counts are identical, and no CONTRACT-COVERAGE.json, CONTRACT-INVENTORY.json, TEST-INDEX.json, OMISSION-CLASSIFICATION-WORKLIST.json or OMISSION-CONVERGENCE-V3.json is written. [Prerequisites] none. [Related tickets] PX-437, PX-441.",
+            "IT: [Integration point] A package with a TypeScript adapter and a valid file-scope dependency closure changes an unrelated source file. [Verification] The proof is reused. The same change with an adapter lacking dependencyClosure falls back to package scope and invalidates all proofs. [Prerequisites] adapter registry. [Related tickets] PX-436, PX-441.",
+            "IT: [Integration point] A judgment cites an evidence file whose content changes. [Verification] judgeCoverage reports it unrecorded and the next run requires a new judgment; unchanged evidence is reused. [Prerequisites] OMISSION-JUDGMENT-LEDGER.json. [Related tickets] PX-407, PX-441.",
+            "IT: [Integration point] A legacy CONTRACT-COVERAGE.json carries a PROVEN proof without inputsDigest. [Verification] The run re-proves it once, writes the input tuple, and the next unchanged run reuses it. [Prerequisites] fixture with a v1 proof. [Related tickets] PX-436, PX-441.",
+            "IT: [Integration point] A fixture boundary record is present while /find-omissions runs. [Verification] The harness does not read, write or reformat .conver-boundary.json, and Tickets.json additions keep the existing shape. [Prerequisites] .conver-boundary.json fixture. [Related tickets] PX-413, PX-441.",
+            "IT: [Integration point] The v3 gate is executed standalone with a reused proof. [Verification] predicateVersion=3 and exit 0 only when the proof inputsDigest matches; a mismatched tuple yields exit 10. [Prerequisites] CONTRACT-INVENTORY.json, TEST-INDEX.json, CONTRACT-COVERAGE.json. [Related tickets] PX-440, PX-441.",
+            "IT: [Integration point] A TESTABLE clause has a mapped test but no proof and no proof plan. [Verification] find-omissions-run emits PROOF_PLAN_MISSING as a repair item and exits 10; after a TESTABLE disposition supplies mutation and command, the next run proves the clause and reuses it when unchanged. [Prerequisites] OMISSION-DISPOSITIONS.json with a TESTABLE record. [Related tickets] PX-440, PX-441."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] The find report includes proofCache: total, reused, rerun, missing, failed and invalidatedBy counts; each reason is a named counter.\n- [Metrics] Each OMISSION-CONVERGENCE-V3.json run entry records the proofCache counts beside inventoryDigest, coverageDigest, remainder and debt.\n- [Error tracking] PROOF_INPUTS_UNKNOWN, PROOF_INPUT_MISSING, CLOSURE_FALLBACK_PACKAGE and CLOSURE_INVALID are reported as findings with the clause key and the missing field.\n- [Health check] The v3 proof gate fails on any stale, missing or failed TESTABLE proof; exit 10 is the only incomplete outcome.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (no generic vars, single-char vars, debug output, or unexplained numeric literals)\nTests: 141 impact-set tests passed\nReverify: 0 findings, certificate written",
+          "acceptanceCriteria": [
+            "[Happy path] Two consecutive find runs on an unchanged package reuse every fresh TESTABLE proof, execute zero proofs on the second run, and reach exit 0 with the v3 terminal verdict.",
+            "[Error case] Changing a mutation-target source file without changing its test makes exactly that clause stale and re-proven; a TESTABLE clause without a proof plan yields PROOF_PLAN_MISSING and a repair item; changing a lockfile or the proof engine invalidates all proofs with a named reason.",
+            "[Edge case] An adapter without dependencyClosure falls back to package scope, so an unrelated file change re-proves all clauses, while ticket additions and harness artifact rewrites alone invalidate nothing."
+          ],
+          "investigation": "- isProofFresh compares only proof.digests.test (lib/coverage-map.js:91-99); proof-engine writes digests.source at line 137 and no consumer reads it.\n- scanClauseCoverage sets bindingValid from whole inventory/test-index digests (lib/coverage-map.js:277-278) and replaces every entry proof with null when binding fails (line 293).\n- build-test-index computes one digest over the whole test population (build-test-index.js:126-144), so adding one test invalidates the binding for all clauses.\n- runProofs already selects per entry in changed mode using isProofFresh (lib/proof-engine.js:166-176), but that predicate ignores source, command and closure.\n- find-omissions-run.js scans coverage at line 254 and never imports or invokes run-detection-proofs.js; the documented Step 0.4 is not part of the single v3 command.\n- run-detection-proofs.js builds proofEntryOf from test, proof and mutation only; it loads no inventory, adapter or closure.\n- The v3 gate scans twice at omission-detection-gate.js:92-99 and 146-155 for measurement stability and checks proof status codes at line 117.\n- judgment-ledger.js keys judgments by surface|assetId|criterion (lines 29-32) and judgeCoverage marks only missing keys unrecorded (lines 141-155); evidence content is not bound.\n- Adapter helpers createSourceAdapter exposes enumerate but no dependencyClosure (lib/adapters/helpers.js:120-145); adapters/typescript.js supplies parseFile only.\n- conver runs find at the package boundary (src/next-action.ts:151-160), returns to implementation when find adds tickets (src/runner.ts:892-905, 992-1015), resumes an interrupted find from detect-unfinished-find evidence (src/runner.ts:879-892), and skips a complete boundary only while the ticket-set digest matches (src/boundary-state.ts:101-121).\n- evaluateClause returns {key,tests,proof,applicability,disposition} with no top-level command or mutation (lib/coverage-map.js:130-174), while proofEntryOf reads clause.command and clause.mutation (run-detection-proofs.js:42-48). A second proof run therefore cannot reconstruct its own input from CONTRACT-COVERAGE.json.\n- No inventory source or coverage producer writes mutation or command; buildClauses emits key, text, applicability, source and owners only (lib/inventory.js:200-215). A first proof needs an explicit proof plan. This ticket resolves it from an optional TESTABLE disposition proof {mutation, command} and reports PROOF_PLAN_MISSING as a repair when absent.\n- The stored proof.mutation is reusable after invalidation because runDetectionProof records the mutation object (lib/proof-engine.js:133); only the selection predicate and command resolution need correction.",
+          "boyScoutPlan": "- Extract proof-input construction into lib/proof-inputs.js with the verb-phrase functions computeProofInputs, resolveDependencyClosure, inputsDigestOf and toolchainFingerprint; one responsibility per function.\n- Replace the boolean safeEntry/proof-nulling branch in scanClauseCoverage with a named per-clause resolution step so the function narrates 'resolve inputs, evaluate proof, evaluate disposition'.\n- Replace numeric and string literals for scope names, artifact names and version numbers with named constants (CLOSURE_SCOPE, PROOF_INPUTS_VERSION, ENGINE_VERSION, HARNESS_ARTIFACTS).\n- Replace swallowed closure failures with a returned CLOSURE_INVALID/CLOSURE_FALLBACK_PACKAGE finding; never an empty catch.\n- Rename generic locals such as data/entry where they denote a proof input, test record or closure result.\n- Keep comments why-only: explain that unknown closure is a safety boundary, not a formatting note.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "proof freshness",
+              "precondition": "A PROVEN proof exists with inputsDigest over clauseKey, mutationFile, mutationFileDigest, mutationDigest, testId, testDigest, commandDigest, closureScope, closureDigest, engineVersion, adapterVersion and toolchainDigest.",
+              "postcondition": "isProofFresh returns true if and only if every recorded input equals the current recomputed value; otherwise it returns false and names the changed field.",
+              "invariant": "A missing, unreadable or unknown input never yields true; restored must be true and status must be PROVEN."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "coverage scanning",
+              "precondition": "Coverage was built against older inventory and test-index digests, and a given clause's own input tuple is unchanged.",
+              "postcondition": "The clause remains PROVEN by reusing its proof while bindingValid is false; no global proof nulling occurs.",
+              "invariant": "Only clauses whose own tuple changed become stale; unrelated clauses keep their proofs."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "find runner",
+              "precondition": "find-omissions-run executes non-report-only with N TESTABLE clauses and a mixture of fresh, stale and missing proofs.",
+              "postcondition": "It executes only stale or missing proofs whose mutation and command are available (from the existing proof or a TESTABLE disposition proof plan), persists inputsDigest, reports reused/rerun/missing counts, and exits 0 or 10 under the unchanged terminal predicate.",
+              "invariant": "A fresh proof is never executed; report-only executes no proof and writes no file; a missing proof plan is PROOF_PLAN_MISSING and a repair item; a failed or unstable proof keeps exit 10."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "dependency closure",
+              "precondition": "The adapter may expose dependencyClosure returning a scope in {file, crate, module, package} and a file list, or may be absent, throw or return invalid data.",
+              "postcondition": "A valid result is persisted as closureScope plus closureDigest; an absent, throwing or invalid result falls back to scope=package over the package source set.",
+              "invariant": "Unknown closure never yields file-level reuse; the package source set excludes harness artifacts and ticket additions alone invalidate nothing."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "toolchain fingerprint",
+              "precondition": "The current runtime version, adapter runner string and the first existing lockfile are observable.",
+              "postcondition": "toolchainDigest changes when any of them changes; a missing lockfile still yields a deterministic digest.",
+              "invariant": "Any toolchainDigest change invalidates all proofs; a lockfile is never silently excluded."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "judgment freshness",
+              "precondition": "A judgment records status, normativeSource, evidence entries with full-file digests, reason and evidenceDigest.",
+              "postcondition": "judgeCoverage reuses the judgment only when the recomputed evidenceDigest matches; otherwise the obligation is unrecorded or stale.",
+              "invariant": "A judgment without evidenceDigest is invalid; PASS on a TESTABLE clause still requires a PROVEN proof."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "conver boundary",
+              "precondition": "/find-omissions runs from a conver package boundary and may add tickets to Tickets.json.",
+              "postcondition": "Exit codes remain 0 for complete and 10 for incomplete, ticket additions keep their shape, and .conver-boundary.json is neither read nor written by the change.",
+              "invariant": "Cache state never alters boundary endpoint decisions; no conver.js file is modified."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "backward compatibility and observability",
+              "precondition": "A v1 proof may lack inputsDigest and a v1 judgment may lack evidenceDigest; proof-input version may be unsupported.",
+              "postcondition": "Such records are read without crashing, reported stale once, re-proven or re-judged, and counted under invalidatedBy reasons that sum to the TESTABLE clause count.",
+              "invariant": "No legacy or unsupported record is silently reused or turned into PROVEN."
+            }
+          ],
+          "created_at": "2026-11-17",
+          "updated_at": "2026-11-17",
+          "default_files": [
+            ".claude/scripts/tickets/lib/proof-inputs.js",
+            ".claude/scripts/tickets/lib/coverage-map.js",
+            ".claude/scripts/tickets/lib/proof-engine.js",
+            ".claude/scripts/tickets/lib/adapters/helpers.js",
+            ".claude/scripts/tickets/lib/adapters/typescript.js",
+            ".claude/scripts/tickets/lib/judgment-ledger.js",
+            ".claude/scripts/tickets/run-detection-proofs.js",
+            ".claude/scripts/tickets/scan-clause-coverage.js",
+            ".claude/scripts/tickets/find-omissions-run.js",
+            ".claude/scripts/tickets/omission-detection-gate.js",
+            ".claude/commands/find-omissions.md",
+            "tests/tickets/proof-inputs.test.cjs",
+            "tests/tickets/proof-freshness.test.cjs",
+            "tests/tickets/proof-incremental-reuse.test.cjs",
+            "tests/tickets/judgment-ledger-freshness.test.cjs",
+            "tests/tickets/e2e-find-omissions.test.cjs",
+            ".claude/scripts/tickets/lib/dispositions.js",
+            ".claude/schemas/disposition.schema.json",
+            "tests/tickets/disposition-proof-plan.test.cjs"
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-17T07:51:02.092Z",
+          "planTestCode": [
+            "UT: [C001] proof freshness — input equality\n```js\nconst inputs = {version:1, clauseKey:KEY, mutationFile:\"src/a.js\", mutationFileDigest:\"sha256:m\", mutationDigest:\"sha256:x\", testId:\"alpha\", testDigest:\"sha256:t\", commandTemplate:\"node runner.js {test}\", commandDigest:\"sha256:c\", closureScope:\"file\", closureDigest:\"sha256:d\", engineVersion:2, adapterVersion:1, toolchainDigest:\"sha256:k\"};\nconst proof = {status:\"PROVEN\", verifiedAt:\"2026-11-17T00:00:00Z\", restored:true, inputsVersion:1, inputsDigest:inputsDigestOf(inputs), digests:{source:inputs.mutationFileDigest, test:inputs.testDigest, command:inputs.commandDigest}, closureScope:inputs.closureScope};\nassert.equal(isProofFresh({proof, inputs}), true);\nassert.equal(isProofFresh({proof, inputs:{...inputs, mutationFileDigest:\"sha256:changed\"}}), false);\n```",
+            "UT: [C002] per-clause reuse after a global digest change\n```js\nconst proofInputsByKey = new Map([[KEY, inputs]]);\nconst oldCoverage = {version:1, inventoryDigest:\"sha256:old\", testIndexDigest:\"sha256:old\", clauses:[{key:KEY, tests:[{id:\"alpha\", digest:\"sha256:t\"}], proof, applicability:\"TESTABLE\"}]};\nconst scan = scanClauseCoverage({inventory, testIndex, coverage:oldCoverage, proofInputsByKey});\nassert.equal(scan.bindingValid, false);\nassert.equal(scan.coverage.clauses[0].status, \"PROVEN\");\nassert.equal(scan.coverage.clauses[0].proof.digests.source, inputs.mutationFileDigest);\n```",
+            "UT: [C003] changed mode skips fresh and runs stale\n```js\nconst fresh = {key:\"a\", test:{id:\"alpha\", digest:\"sha256:t\"}, proof, inputs};\nconst stale = {key:\"b\", test:{id:\"beta\", digest:\"sha256:t\"}, proof:{...proof, inputsDigest:\"sha256:old\"}, inputs};\nconst seen = [];\nconst run = runProofs({clauses:[fresh, stale], mode:\"changed\", runProof:(entry)=>{seen.push(entry.key); return {status:\"PROVEN\"};}});\nassert.deepEqual(seen, [\"b\"]);\nassert.equal(run.skipped, 1);\n```",
+            "UT: [C004] closure fallback and package scope\n```js\nconst closure = resolveDependencyClosure({cwd, mutationFile:\"src/a.js\", testFile:\"tests/a.test.js\", adapter:{dependencyClosure:()=>{throw new Error(\"no graph\");}}});\nassert.equal(closure.scope, \"package\");\nassert.ok(closure.files.includes(\"src/unrelated.js\"));\nassert.equal(closure.findings[0].code, \"CLOSURE_INVALID\");\n```",
+            "UT: [C005] toolchain fingerprint changes with the lockfile\n```js\nconst before = toolchainFingerprint({cwd, adapter});\nfs.writeFileSync(path.join(cwd, \"package-lock.json\"), \"{\\\"lockfileVersion\\\":3}\");\nconst after = toolchainFingerprint({cwd, adapter});\nassert.notEqual(before, after);\nassert.match(after, /^sha256:[0-9a-f]{64}$/);\n```",
+            "UT: [C006] evidence digest invalidates a judgment\n```js\nconst ledger = createLedger({obligations:[{surface:\"contract\", assetId:\"C001\", criterion:\"A\"}]});\nrecordJudgment(ledger, {surface:\"contract\", assetId:\"C001\", criterion:\"A\", status:\"PASS\", evidence:[{file:\"src/a.js\", line:1}], normativeSource:\"contract:C001\"}, {cwd});\nassert.equal(judgeCoverage(ledger, {cwd}).verdict, \"PASS\");\nfs.writeFileSync(path.join(cwd, \"src/a.js\"), \"changed\");\nassert.equal(judgeCoverage(ledger, {cwd}).unrecorded.length, 1);\n```",
+            "UT: [C007] conver boundary contract is untouched\n```js\nconst before = fs.readFileSync(path.join(cwd, \".conver-boundary.json\"), \"utf8\");\nconst result = spawnSync(process.execPath, [RUNNER, \"--cwd=\" + cwd], {cwd, encoding:\"utf8\"});\nassert.ok(result.status === 0 || result.status === 10);\nassert.equal(fs.readFileSync(path.join(cwd, \".conver-boundary.json\"), \"utf8\"), before);\nassert.equal(JSON.parse(result.stdout).predicateVersion, 3);\n```",
+            "UT: [C008] legacy proof is re-proven once\n```js\nconst legacy = {status:\"PROVEN\", verifiedAt:\"2026-11-17T00:00:00Z\", digests:{source:\"sha256:s\", test:\"sha256:t\", command:\"sha256:c\"}};\nassert.equal(isProofFresh({proof:legacy, inputs}), false);\nconst seen = [];\nconst run = runProofs({clauses:[{key:\"a\", test:{id:\"alpha\", digest:\"sha256:t\"}, proof:legacy, inputs}], mode:\"changed\", runProof:(entry)=>{seen.push(entry.key); return {status:\"PROVEN\"};}});\nassert.deepEqual(seen, [\"a\"]);\nassert.equal(run.ran, 1);\n```"
+          ],
+          "planned_at": "2026-11-17T07:53:01.885Z",
+          "startedAt": "2026-11-17",
+          "changes": [
+            {
+              "before": "isProofFresh compared only proof.digests.test",
+              "after": "It compares the complete inputsDigest tuple: clause, mutation file bytes, mutation, test, command, closure, engine, adapter and toolchain",
+              "description": "Source-bound proof freshness; unknown inputs are stale."
+            },
+            {
+              "before": "A global inventory or test-index digest mismatch nulled every proof",
+              "after": "The mismatch is a finding; each clause keeps or loses its proof by its own inputs",
+              "description": "Per-clause invalidation removes run-wide re-proofing."
+            },
+            {
+              "before": "find-omissions-run never executed proofs and coverage stored no command or mutation",
+              "after": "The run builds entries, executes stale or missing proofs, re-scans and gates on the refreshed coverage",
+              "description": "Proof execution is part of the single v3 flow."
+            },
+            {
+              "before": "No first-proof input source existed",
+              "after": "A TESTABLE disposition may carry proof {mutation, command}; absent plan is PROOF_PLAN_MISSING",
+              "description": "The harness never guesses a mutation or command."
+            },
+            {
+              "before": "judgmentKey ignored evidence content",
+              "after": "Judgments carry evidenceDigest over cited file bytes; changed evidence is unrecorded",
+              "description": "Judgment reuse is evidence-bound."
+            },
+            {
+              "before": "TypeScript adapter had no dependency closure",
+              "after": "It resolves relative imports transitively; unresolved or invalid closures fall back to package scope",
+              "description": "File-level reuse where provable, package fallback otherwise."
+            },
+            {
+              "before": "A convergence-only failure created a repair ticket",
+              "after": "It exits 10 without a repair; the next identical run is the fixed-point check",
+              "description": "A real change does not leave an open repair that blocks its own confirmation."
+            }
+          ],
+          "done_at": "2026-11-17T08:01:35.380Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-17",
+          "reviewed_at": "2026-11-17T08:03:37.692Z"
         }
       ]
     },

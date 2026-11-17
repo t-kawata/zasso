@@ -12,6 +12,7 @@ const {
   computeRemainder,
   scanClauseCoverage,
 } = require('../../.claude/scripts/tickets/lib/coverage-map.js');
+const { inputsDigestOf } = require('../../.claude/scripts/tickets/lib/proof-inputs.js');
 
 /** A test index with one mapped, one ignored and one missing test. */
 // [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
@@ -33,12 +34,37 @@ function clauseOf(key = 'clause|pkg-alpha|C001|precondition|abcdef0123456789') {
 }
 
 /** A fresh proof bound to the mapped test digest. */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
+function inputsOf(testDigest = 'sha256:alpha') {
+  return {
+    version: 1,
+    clauseKey: clauseOf().key,
+    mutationFile: 'alpha.js',
+    mutationFileDigest: 'sha256:source',
+    mutationDigest: 'sha256:mutation',
+    testId: 'alpha_saves',
+    testDigest,
+    commandTemplate: 'runner {test}',
+    commandDigest: 'sha256:command',
+    closureScope: 'package',
+    closureDigest: 'sha256:closure',
+    engineVersion: 2,
+    adapterVersion: 1,
+    toolchainDigest: 'sha256:toolchain',
+  };
+}
+
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
 function proofOf(testDigest = 'sha256:alpha') {
   return {
     kind: 'mutation',
     status: 'PROVEN',
     verifiedAt: '2026-11-17T00:00:00Z',
+    restored: true,
+    inputsVersion: 1,
+    inputsDigest: inputsDigestOf(inputsOf(testDigest)),
+    inputs: inputsOf(testDigest),
+    closureScope: 'package',
     digests: { source: 'sha256:source', test: testDigest, command: 'sha256:command' },
   };
 }
@@ -88,19 +114,19 @@ test('C005: a mapped test with no proof is CLAUSE_PROOF_MISSING', () => {
 });
 
 test('C005: a mapped test with a fresh proof is PROVEN', () => {
-  const result = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf(), applicability: 'TESTABLE' } });
+  const result = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf(), applicability: 'TESTABLE' }, proofInputs: inputsOf() });
   assert.equal(result.status, 'PROVEN');
   assert.deepEqual(result.findings, []);
 });
 
 test('C005: a proof bound to a different test digest is CLAUSE_PROOF_STALE', () => {
-  const result = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf('sha256:changed'), applicability: 'TESTABLE' } });
+  const result = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf('sha256:changed'), applicability: 'TESTABLE' }, proofInputs: inputsOf() });
   assert.equal(result.status, 'CLAUSE_PROOF_STALE');
 });
 
 test('C005: a failed or unstable proof is never PROVEN', () => {
-  const failed = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: { ...proofOf(), status: 'CLAUSE_PROOF_FAILED' }, applicability: 'TESTABLE' } });
-  const unstable = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: { ...proofOf(), status: 'UNSTABLE' }, applicability: 'TESTABLE' } });
+  const failed = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: { ...proofOf(), status: 'CLAUSE_PROOF_FAILED' }, applicability: 'TESTABLE' }, proofInputs: inputsOf() });
+  const unstable = evaluateClause({ clause: clauseOf(), testIndex: indexOf(), coverageEntry: { key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: { ...proofOf(), status: 'UNSTABLE' }, applicability: 'TESTABLE' }, proofInputs: inputsOf() });
   assert.equal(failed.status, 'CLAUSE_PROOF_FAILED');
   assert.equal(unstable.status, 'UNSTABLE');
 });
@@ -127,7 +153,7 @@ test('C001: remainder counts unresolved clauses plus structural findings once ea
 
 test('C001: a digest change invalidates the coverage binding', () => {
   const inventory = { digest: 'sha256:inventory-new', clauses: [clauseOf()], conflicts: [] };
-  const result = scanClauseCoverage({ inventory, testIndex: indexOf(), coverage: { version: 1, inventoryDigest: 'sha256:inventory-old', testIndexDigest: indexOf().digest, clauses: [{ key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf(), applicability: 'TESTABLE' }] } });
+  const result = scanClauseCoverage({ inventory, testIndex: indexOf(), coverage: { version: 1, inventoryDigest: 'sha256:inventory-old', testIndexDigest: indexOf().digest, clauses: [{ key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf(), applicability: 'TESTABLE' }] }, proofInputsByKey: new Map([[clauseOf().key, inputsOf()]]) });
 
   assert.equal(result.bindingValid, false);
   assert.equal(result.findings.some((finding) => finding.code === 'INVENTORY_DIGEST_MISMATCH'), true);
@@ -135,7 +161,7 @@ test('C001: a digest change invalidates the coverage binding', () => {
 
 test('C001: scan writes a remainder and never a text-matching verdict', () => {
   const inventory = { digest: 'sha256:inventory', clauses: [clauseOf()], conflicts: [] };
-  const result = scanClauseCoverage({ inventory, testIndex: indexOf(), coverage: { version: 1, inventoryDigest: inventory.digest, testIndexDigest: indexOf().digest, clauses: [{ key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf(), applicability: 'TESTABLE' }] } });
+  const result = scanClauseCoverage({ inventory, testIndex: indexOf(), coverage: { version: 1, inventoryDigest: inventory.digest, testIndexDigest: indexOf().digest, clauses: [{ key: clauseOf().key, tests: [{ id: 'alpha_saves' }], proof: proofOf(), applicability: 'TESTABLE' }] }, proofInputsByKey: new Map([[clauseOf().key, inputsOf()]]) });
 
   assert.equal(result.bindingValid, true);
   assert.equal(result.coverage.clauses[0].status, 'PROVEN');

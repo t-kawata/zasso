@@ -17,6 +17,7 @@ const {
   applyMutation,
   observeFailingTest,
 } = require('../../.claude/scripts/tickets/lib/proof-engine.js');
+const { inputsDigestOf } = require('../../.claude/scripts/tickets/lib/proof-inputs.js');
 
 const FIXTURE = path.resolve(__dirname, 'fixtures/proof-project');
 const ORIGINAL_RETURN = "return 'saved:' + value;";
@@ -142,9 +143,24 @@ test('C005: failure detection requires the mapped test name and a failure marker
 });
 
 test('C005: --proofs=changed skips fresh proofs and runs stale or missing ones', () => {
-  const fresh = { key: 'a', test: { digest: 'sha256:t' }, proof: { status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', digests: { test: 'sha256:t' } } };
-  const stale = { key: 'b', test: { digest: 'sha256:t' }, proof: { status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', digests: { test: 'sha256:old' } } };
-  const missing = { key: 'c', test: { digest: 'sha256:t' }, proof: null };
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+  const inputs = {
+    version: 1, clauseKey: 'a', mutationFile: 'a.js', mutationFileDigest: 'sha256:source',
+    mutationDigest: 'sha256:mutation', testId: 't', testDigest: 'sha256:t',
+    commandTemplate: 'runner {test}', commandDigest: 'sha256:command',
+    closureScope: 'package', closureDigest: 'sha256:closure', engineVersion: 2,
+    adapterVersion: 1, toolchainDigest: 'sha256:toolchain',
+  };
+  const fresh = {
+    key: 'a', test: { digest: 'sha256:t' }, inputs,
+    proof: {
+      status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', restored: true,
+      inputsVersion: 1, inputsDigest: inputsDigestOf(inputs), inputs, closureScope: 'package',
+      digests: { source: 'sha256:source', test: 'sha256:t', command: 'sha256:command' },
+    },
+  };
+  const stale = { key: 'b', test: { digest: 'sha256:t' }, inputs, proof: { status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', restored: true, inputsVersion: 1, inputsDigest: 'sha256:old', inputs, closureScope: 'package', digests: { source: 'sha256:source', test: 'sha256:t', command: 'sha256:command' } } };
+  const missing = { key: 'c', test: { digest: 'sha256:t' }, inputs, proof: null };
   const seen = [];
   runProofs({ clauses: [fresh, stale, missing], mode: 'changed', runProof: (entry) => { seen.push(entry.key); return { status: 'PROVEN' }; } });
   assert.deepEqual(seen, ['b', 'c']);

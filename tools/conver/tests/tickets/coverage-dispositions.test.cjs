@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
 
 const { computeRemainder, evaluateClause, scanClauseCoverage } = require('../../.claude/scripts/tickets/lib/coverage-map.js');
 const { evidenceDigestOf } = require('../../.claude/scripts/tickets/lib/dispositions.js');
+const { inputsDigestOf } = require('../../.claude/scripts/tickets/lib/proof-inputs.js');
 
 const NOW = new Date('2026-11-17T00:00:00Z');
 
@@ -40,12 +41,42 @@ function indexFor(suffix) {
 }
 
 /** A proven coverage entry for the suffix. */
-// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-440|PX-441) --for-spec --no-implementation-order`.
+function proofInputsOf(suffix) {
+  return {
+    version: 1,
+    clauseKey: keyOf(suffix),
+    mutationFile: 'a.js',
+    mutationFileDigest: 'sha256:source-' + suffix,
+    mutationDigest: 'sha256:mutation-' + suffix,
+    testId: 't-' + suffix,
+    testDigest: 'sha256:test-' + suffix,
+    commandTemplate: 'runner {test}',
+    commandDigest: 'sha256:command-' + suffix,
+    closureScope: 'package',
+    closureDigest: 'sha256:closure-' + suffix,
+    engineVersion: 2,
+    adapterVersion: 1,
+    toolchainDigest: 'sha256:toolchain-' + suffix,
+  };
+}
+
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
 function provenEntry(suffix) {
+  const inputs = proofInputsOf(suffix);
   return {
     key: keyOf(suffix),
     tests: [{ id: 't-' + suffix, digest: 'sha256:test-' + suffix }],
-    proof: { status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', digests: { test: 'sha256:test-' + suffix } },
+    proof: {
+      status: 'PROVEN',
+      verifiedAt: '2026-11-17T00:00:00Z',
+      restored: true,
+      inputsVersion: inputs.version,
+      inputsDigest: inputsDigestOf(inputs),
+      inputs,
+      closureScope: inputs.closureScope,
+      digests: { source: inputs.mutationFileDigest, test: inputs.testDigest, command: inputs.commandDigest },
+    },
     applicability: 'TESTABLE',
   };
 }
@@ -68,6 +99,7 @@ test('C002 Precondition: a TESTABLE clause with a fresh proof is PROVEN', () => 
     clause: clauseOf('a', 'TESTABLE'),
     testIndex: indexFor('a'),
     coverageEntry: provenEntry('a'),
+    proofInputs: proofInputsOf('a'),
     now: NOW,
   });
 
