@@ -25,6 +25,9 @@ const {
 const { classifyFinding, stableFindingKey, diffAgainstBaseline } = require('./lib/omission-convergence.js');
 const { createLedger, judgeCoverage, mergeObligations, readLedger, writeLedger } = require('./lib/judgment-ledger.js');
 const { scanClauseCoverage } = require('./lib/coverage-map.js');
+const { loadDispositions } = require('./lib/dispositions.js');
+const { buildProofInputsByKey } = require('./lib/proof-plan.js');
+const { resolveAdapters } = require('./build-test-index.js');
 
 const DETECTOR_FAILED = 'DETECTOR_FAILED';
 const DEFAULT_SEVERITY = 'high';
@@ -305,7 +308,7 @@ function enumerateStubs({ cwd, ticketsPath }) {
 }
 
 /** Run the full gap scan. */
-// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437|PX-441) --for-spec --no-implementation-order`.
 function runGapScan({ cwd, ticketsPath = null, graphPath = null, registry = null, reportOnly = false, v3Artifacts = null } = {}) {
   const loaded = registry ?? loadRegistry({ cwd });
   const ticketsFile = ticketsPath || path.join(cwd, 'Tickets.json');
@@ -328,16 +331,34 @@ function runGapScan({ cwd, ticketsPath = null, graphPath = null, registry = null
   const existing = readLedger({ cwd });
   const ledger = existing === null ? createLedger({ obligations }) : mergeObligations(existing, obligations);
   if (!reportOnly) writeLedger({ cwd, ledger });
-  const judgments = judgeCoverage(ledger);
+  const judgments = judgeCoverage(ledger, { cwd });
   const deduped = dedupeFindings(findings);
   const artifactStates = Object.fromEntries(Object.entries(surfaceReport.artifacts.families).map(([family, state]) => [family, { state: state.state, reason: state.reason }]));
 
   let v3 = null;
   if (v3Artifacts?.inventory !== undefined && v3Artifacts?.testIndex !== undefined) {
+    const v3Coverage = v3Artifacts.coverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] };
+    const clauseKeys = new Set((v3Artifacts.inventory.clauses ?? []).map((clause) => clause.key));
+    const dispositions = [...loadDispositions({ cwd, clauseKeys }).byKey.values()];
+    let adapters = [];
+    try {
+      adapters = resolveAdapters({ cwd });
+    } catch {
+      adapters = [];
+    }
+    const inputs = buildProofInputsByKey({
+      cwd,
+      inventory: v3Artifacts.inventory,
+      testIndex: v3Artifacts.testIndex,
+      coverage: v3Coverage,
+      dispositions,
+      adapters,
+    });
     const scan = scanClauseCoverage({
       inventory: v3Artifacts.inventory,
       testIndex: v3Artifacts.testIndex,
-      coverage: v3Artifacts.coverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] },
+      coverage: v3Coverage,
+      proofInputsByKey: inputs.byKey,
     });
     const coverageDigest = v3Artifacts.coverage?.digest ?? digestValue({ clauses: v3Artifacts.coverage?.clauses ?? [], remainder: v3Artifacts.coverage?.remainder ?? null });
     v3 = {

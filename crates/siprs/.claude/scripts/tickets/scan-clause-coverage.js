@@ -15,6 +15,8 @@ const path = require('node:path');
 const { writeTemporaryThenRename } = require('./lib/atomic-write.js');
 const { scanClauseCoverage } = require('./lib/coverage-map.js');
 const { DISPOSITIONS_FILE_NAME, loadDispositions } = require('./lib/dispositions.js');
+const { buildProofInputsByKey } = require('./lib/proof-plan.js');
+const { resolveAdapters } = require('./build-test-index.js');
 const { requireSupportedVersion } = require('./lib/versioned-json.js');
 
 const INVENTORY_FILE_NAME = 'CONTRACT-INVENTORY.json';
@@ -37,7 +39,7 @@ function readJsonIfPresent(filePath) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-436, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440|PX-441) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
@@ -45,6 +47,7 @@ function main() {
   const indexPath = path.resolve(cwd, argumentValue(args, 'index') ?? INDEX_FILE_NAME);
   const coveragePath = path.resolve(cwd, argumentValue(args, 'coverage') ?? COVERAGE_FILE_NAME);
   const dispositionsPath = path.resolve(cwd, argumentValue(args, 'dispositions') ?? DISPOSITIONS_FILE_NAME);
+  const configPath = argumentValue(args, 'config');
   const outPath = path.resolve(cwd, argumentValue(args, 'out') ?? COVERAGE_FILE_NAME);
   const reportOnly = args.includes('--report-only');
 
@@ -71,11 +74,20 @@ function main() {
   }
   const clauseKeys = new Set((inventory.clauses ?? []).map((clause) => clause.key));
   const loaded = loadDispositions({ cwd, clauseKeys });
+  const dispositions = [...loaded.byKey.values()];
+  let adapters = [];
+  try {
+    adapters = resolveAdapters({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null });
+  } catch {
+    adapters = [];
+  }
+  const inputs = buildProofInputsByKey({ cwd, inventory, testIndex, coverage, dispositions, adapters });
   const result = scanClauseCoverage({
     inventory,
     testIndex,
     coverage,
-    dispositions: [...loaded.byKey.values()],
+    dispositions,
+    proofInputsByKey: inputs.byKey,
   });
 
   if (!reportOnly) {
@@ -89,6 +101,7 @@ function main() {
     findings: [...result.findings, ...loaded.findings],
     dispositionLedger: loaded.exists ? dispositionsPath : null,
     dispositionFindings: loaded.findings,
+    proofInputsMissing: inputs.missing,
   }) + '\n');
   process.exit(0);
 }

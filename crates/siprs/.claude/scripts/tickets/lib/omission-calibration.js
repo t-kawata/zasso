@@ -30,6 +30,7 @@ const { sha256Hex } = require('../../workspacify-tree/lib/hash.mjs');
 const { buildInventory, reconcileSource } = require('./inventory.js');
 const { scanClauseCoverage } = require('./coverage-map.js');
 const { runDetectionProof } = require('./proof-engine.js');
+const { inputsDigestOf } = require('./proof-inputs.js');
 const { buildTestIndex } = require('../build-test-index.js');
 
 // [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
@@ -417,16 +418,30 @@ const CLAUSE_DEFINITIONS = Object.freeze({
   'clause-coverage': {
     seededDefect: 'remove the mapping so the clause is unmapped',
     run: (seeded) => {
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
       const key = 'clause|pkg-alpha|OBL-alpha|precondition|abcdef0123456789';
       const inventory = { digest: 'sha256:inventory', clauses: [{ key, contractId: 'OBL-alpha', element: 'precondition', applicability: 'TESTABLE' }], conflicts: [] };
       const testIndex = { digest: 'sha256:index', tests: [{ id: 't', digest: 'sha256:test', ignored: false, annotations: ['verifies:' + key] }] };
+      const inputs = {
+        version: 1, clauseKey: key, mutationFile: 'a.js', mutationFileDigest: 'sha256:source',
+        mutationDigest: 'sha256:mutation', testId: 't', testDigest: 'sha256:test',
+        commandTemplate: 'runner {test}', commandDigest: 'sha256:command',
+        closureScope: 'package', closureDigest: 'sha256:closure', engineVersion: 2,
+        adapterVersion: 1, toolchainDigest: 'sha256:toolchain',
+      };
+      const proof = {
+        status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', restored: true,
+        inputsVersion: inputs.version, inputsDigest: inputsDigestOf(inputs), inputs,
+        closureScope: inputs.closureScope,
+        digests: { source: inputs.mutationFileDigest, test: inputs.testDigest, command: inputs.commandDigest },
+      };
       const coverage = {
         version: 1,
         inventoryDigest: inventory.digest,
         testIndexDigest: testIndex.digest,
-        clauses: seeded ? [] : [{ key, tests: [{ id: 't', digest: 'sha256:test' }], proof: { status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', digests: { test: 'sha256:test' } }, applicability: 'TESTABLE' }],
+        clauses: seeded ? [] : [{ key, tests: [{ id: 't', digest: 'sha256:test' }], proof, applicability: 'TESTABLE' }],
       };
-      return scanClauseCoverage({ inventory, testIndex, coverage }).findings;
+      return scanClauseCoverage({ inventory, testIndex, coverage, proofInputsByKey: new Map([[key, inputs]]) }).findings;
     },
   },
   'detection-proof': {

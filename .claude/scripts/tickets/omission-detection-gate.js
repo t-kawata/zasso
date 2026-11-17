@@ -27,6 +27,8 @@ const {
 const { runGapScan } = require('./omission-gap-scan.js');
 const { convergenceReport, readState } = require('./lib/omission-convergence.js');
 const { coverageDigestOf, scanClauseCoverage } = require('./lib/coverage-map.js');
+const { buildProofInputsByKey } = require('./lib/proof-plan.js');
+const { resolveAdapters } = require('./build-test-index.js');
 const { runClauseCalibration } = require('./lib/omission-calibration.js');
 
 /** Read `--name=value` from the argument list. */
@@ -63,9 +65,10 @@ function runMetaControl({ registry, surfaces = null }) {
  * A project-condition problem is a gate failure and exit 10, never a process
  * failure. The gates are evaluated in the order the repair ladder consumes them.
  */
-// [::TICKET::] PX-437, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440) --for-spec --no-implementation-order`.
-function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [], openTickets = 0, dispositions = [], convergence = {} } = {}) {
+// [::TICKET::] PX-437, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441) --for-spec --no-implementation-order`.
+function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [], openTickets = 0, dispositions = [], convergence = {}, proofInputsByKey = null } = {}) {
   const { inventory = null, testIndex = null, coverage = null, dispositionFindings = [] } = v3Artifacts;
+  const inputsByKey = proofInputsByKey ?? v3Artifacts.proofInputsByKey ?? new Map();
   const gates = [];
 
   const inventoryUsable = inventory !== null
@@ -95,6 +98,7 @@ function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [], openTi
         testIndex,
         coverage: coverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] },
         dispositions,
+        proofInputsByKey: inputsByKey,
       })
     : null;
   const findings = scan?.findings ?? [];
@@ -149,6 +153,7 @@ function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [], openTi
         testIndex,
         coverage: coverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] },
         dispositions,
+        proofInputsByKey: inputsByKey,
       })
     : null;
   const measurementStable = scan !== null && secondScan !== null
@@ -226,9 +231,9 @@ function runV3Gate({ cwd = process.cwd(), v3Artifacts = {}, repairs = [], openTi
 }
 
 /** The gate over the real package. */
-// [::TICKET::] PX-407, PX-437, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437|PX-440) --for-spec --no-implementation-order`.
-function runDetectionGate({ cwd, ticketsPath = null, graphPath = null, registry = null, surfaces = null, reportOnly = false, requireConverged = false, v3Artifacts = undefined, repairs = [], openTickets = 0, dispositions = [], convergenceState = {} } = {}) {
-  if (v3Artifacts !== undefined) return runV3Gate({ cwd, v3Artifacts, repairs, openTickets, dispositions, convergence: convergenceState });
+// [::TICKET::] PX-407, PX-437, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437|PX-440|PX-441) --for-spec --no-implementation-order`.
+function runDetectionGate({ cwd, ticketsPath = null, graphPath = null, registry = null, surfaces = null, reportOnly = false, requireConverged = false, v3Artifacts = undefined, repairs = [], openTickets = 0, dispositions = [], convergenceState = {}, proofInputsByKey = null } = {}) {
+  if (v3Artifacts !== undefined) return runV3Gate({ cwd, v3Artifacts, repairs, openTickets, dispositions, convergence: convergenceState, proofInputsByKey });
   const loaded = registry ?? loadRegistry({ cwd });
   const gap = runGapScan({ cwd, ticketsPath: ticketsPath || path.join(cwd, 'Tickets.json'), graphPath, registry: loaded, reportOnly });
   const enumerated = surfaces ?? gap.surfaces;
@@ -297,7 +302,7 @@ function readJsonIfExists(filePath) {
 }
 
 /** The v3 verdict over the artifacts in a package. */
-// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-440|PX-441) --for-spec --no-implementation-order`.
 function runV3PackageGate({ cwd, inventoryPath, indexPath, coveragePath, dispositionsPath, ticketsPath }) {
   const missing = [inventoryPath, indexPath].filter((filePath) => !fs.existsSync(filePath));
   if (missing.length > 0) {
@@ -345,13 +350,22 @@ function runV3PackageGate({ cwd, inventoryPath, indexPath, coveragePath, disposi
   const runs = readJsonIfExists(path.join(cwd, 'OMISSION-CONVERGENCE-V3.json'))?.runs ?? [];
   const previous = runs.length > 0 ? runs[runs.length - 1] : null;
   const debtBefore = previous?.debt ?? coverage?.remainder?.debt ?? 0;
+  const dispositions = [...loaded.byKey.values()];
+  let adapters = [];
+  try {
+    adapters = resolveAdapters({ cwd });
+  } catch {
+    adapters = [];
+  }
+  const inputs = buildProofInputsByKey({ cwd, inventory, testIndex, coverage, dispositions, adapters });
   return runV3Gate({
     cwd,
     v3Artifacts: { inventory, testIndex, coverage, dispositionFindings: loaded.findings },
     repairs,
     openTickets: openTickets.length,
-    dispositions: [...loaded.byKey.values()],
+    dispositions,
     convergence: { debtBefore, newTickets: 0, previous },
+    proofInputsByKey: inputs.byKey,
   });
 }
 

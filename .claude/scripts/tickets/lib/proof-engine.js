@@ -16,6 +16,7 @@ const { spawnSync } = require('node:child_process');
 
 const { sha256 } = require('./adapters/helpers.js');
 const { isProofFresh } = require('./coverage-map.js');
+const { ENGINE_VERSION, inputsDigestOf } = require('./proof-inputs.js');
 
 const DEFAULT_TIMEOUT_MS = 30000;
 const PROVEN = 'PROVEN';
@@ -92,11 +93,11 @@ function statusOf({ run, failing }) {
 /**
  * Run one detection proof.
  *
- * @param {{clause:object, testId:string, testDigest:string, mutation:object, command:string, isolate?:object, io?:object, timeoutMs?:number}} input
+ * @param {{clause:object, testId:string, testDigest:string, mutation:object, command:string, inputs?:object|null, isolate?:object, io?:object, timeoutMs?:number}} input
  * @returns {object}
  */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
-function runDetectionProof({ clause, testId, testDigest, mutation, command, isolate = null, io = {}, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
+function runDetectionProof({ clause, testId, testDigest, mutation, command, inputs = null, isolate = null, io = {}, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   const workspace = isolate ?? createIsolatedWorkspace({ cwd: mutation?.cwd ?? process.cwd() });
   const originalPath = path.join(workspace.root, mutation?.file ?? '');
   let originalBytes;
@@ -135,6 +136,13 @@ function runDetectionProof({ clause, testId, testDigest, mutation, command, isol
       expected: { test: testId, outcome: 'fail' },
       observed: { exitCode: run.status, failingTests: failing ? [testId] : [] },
       digests: { source: sourceDigest, test: testDigest, command: sha256(resolvedCommand) },
+      inputsVersion: inputs?.version ?? null,
+      inputsDigest: inputs === null ? null : inputsDigestOf(inputs),
+      inputs,
+      closureScope: inputs?.closureScope ?? null,
+      engineVersion: inputs?.engineVersion ?? ENGINE_VERSION,
+      adapterVersion: inputs?.adapterVersion ?? null,
+      toolchainDigest: inputs?.toolchainDigest ?? null,
       verifiedAt: new Date().toISOString(),
       restored: false,
     };
@@ -162,12 +170,12 @@ function runDetectionProof({ clause, testId, testDigest, mutation, command, isol
  * @param {{clauses:object[], mode?:'changed'|'all', runProof:Function}} input
  * @returns {object}
  */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
 function runProofs({ clauses, mode = 'changed', runProof, budget = 0 }) {
   const list = clauses ?? [];
   const selected = mode === 'all'
     ? [...list]
-    : list.filter((entry) => !isProofFresh({ proof: entry.proof, testDigest: entry.test?.digest }));
+    : list.filter((entry) => !isProofFresh({ proof: entry.proof, inputs: entry.inputs ?? null }));
   const runnable = budget > 0 ? selected.slice(0, budget) : selected;
   const results = runnable.map((entry) => runProof(entry));
   return {

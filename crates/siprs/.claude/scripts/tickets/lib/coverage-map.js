@@ -10,6 +10,8 @@
 
 const { createHash } = require('node:crypto');
 
+const { inputsDigestOf } = require('./proof-inputs.js');
+
 const INVENTORY_DIGEST_MISMATCH = 'INVENTORY_DIGEST_MISMATCH';
 
 /** The statuses a valid disposition may carry. */
@@ -86,16 +88,27 @@ function resolveMappedTests({ clause, testIndex, coverageEntry }) {
     .map((test) => ({ ...test, missing: false }));
 }
 
-/** Whether a proof is fresh against the mapped test. */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
-function isProofFresh({ proof, testDigest }) {
-  return proof !== null
-    && typeof proof === 'object'
-    && proof.status === PROVEN
-    && isNonEmptyString(proof.verifiedAt)
-    && proof.digests !== null
-    && typeof proof.digests === 'object'
-    && proof.digests.test === testDigest;
+/**
+ * Whether a proof is fresh against the complete experiment inputs.
+ *
+ * A missing input is unknown, and unknown is never reusable. The proof must
+ * have been produced by the same engine and must have restored the source.
+ */
+// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
+function isProofFresh({ proof, inputs }) {
+  if (proof === null || typeof proof !== 'object') return false;
+  if (proof.status !== PROVEN) return false;
+  if (!isNonEmptyString(proof.verifiedAt)) return false;
+  if (proof.restored !== true) return false;
+  if (inputs === null || inputs === undefined || typeof inputs !== 'object') return false;
+  if (!Number.isInteger(proof.inputsVersion) || proof.inputsVersion !== inputs.version) return false;
+  if (!isNonEmptyString(proof.inputsDigest) || proof.inputsDigest !== inputsDigestOf(inputs)) return false;
+  if (proof.digests === null || typeof proof.digests !== 'object') return false;
+  if (proof.digests.source !== inputs.mutationFileDigest) return false;
+  if (proof.digests.test !== inputs.testDigest) return false;
+  if (proof.digests.command !== inputs.commandDigest) return false;
+  if (proof.closureScope !== inputs.closureScope) return false;
+  return true;
 }
 
 /**
@@ -123,11 +136,11 @@ function resolveVerifiedDisposition({ clause, disposition, base, now }) {
 /**
  * Evaluate one clause.
  *
- * @param {{clause:object, testIndex:object, coverageEntry:object|null, disposition?:object|null, now?:Date}} input
+ * @param {{clause:object, testIndex:object, coverageEntry:object|null, disposition?:object|null, proofInputs?:object|null, now?:Date}} input
  * @returns {{key:string,status:string,tests:object[],proof:object|null,applicability:string,findings:object[]}}
  */
-// [::TICKET::] PX-436, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440) --for-spec --no-implementation-order`.
-function evaluateClause({ clause, testIndex, coverageEntry = null, disposition = null, now = new Date() }) {
+// [::TICKET::] PX-436, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440|PX-441) --for-spec --no-implementation-order`.
+function evaluateClause({ clause, testIndex, coverageEntry = null, disposition = null, proofInputs = null, now = new Date() }) {
   const mapped = resolveMappedTests({ clause, testIndex, coverageEntry });
   const declared = disposition?.status ?? coverageEntry?.applicability ?? clause.applicability ?? null;
   const applicability = disposition?.status ?? coverageEntry?.applicability ?? clause.applicability ?? 'UNCLASSIFIED';
@@ -167,8 +180,11 @@ function evaluateClause({ clause, testIndex, coverageEntry = null, disposition =
   if (proof.status === 'CLAUSE_PROOF_FAILED' || proof.status === 'UNSTABLE') {
     return { ...base, status: proof.status, findings: [clauseFinding(clause, proof.status, 'detection proof did not prove the clause')] };
   }
-  if (!isProofFresh({ proof, testDigest: nonIgnored[0].digest })) {
-    return { ...base, status: 'CLAUSE_PROOF_STALE', findings: [clauseFinding(clause, 'CLAUSE_PROOF_STALE', 'proof digests changed; re-run the proof')] };
+  if (proofInputs === null) {
+    return { ...base, status: 'CLAUSE_PROOF_STALE', findings: [clauseFinding(clause, 'CLAUSE_PROOF_STALE', 'proof inputs are unknown; re-run the proof')] };
+  }
+  if (!isProofFresh({ proof, inputs: proofInputs })) {
+    return { ...base, status: 'CLAUSE_PROOF_STALE', findings: [clauseFinding(clause, 'CLAUSE_PROOF_STALE', 'proof inputs changed; re-run the proof')] };
   }
   return { ...base, status: PROVEN, findings: [] };
 }
@@ -269,11 +285,11 @@ function computeRemainder({ clauses, conflicts = [], duplicateOwners = [], now =
 /**
  * Scan an inventory against a test index and a coverage map.
  *
- * @param {{inventory:object, testIndex:object, coverage:object}} input
+ * @param {{inventory:object, testIndex:object, coverage:object, dispositions?:object[], proofInputsByKey?:Map<string,object>}} input
  * @returns {{bindingValid:boolean, coverage:object, findings:object[], remainder:object}}
  */
-// [::TICKET::] PX-436, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440) --for-spec --no-implementation-order`.
-function scanClauseCoverage({ inventory, testIndex, coverage, dispositions = [], now = new Date() }) {
+// [::TICKET::] PX-436, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440|PX-441) --for-spec --no-implementation-order`.
+function scanClauseCoverage({ inventory, testIndex, coverage, dispositions = [], proofInputsByKey = new Map(), now = new Date() }) {
   const bindingValid = coverage?.inventoryDigest === inventory?.digest
     && coverage?.testIndexDigest === testIndex?.digest;
   const findings = [];
@@ -290,8 +306,12 @@ function scanClauseCoverage({ inventory, testIndex, coverage, dispositions = [],
   const evaluated = (inventory?.clauses ?? [])
     .map((clause) => {
       const entry = entries.get(clause.key) ?? null;
-      const safeEntry = bindingValid ? entry : (entry === null ? null : { ...entry, proof: null });
-      return evaluateClause({ clause, testIndex, coverageEntry: safeEntry, disposition: dispositionsByKey.get(clause.key) ?? null, now });
+      // A global digest mismatch is a finding, not a reason to discard every
+      // proof. Only this clause's own input tuple decides reuse.
+      const proofInputs = proofInputsByKey instanceof Map
+        ? proofInputsByKey.get(clause.key) ?? null
+        : proofInputsByKey?.[clause.key] ?? null;
+      return evaluateClause({ clause, testIndex, coverageEntry: entry, disposition: dispositionsByKey.get(clause.key) ?? null, proofInputs, now });
     })
     .sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
 

@@ -12,6 +12,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { writeTemporaryThenRename } = require('./atomic-write.js');
+const { canonicalize, fileDigestOf, sha256Of } = require('./proof-inputs.js');
 
 const LEDGER_FILE_NAME = 'OMISSION-JUDGMENT-LEDGER.json';
 
@@ -23,6 +24,26 @@ const JUDGMENT_STATUS = Object.freeze({
 });
 
 const STATUS_SET = new Set(Object.values(JUDGMENT_STATUS));
+
+/** Evidence entries with the digest of the bytes each one cites. */
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+function evidenceRecordsOf(judgment, cwd) {
+  return (judgment.evidence ?? []).map((entry) => {
+    if (typeof entry?.file !== 'string') return { ...entry };
+    return { ...entry, fileDigest: fileDigestOf({ cwd, file: entry.file }) ?? 'missing' };
+  });
+}
+
+/** The digest of the evidence a judgment cites, including the cited bytes. */
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+function evidenceDigestOf(judgment, cwd = process.cwd()) {
+  return sha256Of(JSON.stringify(canonicalize({
+    status: judgment.status,
+    normativeSource: judgment.normativeSource ?? null,
+    reason: judgment.reason ?? null,
+    evidence: evidenceRecordsOf(judgment, cwd),
+  })));
+}
 
 /** The identity of one judgment across repeated rounds. */
 // [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
@@ -71,7 +92,7 @@ function mergeObligations(ledger, obligations) {
  * and criterion replaces the first. A verdict for an obligation the scan did not
  * enumerate is refused, so the AI cannot invent coverage.
  */
-// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437|PX-441) --for-spec --no-implementation-order`.
 function recordJudgment(ledger, judgment, context = {}) {
   if (!judgment || typeof judgment !== 'object' || Array.isArray(judgment)) {
     return { ok: false, code: 'JUDGMENT_INVALID', problem: 'judgment must be an object' };
@@ -119,7 +140,14 @@ function recordJudgment(ledger, judgment, context = {}) {
     }
   }
 
-  const record = { ...judgment, obligationKey: judgmentKey(judgment), evidence: Array.isArray(judgment.evidence) ? judgment.evidence : [] };
+  const cwd = context.cwd ?? process.cwd();
+  const evidence = Array.isArray(judgment.evidence) ? evidenceRecordsOf(judgment, cwd) : [];
+  const record = {
+    ...judgment,
+    obligationKey: judgmentKey(judgment),
+    evidence,
+    evidenceDigest: evidenceDigestOf({ ...judgment, evidence }, cwd),
+  };
   const key = judgmentKey(record);
   ledger.judgments = Array.isArray(ledger.judgments) ? ledger.judgments : [];
   const existing = ledger.judgments.findIndex((entry) => judgmentKey(entry) === key);
@@ -137,22 +165,37 @@ function recordJudgment(ledger, judgment, context = {}) {
  * PASS. A ledger with no enumeration block is INCOMPLETE: it never enumerated
  * the obligations, so its empty judgment list proves nothing.
  */
-// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
-function judgeCoverage(ledger) {
+// [::TICKET::] PX-407, PX-437, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437|PX-441) --for-spec --no-implementation-order`.
+function judgeCoverage(ledger, { cwd = process.cwd() } = {}) {
   const judgments = Array.isArray(ledger?.judgments) ? ledger.judgments : [];
   const obligations = Array.isArray(ledger?.obligations) ? ledger.obligations : [];
+  const invalid = [];
+  const stale = [];
+  const fresh = [];
+  for (const judgment of judgments) {
+    if (!isNonEmptyString(judgment.evidenceDigest)) {
+      invalid.push({ obligationKey: judgmentKey(judgment), code: 'JUDGMENT_EVIDENCE_DIGEST_MISSING' });
+      continue;
+    }
+    if (evidenceDigestOf(judgment, cwd) !== judgment.evidenceDigest) {
+      stale.push({ obligationKey: judgmentKey(judgment), code: 'JUDGMENT_EVIDENCE_CHANGED' });
+      continue;
+    }
+    fresh.push(judgment);
+  }
+
   const byStatus = {};
-  for (const judgment of judgments) byStatus[judgment.status] = (byStatus[judgment.status] ?? 0) + 1;
-  const recorded = new Set(judgments.map(judgmentKey));
+  for (const judgment of fresh) byStatus[judgment.status] = (byStatus[judgment.status] ?? 0) + 1;
+  const recorded = new Set(fresh.map(judgmentKey));
   const unrecorded = obligations.filter((obligation) => !recorded.has(judgmentKey(obligation)));
-  const notVerifiable = judgments.filter((judgment) => judgment.status === JUDGMENT_STATUS.NOT_VERIFIABLE);
+  const notVerifiable = fresh.filter((judgment) => judgment.status === JUDGMENT_STATUS.NOT_VERIFIABLE);
 
   let verdict = JUDGMENT_STATUS.PASS;
-  if (!ledger?.enumeration || unrecorded.length > 0) verdict = 'INCOMPLETE';
+  if (!ledger?.enumeration || unrecorded.length > 0 || invalid.length > 0) verdict = 'INCOMPLETE';
   else if ((byStatus.FAIL ?? 0) > 0) verdict = JUDGMENT_STATUS.FAIL;
   else if (notVerifiable.length > 0) verdict = JUDGMENT_STATUS.NOT_VERIFIABLE;
 
-  return { unrecorded, byStatus, recorded: judgments.length, notVerifiable, remainder: unrecorded.length + notVerifiable.length, verdict };
+  return { unrecorded, byStatus, recorded: fresh.length, notVerifiable, invalid, stale, remainder: unrecorded.length + notVerifiable.length, verdict };
 }
 
 /** Read the ledger beside the package, or null when it does not exist. */
@@ -172,7 +215,7 @@ function writeLedger({ cwd, ledger }) {
 }
 
 /** CLI: record one judgment from stdin, or report the current verdict. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-441) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwdArg = args.find((argument) => argument.startsWith('--cwd='));
@@ -183,7 +226,7 @@ function main() {
     process.exit(1);
   }
   if (args.includes('--report')) {
-    console.log(JSON.stringify({ ok: true, ...judgeCoverage(ledger) }));
+    console.log(JSON.stringify({ ok: true, ...judgeCoverage(ledger, { cwd }) }));
     process.exit(0);
   }
   let judgment;
@@ -193,7 +236,7 @@ function main() {
     console.log(JSON.stringify({ ok: false, code: 'JUDGMENT_INVALID', problem: 'stdin must be JSON' }));
     process.exit(1);
   }
-  const result = recordJudgment(ledger, judgment);
+  const result = recordJudgment(ledger, judgment, { cwd });
   if (!result.ok) {
     console.log(JSON.stringify(result));
     process.exit(1);
@@ -205,6 +248,8 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
+  evidenceDigestOf,
+  evidenceRecordsOf,
   JUDGMENT_STATUS,
   LEDGER_FILE_NAME,
   createLedger,

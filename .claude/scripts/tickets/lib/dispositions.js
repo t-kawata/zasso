@@ -103,8 +103,37 @@ function validateRules(rules) {
   return { byId, findings };
 }
 
+/**
+ * Validate an optional TESTABLE proof plan.
+ *
+ * The plan supplies the mutation and runner command when no earlier proof
+ * exists. The harness never invents either, so a malformed plan is a finding.
+ */
+// [::TICKET::] PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-441 --for-spec --no-implementation-order`.
+function validateProofPlan(record) {
+  if (record?.proof === undefined) return [];
+  const plan = record.proof;
+  if (plan === null || typeof plan !== 'object' || Array.isArray(plan)) {
+    return [findingOf('DISPOSITION_PROOF_INVALID', record, 'proof must be an object', 'proof')];
+  }
+  const mutation = plan.mutation;
+  if (mutation === null || typeof mutation !== 'object' || Array.isArray(mutation)) {
+    return [findingOf('DISPOSITION_PROOF_INVALID', record, 'proof.mutation must be an object', 'proof')];
+  }
+  if (!isNonEmptyString(mutation.file) || !isNonEmptyString(mutation.find)) {
+    return [findingOf('DISPOSITION_PROOF_INVALID', record, 'proof.mutation requires file and find', 'proof')];
+  }
+  if (mutation.replace !== undefined && typeof mutation.replace !== 'string') {
+    return [findingOf('DISPOSITION_PROOF_INVALID', record, 'proof.mutation.replace must be a string', 'proof')];
+  }
+  if (!isNonEmptyString(plan.command)) {
+    return [findingOf('DISPOSITION_PROOF_INVALID', record, 'proof.command is required', 'proof')];
+  }
+  return [];
+}
+
 /** Validate one disposition record. */
-// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-440|PX-441) --for-spec --no-implementation-order`.
 function validateDisposition({ record, rulesById, clauseKeys = null, openTicketKeys = new Set(), now = new Date() }) {
   const findings = [];
   if (!isNonEmptyString(record?.key) || !record.key.startsWith('clause|')) {
@@ -115,6 +144,10 @@ function validateDisposition({ record, rulesById, clauseKeys = null, openTicketK
   }
   if (!STATUS_VALUES.has(record.status)) {
     return [...findings, findingOf('DISPOSITION_STATUS_INVALID', record, 'unknown disposition status', 'status')];
+  }
+
+  if (record.status === DISPOSITION_STATUS.TESTABLE) {
+    findings.push(...validateProofPlan(record));
   }
 
   for (const field of REQUIRED_FIELDS[record.status]) {
@@ -244,4 +277,5 @@ module.exports = {
   loadDispositions,
   validateDisposition,
   validateDispositionLedger,
+  validateProofPlan,
 };

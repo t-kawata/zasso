@@ -25,6 +25,13 @@ const { requireSupportedVersion } = require('./lib/versioned-json.js');
 const { reconcileLegacy } = require('./lib/legacy-reconcile.js');
 const { repairKeyOf, runRepairLadder } = require('./lib/repair-ladder.js');
 const { DISPOSITIONS_FILE_NAME, loadDispositions } = require('./lib/dispositions.js');
+const {
+  buildProofEntries,
+  buildProofInputsByKey,
+  proofCacheOf,
+  runProofEntries,
+} = require('./lib/proof-plan.js');
+const { invalidationReasonOf } = require('./lib/proof-inputs.js');
 
 const INVENTORY_FILE_NAME = 'CONTRACT-INVENTORY.json';
 const INDEX_FILE_NAME = 'TEST-INDEX.json';
@@ -33,6 +40,7 @@ const REPAIRS_FILE_NAME = 'OMISSION-REPAIRS.json';
 const WORKLIST_FILE_NAME = 'OMISSION-CLASSIFICATION-WORKLIST.json';
 const CONVERGENCE_V3_FILE_NAME = 'OMISSION-CONVERGENCE-V3.json';
 const MAX_V3_RUNS = 10;
+const EMPTY_COVERAGE = Object.freeze({ version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] });
 
 /** Read `--name=value` from the argument list. */
 // [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
@@ -219,7 +227,7 @@ function applyRepairLadder({ cwd, gate, reportOnly, worklist = null }) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-437, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
@@ -237,7 +245,8 @@ function main() {
   try {
     const configuration = loadConfiguration({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null });
     const inventory = buildInventory({ adapter: configuration.adapter, sources: configuration.sources });
-    const testIndex = buildTestIndex({ cwd, adapters: resolveAdapters({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null }) });
+    const adapters = resolveAdapters({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null });
+    const testIndex = buildTestIndex({ cwd, adapters });
     const ticketsPath = path.join(cwd, 'Tickets.json');
     const ticketsData = readJson(ticketsPath, { phases: [] });
     const loaded = loadDispositions({
@@ -251,11 +260,68 @@ function main() {
     const existingCoverage = readJson(coveragePath, null);
     if (existingCoverage !== null) requireSupportedVersion(existingCoverage, [1], coveragePath);
 
-    const scan = scanClauseCoverage({
+    const initialCoverage = existingCoverage ?? EMPTY_COVERAGE;
+    const initialInputs = buildProofInputsByKey({
+      cwd,
       inventory,
       testIndex,
-      coverage: existingCoverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] },
+      coverage: initialCoverage,
       dispositions,
+      adapters,
+    });
+    let scan = scanClauseCoverage({
+      inventory,
+      testIndex,
+      coverage: initialCoverage,
+      dispositions,
+      proofInputsByKey: initialInputs.byKey,
+    });
+    let currentInputs = initialInputs.byKey;
+    const proofPlan = buildProofEntries({ cwd, inventory, testIndex, coverage: scan.coverage, dispositions, adapters });
+    const requestedProofMode = argumentValue(args, 'proofs') === 'all'
+      ? 'all'
+      : argumentValue(args, 'proofs') === 'none' ? 'none' : 'changed';
+    const proofTimeoutMs = Number.parseInt(argumentValue(args, 'proof-timeout-ms') ?? '30000', 10);
+    const proofBudget = Number.parseInt(argumentValue(args, 'proof-budget') ?? '0', 10);
+    const freshProofCount = proofPlan.entries
+      .filter((entry) => invalidationReasonOf({ proof: entry.proof, inputs: entry.inputs, inputsOk: true }) === null).length;
+    const proofRun = reportOnly || requestedProofMode === 'none'
+      ? {
+          mode: 'changed',
+          ran: 0,
+          skipped: freshProofCount,
+          notRun: proofPlan.entries.length - freshProofCount,
+          results: [],
+        }
+      : runProofEntries({ entries: proofPlan.entries, mode: requestedProofMode, budget: proofBudget, timeoutMs: proofTimeoutMs });
+    if (!reportOnly && proofRun.results.length > 0) {
+      const proofByKey = new Map(scan.coverage.clauses.map((clause) => [clause.key, clause]));
+      for (const result of proofRun.results) {
+        const clause = proofByKey.get(result.clauseKey);
+        if (clause !== undefined) clause.proof = result;
+      }
+      const refreshed = buildProofInputsByKey({
+        cwd,
+        inventory,
+        testIndex,
+        coverage: scan.coverage,
+        dispositions,
+        adapters,
+      });
+      currentInputs = refreshed.byKey;
+      scan = scanClauseCoverage({
+        inventory,
+        testIndex,
+        coverage: scan.coverage,
+        dispositions,
+        proofInputsByKey: currentInputs,
+      });
+    }
+    const proofCache = proofCacheOf({
+      total: proofPlan.entries.length + proofPlan.missing.length,
+      entries: proofPlan.entries,
+      run: proofRun,
+      missing: proofPlan.missing,
     });
     const worklist = buildClassificationWorklist({ inventory, coverage: scan.coverage });
     const repairs = readJson(path.join(cwd, REPAIRS_FILE_NAME), { version: 1, records: [] }).records ?? [];
@@ -289,6 +355,7 @@ function main() {
     const gate = runDetectionGate({
       cwd,
       v3Artifacts: { inventory, testIndex, coverage: scan.coverage, dispositionFindings: loaded.findings },
+      proofInputsByKey: currentInputs,
       repairs,
       openTickets: openTicketCount(ticketsData),
       dispositions,
@@ -300,6 +367,7 @@ function main() {
         coverageDigest: coverageDigestOf(scan.coverage),
         remainder: scan.remainder.remainder,
         debt: scan.remainder.debt,
+        proofCache: { reused: proofCache.reused, rerun: proofCache.rerun, missing: proofCache.missing },
         at: new Date().toISOString(),
       }].slice(-MAX_V3_RUNS);
       writeTemporaryThenRename(v3StatePath, JSON.stringify({ version: 1, runs }, null, 2) + '\n');
@@ -310,13 +378,19 @@ function main() {
     }
 
     let repairRecords = repairs;
-    if (!gate.complete && plan.created.length === 0 && plan.reusedTickets === 0) {
+    // A changed measurement is re-measured, not repaired: the next identical
+    // run is the fixed-point check. Creating a repair ticket here would make
+    // every real change leave an open item that blocks the run that confirms it.
+    const firstFailedGate = (gate.gates ?? []).find((entry) => !entry.ok);
+    const convergenceOnly = firstFailedGate?.name === 'convergence';
+    if (!gate.complete && !convergenceOnly && plan.created.length === 0 && plan.reusedTickets === 0) {
       const repair = applyRepairLadder({ cwd, gate, reportOnly, worklist });
       if (repair !== null) repairRecords = upsertRepairRecord(repairs, repair);
     }
 
     const report = reportOf({ gate, plan, ticketsData: reportOnly ? ticketsData : plan.ticketsData, repairs: repairRecords, reportOnly });
     report.worklist = { unclassified: worklist.clauses.length, path: worklist.clauses.length > 0 ? WORKLIST_FILE_NAME : null };
+    report.proofCache = proofCache;
     report.dispositions = {
       ledger: loaded.exists ? DISPOSITIONS_FILE_NAME : null,
       valid: dispositions.length,
