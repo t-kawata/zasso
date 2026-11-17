@@ -139,12 +139,19 @@ function resolveVerifiedDisposition({ clause, disposition, base, now }) {
  * @param {{clause:object, testIndex:object, coverageEntry:object|null, disposition?:object|null, proofInputs?:object|null, now?:Date}} input
  * @returns {{key:string,status:string,tests:object[],proof:object|null,applicability:string,findings:object[]}}
  */
-// [::TICKET::] PX-436, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440|PX-441) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-440, PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440|PX-441|PX-442) --for-spec --no-implementation-order`.
 function evaluateClause({ clause, testIndex, coverageEntry = null, disposition = null, proofInputs = null, now = new Date() }) {
   const mapped = resolveMappedTests({ clause, testIndex, coverageEntry });
   const declared = disposition?.status ?? coverageEntry?.applicability ?? clause.applicability ?? null;
   const applicability = disposition?.status ?? coverageEntry?.applicability ?? clause.applicability ?? 'UNCLASSIFIED';
-  const base = { key: clause.key, tests: mapped, proof: coverageEntry?.proof ?? null, applicability, disposition: disposition ?? null };
+  const base = {
+    key: clause.key,
+    tests: mapped,
+    proof: coverageEntry?.proof ?? null,
+    proofDropped: coverageEntry?.proofDropped ?? null,
+    applicability,
+    disposition: disposition ?? null,
+  };
 
   if (disposition !== null) {
     const resolved = resolveVerifiedDisposition({ clause, disposition, base, now });
@@ -174,6 +181,13 @@ function evaluateClause({ clause, testIndex, coverageEntry = null, disposition =
   }
 
   const proof = coverageEntry?.proof ?? null;
+  if (proof === null && coverageEntry?.proofDropped === 'UNSTABLE_PROOF_TARGET') {
+    return {
+      ...base,
+      status: 'CLAUSE_PROOF_STALE',
+      findings: [clauseFinding(clause, 'UNSTABLE_PROOF_TARGET', 'the proof mutated a harness artifact; a stable target is required')],
+    };
+  }
   if (proof === null) {
     return { ...base, status: 'CLAUSE_PROOF_MISSING', findings: [clauseFinding(clause, 'CLAUSE_PROOF_MISSING', 'mapped test has no detection proof')] };
   }

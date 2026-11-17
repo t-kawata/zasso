@@ -146,6 +146,21 @@ Exit contract:
 
 This block is additive. The preflight, Steps 1–11 and the reverse section below are unchanged.
 
+### Step 0.45 — Legacy artifact migration (automatic)
+
+`find-omissions-run.js` migrates v1/v2 artifacts before proofs. Report-only predicts; it writes nothing and executes no proof.
+
+- Proof adoption: `PROVEN` + `restored` + parseable `verifiedAt` + matching `clauseKey` + stable mutation target + source/test/command digests equal current inputs + first lockfile mtime <= `verifiedAt`. Writes `inputsVersion`, `inputsDigest`, `inputs`, `closureScope`, `engineVersion`, `adapterVersion`, `toolchainDigest`, `legacyAdoptedAt`. One mismatch → re-proof; never adopt.
+- Mutation stability: `Tickets.json`, `OMISSION-*`, `CONVER-*`, `_tmp-*` → `UNSTABLE_PROOF_TARGET`. Drop the proof, keep the clause unresolved, create/reuse one omission ticket. `CONVER-utils.js` is a source file, not a harness artifact.
+- Judgment binding: a v1 judgment without `evidenceDigest` binds only when every cited evidence file mtime <= `enumeration.at`. Writes `evidence[].fileDigest`, `evidenceDigest`, `legacyBoundAt`. Newer or unreadable → unbound, re-judge.
+- Repair closure: `unrepairable` is closed. A terminal or absent diagnostic ticket closes the record (`closedAt`, `resolution`); an open one still blocks through `open-tickets`.
+- Workspace isolation: proofs run in a temp tree mirroring the project root. The package stays at its project-relative path; every required `include_str!`/`include_bytes!` target is copied to the same relative path. Configure extra roots with `proofWorkspaceRoots` in `CONTRACT-INVENTORY-CONFIG.json`; discovery falls back to the nearest `.git` ancestor. Missing or escaping target → `PROOF_WORKSPACE_INCOMPLETE` + `REPAIR_REQUIRED`; never a package-only fallback.
+- Command compatibility: an existing proof keeps `proof.inputs.commandTemplate` / `proof.command`; only a new proof uses the adapter runner. Rust default runner is `cargo test {test}` (no `--exact`).
+- Blocker mapping: conflict, unstable-target, unclassified, unmapped, test-missing, disposition-unverified, deferred-expired, proof-missing → one deduplicated ticket group per contract. A conflict stays a blocker even when every conflicting clause is `PROVEN`.
+- Report: `migration { adopted, reproved, dropped, workspaceRoots, workspaceFindings, judgmentsBound, judgmentsUnbound, repairsClosed, repairsOpenDiagnostic, ticketsCreated, ticketsReused, unsupported }`. A second run reports zero changes.
+- CLI: `node "$CLAUDE_DIR/scripts/tickets/migrate-omission-artifacts.js" --cwd=. [--report-only]`. Missing coverage → `skipped: coverage-missing`, exit 0.
+- Idempotence: a dropped proof carries `proofDropped: UNSTABLE_PROOF_TARGET` and is never re-proven; a disposition proof plan for the same clause is refused until the mutation target changes.
+
 ### Step 1 — Re-ticketize the consolidated units (mandatory)
 
 invariant: the consolidation Step 5 gate (`consolidate-stubs-gate.sh`) already guarantees a clean marker tree (no orphan keys, no terminal excuses, every marker re-pointed, a complete grouped-unit manifest emitted). Step 1 consumes that manifest via `batch-create-resolving-tickets.js` — one resolving ticket per (sourceKey, unit) group, atomic on-disk marker-key rewrite. auto; never ask the human — this is the AI's work item per the no-external-excuse rule.

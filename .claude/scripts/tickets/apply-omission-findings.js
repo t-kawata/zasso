@@ -167,15 +167,21 @@ function ownsContract(ticket, contractId) {
  * @param {{remainder:object[], ticketsData:object, phases:object[]}} input
  * @returns {{created:object[], reused:string[], reusedTickets:number, phasesCreated:number, backlog:object[], ticketsData:object, phases:object[]}}
  */
-// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-442) --for-spec --no-implementation-order`.
 function planOmissionTickets({ remainder, ticketsData, phases = null }) {
   const workingPhases = (phases ?? ticketsData?.phases ?? []).map((phase) => ({ ...phase, tickets: [...(phase.tickets ?? [])] }));
   const workingData = { ...(ticketsData ?? {}), phases: workingPhases };
-  const records = flattenTicketRecords(workingData);
+  // Only tickets that existed before this plan can own a group. A ticket
+  // created below must not be matched by key: a new phase can reuse a key that
+  // an entry still names as its completed owner.
+  const existingRecords = flattenTicketRecords(workingData);
   const groupOwner = new Map();
   const created = [];
   const reused = [];
   const backlog = [];
+  // One plan call creates at most one omission phase. Recomputing the next id
+  // per ticket would place every ticket in its own phase.
+  const omissionPhaseId = nextOmissionPhaseId(workingPhases);
 
   for (const entry of remainder ?? []) {
     if (typeof entry?.key !== 'string' || entry.key.length === 0) {
@@ -188,10 +194,14 @@ function planOmissionTickets({ remainder, ticketsData, phases = null }) {
       continue;
     }
     const owner = typeof entry.owner === 'string' && entry.owner.length > 0 ? entry.owner : null;
-    const openOwner = records.find((record) => {
+    const openOwner = existingRecords.find((record) => {
       if (isCompletedStatus(record.ticket.status)) return false;
       if (record.ticket.omissionStableKey === group) return true;
-      if (owner !== null && (record.key === owner || resolveRootTicketKey({ ticketKey: record.key, ticketsData: workingData }) === owner || cloneChainKeys({ ticketKey: record.key, ticketsData: workingData }).has(owner))) return true;
+      // A remediation ticket belongs to exactly one group. It must not satisfy
+      // the owner match for a different group that names the same owner: a new
+      // phase can reuse the owner's key.
+      const isRemediation = typeof record.ticket.omissionStableKey === 'string';
+      if (!isRemediation && owner !== null && (record.key === owner || resolveRootTicketKey({ ticketKey: record.key, ticketsData: workingData }) === owner || cloneChainKeys({ ticketKey: record.key, ticketsData: workingData }).has(owner))) return true;
       return ownsContract(record.ticket, entry.contractId);
     });
     if (openOwner !== undefined) {
@@ -201,16 +211,15 @@ function planOmissionTickets({ remainder, ticketsData, phases = null }) {
     }
 
     const rootKey = owner === null ? null : resolveRootTicketKey({ ticketKey: owner, ticketsData: workingData });
-    const phaseId = nextOmissionPhaseId(workingPhases);
-    let phase = workingPhases.find((candidate) => candidate.id === phaseId);
+    let phase = workingPhases.find((candidate) => candidate.id === omissionPhaseId);
     if (phase === undefined) {
-      phase = { id: phaseId, name: 'Omissions: canonical clause coverage', characteristics: '', tickets: [] };
+      phase = { id: omissionPhaseId, name: 'Omissions: canonical clause coverage', characteristics: '', tickets: [] };
       workingPhases.push(phase);
     }
     const nextId = phase.tickets.length === 0 ? 1 : Math.max(...phase.tickets.map((ticket) => ticket.id)) + 1;
     const ticket = {
       id: nextId,
-      phaseId,
+      phaseId: omissionPhaseId,
       status: 'todo',
       title: 'Omission: ' + group,
       contracts: [],
@@ -222,8 +231,7 @@ function planOmissionTickets({ remainder, ticketsData, phases = null }) {
       origin: { kind: 'omission', sourceTicket: rootKey },
     };
     phase.tickets.push(ticket);
-    records.push({ key: ticketKeyOfRecord(phaseId, nextId), phaseId, ticket });
-    groupOwner.set(group, ticketKeyOfRecord(phaseId, nextId));
+    groupOwner.set(group, ticketKeyOfRecord(omissionPhaseId, nextId));
     created.push(ticket);
   }
 

@@ -17,6 +17,7 @@ const { spawnSync } = require('node:child_process');
 const { sha256 } = require('./adapters/helpers.js');
 const { isProofFresh } = require('./coverage-map.js');
 const { ENGINE_VERSION, inputsDigestOf } = require('./proof-inputs.js');
+const { COPY_SKIP } = require('./proof-workspace.js');
 
 const DEFAULT_TIMEOUT_MS = 30000;
 const PROVEN = 'PROVEN';
@@ -25,9 +26,6 @@ const UNSTABLE = 'UNSTABLE';
 const REPAIR_REQUIRED = 'REPAIR_REQUIRED';
 const SOURCE_RESTORE_FAILED = 'SOURCE_RESTORE_FAILED';
 const MUTATION_TARGET_ABSENT = 'MUTATION_TARGET_ABSENT';
-
-/** Directories a proof copy never needs. */
-const COPY_SKIP = new Set(['node_modules', '.git', 'target', 'dist', 'build', '.next', 'vendor']);
 
 /** Apply one localized mutation to a source file. */
 // [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
@@ -93,13 +91,26 @@ function statusOf({ run, failing }) {
 /**
  * Run one detection proof.
  *
- * @param {{clause:object, testId:string, testDigest:string, mutation:object, command:string, inputs?:object|null, isolate?:object, io?:object, timeoutMs?:number}} input
+ * @param {{clause:object, testId:string, testDigest:string, mutation:object, command:string, inputs?:object|null, isolate?:object, workspace?:object|null, io?:object, timeoutMs?:number}} input
  * @returns {object}
  */
-// [::TICKET::] PX-436, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441) --for-spec --no-implementation-order`.
-function runDetectionProof({ clause, testId, testDigest, mutation, command, inputs = null, isolate = null, io = {}, timeoutMs = DEFAULT_TIMEOUT_MS }) {
-  const workspace = isolate ?? createIsolatedWorkspace({ cwd: mutation?.cwd ?? process.cwd() });
-  const originalPath = path.join(workspace.root, mutation?.file ?? '');
+// [::TICKET::] PX-436, PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-441|PX-442) --for-spec --no-implementation-order`.
+function runDetectionProof({ clause, testId, testDigest, mutation, command, inputs = null, isolate = null, workspace = null, io = {}, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+  if (workspace !== null && workspace.ok === false) {
+    return {
+      status: REPAIR_REQUIRED,
+      reason: workspace.code ?? 'PROOF_WORKSPACE_INCOMPLETE',
+      missing: workspace.missing ?? [],
+      workspaceFinding: workspace.code ?? null,
+      clauseKey: clause?.key ?? null,
+      restored: false,
+    };
+  }
+
+  const working = workspace ?? isolate ?? createIsolatedWorkspace({ cwd: mutation?.cwd ?? process.cwd() });
+  const runRoot = workspace !== null ? (workspace.packageRoot ?? workspace.root) : working.root;
+  const owned = workspace === null || workspace.shared !== true;
+  const originalPath = path.join(runRoot, mutation?.file ?? '');
   let originalBytes;
   let result;
 
@@ -119,7 +130,7 @@ function runDetectionProof({ clause, testId, testDigest, mutation, command, inpu
 
     const resolvedCommand = String(command ?? '').replace('{test}', String(testId));
     const run = (typeof io.runCommand === 'function' ? io.runCommand : runCommand)({
-      cwd: workspace.root,
+      cwd: runRoot,
       command: resolvedCommand,
       timeoutMs,
     });
@@ -143,6 +154,8 @@ function runDetectionProof({ clause, testId, testDigest, mutation, command, inpu
       engineVersion: inputs?.engineVersion ?? ENGINE_VERSION,
       adapterVersion: inputs?.adapterVersion ?? null,
       toolchainDigest: inputs?.toolchainDigest ?? null,
+      workspaceRoots: workspace?.workspaceRoots ?? [],
+      workspaceFinding: workspace?.code ?? null,
       verifiedAt: new Date().toISOString(),
       restored: false,
     };
@@ -157,7 +170,7 @@ function runDetectionProof({ clause, testId, testDigest, mutation, command, inpu
         if (!result.restored) result.status = SOURCE_RESTORE_FAILED;
       }
     }
-    if (workspace.cleanup !== undefined && result?.status !== SOURCE_RESTORE_FAILED) workspace.cleanup();
+    if (owned && typeof working.cleanup === 'function') working.cleanup();
   }
 }
 

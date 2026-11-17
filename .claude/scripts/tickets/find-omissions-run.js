@@ -31,6 +31,9 @@ const {
   proofCacheOf,
   runProofEntries,
 } = require('./lib/proof-plan.js');
+const { blockerEntriesOf } = require('./lib/blocker-plan.js');
+const { migrateArtifacts, writeMigratedArtifacts } = require('./lib/proof-migration.js');
+const { isOpenRepair } = require('./lib/repair-status.js');
 const { invalidationReasonOf } = require('./lib/proof-inputs.js');
 
 const INVENTORY_FILE_NAME = 'CONTRACT-INVENTORY.json';
@@ -99,22 +102,10 @@ function buildClassificationWorklist({ inventory, coverage }) {
   return { version: 1, inventoryDigest: inventory?.digest ?? null, clauses };
 }
 
-/** The remainder entries the ticket planner consumes. */
-// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+/** The blocker entries the ticket planner consumes. */
+// [::TICKET::] PX-437, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-442) --for-spec --no-implementation-order`.
 function remainderEntriesOf({ inventory, coverage }) {
-  const inventoryByKey = new Map((inventory?.clauses ?? []).map((clause) => [clause.key, clause]));
-  return (coverage?.clauses ?? [])
-    .filter((clause) => clause.applicability === 'TESTABLE' && clause.status !== 'PROVEN')
-    .map((clause) => {
-      const source = inventoryByKey.get(clause.key) ?? {};
-      return {
-        key: clause.key,
-        contractId: source.contractId ?? null,
-        element: source.element ?? null,
-        group: [inventory?.scope ?? 'package', source.contractId ?? 'unknown'].join('|'),
-        owner: (source.owners ?? [])[0] ?? null,
-      };
-    });
+  return blockerEntriesOf({ inventory, coverage });
 }
 
 /** Build the machine report. */
@@ -227,7 +218,7 @@ function applyRepairLadder({ cwd, gate, reportOnly, worklist = null }) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-437, PX-440, PX-441 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440, PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441|PX-442) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
@@ -248,7 +239,29 @@ function main() {
     const adapters = resolveAdapters({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null });
     const testIndex = buildTestIndex({ cwd, adapters });
     const ticketsPath = path.join(cwd, 'Tickets.json');
-    const ticketsData = readJson(ticketsPath, { phases: [] });
+    const initialTickets = readJson(ticketsPath, { phases: [] });
+
+    const coveragePath = path.join(cwd, COVERAGE_FILE_NAME);
+    const existingCoverage = readJson(coveragePath, null);
+    if (existingCoverage !== null) requireSupportedVersion(existingCoverage, [1], coveragePath);
+
+    const migration = migrateArtifacts({
+      cwd,
+      coverage: existingCoverage ?? EMPTY_COVERAGE,
+      ledger: readJson(path.join(cwd, 'OMISSION-JUDGMENT-LEDGER.json'), null),
+      repairs: readJson(path.join(cwd, REPAIRS_FILE_NAME), null),
+      ticketsData: initialTickets,
+      inventory,
+      testIndex,
+      adapters,
+      reportOnly,
+    });
+    if (!reportOnly) writeMigratedArtifacts({ cwd, artifacts: migration });
+
+    const ticketsData = migration.ticketsData ?? initialTickets;
+    const repairs = migration.repairs?.records ?? [];
+    const migrationTickets = migration.report.ticketsCreated;
+
     const loaded = loadDispositions({
       cwd,
       clauseKeys: new Set((inventory.clauses ?? []).map((clause) => clause.key)),
@@ -256,11 +269,7 @@ function main() {
     });
     const dispositions = [...loaded.byKey.values()];
 
-    const coveragePath = path.join(cwd, COVERAGE_FILE_NAME);
-    const existingCoverage = readJson(coveragePath, null);
-    if (existingCoverage !== null) requireSupportedVersion(existingCoverage, [1], coveragePath);
-
-    const initialCoverage = existingCoverage ?? EMPTY_COVERAGE;
+    const initialCoverage = migration.coverage ?? EMPTY_COVERAGE;
     const initialInputs = buildProofInputsByKey({
       cwd,
       inventory,
@@ -293,12 +302,22 @@ function main() {
           notRun: proofPlan.entries.length - freshProofCount,
           results: [],
         }
-      : runProofEntries({ entries: proofPlan.entries, mode: requestedProofMode, budget: proofBudget, timeoutMs: proofTimeoutMs });
+      : runProofEntries({
+          entries: proofPlan.entries,
+          mode: requestedProofMode,
+          budget: proofBudget,
+          timeoutMs: proofTimeoutMs,
+          cwd,
+          workspaceRoots: configuration.proofWorkspaceRoots,
+        });
     if (!reportOnly && proofRun.results.length > 0) {
       const proofByKey = new Map(scan.coverage.clauses.map((clause) => [clause.key, clause]));
       for (const result of proofRun.results) {
         const clause = proofByKey.get(result.clauseKey);
-        if (clause !== undefined) clause.proof = result;
+        if (clause !== undefined) {
+          clause.proof = result;
+          clause.proofDropped = null;
+        }
       }
       const refreshed = buildProofInputsByKey({
         cwd,
@@ -324,9 +343,8 @@ function main() {
       missing: proofPlan.missing,
     });
     const worklist = buildClassificationWorklist({ inventory, coverage: scan.coverage });
-    const repairs = readJson(path.join(cwd, REPAIRS_FILE_NAME), { version: 1, records: [] }).records ?? [];
     const legacyBaseline = readJson(path.join(cwd, 'OMISSION-CONVERGENCE.json'), { baseline: [] }).baseline ?? [];
-    const legacyJudgments = readJson(path.join(cwd, 'OMISSION-JUDGMENT-LEDGER.json'), { judgments: [] }).judgments ?? [];
+    const legacyJudgments = migration.ledger?.judgments ?? [];
     const legacy = reconcileLegacy({
       legacyStableKeys: legacyBaseline,
       inventory,
@@ -344,7 +362,7 @@ function main() {
     }
 
     const plan = planOmissionTickets({
-      remainder: remainderEntriesOf({ inventory, coverage: scan.coverage }),
+      remainder: blockerEntriesOf({ inventory, coverage: scan.coverage, testIndex }),
       ticketsData,
       phases: ticketsData.phases ?? [],
     });
@@ -359,7 +377,7 @@ function main() {
       repairs,
       openTickets: openTicketCount(ticketsData),
       dispositions,
-      convergenceState: { debtBefore: previousDebt, newTickets: plan.created.length, previous: previousRun },
+      convergenceState: { debtBefore: previousDebt, newTickets: plan.created.length + migrationTickets, previous: previousRun },
     });
     if (!reportOnly) {
       const runs = [...(v3State.runs ?? []), {
@@ -373,7 +391,7 @@ function main() {
       writeTemporaryThenRename(v3StatePath, JSON.stringify({ version: 1, runs }, null, 2) + '\n');
     }
 
-    if (!reportOnly && plan.created.length > 0) {
+    if (!reportOnly && (plan.created.length > 0 || migrationTickets > 0)) {
       writeTemporaryThenRename(ticketsPath, JSON.stringify(plan.ticketsData, null, 2) + '\n');
     }
 
@@ -383,12 +401,24 @@ function main() {
     // every real change leave an open item that blocks the run that confirms it.
     const firstFailedGate = (gate.gates ?? []).find((entry) => !entry.ok);
     const convergenceOnly = firstFailedGate?.name === 'convergence';
-    if (!gate.complete && !convergenceOnly && plan.created.length === 0 && plan.reusedTickets === 0) {
+    if (!gate.complete && !convergenceOnly && plan.created.length === 0 && plan.reusedTickets === 0 && migrationTickets === 0) {
       const repair = applyRepairLadder({ cwd, gate, reportOnly, worklist });
       if (repair !== null) repairRecords = upsertRepairRecord(repairs, repair);
     }
 
-    const report = reportOf({ gate, plan, ticketsData: reportOnly ? ticketsData : plan.ticketsData, repairs: repairRecords, reportOnly });
+    // A report-only prediction must be byte-identical across runs. The closed
+    // timestamp belongs to the committed repair ledger, not to the projection.
+    const volatileRepairFields = new Set(['closedAt', 'verifiedAt', 'createdAt']);
+    const reportedRepairs = reportOnly
+      ? repairRecords.map((record) => Object.fromEntries(
+          Object.entries(record).filter(([field]) => !volatileRepairFields.has(field)),
+        ))
+      : repairRecords;
+    const report = reportOf({ gate, plan, ticketsData: plan.ticketsData, repairs: reportedRepairs, reportOnly });
+    report.createdTickets = reportOnly ? 0 : plan.created.length + migrationTickets;
+    report.plannedCreated = plan.created.length + migrationTickets;
+    report.reusedTickets = plan.reusedTickets + migration.report.ticketsReused;
+    report.migration = migration.report;
     report.worklist = { unclassified: worklist.clauses.length, path: worklist.clauses.length > 0 ? WORKLIST_FILE_NAME : null };
     report.proofCache = proofCache;
     report.dispositions = {
@@ -405,14 +435,15 @@ function main() {
       ticketsChanged: legacy.ticketsChanged,
     };
     process.stdout.write(JSON.stringify(report) + '\n');
-    const pendingRepairs = (report.repairs ?? []).filter((record) => record.status !== 'completed').length;
+    const pendingRepairs = (report.repairs ?? []).filter((record) => isOpenRepair({ repair: record })).length;
     const complete = gate.complete && report.createdTickets === 0 && report.openTickets === 0 && pendingRepairs === 0;
     exitCode = complete ? 0 : 10;
   } catch (error) {
+    const named = error?.code === 'UNSUPPORTED_VERSION';
     process.stdout.write(JSON.stringify({
       coverageComplete: false,
       remainder: null,
-      code: 'INTERNAL_DEFECT',
+      code: named ? 'UNSUPPORTED_VERSION' : 'INTERNAL_DEFECT',
       problem: error instanceof Error ? error.message : String(error),
     }) + '\n');
     exitCode = 10;

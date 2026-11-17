@@ -15,7 +15,10 @@ const { annotationsInLine, compareText, readText, walkFiles } = require('./helpe
 /** Files and markers this adapter understands. */
 const ID = 'rust';
 const LANGUAGE = 'rust';
-const RUNNER = 'cargo test {test} -- --exact';
+// [::TICKET::] PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-442 --for-spec --no-implementation-order`.
+// A bare test id is the filter cargo matches. --exact compares the fully
+// qualified name and therefore matches zero bare ids.
+const RUNNER = 'cargo test {test}';
 const TEST_ROOTS = Object.freeze(['tests', 'src/tests']);
 const EXTENSIONS = Object.freeze(['.rs']);
 const TEST_ATTRIBUTE = /^\s*#\[(?:tokio::)?test\]/;
