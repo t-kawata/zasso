@@ -127,17 +127,21 @@ node "$CLAUDE_DIR/scripts/tickets/find-omissions-run.js" --cwd=.
 ```
 
 - Step 0.1 inventory: `build-contract-inventory.js --cwd=.` — canonical clauses from normative artifacts only.
+- Step 0.15 inventory detail: every clause has a canonical key; the run writes `CONTRACT-INVENTORY.json` and `TEST-INDEX.json` beside `CONTRACT-COVERAGE.json` when it is not report-only.
 - Step 0.2 test index: `build-test-index.js --cwd=.` — every configured test-root file indexed or reported.
-- Step 0.3 coverage: `scan-clause-coverage.js --cwd=.` — mapped, proved, remainder.
+- Step 0.25 disposition worklist: `OMISSION-CLASSIFICATION-WORKLIST.json` lists every UNCLASSIFIED clause with key, contractId, element, text, source and owners. No applicability is guessed by the harness.
+- Step 0.3 coverage and AI disposition: write `OMISSION-DISPOSITIONS.json` with a `rules[]` declaration and one `dispositions[]` record per clause. A record is structured, never free prose: `TESTABLE` needs a mapped non-ignored test and a fresh proof; `DESIGN_PREDICATE`, `PROCESS`, `EXTERNAL` and `NOT_APPLICABLE` need a resolving `ruleId`, `normativeSource`, `evidence` and `evidenceDigest` (plus predicate/command/owner/reason where the status requires them); `DEFERRED` needs owner, reason, normativeSource, createdAt and a future expiresAt. `scan-clause-coverage.js --cwd=.` computes mapped, proved and remainder from the validated dispositions.
 - Step 0.4 proofs: `run-detection-proofs.js --cwd=. --proofs=changed` — localized mutation, observed failure, byte restore.
-- Step 0.5 gate: `omission-detection-gate.js` v3 — ordered inventory, test-index, coverage, proof, repair, remainder, debt, convergence and anti-gaming gates.
+- Step 0.5 gate: `omission-detection-gate.js --cwd=. --v3` — ordered inventory, test-index, dispositions, coverage, proof, repair, remainder, debt, convergence, open-ticket and anti-gaming gates. The v3 gate is the only terminal verdict; the legacy Step 0 gate is not completion even when it exits 0.
+- False positives: `OMISSION-CLASSIFICATION.json` suppresses only findings classified `falsePositive` with a written reason. A directory name is never an exclusion rule, and a real incomplete implementation under any directory still blocks.
 
 Exit contract:
-- exit 0 — complete: remainder = 0, no open ticket, no pending repair.
+- exit 0 — complete: remainder = 0, no expired deferral, no unclassified clause, no open ticket, no pending repair.
 - exit 10 — measured and incomplete, or a repair remains.
 - A preflight or internal script error is converted to a repair item or a diagnostic repair ticket and reported as 10; it never stops the loop.
 - Completed tickets are never reopened; their status is not changed. A live open owner is reused.
 - No project-condition stop: a missing adapter, runner, inventory or proof environment follows the repair ladder and becomes an automatic repair or a deduplicated repair ticket.
+- No operator approval request: a pre-existing test failure, design mismatch or unresolved finding becomes a ticket or repair item with evidence. The run never stops for a decision.
 - Terminal condition: remainder = 0, no open ticket, no pending repair.
 
 This block is additive. The preflight, Steps 1–11 and the reverse section below are unchanged.

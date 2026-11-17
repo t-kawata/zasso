@@ -162,7 +162,7 @@
         "script": "tickets/scan-incomplete-implementations.js",
         "scope": "package",
         "output": "json-findings",
-        "args": ["--dir=.", "--mode=stubs", "--source-set=omission"]
+        "args": ["--dir=.", "--mode=stubs", "--source-set=omission", "--apply-classification=OMISSION-CLASSIFICATION.json"]
       },
       "findingCodes": ["INCOMPLETE_IMPLEMENTATION_UNMARKED"],
       "repair": "insert-stub-or-implement"

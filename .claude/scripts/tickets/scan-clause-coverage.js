@@ -14,6 +14,7 @@ const path = require('node:path');
 
 const { writeTemporaryThenRename } = require('./lib/atomic-write.js');
 const { scanClauseCoverage } = require('./lib/coverage-map.js');
+const { DISPOSITIONS_FILE_NAME, loadDispositions } = require('./lib/dispositions.js');
 const { requireSupportedVersion } = require('./lib/versioned-json.js');
 
 const INVENTORY_FILE_NAME = 'CONTRACT-INVENTORY.json';
@@ -36,13 +37,14 @@ function readJsonIfPresent(filePath) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
   const inventoryPath = path.resolve(cwd, argumentValue(args, 'inventory') ?? INVENTORY_FILE_NAME);
   const indexPath = path.resolve(cwd, argumentValue(args, 'index') ?? INDEX_FILE_NAME);
   const coveragePath = path.resolve(cwd, argumentValue(args, 'coverage') ?? COVERAGE_FILE_NAME);
+  const dispositionsPath = path.resolve(cwd, argumentValue(args, 'dispositions') ?? DISPOSITIONS_FILE_NAME);
   const outPath = path.resolve(cwd, argumentValue(args, 'out') ?? COVERAGE_FILE_NAME);
   const reportOnly = args.includes('--report-only');
 
@@ -67,7 +69,14 @@ function main() {
     process.exit(0);
     return;
   }
-  const result = scanClauseCoverage({ inventory, testIndex, coverage });
+  const clauseKeys = new Set((inventory.clauses ?? []).map((clause) => clause.key));
+  const loaded = loadDispositions({ cwd, clauseKeys });
+  const result = scanClauseCoverage({
+    inventory,
+    testIndex,
+    coverage,
+    dispositions: [...loaded.byKey.values()],
+  });
 
   if (!reportOnly) {
     writeTemporaryThenRename(outPath, JSON.stringify(result.coverage, null, 2) + '\n');
@@ -77,7 +86,9 @@ function main() {
     ok: true,
     bindingValid: result.bindingValid,
     remainder: result.remainder,
-    findings: result.findings,
+    findings: [...result.findings, ...loaded.findings],
+    dispositionLedger: loaded.exists ? dispositionsPath : null,
+    dispositionFindings: loaded.findings,
   }) + '\n');
   process.exit(0);
 }

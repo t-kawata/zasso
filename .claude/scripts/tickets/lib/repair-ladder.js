@@ -29,13 +29,14 @@ function repairKeyOf(blocker) {
 }
 
 /** The action a blocker kind selects. */
-// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440) --for-spec --no-implementation-order`.
 function actionFor(kind) {
   if (kind === 'missing-config') return 'rediscover-config';
   if (kind === 'missing-adapter') return 'synthesize-adapter';
   if (kind === 'missing-runner' || kind === 'missing-test') return 'synthesize-runner';
   if (kind === 'stale-artifact' || kind === 'missing-inventory' || kind === 'missing-coverage') return 'repair-artifact';
   if (kind === 'unprovable-clause') return 'repair-clause';
+  if (kind === 'unclassified-clause' || kind === 'invalid-disposition') return 'repair-clause';
   return null;
 }
 

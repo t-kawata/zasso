@@ -8,12 +8,23 @@
  * they never produce a verdict by themselves.
  */
 
+const { createHash } = require('node:crypto');
+
 const INVENTORY_DIGEST_MISMATCH = 'INVENTORY_DIGEST_MISMATCH';
 
 /** The statuses a valid disposition may carry. */
 const PROVEN = 'PROVEN';
 const NOT_APPLICABLE_VERIFIED = 'NOT_APPLICABLE_VERIFIED';
+const DESIGN_PREDICATE_VERIFIED = 'DESIGN_PREDICATE_VERIFIED';
+const PROCESS_VERIFIED = 'PROCESS_VERIFIED';
+const EXTERNAL_VERIFIED = 'EXTERNAL_VERIFIED';
 const DEFERRED = 'DEFERRED';
+const DEFERRED_EXPIRED = 'DEFERRED_EXPIRED';
+const CLAUSE_DISPOSITION_UNVERIFIED = 'CLAUSE_DISPOSITION_UNVERIFIED';
+const TESTABLE = 'TESTABLE';
+
+/** The applicability names that require a verified disposition. */
+const VERIFIABLE_APPLICABILITY = new Set(['DESIGN_PREDICATE', 'PROCESS', 'EXTERNAL', 'NOT_APPLICABLE', 'DEFERRED']);
 
 /** Whether a value is a non-empty string. */
 // [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
@@ -88,20 +99,51 @@ function isProofFresh({ proof, testDigest }) {
 }
 
 /**
+ * Resolve a validated non-testable disposition.
+ *
+ * TESTABLE returns null so the ordinary mapping and proof path stays in
+ * charge; every other status is already validated by lib/dispositions.js.
+ */
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+function resolveVerifiedDisposition({ clause, disposition, base, now }) {
+  if (disposition.status === TESTABLE) return null;
+  if (disposition.status === DEFERRED) {
+    const expiresAt = disposition.expiresAt;
+    if (typeof expiresAt === 'string' && new Date(expiresAt).getTime() > now.getTime()) {
+      return { ...base, status: DEFERRED, findings: [] };
+    }
+    return { ...base, status: DEFERRED_EXPIRED, findings: [clauseFinding(clause, DEFERRED_EXPIRED, 'deferral expired at ' + String(expiresAt))] };
+  }
+  if ([NOT_APPLICABLE_VERIFIED, DESIGN_PREDICATE_VERIFIED, PROCESS_VERIFIED, EXTERNAL_VERIFIED].includes(disposition.status)) {
+    return { ...base, status: disposition.status, findings: [] };
+  }
+  return null;
+}
+
+/**
  * Evaluate one clause.
  *
- * @param {{clause:object, testIndex:object, coverageEntry:object|null, now?:Date}} input
+ * @param {{clause:object, testIndex:object, coverageEntry:object|null, disposition?:object|null, now?:Date}} input
  * @returns {{key:string,status:string,tests:object[],proof:object|null,applicability:string,findings:object[]}}
  */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
-function evaluateClause({ clause, testIndex, coverageEntry = null, now = new Date() }) {
+// [::TICKET::] PX-436, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440) --for-spec --no-implementation-order`.
+function evaluateClause({ clause, testIndex, coverageEntry = null, disposition = null, now = new Date() }) {
   const mapped = resolveMappedTests({ clause, testIndex, coverageEntry });
-  const declared = coverageEntry?.applicability ?? clause.applicability ?? null;
-  const applicability = declared ?? 'UNCLASSIFIED';
-  const base = { key: clause.key, tests: mapped, proof: coverageEntry?.proof ?? null, applicability };
+  const declared = disposition?.status ?? coverageEntry?.applicability ?? clause.applicability ?? null;
+  const applicability = disposition?.status ?? coverageEntry?.applicability ?? clause.applicability ?? 'UNCLASSIFIED';
+  const base = { key: clause.key, tests: mapped, proof: coverageEntry?.proof ?? null, applicability, disposition: disposition ?? null };
+
+  if (disposition !== null) {
+    const resolved = resolveVerifiedDisposition({ clause, disposition, base, now });
+    if (resolved !== null) return resolved;
+  }
 
   if (declared === null) {
     return { ...base, status: 'UNCLASSIFIED', findings: [clauseFinding(clause, 'CLAUSE_UNCLASSIFIED', 'clause ' + clause.key + ' has no applicability classification')] };
+  }
+
+  if (disposition === null && VERIFIABLE_APPLICABILITY.has(declared)) {
+    return { ...base, status: CLAUSE_DISPOSITION_UNVERIFIED, findings: [clauseFinding(clause, CLAUSE_DISPOSITION_UNVERIFIED, 'clause ' + clause.key + ' is ' + declared + ' but has no verified disposition')] };
   }
 
   if (mapped.length === 0) {
@@ -132,6 +174,17 @@ function evaluateClause({ clause, testIndex, coverageEntry = null, now = new Dat
 }
 
 /**
+ * The digest of one measured coverage result.
+ *
+ * The terminal predicate compares two evaluations over the same artifacts: a
+ * shared digest proves the measurement did not move between them.
+ */
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+function coverageDigestOf(coverage) {
+  return 'sha256:' + createHash('sha256').update(JSON.stringify(coverage?.clauses ?? [])).digest('hex');
+}
+
+/**
  * Count the blocking remainder.
  *
  * A clause is unresolved when it has no valid disposition. A conflict or
@@ -141,7 +194,7 @@ function evaluateClause({ clause, testIndex, coverageEntry = null, now = new Dat
  * @param {{clauses:object[], conflicts?:object[], duplicateOwners?:object[], now?:Date}} input
  * @returns {object}
  */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-436, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440) --for-spec --no-implementation-order`.
 function computeRemainder({ clauses, conflicts = [], duplicateOwners = [], now = new Date() }) {
   const structuralKeys = new Set([
     ...(conflicts ?? []).flatMap((conflict) => conflict.keys ?? [conflict.key]).filter(isNonEmptyString),
@@ -177,6 +230,18 @@ function computeRemainder({ clauses, conflicts = [], duplicateOwners = [], now =
       counts.notApplicable += 1;
       continue;
     }
+    if (clause.status === DESIGN_PREDICATE_VERIFIED) {
+      counts.design += 1;
+      continue;
+    }
+    if (clause.status === PROCESS_VERIFIED) {
+      counts.process += 1;
+      continue;
+    }
+    if (clause.status === EXTERNAL_VERIFIED) {
+      counts.external += 1;
+      continue;
+    }
     if (clause.status === DEFERRED) {
       const expiresAt = clause.disposition?.expiresAt;
       if (typeof expiresAt === 'string' && new Date(expiresAt).getTime() > now.getTime()) {
@@ -186,6 +251,7 @@ function computeRemainder({ clauses, conflicts = [], duplicateOwners = [], now =
       }
       counts.expiredDeferred += 1;
     }
+    if (clause.status === DEFERRED_EXPIRED) counts.expiredDeferred += 1;
     if (clause.status === 'UNMAPPED') counts.unmapped += 1;
     else if (clause.status === 'UNCLASSIFIED') counts.unclassified += 1;
     else if (clause.status === 'CLAUSE_PROOF_STALE') {
@@ -206,8 +272,8 @@ function computeRemainder({ clauses, conflicts = [], duplicateOwners = [], now =
  * @param {{inventory:object, testIndex:object, coverage:object}} input
  * @returns {{bindingValid:boolean, coverage:object, findings:object[], remainder:object}}
  */
-// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
-function scanClauseCoverage({ inventory, testIndex, coverage }) {
+// [::TICKET::] PX-436, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-440) --for-spec --no-implementation-order`.
+function scanClauseCoverage({ inventory, testIndex, coverage, dispositions = [], now = new Date() }) {
   const bindingValid = coverage?.inventoryDigest === inventory?.digest
     && coverage?.testIndexDigest === testIndex?.digest;
   const findings = [];
@@ -220,11 +286,12 @@ function scanClauseCoverage({ inventory, testIndex, coverage }) {
   }
 
   const entries = new Map((coverage?.clauses ?? []).map((entry) => [entry.key, entry]));
+  const dispositionsByKey = new Map((dispositions ?? []).map((entry) => [entry.key, entry]));
   const evaluated = (inventory?.clauses ?? [])
     .map((clause) => {
       const entry = entries.get(clause.key) ?? null;
       const safeEntry = bindingValid ? entry : (entry === null ? null : { ...entry, proof: null });
-      return evaluateClause({ clause, testIndex, coverageEntry: safeEntry });
+      return evaluateClause({ clause, testIndex, coverageEntry: safeEntry, disposition: dispositionsByKey.get(clause.key) ?? null, now });
     })
     .sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
 
@@ -250,9 +317,19 @@ function scanClauseCoverage({ inventory, testIndex, coverage }) {
 }
 
 module.exports = {
+  CLAUSE_DISPOSITION_UNVERIFIED,
+  DEFERRED,
+  DEFERRED_EXPIRED,
+  DESIGN_PREDICATE_VERIFIED,
+  EXTERNAL_VERIFIED,
   INVENTORY_DIGEST_MISMATCH,
+  NOT_APPLICABLE_VERIFIED,
+  PROCESS_VERIFIED,
+  PROVEN,
+  TESTABLE,
   clauseLevelAnnotations,
   computeRemainder,
+  coverageDigestOf,
   evaluateClause,
   exactAnnotation,
   isProofFresh,

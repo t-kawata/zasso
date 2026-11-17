@@ -16,7 +16,7 @@ const { writeTemporaryThenRename } = require('./lib/atomic-write.js');
 const { loadConfiguration } = require('./build-contract-inventory.js');
 const { buildInventory } = require('./lib/inventory.js');
 const { buildTestIndex, resolveAdapters } = require('./build-test-index.js');
-const { scanClauseCoverage } = require('./lib/coverage-map.js');
+const { coverageDigestOf, scanClauseCoverage } = require('./lib/coverage-map.js');
 const { runDetectionGate } = require('./omission-detection-gate.js');
 const { planOmissionTickets } = require('./apply-omission-findings.js');
 const { isCompletedStatus } = require('./lib/ticket-status.js');
@@ -24,9 +24,15 @@ const { acquirePackageLock, releasePackageLock } = require('./lib/package-lock.j
 const { requireSupportedVersion } = require('./lib/versioned-json.js');
 const { reconcileLegacy } = require('./lib/legacy-reconcile.js');
 const { repairKeyOf, runRepairLadder } = require('./lib/repair-ladder.js');
+const { DISPOSITIONS_FILE_NAME, loadDispositions } = require('./lib/dispositions.js');
 
+const INVENTORY_FILE_NAME = 'CONTRACT-INVENTORY.json';
+const INDEX_FILE_NAME = 'TEST-INDEX.json';
 const COVERAGE_FILE_NAME = 'CONTRACT-COVERAGE.json';
 const REPAIRS_FILE_NAME = 'OMISSION-REPAIRS.json';
+const WORKLIST_FILE_NAME = 'OMISSION-CLASSIFICATION-WORKLIST.json';
+const CONVERGENCE_V3_FILE_NAME = 'OMISSION-CONVERGENCE-V3.json';
+const MAX_V3_RUNS = 10;
 
 /** Read `--name=value` from the argument list. */
 // [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
@@ -54,6 +60,35 @@ function ticketKeyOfRecord(phaseId, ticketId) {
 function openTicketCount(ticketsData) {
   return (ticketsData?.phases ?? []).flatMap((phase) => phase.tickets ?? [])
     .filter((ticket) => !isCompletedStatus(ticket.status)).length;
+}
+
+/** The canonical keys of the open tickets. */
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+function openTicketKeysOf(ticketsData) {
+  return new Set((ticketsData?.phases ?? []).flatMap((phase) => (phase.tickets ?? [])
+    .filter((ticket) => !isCompletedStatus(ticket.status))
+    .map((ticket) => ticketKeyOfRecord(phase.id, ticket.id))));
+}
+
+/** The clauses a person or AI must disposition before coverage can be measured. */
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+function buildClassificationWorklist({ inventory, coverage }) {
+  const inventoryByKey = new Map((inventory?.clauses ?? []).map((clause) => [clause.key, clause]));
+  const clauses = (coverage?.clauses ?? [])
+    .filter((clause) => clause.status === 'UNCLASSIFIED')
+    .map((clause) => {
+      const source = inventoryByKey.get(clause.key) ?? {};
+      return {
+        key: clause.key,
+        contractId: source.contractId ?? null,
+        element: source.element ?? null,
+        text: source.text ?? null,
+        source: source.source ?? [],
+        owners: source.owners ?? [],
+      };
+    })
+    .sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
+  return { version: 1, inventoryDigest: inventory?.digest ?? null, clauses };
 }
 
 /** The remainder entries the ticket planner consumes. */
@@ -141,15 +176,14 @@ function appendRepairTicket({ cwd, record, reportOnly }) {
  * A blocker is a work item: an automatic repair or one deduplicated repair
  * ticket. It is never a process failure.
  */
-// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
-function applyRepairLadder({ cwd, gate, reportOnly }) {
+// [::TICKET::] PX-437, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440) --for-spec --no-implementation-order`.
+function applyRepairLadder({ cwd, gate, reportOnly, worklist = null }) {
   const blockerGate = (gate.gates ?? []).find((entry) => !entry.ok);
   if (blockerGate === undefined) return null;
-  const blocker = {
-    kind: blockerGate.name,
-    artifact: 'gate',
-    error: blockerGate.problem ?? blockerGate.name,
-  };
+  const unclassified = blockerGate.name === 'coverage' && (worklist?.clauses?.length ?? 0) > 0;
+  const blocker = unclassified
+    ? { kind: 'unclassified-clause', artifact: WORKLIST_FILE_NAME, error: worklist.clauses.length + ' unclassified clause(s)' }
+    : { kind: blockerGate.name, artifact: 'gate', error: blockerGate.problem ?? blockerGate.name };
   const ledgerPath = path.join(cwd, REPAIRS_FILE_NAME);
   const ledger = readJson(ledgerPath, { version: 1, records: [] });
   const repairKey = repairKeyOf(blocker);
@@ -185,7 +219,7 @@ function applyRepairLadder({ cwd, gate, reportOnly }) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
@@ -204,6 +238,15 @@ function main() {
     const configuration = loadConfiguration({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null });
     const inventory = buildInventory({ adapter: configuration.adapter, sources: configuration.sources });
     const testIndex = buildTestIndex({ cwd, adapters: resolveAdapters({ cwd, configPath: configPath ? path.resolve(cwd, configPath) : null }) });
+    const ticketsPath = path.join(cwd, 'Tickets.json');
+    const ticketsData = readJson(ticketsPath, { phases: [] });
+    const loaded = loadDispositions({
+      cwd,
+      clauseKeys: new Set((inventory.clauses ?? []).map((clause) => clause.key)),
+      openTicketKeys: openTicketKeysOf(ticketsData),
+    });
+    const dispositions = [...loaded.byKey.values()];
+
     const coveragePath = path.join(cwd, COVERAGE_FILE_NAME);
     const existingCoverage = readJson(coveragePath, null);
     if (existingCoverage !== null) requireSupportedVersion(existingCoverage, [1], coveragePath);
@@ -212,7 +255,9 @@ function main() {
       inventory,
       testIndex,
       coverage: existingCoverage ?? { version: 1, inventoryDigest: null, testIndexDigest: null, clauses: [] },
+      dispositions,
     });
+    const worklist = buildClassificationWorklist({ inventory, coverage: scan.coverage });
     const repairs = readJson(path.join(cwd, REPAIRS_FILE_NAME), { version: 1, records: [] }).records ?? [];
     const legacyBaseline = readJson(path.join(cwd, 'OMISSION-CONVERGENCE.json'), { baseline: [] }).baseline ?? [];
     const legacyJudgments = readJson(path.join(cwd, 'OMISSION-JUDGMENT-LEDGER.json'), { judgments: [] }).judgments ?? [];
@@ -224,21 +269,41 @@ function main() {
     });
 
     if (!reportOnly) {
+      writeTemporaryThenRename(path.join(cwd, INVENTORY_FILE_NAME), JSON.stringify(inventory, null, 2) + '\n');
+      writeTemporaryThenRename(path.join(cwd, INDEX_FILE_NAME), JSON.stringify(testIndex, null, 2) + '\n');
       writeTemporaryThenRename(coveragePath, JSON.stringify(scan.coverage, null, 2) + '\n');
+      if (worklist.clauses.length > 0) {
+        writeTemporaryThenRename(path.join(cwd, WORKLIST_FILE_NAME), JSON.stringify(worklist, null, 2) + '\n');
+      }
     }
 
-    const gate = runDetectionGate({
-      cwd,
-      v3Artifacts: { inventory, testIndex, coverage: scan.coverage },
-      repairs,
-    });
-    const ticketsPath = path.join(cwd, 'Tickets.json');
-    const ticketsData = readJson(ticketsPath, { phases: [] });
     const plan = planOmissionTickets({
       remainder: remainderEntriesOf({ inventory, coverage: scan.coverage }),
       ticketsData,
       phases: ticketsData.phases ?? [],
     });
+    const v3StatePath = path.join(cwd, CONVERGENCE_V3_FILE_NAME);
+    const v3State = readJson(v3StatePath, { version: 1, runs: [] });
+    const previousRun = (v3State.runs ?? []).length > 0 ? v3State.runs[v3State.runs.length - 1] : null;
+    const previousDebt = previousRun?.debt ?? scan.remainder.debt;
+    const gate = runDetectionGate({
+      cwd,
+      v3Artifacts: { inventory, testIndex, coverage: scan.coverage, dispositionFindings: loaded.findings },
+      repairs,
+      openTickets: openTicketCount(ticketsData),
+      dispositions,
+      convergenceState: { debtBefore: previousDebt, newTickets: plan.created.length, previous: previousRun },
+    });
+    if (!reportOnly) {
+      const runs = [...(v3State.runs ?? []), {
+        inventoryDigest: inventory.digest ?? null,
+        coverageDigest: coverageDigestOf(scan.coverage),
+        remainder: scan.remainder.remainder,
+        debt: scan.remainder.debt,
+        at: new Date().toISOString(),
+      }].slice(-MAX_V3_RUNS);
+      writeTemporaryThenRename(v3StatePath, JSON.stringify({ version: 1, runs }, null, 2) + '\n');
+    }
 
     if (!reportOnly && plan.created.length > 0) {
       writeTemporaryThenRename(ticketsPath, JSON.stringify(plan.ticketsData, null, 2) + '\n');
@@ -246,11 +311,17 @@ function main() {
 
     let repairRecords = repairs;
     if (!gate.complete && plan.created.length === 0 && plan.reusedTickets === 0) {
-      const repair = applyRepairLadder({ cwd, gate, reportOnly });
+      const repair = applyRepairLadder({ cwd, gate, reportOnly, worklist });
       if (repair !== null) repairRecords = upsertRepairRecord(repairs, repair);
     }
 
     const report = reportOf({ gate, plan, ticketsData: reportOnly ? ticketsData : plan.ticketsData, repairs: repairRecords, reportOnly });
+    report.worklist = { unclassified: worklist.clauses.length, path: worklist.clauses.length > 0 ? WORKLIST_FILE_NAME : null };
+    report.dispositions = {
+      ledger: loaded.exists ? DISPOSITIONS_FILE_NAME : null,
+      valid: dispositions.length,
+      invalid: loaded.findings.length,
+    };
     report.legacy = {
       mapped: Object.keys(legacy.mapping).length,
       ambiguous: legacy.ambiguous.length,
@@ -260,7 +331,8 @@ function main() {
       ticketsChanged: legacy.ticketsChanged,
     };
     process.stdout.write(JSON.stringify(report) + '\n');
-    const complete = gate.complete && report.createdTickets === 0 && report.openTickets === 0 && repairs.length === 0;
+    const pendingRepairs = (report.repairs ?? []).filter((record) => record.status !== 'completed').length;
+    const complete = gate.complete && report.createdTickets === 0 && report.openTickets === 0 && pendingRepairs === 0;
     exitCode = complete ? 0 : 10;
   } catch (error) {
     process.stdout.write(JSON.stringify({
@@ -280,8 +352,13 @@ if (require.main === module) main();
 
 module.exports = {
   COVERAGE_FILE_NAME,
+  INVENTORY_FILE_NAME,
+  INDEX_FILE_NAME,
   REPAIRS_FILE_NAME,
+  WORKLIST_FILE_NAME,
+  buildClassificationWorklist,
   openTicketCount,
+  openTicketKeysOf,
   remainderEntriesOf,
   reportOf,
   ticketKeyOfRecord,
