@@ -1,0 +1,21 @@
+{
+  "schema": "okf-source-coverage/v1",
+  "records": [
+    {
+      "source": "sources/pre-okf-original.md",
+      "lines": 838,
+      "concepts": 35,
+      "preamble": 1,
+      "unmappedHeadings": 0,
+      "unmappedPreamble": 0,
+      "unmappedLines": 0
+    }
+  ],
+  "counts": {
+    "lines": 838,
+    "concepts": 35,
+    "unmappedHeadings": 0,
+    "unmappedPreamble": 0,
+    "unmappedLines": 0
+  }
+}

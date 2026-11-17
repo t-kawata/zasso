@@ -1,0 +1,22 @@
+{
+  "id": "law-review",
+  "requiredFacets": [
+    "requirement",
+    "verification",
+    "source"
+  ],
+  "facetKinds": {
+    "requirement": [
+      "source-section"
+    ],
+    "source": [
+      "source-section"
+    ]
+  },
+  "maxHops": 2,
+  "commandPrefix": "node \"$LAW\"",
+  "expandTemplate": "{prefix} expand --id {id}",
+  "contextTemplate": "{prefix} context --rule {ruleId}",
+  "actions": [],
+  "completeTemplate": "{prefix} context --rule {ruleId}"
+}

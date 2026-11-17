@@ -6,16 +6,16 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
-const skill = join(here, '../../.claude/skills/natenv-okf');
+const skill = join(here, '../../../../.claude/skills/natenv-okf');
 const cli = join(skill, 'dist/skill.mjs');
-const pagesRoot = join(skill, 'okf/pages/implementation-handbook');
+const pagesRoot = join(skill, 'okf/pages/pre-okf-original');
 
 function run(args) {
   return spawnSync(process.execPath, [cli, ...args], { cwd: skill, encoding: 'utf8' });
@@ -52,16 +52,55 @@ test('the required closure is transitive and non-trivial', () => {
   const result = run([
     'required',
     '--entry',
-    'pages/implementation-handbook/appendix-b-validation-record',
+    'pages/pre-okf-original/33-wiki-decomposition',
   ]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /preamble/);
-  assert.match(result.stdout, /appendix-a-exact-source-files|9-machine-verifiable/);
+  assert.match(result.stdout, /0-execution-contract|1-terms-layers-fidelity/);
   const requiredLine = result.stdout.split('\n').find((line) => line.startsWith('- required:'));
   assert.ok(requiredLine, 'required line is absent');
   const ids = requiredLine.replace('- required:', '').split(',').map((id) => id.trim()).filter(Boolean);
   assert.ok(ids.length >= 5, `closure is too small: ${ids.length}`);
 });
+
+test('the exemplar ships and indexes its execution assets', () => {
+  const assets = join(skill, 'EXEC_ASSETS');
+  assert.ok(existsSync(assets), 'EXEC_ASSETS is absent');
+  const files = listFiles(assets);
+  assert.equal(files.length, 46);
+
+  const pageDir = join(skill, 'okf/pages/exec-assets');
+  const pages = readdirSync(pageDir).filter((name) => name.endsWith('.md') && name !== 'index.md');
+  assert.equal(pages.length, files.length);
+
+  const list = run(['list', '--path', 'pages/exec-assets']);
+  assert.equal(list.status, 0, list.stderr);
+  assert.match(list.stdout, /pages\/exec-assets\/scripts-probe-py/);
+
+  const required = run(['required', '--entry', 'pages/exec-assets/scripts-probe-py']);
+  assert.equal(required.status, 0, required.stderr);
+  assert.match(required.stdout, /15-minimum-path-acceptance/);
+
+  const install = readFileSync(join(skill, 'install.js'), 'utf8');
+  assert.match(install, /EXEC_ASSETS/);
+
+  const record = JSON.parse(readFileSync(join(here, '../../../../target/okf/okf-builds.json'), 'utf8'));
+  const build = record.builds.find((entry) => entry.name === 'natenv-okf');
+  assert.equal(build.sources[0].assetFiles, files.length);
+  assert.equal(build.sources[0].assetConcepts, pages.length);
+  assert.equal(build.sources[0].assetUnmappedFiles, 0);
+  assert.equal(build.sources[0].assetUnmappedLines, 0);
+});
+
+function listFiles(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory)) {
+    const path = join(directory, entry);
+    if (statSync(path).isDirectory()) files.push(...listFiles(path));
+    else files.push(path);
+  }
+  return files;
+}
 
 test('the skill carries a byte-identical PRE-OKF-ORIGINAL.md and its ledger', () => {
   const original = join(skill, 'PRE-OKF-ORIGINAL.md');
@@ -87,7 +126,7 @@ test('the acceptance record matches the current check-set version', () => {
   const checks = JSON.parse(
     readFileSync(join(here, '../../.claude/scripts/amend-rfc-up/okf-verify/checks.json'), 'utf8'),
   );
-  const record = JSON.parse(readFileSync(join(here, '../../target/okf/okf-builds.json'), 'utf8'));
+  const record = JSON.parse(readFileSync(join(here, '../../../../target/okf/okf-builds.json'), 'utf8'));
   assert.equal(record.schema, 'okf-builds/v2');
   assert.equal(record.check_set_version, checks.check_set_version);
   assert.ok(record.builds.some((build) => build.name === 'natenv-okf'));

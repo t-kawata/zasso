@@ -1,0 +1,36 @@
+{
+  "schema": "okf-library-decision/v1",
+  "primary": "@okforest/okf",
+  "primary_version": "0.14.0",
+  "fallback": "native",
+  "evaluated": [
+    {
+      "package": "@okforest/okf",
+      "version": "0.14.0",
+      "license": "Apache-2.0",
+      "decision": "primary",
+      "reason": "readTree, parseTree, outlineTree, buildInventory, deriveTrustTier, deriveStatus, normalizeVerified, normalizeSources, isStaleAt, startPage, Tree.concept, Tree.backlinks, Concept.ast/links/footnotes/codeBlocks, and Link resolution cover the read model."
+    },
+    {
+      "package": "js-okf",
+      "version": "0.3.1",
+      "license": "MIT",
+      "decision": "compatibility-only",
+      "reason": "upsert rewrites timestamps and appendLog is not the OKF date-headed log; it is used to prove an independent writer can be read, not on the deterministic build path."
+    },
+    {
+      "package": "@jfomhover/okf-validator",
+      "version": "0.1.7",
+      "license": "MIT",
+      "decision": "ci-cross-check",
+      "reason": "independent v0.2 validation; experimental, so it supplements rather than replaces the canonical verifier."
+    },
+    {
+      "package": "pi-okf",
+      "version": "0.4.0",
+      "license": "MIT",
+      "decision": "cli-evaluation",
+      "reason": "CLI-only; not a runtime dependency."
+    }
+  ]
+}

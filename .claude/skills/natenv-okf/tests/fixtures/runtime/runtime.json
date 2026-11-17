@@ -1,0 +1,11 @@
+{
+  "schema": "okf-runtime-fixture/v1",
+  "entryConcept": "pages/pre-okf-original/0-execution-contract",
+  "displayConcept": "pages/pre-okf-original/0-execution-contract",
+  "limits": {
+    "contextBudgetBytes": 1000000,
+    "smallBudgetBytes": 1,
+    "nodeBudget": 2500,
+    "maxAnswerNodes": 20
+  }
+}

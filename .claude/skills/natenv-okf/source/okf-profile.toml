@@ -1,0 +1,21 @@
+schema = "okf-profile/v1"
+domain = "native-os-wan-nat-voip-p2p-laboratory-agent-execution-specification"
+language = "en"
+types = ["Page", "Claim", "Entity", "Procedure", "Reference"]
+
+[discovery]
+aliases = ["sources/pre-okf-original.md"]
+source_roots = ["."]
+globs = ["**/*.md"]
+
+[detectors]
+todo = '\bTODO\b'
+fixme = '\bFIXME\b'
+hack = '\bHACK\b'
+xxx = '\bXXX\b'
+secrets = '(?i)(api[_-]?key|secret|passwd|password|token)\s*[:=]'
+
+[limits]
+max_answer_nodes = 20
+node_budget = 2500
+context_budget_bytes = 1000000

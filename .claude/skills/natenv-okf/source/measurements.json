@@ -1,0 +1,379 @@
+{
+  "schema": "okf-build-measurements/v1",
+  "source": {
+    "alias": "sources/pre-okf-original.md",
+    "lines": 838,
+    "sha256": "c8c727d8a1ef24049b979271998ac2ad1f2f0af137b2b56c320745bc836c5648",
+    "bytes": 68693
+  },
+  "headings": [
+    {
+      "level": 1,
+      "title": "Native-OS WAN/NAT/VoIP/P2P Laboratory \u2014 Agent Execution Specification",
+      "line": 1
+    },
+    {
+      "level": 2,
+      "title": "0. Execution contract",
+      "line": 5
+    },
+    {
+      "level": 2,
+      "title": "1. Terms, layers, fidelity",
+      "line": 23
+    },
+    {
+      "level": 2,
+      "title": "2. Architecture and placement",
+      "line": 31
+    },
+    {
+      "level": 2,
+      "title": "3. Address plan: single source of truth",
+      "line": 51
+    },
+    {
+      "level": 2,
+      "title": "4. Workspaces, inputs, phase model",
+      "line": 71
+    },
+    {
+      "level": 2,
+      "title": "5. Control plane and agent execution",
+      "line": 96
+    },
+    {
+      "level": 2,
+      "title": "6. Ubuntu infrastructure bootstrap",
+      "line": 124
+    },
+    {
+      "level": 2,
+      "title": "7. Windows host and native guests",
+      "line": 161
+    },
+    {
+      "level": 3,
+      "title": "7.1 Host preparation",
+      "line": 163
+    },
+    {
+      "level": 3,
+      "title": "7.2 Native guest template",
+      "line": 174
+    },
+    {
+      "level": 3,
+      "title": "7.3 Guest addressing and transfer",
+      "line": 195
+    },
+    {
+      "level": 3,
+      "title": "7.4 Dependency installation",
+      "line": 216
+    },
+    {
+      "level": 2,
+      "title": "8. Mac host, native guests, OOB readiness",
+      "line": 226
+    },
+    {
+      "level": 3,
+      "title": "8.1 Tools and templates",
+      "line": 228
+    },
+    {
+      "level": 3,
+      "title": "8.2 Keychain/privacy prerequisites",
+      "line": 263
+    },
+    {
+      "level": 2,
+      "title": "9. Mac infrastructure and capacity selection",
+      "line": 281
+    },
+    {
+      "level": 2,
+      "title": "10. Mac underlay: host ciphertext relay",
+      "line": 300
+    },
+    {
+      "level": 2,
+      "title": "11. Generate, build, start infrastructure",
+      "line": 328
+    },
+    {
+      "level": 2,
+      "title": "12. Native tunnels",
+      "line": 361
+    },
+    {
+      "level": 3,
+      "title": "12.1 Windows service",
+      "line": 363
+    },
+    {
+      "level": 3,
+      "title": "12.2 macOS interface",
+      "line": 383
+    },
+    {
+      "level": 3,
+      "title": "12.3 Linux network namespaces",
+      "line": 400
+    },
+    {
+      "level": 2,
+      "title": "13. Native firewall and cooperative routing contract",
+      "line": 418
+    },
+    {
+      "level": 2,
+      "title": "14. Packet path and NAT semantics",
+      "line": 433
+    },
+    {
+      "level": 2,
+      "title": "15. Minimum path acceptance",
+      "line": 450
+    },
+    {
+      "level": 2,
+      "title": "16. Topology switching, extra nodes, DNAT",
+      "line": 492
+    },
+    {
+      "level": 2,
+      "title": "17. Product build, native dependencies, adapter contract",
+      "line": 509
+    },
+    {
+      "level": 2,
+      "title": "18. Native bootstrap/discovery server",
+      "line": 527
+    },
+    {
+      "level": 2,
+      "title": "19. Native relay server and path transition",
+      "line": 537
+    },
+    {
+      "level": 2,
+      "title": "20. Asterisk reference service and SIP",
+      "line": 553
+    },
+    {
+      "level": 2,
+      "title": "21. Headless VoIP, identity, quality, surrogate scope",
+      "line": 578
+    },
+    {
+      "level": 3,
+      "title": "21.1 Executable stimulus/decoded-audio oracle",
+      "line": 592
+    },
+    {
+      "level": 2,
+      "title": "22. coturn, STUN, TURN, TLS",
+      "line": 608
+    },
+    {
+      "level": 2,
+      "title": "23. QUIC/iroh/custom P2P specifics",
+      "line": 636
+    },
+    {
+      "level": 2,
+      "title": "24. NAT qualification and finite fixtures",
+      "line": 648
+    },
+    {
+      "level": 2,
+      "title": "25. Fault injection, timeouts, recovery",
+      "line": 680
+    },
+    {
+      "level": 2,
+      "title": "26. Packet capture, state, observation",
+      "line": 700
+    },
+    {
+      "level": 2,
+      "title": "27. Diagnostic decision tree",
+      "line": 739
+    },
+    {
+      "level": 2,
+      "title": "28. Result schemas, quality gates, repetitions",
+      "line": 760
+    },
+    {
+      "level": 2,
+      "title": "29. Security, provenance, cleanup",
+      "line": 779
+    },
+    {
+      "level": 2,
+      "title": "30. Template sealing and automation boundary",
+      "line": 797
+    },
+    {
+      "level": 2,
+      "title": "31. Asset map and edit discipline",
+      "line": 805
+    },
+    {
+      "level": 2,
+      "title": "32. Source-grounded platform facts and verification scope",
+      "line": 830
+    },
+    {
+      "level": 2,
+      "title": "33. Wiki decomposition",
+      "line": 836
+    }
+  ],
+  "concepts": 35,
+  "spans": [
+    {
+      "id": "pages/pre-okf-original/preamble",
+      "span": "1-4"
+    },
+    {
+      "id": "pages/pre-okf-original/0-execution-contract",
+      "span": "5-22"
+    },
+    {
+      "id": "pages/pre-okf-original/1-terms-layers-fidelity",
+      "span": "23-30"
+    },
+    {
+      "id": "pages/pre-okf-original/2-architecture-and-placement",
+      "span": "31-50"
+    },
+    {
+      "id": "pages/pre-okf-original/3-address-plan-single-source-of-truth",
+      "span": "51-70"
+    },
+    {
+      "id": "pages/pre-okf-original/4-workspaces-inputs-phase-model",
+      "span": "71-95"
+    },
+    {
+      "id": "pages/pre-okf-original/5-control-plane-and-agent-execution",
+      "span": "96-123"
+    },
+    {
+      "id": "pages/pre-okf-original/6-ubuntu-infrastructure-bootstrap",
+      "span": "124-160"
+    },
+    {
+      "id": "pages/pre-okf-original/7-windows-host-and-native-guests",
+      "span": "161-225"
+    },
+    {
+      "id": "pages/pre-okf-original/8-mac-host-native-guests-oob-readiness",
+      "span": "226-280"
+    },
+    {
+      "id": "pages/pre-okf-original/9-mac-infrastructure-and-capacity-selection",
+      "span": "281-299"
+    },
+    {
+      "id": "pages/pre-okf-original/10-mac-underlay-host-ciphertext-relay",
+      "span": "300-327"
+    },
+    {
+      "id": "pages/pre-okf-original/11-generate-build-start-infrastructure",
+      "span": "328-360"
+    },
+    {
+      "id": "pages/pre-okf-original/12-native-tunnels",
+      "span": "361-417"
+    },
+    {
+      "id": "pages/pre-okf-original/13-native-firewall-and-cooperative-routing-contract",
+      "span": "418-432"
+    },
+    {
+      "id": "pages/pre-okf-original/14-packet-path-and-nat-semantics",
+      "span": "433-449"
+    },
+    {
+      "id": "pages/pre-okf-original/15-minimum-path-acceptance",
+      "span": "450-491"
+    },
+    {
+      "id": "pages/pre-okf-original/16-topology-switching-extra-nodes-dnat",
+      "span": "492-508"
+    },
+    {
+      "id": "pages/pre-okf-original/17-product-build-native-dependencies-adapter-contract",
+      "span": "509-526"
+    },
+    {
+      "id": "pages/pre-okf-original/18-native-bootstrap-discovery-server",
+      "span": "527-536"
+    },
+    {
+      "id": "pages/pre-okf-original/19-native-relay-server-and-path-transition",
+      "span": "537-552"
+    },
+    {
+      "id": "pages/pre-okf-original/20-asterisk-reference-service-and-sip",
+      "span": "553-577"
+    },
+    {
+      "id": "pages/pre-okf-original/21-headless-voip-identity-quality-surrogate-scope",
+      "span": "578-607"
+    },
+    {
+      "id": "pages/pre-okf-original/22-coturn-stun-turn-tls",
+      "span": "608-635"
+    },
+    {
+      "id": "pages/pre-okf-original/23-quic-iroh-custom-p2p-specifics",
+      "span": "636-647"
+    },
+    {
+      "id": "pages/pre-okf-original/24-nat-qualification-and-finite-fixtures",
+      "span": "648-679"
+    },
+    {
+      "id": "pages/pre-okf-original/25-fault-injection-timeouts-recovery",
+      "span": "680-699"
+    },
+    {
+      "id": "pages/pre-okf-original/26-packet-capture-state-observation",
+      "span": "700-738"
+    },
+    {
+      "id": "pages/pre-okf-original/27-diagnostic-decision-tree",
+      "span": "739-759"
+    },
+    {
+      "id": "pages/pre-okf-original/28-result-schemas-quality-gates-repetitions",
+      "span": "760-778"
+    },
+    {
+      "id": "pages/pre-okf-original/29-security-provenance-cleanup",
+      "span": "779-796"
+    },
+    {
+      "id": "pages/pre-okf-original/30-template-sealing-and-automation-boundary",
+      "span": "797-804"
+    },
+    {
+      "id": "pages/pre-okf-original/31-asset-map-and-edit-discipline",
+      "span": "805-829"
+    },
+    {
+      "id": "pages/pre-okf-original/32-source-grounded-platform-facts-and-verification-scope",
+      "span": "830-835"
+    },
+    {
+      "id": "pages/pre-okf-original/33-wiki-decomposition",
+      "span": "836-838"
+    }
+  ]
+}

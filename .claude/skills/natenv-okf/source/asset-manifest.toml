@@ -1,0 +1,371 @@
+spec_version = "okf-asset-manifest/v1"
+asset_root = "EXEC_ASSETS"
+asset_set_sha256 = "605649c86161d2a2d509871b9fcb5e078f7513843861b140a3d2d1ab5aa77a5a"
+
+[[file]]
+path = "EXEC_ASSETS/.gitignore"
+sha256 = "afad7b57a0d686a610fee080e1b44fc31fcb6ec9a17480bea3a9307eee22a9e6"
+bytes = "72"
+lines = "6"
+concept = "pages/exec-assets/gitignore"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/AGENTS.md"
+sha256 = "ae54286acb93bdb1bd96e16da6c938ebdf6f0da522097584bf3c92c9f860a639"
+bytes = "1113"
+lines = "14"
+concept = "pages/exec-assets/agents-md"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/Dockerfile"
+sha256 = "067919c95656e8c8a4344975910bd4fd8e9dc9f5dfc071ae47602701156e73c9"
+bytes = "499"
+lines = "10"
+concept = "pages/exec-assets/dockerfile"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/MANIFEST.json"
+sha256 = "2b05ac80e81f5ae2db6c9614aa659bade2ffe4774da5c3d33392443952e97f0f"
+bytes = "6106"
+lines = "179"
+concept = "pages/exec-assets/manifest-json"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/README.md"
+sha256 = "2fcd1d68ab9beecefcb2db55715f79a5436a615fba0a9bb980c826cc0ee472ca"
+bytes = "1214"
+lines = "15"
+concept = "pages/exec-assets/readme-md"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/agent-run.py"
+sha256 = "caa830597ae8049cdcbfa7e6e69769a826378bedbb70ee3f28e504c4836ab036"
+bytes = "2453"
+lines = "17"
+concept = "pages/exec-assets/agent-run-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/bootstrap/freeze.sh"
+sha256 = "4b38887be93f702a3e47c0f7f99da4185b88cbaedc0feeb55f87fb2f24c0a69f"
+bytes = "466"
+lines = "11"
+concept = "pages/exec-assets/bootstrap-freeze-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/bootstrap/macos.sh"
+sha256 = "b6b9b1f5e6e935103def97609da2d3db675f3d66c4b949f4ce3400a4895336fe"
+bytes = "564"
+lines = "10"
+concept = "pages/exec-assets/bootstrap-macos-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/bootstrap/ubuntu.sh"
+sha256 = "e4756667bfdefb15aca0566238a41255537c27bf4916db74eb809c665f288a9a"
+bytes = "1048"
+lines = "20"
+concept = "pages/exec-assets/bootstrap-ubuntu-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/bootstrap/verified-download.ps1"
+sha256 = "60841707cf9a01d2ed800fb9614ec998ed68247035b2e2bbbd9e089b3d2bce83"
+bytes = "491"
+lines = "6"
+concept = "pages/exec-assets/bootstrap-verified-download-ps1"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/bootstrap/windows.ps1"
+sha256 = "7fb5de0db4de841fb1ccc940110d1ac592558f57fa9bbfcab401c381373f2478"
+bytes = "1366"
+lines = "19"
+concept = "pages/exec-assets/bootstrap-windows-ps1"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/compose.timeout.json"
+sha256 = "2328ad9d9d58218a0139cb4739d4abb155502418e5509afb14ae436cbf2b8111"
+bytes = "187"
+lines = "10"
+concept = "pages/exec-assets/compose-timeout-json"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/compose.tls.json"
+sha256 = "60f3b844d9e6ece24187175b2292d71f49273770ea7a641b7fd17a538df6e33c"
+bytes = "145"
+lines = "11"
+concept = "pages/exec-assets/compose-tls-json"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/config/asterisk/extensions.conf"
+sha256 = "c224c793cf000cbaff674f8c5d84d47b96ce0c0bfde11993d66c541386cf5332"
+bytes = "170"
+lines = "9"
+concept = "pages/exec-assets/config-asterisk-extensions-conf"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/config/asterisk/pjsip.conf"
+sha256 = "eadbeccf641c59f2695ab473b5fd4d4d311e62a808e398f7aeb9fb8fcf2a0ad3"
+bytes = "681"
+lines = "47"
+concept = "pages/exec-assets/config-asterisk-pjsip-conf"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/config/asterisk/rtp.conf"
+sha256 = "963a0c2e39150d3729e11eeff3643ff1c25933a7b4c448def6d5008ba7523a37"
+bytes = "52"
+lines = "4"
+concept = "pages/exec-assets/config-asterisk-rtp-conf"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/config/coturn.conf"
+sha256 = "11cb4673d4d77d9e561711ebf271228303596836e2b40c5e3725aeae65149b44"
+bytes = "206"
+lines = "15"
+concept = "pages/exec-assets/config-coturn-conf"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/config/fixture.json"
+sha256 = "cd5d8a6d827aedf4a06828bc80c99a99c56e64b3c0e8a966a1b050ef8849dd2a"
+bytes = "402"
+lines = "24"
+concept = "pages/exec-assets/config-fixture-json"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/doctor.py"
+sha256 = "b2afe4a784d1600333d07f275baaef301d3050bda19e61ddbec7dacebd36b511"
+bytes = "1193"
+lines = "10"
+concept = "pages/exec-assets/doctor-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/generate.py"
+sha256 = "96e6dbc280eed6093aee405f535fad974bbed07f177af1681fa5bd5f3299090d"
+bytes = "5408"
+lines = "39"
+concept = "pages/exec-assets/generate-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/inventory.example.json"
+sha256 = "80f884e3798de11aba1b9e1e60a3f1af9d1b98ad676164dfc3ddf17cdcdb776a"
+bytes = "407"
+lines = "24"
+concept = "pages/exec-assets/inventory-example-json"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/jobs/infra-state.sh"
+sha256 = "906cb9aa1c70e2b3827ba0b09a5e3ccc6e2d01042e536105e6472b89c1326867"
+bytes = "60"
+lines = "5"
+concept = "pages/exec-assets/jobs-infra-state-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/jobs/mac-state.sh"
+sha256 = "0b79cc171c4ba5d1d90e42e4637e5478e12c7485a7dcd0c0df95cb59053d0b1d"
+bytes = "53"
+lines = "6"
+concept = "pages/exec-assets/jobs-mac-state-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/jobs/windows-state.ps1"
+sha256 = "1ec2eba3d9325b66d474e37a05e9242c866625f6536bb1f82efba66456043885"
+bytes = "196"
+lines = "4"
+concept = "pages/exec-assets/jobs-windows-state-ps1"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/lab"
+sha256 = "b4f7b6eea6da1b3795743f0da48addc44d5f50847961695ca64643c5fca6c1ac"
+bytes = "1264"
+lines = "30"
+concept = "pages/exec-assets/lab"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/metadata/source-locators.json"
+sha256 = "0c7950ce8801e31f299c00eb4fafc65f0430572dae847e83cec5445427a4233e"
+bytes = "805"
+lines = "26"
+concept = "pages/exec-assets/metadata-source-locators-json"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/requirements-media.txt"
+sha256 = "99f43573522565d7c480efd1f954892948033915df6a4e685327e995d3396eb6"
+bytes = "15"
+lines = "1"
+concept = "pages/exec-assets/requirements-media-txt"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/capture.sh"
+sha256 = "ca1bf84287b453aade1f34486cceb86dfa65d893ac84d39745455e938ff15838"
+bytes = "588"
+lines = "16"
+concept = "pages/exec-assets/scripts-capture-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/fixture.py"
+sha256 = "4faa80581efc790c4350c1a5c3c64f6ccdedad0ab5ff817a4c68872d80d3752a"
+bytes = "1335"
+lines = "15"
+concept = "pages/exec-assets/scripts-fixture-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/inject.py"
+sha256 = "c665fd96de3b5846374d2f2fff41d354be12353d75e8f20d803f90e5c46ec5eb"
+bytes = "527"
+lines = "4"
+concept = "pages/exec-assets/scripts-inject-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/link.sh"
+sha256 = "5b74124c49b6fe507c42b24c1f6448a32bde4862b3f4f0bf2cb142ec85cdf031"
+bytes = "251"
+lines = "6"
+concept = "pages/exec-assets/scripts-link-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/linux-endpoint.sh"
+sha256 = "d6e63fbfbec755e3ac9981cf6456759f78a6e01ebaa0f7a1e786674ab96d58ff"
+bytes = "1288"
+lines = "30"
+concept = "pages/exec-assets/scripts-linux-endpoint-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/media.py"
+sha256 = "09199b8fafc2ceeb8e3b88de0c7dbfe55aa27063d22cb6ba675a76fb41e8f0db"
+bytes = "2693"
+lines = "22"
+concept = "pages/exec-assets/scripts-media-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/nat-observe.py"
+sha256 = "901f069be9072e9165e7f85655fb4284cb7222a5e83f0de7b500349c9712df0e"
+bytes = "1127"
+lines = "14"
+concept = "pages/exec-assets/scripts-nat-observe-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/node.sh"
+sha256 = "d98b2773c92807497fa78e0b419e394cc18b864244d86781404529f963170263"
+bytes = "1961"
+lines = "59"
+concept = "pages/exec-assets/scripts-node-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/observer.py"
+sha256 = "e1024bb2879cd53ca32a49342388238a826614a947fce7ed091783bec48a2d94"
+bytes = "872"
+lines = "22"
+concept = "pages/exec-assets/scripts-observer-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/outer-relay.py"
+sha256 = "776e6ca02f1b976386caf9a43af69723f8e1397069b0b507bcc9730cbf3de2a5"
+bytes = "1326"
+lines = "21"
+concept = "pages/exec-assets/scripts-outer-relay-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/policy.sh"
+sha256 = "49bb54861d64c9ab4f1d91cbcc516c32dd915ef499bf98f420aa3101087a7a67"
+bytes = "453"
+lines = "14"
+concept = "pages/exec-assets/scripts-policy-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/probe.py"
+sha256 = "4656d7aebea4d6617cb8047464ade22faf5665ee9fb2d994801a37c416e5685a"
+bytes = "2139"
+lines = "37"
+concept = "pages/exec-assets/scripts-probe-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/state.sh"
+sha256 = "faed8bce64da9766b2a7122386fb41288902f039452a37bac77bc821693d904c"
+bytes = "611"
+lines = "21"
+concept = "pages/exec-assets/scripts-state-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/scripts/tls.sh"
+sha256 = "b0a42dbf6c458bd208c63dda0f2c843f91a958d4552605c15595af9d55bf5cfa"
+bytes = "1136"
+lines = "23"
+concept = "pages/exec-assets/scripts-tls-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/validate.py"
+sha256 = "50daf04150d21c30483c4cbd187509b45a7bf3b3e329b8be62ea211018b7ff88"
+bytes = "990"
+lines = "11"
+concept = "pages/exec-assets/validate-py"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/validation/report.json"
+sha256 = "a9050b17998cc60f59e96833caa53b627469217d60d803775ab70f72ac4acc2e"
+bytes = "6398"
+lines = "285"
+concept = "pages/exec-assets/validation-report-json"
+type = "Reference"
+
+[[file]]
+path = "EXEC_ASSETS/vm/macos-collect.sh"
+sha256 = "4036b889f8d887c1503970bd585e8b5356a12aa907454443d43dea9f397dc0fb"
+bytes = "402"
+lines = "11"
+concept = "pages/exec-assets/vm-macos-collect-sh"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/vm/windows-collect.ps1"
+sha256 = "82da17730f1d29e5505b9386a7a71903113e7c50b1ad272901dceed4411cc3c4"
+bytes = "963"
+lines = "12"
+concept = "pages/exec-assets/vm-windows-collect-ps1"
+type = "Procedure"
+
+[[file]]
+path = "EXEC_ASSETS/vm/windows-create.ps1"
+sha256 = "1845c209203606efe3cff7e2ab3d85e8e102f45ed8ffcb81ce4f79372fc27b7a"
+bytes = "833"
+lines = "11"
+concept = "pages/exec-assets/vm-windows-create-ps1"
+type = "Procedure"

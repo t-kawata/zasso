@@ -1,0 +1,18 @@
+{
+  "schema": "okf-asset-coverage/v1",
+  "records": [
+    {
+      "asset_root": "EXEC_ASSETS",
+      "files": 46,
+      "concepts": 46,
+      "unmappedFiles": 0,
+      "unmappedLines": 0
+    }
+  ],
+  "counts": {
+    "files": 46,
+    "concepts": 46,
+    "unmappedFiles": 0,
+    "unmappedLines": 0
+  }
+}

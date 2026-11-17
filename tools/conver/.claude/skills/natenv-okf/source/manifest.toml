@@ -1,0 +1,8 @@
+spec_version = "okf-source-manifest/v1"
+source_set_sha256 = "20195b0610be571fd165c34bc389797395ac89282eee57f46e304018314f3a73"
+
+[[file]]
+path = "sources/pre-okf-original.md"
+sha256 = "c8c727d8a1ef24049b979271998ac2ad1f2f0af137b2b56c320745bc836c5648"
+lines = "838"
+bytes = "68693"

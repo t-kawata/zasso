@@ -1,0 +1,410 @@
+{
+  "schema": "okf-concept-inventory/v1",
+  "entries": [
+    {
+      "id": "pages/exec-assets/agent-run-py",
+      "path": "pages/exec-assets/agent-run-py.md",
+      "source": "EXEC_ASSETS/agent-run.py"
+    },
+    {
+      "id": "pages/exec-assets/agents-md",
+      "path": "pages/exec-assets/agents-md.md",
+      "source": "EXEC_ASSETS/AGENTS.md"
+    },
+    {
+      "id": "pages/exec-assets/bootstrap-freeze-sh",
+      "path": "pages/exec-assets/bootstrap-freeze-sh.md",
+      "source": "EXEC_ASSETS/bootstrap/freeze.sh"
+    },
+    {
+      "id": "pages/exec-assets/bootstrap-macos-sh",
+      "path": "pages/exec-assets/bootstrap-macos-sh.md",
+      "source": "EXEC_ASSETS/bootstrap/macos.sh"
+    },
+    {
+      "id": "pages/exec-assets/bootstrap-ubuntu-sh",
+      "path": "pages/exec-assets/bootstrap-ubuntu-sh.md",
+      "source": "EXEC_ASSETS/bootstrap/ubuntu.sh"
+    },
+    {
+      "id": "pages/exec-assets/bootstrap-verified-download-ps1",
+      "path": "pages/exec-assets/bootstrap-verified-download-ps1.md",
+      "source": "EXEC_ASSETS/bootstrap/verified-download.ps1"
+    },
+    {
+      "id": "pages/exec-assets/bootstrap-windows-ps1",
+      "path": "pages/exec-assets/bootstrap-windows-ps1.md",
+      "source": "EXEC_ASSETS/bootstrap/windows.ps1"
+    },
+    {
+      "id": "pages/exec-assets/compose-timeout-json",
+      "path": "pages/exec-assets/compose-timeout-json.md",
+      "source": "EXEC_ASSETS/compose.timeout.json"
+    },
+    {
+      "id": "pages/exec-assets/compose-tls-json",
+      "path": "pages/exec-assets/compose-tls-json.md",
+      "source": "EXEC_ASSETS/compose.tls.json"
+    },
+    {
+      "id": "pages/exec-assets/config-asterisk-extensions-conf",
+      "path": "pages/exec-assets/config-asterisk-extensions-conf.md",
+      "source": "EXEC_ASSETS/config/asterisk/extensions.conf"
+    },
+    {
+      "id": "pages/exec-assets/config-asterisk-pjsip-conf",
+      "path": "pages/exec-assets/config-asterisk-pjsip-conf.md",
+      "source": "EXEC_ASSETS/config/asterisk/pjsip.conf"
+    },
+    {
+      "id": "pages/exec-assets/config-asterisk-rtp-conf",
+      "path": "pages/exec-assets/config-asterisk-rtp-conf.md",
+      "source": "EXEC_ASSETS/config/asterisk/rtp.conf"
+    },
+    {
+      "id": "pages/exec-assets/config-coturn-conf",
+      "path": "pages/exec-assets/config-coturn-conf.md",
+      "source": "EXEC_ASSETS/config/coturn.conf"
+    },
+    {
+      "id": "pages/exec-assets/config-fixture-json",
+      "path": "pages/exec-assets/config-fixture-json.md",
+      "source": "EXEC_ASSETS/config/fixture.json"
+    },
+    {
+      "id": "pages/exec-assets/dockerfile",
+      "path": "pages/exec-assets/dockerfile.md",
+      "source": "EXEC_ASSETS/Dockerfile"
+    },
+    {
+      "id": "pages/exec-assets/doctor-py",
+      "path": "pages/exec-assets/doctor-py.md",
+      "source": "EXEC_ASSETS/doctor.py"
+    },
+    {
+      "id": "pages/exec-assets/generate-py",
+      "path": "pages/exec-assets/generate-py.md",
+      "source": "EXEC_ASSETS/generate.py"
+    },
+    {
+      "id": "pages/exec-assets/gitignore",
+      "path": "pages/exec-assets/gitignore.md",
+      "source": "EXEC_ASSETS/.gitignore"
+    },
+    {
+      "id": "pages/exec-assets/inventory-example-json",
+      "path": "pages/exec-assets/inventory-example-json.md",
+      "source": "EXEC_ASSETS/inventory.example.json"
+    },
+    {
+      "id": "pages/exec-assets/jobs-infra-state-sh",
+      "path": "pages/exec-assets/jobs-infra-state-sh.md",
+      "source": "EXEC_ASSETS/jobs/infra-state.sh"
+    },
+    {
+      "id": "pages/exec-assets/jobs-mac-state-sh",
+      "path": "pages/exec-assets/jobs-mac-state-sh.md",
+      "source": "EXEC_ASSETS/jobs/mac-state.sh"
+    },
+    {
+      "id": "pages/exec-assets/jobs-windows-state-ps1",
+      "path": "pages/exec-assets/jobs-windows-state-ps1.md",
+      "source": "EXEC_ASSETS/jobs/windows-state.ps1"
+    },
+    {
+      "id": "pages/exec-assets/lab",
+      "path": "pages/exec-assets/lab.md",
+      "source": "EXEC_ASSETS/lab"
+    },
+    {
+      "id": "pages/exec-assets/manifest-json",
+      "path": "pages/exec-assets/manifest-json.md",
+      "source": "EXEC_ASSETS/MANIFEST.json"
+    },
+    {
+      "id": "pages/exec-assets/metadata-source-locators-json",
+      "path": "pages/exec-assets/metadata-source-locators-json.md",
+      "source": "EXEC_ASSETS/metadata/source-locators.json"
+    },
+    {
+      "id": "pages/exec-assets/readme-md",
+      "path": "pages/exec-assets/readme-md.md",
+      "source": "EXEC_ASSETS/README.md"
+    },
+    {
+      "id": "pages/exec-assets/requirements-media-txt",
+      "path": "pages/exec-assets/requirements-media-txt.md",
+      "source": "EXEC_ASSETS/requirements-media.txt"
+    },
+    {
+      "id": "pages/exec-assets/scripts-capture-sh",
+      "path": "pages/exec-assets/scripts-capture-sh.md",
+      "source": "EXEC_ASSETS/scripts/capture.sh"
+    },
+    {
+      "id": "pages/exec-assets/scripts-fixture-py",
+      "path": "pages/exec-assets/scripts-fixture-py.md",
+      "source": "EXEC_ASSETS/scripts/fixture.py"
+    },
+    {
+      "id": "pages/exec-assets/scripts-inject-py",
+      "path": "pages/exec-assets/scripts-inject-py.md",
+      "source": "EXEC_ASSETS/scripts/inject.py"
+    },
+    {
+      "id": "pages/exec-assets/scripts-link-sh",
+      "path": "pages/exec-assets/scripts-link-sh.md",
+      "source": "EXEC_ASSETS/scripts/link.sh"
+    },
+    {
+      "id": "pages/exec-assets/scripts-linux-endpoint-sh",
+      "path": "pages/exec-assets/scripts-linux-endpoint-sh.md",
+      "source": "EXEC_ASSETS/scripts/linux-endpoint.sh"
+    },
+    {
+      "id": "pages/exec-assets/scripts-media-py",
+      "path": "pages/exec-assets/scripts-media-py.md",
+      "source": "EXEC_ASSETS/scripts/media.py"
+    },
+    {
+      "id": "pages/exec-assets/scripts-nat-observe-py",
+      "path": "pages/exec-assets/scripts-nat-observe-py.md",
+      "source": "EXEC_ASSETS/scripts/nat-observe.py"
+    },
+    {
+      "id": "pages/exec-assets/scripts-node-sh",
+      "path": "pages/exec-assets/scripts-node-sh.md",
+      "source": "EXEC_ASSETS/scripts/node.sh"
+    },
+    {
+      "id": "pages/exec-assets/scripts-observer-py",
+      "path": "pages/exec-assets/scripts-observer-py.md",
+      "source": "EXEC_ASSETS/scripts/observer.py"
+    },
+    {
+      "id": "pages/exec-assets/scripts-outer-relay-py",
+      "path": "pages/exec-assets/scripts-outer-relay-py.md",
+      "source": "EXEC_ASSETS/scripts/outer-relay.py"
+    },
+    {
+      "id": "pages/exec-assets/scripts-policy-sh",
+      "path": "pages/exec-assets/scripts-policy-sh.md",
+      "source": "EXEC_ASSETS/scripts/policy.sh"
+    },
+    {
+      "id": "pages/exec-assets/scripts-probe-py",
+      "path": "pages/exec-assets/scripts-probe-py.md",
+      "source": "EXEC_ASSETS/scripts/probe.py"
+    },
+    {
+      "id": "pages/exec-assets/scripts-state-sh",
+      "path": "pages/exec-assets/scripts-state-sh.md",
+      "source": "EXEC_ASSETS/scripts/state.sh"
+    },
+    {
+      "id": "pages/exec-assets/scripts-tls-sh",
+      "path": "pages/exec-assets/scripts-tls-sh.md",
+      "source": "EXEC_ASSETS/scripts/tls.sh"
+    },
+    {
+      "id": "pages/exec-assets/validate-py",
+      "path": "pages/exec-assets/validate-py.md",
+      "source": "EXEC_ASSETS/validate.py"
+    },
+    {
+      "id": "pages/exec-assets/validation-report-json",
+      "path": "pages/exec-assets/validation-report-json.md",
+      "source": "EXEC_ASSETS/validation/report.json"
+    },
+    {
+      "id": "pages/exec-assets/vm-macos-collect-sh",
+      "path": "pages/exec-assets/vm-macos-collect-sh.md",
+      "source": "EXEC_ASSETS/vm/macos-collect.sh"
+    },
+    {
+      "id": "pages/exec-assets/vm-windows-collect-ps1",
+      "path": "pages/exec-assets/vm-windows-collect-ps1.md",
+      "source": "EXEC_ASSETS/vm/windows-collect.ps1"
+    },
+    {
+      "id": "pages/exec-assets/vm-windows-create-ps1",
+      "path": "pages/exec-assets/vm-windows-create-ps1.md",
+      "source": "EXEC_ASSETS/vm/windows-create.ps1"
+    },
+    {
+      "id": "pages/pre-okf-original/0-execution-contract",
+      "path": "pages/pre-okf-original/0-execution-contract.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/1-terms-layers-fidelity",
+      "path": "pages/pre-okf-original/1-terms-layers-fidelity.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/10-mac-underlay-host-ciphertext-relay",
+      "path": "pages/pre-okf-original/10-mac-underlay-host-ciphertext-relay.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/11-generate-build-start-infrastructure",
+      "path": "pages/pre-okf-original/11-generate-build-start-infrastructure.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/12-native-tunnels",
+      "path": "pages/pre-okf-original/12-native-tunnels.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/13-native-firewall-and-cooperative-routing-contract",
+      "path": "pages/pre-okf-original/13-native-firewall-and-cooperative-routing-contract.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/14-packet-path-and-nat-semantics",
+      "path": "pages/pre-okf-original/14-packet-path-and-nat-semantics.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/15-minimum-path-acceptance",
+      "path": "pages/pre-okf-original/15-minimum-path-acceptance.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/16-topology-switching-extra-nodes-dnat",
+      "path": "pages/pre-okf-original/16-topology-switching-extra-nodes-dnat.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/17-product-build-native-dependencies-adapter-contract",
+      "path": "pages/pre-okf-original/17-product-build-native-dependencies-adapter-contract.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/18-native-bootstrap-discovery-server",
+      "path": "pages/pre-okf-original/18-native-bootstrap-discovery-server.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/19-native-relay-server-and-path-transition",
+      "path": "pages/pre-okf-original/19-native-relay-server-and-path-transition.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/2-architecture-and-placement",
+      "path": "pages/pre-okf-original/2-architecture-and-placement.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/20-asterisk-reference-service-and-sip",
+      "path": "pages/pre-okf-original/20-asterisk-reference-service-and-sip.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/21-headless-voip-identity-quality-surrogate-scope",
+      "path": "pages/pre-okf-original/21-headless-voip-identity-quality-surrogate-scope.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/22-coturn-stun-turn-tls",
+      "path": "pages/pre-okf-original/22-coturn-stun-turn-tls.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/23-quic-iroh-custom-p2p-specifics",
+      "path": "pages/pre-okf-original/23-quic-iroh-custom-p2p-specifics.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/24-nat-qualification-and-finite-fixtures",
+      "path": "pages/pre-okf-original/24-nat-qualification-and-finite-fixtures.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/25-fault-injection-timeouts-recovery",
+      "path": "pages/pre-okf-original/25-fault-injection-timeouts-recovery.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/26-packet-capture-state-observation",
+      "path": "pages/pre-okf-original/26-packet-capture-state-observation.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/27-diagnostic-decision-tree",
+      "path": "pages/pre-okf-original/27-diagnostic-decision-tree.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/28-result-schemas-quality-gates-repetitions",
+      "path": "pages/pre-okf-original/28-result-schemas-quality-gates-repetitions.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/29-security-provenance-cleanup",
+      "path": "pages/pre-okf-original/29-security-provenance-cleanup.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/3-address-plan-single-source-of-truth",
+      "path": "pages/pre-okf-original/3-address-plan-single-source-of-truth.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/30-template-sealing-and-automation-boundary",
+      "path": "pages/pre-okf-original/30-template-sealing-and-automation-boundary.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/31-asset-map-and-edit-discipline",
+      "path": "pages/pre-okf-original/31-asset-map-and-edit-discipline.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/32-source-grounded-platform-facts-and-verification-scope",
+      "path": "pages/pre-okf-original/32-source-grounded-platform-facts-and-verification-scope.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/33-wiki-decomposition",
+      "path": "pages/pre-okf-original/33-wiki-decomposition.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/4-workspaces-inputs-phase-model",
+      "path": "pages/pre-okf-original/4-workspaces-inputs-phase-model.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/5-control-plane-and-agent-execution",
+      "path": "pages/pre-okf-original/5-control-plane-and-agent-execution.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/6-ubuntu-infrastructure-bootstrap",
+      "path": "pages/pre-okf-original/6-ubuntu-infrastructure-bootstrap.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/7-windows-host-and-native-guests",
+      "path": "pages/pre-okf-original/7-windows-host-and-native-guests.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/8-mac-host-native-guests-oob-readiness",
+      "path": "pages/pre-okf-original/8-mac-host-native-guests-oob-readiness.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/9-mac-infrastructure-and-capacity-selection",
+      "path": "pages/pre-okf-original/9-mac-infrastructure-and-capacity-selection.md",
+      "source": "sources/pre-okf-original.md"
+    },
+    {
+      "id": "pages/pre-okf-original/preamble",
+      "path": "pages/pre-okf-original/preamble.md",
+      "source": "sources/pre-okf-original.md"
+    }
+  ]
+}
