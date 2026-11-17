@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "rules": [
+    { "id": "R-NA-1", "kind": "not-applicable", "normativeSource": "project:scope" },
+    { "id": "R-D-1", "kind": "design-predicate", "normativeSource": "graph:N0001" }
+  ],
+  "dispositions": [
+    {
+      "key": "clause|pkg-alpha|OBL-alpha|precondition|aaaaaaaaaaaaaaaa",
+      "status": "NOT_APPLICABLE_VERIFIED",
+      "ruleId": "R-NA-1",
+      "normativeSource": "project:scope",
+      "evidence": [{ "file": "docs/SCOPE.md", "line": 1 }],
+      "evidenceDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

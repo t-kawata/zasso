@@ -72,7 +72,7 @@ const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
 const VALID_MODES = ['all', 'stubs', 'suppress'];
 
 /** Parse the CLI arguments. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-440) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   let dirPath = '.';
@@ -83,6 +83,7 @@ function parseArgs() {
   let classify = false;
   let record = null;
   let verifyClassification = null;
+  let applyClassification = null;
   for (const a of args) {
     if (a.startsWith('--dir=')) dirPath = a.slice('--dir='.length);
     if (a.startsWith('--mode=')) mode = a.slice('--mode='.length);
@@ -92,11 +93,12 @@ function parseArgs() {
     if (a === '--classify') classify = true;
     if (a.startsWith('--record=')) record = a.slice('--record='.length);
     if (a.startsWith('--verify-classification=')) verifyClassification = a.slice('--verify-classification='.length);
+    if (a.startsWith('--apply-classification=')) applyClassification = a.slice('--apply-classification='.length);
   }
   if (!VALID_MODES.includes(mode)) {
     return { error: 'Invalid mode: ' + mode + ' (expected ' + VALID_MODES.join('|') + ')' };
   }
-  return { dirPath: path.resolve(dirPath), mode, sourceSet, excludeDirs, includeDot, classify, record, verifyClassification };
+  return { dirPath: path.resolve(dirPath), mode, sourceSet, excludeDirs, includeDot, classify, record, verifyClassification, applyClassification };
 }
 
 /** Scan one file. */
@@ -221,8 +223,44 @@ function verifyClassification({ directory, mode, sourceSet, ledgerPath }) {
   return { ok: true, total: current.length };
 }
 
+/**
+ * Apply the classification ledger to the current findings.
+ *
+ * Only a falsePositive entry with a reason suppresses a finding. A false
+ * positive without a reason and a ledger entry for an absent finding are
+ * invalid: the ledger can hide a reviewed false positive, never an omission.
+ */
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+function applyClassificationLedger({ findings, ledger }) {
+  const recorded = new Map((ledger?.findings ?? []).map((entry) => [findingKey(entry), entry]));
+  const currentKeys = new Set((findings ?? []).map(findingKey));
+  const suppressed = [];
+  const blocking = [];
+  const invalid = [];
+
+  for (const finding of findings ?? []) {
+    const entry = recorded.get(findingKey(finding));
+    if (entry !== undefined && entry.classification === CLASSIFICATION.FALSE_POSITIVE) {
+      if (typeof entry.reason === 'string' && entry.reason.trim().length > 0) {
+        suppressed.push({ ...finding, reason: entry.reason });
+        continue;
+      }
+      invalid.push({ code: 'CLASSIFICATION_REASON_MISSING', finding });
+      blocking.push(finding);
+      continue;
+    }
+    blocking.push(finding);
+  }
+
+  for (const entry of ledger?.findings ?? []) {
+    if (!currentKeys.has(findingKey(entry))) invalid.push({ code: 'CLASSIFICATION_KEY_UNKNOWN', finding: entry });
+  }
+
+  return { blocking, suppressed, invalid, ok: invalid.length === 0 };
+}
+
 /** CLI entry point. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-440) --for-spec --no-implementation-order`.
 function main() {
   const args = parseArgs();
   if (args.error) {
@@ -265,9 +303,30 @@ function main() {
     sourceSet: args.sourceSet, excludeDirs: args.excludeDirs, includeDot: args.includeDot, classify: args.classify,
     relativeTo: args.dirPath,
   });
-  const result = { ok: findings.length === 0, mode: args.mode, sourceSet: args.sourceSet ?? 'default', total: findings.length, findings };
+  let applied = { blocking: findings, suppressed: [], invalid: [] };
+  if (args.applyClassification) {
+    let ledger = { version: 1, findings: [] };
+    let invalid = [];
+    try {
+      if (fs.existsSync(args.applyClassification)) ledger = JSON.parse(fs.readFileSync(args.applyClassification, 'utf8'));
+    } catch (error) {
+      invalid = [{ code: 'CLASSIFICATION_FILE_INVALID', problem: error.message }];
+    }
+    applied = invalid.length > 0
+      ? { blocking: findings, suppressed: [], invalid }
+      : applyClassificationLedger({ findings, ledger });
+  }
+  const result = {
+    ok: applied.blocking.length === 0 && applied.invalid.length === 0,
+    mode: args.mode,
+    sourceSet: args.sourceSet ?? 'default',
+    total: applied.blocking.length,
+    findings: applied.blocking,
+    suppressedCount: applied.suppressed.length,
+    invalid: applied.invalid,
+  };
   console.log(JSON.stringify(result, null, 2));
-  if (findings.length > 0) process.exitCode = 1;
+  if (!result.ok) process.exitCode = 1;
 }
 
 if (require.main === module) main();
@@ -275,6 +334,7 @@ module.exports = {
   CLASSIFICATION,
   OMISSION_EXCLUDED_DIRS,
   PATTERN_GROUPS,
+  applyClassificationLedger,
   findingKey,
   recordClassification,
   scanDirectory,

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
 /**
@@ -72,6 +73,17 @@ test("C002: resume mode resets the stale queue and forbids asking the human", ()
 test("C002: the documented flags exist in the detector", () => {
   assert.ok(script.includes("--reset"), "--reset is accepted");
   assert.ok(script.includes("--format"), "--format is accepted");
+});
+
+test("C005: the v3 command documents the disposition worklist and the single terminal verdict", () => {
+  assert.ok(/OMISSION-DISPOSITIONS\.json/.test(doc), "the disposition ledger is named");
+  assert.ok(/disposition worklist/i.test(doc), "the worklist is named");
+  assert.ok(/Step 0\.15/.test(doc), "the inventory step is documented");
+  assert.ok(/Step 0\.25/.test(doc), "the worklist step is documented");
+  assert.ok(/Step 0\.3/.test(doc), "the AI disposition step is documented");
+  assert.ok(/predicateVersion|v3 gate/i.test(doc), "the v3 gate is named as the terminal verdict");
+  assert.ok(/never requests? operator approval|no operator approval/i.test(doc), "an approval request is forbidden");
+  assert.ok(/legacy .*gate.*(?:not|never) (?:completion|terminal)|not the terminal verdict/i.test(doc), "the legacy gate is not completion");
 });
 
 test("C006: the command takes no graph argument and resolves the package artifact", () => {

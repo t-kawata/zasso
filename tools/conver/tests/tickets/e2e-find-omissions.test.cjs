@@ -16,8 +16,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const { clauseKey } = require('../../.claude/scripts/tickets/lib/contract-clause.js');
+const { evidenceDigestOf } = require('../../.claude/scripts/tickets/lib/dispositions.js');
 
 const RUNNER = path.resolve(__dirname, '../../.claude/scripts/tickets/find-omissions-run.js');
+const GATE = path.resolve(__dirname, '../../.claude/scripts/tickets/omission-detection-gate.js');
 
 const CONTRACT = { id: 'C001', precondition: 'input is present', postcondition: 'output is stored', invariant: 'state is unchanged' };
 
@@ -156,6 +158,64 @@ test('C006: the same two-step semantics hold for a non-C### explicit-manifest fi
     const second = run(cwd);
     assert.equal(second.json.createdTickets, 0);
     assert.equal(second.json.phasesCreated, 0);
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+/** A package whose only clause has no applicability declaration. */
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+function dispositionFixture() {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'px440-e2e-dispositions-'));
+  const text = 'the obligation is declared';
+  const key = clauseKey({ scope: 'pkg-alpha', contractId: 'OBL-alpha', element: 'precondition', text });
+  fs.writeFileSync(path.join(cwd, 'CONTRACT-INVENTORY-CONFIG.json'), JSON.stringify({
+    adapter: { id: 'fixture-adapter', version: 1, scope: 'pkg-alpha', contractIdScope: 'global', elements: ['precondition'] },
+    sources: [{ kind: 'manifest', artifact: 'CONTRACT-MANIFEST.json', clauses: [{ contractId: 'OBL-alpha', element: 'precondition', text }] }],
+  }));
+  fs.writeFileSync(path.join(cwd, 'Tickets.json'), JSON.stringify({ title: 'fixture', round: 1, metadata: {}, phases: [] }));
+  fs.writeFileSync(path.join(cwd, 'TEST-MANIFEST.json'), JSON.stringify({ version: 1, tests: [] }));
+  return { cwd, key };
+}
+
+/** Write one verified NOT_APPLICABLE disposition. */
+// [::TICKET::] PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-440 --for-spec --no-implementation-order`.
+function writeDisposition(cwd, key) {
+  const evidence = [{ file: 'norm.md', line: 1 }];
+  fs.writeFileSync(path.join(cwd, 'OMISSION-DISPOSITIONS.json'), JSON.stringify({
+    version: 1,
+    rules: [{ id: 'R-NA-1', kind: 'not-applicable', normativeSource: 'HANDOVER003 5.5' }],
+    dispositions: [{
+      key,
+      status: 'NOT_APPLICABLE_VERIFIED',
+      ruleId: 'R-NA-1',
+      normativeSource: 'HANDOVER003 5.5',
+      evidence,
+      evidenceDigest: evidenceDigestOf(evidence),
+    }],
+  }));
+}
+
+test('C006: an unclassified clause becomes a worklist, then a verified disposition completes', () => {
+  const { cwd, key } = dispositionFixture();
+  try {
+    const reportOnly = run(cwd, ['--report-only']);
+    assert.equal(reportOnly.status, 10);
+    assert.equal(reportOnly.json.remainder, 1);
+    assert.equal(reportOnly.json.worklist.unclassified, 1);
+    assert.equal(fs.existsSync(path.join(cwd, 'CONTRACT-INVENTORY.json')), false);
+    assert.equal(fs.existsSync(path.join(cwd, 'OMISSION-CLASSIFICATION-WORKLIST.json')), false);
+
+    writeDisposition(cwd, key);
+    const applied = run(cwd);
+    assert.equal(applied.status, 0);
+    const coverage = JSON.parse(fs.readFileSync(path.join(cwd, 'CONTRACT-COVERAGE.json'), 'utf8'));
+    assert.equal(coverage.remainder.remainder, 0);
+    assert.equal(fs.existsSync(path.join(cwd, 'OMISSION-CONVERGENCE-V3.json')), true);
+
+    const gate = spawnSync(process.execPath, [GATE, '--cwd=' + cwd, '--tickets=Tickets.json', '--require-converged'], { cwd, encoding: 'utf8' });
+    assert.equal(gate.status, 0);
+    assert.equal(JSON.parse(gate.stdout).predicateVersion, 3);
   } finally {
     fs.rmSync(cwd, { recursive: true, force: true });
   }
