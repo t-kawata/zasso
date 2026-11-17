@@ -28,9 +28,24 @@ if (!existsSync(join(skillRoot, 'PRE-OKF-ORIGINAL.md')) || !existsSync(join(skil
   process.exit(1);
 }
 
+// The execution assets are part of the portable skill. The ledger decides
+// which roots to copy; an empty list is a valid document-only build.
+const coveragePath = join(skillRoot, 'source/asset-coverage.json');
+if (!existsSync(coveragePath)) {
+  process.stderr.write('install: source/asset-coverage.json missing\n');
+  process.exit(1);
+}
+const { asset_roots: assetRoots = [] } = JSON.parse(readFileSync(coveragePath, 'utf8'));
+for (const assetRoot of assetRoots) {
+  if (!existsSync(join(skillRoot, assetRoot))) {
+    process.stderr.write(`install: asset root missing: ${assetRoot}\n`);
+    process.exit(1);
+  }
+}
+
 mkdirSync(join(skillDir, 'dist'), { recursive: true });
 cpSync(join(skillRoot, 'dist/skill.mjs'), join(skillDir, 'dist/skill.mjs'));
-for (const part of ['okf-core', 'scripts', 'okf', 'source']) {
+for (const part of ['okf-core', 'scripts', 'okf', 'source', ...assetRoots]) {
   if (existsSync(join(skillRoot, part))) cpSync(join(skillRoot, part), join(skillDir, part), { recursive: true });
 }
 mkdirSync(join(skillDir, 'tests/fixtures/runtime'), { recursive: true });

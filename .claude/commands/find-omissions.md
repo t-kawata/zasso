@@ -117,8 +117,32 @@ node "$CLAUDE_DIR/scripts/tickets/omission-detection-gate.js" --cwd=. --tickets=
 ```
 
 gate exit≠0 → uncovered / notMeasured / blocked / calibration failed / convergence not reached: repair and re-run; do not proceed.
-report-only target (gaia / crystal / doors): pass `--report-only` to both commands; no file is written.
+report-only target (any package): pass `--report-only` to the scripts named below; no file is written.
 then Step 1 unchanged.
+
+### Step 0.1–0.5 — v3 measured coverage full flow (non-interactive)
+
+The v3 flow is one non-interactive script. The operator never invokes these steps separately.
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/find-omissions-run.js" --cwd=.
+```
+
+- Step 0.1 inventory: `build-contract-inventory.js --cwd=.` — canonical clauses from normative artifacts only.
+- Step 0.2 test index: `build-test-index.js --cwd=.` — every configured test-root file indexed or reported.
+- Step 0.3 coverage: `scan-clause-coverage.js --cwd=.` — mapped, proved, remainder.
+- Step 0.4 proofs: `run-detection-proofs.js --cwd=. --proofs=changed` — localized mutation, observed failure, byte restore.
+- Step 0.5 gate: `omission-detection-gate.js` v3 — ordered inventory, test-index, coverage, proof, repair, remainder, debt, convergence and anti-gaming gates.
+
+Exit contract:
+- exit 0 — complete: remainder = 0, no open ticket, no pending repair.
+- exit 10 — measured and incomplete, or a repair remains.
+- A preflight or internal script error is converted to a repair item or a diagnostic repair ticket and reported as 10; it never stops the loop.
+- Completed tickets are never reopened; their status is not changed. A live open owner is reused.
+- No project-condition stop: a missing adapter, runner, inventory or proof environment follows the repair ladder and becomes an automatic repair or a deduplicated repair ticket.
+- Terminal condition: remainder = 0, no open ticket, no pending repair.
+
+This block is additive. The preflight, Steps 1–11 and the reverse section below are unchanged.
 
 ### Step 1 — Re-ticketize the consolidated units (mandatory)
 

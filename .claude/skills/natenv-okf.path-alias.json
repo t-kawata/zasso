@@ -1,9 +1,0 @@
-{
-  "schema": "okf-path-alias/v1",
-  "input_roots": [
-    "/Users/kawata/shyme/zasso"
-  ],
-  "aliases": {
-    "sources/pre-okf-original.md": "tools/conver/.claude/skills/natenv-okf/PRE-OKF-ORIGINAL.md"
-  }
-}

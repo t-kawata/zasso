@@ -16,6 +16,8 @@ const path = require('node:path');
 const { inferTicketKey, toOmissionTicket } = require('./omission-gap-scan.js');
 const { FINDING_CLASS } = require('./lib/omission-convergence.js');
 const { writeTemporaryThenRename } = require('./lib/atomic-write.js');
+const { isCompletedStatus } = require('./lib/ticket-status.js');
+const { findTicketRecord, resolveRootTicketKey } = require('./add-omission-ticket.js');
 
 const INDEX_FILE_NAME = 'OMISSION-TICKET-INDEX.json';
 const BACKLOG_FILE_NAME = 'OMISSION-IMPROVEMENT-BACKLOG.json';
@@ -109,6 +111,134 @@ function applyFindings({ cwd, ticketsPath = null, report, state = null, reportOn
   return { createdTickets, ticketedKeys, backlog, designQueue, state: index };
 }
 
+/** The key of one ticket record. */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function ticketKeyOfRecord(phaseId, ticketId) {
+  return phaseId === -1 ? 'PX-' + String(ticketId) : 'P' + String(phaseId) + '-' + String(ticketId);
+}
+
+/** Flatten the ticket document with each record's key. */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function flattenTicketRecords(ticketsData) {
+  return (ticketsData?.phases ?? []).flatMap((phase) => (phase.tickets ?? []).map((ticket) => ({
+    key: ticketKeyOfRecord(phase.id, ticket.id),
+    phaseId: phase.id,
+    ticket,
+  })));
+}
+
+/** The next real phase id. The PX phase is not an omission phase. */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function nextOmissionPhaseId(phases) {
+  const real = phases.filter((phase) => phase.id >= 0).map((phase) => phase.id);
+  return real.length === 0 ? 0 : Math.max(...real) + 1;
+}
+
+/** Every key in a clone chain, including the ticket itself. */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function cloneChainKeys({ ticketKey, ticketsData }) {
+  const seen = new Set();
+  let current = ticketKey;
+  for (;;) {
+    if (seen.has(current)) return seen;
+    seen.add(current);
+    const ticket = findTicketRecord(ticketsData, current);
+    const next = ticket?.originalTicketKey ?? ticket?.origin?.sourceTicket ?? null;
+    if (typeof next !== 'string' || next.length === 0 || next === current) return seen;
+    current = next;
+  }
+}
+
+/** Whether an open ticket owns the clause's contract. */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function ownsContract(ticket, contractId) {
+  if (typeof contractId !== 'string' || contractId.length === 0) return false;
+  return (ticket?.contracts ?? []).some((contract) => String(contract.id) === contractId);
+}
+
+/**
+ * Plan the minimal ticket set for one remainder, without writing.
+ *
+ * One open owner per canonical group is reused. A completed owner is never
+ * reopened; an unproved clause under it becomes a remediation ticket whose
+ * rootTicketKey points at the completed owner. At most one omission phase is
+ * created, and a second identical call creates nothing.
+ *
+ * @param {{remainder:object[], ticketsData:object, phases:object[]}} input
+ * @returns {{created:object[], reused:string[], reusedTickets:number, phasesCreated:number, backlog:object[], ticketsData:object, phases:object[]}}
+ */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function planOmissionTickets({ remainder, ticketsData, phases = null }) {
+  const workingPhases = (phases ?? ticketsData?.phases ?? []).map((phase) => ({ ...phase, tickets: [...(phase.tickets ?? [])] }));
+  const workingData = { ...(ticketsData ?? {}), phases: workingPhases };
+  const records = flattenTicketRecords(workingData);
+  const groupOwner = new Map();
+  const created = [];
+  const reused = [];
+  const backlog = [];
+
+  for (const entry of remainder ?? []) {
+    if (typeof entry?.key !== 'string' || entry.key.length === 0) {
+      backlog.push(entry);
+      continue;
+    }
+    const group = typeof entry.group === 'string' && entry.group.length > 0 ? entry.group : entry.key;
+    if (groupOwner.has(group)) {
+      if (!reused.includes(groupOwner.get(group))) reused.push(groupOwner.get(group));
+      continue;
+    }
+    const owner = typeof entry.owner === 'string' && entry.owner.length > 0 ? entry.owner : null;
+    const openOwner = records.find((record) => {
+      if (isCompletedStatus(record.ticket.status)) return false;
+      if (record.ticket.omissionStableKey === group) return true;
+      if (owner !== null && (record.key === owner || resolveRootTicketKey({ ticketKey: record.key, ticketsData: workingData }) === owner || cloneChainKeys({ ticketKey: record.key, ticketsData: workingData }).has(owner))) return true;
+      return ownsContract(record.ticket, entry.contractId);
+    });
+    if (openOwner !== undefined) {
+      groupOwner.set(group, openOwner.key);
+      if (!reused.includes(openOwner.key)) reused.push(openOwner.key);
+      continue;
+    }
+
+    const rootKey = owner === null ? null : resolveRootTicketKey({ ticketKey: owner, ticketsData: workingData });
+    const phaseId = nextOmissionPhaseId(workingPhases);
+    let phase = workingPhases.find((candidate) => candidate.id === phaseId);
+    if (phase === undefined) {
+      phase = { id: phaseId, name: 'Omissions: canonical clause coverage', characteristics: '', tickets: [] };
+      workingPhases.push(phase);
+    }
+    const nextId = phase.tickets.length === 0 ? 1 : Math.max(...phase.tickets.map((ticket) => ticket.id)) + 1;
+    const ticket = {
+      id: nextId,
+      phaseId,
+      status: 'todo',
+      title: 'Omission: ' + group,
+      contracts: [],
+      testUnit: [],
+      testIntegration: [],
+      acceptanceCriteria: [],
+      omissionStableKey: group,
+      rootTicketKey: rootKey,
+      origin: { kind: 'omission', sourceTicket: rootKey },
+    };
+    phase.tickets.push(ticket);
+    records.push({ key: ticketKeyOfRecord(phaseId, nextId), phaseId, ticket });
+    groupOwner.set(group, ticketKeyOfRecord(phaseId, nextId));
+    created.push(ticket);
+  }
+
+  const phasesCreated = created.length > 0 ? 1 : 0;
+  return {
+    created,
+    reused,
+    reusedTickets: reused.length,
+    phasesCreated,
+    backlog,
+    ticketsData: { ...workingData, phases: workingPhases },
+    phases: workingPhases,
+  };
+}
+
 /** CLI entry point. */
 // [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
 function main() {
@@ -127,4 +257,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { BACKLOG_FILE_NAME, DESIGN_QUEUE_FILE_NAME, INDEX_FILE_NAME, applyFindings, sourceTicketOf };
+module.exports = { BACKLOG_FILE_NAME, DESIGN_QUEUE_FILE_NAME, INDEX_FILE_NAME, applyFindings, flattenTicketRecords, planOmissionTickets, sourceTicketOf };

@@ -1,5 +1,8 @@
 {
   "schema": "okf-asset-coverage/v1",
+  "asset_roots": [
+    "EXEC_ASSETS"
+  ],
   "records": [
     {
       "asset_root": "EXEC_ASSETS",

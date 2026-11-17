@@ -27,6 +27,7 @@ const {
   emitInputMissing,
   testRepairRoute,
 } = require('./lib/gate-report.js');
+const { clauseKey } = require('./lib/contract-clause.js');
 
 const GATE = 'verify-contract-delivery';
 const CONTRACT_ELEMENTS = Object.freeze(['precondition', 'postcondition', 'invariant']);
@@ -46,12 +47,26 @@ function isBoundaryContract(contract) {
  * @param {string} ticketsPath
  * @returns {object[]} — frozen findings
  */
-// [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
-function findContractDeliveryGaps(ticket, ticketKey, ticketsPath) {
-  const testEntries = [...(ticket.testUnit || []), ...(ticket.testIntegration || [])];
-  const testExceptions = ticket.testExceptions || [];
+// [::TICKET::] PX-398, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-398|PX-437) --for-spec --no-implementation-order`.
+function findContractDeliveryGaps(ticket, ticketKey, ticketsPath, options = {}) {
+  const mode = options.mode === 'coverage' ? 'coverage' : 'text';
   const rerun = gateRerun(GATE, ticketKey, ticketsPath);
   const findings = [];
+
+  if (mode === 'coverage' && (options.coverage === null || options.coverage === undefined)) {
+    return [{
+      ...gateFinding({
+        code: 'REPAIR_REQUIRED',
+        asset: ticketKey,
+        problem: 'no CONTRACT-COVERAGE.json is available; rebuild the coverage map',
+        rerun,
+        fix: testRepairRoute({ ticketKey, contractId: '*', asset: ticketKey, instruction: 'Run scan-clause-coverage.js and re-run the gate' }),
+      }),
+      heuristic: false,
+    }];
+  }
+
+  const coverageByKey = new Map((options.coverage?.clauses ?? []).map((entry) => [entry.key, entry]));
 
   for (const contract of ticket.contracts || []) {
     if (!contract || typeof contract.id !== 'string' || contract.id.length === 0) continue;
@@ -61,23 +76,46 @@ function findContractDeliveryGaps(ticket, ticketKey, ticketsPath) {
     for (const element of CONTRACT_ELEMENTS) {
       const clause = contract[element];
       if (typeof clause !== 'string' || clause.trim().length === 0) continue;
+      const asset = ticketKey + '/' + contract.id + '/' + element;
+
+      if (mode === 'coverage') {
+        const key = clauseKey({ scope: options.scope ?? 'package', contractId: contract.id, element, text: clause });
+        const entry = coverageByKey.get(key);
+        if (entry?.status === 'PROVEN') continue;
+        findings.push({
+          ...gateFinding({
+            code,
+            asset,
+            problem: 'contract ' + contract.id + ' ' + element + ' is not PROVEN in the coverage map',
+            rerun,
+            fix: testRepairRoute({ ticketKey, contractId: contract.id, asset, instruction: 'Prove ' + key + ' and record it in CONTRACT-COVERAGE.json' }),
+          }),
+          heuristic: false,
+          coverageStatus: entry?.status ?? 'UNMAPPED',
+        });
+        continue;
+      }
+
+      const testEntries = [...(ticket.testUnit || []), ...(ticket.testIntegration || [])];
+      const testExceptions = ticket.testExceptions || [];
       if (assetIsNamedByTest({ assetId: contract.id, clause, testEntries })) continue;
       if (hasJustifiedException(testExceptions, contract.id, clause)) continue;
-
-      const asset = ticketKey + '/' + contract.id + '/' + element;
-      findings.push(gateFinding({
-        code,
-        asset,
-        problem: (boundary ? 'boundary ' : '') + 'contract ' + contract.id
-          + ' ' + element + ' is not named by any test or justified exception',
-        rerun,
-        fix: testRepairRoute({
-          ticketKey,
-          contractId: contract.id,
+      findings.push({
+        ...gateFinding({
+          code,
           asset,
-          instruction: 'Add a test that names ' + contract.id + ' and its ' + element + ': ' + clause,
+          problem: (boundary ? 'boundary ' : '') + 'contract ' + contract.id
+            + ' ' + element + ' is not named by any test or justified exception',
+          rerun,
+          fix: testRepairRoute({
+            ticketKey,
+            contractId: contract.id,
+            asset,
+            instruction: 'Add a test that names ' + contract.id + ' and its ' + element + ': ' + clause,
+          }),
         }),
-      }));
+        heuristic: true,
+      });
     }
   }
 

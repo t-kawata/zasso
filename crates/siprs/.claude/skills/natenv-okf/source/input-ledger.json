@@ -1,17 +1,248 @@
 {
   "schema": "okf-input-ledger/v1",
   "roots": [
-    "sources"
+    "sources",
+    "EXEC_ASSETS"
   ],
   "inputs": [
     {
-      "path": "sources/implementation-handbook.md",
+      "path": "sources/pre-okf-original.md",
       "status": "included",
       "reason": "markdown with claim-bearing blocks"
+    },
+    {
+      "path": "EXEC_ASSETS/.gitignore",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/AGENTS.md",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/Dockerfile",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/MANIFEST.json",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/README.md",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/agent-run.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/bootstrap/freeze.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/bootstrap/macos.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/bootstrap/ubuntu.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/bootstrap/verified-download.ps1",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/bootstrap/windows.ps1",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/compose.timeout.json",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/compose.tls.json",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/config/asterisk/extensions.conf",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/config/asterisk/pjsip.conf",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/config/asterisk/rtp.conf",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/config/coturn.conf",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/config/fixture.json",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/doctor.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/generate.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/inventory.example.json",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/jobs/infra-state.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/jobs/mac-state.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/jobs/windows-state.ps1",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/lab",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/metadata/source-locators.json",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/requirements-media.txt",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/capture.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/fixture.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/inject.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/link.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/linux-endpoint.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/media.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/nat-observe.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/node.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/observer.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/outer-relay.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/policy.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/probe.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/state.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/scripts/tls.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/validate.py",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/validation/report.json",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/vm/macos-collect.sh",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/vm/windows-collect.ps1",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
+    },
+    {
+      "path": "EXEC_ASSETS/vm/windows-create.ps1",
+      "status": "included",
+      "reason": "execution asset indexed as an OKF concept"
     }
   ],
   "counts": {
-    "included": 1,
+    "included": 47,
     "excluded": 0
   }
 }

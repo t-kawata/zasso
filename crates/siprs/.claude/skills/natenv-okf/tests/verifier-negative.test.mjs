@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const SKILL = fileURLToPath(new URL('../', import.meta.url));
 const SOURCE_ROOT = fileURLToPath(new URL('../okf', import.meta.url));
-const ENTRY = 'pages/implementation-handbook/preamble';
+const ENTRY = 'pages/pre-okf-original/preamble';
 
 function runCli(skillRoot, args) {
   return spawnSync(process.execPath, [join(skillRoot, 'scripts/cli.mjs'), ...args], { encoding: 'utf8' });
@@ -38,7 +38,7 @@ test('over-budget context refuses instead of truncating', () => {
 test('an absent concept id is an error with candidates, never an empty answer', () => {
   const sandbox = sandboxCopy();
   try {
-    const result = runCli(sandbox, ['show', 'pages/implementation-handbook/absent', '--root', join(sandbox, 'okf')]);
+    const result = runCli(sandbox, ['show', 'pages/pre-okf-original/absent', '--root', join(sandbox, 'okf')]);
     assert.equal(result.status, 2);
     assert.match(`${result.stdout}${result.stderr}`, /candidate/i);
   } finally {
@@ -49,7 +49,7 @@ test('an absent concept id is an error with candidates, never an empty answer', 
 test('lint rejects a broken body link', () => {
   const sandbox = sandboxCopy();
   try {
-    const conceptPath = join(sandbox, 'okf', 'pages/implementation-handbook/preamble.md');
+    const conceptPath = join(sandbox, 'okf', 'pages/pre-okf-original/preamble.md');
     writeFileSync(conceptPath, `${readFileSync(conceptPath, 'utf8')}\n[gone](./gone.md)\n`);
     const result = runCli(sandbox, ['validate', '--mode', 'lint', '--root', join(sandbox, 'okf')]);
     assert.equal(result.status, 1);
@@ -62,7 +62,7 @@ test('lint rejects a broken body link', () => {
 test('conformance rejects a concept without frontmatter', () => {
   const sandbox = sandboxCopy();
   try {
-    writeFileSync(join(sandbox, 'okf', 'pages/implementation-handbook/preamble.md'), '# No frontmatter\n');
+    writeFileSync(join(sandbox, 'okf', 'pages/pre-okf-original/preamble.md'), '# No frontmatter\n');
     const result = runCli(sandbox, ['validate', '--mode', 'conformance', '--root', join(sandbox, 'okf')]);
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FRONTMATTER_MISSING/);

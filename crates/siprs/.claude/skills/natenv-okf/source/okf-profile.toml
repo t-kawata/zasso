@@ -1,10 +1,10 @@
 schema = "okf-profile/v1"
-domain = "natlab-cli-only-single-host-real-packet-wan-nat-voip-p2p-laboratory"
+domain = "native-os-wan-nat-voip-p2p-laboratory-agent-execution-specification"
 language = "en"
 types = ["Page", "Claim", "Entity", "Procedure", "Reference"]
 
 [discovery]
-aliases = ["sources/implementation-handbook.md"]
+aliases = ["sources/pre-okf-original.md"]
 source_roots = ["."]
 globs = ["**/*.md"]
 

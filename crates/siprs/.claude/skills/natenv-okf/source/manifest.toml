@@ -1,8 +1,8 @@
 spec_version = "okf-source-manifest/v1"
-source_set_sha256 = "30dd70f67bf56e2a7df2e31ff8e398fd0fb8dc2a8f46d29d71d4aa68062b2571"
+source_set_sha256 = "20195b0610be571fd165c34bc389797395ac89282eee57f46e304018314f3a73"
 
 [[file]]
-path = "sources/implementation-handbook.md"
-sha256 = "ab2d0ddfd93ec1f195fe426c5609b4f3826fd4f6c7c935fe4b3adbeb14f2102a"
-lines = "2987"
-bytes = "105746"
+path = "sources/pre-okf-original.md"
+sha256 = "c8c727d8a1ef24049b979271998ac2ad1f2f0af137b2b56c320745bc836c5648"
+lines = "838"
+bytes = "68693"

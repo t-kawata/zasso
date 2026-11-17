@@ -1,3 +1,4 @@
+// [::TICKET::] PX-438 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-438 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // @verifies C010
@@ -26,6 +27,7 @@ export const COMMAND_SECTIONS = Object.freeze([
   '## Generated Skill Layout',
   '## OKF Bundle',
   '## Traversal Manual',
+  '## Execution Assets',
   '## Procedure',
   '## Verification Gates',
   '## Failure Modes',
@@ -37,6 +39,24 @@ export const REQUIRED_SCRIPTS = Object.freeze([
   'okf-verify/checks.json',
   'okf-core/index.mjs',
   'okf-core/cli.mjs',
+  'okf-asset/index.mjs',
+]);
+
+export const ASSET_FAILURE_CODES = Object.freeze([
+  'ASSET_REFERENCE_MISSING',
+  'ASSET_ROOT_MISSING',
+  'ASSET_OUTSIDE_ROOT',
+  'ASSET_SECRET_EXCLUDED',
+  'ASSET_NOT_ENGLISH',
+  'ASSET_SIZE_EXCLUDED',
+  'ASSET_BINARY_INDEXED',
+  'ASSET_ALIAS_DUPLICATE',
+  'ASSET_SEMANTIC_OMISSION',
+  'ASSET_SEMANTIC_PATH_MISSING',
+  'ASSET_COVERAGE_GAP',
+  'ASSET_MANIFEST_MISSING',
+  'ASSET_HASH_MISMATCH',
+  'ASSET_INSTALL_MISSING',
 ]);
 
 export const FORBIDDEN_COMMAND_TEXT = Object.freeze([
@@ -122,6 +142,9 @@ export function auditOkfCommand(text) {
   if (FORBIDDEN_URL.test(text)) findings.push({ code: 'EXTERNAL_REFERENCE', detail: 'URL' });
   for (const script of REQUIRED_SCRIPTS) {
     if (!text.includes(script)) findings.push({ code: 'MISSING_SCRIPT', detail: script });
+  }
+  for (const code of ASSET_FAILURE_CODES) {
+    if (!text.includes(code)) findings.push({ code: 'MISSING_ASSET_CODE', detail: code });
   }
   if (!text.includes('check_set_version')) findings.push({ code: 'MISSING_CHECK_VERSION', detail: 'check_set_version' });
   if (!text.includes('checks.json')) findings.push({ code: 'MISSING_CHECK_CONTRACT', detail: 'checks.json' });

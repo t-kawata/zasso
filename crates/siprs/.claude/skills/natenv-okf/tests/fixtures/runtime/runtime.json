@@ -1,7 +1,7 @@
 {
   "schema": "okf-runtime-fixture/v1",
-  "entryConcept": "pages/implementation-handbook/preamble",
-  "displayConcept": "pages/implementation-handbook/0-status-scope-non-negotiable-truth",
+  "entryConcept": "pages/pre-okf-original/0-execution-contract",
+  "displayConcept": "pages/pre-okf-original/0-execution-contract",
   "limits": {
     "contextBudgetBytes": 1000000,
     "smallBudgetBytes": 1,

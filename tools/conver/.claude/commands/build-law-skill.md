@@ -148,6 +148,11 @@ set remains the invocation's source set.
 ├── source/applicability.json   # only when the free-form block is a specific-case trigger
 ├── source/source-view.md
 ├── source/source.baseline.md
+├── source/asset-manifest.toml
+├── source/asset-inventory.json
+├── source/asset-coverage.json
+├── <asset-root>/           # supplied enforcement assets; name is declared or discovered
+├── okf/assets/<asset>.md   # one asset concept per included file
 ├── package.json
 ├── THIRD_PARTY_NOTICES.md
 ├── scripts/{cli.mjs, commands.mjs, ingest.mjs, lib/}
@@ -162,12 +167,46 @@ set remains the invocation's source set.
 
 Sibling: `<name>-law.path-alias.json` — outside the skill tree; holds `input_roots` and alias → original path.
 
+## Execution Assets
+
+Assets are first-class inputs: checkers, policy scripts, fixtures, schemas,
+templates, and host/bootstrap files. Discovery precedence is explicit input
+manifest, bundle directory, specification reference or asset map, a validated
+AI semantic proposal, content heuristics, then none. The command must not
+require a fixed directory name.
+
+Every included asset becomes one concept under `okf/assets/` with its exact
+text, `x-asset-sha256`, `x-source-span`, and `x-requires` to the source or rule
+it enforces. Law assets also carry `x-enforces: [RULE-ID...]` and a
+`source/rule-concepts.json` link. The asset ledgers are
+`source/asset-manifest.toml`, `source/asset-inventory.json`, and
+`source/asset-coverage.json`; `source/input-ledger.json` records every asset
+decision.
+
+A fact-bearing asset is a `Procedure`. `source/delivery.json` must mark it
+`must` or `reference` with a `delivered_by` id. An unlinked asset is
+`ASSET_RULE_UNLINKED`; a missing delivery decision is
+`ASSET_DELIVERY_OMISSION`. `law-asset/integrate.mjs` is the single bridge from
+discovery to rule link, delivery, asset concepts, ledgers, and install roots.
+
+Policy is data. The manifest `[assets]` may set `max_file_bytes`,
+`max_total_bytes`, `max_candidates`, `include_binary`, and `low_confidence`;
+the profile `[limits]` may set the `asset_`-prefixed variants. Defaults live in
+`okf-asset/constants.mjs`.
+
+No execution assets were provided is a normal outcome: write zero-count asset
+ledgers, no asset concepts, and a `SKILL.md` section that states the absence.
+Do not fail because an asset directory is absent. Fail only on a missing strong
+signal, a path outside the root, a secret/CJK/oversized asset, a duplicate
+concept id, an unlinked law asset, or an undelivered fact-bearing asset.
+
 ## Procedure
 
 ### Step 0: Baseline
 
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-skill.mjs`.
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-law-integration.mjs` and `$CLAUDE_DIR/scripts/amend-rfc-up/law-integration/contract.mjs`.
+- Require `$CLAUDE_DIR/scripts/amend-rfc-up/law-asset/index.mjs`; it owns asset discovery, measurement, rule linking, delivery, ledgers, and verification.
 - Read `$CLAUDE_DIR/scripts/amend-rfc-up/law-verify/checks.json`; require `check_set_version: 3`, the named checks, and `both` / `dev` modes.
 - Missing or mismatched → stop before any write. Never copy, patch, or replace the canonical verifier.
 
@@ -193,6 +232,13 @@ Sibling: `<name>-law.path-alias.json` — outside the skill tree; holds `input_r
 - Multiple sources without a package path → concatenate in manifest order, each block preceded by `<!-- pre-okf-source: <alias> -->`.
 - Write `$STAGING_DIR/source/pre-okf-original.json`: `schema: pre-okf-original/v1`, `source` or `sources`, `sha256`, `bytes`.
 - The file stays outside `okf/` and `source/`; never add it to the manifest, the input ledger, the coverage ledger, or the redaction map. Missing or hash drift → `PRE_OKF_ORIGINAL_MISSING` / `PRE_OKF_ORIGINAL_DRIFT`.
+
+### Step 2.6: Discover and measure assets
+
+- Run `discoverAssets` from `law-asset` with the source paths, source root, free-form block, and any manifest. It selects the mode and records included, excluded, and ambiguous entries.
+- If the free-form block or source prose describes assets, write `$LAW_OUT/asset-plan.proposal.json` with evidence and confidence; validate it with the shared semantic validator before accepting it.
+- Measure each included asset and classify it. `law-asset/rule-link.mjs` maps it to Rule IDs and sets `x-enforces`; `law-asset/delivery.mjs` binds fact-bearing assets to `source/delivery.json`.
+- `asset_mode: none` is valid: emit zero-count ledgers and no asset concepts.
 
 ### Step 3: Profile
 
@@ -247,7 +293,11 @@ Untestable statement → refine before extraction.
 - Apply to text + heading path. Unknown proper noun → review list.
 - `source/redaction.review.json`: every candidate (capitalized token, or token already in the map) → `redacted` / `allowlist` / `generic`; `redacted` requires a category; over-redacted normative constant fails.
 - `<name>-law.path-alias.json`: `law-path-alias/v1`; `input_roots` + alias → original; placed outside the skill tree; every distributable path is an alias.
-- `source/input-ledger.json`: `law-input-ledger/v1`; every input under the declared roots → `included` or `excluded` + reason + source phrase; included ↔ manifest.
+- `source/input-ledger.json`: `law-input-ledger/v1`; every input under the declared roots → `included` or `excluded` + reason + source phrase; included ↔ manifest; asset entries carry `kind: asset`.
+- `source/asset-manifest.toml`: `okf-asset-manifest/v1`; one `[[file]]` per included asset with path, SHA-256, bytes, lines, concept, and type.
+- `source/asset-inventory.json`: `okf-asset-inventory/v1`; every asset path, concept id, hash, and line count.
+- `source/asset-coverage.json`: `okf-asset-coverage/v1`; `asset_roots`, per-root records, and zero `unmappedFiles` / `unmappedLines`; zero assets write `asset_roots: []` and zero counts.
+- `source/rule-concepts.json` includes every asset-to-rule link produced by `law-asset/rule-link.mjs`.
 - `source/skill-registry.toml`: invariants + runnable verification.
 
 ### Step 6: Engine TDD
@@ -287,6 +337,7 @@ Red first: failing tests per library.
 - `source/delivery.json`: `law-delivery/v1`; defaults + every normative or fact-bearing Atom → `must` or explicit `reference` with a specific reason and `delivered_by`. No silent delivery omission.
 - Fact-bearing: `Rule`; normative `Paragraph`/`List`; non-empty `CodeBlock`; `Table` whose header carries a fact column.
 - A fact-bearing `Table`/`Paragraph`/`List` left `reference` requires `delivered_by` IDs that exist in the lock.
+- A fact-bearing asset (`Procedure`) is a delivery obligation: `source/delivery.json` marks it `must` or `reference` with `delivered_by`; otherwise `ASSET_DELIVERY_OMISSION`.
 - Inventory and delivery are deterministic and reproducible from the source set.
 
 ### Step 7: OKF
@@ -296,7 +347,8 @@ Red first: failing tests per library.
 - Rule frontmatter: `type`, `title`, `description`, `sources`, `generated`, `verified`, `status`, `x-rule-id`, `x-rule-class`, `x-applies-to`, `x-parent`, `x-source-part`, `x-verification`, `x-enforcement`, `x-phase`, `x-requires`.
 - Section frontmatter: `type`, `title`, `description`, `sources`, `generated`, `verified`, `status`.
 - `okf/index.md` is a linked list; `okf/log.md` uses `YYYY-MM-DD` headings.
-- `source/rule-concepts.json` maps every rule id to its concept id, path, phase, requires, applies_to, source alias, and source span.
+- `source/rule-concepts.json` maps every rule id to its concept id, path, phase, requires, applies_to, source alias, and source span; asset links add the asset path and `x-enforces` rule ids.
+- Every included asset is one concept at `okf/assets/<asset>.md` with exact text, `x-asset-sha256`, `x-source-span`, `x-requires`, and `x-enforces`. Binary assets get a metadata concept and are shipped raw.
 - `source/source-view.md` = manifest order, `# Source: <alias>` headers, redacted source text; `source/source.baseline.md` byte-identical.
 - When the free-form block is a specific-case trigger, write `source/applicability.json`; the generated `applies` reads it.
 - `SKILL.md` description includes the AI-authored instruction; an `## Applicability` section repeats it verbatim.
@@ -305,12 +357,12 @@ Red first: failing tests per library.
 ### Step 8: Bundle and installer
 
 - `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map, `createRequire` banner for CommonJS dependencies; resolves `okf-core/` and `okf/` siblings; `absWorkingDir` pinned to the skill root; atomic write.
-- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `okf/`, `source/`, `templates/`, `PRE-OKF-ORIGINAL.md`, `package.json`, `THIRD_PARTY_NOTICES.md`, `tests/fixtures/runtime/runtime.json`, `tests/fixtures/host/`; no build, judge, or target edit.
+- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `okf/`, `source/`, `templates/`, `PRE-OKF-ORIGINAL.md`, `package.json`, `THIRD_PARTY_NOTICES.md`, `tests/fixtures/runtime/runtime.json`, `tests/fixtures/host/`, and every root listed in `source/asset-coverage.json` `asset_roots`. The installer reads the ledger; it does not hardcode a directory name. Missing or extra assets are `ASSET_INSTALL_MISSING` / `ASSET_HASH_MISMATCH`; empty roots install successfully; no build, judge, or target edit.
 
 ### Step 9: Test matrix
 
 - `node --test`; optional dist/esbuild test reported, never pass.
-- Required: `atom-lock`, `redaction`, `generic-boundary`, `skill-runtime`, `integration`, `bootstrap`, `scaffold`, `context-phases`, `render`, `applicability`, `trigger-instruction`, `pipeline-checkpoints`, `source-rederivation`, `installed-parity`, `verifier-negative`.
+- Required: `atom-lock`, `redaction`, `generic-boundary`, `skill-runtime`, `integration`, `bootstrap`, `scaffold`, `context-phases`, `render`, `applicability`, `trigger-instruction`, `pipeline-checkpoints`, `source-rederivation`, `installed-parity`, `verifier-negative`, `assets`, `asset-rule-link`, `asset-delivery`, `asset-e2e`, `asset-installed-parity`.
 - `pipeline-checkpoints`: find host root (`LAW_HOST_ROOT`, else walk up to `.claude/commands/make-ticket.md`); assert the six canonical lines from `## Integration Contract`; assert `SKILL.md` names the five commands; use bundled `tests/fixtures/host/` only when no host; never skip.
 - Include determinism, performance, forbidden-token, leak, coverage, style: `STYLE_NOT_ENGLISH`, `STYLE_NOT_TELEGRAPHIC`, `STYLE_LOW_DENSITY`, `STYLE_REDUNDANT`.
 - Never `make test`.
@@ -368,7 +420,8 @@ Require exit 0, 19/19 installed required checks `machine_verified`, source/insta
 ### Step 13: Acceptance
 
 - Acceptance set = the invocation's source set. No fixed external fixture, document name, or path.
-- Per build: run end to end; record source hashes, lines, Atom/Rule counts, gaps, overlaps, mode, `check_set_version`, closure, installed SHA, integration status, integration closure, six line hashes in `$LAW_OUT/law-builds.json`.
+- Per build: run end to end; record source hashes, lines, Atom/Rule counts, gaps, overlaps, mode, asset modes, asset roots, asset files/concepts, zero unmapped asset counts, asset tree SHA, `ASSET_RULE_UNLINKED` / `ASSET_DELIVERY_OMISSION` counts, `check_set_version`, closure, installed SHA, integration status, integration closure, six line hashes in `$LAW_OUT/law-builds.json`.
+- Asset mutations: remove an asset concept → `ASSET_COVERAGE_GAP`; tamper an asset → `ASSET_HASH_MISMATCH`; remove an asset root → `ASSET_INSTALL_MISSING`; unlink a rule → `ASSET_RULE_UNLINKED`; omit delivery → `ASSET_DELIVERY_OMISSION`; weak signal only → mode none; rename the root → same concept set and asset tree digest.
 - Producer proof: a synthetic mini law skill verified in dev and installed modes.
 - Mutation matrix:
 
@@ -475,6 +528,20 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | `TRIGGER_CLI_LEAK` | line carries exact CLI | remove the flag; re-check |
 | `TRIGGER_TOO_LONG` | line exceeds the no-noise boundary | compress; re-check |
 | `TRIGGER_AMBIGUOUS` | free-form trigger cannot be structured | refine the conditions; no install |
+| `ASSET_REFERENCE_MISSING` | a strong source reference does not resolve | add the asset or record an explicit exclusion; no install |
+| `ASSET_ROOT_MISSING` | a declared asset root is absent | fix the manifest or the tree; no install |
+| `ASSET_OUTSIDE_ROOT` | an asset resolves outside the declared root | keep the asset inside the root; no install |
+| `ASSET_SECRET_EXCLUDED` | an asset is secret-bearing | exclude it; never ship it |
+| `ASSET_NOT_ENGLISH` | an asset contains CJK | exclude or translate explicitly; no install |
+| `ASSET_SIZE_EXCLUDED` | an asset exceeds the size limit | metadata-only concept or explicit exclusion |
+| `ASSET_BINARY_INDEXED` | a binary asset is indexed | ship the raw file; no text fence |
+| `ASSET_ALIAS_DUPLICATE` | two assets map to one concept id | rename or disambiguate; no install |
+| `ASSET_COVERAGE_GAP` | assets and concepts or ledgers disagree | repair the ledger or concept set; no install |
+| `ASSET_MANIFEST_MISSING` | the asset manifest is absent | write it; re-verify |
+| `ASSET_HASH_MISMATCH` | a copied asset differs from staging | reinstall; no completion |
+| `ASSET_INSTALL_MISSING` | an installed asset root or file is absent | copy the asset root; no completion |
+| `ASSET_RULE_UNLINKED` | an enforcement asset has no Rule ID link | add `x-enforces`; no install |
+| `ASSET_DELIVERY_OMISSION` | a fact-bearing asset has no delivery decision | add `must` or `reference` with `delivered_by`; no install |
 | `INSTALL_BLOCKED` | copy or post-check fail | restore backup; report |
 
 ## Integration Checkpoints
@@ -518,5 +585,6 @@ Example:
 
 - Every built skill: canonical verifier v3 dev and installed `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass, integration checkpoints present.
 - Every built skill carries `PRE-OKF-ORIGINAL.md` and `source/pre-okf-original.json`, byte-identical to the primary input; every frontier action command is executable; `implementation-check` findings are rendered; the conformance obligation list covers the registry; `$LAW_OUT/law-builds.json` has a non-empty build entry.
+- Assets: every provided strong-signal asset is included or explicitly excluded; every included asset has one concept and one ledger entry; every enforcement asset is linked to a Rule ID; every fact-bearing asset has a delivery decision; `install.js` copies every asset root; zero assets is a valid zero-count build.
 - Integration: generic line and one per-skill trigger line per installed specific-case skill; `--mode check --require-skill` exit 0; no drift, duplicate, location, stale, CLI leak, or too-long; integration closure recorded.
 - Report adoption gaps; never claim V1 as rule-level proof.

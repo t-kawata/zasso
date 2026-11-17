@@ -14,8 +14,8 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 
 const REGISTRY_FILE_NAME = 'omission-detectors.json';
-const REGISTRY_VERSION = 2;
-const SUPPORTED_REGISTRY_VERSIONS = new Set([1, 2]);
+const REGISTRY_VERSION = 3;
+const SUPPORTED_REGISTRY_VERSIONS = new Set([1, 2, 3]);
 
 /** The sixteen surface families the gate must account for. */
 const REQUIRED_SURFACE_FAMILIES = Object.freeze([
@@ -57,7 +57,7 @@ function readJsonIfPresent(filePath) {
 }
 
 /** Validate one registry document. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
 function validateRegistry(document) {
   if (!document || !SUPPORTED_REGISTRY_VERSIONS.has(document.version)) {
     throw new Error('omission-detectors.json must declare a supported version');
@@ -69,7 +69,7 @@ function validateRegistry(document) {
     if (typeof detector.id !== 'string' || detector.id.length === 0) {
       throw new Error('every detector needs a non-empty id');
     }
-    if (!['mechanical', 'judgment'].includes(detector.kind)) {
+    if (!['mechanical', 'judgment', 'inventory', 'proof'].includes(detector.kind)) {
       throw new Error('detector ' + detector.id + ' has an unknown kind');
     }
     if (!Array.isArray(detector.surfaces) || detector.surfaces.length === 0) {
@@ -454,8 +454,49 @@ function removeSyntheticFixture(root) {
   fs.rmSync(root, { recursive: true, force: true });
 }
 
+/** PX-436 — the clause asset kind and its surface projection. */
+const CLAUSE_ASSET_KIND = 'contract-clause';
+const INVENTORY_ASSET_KIND = 'inventory';
+const PROOF_ASSET_KIND = 'proof';
+
+/**
+ * Project every inventory clause into one inspection surface.
+ *
+ * The surface carries the canonical key and the first owner. Ownership is a
+ * separate field because the same clause may be copied into several tickets.
+ *
+ * @param {{inventory:object}} input
+ * @returns {object[]}
+ */
+// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+function enumerateClauseSurfaces({ inventory } = {}) {
+  return (inventory?.clauses ?? [])
+    .map((clause) => ({
+      surface: CLAUSE_ASSET_KIND,
+      assetId: clause.key,
+      ticketKey: (clause.owners ?? [])[0] ?? null,
+      clauseKey: clause.key,
+    }))
+    .sort((left, right) => (left.assetId < right.assetId ? -1 : left.assetId > right.assetId ? 1 : 0));
+}
+
+/**
+ * Resolve an adapter id through the built-in registry.
+ *
+ * @param {{id:string, options?:object}} input
+ * @returns {object|null}
+ */
+// [::TICKET::] PX-436 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-436 --for-spec --no-implementation-order`.
+function dispatchClauseAdapter({ id, options = {} } = {}) {
+  const { resolveAdapter } = require('./adapters/index.js');
+  return resolveAdapter({ id, options }).adapter;
+}
+
 module.exports = {
+  CLAUSE_ASSET_KIND,
   FAMILY_ARTIFACT,
+  INVENTORY_ASSET_KIND,
+  PROOF_ASSET_KIND,
   REGISTRY_FILE_NAME,
   REGISTRY_VERSION,
   REQUIRED_SURFACE_FAMILIES,
@@ -464,6 +505,8 @@ module.exports = {
   artifactStatus,
   createSyntheticFixture,
   dirsTreePaths,
+  dispatchClauseAdapter,
+  enumerateClauseSurfaces,
   enumerateSurfaceReport,
   enumerateSurfaces,
   evaluateCoverage,

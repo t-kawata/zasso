@@ -1,13 +1,14 @@
 ---
 name: natenv-okf
-description: Traverse the simulated NAT environment — a virtual WAN inside a single PC — as an OKF v0.2 wiki. Use for directory drill-down, one-hop concept reads, outgoing and incoming links, required closure, budgeted context, trust and freshness, and source citation.
+description: Traverse the native-OS WAN/NAT/VoIP/P2P laboratory specification as an OKF v0.2 wiki. Use for directory drill-down, one-hop concept reads, outgoing and incoming links, required closure, budgeted context, trust and freshness, and source citation.
 ---
 
 # natenv-okf
 
-A self-contained knowledge bundle plus CLI for the simulated NAT environment
-handbook: host contract, topologies, acceptance, TURN, iroh, packet capture,
-quality gates, and exact source files.
+A self-contained knowledge bundle plus CLI for the native-OS WAN/NAT/VoIP/P2P
+laboratory specification: execution contract, placement, addressing, native
+tunnels, acceptance, product adapters, NAT qualification, observation, quality
+gates, and cleanup.
 
 The bundle root is `okf/`. The CLI is `dist/skill.mjs`; it finds `okf/` on its
 own, so no path argument is needed. Work from the directory that contains this
@@ -18,9 +19,9 @@ OKF=dist/skill.mjs
 node "$OKF" list
 ```
 
-This skill answers: what the handbook says, where it says it, what surrounds a
-section, and what a complete answer must contain. It is retrieval. It is not a
-completion gate and it never certifies runtime behavior.
+This skill answers: what the specification says, where it says it, what
+surrounds a section, and what a complete answer must contain. It is retrieval.
+It is not a completion gate and it never certifies runtime behavior.
 
 ## Traversal Contract
 
@@ -77,7 +78,7 @@ is the bundle-relative path without the extension.
 1. `node "$OKF" list`
 2. Read the entry for `pages`.
 3. `node "$OKF" list --path pages`
-4. `node "$OKF" list --path pages/implementation-handbook`
+4. `node "$OKF" list --path pages/pre-okf-original`
 
 Stop when the listing shows the concept whose title matches the question.
 
@@ -91,11 +92,11 @@ Stop when the listing shows the concept whose title matches the question.
 - Reserved entries are structure, not knowledge. A concept id never ends in
   `index` or `log`.
 
-### Scenario: find an appendix
+### Scenario: find a section
 
-1. `node "$OKF" list --path pages/implementation-handbook`
-2. Pick the appendix by title.
-3. `node "$OKF" expand --id pages/implementation-handbook/appendix-a-exact-source-files`
+1. `node "$OKF" list --path pages/pre-okf-original`
+2. Pick the section by title.
+3. `node "$OKF" expand --id pages/pre-okf-original/0-execution-contract`
 
 ## Concept Page
 
@@ -112,7 +113,7 @@ Read `coverage.missing` first. When it is empty, answer from the body.
 
 ### Scenario: read one section
 
-1. `node "$OKF" expand --id pages/implementation-handbook/2-files-exact-topologies-placement`
+1. `node "$OKF" expand --id pages/pre-okf-original/2-architecture-and-placement`
 2. Confirm `coverage.missing` is empty.
 3. Answer from the body and cite the concept id.
 
@@ -130,7 +131,7 @@ entry is not knowledge; do not answer from it.
 
 ### Scenario: find who points here
 
-1. `node "$OKF" incoming --id pages/implementation-handbook/preamble`
+1. `node "$OKF" incoming --id pages/pre-okf-original/preamble`
 2. If the list is empty, the concept is a root; use the directory index
    instead.
 
@@ -146,7 +147,7 @@ Reach is repeated one-hop reads, never a bulk crawl.
 
 ### Scenario: follow a chain of sections
 
-1. `node "$OKF" expand --id pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback`
+1. `node "$OKF" expand --id pages/pre-okf-original/23-quic-iroh-custom-p2p-specifics`
 2. Expand the frontier entry for the relay configuration.
 3. Stop at the first page whose `coverage.missing` is empty.
 
@@ -164,8 +165,8 @@ The closure is complete or it is an error. There is no partial delivery.
 
 ### Scenario: deliver a complete context
 
-1. `node "$OKF" required --entry pages/implementation-handbook/0-status-scope-non-negotiable-truth`
-2. `node "$OKF" context --entry pages/implementation-handbook/0-status-scope-non-negotiable-truth --budget 200000`
+1. `node "$OKF" required --entry pages/pre-okf-original/0-execution-contract`
+2. `node "$OKF" context --entry pages/pre-okf-original/0-execution-contract --budget 200000`
 3. Check that the Artifact block lists exactly the Required block's ids.
 
 ## Zero Results
@@ -181,7 +182,7 @@ An empty result is an answer: the bundle has no concept matching the query.
 
 1. `node "$OKF" search --query astroman`
 2. No rows.
-3. `node "$OKF" list --path pages/implementation-handbook`
+3. `node "$OKF" list --path pages/pre-okf-original`
 4. Report that the bundle does not cover the topic.
 
 ## Budget Exceeded
@@ -193,11 +194,11 @@ non-zero; no partial payload is emitted.
 - Read pages one at a time with `expand`.
 - Raise `--budget` only when the caller can hold the whole closure.
 
-### Scenario: appendix too large for the budget
+### Scenario: a section too large for the budget
 
-1. `node "$OKF" context --entry pages/implementation-handbook/appendix-a-exact-source-files --budget 1000`
+1. `node "$OKF" context --entry pages/pre-okf-original/0-execution-contract --budget 1000`
 2. Observe `BUDGET_EXCEEDED`.
-3. `node "$OKF" expand --id pages/implementation-handbook/appendix-a-exact-source-files`
+3. `node "$OKF" expand --id pages/pre-okf-original/0-execution-contract`
 4. Answer from the page, not from a truncated context.
 
 ## Trust and Freshness
@@ -225,16 +226,51 @@ Provenance is per page: a source alias, a source id, a title, and a line span.
 
 - `node "$OKF" sources <id>` returns the page's `sources` objects.
 - Cite both the concept id and the source id, for example
-  `pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays` from
-  `implementation-handbook-8`.
+  `pages/pre-okf-original/22-coturn-stun-turn-tls` from
+  `pre-okf-original-24`.
 - The source span is in `x-source-span`; the alias resolves through the
   path-alias map shipped beside the skill.
 
 ### Scenario: cite a claim
 
-1. `node "$OKF" sources pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays`
+1. `node "$OKF" sources pages/pre-okf-original/22-coturn-stun-turn-tls`
 2. Quote the body sentence.
 3. Name the concept id and the source id in the answer.
+
+## Execution Assets
+
+The skill ships the executable and configuration assets under `EXEC_ASSETS/`.
+Every meaningful asset is also a first-class concept under
+`pages/exec-assets/`; the concept body carries the exact file text, its
+SHA-256, its line span, and the guide section that governs it.
+
+- `node "$OKF" list --path pages/exec-assets`
+- `node "$OKF" expand --id pages/exec-assets/generate-py`
+- `node "$OKF" sources pages/exec-assets/generate-py`
+
+The concept is the retrieval view; the file under `EXEC_ASSETS/` is the
+executable copy. Copy `EXEC_ASSETS/` to the workspace root (`~/wan-lab` or
+`C:\WanLab`) before running `generate.py` or `./lab`. Verify a copy with
+`sha256sum` against `x-asset-sha256` or `EXEC_ASSETS/MANIFEST.json`.
+
+### Scenario: find the generator
+
+1. `node "$OKF" list --path pages/exec-assets`
+2. `node "$OKF" expand --id pages/exec-assets/generate-py`
+3. `node "$OKF" sources pages/exec-assets/generate-py`
+4. Copy `EXEC_ASSETS/generate.py` to the Ubuntu infrastructure workspace.
+
+### Scenario: choose the probe for a path test
+
+1. `node "$OKF" expand --id pages/pre-okf-original/15-minimum-path-acceptance`
+2. `node "$OKF" expand --id pages/exec-assets/scripts-probe-py`
+3. Copy `EXEC_ASSETS/scripts/probe.py` to each native node.
+
+### Scenario: verify an asset copy
+
+1. `node "$OKF" expand --id pages/exec-assets/dockerfile`
+2. Read `x-asset-sha256` from the page.
+3. `sha256sum EXEC_ASSETS/Dockerfile` must match.
 
 ## Authoring and Update
 

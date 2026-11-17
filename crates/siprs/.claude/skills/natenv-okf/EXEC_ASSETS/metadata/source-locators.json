@@ -1,0 +1,26 @@
+{
+  "web:124": {
+    "topic": "PowerShell Direct",
+    "url": "https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/powershell-direct"
+  },
+  "web:170": {
+    "topic": "Tart Guest Agent and exec",
+    "url": "https://tart.run/blog/2025/06/01/bridging-the-gaps-with-the-tart-guest-agent/"
+  },
+  "web:168": {
+    "topic": "Tart current FAQ: keychain, host access, DHCP",
+    "url": "https://tart.run/faq/"
+  },
+  "web:183": {
+    "topic": "WireGuard Windows deployment and CLI",
+    "url": "https://git.zx2c4.com/wireguard-windows/about/docs/enterprise.md"
+  },
+  "web:33": {
+    "topic": "WireGuard network namespaces",
+    "url": "https://www.wireguard.com/netns/"
+  },
+  "web:47": {
+    "topic": "NAT behavior specification",
+    "url": "https://www.rfc-editor.org/rfc/rfc4787"
+  }
+}

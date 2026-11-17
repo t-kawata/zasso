@@ -1,3 +1,4 @@
+// [::TICKET::] PX-438 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-438 --for-spec --no-implementation-order`.
 /**
  * The bundled natenv-okf skill is the ideal exemplar for /build-okf-skill.
  * These tests pin the properties that make it an exemplar: a real prerequisite
@@ -82,7 +83,10 @@ test('the exemplar ships and indexes its execution assets', () => {
   assert.match(required.stdout, /15-minimum-path-acceptance/);
 
   const install = readFileSync(join(skill, 'install.js'), 'utf8');
-  assert.match(install, /EXEC_ASSETS/);
+  assert.match(install, /asset-coverage\.json/);
+  assert.match(install, /asset_roots/);
+  assert.match(install, /assetRoots/);
+  assert.equal(install.includes('EXEC_ASSETS'), false);
 
   const record = JSON.parse(readFileSync(join(here, '../../../../target/okf/okf-builds.json'), 'utf8'));
   const build = record.builds.find((entry) => entry.name === 'natenv-okf');

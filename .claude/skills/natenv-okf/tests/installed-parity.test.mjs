@@ -8,7 +8,8 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SKILL = fileURLToPath(new URL('../', import.meta.url));
-const ROOTS = ['dist', 'okf-core', 'okf', 'source', 'EXEC_ASSETS', 'tests/fixtures/runtime'];
+const ASSET_COVERAGE = JSON.parse(readFileSync(join(SKILL, 'source/asset-coverage.json'), 'utf8'));
+const ROOTS = ['dist', 'okf-core', 'okf', 'source', ...(ASSET_COVERAGE.asset_roots ?? []), 'tests/fixtures/runtime'];
 
 function listFiles(directory) {
   const files = [];

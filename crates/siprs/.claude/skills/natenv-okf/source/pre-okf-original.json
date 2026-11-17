@@ -1,6 +1,6 @@
 {
   "schema": "pre-okf-original/v1",
-  "source": "sources/implementation-handbook.md",
-  "sha256": "ab2d0ddfd93ec1f195fe426c5609b4f3826fd4f6c7c935fe4b3adbeb14f2102a",
-  "bytes": 105746
+  "source": "sources/pre-okf-original.md",
+  "sha256": "c8c727d8a1ef24049b979271998ac2ad1f2f0af137b2b56c320745bc836c5648",
+  "bytes": 68693
 }

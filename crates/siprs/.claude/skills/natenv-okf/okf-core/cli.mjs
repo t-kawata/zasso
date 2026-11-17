@@ -2,10 +2,8 @@
 /**
  * OKF v0.2 core CLI.
  *
- * Read commands print the AI-facing Markdown view; machine commands print
- * JSON. Errors carry a stable code and a non-zero exit. The bundle root
- * defaults to the sibling `okf/` directory, so an installed copy runs
- * without a path argument.
+ * Commands write JSON so the caller can follow a concept without parsing
+ * prose. Errors carry a stable code and a non-zero exit.
  */
 
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
@@ -26,8 +24,8 @@ import { formatValue, FORMAT_JSON, FORMAT_MARKDOWN } from './render/markdown.mjs
 export async function main(argv = process.argv.slice(2)) {
   const [command, ...rest] = argv;
   const options = parseArgs(rest);
-  if (!command) return fail('MISSING_COMMAND', undefined, 2);
-  options.root = options.root ?? defaultRoot();
+  if (!command) return fail('MISSING_COMMAND');
+  if (!options.root) return fail('MISSING_ROOT');
   try {
     const bundle = await loadBundle(options.root);
     return runCommand(command, options, bundle);
@@ -35,14 +33,6 @@ export async function main(argv = process.argv.slice(2)) {
     const exitCode = error.code === 'UNKNOWN_CONCEPT' ? 2 : 1;
     return fail(error.code ?? 'OKF_ERROR', error.message, exitCode);
   }
-}
-
-/**
- * The bundle root travels with the skill: an installed dist and the staged
- * scripts entry both sit one directory below it.
- */
-function defaultRoot() {
-  return join(fileURLToPath(new URL('..', import.meta.url)), 'okf');
 }
 
 function runCommand(command, options, bundle) {

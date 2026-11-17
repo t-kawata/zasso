@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "conver://schemas/repair-record.schema.json",
+  "title": "Repair record",
+  "type": "object",
+  "required": ["version", "repairKey", "kind", "action", "status", "evidence"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "repairKey": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "minLength": 1 },
+    "action": {
+      "type": "string",
+      "enum": ["rediscover-config", "synthesize-adapter", "synthesize-runner", "repair-artifact", "repair-clause", "repair-ticket", "diagnostic-ticket", "synthesized-generic-adapter", "synthesized-runner", "repaired-artifact", "generated-test"]
+    },
+    "status": { "type": "string", "enum": ["completed", "pending", "unrepairable"] },
+    "ticketKey": { "type": ["string", "null"] },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command"],
+        "additionalProperties": true,
+        "properties": {
+          "command": { "type": "string", "minLength": 1 },
+          "exitCode": { "type": ["integer", "null"] },
+          "outputDigest": { "type": "string", "pattern": "^sha256:" }
+        }
+      }
+    },
+    "createdAt": { "type": "string" },
+    "verifiedAt": { "type": "string" }
+  }
+}

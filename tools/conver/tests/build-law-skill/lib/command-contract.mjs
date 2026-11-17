@@ -1,3 +1,4 @@
+// [::TICKET::] PX-438 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-438 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-425 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-425 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-426 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-426 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-422 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-422 --for-spec --no-implementation-order`.
@@ -40,6 +41,7 @@ export const COMMAND_SECTIONS = Object.freeze([
   '## Invariants',
   '## Input Contract',
   '## Generated Skill Layout',
+  '## Execution Assets',
   '## Procedure',
   '## Verification Gates',
   '## Failure Modes',
@@ -73,6 +75,20 @@ export const FAILURE_CODES = Object.freeze([
   'VERIFIER_V2_FAILED',
   'INSTALLED_SHA_MISMATCH',
   'CHECKPOINT_INVALID',
+  'ASSET_REFERENCE_MISSING',
+  'ASSET_ROOT_MISSING',
+  'ASSET_OUTSIDE_ROOT',
+  'ASSET_SECRET_EXCLUDED',
+  'ASSET_NOT_ENGLISH',
+  'ASSET_SIZE_EXCLUDED',
+  'ASSET_BINARY_INDEXED',
+  'ASSET_ALIAS_DUPLICATE',
+  'ASSET_COVERAGE_GAP',
+  'ASSET_MANIFEST_MISSING',
+  'ASSET_HASH_MISMATCH',
+  'ASSET_INSTALL_MISSING',
+  'ASSET_RULE_UNLINKED',
+  'ASSET_DELIVERY_OMISSION',
 ]);
 
 export const EXAMPLE_LITERALS = Object.freeze([
@@ -99,6 +115,9 @@ export const REQUIRED_ARTIFACTS = Object.freeze([
   'source/rule-concepts.json',
   'source/source-view.md',
   'source/source.baseline.md',
+  'source/asset-manifest.toml',
+  'source/asset-inventory.json',
+  'source/asset-coverage.json',
   'okf/rules',
   'okf/sources',
   'okf-core',

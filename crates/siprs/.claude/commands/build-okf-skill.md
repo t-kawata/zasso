@@ -68,6 +68,8 @@ set remains the invocation's source set.
 - No flags. Hyphen-leading argument → `INVALID_ARGUMENT`.
 - Source repository-relative. Absolute accepted only inside the repository; the manifest stores an alias.
 - Name matches `^[a-z][a-z0-9-]*-okf$`.
+- Optional free-form block: the first blank line ends the source list; the remaining text describes the asset set and exclusions. At most one skill per invocation when the block is present.
+- Asset roots are discovered from the manifest, the bundle directory, the specification, the validated semantic proposal, or content signals. Do not require a fixed directory name.
 
 ## Invariants
 
@@ -88,6 +90,8 @@ set remains the invocation's source set.
 - Generated `SKILL.md` is a traversal manual: 13 sections and at least 10 scenarios.
 - No forced edits to `CLAUDE.md` or the make/plan/start/review/resolve commands.
 - Generated skill contains no ticket id, project name, original absolute path, or CJK.
+- Assets are first-class: every selected asset has one concept with exact text, `x-asset-sha256`, `x-source-span`, and a governing `x-requires`; every asset root is shipped by `install.js`; zero assets are represented by zero-count ledgers and no asset concepts.
+- Asset discovery is name-agnostic. Strong signals cannot be silently dropped; weak signals do not create assets; the AI semantic proposal is machine-validated before it becomes the discovery decision.
 - Identical inputs → identical lock, OKF, and bundle.
 - `node --test` for the impact set; never `make test`.
 
@@ -107,10 +111,19 @@ set remains the invocation's source set.
 | Source missing | reject `SOURCE_MISSING` |
 | Claim registry table | optional; when absent, derive title and description from each section |
 | Duplicate source basename | reject `SOURCE_ALIAS_DUPLICATE` |
+| Non-Markdown text asset | classify as `Procedure` or `Reference`; index or exclude by policy |
+| Binary asset | index path, SHA-256, and bytes; ship raw when allowed; `ASSET_BINARY_INDEXED` |
+| CJK asset | `ASSET_NOT_ENGLISH`; no install unless explicitly excluded |
+| Secret-bearing asset | `ASSET_SECRET_EXCLUDED`; never ship |
+| Oversized asset | `ASSET_SIZE_EXCLUDED`; metadata-only concept or explicit exclusion |
+| Asset outside the declared root | `ASSET_OUTSIDE_ROOT` |
+| Duplicate asset concept id | `ASSET_ALIAS_DUPLICATE` |
+| Missing strong asset reference | `ASSET_REFERENCE_MISSING`; no install |
 
 - Sources read-only.
 - Manifest: alias path + SHA-256 of LF-normalized text.
-- CJK anywhere → reject the whole build; no silent translation.
+- CJK anywhere in a source → reject the whole build; no silent translation.
+- Assets are measured separately: text is LF-normalized; binary is hashed as bytes; every included asset has a code, line span, and SHA-256. The asset ledgers are `source/asset-manifest.toml`, `source/asset-inventory.json`, and `source/asset-coverage.json`.
 
 ## Generated Skill Layout
 
@@ -124,11 +137,13 @@ set remains the invocation's source set.
 ├── atoms.lock.json
 ├── package.json
 ├── THIRD_PARTY_NOTICES.md
+├── <asset-root>/           # supplied execution assets; name is declared or discovered
 ├── okf/
 │   ├── index.md
 │   ├── log.md
 │   └── pages/
-│       └── <source>/<section>.md
+│       ├── <source>/<section>.md
+│       └── assets/<asset>.md
 ├── okf-core/
 │   ├── index.mjs
 │   ├── cli.mjs
@@ -153,6 +168,9 @@ set remains the invocation's source set.
 │   ├── okf-log.json
 │   ├── source-view.md
 │   ├── source.baseline.md
+│   ├── asset-manifest.toml
+│   ├── asset-inventory.json
+│   ├── asset-coverage.json
 │   └── shared-engine.json
 └── tests/{smoke.test.mjs, fixtures/runtime/runtime.json}
 ```
@@ -230,7 +248,55 @@ The generated `SKILL.md` must contain these sections and at least 10 `### Scenar
 | `## Trust and Freshness` | `trustTier`, `status`, `stale`, `staleAfter` |
 | `## Sources and Citation` | `sources <id>`; cite a concept id and a source id |
 | `## Authoring and Update` | Add a concept, rebuild index/log, validate conformance |
+| `## Execution Assets` | Discover, cite, verify, and copy the provided asset set; state when none exists |
 | `## Failure Modes` | `UNKNOWN_CONCEPT`, `blocked`, lint-only broken links |
+
+## Execution Assets
+
+Assets are first-class inputs, not side files. A source document may be
+accompanied by scripts, Dockerfile or Containerfile recipes, Compose files,
+configuration, fixtures, VM/bootstrap files, and templates. The command must
+discover them without assuming a directory name, index each selected file as
+an OKF concept with its exact text and SHA-256, link it to the governing source
+section, and ship every asset root through `install.js`.
+
+Discovery precedence, highest first:
+
+1. explicit `okf-input.toml` or `okf-input.json` manifest (`assets.roots`);
+2. bundle-directory input (the primary Markdown plus the remaining text files);
+3. specification references and asset-map table rows;
+4. an AI-authored `asset-plan.proposal.json` validated by the machine;
+5. content heuristics (shebang, `FROM`, Compose `services:`, Containerfile);
+6. none.
+
+A conventional asset-directory name is one possible root name, never a
+contract. Use the declared or discovered root name. A strong signal cannot be silently dropped; a weak
+signal (extension alone, unrelated README/JSON) does not turn a document-only
+build into an asset build. Every included asset has one concept under
+`okf/pages/assets/` with `x-asset-path`, `x-asset-sha256`, `x-source-span`,
+`x-content-sha256`, and `x-requires` to the governing source concept. Binary
+assets are indexed as metadata and shipped raw. The ledgers are
+`source/asset-manifest.toml`, `source/asset-inventory.json`, and
+`source/asset-coverage.json`; `source/input-ledger.json` includes the asset
+entries.
+
+No execution assets were provided is a normal outcome: emit zero-count asset
+ledgers, no asset concepts, and a `SKILL.md` section that states the absence.
+Do not fail because an asset directory is absent. Fail only when a strong
+signal is missing, outside the root, secret-bearing, non-English, oversized,
+or duplicated.
+
+The semantic route is machine-validated. The AI writes
+`asset-plan.proposal.json` with `include`, `exclude`, `roots`, `governing`,
+`quote`, and `confidence`; the validator checks path existence, containment,
+policy, omission of strong signals, and link resolution. An AI proposal cannot
+override a missing path, a secret/CJK/binary policy, or a strong-signal
+omission.
+
+Policy is data. The manifest `[assets]` may set `max_file_bytes`,
+`max_total_bytes`, `max_candidates`, `include_binary`, and `low_confidence`;
+the profile `[limits]` may set the `asset_`-prefixed variants. Defaults live in
+`okf-asset/constants.mjs`; a caller must not repeat them.
 
 ## Procedure
 
@@ -239,6 +305,7 @@ The generated `SKILL.md` must contain these sections and at least 10 `### Scenar
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/verify-okf-skill.mjs`.
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/okf-verify/checks.json`; require its `check_set_version` and the named checks with `both` / `dev` modes.
 - Require `$CLAUDE_DIR/scripts/amend-rfc-up/okf-core/index.mjs` and `okf-core/cli.mjs`.
+- Require `$CLAUDE_DIR/scripts/amend-rfc-up/okf-asset/index.mjs`; it owns discovery, measurement, semantic validation, rendering, ledgers, and asset verification.
 - Missing or mismatched → stop before any write. Never copy, patch, or replace the canonical verifier.
 
 ### Step 1: Parse
@@ -260,6 +327,13 @@ The generated `SKILL.md` must contain these sections and at least 10 `### Scenar
 - Copy the LF-normalized text to `$STAGING_DIR/PRE-OKF-ORIGINAL.md`.
 - Write `$STAGING_DIR/source/pre-okf-original.json`: `schema: pre-okf-original/v1`, `source` or `sources`, `sha256`, `bytes`.
 - The file stays outside `okf/` and `source/`; never add it to the manifest, input ledger, coverage ledger, or redaction map. Missing or hash drift → `PRE_OKF_ORIGINAL_MISSING` / `PRE_OKF_ORIGINAL_DRIFT`.
+
+### Step 2.6: Discover and measure assets
+
+- Run `discoverAssets` from `okf-asset/discover.mjs` with the source paths, source root, free-form block, and any manifest. It selects the mode and records included, excluded, and ambiguous entries.
+- If the free-form block or source prose describes assets, write `$OKF_OUT/asset-plan.proposal.json` with evidence and confidence; run `validateSemanticProposal` before accepting it. The proposal cannot invent a path, omit a strong signal, or override policy.
+- Measure each included asset with `measureAsset`; classify with `classifyAsset`. Write `$STAGING_DIR/source/asset-discovery.json` with mode, roots, included, excluded, ambiguous, and counts.
+- `asset_mode: none` is valid: emit zero-count ledgers and no asset concepts.
 
 ### Step 3: Profile
 
@@ -298,6 +372,10 @@ Write with stable sort. Profile is data: a source heading change → profile cha
 - Redact project, product, repository, organization, user, ticket, and private-host identifiers. Keep normative constants.
 - `<name>-okf.path-alias.json`: `okf-path-alias/v1`; `input_roots` + alias → original; outside the skill tree.
 - `source/shared-engine.json`: `okf-shared-engine/v1`; every copied module with its SHA-256.
+- `source/asset-manifest.toml`: `okf-asset-manifest/v1`; one `[[file]]` per included asset with path, SHA-256, bytes, lines, concept, and type.
+- `source/asset-inventory.json`: `okf-asset-inventory/v1`; every asset path, concept id, hash, and line count.
+- `source/asset-coverage.json`: `okf-asset-coverage/v1`; `asset_roots`, per-root records, and `counts` with zero `unmappedFiles` and `unmappedLines`. Zero assets write `asset_roots: []` and zero counts.
+- `source/input-ledger.json` includes every asset as `included` or `excluded` with a reason.
 
 ### Step 6: Engine TDD
 
@@ -327,17 +405,20 @@ Red first: failing tests per module.
 - Write `okf/index.md` and one `index.md` per directory as linked lists.
 - Write `okf/log.md` from `source/okf-log.json`; newest date first.
 - Write `source/source-view.md` and `source/source.baseline.md` outside the bundle.
+- Render one asset concept per included asset under `okf/pages/assets/` using `renderAssetConcept`; the body carries the exact text, the asset hash, the line span, and a footnote. Add the asset rows to `okf/pages/assets/index.md`.
+- Binary assets get a metadata concept and are shipped raw; they are not embedded in a text fence.
 - Delivered context from `okf-core`; the AI uses the CLI, not raw grep.
 
 ### Step 8: Bundle and installer
 
 - `dist/skill.mjs`: pinned esbuild, one entry, ESM, no source map, `createRequire` banner for CommonJS dependencies; resolves `okf-core/` as a sibling; `absWorkingDir` pinned to the skill root; atomic write.
-- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `scripts/`, `okf/`, `source/`, `PRE-OKF-ORIGINAL.md`, `atoms.lock.json`, `package.json`, `THIRD_PARTY_NOTICES.md`, `SKILL.md`, `DESIGN.md`, `IMPLEMENTATION-LEFTOVERS.md`, `tests/fixtures/runtime/runtime.json`; no build, judge, or target edit.
+- `install.js`: copy-only; copies `dist/skill.mjs`, `okf-core/`, `scripts/`, `okf/`, `source/`, `PRE-OKF-ORIGINAL.md`, `atoms.lock.json`, `package.json`, `THIRD_PARTY_NOTICES.md`, `SKILL.md`, `DESIGN.md`, `IMPLEMENTATION-LEFTOVERS.md`, `tests/fixtures/runtime/runtime.json`, and every root listed in `source/asset-coverage.json` `asset_roots`. The installer reads the ledger; it does not hardcode a directory name. Missing or extra asset files are `ASSET_INSTALL_MISSING` / `ASSET_HASH_MISMATCH`.
 
 ### Step 9: Test matrix
 
 - `node --test` on explicit files; never a directory; never `make test`.
-- Required: `frontmatter`, `markdown`, `paths`, `bundle`, `graph`, `metadata`, `validation`, `context`, `authoring`, `cli`, `coverage`, `verifier-negative`, `installed-parity`, `source-rederivation`, `style`, `performance`.
+- Required: `frontmatter`, `markdown`, `paths`, `bundle`, `graph`, `metadata`, `validation`, `context`, `authoring`, `cli`, `coverage`, `verifier-negative`, `installed-parity`, `source-rederivation`, `style`, `performance`, `assets`, `asset-installed-parity`.
+- Asset tests cover discovery precedence, arbitrary names, strong/weak signals, semantic proposal validation, policy refusal, exact content/hash/span, zero-count zero-asset ledgers, dynamic installer roots, and installed parity.
 - Include determinism, forbidden-token, leak, coverage, and style checks.
 
 ### Step 10: Verify
@@ -379,7 +460,8 @@ Require exit 0, every installed-required check `machine_verified`, source/instal
 ### Step 12: Acceptance
 
 - Acceptance set = the invocation's source set. No fixed external fixture, document name, or path.
-- Per build: run end to end; record source hashes, lines, concept counts, coverage counts, mode, `check_set_version`, closure, installed SHA in `$OKF_OUT/okf-builds.json`.
+- Per build: run end to end; record source hashes, lines, concept counts, coverage counts, asset modes, asset roots, asset file/concept counts, zero unmapped asset counts, asset tree SHA, semantic additions/exclusions/omissions, mode, `check_set_version`, closure, installed SHA in `$OKF_OUT/okf-builds.json`.
+- Asset mutations: remove an asset concept → `ASSET_COVERAGE_GAP`; tamper an asset → `ASSET_HASH_MISMATCH`; remove the asset manifest → `ASSET_MANIFEST_MISSING`; remove an asset root → `ASSET_INSTALL_MISSING`; omit a strong signal → `ASSET_SEMANTIC_OMISSION`; invent a path → `ASSET_SEMANTIC_PATH_MISSING`; add a secret → `ASSET_SECRET_EXCLUDED`; add CJK → `ASSET_NOT_ENGLISH`; add a binary → `ASSET_BINARY_INDEXED`; add an oversized file → `ASSET_SIZE_EXCLUDED`; weak signal only → mode none; rename the root → same concept set and asset tree digest.
 - Producer proof: a synthetic mini wiki verified in dev and installed modes.
 - Mutation matrix:
 
@@ -405,7 +487,7 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 
 ### Step 13: Report
 
-- Report per skill: name, sources, profile hash, source count, lines, concept count, preamble count, `unmappedHeadings`, `unmappedPreamble`, `unmappedLines`, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, install path, leftovers.
+- Report per skill: name, sources, profile hash, source count, lines, concept count, preamble count, `unmappedHeadings`, `unmappedPreamble`, `unmappedLines`, asset mode, asset roots, asset files, asset concepts, asset bytes, asset unmapped counts, semantic additions/exclusions/omissions, ledger counts, `check_set_version`, dev closure, installed closure, installed SHA parity, asset tree parity, install path, leftovers.
 - Report mutation results + adoption gaps.
 - Completion: every skill `machine_verified` in dev and installed, `rebuild` byte-identical, install verified, acceptance record pass.
 
@@ -465,6 +547,21 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 | `INSTALLED_SHA_MISMATCH` | source and installed differ | reinstall; no completion |
 | `NON_DETERMINISTIC` | rebuild drift | remove timestamps, unordered iteration, absolute paths |
 | `VERIFIER_FAILED` | any required check not `machine_verified` | repair; re-verify; no install |
+| `ASSET_REFERENCE_MISSING` | a strong source reference does not resolve | add the asset or record an explicit exclusion; no install |
+| `ASSET_ROOT_MISSING` | a declared asset root is absent | fix the manifest or the tree; no install |
+| `ASSET_OUTSIDE_ROOT` | an asset resolves outside the declared root | keep the asset inside the root; no install |
+| `ASSET_SECRET_EXCLUDED` | an asset is secret-bearing | exclude it; never ship it |
+| `ASSET_NOT_ENGLISH` | an asset contains CJK | exclude or translate explicitly; no install |
+| `ASSET_SIZE_EXCLUDED` | an asset exceeds the size limit | metadata-only concept or explicit exclusion |
+| `ASSET_BINARY_INDEXED` | a binary asset is indexed | ship the raw file; no text fence |
+| `ASSET_ALIAS_DUPLICATE` | two assets map to one concept id | rename or disambiguate; no install |
+| `ASSET_SEMANTIC_OMISSION` | the AI proposal omits a strong signal | include or explicitly exclude it; no install |
+| `ASSET_SEMANTIC_PATH_MISSING` | the AI proposal invents a path | remove the path; no install |
+| `ASSET_SEMANTIC_POLICY_VIOLATION` | the AI proposal selects a refused asset | policy wins; no install |
+| `ASSET_COVERAGE_GAP` | assets and concepts or ledgers disagree | repair the ledger or concept set; no install |
+| `ASSET_MANIFEST_MISSING` | the asset manifest is absent | write it; re-verify |
+| `ASSET_HASH_MISMATCH` | a copied asset differs from staging | reinstall; no completion |
+| `ASSET_INSTALL_MISSING` | an installed asset root or file is absent | copy the asset root; no completion |
 | `INSTALL_BLOCKED` | copy or post-check fail | restore backup; report |
 
 ## Completion
@@ -472,4 +569,5 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 - Every built skill: canonical verifier dev and installed `machine_verified`, `rebuild` byte-identical, forbidden-token scan zero, installed bundle resolves `okf/`, source/installed SHA match, acceptance record pass.
 - Every built skill carries `PRE-OKF-ORIGINAL.md` and `source/pre-okf-original.json`; multi-concept bundles have a transitive prerequisite closure; `$OKF_OUT/okf-builds.json` matches the current check set.
 - No write to `CLAUDE.md` or the make/plan/start/review/resolve commands.
+- Assets: every provided strong-signal asset is included or explicitly excluded; every included asset has one concept and one ledger entry; `asset-coverage` is zero-unmapped; `install.js` copies every asset root; zero assets is a valid zero-count build.
 - Report adoption gaps; never claim V1 as rule-level proof.

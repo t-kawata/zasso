@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "conver://schemas/contract-coverage.schema.json",
+  "title": "CONTRACT-COVERAGE",
+  "type": "object",
+  "required": ["version", "inventoryDigest", "testIndexDigest", "clauses", "remainder"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "const": 1 },
+    "inventoryDigest": { "type": ["string", "null"], "pattern": "^sha256:" },
+    "testIndexDigest": { "type": ["string", "null"], "pattern": "^sha256:" },
+    "clauses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "status", "tests", "applicability"],
+        "additionalProperties": true,
+        "properties": {
+          "key": { "type": "string", "pattern": "^clause\\|" },
+          "status": {
+            "type": "string",
+            "enum": ["PROVEN", "UNMAPPED", "TEST_MISSING", "TEST_IGNORED", "CLAUSE_PROOF_MISSING", "CLAUSE_PROOF_STALE", "CLAUSE_PROOF_FAILED", "UNSTABLE", "UNCLASSIFIED", "NOT_APPLICABLE_VERIFIED", "DEFERRED"]
+          },
+          "tests": { "type": "array" },
+          "proof": { "type": ["object", "null"] },
+          "applicability": {
+            "type": "string",
+            "enum": ["TESTABLE", "DESIGN_PREDICATE", "PROCESS", "EXTERNAL", "NOT_APPLICABLE", "DEFERRED"]
+          }
+        }
+      }
+    },
+    "remainder": {
+      "type": "object",
+      "required": ["remainder", "total"],
+      "additionalProperties": true,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "remainder": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

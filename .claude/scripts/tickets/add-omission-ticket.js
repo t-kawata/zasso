@@ -217,6 +217,51 @@ function extractCodes(filePath, line) {
 }
 
 /**
+ * Find the ticket record for a key in Tickets.json.
+ *
+ * @param {{phases:object[]}} ticketsData
+ * @param {string} ticketKey
+ * @returns {object|null}
+ */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function findTicketRecord(ticketsData, ticketKey) {
+  const match = String(ticketKey ?? '').match(/^P(-?\d+|X)-(\d+)$/);
+  if (match === null) return null;
+  const phaseId = match[1] === 'X' ? -1 : Number.parseInt(match[1], 10);
+  const ticketId = Number.parseInt(match[2], 10);
+  for (const phase of ticketsData?.phases ?? []) {
+    if (phase.id !== phaseId) continue;
+    return (phase.tickets ?? []).find((ticket) => ticket.id === ticketId) ?? null;
+  }
+  return null;
+}
+
+/**
+ * Resolve the root of a clone chain.
+ *
+ * Follows originalTicketKey/origin.sourceTicket until no further link exists.
+ * A cycle returns a key from the cycle instead of looping forever.
+ *
+ * @param {{ticketKey:string, ticketsData:object, maxHops?:number}} input
+ * @returns {string}
+ */
+// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+function resolveRootTicketKey({ ticketKey, ticketsData, maxHops = 100 }) {
+  const seen = new Set();
+  let current = ticketKey;
+  for (let hop = 0; hop < maxHops; hop += 1) {
+    if (seen.has(current)) return current;
+    seen.add(current);
+    const ticket = findTicketRecord(ticketsData, current);
+    if (ticket === null) return current;
+    const next = ticket.originalTicketKey ?? ticket.origin?.sourceTicket ?? null;
+    if (typeof next !== 'string' || next.length === 0 || next === current) return current;
+    current = next;
+  }
+  return current;
+}
+
+/**
  * Find a clone ticket in _tmp-omissions data by originalTicketKey.
  * Searches EVERY phase (PX and real) because appendTicket places omission
  * clones in the max real phase — a PX-phase-only search would miss them and
@@ -597,6 +642,8 @@ module.exports = {
   findCloneByOriginalKey,
   appendFoundOmissions,
   findLatestTmpOmissions,
+  findTicketRecord,
+  resolveRootTicketKey,
   extractCodes,
   ABC_INSPECTION_PREFIX,
   INSPECTION_SENTINEL,

@@ -29,9 +29,26 @@ test('the installed dist resolves its sibling bundle without a root argument', (
 });
 
 test('directory drill-down reaches the handbook directory', () => {
-  const list = run(['list', '--path', 'pages/implementation-handbook']);
+  const list = run(['list', '--path', 'pages/pre-okf-original']);
   assert.equal(list.status, 0, list.stderr);
-  assert.match(list.stdout, /expand --id pages\/implementation-handbook\//);
+  assert.match(list.stdout, /expand --id pages\/pre-okf-original\//);
+});
+
+test('directory drill-down reaches the execution-asset directory', () => {
+  const list = run(['list', '--path', 'pages/exec-assets']);
+  assert.equal(list.status, 0, list.stderr);
+  assert.match(list.stdout, /expand --id pages\/exec-assets\//);
+});
+
+test('an execution asset is a citable concept', () => {
+  const show = run(['show', 'pages/exec-assets/scripts-probe-py', '--format', 'json']);
+  assert.equal(show.status, 0, show.stderr);
+  const page = JSON.parse(show.stdout);
+  assert.equal(page.id, 'pages/exec-assets/scripts-probe-py');
+  assert.ok(page.body.includes('argparse'));
+  const sources = run(['sources', 'pages/exec-assets/scripts-probe-py', '--format', 'json']);
+  assert.equal(sources.status, 0, sources.stderr);
+  assert.equal(JSON.parse(sources.stdout).sources[0].resource, 'EXEC_ASSETS/scripts/probe.py');
 });
 
 test('a page read is lossless Markdown', () => {
@@ -71,7 +88,7 @@ test('search, trust, freshness, and sources answer', () => {
   }
   const sources = run(['sources', FIXTURE.entryConcept, '--format', 'json']);
   assert.equal(sources.status, 0, sources.stderr);
-  assert.equal(JSON.parse(sources.stdout).sources[0].resource, 'sources/implementation-handbook.md');
+  assert.equal(JSON.parse(sources.stdout).sources[0].resource, 'sources/pre-okf-original.md');
 });
 
 test('the shipped bundle validates and rebuilds identically', () => {

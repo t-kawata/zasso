@@ -8,10 +8,9 @@ The generated `natenv-okf` skill ships code from the following projects.
 - Copyright: Preneur LLC and contributors
 - Use: reads an OKF v0.2 tree into concepts, frontmatter, links, footnotes,
   trust tiers, status, staleness, sources, and a backlink index.
-- Form: vendored into `okf-core/vendor/okforest.mjs` as one ESM bundle; also
-  inlined into `dist/skill.mjs`.
+- Form: bundled into `dist/skill.mjs`.
 
-## esbuild 0.27.7
+## esbuild 0.28.1
 
 - License: MIT
 - Use: build-time bundling only. Not shipped as a runtime dependency.

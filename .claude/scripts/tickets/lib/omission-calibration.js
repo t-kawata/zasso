@@ -27,6 +27,10 @@ const { runAllChecks } = require('../review/run-quality-checks.js');
 const { mergeFormulasToTickets } = require('../merge-formulas-to-tickets.js');
 const { extractFormulas, uniqueFormulas } = require('../../spec-formula/index.mjs');
 const { sha256Hex } = require('../../workspacify-tree/lib/hash.mjs');
+const { buildInventory, reconcileSource } = require('./inventory.js');
+const { scanClauseCoverage } = require('./coverage-map.js');
+const { runDetectionProof } = require('./proof-engine.js');
+const { buildTestIndex } = require('../build-test-index.js');
 
 // [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
 function withTempRoot(prefix, run) {
@@ -325,11 +329,11 @@ function registryOf(options) {
 }
 
 /** Run every definition in clean and seeded mode. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
 function runCalibration(options = {}) {
   const registry = registryOf(options);
   const seeds = registry.seeds.map((seed) => {
-    const definition = DEFINITIONS[seed.detectorId];
+    const definition = DEFINITIONS[seed.detectorId] ?? CLAUSE_DEFINITIONS[seed.detectorId];
     if (!definition) return { checkId: seed.detectorId, seededDefect: 'no definition', applicable: false, detected: false, findings: [] };
     try {
       const findings = definition.run(true);
@@ -342,12 +346,12 @@ function runCalibration(options = {}) {
 }
 
 /** The negative control: every clean definition returns no finding. */
-// [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-407, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-407|PX-437) --for-spec --no-implementation-order`.
 function runNegativeControl(options = {}) {
   const registry = registryOf(options);
   const findings = [];
   for (const seed of registry.seeds) {
-    const definition = DEFINITIONS[seed.detectorId];
+    const definition = DEFINITIONS[seed.detectorId] ?? CLAUSE_DEFINITIONS[seed.detectorId];
     if (!definition) continue;
     try {
       for (const finding of definition.run(false)) findings.push({ ...finding, detectorId: seed.detectorId });
@@ -369,10 +373,111 @@ function calibrationVerdict(calibration) {
   return { ok: true, notMeasured: [] };
 }
 
+/** The v3 detectors calibrated separately from the v2 mechanical count. */
+const CLAUSE_SEEDS = Object.freeze([
+  { detectorId: 'contract-inventory', surface: 'contract-clause' },
+  { detectorId: 'test-index', surface: 'contract-clause' },
+  { detectorId: 'clause-coverage', surface: 'contract-clause' },
+  { detectorId: 'detection-proof', surface: 'contract-clause' },
+]);
+
+/** A clean and a seeded fixture for every v3 detector. */
+const CLAUSE_DEFINITIONS = Object.freeze({
+  'contract-inventory': {
+    seededDefect: 'drop a source element so reconciliation is short',
+    run: (seeded) => {
+      if (!seeded) {
+        return buildInventory({
+          adapter: { scope: 'pkg-alpha', contractIdScope: 'global' },
+          sources: [{ kind: 'graph', artifact: 'TEST-GRAPH.json', edges: [{ id: 'E001', contracts: [{ id: 'OBL-alpha', precondition: 'p', postcondition: 'q', invariant: 'r' }] }] }],
+        }).findings;
+      }
+      return reconcileSource({
+        sourceElements: [{ contractId: 'OBL-alpha', element: 'precondition' }, { contractId: 'OBL-alpha', element: 'postcondition' }],
+        clauses: [{ key: 'clause|pkg-alpha|OBL-alpha|precondition|abcdef0123456789' }],
+        exclusions: [],
+      }).findings;
+    },
+  },
+  'test-index': {
+    seededDefect: 'drop the test entry so its file is unaccounted',
+    run: (seeded) => {
+      const adapter = {
+        id: 'calibration-index',
+        language: 'fixture',
+        testRoots: [],
+        extensions: [],
+        enumerate: () => seeded
+          ? { tests: [], reported: [], files: ['a.fixture'] }
+          : { tests: [{ id: 't', file: 'a.fixture', name: 't', kind: 'unit', ignored: false, skipReason: null, annotations: [] }], reported: [], files: ['a.fixture'] },
+      };
+      return buildTestIndex({ cwd: process.cwd(), adapter }).findings;
+    },
+  },
+  'clause-coverage': {
+    seededDefect: 'remove the mapping so the clause is unmapped',
+    run: (seeded) => {
+      const key = 'clause|pkg-alpha|OBL-alpha|precondition|abcdef0123456789';
+      const inventory = { digest: 'sha256:inventory', clauses: [{ key, contractId: 'OBL-alpha', element: 'precondition', applicability: 'TESTABLE' }], conflicts: [] };
+      const testIndex = { digest: 'sha256:index', tests: [{ id: 't', digest: 'sha256:test', ignored: false, annotations: ['verifies:' + key] }] };
+      const coverage = {
+        version: 1,
+        inventoryDigest: inventory.digest,
+        testIndexDigest: testIndex.digest,
+        clauses: seeded ? [] : [{ key, tests: [{ id: 't', digest: 'sha256:test' }], proof: { status: 'PROVEN', verifiedAt: '2026-11-17T00:00:00Z', digests: { test: 'sha256:test' } }, applicability: 'TESTABLE' }],
+      };
+      return scanClauseCoverage({ inventory, testIndex, coverage }).findings;
+    },
+  },
+  'detection-proof': {
+    seededDefect: 'leave the suite green so proof cannot observe a failure',
+    run: (seeded) => withTempRoot('px436-proof-calibration-', (root) => {
+      const file = path.join(root, 'a.js');
+      fs.writeFileSync(file, 'function f() { return 1; }\n');
+      const result = runDetectionProof({
+        clause: { key: 'clause|pkg-alpha|OBL-alpha|postcondition|abcdef0123456789' },
+        testId: 't',
+        testDigest: 'sha256:test',
+        mutation: { file: 'a.js', strategy: 'replace-return', find: 'return 1;', replace: 'return 2;' },
+        command: 'fixture-runner {test}',
+        isolate: { root, cleanup: () => {} },
+        io: { runCommand: () => ({ status: seeded ? 0 : 1, stdout: seeded ? 'PASS t' : 'FAIL t', stderr: '', timedOut: false }) },
+      });
+      return result.status === 'PROVEN' ? [] : [{ code: result.status }];
+    }),
+  },
+});
+
+/**
+ * Calibrate every v3 detector against a clean and a seeded fixture.
+ *
+ * The v2 `runCalibration` keeps its one-seed-per-registry-detector contract;
+ * this entry point is additive so a v2 registry remains valid.
+ *
+ * @returns {{version:number, seeds:object[]}}
+ */
+// [::TICKET::] PX-436, PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-436|PX-437) --for-spec --no-implementation-order`.
+function runClauseCalibration() {
+  const seeds = CLAUSE_SEEDS.map((seed) => {
+    const definition = CLAUSE_DEFINITIONS[seed.detectorId];
+    try {
+      const cleanFindings = definition.run(false);
+      const findings = definition.run(true);
+      return { checkId: seed.detectorId, surface: seed.surface, seededDefect: definition.seededDefect, applicable: true, detected: findings.length > 0, findings, cleanFindings };
+    } catch (error) {
+      return { checkId: seed.detectorId, surface: seed.surface, seededDefect: definition.seededDefect, applicable: false, detected: false, findings: [], cleanFindings: [], problem: error.message };
+    }
+  });
+  return { version: 3, seeds };
+}
+
 module.exports = {
+  CLAUSE_DEFINITIONS,
+  CLAUSE_SEEDS,
   DEFINITIONS,
   calibrationVerdict,
   registryOf,
   runCalibration,
+  runClauseCalibration,
   runNegativeControl,
 };

@@ -2,102 +2,571 @@
   "schema": "okf-atoms/v2",
   "concepts": [
     {
-      "id": "pages/implementation-handbook/0-status-scope-non-negotiable-truth",
-      "path": "pages/implementation-handbook/0-status-scope-non-negotiable-truth.md",
-      "title": "0. Status; scope; non-negotiable truth",
-      "type": "Page",
-      "body_sha256": "d5a2d5512cc41cbee8d20f3bc7e7c2496b12a1bbed40cebd1be61702866487e3"
+      "id": "pages/exec-assets/agent-run-py",
+      "path": "pages/exec-assets/agent-run-py.md",
+      "title": "EXEC_ASSETS/agent-run.py",
+      "type": "Procedure",
+      "body_sha256": "197725b1874b9f632c1fb233c288b2d55dc0bf14844a47b1b59b8fd41543286f"
     },
     {
-      "id": "pages/implementation-handbook/1-host-contract-safety-preparation",
-      "path": "pages/implementation-handbook/1-host-contract-safety-preparation.md",
-      "title": "1. Host contract; safety; preparation",
-      "type": "Page",
-      "body_sha256": "418da351370a949bfb2ee8d1ca286f71caa62c1ad6c7a906521b943e980163e0"
+      "id": "pages/exec-assets/agents-md",
+      "path": "pages/exec-assets/agents-md.md",
+      "title": "EXEC_ASSETS/AGENTS.md",
+      "type": "Reference",
+      "body_sha256": "b8055615625e077344bdd723a5cf72f4a370b82b47eee3a557795d8052868703"
     },
     {
-      "id": "pages/implementation-handbook/10-deliberate-boundaries",
-      "path": "pages/implementation-handbook/10-deliberate-boundaries.md",
-      "title": "10. Deliberate boundaries",
-      "type": "Page",
-      "body_sha256": "d709bd5f0c83991ea1486f578bac916cf81b8735b609e3e8e318fb91476454ef"
+      "id": "pages/exec-assets/bootstrap-freeze-sh",
+      "path": "pages/exec-assets/bootstrap-freeze-sh.md",
+      "title": "EXEC_ASSETS/bootstrap/freeze.sh",
+      "type": "Procedure",
+      "body_sha256": "e77417e4933f7b8e9fa2e6dfd4dca693e326d4c5e9f9cce61312c43d0d71f774"
     },
     {
-      "id": "pages/implementation-handbook/2-files-exact-topologies-placement",
-      "path": "pages/implementation-handbook/2-files-exact-topologies-placement.md",
-      "title": "2. Files; exact topologies; placement",
-      "type": "Page",
-      "body_sha256": "603f68ec9d6fa03cfc0d7bafaa0528a8a143c8c9d9454373e57bbb38c561a84c"
+      "id": "pages/exec-assets/bootstrap-macos-sh",
+      "path": "pages/exec-assets/bootstrap-macos-sh.md",
+      "title": "EXEC_ASSETS/bootstrap/macos.sh",
+      "type": "Procedure",
+      "body_sha256": "3830ca9bda7b1175959b10f98a5071019f0edc20d5c8df27e0100b1c860a9763"
     },
     {
-      "id": "pages/implementation-handbook/3-infrastructure-acceptance-fault-injection-nat-qualification",
-      "path": "pages/implementation-handbook/3-infrastructure-acceptance-fault-injection-nat-qualification.md",
-      "title": "3. Infrastructure acceptance; fault injection; NAT qualification",
-      "type": "Page",
-      "body_sha256": "9cfa3361026a55930e7c69e02e0f2cad5cd50fa27c9a6bd39cb76a17138c4525"
+      "id": "pages/exec-assets/bootstrap-ubuntu-sh",
+      "path": "pages/exec-assets/bootstrap-ubuntu-sh.md",
+      "title": "EXEC_ASSETS/bootstrap/ubuntu.sh",
+      "type": "Procedure",
+      "body_sha256": "8f20c889bcbae6fbd160ee064bb7d049ec430dfc3a40a3b92241aab70cf33929"
     },
     {
-      "id": "pages/implementation-handbook/4-pjsua-surrogate-real-rust-pjsip-client-integration",
-      "path": "pages/implementation-handbook/4-pjsua-surrogate-real-rust-pjsip-client-integration.md",
-      "title": "4. PJSUA surrogate; real Rust/PJSIP client integration",
-      "type": "Page",
-      "body_sha256": "7e96a4eb51212f48a25dacce8dee6ede21a552032527cddd86b59b73b79168eb"
+      "id": "pages/exec-assets/bootstrap-verified-download-ps1",
+      "path": "pages/exec-assets/bootstrap-verified-download-ps1.md",
+      "title": "EXEC_ASSETS/bootstrap/verified-download.ps1",
+      "type": "Procedure",
+      "body_sha256": "d399137ce01b8f3df80b59b7a8872f4fbbe56c87919fae70646785799bef5cb3"
     },
     {
-      "id": "pages/implementation-handbook/5-rust-sut-overlay-build-isolation-external-agent-control",
-      "path": "pages/implementation-handbook/5-rust-sut-overlay-build-isolation-external-agent-control.md",
-      "title": "5. Rust SUT overlay; build isolation; external-agent control",
-      "type": "Page",
-      "body_sha256": "38743a3132b2b88a2de0c23dac153cc10c3b7481b8d0eed508813bd1c4b6a1e8"
+      "id": "pages/exec-assets/bootstrap-windows-ps1",
+      "path": "pages/exec-assets/bootstrap-windows-ps1.md",
+      "title": "EXEC_ASSETS/bootstrap/windows.ps1",
+      "type": "Procedure",
+      "body_sha256": "b6df934f1c47ffefd31845d0eea3389c45e6117c94fd39ef7e81a7c03fa31af5"
     },
     {
-      "id": "pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays",
-      "path": "pages/implementation-handbook/6-turn-coverage-tls-nat-side-relays.md",
-      "title": "6. TURN coverage; TLS; NAT-side relays",
-      "type": "Page",
-      "body_sha256": "90c409759048976174c0a74709c86a3d52616712bfc06f2bb9532f598356d4b6"
+      "id": "pages/exec-assets/compose-timeout-json",
+      "path": "pages/exec-assets/compose-timeout-json.md",
+      "title": "EXEC_ASSETS/compose.timeout.json",
+      "type": "Reference",
+      "body_sha256": "cb23af4716c75082706b7c2c2d7bdacf105ef6a99aa08c5ab942dc10dbb7d432"
     },
     {
-      "id": "pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback",
-      "path": "pages/implementation-handbook/7-iroh-separate-local-relay-pin-api-schema-never-public-fallback.md",
-      "title": "7. iroh: separate local relay; pin API/schema; never public fallback",
-      "type": "Page",
-      "body_sha256": "ac9dfb25e677f18a3d7e8bf6067ca7f2e3effc1b5e4797aecebdc1965c7ebe32"
+      "id": "pages/exec-assets/compose-tls-json",
+      "path": "pages/exec-assets/compose-tls-json.md",
+      "title": "EXEC_ASSETS/compose.tls.json",
+      "type": "Reference",
+      "body_sha256": "d04ec480cb1d5e4ccf2b8fb80d2968594429cc2cf57790c338416dd5697a7e7b"
     },
     {
-      "id": "pages/implementation-handbook/8-packet-level-observation-bounded-collection-failure-triage",
-      "path": "pages/implementation-handbook/8-packet-level-observation-bounded-collection-failure-triage.md",
-      "title": "8. Packet-level observation; bounded collection; failure triage",
-      "type": "Page",
-      "body_sha256": "745637c1fcddc4f795a9f50537232d3509e68435457c56c79a6a1ad44aea78c0"
+      "id": "pages/exec-assets/config-asterisk-extensions-conf",
+      "path": "pages/exec-assets/config-asterisk-extensions-conf.md",
+      "title": "EXEC_ASSETS/config/asterisk/extensions.conf",
+      "type": "Reference",
+      "body_sha256": "56706da58d8efb64da2b6b3ec90c4578290145fa4d30c04cb9302085ce14045f"
     },
     {
-      "id": "pages/implementation-handbook/9-machine-verifiable-quality-repetitions-final-gate",
-      "path": "pages/implementation-handbook/9-machine-verifiable-quality-repetitions-final-gate.md",
-      "title": "9. Machine-verifiable quality; repetitions; final gate",
-      "type": "Page",
-      "body_sha256": "deefcf68cd723ccb9a6c43433c54f3ff64f4fa1ad3432cbe97e638a117cb4429"
+      "id": "pages/exec-assets/config-asterisk-pjsip-conf",
+      "path": "pages/exec-assets/config-asterisk-pjsip-conf.md",
+      "title": "EXEC_ASSETS/config/asterisk/pjsip.conf",
+      "type": "Reference",
+      "body_sha256": "c575ac638782e37ea321b4907d7b0ab8f7e964b49aa8f39e0e52b9ca86c2c256"
     },
     {
-      "id": "pages/implementation-handbook/appendix-a-exact-source-files",
-      "path": "pages/implementation-handbook/appendix-a-exact-source-files.md",
-      "title": "Appendix A — Exact source files",
-      "type": "Page",
-      "body_sha256": "b20a056a8f4b1ce3556e54cf8d7cb193251dc9746707db6f5933f98a51a7490f"
+      "id": "pages/exec-assets/config-asterisk-rtp-conf",
+      "path": "pages/exec-assets/config-asterisk-rtp-conf.md",
+      "title": "EXEC_ASSETS/config/asterisk/rtp.conf",
+      "type": "Reference",
+      "body_sha256": "0e1312d8da5fb13489974c98ecfc7ddfe0359eb0b24f867f6975494cd56b9cf0"
     },
     {
-      "id": "pages/implementation-handbook/appendix-b-validation-record",
-      "path": "pages/implementation-handbook/appendix-b-validation-record.md",
-      "title": "Appendix B — Validation record",
-      "type": "Page",
-      "body_sha256": "c93ee5dfea4c908caa960d882cd6421f29c3ffecc1740c16368d7c477ef04cec"
+      "id": "pages/exec-assets/config-coturn-conf",
+      "path": "pages/exec-assets/config-coturn-conf.md",
+      "title": "EXEC_ASSETS/config/coturn.conf",
+      "type": "Reference",
+      "body_sha256": "00e5250b32323821d9a58fc53a4ff2659c9e4423695617e7048d332b0ce6b166"
     },
     {
-      "id": "pages/implementation-handbook/preamble",
-      "path": "pages/implementation-handbook/preamble.md",
-      "title": "Simulated NAT environment — CLI-only, single-host, real-packet WAN/NAT/VoIP/P2P laboratory",
+      "id": "pages/exec-assets/config-fixture-json",
+      "path": "pages/exec-assets/config-fixture-json.md",
+      "title": "EXEC_ASSETS/config/fixture.json",
+      "type": "Reference",
+      "body_sha256": "2368b7fde5d3d3c19617576bac5417519db649232532375bfa4e26d8879858bd"
+    },
+    {
+      "id": "pages/exec-assets/dockerfile",
+      "path": "pages/exec-assets/dockerfile.md",
+      "title": "EXEC_ASSETS/Dockerfile",
+      "type": "Procedure",
+      "body_sha256": "7015c7ba4f0ccca9c2eaa8f5d8b150e7a06e77fe292aa2d65d64778810ab6be7"
+    },
+    {
+      "id": "pages/exec-assets/doctor-py",
+      "path": "pages/exec-assets/doctor-py.md",
+      "title": "EXEC_ASSETS/doctor.py",
+      "type": "Procedure",
+      "body_sha256": "f138c2d1ba1f5bd1a27f1d8c849a1f33b1c07693285007334b3d1d990a4565f6"
+    },
+    {
+      "id": "pages/exec-assets/generate-py",
+      "path": "pages/exec-assets/generate-py.md",
+      "title": "EXEC_ASSETS/generate.py",
+      "type": "Procedure",
+      "body_sha256": "35f06056b485856fc4dd907d60e586cd5a4647a16a6b62812e373297f2e208b9"
+    },
+    {
+      "id": "pages/exec-assets/gitignore",
+      "path": "pages/exec-assets/gitignore.md",
+      "title": "EXEC_ASSETS/.gitignore",
+      "type": "Reference",
+      "body_sha256": "7bbb5eca728692cab74a6ae04944154fe8181dea7752608804a12f727fa0cb13"
+    },
+    {
+      "id": "pages/exec-assets/inventory-example-json",
+      "path": "pages/exec-assets/inventory-example-json.md",
+      "title": "EXEC_ASSETS/inventory.example.json",
+      "type": "Reference",
+      "body_sha256": "6181b7554e5c0b6db5f478f6c3a5dd8e14cbf239e1e8a384e6562f253c437ed3"
+    },
+    {
+      "id": "pages/exec-assets/jobs-infra-state-sh",
+      "path": "pages/exec-assets/jobs-infra-state-sh.md",
+      "title": "EXEC_ASSETS/jobs/infra-state.sh",
+      "type": "Procedure",
+      "body_sha256": "49e925e6e827ef5b78bc6be3f51a974fd6df7a52ad624d372c3d71e92ea6c330"
+    },
+    {
+      "id": "pages/exec-assets/jobs-mac-state-sh",
+      "path": "pages/exec-assets/jobs-mac-state-sh.md",
+      "title": "EXEC_ASSETS/jobs/mac-state.sh",
+      "type": "Procedure",
+      "body_sha256": "c7d36c32a6657d2ef5d19245829bba0b18855ff4cb9a4d34d2ae2774f89d3f06"
+    },
+    {
+      "id": "pages/exec-assets/jobs-windows-state-ps1",
+      "path": "pages/exec-assets/jobs-windows-state-ps1.md",
+      "title": "EXEC_ASSETS/jobs/windows-state.ps1",
+      "type": "Procedure",
+      "body_sha256": "6d1a02d4bc623221edeb4425047343bd94cc25edd547b09ceedf90f71ac2ba65"
+    },
+    {
+      "id": "pages/exec-assets/lab",
+      "path": "pages/exec-assets/lab.md",
+      "title": "EXEC_ASSETS/lab",
+      "type": "Procedure",
+      "body_sha256": "6aeb03dbd354ee1e640f1e79425c6757f4c23039a6afc445333a4bfe8eb961d7"
+    },
+    {
+      "id": "pages/exec-assets/manifest-json",
+      "path": "pages/exec-assets/manifest-json.md",
+      "title": "EXEC_ASSETS/MANIFEST.json",
+      "type": "Reference",
+      "body_sha256": "28e8889b97a86a5877ab95123b330305b935135c43e5c2f3d75ea9d8242f9087"
+    },
+    {
+      "id": "pages/exec-assets/metadata-source-locators-json",
+      "path": "pages/exec-assets/metadata-source-locators-json.md",
+      "title": "EXEC_ASSETS/metadata/source-locators.json",
+      "type": "Reference",
+      "body_sha256": "cd45296421bb3908e4f0bd28e2b3adb5ca522c84e13c810df31a6c6092bddfce"
+    },
+    {
+      "id": "pages/exec-assets/readme-md",
+      "path": "pages/exec-assets/readme-md.md",
+      "title": "EXEC_ASSETS/README.md",
+      "type": "Reference",
+      "body_sha256": "4da066350d4939fc6a9f1e994d75fd3b18b98c5d2d14998c05ea59ec5369dab4"
+    },
+    {
+      "id": "pages/exec-assets/requirements-media-txt",
+      "path": "pages/exec-assets/requirements-media-txt.md",
+      "title": "EXEC_ASSETS/requirements-media.txt",
+      "type": "Reference",
+      "body_sha256": "15f226c5436eca096d5da109d51dbef291af96d1d5a4711abf8e73ad3cc1ba11"
+    },
+    {
+      "id": "pages/exec-assets/scripts-capture-sh",
+      "path": "pages/exec-assets/scripts-capture-sh.md",
+      "title": "EXEC_ASSETS/scripts/capture.sh",
+      "type": "Procedure",
+      "body_sha256": "d9356af0ccccbf9fe936901f587cca74eaea48bf02627afcf7c4a60073574190"
+    },
+    {
+      "id": "pages/exec-assets/scripts-fixture-py",
+      "path": "pages/exec-assets/scripts-fixture-py.md",
+      "title": "EXEC_ASSETS/scripts/fixture.py",
+      "type": "Procedure",
+      "body_sha256": "b8a710cb47984170c1d11ee0ceca659051ab054f4b2c48c44bdfd0fc57273c68"
+    },
+    {
+      "id": "pages/exec-assets/scripts-inject-py",
+      "path": "pages/exec-assets/scripts-inject-py.md",
+      "title": "EXEC_ASSETS/scripts/inject.py",
+      "type": "Procedure",
+      "body_sha256": "91570b9ada14d191e0df9ff4b5c1c302dc8182eab523ddf6b5099fb91ccbf713"
+    },
+    {
+      "id": "pages/exec-assets/scripts-link-sh",
+      "path": "pages/exec-assets/scripts-link-sh.md",
+      "title": "EXEC_ASSETS/scripts/link.sh",
+      "type": "Procedure",
+      "body_sha256": "7632689d805f796e999a41ed737b85010456eff71262fa62e1f624b16cd66ce4"
+    },
+    {
+      "id": "pages/exec-assets/scripts-linux-endpoint-sh",
+      "path": "pages/exec-assets/scripts-linux-endpoint-sh.md",
+      "title": "EXEC_ASSETS/scripts/linux-endpoint.sh",
+      "type": "Procedure",
+      "body_sha256": "274b38c6e154c240f8443a9b1e406a33df8de7afe93a818f65f0d62774815eb9"
+    },
+    {
+      "id": "pages/exec-assets/scripts-media-py",
+      "path": "pages/exec-assets/scripts-media-py.md",
+      "title": "EXEC_ASSETS/scripts/media.py",
+      "type": "Procedure",
+      "body_sha256": "1ed2daacfe57727f48fb77b88d1e96150663bb826c237e11f1f2f2d32193c7e9"
+    },
+    {
+      "id": "pages/exec-assets/scripts-nat-observe-py",
+      "path": "pages/exec-assets/scripts-nat-observe-py.md",
+      "title": "EXEC_ASSETS/scripts/nat-observe.py",
+      "type": "Procedure",
+      "body_sha256": "938f22072c7d8a530527e441d0134c568f8d9dd068611fd08d38c4702452079c"
+    },
+    {
+      "id": "pages/exec-assets/scripts-node-sh",
+      "path": "pages/exec-assets/scripts-node-sh.md",
+      "title": "EXEC_ASSETS/scripts/node.sh",
+      "type": "Procedure",
+      "body_sha256": "5cb6f6701ae61c795c1645d544ca7b41e02fad9d651062245077a1e99776175a"
+    },
+    {
+      "id": "pages/exec-assets/scripts-observer-py",
+      "path": "pages/exec-assets/scripts-observer-py.md",
+      "title": "EXEC_ASSETS/scripts/observer.py",
+      "type": "Procedure",
+      "body_sha256": "e6684d10354ad1ce4bcad06654dea24815430f49b77a77c2f7941366f8178bba"
+    },
+    {
+      "id": "pages/exec-assets/scripts-outer-relay-py",
+      "path": "pages/exec-assets/scripts-outer-relay-py.md",
+      "title": "EXEC_ASSETS/scripts/outer-relay.py",
+      "type": "Procedure",
+      "body_sha256": "c69e4b356a58cf2a85ddfb4e249034514216467428422c5e92143f8efade7ad5"
+    },
+    {
+      "id": "pages/exec-assets/scripts-policy-sh",
+      "path": "pages/exec-assets/scripts-policy-sh.md",
+      "title": "EXEC_ASSETS/scripts/policy.sh",
+      "type": "Procedure",
+      "body_sha256": "aa80ea5dc2b0910a791b7c52cc4017f5d6540abcbdb5b65f20e3a627dac66de2"
+    },
+    {
+      "id": "pages/exec-assets/scripts-probe-py",
+      "path": "pages/exec-assets/scripts-probe-py.md",
+      "title": "EXEC_ASSETS/scripts/probe.py",
+      "type": "Procedure",
+      "body_sha256": "436cbe17ae1144bb0cb0fe03557f5a85be524b9a5fca60d1cc55767f8dcc58d9"
+    },
+    {
+      "id": "pages/exec-assets/scripts-state-sh",
+      "path": "pages/exec-assets/scripts-state-sh.md",
+      "title": "EXEC_ASSETS/scripts/state.sh",
+      "type": "Procedure",
+      "body_sha256": "0a01edf9959f136064bb3afb2c3e43c72df4db7be7385cb9d063b93430ab5e00"
+    },
+    {
+      "id": "pages/exec-assets/scripts-tls-sh",
+      "path": "pages/exec-assets/scripts-tls-sh.md",
+      "title": "EXEC_ASSETS/scripts/tls.sh",
+      "type": "Procedure",
+      "body_sha256": "6a00ed8687fe0293af76c3945c16cd0b4c5f44f0cc6562f24803c55030d6e798"
+    },
+    {
+      "id": "pages/exec-assets/validate-py",
+      "path": "pages/exec-assets/validate-py.md",
+      "title": "EXEC_ASSETS/validate.py",
+      "type": "Procedure",
+      "body_sha256": "d2a671a3c754691ddffb8f33b43a830b559e6fbaea2f663fb15477e15467b67f"
+    },
+    {
+      "id": "pages/exec-assets/validation-report-json",
+      "path": "pages/exec-assets/validation-report-json.md",
+      "title": "EXEC_ASSETS/validation/report.json",
+      "type": "Reference",
+      "body_sha256": "bae24445992f0d90223f2b948e45cec4d4cde396f7f80e622dd950cd00eaeb2a"
+    },
+    {
+      "id": "pages/exec-assets/vm-macos-collect-sh",
+      "path": "pages/exec-assets/vm-macos-collect-sh.md",
+      "title": "EXEC_ASSETS/vm/macos-collect.sh",
+      "type": "Procedure",
+      "body_sha256": "74f2683a5eeeadbe4ce9a677959dc5501526e804428551b2e19634882653ce96"
+    },
+    {
+      "id": "pages/exec-assets/vm-windows-collect-ps1",
+      "path": "pages/exec-assets/vm-windows-collect-ps1.md",
+      "title": "EXEC_ASSETS/vm/windows-collect.ps1",
+      "type": "Procedure",
+      "body_sha256": "ad05224f8593972752abac2d6f80e81ffe7b10d1ea2307d1a974eaea162b1abe"
+    },
+    {
+      "id": "pages/exec-assets/vm-windows-create-ps1",
+      "path": "pages/exec-assets/vm-windows-create-ps1.md",
+      "title": "EXEC_ASSETS/vm/windows-create.ps1",
+      "type": "Procedure",
+      "body_sha256": "affb615bf82d75bc385393fa35a41adaa8c746c0c55d38dc4539c37a12427189"
+    },
+    {
+      "id": "pages/pre-okf-original/0-execution-contract",
+      "path": "pages/pre-okf-original/0-execution-contract.md",
+      "title": "0. Execution contract",
       "type": "Page",
-      "body_sha256": "d09fee7f8ae08da6fbeb6be95f5e2fc3eec49d7f6df867e94f088a54bbd32d96"
+      "body_sha256": "9af18087120079d155b14b6d0a01829623224a9f84fba7318e3741cbe06c0ff8"
+    },
+    {
+      "id": "pages/pre-okf-original/1-terms-layers-fidelity",
+      "path": "pages/pre-okf-original/1-terms-layers-fidelity.md",
+      "title": "1. Terms, layers, fidelity",
+      "type": "Page",
+      "body_sha256": "5081fb447bd742672a1944cf35d7517a665012cef92b36e927667fb7417018d8"
+    },
+    {
+      "id": "pages/pre-okf-original/10-mac-underlay-host-ciphertext-relay",
+      "path": "pages/pre-okf-original/10-mac-underlay-host-ciphertext-relay.md",
+      "title": "10. Mac underlay: host ciphertext relay",
+      "type": "Page",
+      "body_sha256": "86ede440c65229d0d4aadbf184c3056d4f3c42ece783faf2e902c151830c39ab"
+    },
+    {
+      "id": "pages/pre-okf-original/11-generate-build-start-infrastructure",
+      "path": "pages/pre-okf-original/11-generate-build-start-infrastructure.md",
+      "title": "11. Generate, build, start infrastructure",
+      "type": "Page",
+      "body_sha256": "e04f85f036089f67e03a8e75213a65d9804e9d1af222a11bb5aa9022b0dc08a6"
+    },
+    {
+      "id": "pages/pre-okf-original/12-native-tunnels",
+      "path": "pages/pre-okf-original/12-native-tunnels.md",
+      "title": "12. Native tunnels",
+      "type": "Page",
+      "body_sha256": "cd1b8b76b018cf4525243b26ef5e30cd851758167412952ab382454fc3484d27"
+    },
+    {
+      "id": "pages/pre-okf-original/13-native-firewall-and-cooperative-routing-contract",
+      "path": "pages/pre-okf-original/13-native-firewall-and-cooperative-routing-contract.md",
+      "title": "13. Native firewall and cooperative routing contract",
+      "type": "Page",
+      "body_sha256": "786c22c2d872964d8bc94703cf35a5b3bd6cc4299eae38358c5bea08704968eb"
+    },
+    {
+      "id": "pages/pre-okf-original/14-packet-path-and-nat-semantics",
+      "path": "pages/pre-okf-original/14-packet-path-and-nat-semantics.md",
+      "title": "14. Packet path and NAT semantics",
+      "type": "Page",
+      "body_sha256": "bd9940f26d914d2e9b5c8ae6f70e3218dfda9d25e983797b6607f67ba0590d42"
+    },
+    {
+      "id": "pages/pre-okf-original/15-minimum-path-acceptance",
+      "path": "pages/pre-okf-original/15-minimum-path-acceptance.md",
+      "title": "15. Minimum path acceptance",
+      "type": "Page",
+      "body_sha256": "341923d4915c3c1fb0b51ff2d3de80326116190b3455a544d5d1aa42f8538513"
+    },
+    {
+      "id": "pages/pre-okf-original/16-topology-switching-extra-nodes-dnat",
+      "path": "pages/pre-okf-original/16-topology-switching-extra-nodes-dnat.md",
+      "title": "16. Topology switching, extra nodes, DNAT",
+      "type": "Page",
+      "body_sha256": "f0c934899354e62749e213302d3facd8dbfdce65b61d885e5d567b7a202be08a"
+    },
+    {
+      "id": "pages/pre-okf-original/17-product-build-native-dependencies-adapter-contract",
+      "path": "pages/pre-okf-original/17-product-build-native-dependencies-adapter-contract.md",
+      "title": "17. Product build, native dependencies, adapter contract",
+      "type": "Page",
+      "body_sha256": "e017a23fb9402e8347156baa42a62056902146db84a634605348fe4c37f88fdb"
+    },
+    {
+      "id": "pages/pre-okf-original/18-native-bootstrap-discovery-server",
+      "path": "pages/pre-okf-original/18-native-bootstrap-discovery-server.md",
+      "title": "18. Native bootstrap/discovery server",
+      "type": "Page",
+      "body_sha256": "a31fc79ca4aabb067185e5833beebd58f32eb5f2832e134f4893923add1ec647"
+    },
+    {
+      "id": "pages/pre-okf-original/19-native-relay-server-and-path-transition",
+      "path": "pages/pre-okf-original/19-native-relay-server-and-path-transition.md",
+      "title": "19. Native relay server and path transition",
+      "type": "Page",
+      "body_sha256": "32ebea8ea9231734496ab683b6ef2a103e24ae801861fb6bd935f6bcc5b53138"
+    },
+    {
+      "id": "pages/pre-okf-original/2-architecture-and-placement",
+      "path": "pages/pre-okf-original/2-architecture-and-placement.md",
+      "title": "2. Architecture and placement",
+      "type": "Page",
+      "body_sha256": "c183fa314f567215ee2d338e76295c075480c0a09ab7c32386aef2751a6c091b"
+    },
+    {
+      "id": "pages/pre-okf-original/20-asterisk-reference-service-and-sip",
+      "path": "pages/pre-okf-original/20-asterisk-reference-service-and-sip.md",
+      "title": "20. Asterisk reference service and SIP",
+      "type": "Page",
+      "body_sha256": "26ee6d07fcc611799a42fa51739dac5c03b99b53b709a5712dfce8f4bfcada81"
+    },
+    {
+      "id": "pages/pre-okf-original/21-headless-voip-identity-quality-surrogate-scope",
+      "path": "pages/pre-okf-original/21-headless-voip-identity-quality-surrogate-scope.md",
+      "title": "21. Headless VoIP, identity, quality, surrogate scope",
+      "type": "Page",
+      "body_sha256": "270d6046636e33d01617b58738b730f638e7ebda5b9d7fa46ea9562e492f2b70"
+    },
+    {
+      "id": "pages/pre-okf-original/22-coturn-stun-turn-tls",
+      "path": "pages/pre-okf-original/22-coturn-stun-turn-tls.md",
+      "title": "22. coturn, STUN, TURN, TLS",
+      "type": "Page",
+      "body_sha256": "f2b48366e19d0922275e6c3cda44bd4f7b2f33e4f340b482dde4ea398eae4be6"
+    },
+    {
+      "id": "pages/pre-okf-original/23-quic-iroh-custom-p2p-specifics",
+      "path": "pages/pre-okf-original/23-quic-iroh-custom-p2p-specifics.md",
+      "title": "23. QUIC/iroh/custom P2P specifics",
+      "type": "Page",
+      "body_sha256": "d9ef3d9493cecea4d9807505a641b8d7970339fb91add5ba401fd99fdee6cd26"
+    },
+    {
+      "id": "pages/pre-okf-original/24-nat-qualification-and-finite-fixtures",
+      "path": "pages/pre-okf-original/24-nat-qualification-and-finite-fixtures.md",
+      "title": "24. NAT qualification and finite fixtures",
+      "type": "Page",
+      "body_sha256": "3b6a57be17dd827f84916bdabcf947d354fe9a595a0e872e7e9af8bb533714b6"
+    },
+    {
+      "id": "pages/pre-okf-original/25-fault-injection-timeouts-recovery",
+      "path": "pages/pre-okf-original/25-fault-injection-timeouts-recovery.md",
+      "title": "25. Fault injection, timeouts, recovery",
+      "type": "Page",
+      "body_sha256": "994bcdb5be2a9f40bde0d6b581ca856c0d4eaa046acdbe5e839e8631654d1a3d"
+    },
+    {
+      "id": "pages/pre-okf-original/26-packet-capture-state-observation",
+      "path": "pages/pre-okf-original/26-packet-capture-state-observation.md",
+      "title": "26. Packet capture, state, observation",
+      "type": "Page",
+      "body_sha256": "09d1ac34b3cc1a2f933036d349cea4a2af9318db1ebaeb36e8af4a8617d2e5b7"
+    },
+    {
+      "id": "pages/pre-okf-original/27-diagnostic-decision-tree",
+      "path": "pages/pre-okf-original/27-diagnostic-decision-tree.md",
+      "title": "27. Diagnostic decision tree",
+      "type": "Page",
+      "body_sha256": "836a2073ed0a1eedf0b356fff68d6da275593c65f2f29dfd3bff64573b98a0c9"
+    },
+    {
+      "id": "pages/pre-okf-original/28-result-schemas-quality-gates-repetitions",
+      "path": "pages/pre-okf-original/28-result-schemas-quality-gates-repetitions.md",
+      "title": "28. Result schemas, quality gates, repetitions",
+      "type": "Page",
+      "body_sha256": "a5b20582cce9e5cb2ab42926dcd5018499ccd8d63ff8a7df25610d6071b798da"
+    },
+    {
+      "id": "pages/pre-okf-original/29-security-provenance-cleanup",
+      "path": "pages/pre-okf-original/29-security-provenance-cleanup.md",
+      "title": "29. Security, provenance, cleanup",
+      "type": "Page",
+      "body_sha256": "af283712454d493358ff63e71676bceb1649ab660afbada1a282aa8dfa108d63"
+    },
+    {
+      "id": "pages/pre-okf-original/3-address-plan-single-source-of-truth",
+      "path": "pages/pre-okf-original/3-address-plan-single-source-of-truth.md",
+      "title": "3. Address plan: single source of truth",
+      "type": "Page",
+      "body_sha256": "d6071ab4cd2f4a844c22ec2cfc53d4782002ce2d8e851a555d6d967a6e4d99d2"
+    },
+    {
+      "id": "pages/pre-okf-original/30-template-sealing-and-automation-boundary",
+      "path": "pages/pre-okf-original/30-template-sealing-and-automation-boundary.md",
+      "title": "30. Template sealing and automation boundary",
+      "type": "Page",
+      "body_sha256": "d925c4c5401fb95b8cd8673d6e29ddfcd80aea763f73ef8a9155218072d87d9c"
+    },
+    {
+      "id": "pages/pre-okf-original/31-asset-map-and-edit-discipline",
+      "path": "pages/pre-okf-original/31-asset-map-and-edit-discipline.md",
+      "title": "31. Asset map and edit discipline",
+      "type": "Page",
+      "body_sha256": "169689f85f587700a49d7ae56894bab33e1108d181035c656ff8f1d45e8e9c0f"
+    },
+    {
+      "id": "pages/pre-okf-original/32-source-grounded-platform-facts-and-verification-scope",
+      "path": "pages/pre-okf-original/32-source-grounded-platform-facts-and-verification-scope.md",
+      "title": "32. Source-grounded platform facts and verification scope",
+      "type": "Page",
+      "body_sha256": "728c96f263733d11383d2109d5b6075034ded15390a976fd721893b8f5f1bfd7"
+    },
+    {
+      "id": "pages/pre-okf-original/33-wiki-decomposition",
+      "path": "pages/pre-okf-original/33-wiki-decomposition.md",
+      "title": "33. Wiki decomposition",
+      "type": "Page",
+      "body_sha256": "08056e73434ab91f228db8b033698c15d6a9ba2419dd925f6afa146f0d26eb58"
+    },
+    {
+      "id": "pages/pre-okf-original/4-workspaces-inputs-phase-model",
+      "path": "pages/pre-okf-original/4-workspaces-inputs-phase-model.md",
+      "title": "4. Workspaces, inputs, phase model",
+      "type": "Page",
+      "body_sha256": "9726cff08a8b470754cbd0b77a24e8b1ebd752245b3d3d00df24efad197047a5"
+    },
+    {
+      "id": "pages/pre-okf-original/5-control-plane-and-agent-execution",
+      "path": "pages/pre-okf-original/5-control-plane-and-agent-execution.md",
+      "title": "5. Control plane and agent execution",
+      "type": "Page",
+      "body_sha256": "193796631f340ba9a323ce8f19a8344e5978b6bfb6967d456306f5625a8f802b"
+    },
+    {
+      "id": "pages/pre-okf-original/6-ubuntu-infrastructure-bootstrap",
+      "path": "pages/pre-okf-original/6-ubuntu-infrastructure-bootstrap.md",
+      "title": "6. Ubuntu infrastructure bootstrap",
+      "type": "Page",
+      "body_sha256": "c7b2ccb3c3dcc98e02568804d7aa93f6f682411de878804ada113e586d849b7d"
+    },
+    {
+      "id": "pages/pre-okf-original/7-windows-host-and-native-guests",
+      "path": "pages/pre-okf-original/7-windows-host-and-native-guests.md",
+      "title": "7. Windows host and native guests",
+      "type": "Page",
+      "body_sha256": "129700b361d9e7af617e5d66f2a3689a8004f4da1e194130147d04a401cf049b"
+    },
+    {
+      "id": "pages/pre-okf-original/8-mac-host-native-guests-oob-readiness",
+      "path": "pages/pre-okf-original/8-mac-host-native-guests-oob-readiness.md",
+      "title": "8. Mac host, native guests, OOB readiness",
+      "type": "Page",
+      "body_sha256": "b54a156ed976ba7b8adebb13aca0de4c7525ad285a028a0993ad85d49a60dadc"
+    },
+    {
+      "id": "pages/pre-okf-original/9-mac-infrastructure-and-capacity-selection",
+      "path": "pages/pre-okf-original/9-mac-infrastructure-and-capacity-selection.md",
+      "title": "9. Mac infrastructure and capacity selection",
+      "type": "Page",
+      "body_sha256": "103dfbf7cb43cb88a12734e431d73e5a1a3d7b0cb14e12c9868452b825ce22b2"
+    },
+    {
+      "id": "pages/pre-okf-original/preamble",
+      "path": "pages/pre-okf-original/preamble.md",
+      "title": "Native-OS WAN/NAT/VoIP/P2P Laboratory — Agent Execution Specification",
+      "type": "Page",
+      "body_sha256": "dc728cbe7943074b5cf98b0a335ee31c9f618581066277b483f58ecb7e1eee74"
     }
   ]
 }

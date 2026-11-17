@@ -36,15 +36,16 @@ test('the baseline matches the manifest hash', () => {
   const manifest = parseManifest(readFileSync(skillFile('source/manifest.toml'), 'utf8'));
   assert.equal(manifest.length, 1);
   assert.equal(sha256(baseline.replace(/\r\n?/g, '\n')), manifest[0].sha256);
-  assert.equal(manifest[0].path, 'sources/implementation-handbook.md');
+  assert.equal(manifest[0].path, 'sources/pre-okf-original.md');
 });
 
 test('concept spans partition every source line exactly once', async () => {
   const baseline = readFileSync(skillFile('source/source.baseline.md'), 'utf8').replace(/\r\n?/g, '\n');
   const lines = baseline.endsWith('\n') ? baseline.slice(0, -1).split('\n') : baseline.split('\n');
   const bundle = await loadBundle(fileURLToPath(new URL('../okf', import.meta.url)));
+  const guideConcepts = bundle.concepts.filter((concept) => !concept.id.startsWith('pages/exec-assets/'));
   const covered = new Array(lines.length + 1).fill(0);
-  for (const concept of bundle.concepts) {
+  for (const concept of guideConcepts) {
     const [start, end] = parseSpan(concept.frontmatter['x-source-span']);
     assert.ok(start >= 1 && end <= lines.length, `${concept.id} span ${start}-${end}`);
     for (let line = start; line <= end; line += 1) covered[line] += 1;
@@ -59,7 +60,8 @@ test('each concept body starts at its source heading and its span is truthful', 
   const baseline = readFileSync(skillFile('source/source.baseline.md'), 'utf8').replace(/\r\n?/g, '\n');
   const lines = baseline.endsWith('\n') ? baseline.slice(0, -1).split('\n') : baseline.split('\n');
   const bundle = await loadBundle(fileURLToPath(new URL('../okf', import.meta.url)));
-  for (const concept of bundle.concepts) {
+  const guideConcepts = bundle.concepts.filter((concept) => !concept.id.startsWith('pages/exec-assets/'));
+  for (const concept of guideConcepts) {
     const [start] = parseSpan(concept.frontmatter['x-source-span']);
     const headingLine = lines[start - 1].trim();
     assert.match(headingLine, /^#{1,2}\s/, concept.id);
@@ -72,5 +74,26 @@ test('the content hash covers the emitted body', async () => {
   const bundle = await loadBundle(fileURLToPath(new URL('../okf', import.meta.url)));
   for (const concept of bundle.concepts) {
     assert.equal(sha256(conceptBody(concept)), concept.frontmatter['x-content-sha256'], concept.id);
+  }
+});
+
+test('asset concepts re-derive their own file spans and hashes', async () => {
+  const bundle = await loadBundle(fileURLToPath(new URL('../okf', import.meta.url)));
+  const inventory = JSON.parse(readFileSync(skillFile('source/asset-inventory.json'), 'utf8'));
+  for (const entry of inventory.entries) {
+    const concept = bundle.byId.get(entry.concept);
+    assert.ok(concept, entry.concept);
+    const text = readFileSync(skillFile(entry.asset), 'utf8').replace(/\r\n?/g, '\n');
+    const lines = text.endsWith('\n') ? text.slice(0, -1).split('\n') : text.split('\n');
+    const [start, end] = parseSpan(concept.frontmatter['x-source-span']);
+    assert.equal(start, 1, entry.asset);
+    assert.equal(end, lines.length, entry.asset);
+    assert.equal(sha256(text), concept.frontmatter['x-asset-sha256'], entry.asset);
+    assert.ok(conceptBody(concept).includes(text.trimEnd()), entry.asset);
+    assert.match(
+      conceptBody(concept),
+      new RegExp(`^## ${entry.asset.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+      entry.asset,
+    );
   }
 });

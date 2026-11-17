@@ -1,2987 +1,838 @@
-# Simulated NAT environment — CLI-only, single-host, real-packet WAN/NAT/VoIP/P2P laboratory
+# Native-OS WAN/NAT/VoIP/P2P Laboratory — Agent Execution Specification
 
-## 0. Status; scope; non-negotiable truth
+Edition: 2026-11-17. Language: English. Delivery: this single specification; separate current-assets ZIP. Scope: architecture, rationale, prerequisites, provisioning, native endpoints, virtual topology, CLI control, observation, protocol testing, acceptance, diagnosis, recovery. No historical-document dependency. Shell snippets denote execution context explicitly; angle-bracket values require environment-specific resolution, never literal execution.
 
-Reference implementation + operator/build/test specification. Three standalone Compose documents;
-common Dockerfile; namespace routing/NAT; bounded fault injection/capture; dependency-free Rust TCP/UDP
-probes and host-side integration tests; Asterisk/coturn configurations (Ubuntu24.04 packages available [web:95][web:101]); optional PJSUA surrogate;
-Rust-SUT namespace overlay; pinned-source iroh-relay build/overlay. No GUI/audio hardware required.
+## 0. Execution contract
 
-Execution status: generated/static-reviewed here; Docker daemon/runtime unavailable here. NOT runtime-certified.
-`./lab config`, image build, daemon health, `./lab smoke`, surrogate tests and YOUR Rust-SUT acceptance
-are mandatory target-machine gates. Never translate this document into a claim of already-tested binaries.
-Existing Rust/PJSIP/iroh application sources, binding ABI, Cargo.lock, peer protocol and quality SLOs were
-not supplied: no honest guide can provide their already-working integration adapters. Concrete integration
-contracts below; unsupported or unimplemented checks MUST report NOT_RUN/FAIL, never implicit PASS.
+Mission: run actual Windows/macOS/Linux application binaries against real IP packets traversing a closed, configurable WAN/NAT dataplane inside one development PC. Include native clients, native application servers, native bootstrap/discovery servers, native relay servers. Keep Asterisk, coturn, routers, observers, tunnel ingress on Ubuntu containers. No substitution of Linux builds for Windows/macOS product validation; no GUI/audio-device/manual-listening oracle.
 
-Closed IPv4 baseline, Linux kernel dataplane. All runtime bridges internal; no bridge gateway IP assigned;
-Docker masquerading disabled. Containers retain their directly-connected routes; defaults replaced by
-explicit experimental routers. WAN servers have NO default route. Source/content restrictions implemented
-inside namespaces. Agent controls Docker from host; no Docker socket inside containers. No real public
-IPs needed. Same-WAN connectivity represents public reachability. Linux conntrack SNAT+APDF-like forwarding
-is NOT automatically certified full-cone/symmetric/endpoint-independent behavior. Classify by measurement.
+Separation:
+- Product implementation: real target OS, target ABI, native socket/TLS/media implementation.
+- Node isolation: Linux network namespace; Windows/macOS same-OS VM when independent network endpoints are required.
+- Network semantics: Ubuntu kernel routing, nftables, conntrack, tc/netem.
+- Connection carrier: WireGuard between native endpoints and Ubuntu ingress; encrypted underlay distinct from inner experimental traffic.
+- Control: host agent, hypervisor CLI, guest command RPC, infrastructure SSH/Docker CLI; independent of experimental WAN availability.
+- Evidence: application events, decoded payload, namespace packets/counters, node state, build/configuration provenance.
 
-Mechanisms: Compose namespace sharing [web:5]; bridge isolation/options [web:48]; first-packet NAT/conntrack
-[web:3]; mapping vs filtering [web:18]; behavior discovery [web:19]; netem constraints [web:20].
+Initial success criterion: A and B behind independent NATs; S in routed WAN server segment; real UDP/TCP exchange; selective A-router cut stops A only; OOB remains usable; restoration recovers. Advanced NAT profiles/media quality/soak follow, not prerequisites for starting construction.
 
-## 1. Host contract; safety; preparation
+Status vocabulary: IMPLEMENTED, STATIC_CHECKED, RUN_PASS, RUN_FAIL, NOT_RUN, UNSUPPORTED, INPUT_REQUIRED, HUMAN_ACTION_REQUIRED, REBOOT_REQUIRED. Scope every verdict. A supplied script is not an executed result. Missing optional coverage does not erase valid infrastructure evidence; missing required product coverage cannot become release PASS.
 
-Preferred: dedicated Linux Docker Engine, rootful daemon, Compose v2 with `up --wait`; current supported
-kernel, nftables/conntrack/netem enabled. Docker Desktop: Linux-container backend; actual networking lives
-in backend kernel. Run same gates there; no claim of native macOS/Windows network-stack equivalence.
-Rootless networking not a supported reference target. Kernel modules missing? Arrange backend/host module
-availability OUTSIDE lab under administrator control; do not solve by `--privileged` or global firewall flush.
-No access to global Internet required during execution; image/source/Cargo acquisition requires preparatory
-Internet access. ARM64: native images/builds preferred; record architecture; emulated CPU invalidates absolute
-performance comparison. Single host cannot independently reproduce Internet scale or independent host clocks.
+Safety: dedicated lab directories/VMs; rootful Docker access treated as host-administrator authority; privileged setup limited to network construction. Run product binaries unprivileged. No privileged containers, host-network containers, Docker-socket mounts into SUTs, host-wide firewall flush, indiscriminate route deletion, global prune, public fallback, production credentials, secret-key collection. Trust assumptions explicit: cooperative SUT with configurable bind/bootstrap/relay/candidate policy; hostile arbitrary-binary containment is a separate hardening scope.
 
-Host commands: Docker CLI/Compose, Rust cargo/rustc, Python3, tar/unzip, shell. Optional host tshark; included
-in node image. Enough RAM/CPU/disk for Asterisk, builds, ring captures. Restrict Docker access to trusted agent:
-Docker daemon access is effectively host-admin authority. No untrusted source execution on production host.
-Trusted infra namespaces have NET_ADMIN/NET_RAW; SUT namespaces joined through unprivileged sidecars.
-Do not run arbitrary SUT code via root `./lab exec a`; use `sut-a`/`sut-b` overlay.
+## 1. Terms, layers, fidelity
 
-Inspect all files, particularly Dockerfiles; then from repository root:
+Node: independent IP stack/routing/socket context. Role: process function; client/bootstrap/relay may share a node only when intended. Process count is not node count. WAN/public: locally simulated public reachability, not ownership of Internet-routable space. Inner: application packets after WireGuard decapsulation. Outer/underlay: WireGuard UDP carrier over VM/host networking. OOB: management path outside experimental inner routing. SUT: actual product implementation. Oracle: programmatic expected-result evaluator.
+
+Layer order: hypervisor -> underlay -> WireGuard ingress -> experimental routers -> services/peers -> application protocol -> decoded payload/quality. Diagnose in that order. Underlay NAT does not count as an experimental NAT stage: routers classify decapsulated inner tuples. Outer PersistentKeepalive does not refresh inner SIP/RTP/P2P conntrack entries.
+
+Fidelity supplied: native target OS sockets, actual TCP/UDP/QUIC/RTP, Linux packet forwarding/NAT state, actual server implementations, real encode/decode where product supports file media. Fidelity not implied: every consumer-router/ALG behavior, cellular radio, BGP/geography, independent physical oscillators, Ethernet wire preambles/offload checksum behavior, Internet-scale capacity. Add only required fixtures; do not turn limitations into unrelated construction blockers.
+
+## 2. Architecture and placement
+
+```text
+Native A: 10.78.1.10 -- WG-A --> ingress-a -- LAN-A -- ra -- [cga] --+
+Native B: 10.78.2.10 -- WG-B --> ingress-b -- LAN-B -- rb ----------+-- virtual WAN
+Native S: 10.79.0.10 -- WG-S --> ingress-s ------------------------+
+                                                                  +-- Asterisk .10
+                                                                  +-- observer .20/.21
+                                                                  +-- coturn .30
+```
+
+Placement profiles:
+- Linux: A/B/S host binaries in distinct network namespaces; Docker Engine on host or dedicated Ubuntu VM. No product container required.
+- Windows: host=A, Windows VM=B, Windows VM=S, Ubuntu VM=infrastructure. Alternative: management-only host, all native nodes in Windows VMs.
+- Apple Silicon Mac: host=A, macOS VM=B, macOS VM=S, Ubuntu Linux VM=infrastructure, subject to actual virtualization/license/resource limits. Resolve capacity before expensive provisioning; see Section 9. Same-OS VM runs native binaries, not an OS compatibility layer.
+
+Separate bootstrap and relay processes may share S with distinct ports, configuration, events and lifecycle. Separate nodes only when independently impaired/addressed/isolated behavior is under test. Never create multiple tunnels in one native stack and call them independent nodes: local-address delivery may bypass routers.
+
+Infrastructure containers use Ubuntu 24.04 LTS baseline. Dockerfile supports UBUNTU_IMAGE override. Ubuntu 26.04 LTS adoption requires package/kernel/CLI readiness checks then version pinning; not a silent migration during a run. Build final immutable images before isolated tests. Windows/macOS GUI applications require a CLI/test-control surface and synthetic input/decoded-output path; headless network tests do not certify UI rendering or device-specific behavior.
+
+## 3. Address plan: single source of truth
+
+|Domain|Prefix|Assignments|
+|---|---|---|
+|WAN|10.77.0.0/24|ra .2 single; rb .3; cga .4 double; PBX .10; obs .20; obs2 .21; TURN .30; ingress-s .50|
+|LAN-A|10.77.1.0/24|ra .1; ingress-a .2|
+|LAN-B|10.77.2.0/24|rb .1; ingress-b .2|
+|Transit-A|10.77.10.0/24|cga .1; ra .2; double only|
+|A tunnel|10.78.1.0/24|ingress WG .1; native A .10|
+|B tunnel|10.78.2.0/24|ingress WG .1; native B .10|
+|S tunnel/routed WAN|10.79.0.0/24|ingress WG .1; native S .10|
+|Docker underlay|172.30.250.0/24|gateway .254; ingress a/b/s .11/.12/.13|
+|Hyper-V underlay example|192.168.240.0/24|host .1; Ubuntu .2; Windows B .11; S .12|
+
+Experimental Docker bridge IPAM gateways .254 remain unassigned using inhibit_ipv4. Internal bridges; Docker masquerading disabled. Only transport bridge has normal Docker gateway/NAT. WAN services have no default route; explicit S-prefix route via ingress-s. Ingress is dual-homed underlay/LAN or underlay/WAN, never masquerades inner packets.
+
+Preflight: enumerate host/guest/VPN/Docker routes and interfaces. Reject conflicting prefixes before install. If remapping required, update generator, ingress guards, peer AllowedIPs, endpoint scripts, fixture, acceptance and service advertisements together. No partial textual replacement during a live run.
+
+Published outer UDP: A 51821 -> ingress-a:51820; B 51822 -> ingress-b:51820; S 51823 -> ingress-s:51820. Host/guest WireGuard Endpoint must reach the published address, not an inaccessible Docker bridge address. Private keys unique per node/ingress; /32 peer source authorization server-side.
+
+## 4. Workspaces, inputs, phase model
+
+Recommended roots: Windows C:\WanLab; Mac/Linux ~/wan-lab; infrastructure ~/wan-lab. Extract current-assets ZIP there. `lab` wrapper executes only on Linux infrastructure. Native Windows commands use PowerShell; native Mac/Linux commands use shell. File paths are local to stated execution context.
+
+Required environment inputs:
+|Input|Resolution|
+|---|---|
+|OS/edition/arch/resources|CLI inventory, no user question unless ambiguous|
+|Windows media/base VHDX/license|owner-approved image; never unauthorized download|
+|macOS image/template/license|approved prepared image or one-time IPSW preparation|
+|Guest credential|secret store; initial enrollment may require approval|
+|Infrastructure endpoint|actual reachable underlay IP or host outer-relay IP|
+|Product source/build/config/CLI|actual repository; implement adapter contract if missing|
+|Required scenarios|initial path tests then applicable product scopes|
+
+Phases: INVENTORY -> HOST_TOOLS -> VM_TEMPLATES -> INFRA_TOOLS -> GENERATE -> BUILD -> UP -> ENDPOINTS -> PATH_ACCEPTANCE -> PRODUCT_TESTS -> EVIDENCE -> CLEANUP. Prepare Internet access allowed for downloads/builds; isolated test phase must not fetch dependencies via experiment routers. Preserve online cache/build manifests.
+
+Bootstrap idempotency: inspect existing state; install absent dependencies; never overwrite existing VMs/configuration silently. Generator intentionally refuses existing compose.json. Reboot resumes same bootstrap command. VM/media/license/auth boundaries report exact action and resume command, not a vague request.
+
+```json
+{"status":"HUMAN_ACTION_REQUIRED","code":"FIRMWARE_VIRTUALIZATION_DISABLED","action":"Enable hardware virtualization under approved firmware policy","resume":"bootstrap/windows.ps1"}
+```
+
+Record shell/OS/tool versions, architecture, available disk/RAM, hypervisor, VM limits. Allocate a few GiB RAM per guest initially, then measure; no universal capacity guarantee. VM count/resource rejection is a topology choice, not permission to claim unexecuted simultaneous coverage.
+
+## 5. Control plane and agent execution
+
+Windows OOB: PowerShell Direct, host-to-guest, no guest IP network requirement. Mac OOB: Tart Guest Agent `exec`, command I/O and exit status over VM communication, not experimental IP. Ubuntu management: host SSH over underlay or hypervisor console; Docker CLI inside infrastructure. Linux namespace management: host `ip netns exec` plus ordinary process control.
+
+Management invariants: experimental cut cannot remove execution/log retrieval; guest OS must remain responsive; final recovery may stop/start VM from host. OOB transport outage and application dataplane failure are distinct. Never rely solely on SSH through a NAT-under-test.
+
+Common runner:
+```sh
+cp inventory.example.json inventory.json
+# Resolve actual VM names, SSH target and credential path.
+python3 agent-run.py --node infra --script jobs/infra-state.sh --timeout 180
+python3 agent-run.py --node mac-b --script jobs/mac-state.sh --timeout 120
+```
+Windows host:
+```powershell
+python agent-run.py --node win-b --script jobs/windows-state.ps1 --timeout 120
+```
+Runner writes artifacts/agent/<run-id>/{script.txt,stdout.bin,stderr.bin,result.json}; secrets must not appear in job source. Command execution may succeed while a nested native executable fails: PowerShell jobs must check `$LASTEXITCODE` and throw/exit explicitly.
+
+Runner timeout kills local transport, not guaranteed remote children. Long-lived SUTs: guest-managed process/service with PID, start time, executable identity, ready event, stop command. On timeout collect OOB, terminate guest process tree, preserve output, then reset only affected fixture.
+
+Windows credential enrollment once:
+```powershell
+New-Item -ItemType Directory -Force C:\WanSecrets | Out-Null
+Get-Credential | Export-Clixml C:\WanSecrets\guest.xml
+```
+DPAPI CLIXML bound to creating host/user; restrict ACL; do not commit or transfer as portable credentials. Unattended controller uses same authorized principal. Mac guest `sudo -n` requires prepared limited privileges; interactive password prompts inside jobs are failures, not acceptable waiting states.
+
+## 6. Ubuntu infrastructure bootstrap
+
+Run inside Ubuntu host/VM:
+```sh
+cd ~/wan-lab
+bash bootstrap/ubuntu.sh
+```
+Installs Docker official repository when Docker absent, Compose plugin, WireGuard tools, Python, SSH; checks kernel modules wireguard/nf_conntrack/sch_netem and interface creation. Existing incompatible Docker installation is not forcibly removed: inspect `docker version`, `docker compose version`, package ownership. Rootless Docker is not reference target. No `--privileged` workaround for missing host/backend kernel features.
+
+Subsequent infrastructure commands require Docker-authorized user. Use an approved root shell or explicit sudo consistently. Docker group grants administrator-equivalent control; not automatically assigned. Root-created private files remain 0600; transfer through privileged OOB, never chmod world-readable.
+
+Kernel checks:
+```sh
+uname -a
+ip -br addr
+sudo modprobe wireguard
+sudo modprobe nf_conntrack
+sudo modprobe sch_netem
+sudo ip link add wg-check type wireguard
+sudo ip link del wg-check
+sudo docker version
+sudo docker compose version
+```
+Missing module may be built-in; interface/runtime check is decisive. Missing module availability in Docker Desktop backend cannot be fixed merely by installing tools in containers.
+
+Ubuntu transport static example; actual NIC name from `ip -br link`:
+```yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: false
+      dhcp6: false
+      addresses: [192.168.240.2/24]
+```
+Dedicated transport only; no default gateway needed for offline Hyper-V lab. Keep separate Internet preparation NIC until images/dependencies cached, then detach/restrict. Avoid competing cloud-init/netplan owners. Validate `netplan generate`; apply through console/OOB or `netplan try`, not blind SSH self-disconnection. On Tart DHCP use actual NIC with `dhcp4: true`, `dhcp-identifier: mac` if `tart ip` cannot resolve DUID-based leases.
+
+## 7. Windows host and native guests
+
+### 7.1 Host preparation
+
+Elevated PowerShell:
+```powershell
+Set-Location C:\WanLab
+.\bootstrap\windows.ps1
+```
+Checks/enables Hyper-V, creates WanTransport Internal switch, host 192.168.240.1/24. Exit 10: reboot with approval, rerun. Unsupported edition/firmware: explicit prerequisite resolution. Do not silently upgrade OS edition. Reserve subnet after overlap check.
+
+Hyper-V Internal switch connects host and VMs, not physical LAN by itself. Ubuntu VM .2; Windows B .11; S .12. IP management is separate from inner 10.77/78/79 ranges. External connectivity used only during preparation or by explicitly restricted management.
+
+### 7.2 Native guest template
+
+Fast path: approved powered-off prepared Gen2 Windows VHDX. Template includes supported guest OS, lab administrator, updates, Python, WireGuard, product native runtime, optional compiler, event logging. For independent identities/general distribution use Sysprep/generalize under OS requirements. Do not copy an active writable VHDX.
+
+From ISO: create dedicated empty Gen2 VM, attach owner-provided ISO, choose correct edition/image index, unattended answer file when available. Answer file controls locale, dedicated-disk GPT/EFI/MSR/OS layout, InstallFrom, accepted license, lab account, first configuration. Never reuse destructive disk-selection automation against a physical PC. Windows Setup `autounattend.xml` is media/edition-specific; resolve image index using installation media rather than inventing one. First enrollment may be interactive; freeze template afterward. PowerShell Direct supplies repeatable post-install configuration even when setup hooks differ.
+
+Creation from prepared disk:
+```powershell
+.\vm\windows-create.ps1 -Name wan-b -BaseVhdx C:\Images\windows-lab-base.vhdx
+.\vm\windows-create.ps1 -Name wan-s -BaseVhdx C:\Images\windows-lab-base.vhdx
+Start-VM wan-b
+Start-VM wan-s
+$cred=Import-Clixml C:\WanSecrets\guest.xml
+Invoke-Command -VMName wan-b -Credential $cred -ScriptBlock { Get-NetAdapter; $PSVersionTable }
+```
+Ubuntu infrastructure is separate VM, no nested Hyper-V inside Windows guests. Ubuntu secure boot template when appropriate:
+```powershell
+Set-VMFirmware -VMName wan-infra -SecureBootTemplate MicrosoftUEFICertificateAuthority
+```
+Only apply to compatible actual image. VM disk copy script does not install guest OS or invent credentials.
+
+### 7.3 Guest addressing and transfer
+
+Via Direct, on dedicated fresh B guest:
+```powershell
+$nic=Get-NetAdapter | Where-Object Status -eq 'Up'
+if(@($nic).Count -ne 1){throw 'Resolve NIC by MAC/name explicitly'}
+Set-NetIPInterface -InterfaceIndex $nic.ifIndex -AddressFamily IPv4 -Dhcp Disabled
+New-NetIPAddress -InterfaceIndex $nic.ifIndex -IPAddress 192.168.240.11 -PrefixLength 24
+```
+S uses .12. Inspect/remove only previously created lab address if rerunning. Never clear all host addresses. Direct remains available without IP connectivity.
+
+```powershell
+$s=New-PSSession -VMName wan-b -Credential $cred
+Invoke-Command -Session $s -ScriptBlock { New-Item -ItemType Directory -Force C:\WanLab | Out-Null }
+Copy-Item C:\WanLab\b.conf C:\WanLab\b.conf -ToSession $s
+Invoke-Command -Session $s -ScriptBlock { Get-NetIPAddress; Get-NetRoute }
+Copy-Item C:\WanLab\artifacts C:\WanLab\results\b -FromSession $s -Recurse
+Remove-PSSession $s
+```
+Resolve local/remote path direction before transfer. Capture binary file SHA256 after copy. Host artifacts must not accidentally overwrite base templates.
+
+### 7.4 Dependency installation
+
+Use official signed WireGuard MSI and Python package matching architecture. `bootstrap/verified-download.ps1` requires resolved approved URL and expected SHA256; inspect Authenticode signer/status. Hash from same compromised channel is not independent authenticity. Record source/hash/version.
+
+```powershell
+$p=Start-Process msiexec.exe -ArgumentList '/i','C:\Install\wireguard.msi','/qn','DO_NOT_LAUNCH=1','/norestart' -Wait -PassThru
+if($p.ExitCode -notin 0,3010){throw "MSI failure $($p.ExitCode)"}
+```
+Python installer unattended options depend on chosen distribution; official CPython example `/quiet InstallAllUsers=1 PrependPath=1 Include_test=0`; verify `python --version` and executable path afterward. SUT runtime dependencies installed from actual build manifest; do not install unrelated SDKs on every guest.
+
+## 8. Mac host, native guests, OOB readiness
+
+### 8.1 Tools and templates
+
+Baseline: Apple Silicon. Host:
+```sh
+cd ~/wan-lab
+bash bootstrap/macos.sh
+tart --version
+tart run --help
+tart exec --help
+```
+Homebrew absence reports required initial approval. Inspect installer source; no unreviewed remote shell piped into root. `brew install openai/tools/tart` follows current upstream distribution; record actual version/source, not an assumed historical vendor.
+
+Prepared image path:
+```sh
+tart clone ghcr.io/cirruslabs/macos-tahoe-base:latest wan-base
+# Capture actual OS/image revision; pin before reproducible reruns.
+tart clone wan-base wan-b
+tart clone wan-base wan-s
+tart set wan-b --cpu 2 --memory 4096
+tart set wan-s --cpu 2 --memory 4096
+mkdir -p artifacts/vm
+tart run --no-graphics wan-b >artifacts/vm/b.log 2>&1 &
+echo $! >artifacts/vm/b.pid
+tart exec wan-b /usr/bin/sw_vers
+```
+Use image compatible with actual host/license; latest is acquisition convenience only. Prepared non-vanilla images normally include Guest Agent; confirm, do not infer from filename. User-session RPC agent and privileged resize daemon are distinct. Guest login/agent readiness belongs to template sealing.
+
+OOB checks: `tart exec wan-b /usr/bin/id`; command printing stdout/stderr then exit 7 must preserve status; experimental tunnel down must not disable exec. For large binary transfer use verified shared files, not terminal streams.
 
 ```sh
-docker version
-docker compose version
-rustc -Vv; cargo -V
-./lab config > /tmp/natlab-resolved.yml
+# Start a stopped VM with explicit shares; never run same VM twice.
+tart run --no-graphics --dir=lab:$HOME/wan-share:ro --dir=results:$HOME/wan-results wan-b
+```
+Confirm flags with pinned `tart run --help`. Guest share path commonly `/Volumes/My Shared Files/lab`; enumerate actual mounted shares. Use per-node key share; read-only product inputs, separate writable results. B must not read A/S private keys.
+
+### 8.2 Keychain/privacy prerequisites
+
+Headless VM startup on recent macOS may require existing unlocked login keychain. Diagnose `SecKeyCreateRandomKey_ios`, `Failed to generate keypair`, `Interaction is not allowed with the Security Server` before changing network configuration. Use existing approved keychain/session; `security unlock-keychain login.keychain` supports automation with protected secret input. Do not replace personal keychain or create empty-password keychains as a default. First permission/credential enrollment is preparation; repeated tests remain CLI-driven.
+
+Local Network privacy may block host tools reaching private guest IPs. Grant appropriate approved permission once; broad global privacy preference changes are not default bootstrap actions. Guest Agent OOB avoids depending on experimental IP but does not remove every host OS authorization requirement.
+
+Diagnostic host log:
+```sh
+log stream --predicate='process=="tart" OR process CONTAINS "Virtualization"' >artifacts/vm/virtualization.log
+```
+Bound duration externally; stop collector after incident. Guest IP discovery:
+```sh
+tart list
+tart ip wan-b
+tart exec wan-b /bin/sh -lc 'ifconfig -a; netstat -rn'
+```
+Ubuntu DHCP DUID issue: configure `dhcp-identifier: mac`; do not delete global host DHCP lease databases as routine repair. Shared-network guest access to host uses guest default-router IP; Softnet isolation changes that assumption.
+
+## 9. Mac infrastructure and capacity selection
+
+Preferred infrastructure: independent Ubuntu Linux VM under Tart; native macOS guests remain native. No Docker-in-macOS-VM nested virtualization assumption. Prepared Ubuntu image example:
+```sh
+tart clone ghcr.io/cirruslabs/ubuntu:latest wan-infra
+tart set wan-infra --cpu 2 --memory 4096
+tart run --no-graphics wan-infra
+```
+Run in managed background session for unattended operation. Inspect `/etc/os-release`, image identity, SSH user/key and disk size. If image is not selected Ubuntu release, choose compatible pinned image or install approved Ubuntu Server ISO once. Template contract: SSH readiness, approved user, sudo mode, network, cloud-init completion. A Linux image is not guaranteed to include Tart Guest Agent; use SSH for infrastructure.
+
+Capacity decision, executed before full deployment:
+1. Determine actual simultaneously runnable guest count, OS licensing terms, available RAM/disk, backend restrictions.
+2. If host A + macOS B + macOS S + Ubuntu infrastructure runs, use complete simultaneous topology.
+3. If guest limit blocks extra Ubuntu VM, evaluate host Docker Desktop Linux backend for infrastructure; require WireGuard interface, conntrack, netem, bridge options and published UDP checks. Tools installed in a container do not supply missing backend kernel modules.
+4. If that backend fails, run smallest valid host A + macOS B + Ubuntu infrastructure profile. Co-located bootstrap/relay on B is explicitly NAT-B placement, not independent WAN S. Split scenarios or use additional host/remote infrastructure when independent S simultaneous coverage is required.
+5. Mark `single_pc:false` whenever infrastructure or endpoint leaves the PC. Do not advertise full simultaneous single-PC coverage from a reduced profile.
+
+VM limits are environment constraints, not hidden success assumptions. This selection preserves a practical construction path without claiming unavailable capacity. Intel Mac is outside baseline; requires separately qualified backend, not an Apple Silicon recipe copied verbatim.
+
+## 10. Mac underlay: host ciphertext relay
+
+Default Tart NAT: guests can reach host service at their default-router address; host services should bind 0.0.0.0 per upstream FAQ. Guest-to-guest direct reachability is not required by this carrier design. Host Python relay forwards encrypted WireGuard datagrams only; inner packets remain untouched until Ubuntu ingress.
+
+```text
+B WireGuard -> host:51822 -> outer-relay -> Ubuntu:51822
+ -> Docker publish -> ingress-b:51820 -> decrypt -> LAN-B -> rb
+```
+
+Resolve addresses:
+- INFRA_IP: `tart ip wan-infra`; if unresolved, inspect Ubuntu console/SSH/netplan DHCP identity.
+- HOST_ROUTER_IP: in native guest, `netstat -nr | awk '/default/{print $2; exit}'`; verify IPv4 result and route context.
+- GUEST_CIDR: actual guest underlay subnet, not hard-coded assumption.
+
+Host example; substitute actual values:
+```sh
+mkdir -p artifacts/transport
+python3 scripts/outer-relay.py --bind 0.0.0.0 --infra 192.168.64.3 \
+  --allow 192.168.64.0/24 --allow 127.0.0.0/8 \
+  >artifacts/transport/relay.log 2>&1 &
+echo $! >artifacts/transport/relay.pid
+```
+Bind0 accepts all host IPv4 interfaces; restrict host firewall and `--allow` to actual lab sources. No Internet port forwarding. Each front port belongs to exactly one endpoint node. Script remembers latest permitted source per port; WireGuard authenticates ciphertext; do not share port across nodes.
+
+Generate native configs with Endpoint=HOST_ROUTER_IP, not INFRA_IP. Docker `--bind` remains infrastructure-local published binding. Host A may also reach its own host-router IP; ensure --allow includes its actual source. Alternative host A Endpoint127.0.0.1 is safe after editing A config only, leaving B/S router IP. Underlay relay stop must stop test traffic while Tart exec and infrastructure SSH remain usable.
+
+Relay is a carrier, not performance-neutral magic: record CPU, socket errors, throughput ceiling. Native packet MTU1280 initially. Outer relay overhead must not be mistaken for experimental-router capacity.
+
+## 11. Generate, build, start infrastructure
+
+Inside Ubuntu, current assets extracted to ~/wan-lab, Docker authorization established:
+```sh
+cd ~/wan-lab
+python3 generate.py --endpoint 192.168.240.2 --variant single
+# Mac relay profile: replace endpoint with actual HOST_ROUTER_IP.
+./lab config > /tmp/wan-resolved.yml
 ./lab build
 ./lab up
 ./lab ps
-./lab smoke
-cat artifacts/acceptance.log artifacts/acceptance.json
+python3 doctor.py
+```
+Generated: compose.json; generated/plan.json; private/a.conf,b.conf,s.conf; private/{a,b,s}/server.conf; artifacts/<service> directories. Server configs belong only to ingress; endpoint configs distributed only to corresponding native node. Keys generated locally using wg; 0700 private directory/0600 files. No keys shipped in ZIP.
+
+Generator emits complete alternative topology; no cross-file network merge dependency. JSON is YAML-compatible Compose input. Single project name wan-experiment; only one generated topology active per infrastructure instance. Regenerate only after down/archive; existing compose.json refusal prevents accidental live rekey.
+
+Logical ready versus service ready:
+```sh
+./lab exec obs ss -lntup
+./lab exec obs2 ss -lntup
+./lab exec pbx asterisk -rx 'core waitfullybooted'
+./lab exec pbx asterisk -rx 'pjsip show transports'
+./lab exec turn ss -lntup
+```
+Container healthfile means network startup script finished; not SIP/TURN protocol acceptance. `doctor.py` proves infrastructure command access only. Inspect its scope field.
+
+Image reproducibility:
+```sh
+bash bootstrap/freeze.sh
+```
+Pin base digest, apt repository/package versions or snapshot, compiler/toolchain, source SHA and lockfiles for repeatable rebuilds. Image ID identifies an existing local build; manifest alone does not make future apt repositories immutable. After baseline freeze, export/cache approved images; no silent upgrade mid-comparison.
+
+## 12. Native tunnels
+
+### 12.1 Windows service
+
+Elevated native host/guest, correct node config already securely copied:
+```powershell
+$w="$env:ProgramFiles\WireGuard\wireguard.exe"
+& $w /installtunnelservice C:\WanLab\b.conf
+if($LASTEXITCODE -ne 0){throw 'Tunnel install failed'}
+Get-Service 'WireGuardTunnel$b'
+& "$env:ProgramFiles\WireGuard\wg.exe" show b
+Get-NetIPAddress -InterfaceAlias b
+Get-NetRoute -AddressFamily IPv4
+```
+Filename determines service name; use single quotes around `$` service names. Host A uses a.conf; S uses s.conf. No UI manager needed. Generate traffic before treating an absent initial handshake as fault. Inspect latest handshake, received/sent bytes, assigned inner address, route.
+
+```powershell
+& $w /dumplog >C:\WanLab\artifacts\wireguard.log
+& $w /uninstalltunnelservice b
+```
+Stop before replacing config; reinstall afterward. Administrator permission/ACL required. No `wg showconf` in ordinary artifacts: private keys would leak. Keep normal `wg show` hidden-key output.
+
+### 12.2 macOS interface
+
+Run inside each relevant host/guest, not only outer host. Install tools beforehand. Absolute configuration path avoids Homebrew prefix ambiguity:
+```sh
+sudo mkdir -p /usr/local/etc/wireguard
+sudo install -m 600 b.conf /usr/local/etc/wireguard/wan.conf
+sudo wg-quick up /usr/local/etc/wireguard/wan.conf
+sudo wg show
+ifconfig -a
+route -n get 10.77.0.20
+```
+Discover actual utun interface by assigned10.78.2.10; never assume utun0. WireGuard userspace helper availability/PATH must work under sudo. Shutdown with same absolute config:
+```sh
+sudo wg-quick down /usr/local/etc/wireguard/wan.conf
+```
+A/B/S have separate OS stacks. `AllowedIPs` installs lab-specific routes only; no0.0.0.0/0, no management default-route takeover. A retained physical NIC is not a valid public-fallback escape hatch for the SUT.
+
+### 12.3 Linux network namespaces
+
+Root constructs topology; products run unprivileged. WireGuard interface created in host namespace retains outer UDP socket there; interface moved into endpoint namespace. No experimental default route to physical NIC.
+```sh
+sudo bash scripts/linux-endpoint.sh up a /absolute/private/a.conf
+sudo bash scripts/linux-endpoint.sh up b /absolute/private/b.conf
+sudo bash scripts/linux-endpoint.sh up s /absolute/private/s.conf
+sudo ip netns exec wan-a runuser -u <actual-user> -- python3 /absolute/scripts/probe.py udp --bind 10.78.1.10 --target 10.77.0.20:9000
+```
+The script strips wg-quick-only Address/MTU directives, configures interface explicitly, preserves private-file permissions. Namespace has loopback+tunnel, only lab routes. Resolve actual executable/runtime paths, not container paths. If product requires DNS, `/etc/netns/wan-a/resolv.conf` and lab DNS fixture; numeric baseline needs none.
+
+Cleanup refuses namespace deletion while processes remain:
+```sh
+sudo ip netns pids wan-a
+sudo bash scripts/linux-endpoint.sh down a
+```
+Stop products first. Do not delete namespaces merely to conceal leaked processes.
+
+## 13. Native firewall and cooperative routing contract
+
+Every SUT binds assigned inner IP. All product bootstrap/relay/candidate configuration references lab services. Disable public discovery/PKARR/mDNS/public relays unless specifically under test. Test mode must expose this configuration; if absent, implement small adapter rather than invent a CLI flag.
+
+Windows listener rules example on S:
+```powershell
+New-NetFirewallRule -Name WanProbeUDP -DisplayName WanProbeUDP -Direction Inbound -Action Allow -Protocol UDP -LocalAddress 10.79.0.10 -LocalPort 9000 -RemoteAddress 10.77.0.0/16,10.78.0.0/16,10.79.0.0/24
+New-NetFirewallRule -Name WanProbeTCP -DisplayName WanProbeTCP -Direction Inbound -Action Allow -Protocol TCP -LocalAddress 10.79.0.10 -LocalPort 9000 -RemoteAddress 10.77.0.0/16,10.78.0.0/16,10.79.0.0/24
+```
+Add actual product/RTP ports and executable constraints as needed. Remove rules by exact Name afterward. Do not disable Windows firewall globally. Windows explicit-block precedence means a blanket program deny plus narrower allow may not implement intended policy; test targeted policy on dedicated guest.
+
+Mac Application Firewall/TCC may affect server/device access. Prepare signed binary permissions/test-media mode; do not flush all pf rules or change personal-host security globally. Stronger confinement: dedicated guest, remove IP management NIC after preparation, retain OOB guest agent, single test tunnel interface. Cooperative host-node routing is not hostile-process sandboxing; state scope honestly.
+
+Loopback IPC between agent and local product may be valid control, but peer payload must not use localhost/host management IP. Candidate enumeration must not publish another node's management subnet as a permitted shortcut. Record rejected candidates and unexpected egress attempts.
+
+## 14. Packet path and NAT semantics
+
+A -> observer, single:
+```text
+A 10.78.1.10:42000 -> WG encryption -> published UDP51821
+ -> ingress-a wg0 decapsulation, same inner source
+ -> LAN-A -> ra SNAT10.77.0.2:mapped -> observer10.77.0.20:9000
+ -> conntrack reverse -> ra route10.78.1/24 via10.77.1.2 -> WG -> A
+```
+Double: ra source10.77.10.2 then cga source10.77.0.4. Observer sees .4 only; capture ra and cga to prove two translations. B remains .77.0.3. S source10.79.0.10 preserved to WAN observers; WAN nodes route10.79/24 via .77.0.50. S sees client NAT sources, not original private addresses.
+
+Router baseline: invalid drop; established/related accept; declared LAN->WAN sources accept; remaining forward drop; fixed egress-IP SNAT. Does not automatically certify full-cone/symmetric/EIM/EIF. Mapping and filtering are independent measurable properties.
+
+Ingress forward: wg0->LAN only declared lab destinations; LAN->wg0 only its endpoint /32. Underlay output/default route only carries WG/control. NAT routers are not connected to Docker underlay. WAN services cannot default-route to Internet. Container output guard blocks embedded resolver127.0.0.11 and non-lab output; only WireGuard ciphertext carrying fwmark0x77 may use underlay destinations. Numeric-IP baseline; unserved lab DNS10.77.0.53 intentional. No unintended IPv6 inside infrastructure; native IPv6 disabled/restricted or separately scoped to prevent shortcut.
+
+Probe RTT is request/echo duration; not RTP jitter, one-way delay, MOS or calibrated throughput. Tunnel MTU1280 is initial reference, not universal optimum. Fragmentation/PMTUD and carrier bottlenecks are separate measurements.
+
+## 15. Minimum path acceptance
+
+Copy scripts/probe.py to each native node. Start infrastructure captures before traffic. A:
+```sh
+python3 scripts/probe.py udp --bind 10.78.1.10 --target 10.77.0.20:9000
+python3 scripts/probe.py tcp --bind 10.78.1.10 --target 10.77.0.20:9000
+```
+Windows uses `python` if that is registered interpreter. B bind10.78.2.10. Expected UDP observed: A .77.0.2 single/.77.0.4 double; B .77.0.3. Port may vary. TCP compares262144 bytes exactly; output hash/length retained. `--source-port 0` allows OS-selected port when repeated TCP TIME_WAIT interferes; fixed-port NAT tests remain separate.
+
+S native listener:
+```sh
+python3 scripts/probe.py serve --bind 10.79.0.10
+```
+A/B send UDP/TCP to10.79.0.10:9000. S sends UDP to10.77.0.20:9000; observed source must remain10.79.0.10. A source becoming ingress IP indicates unintended ingress NAT. A/B success to observer alone does not prove native S listener path.
+
+Selective fault, infrastructure context:
+```sh
+./lab capture-start
+./lab exec ra /lab/policy.sh cut
+# Native A UDP/TCP must fail; B UDP/TCP must continue; OOB must work.
+./lab exec ra /lab/policy.sh normal
+# Native A must recover.
+./lab exec ra /lab/policy.sh udp-block
+# Native A UDP fails; TCP succeeds.
+./lab exec ra /lab/policy.sh normal
+./lab capture-stop
 ./lab collect
 ```
+Baseline-success -> deliberate-failure -> restored-success forms one assertion. A stopped server, missing binary or startup failure is not successful NAT-cut proof. Record exact process/tuple/exit/event/counter.
 
-`./lab smoke` starts captures, runs serial Rust infrastructure tests, collects state/logs, stops captures,
-returns test exit status. Guard entire host invocation with an external job timeout (e.g. CI timeout 15 min;
-Linux `timeout 900 ./lab smoke`). On timeout, explicitly collect/stop before teardown; no missing-evidence PASS.
-`./lab up` chmods local artifacts directory 1777 for trusted lab writers; do not place secrets there.
-Only one topology concurrently: fixed overlapping subnets intentional. `./lab down` BEFORE variant switch;
-archive artifacts between runs; same artifacts filename is not a run database. Do not reuse stale PASS JSON.
-Stop active probes/SUT before changing policy. Teardown: `./lab capture-stop`; `./lab collect`; `./lab down`.
-Never `docker system prune`, `nft flush ruleset` on host, or arbitrary host-route deletion.
-
-Bootstrap image tags float intentionally until first build. For reproducibility pin base-image digests,
-apt repository snapshot/package versions, Rust toolchain, PJPROJECT commit, iroh commit; commit Cargo.lock.
-Capture `docker image inspect`, package manifest (`dpkg-query -W`), `rustc -Vv`, source SHA and build arguments.
-Image ID pins one local build; tag alone does not. Rebuild detection invalidates prior performance baselines.
-
-## 2. Files; exact topologies; placement
-
-`compose.single.yml`, `compose.double.yml`, `compose.private.yml`: complete standalone files; no cross-file
-network merge assumptions. Use exactly one as base. `lab` chooses via LAB_VARIANT=single|double|private;
-project name natlab-${LAB_VARIANT}. Every interface determined by assigned IP, never guessed eth0/eth1.
-
-Address plan:
-
-| Domain | Subnet | Roles |
+Acceptance cases:
+|ID|Stimulus|Expected evidence|
 |---|---|---|
-| WAN | 10.77.0.0/24 | ra=.2 (single/private); rb=.3; cga=.4 (double); pbx=.10 (single/double); obs1=.20; obs2=.21; turn=.30; optional iroh=.40 |
-| LAN-A | 10.77.1.0/24 | ra=.1; a=.10; pbx=.20 (private only) |
-| LAN-B | 10.77.2.0/24 | rb=.1; b=.10 |
-| Transit-A | 10.77.10.0/24 | cga=.1; ra=.2 (double only) |
+|P00|doctor|Docker/Compose/ingress CLI access|
+|P01|A/B/S UDP/TCP|expected sources, exact TCP data, native S receipt|
+|P02|ra cut|A stopped, B alive, OOB alive|
+|P03|restore|A recovered|
+|P04|UDP block|UDP failed/TCP survived|
+|P05|double|A .4; both translations captured|
 
-All Docker IPAM gateways .254 deliberately UNASSIGNED using inhibit_ipv4=true; node.sh deletes Docker's
-default and installs GW. Internal bridge + no bridge gateway + no masquerade prevent normal host egress;
-independent bypass test still mandatory. Namespaces drop outbound non-lab IPv4 and all non-loopback IPv6;
-Compose disables IPv6. Docker embedded resolver 127.0.0.11 blocked explicitly; no accidental Internet DNS
-proxy. /etc/resolv.conf points to unserved 10.77.0.53; use numeric IPs or explicit /etc/hosts. Tests requiring
-DNS must add lab DNS, not host/public resolver. SUT sidecars have separate /etc/hosts/resolv.conf: supply
-`extra_hosts`/DNS explicitly; do not assume helper container files are inherited.
+Result schema: run_id, scope, OS, binary revision, variant, assertion array{name,status,expected,observed,evidence}, exit, started/ended. Generate from actual results; never save an example PASS as evidence.
 
-Patterns:
+## 16. Topology switching, extra nodes, DNAT
 
-```
-single:  a--ra--WAN--rb--b; WAN:pbx,turn,obs1,obs2,[iroh]
-double:  a--ra--transit--cga--WAN--rb--b; WAN services unchanged
-private: a,pbx--ra--WAN--rb--b; WAN:turn,obs1,obs2,[iroh]
-```
+Switch single->double: stop SUTs; stop captures; collect/archive; endpoint tunnels down; `./lab down`; move compose.json/private/generated into protected run archive; rerun generator `--variant double`; distribute fresh node configs; up/tunnels/P01-P05. Do not reuse stale handshake/keys/results.
 
-Single baseline:
+Third+ stage: new transit prefix and router; explicit upstream next-hop; source allow/SNAT based on packets actually received after preceding SNAT; expected outermost IP; per-stage capture and qualification. Adding a second endpoint NIC is not another NAT stage.
+
+Additional WAN node S2: endpoint10.79.1.10/24; ingress WG10.79.1.1; ingress WAN10.77.0.51; published UDP51824; unique key pair. Add WAN routes10.79.1/24 via.51, extend native AllowedIPs/ingress guard to required10.79 range, inventory and assertions. Outer relay requires matching extra front port. Do not merely copy secret files.
+
+NAT-side server: add dedicated LAN-S/router rs, move ingress-s from WAN to LAN-S, remove old WAN route directly to ingress-s. Public façade=rs WAN IP; DNAT listening/relay ports; product advertisement=public façade. Retaining direct10.79 route defeats NAT placement.
+
+V2 router chain names: `ip labnat pre`, `ip labnat post`, `inet lab forward`. Dedicated-router DNAT pattern:
 ```sh
-LAB_VARIANT=single ./lab up
-LAB_VARIANT=single ./lab smoke
+nft add rule ip labnat pre iifname "$WANIF" ip daddr "$PUBLIC" udp dport "$PORT" dnat to "$PRIVATE:$PORT"
+nft insert rule inet lab forward iifname "$WANIF" ip daddr "$PRIVATE" udp dport "$PORT" counter accept
 ```
-Double: first tear down single; archive artifacts; then:
-```sh
-LAB_VARIANT=double ./lab up
-LAB_VARIANT=double ./lab smoke
+Variables resolved in dedicated router before execution; add TCP separately; use range-preserving DNAT for allocated relay/RTP ports. Addresses/ports in SIP/relay advertisement do not install router rules. Hairpin not automatically implemented; separate case/fixture.
+
+## 17. Product build, native dependencies, adapter contract
+
+Build on actual target-compatible toolchain; record source SHA, lock hash, compiler, target triple, architecture, native library/codec flags, shared-library dependencies. Rust/PJSIP specifics: exact PJPROJECT revision, binding ABI, thread registration, callback ownership/lifetime, static/shared linkage, feature flags, TLS/SRTP/codec availability. Avoid invented universal Rust crate/API.
+
+Online prepare: resolve Cargo/native dependencies, build, populate caches or install binaries. Offline test: no dependency fetch through inner network. Linux source mount can remain readonly with separate target/cache; Windows/macOS guests use actual product paths. Build scripts writing source require disposable worktree, not chmod of production repository.
+
+Native executable launch manifest:
+```json
+{"node":"b","executable":"C:\\WanLab\\bin\\actual-client.exe","args":["--config","C:\\WanLab\\runs\\case01\\b.json"],"cwd":"C:\\WanLab","ready_event":"ready","startup_timeout_s":30,"stop_timeout_s":10}
 ```
-Double expectation: observer sees a as 10.77.0.4, not 10.77.10.2/10.77.1.10. Capture ra AND cga to establish
-two translations; observer alone sees only composite behavior. Third+ NAT: clone transit/router pattern,
-unique subnet, explicit next-hop, nested source CIDR, exact egress-IP assertions; not extra endpoint interfaces.
-Overlapping private LAN addresses may be tested in separate bridges; adapt hardcoded plan/expectations first.
+Example contract, not a shipped executable/guaranteed flag. Replace with actual CLI or implement adapter. Config must allow bind IP, server/relay endpoints, no-public-fallback policy, deterministic stimulus, event sink, finite shutdown.
 
-Private PBX: separate generated pjsip.private.conf, no shared-file mutation:
+Events: schema_version, run_id,node,monotonic_ns,wall_time,event,operation_id,peer/session/call ID, local/remote tuples, outcome,error_category. Product-specific fields below. Unknown required schema/version -> parser failure, not empty success. Command acknowledgment differs from completed operation.
+
+Control: start/ready, connect/listen/register, call/answer/hangup, transfer, disconnect, reconnect/restart, shutdown; applicable capabilities declared. No required video/text/data PASS if feature absent. Unsupported optional mode explicitly scoped out.
+
+Lifecycle: PID+starttime+executable, stdout/stderr, ready deadline, operation deadline, graceful stop deadline, forced termination, cleanup evidence. Windows Start-Process -PassThru with redirected outputs; Mac/Linux PID/job control; always terminate guest children, not merely host `tart exec` process.
+
+## 18. Native bootstrap/discovery server
+
+Default S10.79.0.10, real product port/protocol. A/B register and lookup via S. Ticket/address distribution by host files allowed only for transport isolation fixtures; never discovery acceptance.
+
+Observe: authenticated peer ID, registrations, observed source, advertised candidates/relay, TTL/refresh, lookup hit/miss, expiry, authorization/error, request/byte counts, process resources. Distinguish bootstrap availability from established connection viability.
+
+Cases: normal A/B discovery; unknown peer; bad auth; refresh; expiry; stale candidates; server stop/restart; reconnect after state reset. Product design defines whether existing peer sessions survive bootstrap loss. Record expected behavior before run.
+
+NAT-side bootstrap: use Section16, explicit published façade/DNAT/advertisement. Closed inbound with no traversal mechanism is expected reachability failure, not an infrastructure bug. Distinct discovery backend/local DNS may be added when product requires it; public defaults invalidate closed-lab assumptions.
+
+## 19. Native relay server and path transition
+
+Default S, separate process/port/log from bootstrap. Actual product relay, not coturn unless product implements TURN. Authentication/identity/ALPN, session lifecycle, per-direction bytes, queue/backpressure, reconnect reason. Co-location does not imply protocol interchangeability.
+
+Cases:
+- R0 listener/auth/basic transfer oracle.
+- R1 direct unavailable, relay available -> exact payload hash/sequence success, relay counters increase, no unexpected direct traffic.
+- R2 direct+relay unavailable -> finite classified failure.
+- R3 established direct then direct-only cut -> relay migration latency/data continuity where supported.
+- R4 relay outage during direct -> documented behavior; relay-only fails; recovery after restart.
+- R5 stale allocation/session expiry, reconnect, slow receiver, cancellation, half-close, overload.
+
+Blocking all UDP also blocks UDP-based relay. For TCP relay fallback, all-UDP-cut may be valid; otherwise block peer direct destination tuples while allowing relay tuples. Implement filter at priority before established acceptance or existing direct flow survives. Application force-relay flag useful but requires packet/counter corroboration.
+
+Native relay behind NAT: forward control AND data/allocation range; preserve port mapping expected by advertised address. A successful frontend connection does not prove returned relay candidates usable. Qualify traffic from independent NATed client nodes, not two utility sockets in one node.
+
+## 20. Asterisk reference service and SIP
+
+PBX10.77.0.10; UDP/TCP5060; 1001/lab-1001 and1002/lab-1002; ulaw/alaw; RTP10000-10199; direct_media=no; symmetric RTP, force_rport, rewrite_contact; ICE disabled baseline. Passwords intentionally fixture-only. No public deployment.
+
+A registers1001, B1002, A dials1002. Extension600 echo checks one endpoint path, not bidirectional peer call. Expected sequence: challenge/authenticated REGISTER/200, contact refresh; INVITE/180-or183/200/ACK; media; BYE/200. Negative: wrong password, timeout, busy, no answer, CANCEL; retransmission and recovery budgets.
+
+Infrastructure CLI:
 ```sh
-LAB_VARIANT=private ./lab up
-LAB_VARIANT=private ./lab exec ra /lab/private-pbx.sh
-LAB_VARIANT=private ./lab smoke
+./lab exec pbx asterisk -rx 'pjsip show transports'
+./lab exec pbx asterisk -rx 'pjsip show endpoints'
+./lab exec pbx asterisk -rx 'pjsip show contacts'
+./lab exec pbx asterisk -rx 'core show channels concise'
+./lab exec pbx asterisk -rx 'pjsip show channelstats'
+./lab exec pbx asterisk -rx 'pjsip set logger on'
+./lab exec pbx asterisk -rx 'rtp set debug on'
+# Diagnostic run only; restore:
+./lab exec pbx asterisk -rx 'pjsip set logger off'
+./lab exec pbx asterisk -rx 'rtp set debug off'
 ```
-PBX=10.77.1.20, public facade=10.77.0.2. a uses registrar 10.77.1.20; b uses 10.77.0.2. Helper installs
-UDP/TCP5060 and UDP10000:10199 DNAT + exact inbound forwarding; public address advertisements set in both
-PBX transports. Port-preserving RTP mapping. Run helper ONCE after recreation; duplicate invocations append
-rules. NAT-state-reset/capture required when changing. Hairpin deliberately NOT implemented: a using public
-facade is a negative hairpin case, not equivalent to b's outside-in case. Infrastructure smoke does NOT
-certify private-PBX signaling/media. Product-specific Rust test must assert registration/call/media here.
+Version-dependent command absent -> `core show help`, identify equivalent; missing evidence is not successful empty output. Heavy RTP debug perturbs timing; separate diagnostic/performance runs.
 
-Asterisk config: password-auth endpoints1001/1002, ulaw/alaw, media anchored (`direct_media=no`), symmetric
-RTP, force_rport, rewrite_contact; RTP10000:10199; dial1001/1002; Echo600. No unsolicited Internet access.
-PBX public operation requires no external_* rewrite; private transport has explicit local_net/external_*
-plus actual DNAT. Address advertising never opens NAT. Reference lacks SIP TLS/video negotiation: add
-transport/codec fixtures and assertions; do not count audio-only success as video coverage. [web:24]
+Private PBX recipe: move PBX to dedicated LAN IP, configure transports local_net plus external_signaling_address/external_media_address, install actual SIP/RTP DNAT and forwarding, give PBX appropriate gateway, qualify from outside node. Same-LAN client uses private registrar unless hairpin specifically implemented. Advertisements alone never open NAT. Keep dedicated config rather than mutating baseline shared file and forgetting to restore.
 
-TURN: WAN10.77.0.30:3478 UDP/TCP, realm lab, lab/lab-secret, relay UDP/TCP50000:50199, explicit auth.
-No TLS/DTLS in baseline. Deliberately closed-lab private peer addresses; never publish this configuration.
-TURN is not SIP signaling, not an iroh relay, not a generic transparent proxy. Every protocol must actually
-implement the relevant allocation/relay client. TCP-to-TURN is not TCP relaying to peer. [web:44][web:92]
+SIP TLS/video not baseline. Add certificates/transports/codecs/SDP fixtures and real decoded checks when required. Asterisk-anchored RTP can succeed without product ICE/TURN; never infer those features from PBX call success.
 
-## 3. Infrastructure acceptance; fault injection; NAT qualification
+## 21. Headless VoIP, identity, quality, surrogate scope
 
-Rust `accept/tests/lab.rs` runs via HOST cargo; issues Docker CLI; host never participates in dataplane.
-Rust `probe/` serves/sends actual UDP/TCP inside namespaces; no Cargo dependencies; offline build/test.
-Checks: a/b UDP sequence integrity; TCP262144-byte exact echo; expected WAN source IP; alternate observations;
-ra cut blocks UDP AND TCP (bypass rejection); UDP-block rejects UDP while TCP succeeds; recovery. All mutations
-serial. Failure before cleanup? Recreate lab before rerun; do not assume normal state. Rust panic != classified
-network failure in product tests; emit explicit timeout/protocol/assertion categories in adapters.
+No audio device requirement if product supplies deterministic PCM source and decoded sink. Null audio supplies timing, not meaningful signal. PJSUA/PJMEDIA wiring: player/source -> call conference slot; call slot -> recorder; active timing device; separate TX/RX paths. Distinct seed/stimulus per direction, temporal markers; sample rate/channels/codec fixed.
 
+Stimulus: deterministic speech-like multitone/chirp or known WAV; receive decoded PCM/WAV. Assertions: sample count/duration, correct stimulus identity, lag, gaps, energy/clipping, codec/resampler baseline, direction distinction. RMS/non-silence does not prove correct remote signal; recorder loopback can create false success.
+
+PJSUA surrogate optional: build audited PJPROJECT revision with software audio/files and null timing support. Inspect `pjsua --help`; use actual supported flags (`--null-audio`, `--play-file`, `--auto-play`, `--rec-file`, `--auto-rec`, auth/registrar). Drive CLI by pipe/FIFO, auto-answer; no terminal keystrokes. Linux surrogate validates reference service/dataplane, never native product acceptance. Do not assume identical optional flags across builds.
+
+Native Rust/PJSIP adapter events: SIP status/auth retries, registration expiry, dialog tags/CSeq, SDP offer/answer, codec/ptime, ICE candidates/checklist/selected pair, DTLS/SRTP state when supported, SSRC/sequence/timestamp, RTCP SR/RR, loss/late/reorder/duplicate, jitter-buffer stats, PCM count/stimulus/hash/error. Redact secrets; key logs explicit opt-in and restricted artifact.
+
+Audio quality: codec-aligned resampling, lag-search normalized correlation, drift estimation, packet-loss concealment effects. RTP jitter definition and decoded gap definition explicit. RTCP consistency separate from application loss. MOS/PESQ/POLQA require actual applicable algorithm/reference/license; never synthesize MOS from RTT/jitter.
+
+Video optional: generated frame IDs/markers, software codec, decoded checksum or PSNR/SSIM as applicable, timestamps, freeze/gap counters. No camera/display needed for codec/network test; no claim of real camera/GPU/display certification.
+
+### 21.1 Executable stimulus/decoded-audio oracle
+
+Prepare observer tools in an online stage, not isolated product network:
 ```sh
-./lab exec a ip -4 route
-./lab exec a ip route get 10.77.0.20
-./lab exec ra nft -a list ruleset
-./lab exec ra conntrack -L -o extended
-./lab exec a netprobe udp 10.77.0.20:9000 42000 100 20
-./lab exec a netprobe tcp 10.77.0.20:9000 1048576
-python3 scripts/qualify-nat.py >artifacts/mapping-observations.json
+python3 -m venv .media-venv
+.media-venv/bin/pip install -r requirements-media.txt
+.media-venv/bin/pip freeze > artifacts/media-tools-lock.txt
+.media-venv/bin/python scripts/media.py generate --out a-tx.wav --seed 101
+.media-venv/bin/python scripts/media.py generate --out b-tx.wav --seed 202
 ```
-
-Probe RTT is request/echo/receive measurement with timeout; NOT RTP jitter, one-way latency, perceptual MOS,
-or throughput calibration. CLI udp exits1 on ANY loss; don't use it as a loss-tolerant performance oracle.
-Sequential source-port reuse is an observational sample, not full RFC5780 filtering certification.
-
-Fault scripts execute INSIDE router only:
+Windows virtualenv interpreter: `.media-venv\Scripts\python.exe`. Feed a-tx into A, b-tx into B, record a-rx/b-rx separately. Then reference a-tx against b-rx, b-tx against a-rx:
 ```sh
-./lab exec ra /lab/policy.sh udp-block
-./lab exec ra /lab/policy.sh normal
-./lab exec ra /lab/policy.sh cut
-./lab exec ra /lab/policy.sh normal
-./lab exec ra /lab/policy.sh clear
+.media-venv/bin/python scripts/media.py check --reference a-tx.wav --received b-rx.wav --max-lag-ms 2000 --min-correlation .9 --min-seconds 20
+```
+PCM16 mono and equal sample rates required. Explicitly resample actual output beforehand using approved media tooling or product adapter; preserve originals and resampling command. Checker measures bounded-lag identity/energy/clipping, not drift compensation/MOS/POLQA. Short overlap or large clock drift requires a more specific quality oracle; inspect overlap_seconds, not only pass bit. Tune codec-specific threshold using nominal reference. Freeze exact NumPy version after first successful preparation; requirements range is bootstrap compatibility, not reproducible lock.
+
+## 22. coturn, STUN, TURN, TLS
+
+Baseline TURN10.77.0.30:3478 UDP/TCP; realm lab; lab/lab-secret; relay50000-50199; no TLS/DTLS. Closed private peer destinations intentional; not production security policy. Native clients must implement allocation/permission/channel/data; TURN is neither SIP registrar nor generic relay for arbitrary protocols.
+
+```sh
+./lab exec turn ss -lntup
+./lab exec turn turnutils_uclient -h
+./lab logs
+```
+Utility options are packaged-version specific: `-t` usually client-to-TURN TCP; `-T` TCP relaying/RFC6062; `-y` utility's paired relay endpoints. Verify local help. Utility two endpoints are not two independent native NATed product clients. Completion marker alone is transport smoke; qualify exact sent/received/bytes for loss assertions.
+
+Native acceptance: auth Allocate/Refresh/Permission/ChannelBind or SendIndication, actual peer payload, expiry/deallocation; wrong credential/realm/nonce; UDP/TCP/TLS client transports; UDP relay versus TCP relay separately. Force-direct-negative, assert direct fails/relay succeeds, advertised relay address, server bytes, peer hash. TLS handshake alone does not establish allocation or media.
+
+TLS fixture:
+```sh
+bash scripts/tls.sh
+docker compose -f compose.json -f compose.tls.json config
+docker compose -f compose.json -f compose.tls.json up -d --wait
+./lab exec obs openssl s_client -connect 10.77.0.30:5349 -CAfile /lab-config/tls/ca.crt -verify_ip 10.77.0.30 -verify_return_error </dev/null
+```
+CA private key under private/ca, only public CA/certs mounted as configuration alongside service key. Service key0600; if daemon drops UID before key access, assign restricted owner/group/read permission for actual service account, not world-readable default. TLS fixture short-lived, not production CA operations.
+
+Overlay-aware lifecycle: `lab` wrapper knows base file only. When overlays active, use full Compose `-f` sequence for up/config/logs/inspect/down; collect resolved overlay config separately. Base service names remain same here, but command/config provenance must match actual merged deployment. No silent overlay omission.
+
+Native clients explicitly trust local CA in actual TLS stack. Rustls/QUIC may not automatically use OS trust. Negative CA/name/expired-cert cases; do not disable verification globally. DTLS separately enabled/tested if supported.
+
+NAT-side TURN: private listening-ip/relay-ip; external-ip=PUBLIC/PRIVATE; DNAT3478 and enabled5349 plus relay50000-50199, same numerical ports; forwarding exact; clients target public façade. Port-rewriting NAT may violate advertised mapping. Place outside peers on different segment; do not leave WAN shortcut route.
+
+## 23. QUIC/iroh/custom P2P specifics
+
+Use actual locked library version and source; relay/discovery builder names/schema change. For iroh, relay is not coturn. Local relay URL, authenticated endpoint identity, ALPN and candidate policy explicit; disable production relays/address lookups/PKARR/DNS/mDNS when excluded. Static ticket transfer bypasses discovery and must be scoped accordingly.
+
+Reference relay on Ubuntu: choose compatible full source commit, inspect repository workspace/package/features/binary/config schema, build `--locked --release` with those actual names; freeze artifact. Do not guess an obsolete monorepo package path. Reference HTTP/dev mode may omit QUIC address discovery/TLS; health endpoint success is not NAT-traversal certification. For TLS/address-discovery production mode inspect listeners and actual protocol response, import local trust correctly.
+
+If relay itself is custom native SUT, run on native S instead of substituting Ubuntu reference service. Distinguish these roles in inventory.
+
+Cases: WAN-direct baseline; A/B NAT; double; direct unavailable; relay-only; both unavailable; direct->relay fallback; relay outage during direct; endpoint restart; NAT reset/rebind; address churn; many streams/datagrams; half-close/cancel/backpressure/slow receiver; ALPN/identity mismatch; duplicate-delivery exclusion; bounded memory. Direct success is conditional on measured NAT behavior, not universal expectation.
+
+Events: node/peer IDs, local/remote tuples, path enum/history, relay URL, transition timestamps, direct/relay bytes, handshake/RTT/loss/congestion data where API exposes it, stream error, app sequence/hash, reconnect cause. If no path counters, instrument crate or corroborate qualified packet/server counters. Low latency and successful connect are not direct-path proof. Encrypted PCAP does not reveal plaintext integrity.
+
+## 24. NAT qualification and finite fixtures
+
+Mapping: same open socket -> (IP-A,P),(IP-A,Q),(IP-B,P); compare external mappings. Filtering: fresh state -> contact only(A,P), then out-of-band inject from permitted tuple/sameIP otherPort/otherIP without client first contacting them. These are separate axes; port preservation, hairpin and lifetime are additional axes.
+
+Current observers listen UDP/TCP9000/9001 on .20/.21. Native A same-socket mapping:
+```sh
+python3 scripts/nat-observe.py --bind 10.78.1.10 --source-port 42000 \
+ --destination 10.77.0.20:9000 --destination 10.77.0.20:9001 --destination 10.77.0.21:9000
+```
+Output explicitly leaves filtering NOT_QUALIFIED. Multiple runs of probe.py do not preserve one open socket; use this tool for mapping.
+
+Filtering fixture: fresh router conntrack, native listener with only initial .20:9000 contact plus `--listen-seconds 20`; capture printed mapped tuple. Through infrastructure OOB inject from obs/obs2:
+```sh
+./lab exec obs2 python3 /lab/inject.py --bind 10.77.0.21 --source-port 9100 --target <observed-ip:port> --tag different-ip
+```
+Use unused source port or stop conflicting observer listener for exact-source tests; cannot bind9000 while observer owns it. Configure observer ports or temporary controlled injector namespace when same source port needed. Tag/time all injections; compare received events and captures; no preconditioning sends to alternate tuples.
+
+Finite mapping fixture:
+```sh
+python3 scripts/fixture.py apdm config/fixture.json >artifacts/fixture.nft
+./lab exec ra /lab/policy.sh reset
+cp artifacts/fixture.nft artifacts/ra/fixture.nft
+./lab exec ra nft -f /out/fixture.nft
+```
+Each service mounts artifacts/<service> as /out. Fixture installs SNAT priority90 before baseline100, finite source/destination whitelist, explicit unmatched UDP drop. EIM assigns same port per source tuple; APDM per full source/destination tuple. Baseline return filtering remains conntrack/APDF-like, not generalized EIF. Verify observed allocations and return traffic.
+
+Fixture applies to single RA WAN10.77.0.2; double change cfg WAN10.77.10.2 and qualify cga independently. Dynamic application ports outside enumerated set unsupported; never apply fixed42000 fixture to arbitrary PJSIP/QUIC sockets and call it general symmetric NAT.
+
+Reset: delete both `ip fixture_nat` and `inet fixture_allow`, flush relevant state, restore profile or recreate. Repeated `nft -f` table creation is not idempotent. Fixtures are scoped tests, not baseline permanent rules.
+
+Additional qualification when required: idle/active/replied/unreplied lifetime; keepalive above/below threshold; source-port collision/exhaustion; hairpin; rebind; TCP state machine. UDP RFC classification does not prove TCP behavior. STUN behavior-discovery requires actual alternate-address/port server support, not an assumed coturn flag.
+
+## 25. Fault injection, timeouts, recovery
+
+```sh
 ./lab exec ra /lab/link.sh wan delay 100ms 20ms loss 2% rate 5mbit limit 1000
 ./lab exec ra /lab/link.sh lan delay 60ms 10ms loss 1%
 ./lab exec ra /lab/link.sh wan clear
 ./lab exec ra /lab/link.sh lan clear
 ```
+wan egress=outbound; lan egress=inbound toward endpoints. Multi-stage delays add. netem seed optional only when actual kernel/tc supports it; unsupported seed reported, not silently removed. CPU/offload/timer/queue behavior affects distributions. Receiver-ingress/IFB may be required for rigorous TCP benchmarking; router-egress fixture is functional impairment, not universal throughput fidelity.
 
-ra.wan egress = outbound; ra.lan egress = inbound to LAN. Double: apply stage-specific effects to ra/cga;
-sum delays explicitly; avoid accidental double impairment. netem seed support version-dependent: inspect
-`tc qdisc ... help`; unsupported seed is FAIL, not silently omitted. Host scheduler/timers, queue sizing,
-CPU contention and offloads affect results. TCP TSQ may require receiver-ingress placement (IFB, extra caps/
-setup) for rigorous performance work; router-egress fixture alone is not universal TCP benchmark fidelity.
-No live /proc/sys writes: Docker commonly mounts it read-only. `compose.timeout.example.yml` configures
-namespace conntrack timeouts on router creation; inspect /proc values and conntrack countdown; clear old
-flows; client binding lifetime separately measured. Compose-only timeout override must use same project/base.
-Conntrack UDP/stream expiration differs; keepalive tests must cover both. [web:20]
-
-Finite strict NAT fixture, useful to regression-test mapping algorithms WITHOUT counterfeit NAT labels:
+UDP expiration overlay:
 ```sh
-python3 scripts/fixture-nat.py apdm config/fixture.json >artifacts/fixture.nft
-./lab exec ra conntrack -F
-./lab exec ra nft -f /out/fixture.nft
-python3 scripts/qualify-nat.py >artifacts/apdm-observations.json
+docker compose -f compose.json -f compose.timeout.json up -d --force-recreate ra
 ```
-Single/private ra only: fixture WAN=.2, source a:42000, exact three observer destinations. APDM assigns distinct
-ports per (src,sport,dst,dport); EIM assigns same port per (src,sport). Base conntrack return matching retains
-APDF-like inbound policy. Finite whitelist rejects other client UDP instead of falling back to baseline NAT.
-Assert all3 observed tuples vs allocation table; repeat after state reset; test return arrival. Delete BOTH
-`fixture_nat` and `fixture_allow`, then conntrack-F, or recreate before app tests. In double fixture.json WAN
-must be10.77.10.2 and cga's behavior separately qualified; composite public mapping may hide inner properties.
-These profiles are NOT general APDM for arbitrary dynamic application source/destination ports. Generalize
-allocator/state engine or enumerate ALL actual test flows; otherwise report unsupported. Port reuse under
-load, rebinding, EIF/ADF filtering, hairpin require separate explicit implementation+measurement. No one
-`masquerade`, `random`, `persistent` flag certifies all combinations. [web:3][web:18]
+Stop SUT/capture as needed, verify kernel values, clear old flows; preserve same project/base. Recreated network owner/attached namespace requires dependent namespace consumers restart. Current WireGuard ingress separate from ra but check routes/listeners after recreation.
 
-Required full NAT-profile qualifier (implement in Rust beside actual SUT):
-- Same open socket -> (IP-A,P), (IP-A,Q), (IP-B,P); compare externally observed mappings.
-- Fresh state -> send to(A,P); same(A,P), sameIP/differentPort(A,Q), differentIP(B,P) inject toward observed
-  endpoint WITHOUT preceding client sends to those alternate endpoints. Control injection OOB via Docker
-  exec or control files, not client dataplane. Expect filtering per declared profile. Avoid state poisoning.
-- Hairpin: second LAN peer targets first peer's public mapping; no alternate LAN shortcut.
-- Lifetime: idle/active bidirectional/replied vs unreplied; keepalive interval before/after threshold.
-- Port preservation/conflict/exhaustion: concurrent sources, fixed source ports, allocation table uniqueness.
-- Multistage: qualify each stage, then composition; capture both sides of every stage.
-- TCP: independent state-machine tests; UDP RFC4787 classifications do not prove TCP behavior.
-RFC5780 alternative-IP/port server support must be verified for selected coturn build, not merely enabled
-by a guessed flag; coturn behavior-discovery server and TURN utility smoke are separate test roles. [web:19]
+`conntrack -F` changes state, not necessarily mapped port. To test actual rebinding change explicit SNAT allocation or endpoint source port, verify tuple changed, then measure product recovery. Keepalive and timeout case expectations fixed before run.
 
-## 4. PJSUA surrogate; real Rust/PJSIP client integration
+Fault cleanup serial and exception-safe. After interrupted mutation: preserve state, restore policy/qdisc, clear only intended fixtures/state or recreate deployment; rerun baseline. No assumption that panic left normal profile.
 
-Optional reference oracle, not substitute for actual Rust SIP client:
-```sh
-./lab pjsua-build
-# Recreate the entire chosen single/double topology with oracle image:
-./lab down
-LAB_IMAGE=natlab-pjsua:local ./lab up
-LAB_IMAGE=natlab-pjsua:local ./lab capture-start
-LAB_IMAGE=natlab-pjsua:local cargo test --manifest-path accept/Cargo.toml --offline \
-  --test voip -- --ignored --nocapture --test-threads=1
-LAB_IMAGE=natlab-pjsua:local ./lab collect
-LAB_IMAGE=natlab-pjsua:local ./lab capture-stop
-```
+## 26. Packet capture, state, observation
 
-Dockerfile.pjsua builds PJPROJECT2.15.1; pin audited full commit for your binding/toolchain. Exact command-line
-availability checked with `pjsua --help` before test. Legacy stdin CLI driven through named FIFO by Python
-wrapper; no terminal interaction. Callee1002/caller1001 auto-answer; null audio; looped WAV player -> call;
-call -> WAV recorder; separate output per node. Rust host test waits REGISTER contacts and 2 Up channels,
-holds20s, quits both, validates PCM duration/RMS/clipping and writes scoped JSON. Channels+energy cannot
-prove audio identity or fine quality; .json says identity/MOS NOT_MEASURED. Wrapper errors/logs remain artifacts.
-On test panic, collect, stop wrappers (`kill -TERM $(cat /out/a.pid)` inside a; analogous b), then recreate.
-No phantom success on stale recordings. Python check-audio.py auxiliary diagnostics only; Rust test is gate.
-PJSIP conference bridge supports null-device timing, file players/recorders; absent sound HW does not prevent
-real encoded RTP. Proper slot wiring required; null audio by itself emits no meaningful stimulus. [web:51][web:52]
-
-Actual Rust/PJSIP application: build adapter INTO your repository, using its real binding and Cargo.lock;
-no imaginary universal Rust PJSIP crate/API. Small C ABI shim acceptable; pin PJPROJECT compile flags/features,
-thread registration, callback lifetime/ownership, static/shared library ABI; export build manifest. Rust
-integration tests drive real adapter binary/library; startup/termination finite; no microphone/speaker APIs.
-
-Required adapter CLI (implement, not supplied product binaries):
-```
-voip-node --config /work/tests/lab/a.json --events /out/a.events.jsonl
-          --control /out/a.control.jsonl --rx-pcm /out/a.rx.wav --seed N
-```
-Required event payload: run_id,node,monotonic_ns,event,call_id,dialog_tag,CSeq,transport,local/remote tuple,
-SIP status/auth retries,registration expiry,SDP offer/answer,codec,ptime,ICE candidates/checklist/selected pair
-(if enabled),DTLS/SRTP state (if enabled),SSRC,seq/timestamp,RTCP SR/RR,loss/late/reorder/dup,jitter buffer stats,
-PCM sample count,hash/stimulus ID,error category. Redact credentials/keys from normal logs. Separate key-log
-artifact only when supported, explicit opt-in and restricted permissions.
-Required control: register/unregister; call/answer/hangup; hold/resume/reINVITE; send DTMF/text/data if product
-supports; force ICE restart/reconnect; shutdown. A command acknowledged is not an operation-completed event.
-No invented support for text/video modes not implemented in product. Test unsupported required feature = FAIL.
-
-Headless stimulus: distinct deterministic signal per direction (e.g. seeded speech-like multitone/chirp +
-embedded temporal markers); send PCM via PJMEDIA port/player; receive decoded PCM via recorder/custom port.
-PJSUA conference slot wiring: tx source->call slot; call slot->rx recorder; null timing device active.
-Separate tx/rx codec rates and resampler effects. For video use generated frame sequences with visible machine
-markers/frame IDs, software codec, decoded-frame checksum/PSNR/SSIM when applicable, timestamps/freeze/gap
-counters; no camera/display; encrypted packet capture alone cannot validate decoded media quality.
-
-Objective Rust assertions:
-- REGISTER challenged/authenticated then accepted; refresh and expiry; negative wrong-password/timeout.
-- INVITE/180-or183/200/ACK/BYE correct; CANCEL/busy/no-answer; retransmit budgets; transport loss/recovery.
-- Bidirectional actual RTP, not merely SIP200; expected SSRC/payload/codec; no unexpected peer path.
-- Per-direction stimulus identity by normalized cross-correlation with lag search; independent-clock drift,
-  resampling and packet-loss concealment considered. RMS/clipping alone insufficient.
-- Setup latency distribution; media-start latency; duration/gap p95/p99; jitter/loss/late/discard; sequence
-  wrap/reorder/dup; RTCP interval/consistency; negotiated codec/ptime; sustained sample count.
-- Hold/resume/reINVITE preserves/renegotiates media; direct_media=no then explicit direct_media variant;
-  NAT timeout below/above keepalive; SRTP/DTLS/ICE/TURN only when actual implementation supports them.
-- Long call + repeated register/call/hangup; RSS/fd/task/socket/conntrack growth; clean shutdown; no residual call.
-Asterisk may anchor RTP while client ICE/turn unused: never infer TURN usage from a successful Asterisk call.
-
-## 5. Rust SUT overlay; build isolation; external-agent control
-
-Provide actual SUT_ROOT; prepare host-writable UID1000 cache/target directories. For another host UID adjust
-`user:` and ownership explicitly; Docker Desktop bind-mount semantics differ. Source mounted read-only;
-Cargo outputs/caches separate. Build scripts which write source tree require prebuilt binary or disposable
-workspace copy, NOT chmodding production source. Cache-a/cache-b independent to avoid cargo lock contention.
-
-```sh
-export SUT_ROOT=/absolute/path/to/actual/project
-mkdir -p cache/cargo-a cache/cargo-b cache/target-a cache/target-b
-# Set ownership to container UID1000 if needed; only these new lab cache directories.
-docker compose -p natlab-single -f compose.single.yml -f compose.sut.example.yml build sut-a
-```
-
-Resolve Cargo/native deps ONLINE in controlled build stage or a temporary ordinary build container BEFORE
-joining isolated namespaces; overlay has no Internet. Populate correct per-node CARGO_HOME/target caches,
-or bake executable/deps into final SUT image. `cargo --offline` missing-dependency error is build-preparation
-FAIL, not reason to grant lab Internet. Existing project may need native PJSIP libs, TLS CA paths, runtime
-shared libraries; Dockerfile.sut is a dependency-template, not promise arbitrary Rust/PJSIP builds work unchanged.
-
-```sh
-docker compose -p natlab-single -f compose.single.yml -f compose.sut.example.yml up -d --wait
-# Host agent starts test fixture server; then runs matching client Rust integration tests:
-docker compose -p natlab-single -f compose.single.yml -f compose.sut.example.yml \
-  exec -T -d sut-b /work-or-image-path/lab-node --config /work/tests/lab/b.json
-docker compose -p natlab-single -f compose.single.yml -f compose.sut.example.yml \
-  exec -T sut-a cargo test --offline --locked --test lab_voip -- --nocapture --test-threads=1
-```
-
-`/work-or-image-path/lab-node` is CONTRACT PLACEHOLDER: replace with ACTUAL compiled binary path; command is
-not a supplied executable. Prefer image-owned /usr/local/bin/<sut> and explicit cargo test package/features.
-Host `./lab` wrapper knows BASE file only: use full Compose arguments for SUT/relay overlays; do not expect
-`./lab collect` to capture overlay service stdout automatically. Add equivalent `logs/inspect` collection for
-all added services. Shared netns captures in a/b include sidecar dataplane; a/b's /proc files/process listings
-do not include sidecar PIDs. Collect `ss`/fds/proc/RSS INSIDE SUT container and `docker stats` separately.
-Destroy/recreate SUT sidecars after network-owner a/b recreation; old attached namespace must never survive
-as accidental second dataplane. No extra `networks:` alongside network_mode:service:a/b.
-
-Agent OOB observation/control: Docker exec + logs + inspect + bind-mounted artifact/control files. Agent host
-network NEVER carries test payload. Registry/ticket distribution via host files is acceptable for transport
-isolation tests but NOT proof product discovery works. Discovery has own local service/test. Synchronize
-fixtures with explicit ready events/barriers, not arbitrary sleeps. Every operation has deadline; externally
-kill hung child trees; preserve stdout/stderr/status. Endpoint IDs/ports/log paths unique per run.
-
-## 6. TURN coverage; TLS; NAT-side relays
-
-Utility transport smoke (single/double, original image enough):
-```sh
-cargo test --manifest-path accept/Cargo.toml --offline --test turn -- --ignored --nocapture
-./lab exec a turnutils_uclient -y -u lab -w lab-secret -p 3478 -n 100 -z 10 10.77.0.30
-./lab exec a turnutils_uclient -t -y -u lab -w lab-secret -p 3478 -n 100 -z 10 10.77.0.30
-./lab exec a turnutils_uclient -T -u lab -w lab-secret -p 3478 -n 100 10.77.0.30
-```
-
--y constructs paired relay endpoints inside utility, not two independently NATed product clients.
--t=TCP client-to-TURN; -T=RFC6062 TCP relay; inspect local `turnutils_uclient -h` for packaged-version options.
-Rust utility smoke gates process completion/statistics marker only; it DOES NOT qualify packet-loss SLO or
-cross-NAT product interoperability. Parse exact packaged statistics fields and assert sent/received/bytes
-for a certified oracle; version drift must fail parser rather than assume zero loss. [web:92]
-
-Product Rust TURN tests must place clients in a AND b; authenticated allocate, refresh, permission,
-ChannelBind/SendIndication, peer traffic, expiry/deallocation; wrong credentials/nonce/realm; UDP/TCP/TLS
-client transports; UDP relay and RFC6062 TCP relay separately. Force-direct-negative profile, assert direct
-failure, relay success, correct relay address and coturn byte counters + packet evidence. TCP utility success
-cannot establish PJSIP/iroh compatibility. coturn not interchangeable with iroh-relay.
-
-TLS fixture (throwaway local CA; no ACME/Internet):
-```sh
-./scripts/tls.sh
-# Tear down prior lab; merge with selected base:
-docker compose -p natlab-single -f compose.single.yml -f compose.turn-tls.yml up -d --wait
-./lab exec a openssl s_client -connect 10.77.0.30:5349 -CAfile /lab-config/tls/ca.crt \
-  -verify_ip 10.77.0.30 -verify_return_error </dev/null
-```
-CA signing key outside mounted config/artifacts under private/. Service keys deliberately readable ONLY
-because isolated throwaway fixture; never copy this policy into production. Private cert SANs identify DNS
-and fixed IP. Actual Rust clients import CA explicitly; test untrusted CA/wrong name/expired cert failure;
-never disable verification globally. TURN TLS/DTLS application payload tests require actual supported client
-flags/APIs; successful TLS handshake alone does not validate allocation or media relay.
-
-NAT-side TURN variant: create dedicated LAN/service namespace, router WAN alias/public facade; set coturn
-listening-ip/relay-ip to private address; external-ip=PUBLIC/PRIVATE; DNAT UDP/TCP3478 and any enabled5349;
-DNAT UDP/TCP50000:50199 to SAME numeric relay ports; exact forward allow; coturn clients target PUBLIC.
-`external-ip` advertises address; does not configure router. Do not place NATed TURN on same bridge as outside
-peers. Copy private-PBX routing pattern but update addresses/ports/config; qualify with actual packets. Such
-custom variant requires its own acceptance before PASS; not one of supplied three standalone documents.
-Port-rewriting NAT ahead of TURN may violate advertised mapping expectations. [web:40][web:41]
-
-## 7. iroh: separate local relay; pin API/schema; never public fallback
-
-iroh uses QUIC + its own relay, not coturn. Version changes renamed discovery APIs; do not copy guessed
-builder methods across releases. Inspect actual Cargo.lock/docs/source. Home relay + explicit EndpointAddr
-(or pinned-version equivalent), authenticated EndpointId + ALPN. Default production relay/address lookup
-would invalidate closed-lab assumptions. Disable public relay/discovery/PKARR/DNS/mDNS explicitly in adapter;
-permit ONLY declared local services; audit attempted forbidden egress counters. [web:64][web:71][web:73]
-
-Build relay from compatible pinned full upstream commit (not latest):
-```sh
-export IROH_REF=<40-hex-commit-compatible-with-your-lockfile>
-docker build -f Dockerfile.iroh --build-arg IROH_REF="$IROH_REF" -t natlab-iroh:local .
-docker compose -p natlab-single -f compose.single.yml -f compose.iroh.yml up -d --wait
-./lab exec a curl --noproxy '*' --fail http://10.77.0.40:3340/healthz
-```
-
-Replace angle-bracket value with real commit. Server feature/bin names are verified by actual build;
-compile failure means wrong pinned release/build contract, not permission to silently upgrade SUT.
-Dev config intentionally HTTP relay only, no QAD: suitable relay-fallback baseline, NOT full NAT traversal
-qualification. Upstream dev-mode TLS/QAD behavior has changed; pinned source is authority. [web:70][web:72]
-For QAD/TLS use generated local CA and config/iroh-tls.example.toml as version-checked schema starting point;
-run WITHOUT --dev; validate supported fields against pinned relay source; verify443/TCP and7842/UDP listeners,
-CA/hostname, endpoint QUIC discovery responses. Add `relay.lab:10.77.0.40` to SUT's extra_hosts, install CA in
-actual TLS/QUIC trust config; never assume OS trust automatically applies to rustls/QUIC. HTTP health alone
-cannot establish QAD. Configuration parser may ignore unknown fields: listener/protocol probes mandatory.
-Community self-hosting guide itself warns of schema drift; upstream pinned implementation wins. [web:56]
-
-Implement Rust product fixture accepting config rather than public defaults:
-```
-iroh-node {serve|connect} --relay-url http://10.77.0.40:3340
-          --bind 0.0.0.0:<fixed-port> --alpn lab/<protocol-version>
-          --ticket-in /out/b.ticket --ticket-out /out/a.ticket
-          --events /out/a.iroh.jsonl --seed N
-```
-CONTRACT, not fictional shipped binary. Ticket: peer ID + configured local relay + actual reachable candidate
-addresses; create only after relay ready. Never inject other LAN's private10.77.2.10 as magically reachable
-candidate; candidate ignored/failed is expected. Host-file ticket transfer removes discovery from scope.
-Add distinct discovery fixture to validate actual address publication/lookup. Disable local mDNS shortcuts.
-
-Required cases, actual Rust library adapters:
-1. WAN-direct endpoints: no NAT; ALPN/identity/auth/data oracle.
-2. LAN-a/b SNAT: connect, transfer, observe relay start and any direct upgrade; no requirement direct always
-   succeeds unless qualified NAT profile explicitly makes it expected.
-3. DoubleNAT: same, capture each stage, no direct-path assumption.
-4. UDP blocked on ra BEFORE endpoint startup: relay-only; TCP remains allowed; exact payload success and
-   sustained relay bytes; prove no direct peer UDP escapes. Coturn success irrelevant.
-5. Relay blocked + UDP blocked: finite classified failure; no public fallback.
-6. Direct established -> block direct UDP: migration/fallback latency + no content corruption; then restore
-   and observe upgrade if implementation supports. Block at priority before established acceptance.
-7. Relay outage while direct established; then relay recovery, endpoint restart, NAT-state reset/rebind;
-   expected recovery documented per product, not assumed.
-8. Many streams, half-close, backpressure, cancellation, slow receiver, datagrams if used; ALPN mismatch,
-   wrong ID/authorization; exact content hash, no duplicate application delivery, bounded memory.
-9. Churn/network address change: restart fixture with changed IP/port/config; authenticated reconnection;
-   stale addresses/cache invalidation. No claim conntrack-F changes mapped port: use explicit new SNAT
-   address/port fixture or endpoint rebind and verify observed tuple actually changed.
-10. Local multi-peer scaling: latency/throughput distributions, fd/RSS/task growth, fairness, relay overload,
-    simultaneous connect/reconnect; this is local load emulation, not proof planet-scale deployment behavior.
-
-iroh telemetry contract: endpoint/peer IDs, local/remote socket tuples, current path enum/history, relay URL,
-path-change monotonic timestamps, direct/relay bytes separately, handshake/RTT/loss/congestion state where
-actual version exposes it, QUIC stream errors, application-sequence/hash, reconnect reason. If API lacks path
-byte counters instrument actual crate or use qualified packet/counter evidence; never infer direct from low
-latency or successful connect. Encrypted QUIC captures don't reveal plaintext integrity. Instrument app;
-TLS key logs optional/version-dependent and sensitive; not assumed universal SSLKEYLOGFILE support.
-
-## 8. Packet-level observation; bounded collection; failure triage
-
-Always start capture BEFORE DNS/auth/ICE/handshake; observer namespaces + every router + endpoints. Shared
-namespace `tcpdump -i any` observes both interfaces; duplicate forwarding views are expected. Preserve ingress/
-egress identity; for exact per-link analysis capture individual interface PCAP separately. any uses cooked
-link-layer format; no assertion of actual Ethernet wire preamble/checksum/offload behavior. Full snaplen;
-32MBx8 ring per namespace; old traffic overwritten deliberately. Long tests rotate/export before overwriting
-required evidence; capture drops/rotation invalidate missing-packet conclusions.
+Start capture before discovery/auth/handshake. Stop/flush before final archive. Per-service 32MB x8 ring, full snaplen; long run exports before overwrite. Capture loss/rotation invalidates missing-packet conclusions for affected interval. `any` duplicates forwarded views and uses cooked link-layer format; retain interface/direction metadata.
 
 ```sh
 ./lab capture-start
 ./lab exec ra ip -j address
-./lab exec ra conntrack -L -o extended
+./lab exec ra ip -j -4 route show table all
 ./lab exec ra nft -a list ruleset
+./lab exec ra conntrack -L -o extended
 ./lab exec ra tc -s qdisc show
-./lab exec a ss -tunap
-./lab exec pbx asterisk -rx 'pjsip set logger on'
-./lab exec pbx asterisk -rx 'rtp set debug on'
-# Execute Rust tests; then:
-./lab collect
+./lab exec ingress-a wg show wg0
+./lab exec ingress-a ss -lunp
+# Execute scenario.
 ./lab capture-stop
-./lab exec pbx asterisk -rx 'pjsip show contacts'
-./lab exec pbx asterisk -rx 'pjsip show channelstats'
-./lab exec pbx asterisk -rx 'core show channels concise'
+./lab collect
 ```
+Every service artifact directory separate; `/out` equals artifacts/<service>, not artifact root. `state.sh` records command status; unsupported/permission failure remains visible. `collect` nonzero reflects missing collection components, not necessarily whole product failure; scope assertions appropriately.
 
-RTP debug/high-level tracing perturb timings; use diagnostic run distinct from performance run; quantify
-CPU/disk impact. Secrets present in SIP authorization/PCAP; artifact access controlled. Do not upload raw captures
-without explicit approval/redaction. Trace toggles OFF after diagnostics. Check bundled CLI help if command
-absent in chosen packaged Asterisk; absence = missing evidence, not empty successful assertion.
-
-Offline decode inside a trusted helper/namespace (choose actual ring filename, e.g. single-ra.pcap0):
+Exact link capture:
 ```sh
-./lab exec a ls -l /out
-./lab exec a tshark -r /out/single-ra.pcap0 -n -Y sip -T json >artifacts/sip.json
-./lab exec a tshark -r /out/single-ra.pcap0 -n -Y 'stun || turnchannel' -T json >artifacts/turn-packets.json
-./lab exec a tshark -r /out/single-ra.pcap0 -n -q -z conv,udp >artifacts/udp-conversations.txt
-./lab exec a tshark -r /out/single-ra.pcap0 -n -q -z rtp,streams >artifacts/rtp-streams.txt
+./lab exec ra sh -c 'tcpdump -i "$(cat /run/wan.if)" -nn -s0 -c 1000 -w /out/wan.pcap'
 ```
+Count may not be reached; external deadline or background PID required. For tunnel ingress, distinguish encrypted underlay packets and decrypted wg0 packets; inner NAT tests inspect latter.
 
-Tshark field/dissector names version-dependent: `tshark -G protocols`, `-G fields`; unknown filter is failure,
-not permission to substitute empty results. RTP heuristic/SDP context required; encrypted SRTP/QUIC not
-plaintext RTP proof; force-decode only declared port ranges and preserve the assumption. Use mergecap for
-full ring ordering; retain originals and timestamps. tcpdump stderr: received/dropped stats, kernel/ring errors.
-Multiple namespace clocks on one kernel aid correlation, but monotonic vs wall timestamps still distinguish;
-clock adjustments invalidate naive one-way latency. Containers cannot independently test hardware drift
-without application-clock abstraction. Never alter host clock for a lab case.
-
-Failure order: topology/routes -> bypass-cut -> nft counters -> per-hop PCAP/translated tuples -> conntrack
-state/lifetimes -> server listener/auth -> signaling/ICE/relay path -> encrypted transport -> decoded payload
--> quality/resource budgets. Each verdict references exact artifact offsets/event IDs/flow5tuple/run_id.
-No packets at source = app/config; source present/NAT absent = local route/filter; NAT outbound/no WAN =
-bridge/host policy; server receives/no reply = server; reply/NAT present/no LAN = conntrack/filter; LAN data/
-no decoded media = client/codec/crypto. These are investigation branches, not automatic diagnoses.
-
-## 9. Machine-verifiable quality; repetitions; final gate
-
-Implement actual product tests primarily in Rust; external tools are evidence-producing subprocesses,
-not human oracles. Tests own child-process lifecycle/timeouts/control sockets/JSONL parsing. Use typed
-serde schemas in actual project, validate run_id and event version, fail closed on unknown/missing required
-fields. No fragile success-by-grep for product release gate; bundled utility smoke intentionally lower scope.
-
-Result per case:
-```
-run_id,scenario,seed,topology,nat_profile_id,nat_qualification_hash,link_profile,
-source_shas,lock_hash,image_ids,kernel,arch,resources,expected_path,observed_path,
-setup_ms,media_start_ms,rtt_percentiles,jitter_definition,loss_definition,
-decoded_payload_hash,correlation,lag_ms,drift_ppm,gaps,clipping,
-bytes_direct,bytes_relay,reconnect_ms,rss/fd/task_deltas,
-assertions:[{name,status,observed,threshold,evidence}],status,exit_code
-```
-
-Thresholds version-controlled BEFORE run; product/use-case-dependent, not universal telecom claims.
-Suggested initial engineering gates (explicit lab policy, not external standard): zero payload corruption;
-zero unexpected direct traffic in relay-only scenario; negative case finite failure<=15s; nominal call
-setup<=5s; bidirectional media>=20s; sustained no-loss baseline RTP loss<=0.1%; RMS>=100/32768; clipping<1%;
-stimulus correlation>=0.9 after codec-aligned resampling/lag compensation (tune codec baseline first).
-Lossy-profile tolerances derived from injected impairment + repeated baseline, not arbitrary copy of nominal
-SLO. MOS/PESQ/POLQA require actual applicable algorithm/license/reference and measurement; never synthesize
-MOS from ping/jitter alone. Video objective metrics similarly need decoded reference frames.
-
-Baseline repeat>=30 runs; many failures require more. Report successes/total + confidence bound; no observed
-failures != zero failure probability. Example 0/n failure one-sided95% upper bound = 1-0.05^(1/n), approx3/n.
-Keep reproducible seeds/config; wall-clock scheduling still nondeterministic; compare distributions, not
-single lucky run. Soak policy e.g. >=1h plus 1000 call/connect cycles; resource slopes after warmup; define
-fd/RSS budgets from measured baseline; no process leaks, no lingering channels, no stale allocations beyond
-configured expiry. Externally resource-limit competing loads and record Docker CPU/memory constraints.
-
-Final release gate ALL required scopes must pass:
-A topology health/routes/isolation/bypass; B per-profile mapping/filtering/lifetime qualification;
-C actual Rust/PJSIP SIP+decoded bidirectional media incl negative/recovery; D actual client TURN transports;
-E actual Rust iroh custom local relay/direct/fallback/negative/recovery; F required video/text/data modes;
-G long-run quality/resource SLOs; H complete packet/log/config provenance. Bundled `acceptance.json` only
-asserts A subset; optional voip/turn tests are surrogates. No full PASS until B-H implemented and executed
-against your actual sources. Missing feature = UNSUPPORTED/FAIL per requirements, never silently skipped.
-
-## 10. Deliberate boundaries
-
-Not emulated by this baseline: every vendor NAT/ALG; arbitrary general EIF/ADF/APDM allocator; automatic
-hairpin; PCP/UPnP; IPv6 firewall/NAT64/464XLAT; actual browser/WebRTC stack; cellular handover/radio/link layer;
-real BGP/geographical routing; independent hardware clocks; Internet-scale capacity; production certificate
-operations. Add explicit backends/fixtures/qualifiers when product needs them. TCP/UDP real packets and
-media payloads work without claiming those extra behaviors. Specifying a feature is not implementing it.
-
-Compose is orchestration, not the NAT specification. Routing/NAT/netem implement network semantics;
-qualified probes prove network semantics; real Rust app tests prove product behavior; decoded-reference
-oracles and distributions prove declared quality budgets. Preserve these four levels separately.
-
-
-## Appendix A — Exact source files
-
-Repository paths below are reconstruction targets. Copy contents verbatim; chmod +x lab scripts/*.sh; run python3 scripts/make-tone.py to reconstruct binary WAV fixture. Three base Compose files are alternatives, NOT simultaneous deployments.
-
-### .gitignore
-
-```text
-artifacts/
-cache/
-private/
-config/tls/
-config/coturn.tls.conf
-probe/target/
-accept/target/
-```
-
-### AGENTS.md
-
-```text
-# Execution contract
-Read README.md before modification. Agent stays OUTSIDE containers. Docker API access HOST ONLY.
-No host firewall edits, privileged containers, host network, Docker-socket mounts, public relay fallback,
-GUI, microphone, speaker, manual listening, unverified NAT labels, synthetic MOS, or swallowed failures.
-Run one topology at a time. Resolve dependencies ONLINE before isolated tests. Preserve every failed run.
-PASS scopes distinct: infrastructure; NAT-profile; utility-surrogate; actual Rust SUT; quality; long-haul.
-NOT_RUN != PASS. No full-environment certification until all required scopes pass for pinned revisions.
-For actual applications implement contracts in README; do not claim surrogate coverage as product coverage.
-Record changed config + seed + commit + lockfile + image IDs + kernel + packets + machine-readable results.
-Inspect all packet-drop counters. Failure to collect evidence invalidates relevant assertions.
-```
-
-### Dockerfile
-
-```text
-FROM rust:1-bookworm AS probes
-WORKDIR /build
-COPY probe/ .
-RUN cargo build --release --offline
-
-FROM ubuntu:24.04
-ENV DEBIAN_FRONTEND=noninteractive
-RUN printf 'wireshark-common wireshark-common/install-setuid boolean false\n' | debconf-set-selections \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    iproute2 nftables conntrack tcpdump tshark iputils-ping iputils-tracepath \
-    ethtool python3 curl ca-certificates openssl jq procps coreutils \
-    asterisk coturn socat && rm -rf /var/lib/apt/lists/*
-COPY --from=probes /build/target/release/netprobe /usr/local/bin/netprobe
-COPY scripts/ /lab/
-RUN chmod +x /lab/*.sh
-ENTRYPOINT ["/lab/node.sh"]
-CMD ["sleep","infinity"]
-```
-
-### Dockerfile.iroh
-
-```text
-FROM rust:1-bookworm AS build
-RUN apt-get update && apt-get install -y --no-install-recommends git pkg-config libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-ARG IROH_REF
-RUN test -n "$IROH_REF" && echo "$IROH_REF" | grep -Eq '^[0-9a-f]{40}$' \
-    && git clone https://github.com/n0-computer/iroh.git /src \
-    && cd /src && git checkout --detach "$IROH_REF"
-WORKDIR /src
-RUN cargo build --locked --release --package iroh-relay --features server --bin iroh-relay
-FROM natlab-node:local
-COPY --from=build /src/target/release/iroh-relay /usr/local/bin/iroh-relay
-```
-
-### Dockerfile.pjsua
-
-```text
-FROM natlab-node:local AS build
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential pkg-config git libssl-dev uuid-dev && rm -rf /var/lib/apt/lists/*
-ARG PJPROJECT_REF=2.15.1
-RUN git clone --depth 1 --branch "$PJPROJECT_REF" https://github.com/pjsip/pjproject.git /pj
-WORKDIR /pj
-RUN ./configure --disable-video --disable-sound --disable-libyuv --disable-ffmpeg --disable-v4l2 \
-    && make dep && make -j2 \
-    && find pjsip-apps/bin -maxdepth 1 -type f -name 'pjsua-*' -executable -exec cp '{}' /usr/local/bin/pjsua \;
-FROM natlab-node:local
-COPY --from=build /usr/local/bin/pjsua /usr/local/bin/pjsua
-```
-
-### Dockerfile.sut
-
-```text
-# Build dependencies ONLINE; execute SUT/tests only inside isolated runtime namespaces.
-FROM rust:1-bookworm
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential pkg-config libssl-dev clang libclang-dev cmake \
-    iproute2 ca-certificates && rm -rf /var/lib/apt/lists/*
-WORKDIR /work
-# Adapt native dependencies to the ACTUAL PJSIP binding; commit Cargo.lock/toolchain.
-# COPY Cargo.toml Cargo.lock ... ; RUN cargo fetch --locked ...
-CMD ["sleep","infinity"]
-```
-
-### accept/Cargo.toml
-
-```toml
-[package]
-name = "natlab-accept"
-version = "0.1.0"
-edition = "2021"
-```
-
-### accept/tests/lab.rs
-
-```rust
-use std::{process::{Command,Output},env,fs};
-fn run(args:&[&str])->Output{
-    let o=Command::new("./lab").args(args).output().unwrap();
-    eprintln!("./lab {:?}\n{}{}",args,String::from_utf8_lossy(&o.stdout),String::from_utf8_lossy(&o.stderr));o
-}
-fn ok(args:&[&str])->String{let o=run(args);assert!(o.status.success(),"command failed: {args:?}");String::from_utf8(o.stdout).unwrap()}
-#[test]
-fn topology_nat_faults(){
-    // Mutates network policy: serialize this test; fresh lab required.
-    ok(&["exec","a","test","-f","/run/lab.ready"]);
-    for peer in ["a","b"] {
-        let out=ok(&["exec",peer,"netprobe","udp","10.77.0.20:9000","42000","10","20"]);
-        let wan=if peer=="b"{"10.77.0.3"}else if env::var("LAB_VARIANT").unwrap_or_default()=="double"{"10.77.0.4"}else{"10.77.0.2"};
-        assert!(out.contains(&format!("\"observed\":\"{wan}:")),"unexpected NAT egress");
-        ok(&["exec",peer,"netprobe","tcp","10.77.0.20:9000","262144"]);
-    }
-    // Mixed-port and alternate-address probes: observations, NOT an EIM/APDM assertion.
-    for dst in ["10.77.0.20:9000","10.77.0.20:9001","10.77.0.21:9000"] {
-        ok(&["exec","a","netprobe","udp",dst,"42000","1","0"]);
-    }
-    ok(&["exec","ra","/lab/policy.sh","cut"]);
-    let u=run(&["exec","a","netprobe","udp","10.77.0.20:9000","42000","1","0"]);
-    let t=run(&["exec","a","netprobe","tcp","10.77.0.20:9000","16"]);
-    ok(&["exec","ra","/lab/policy.sh","normal"]);
-    assert!(!u.status.success()&&!t.status.success(),"NAT bypass detected");
-    ok(&["exec","ra","/lab/policy.sh","udp-block"]);
-    let u=run(&["exec","a","netprobe","udp","10.77.0.20:9000","42000","1","0"]);
-    let t=run(&["exec","a","netprobe","tcp","10.77.0.20:9000","16"]);
-    ok(&["exec","ra","/lab/policy.sh","normal"]);
-    assert!(!u.status.success()&&t.status.success(),"UDP block not selective");
-    ok(&["exec","a","netprobe","udp","10.77.0.20:9000","42000","3","20"]);
-    fs::write("artifacts/acceptance.json","{\"infrastructure\":\"pass\",\"sip\":\"not_run\",\"turn\":\"not_run\",\"iroh\":\"not_run\",\"nat_behavior_qualification\":\"not_run\"}\n").unwrap();
-}
-```
-
-### accept/tests/turn.rs
-
-```rust
-use std::{process::Command,fs};
-#[test]
-#[ignore="coturn utility smoke; not a two-host Rust SUT interoperability test"]
-fn turn_udp_and_tcp_transport(){
- for tcp in [false,true]{
-  let mut args=vec!["exec","a","timeout","45","turnutils_uclient","-y","-u","lab","-w","lab-secret","-p","3478","-n","100","-z","10"];
-  if tcp{args.push("-t");}args.push("10.77.0.30");
-  let o=Command::new("./lab").args(&args).output().unwrap();
-  let s=format!("{}{}",String::from_utf8_lossy(&o.stdout),String::from_utf8_lossy(&o.stderr));
-  fs::write(format!("artifacts/turn-{}.log",if tcp{"tcp"}else{"udp"}),&s).unwrap();
-  assert!(o.status.success(),"{s}");
-  // Utility output format is version-specific. No fabricated packet-loss pass.
-  assert!(s.contains("Total transmit time"),"missing utility completion statistics: {s}");
- }
-}
-```
-
-### accept/tests/voip.rs
-
-```rust
-use std::{process::Command,time::{Duration,Instant},thread,fs};
-fn cmd(args:&[&str])->String{
- let o=Command::new("./lab").args(args).output().unwrap();
- assert!(o.status.success(),"{args:?}: {}",String::from_utf8_lossy(&o.stderr));
- String::from_utf8_lossy(&o.stdout).into_owned()
-}
-fn wait(mut f:impl FnMut()->bool){let t=Instant::now();while !f(){assert!(t.elapsed()<Duration::from_secs(60),"readiness timeout");thread::sleep(Duration::from_millis(500));}}
-fn wav(path:&str){
- let b=fs::read(path).unwrap();assert!(&b[..4]==b"RIFF"&&&b[8..12]==b"WAVE");
- let mut pos=12;let mut rate=0u32;let mut data=vec![];
- while pos+8<=b.len(){let n=u32::from_le_bytes(b[pos+4..pos+8].try_into().unwrap())as usize;
-  let end=pos+8+n;assert!(end<=b.len());let q=&b[pos+8..end];
-  if &b[pos..pos+4]==b"fmt "{assert!(q.len()>=16);assert_eq!(u16::from_le_bytes(q[..2].try_into().unwrap()),1);assert_eq!(u16::from_le_bytes(q[2..4].try_into().unwrap()),1);rate=u32::from_le_bytes(q[4..8].try_into().unwrap());assert_eq!(u16::from_le_bytes(q[14..16].try_into().unwrap()),16);}
-  if &b[pos..pos+4]==b"data"{data.extend_from_slice(q);}pos=end+(n&1);
- }
- assert!(rate>0);let samples:Vec<i16>=data.chunks_exact(2).map(|x|i16::from_le_bytes([x[0],x[1]])).collect();
- let secs=samples.len()as f64/rate as f64;let rms=(samples.iter().map(|x|(*x as f64).powi(2)).sum::<f64>()/samples.len().max(1)as f64).sqrt();
- let clip=samples.iter().filter(|x|(**x as i32).abs()>=32760).count()as f64/samples.len().max(1)as f64;
- eprintln!("{path}: seconds={secs:.3} rms={rms:.3} clipped={clip:.6}");assert!(secs>=10.&&rms>=100.&&clip<0.01);
-}
-#[test]
-#[ignore="requires LAB_IMAGE=natlab-pjsua:local and fresh single/double topology; surrogate, not Rust SUT"]
-fn headless_pjsua_bidirectional_audio(){
- assert!(std::env::var("LAB_VARIANT").unwrap_or_default()!="private");
- cmd(&["exec","pbx","asterisk","-rx","pjsip set logger on"]);
- cmd(&["exec-bg","b","python3","/lab/pjsua.py","b","1002","10.77.0.10"]);
- cmd(&["exec-bg","a","python3","/lab/pjsua.py","a","1001","10.77.0.10"]);
- wait(||{let s=cmd(&["exec","pbx","asterisk","-rx","pjsip show contacts"]);s.contains("1001/sip:")&&s.contains("1002/sip:")});
- cmd(&["exec","a","timeout","5","sh","-c","printf 'm\\nsip:1002@10.77.0.10\\n' > /out/a.fifo"]);
- wait(||cmd(&["exec","pbx","asterisk","-rx","core show channels concise"]).matches("!Up!").count()>=2);
- thread::sleep(Duration::from_secs(20));
- for n in ["a","b"]{let c=format!("printf 'q\\n' > /out/{n}.fifo");cmd(&["exec",n,"timeout","5","sh","-c",&c]);}
- wait(||fs::metadata("artifacts/a.wav").is_ok()&&fs::metadata("artifacts/b.wav").is_ok());
- thread::sleep(Duration::from_secs(3));wav("artifacts/a.wav");wav("artifacts/b.wav");
- fs::write("artifacts/voip-surrogate.json","{\"pjsua_baseline\":\"pass\",\"rust_sut\":\"not_run\",\"identity_correlation\":\"not_measured\",\"mos\":\"not_measured\"}\n").unwrap();
-}
-```
-
-### compose.double.yml
-
-```yaml
-services:
-  ra:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '1'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lana:
-        ipv4_address: 10.77.1.1
-      transit:
-        ipv4_address: 10.77.10.2
-    environment:
-      ROLE: router
-      LAN_IP: 10.77.1.1
-      WAN_IP: 10.77.10.2
-      LAN_CIDR: 10.77.1.0/24
-      GW: 10.77.10.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  cga:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '1'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      transit:
-        ipv4_address: 10.77.10.1
-      wan:
-        ipv4_address: 10.77.0.4
-    environment:
-      ROLE: router
-      LAN_IP: 10.77.10.1
-      WAN_IP: 10.77.0.4
-      LAN_CIDR: 10.77.10.0/24
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  rb:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '1'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lanb:
-        ipv4_address: 10.77.2.1
-      wan:
-        ipv4_address: 10.77.0.3
-    environment:
-      ROLE: router
-      LAN_IP: 10.77.2.1
-      WAN_IP: 10.77.0.3
-      LAN_CIDR: 10.77.2.0/24
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  a:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lana:
-        ipv4_address: 10.77.1.10
-    environment:
-      ROLE: endpoint
-      GW: 10.77.1.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  b:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lanb:
-        ipv4_address: 10.77.2.10
-    environment:
-      ROLE: endpoint
-      GW: 10.77.2.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  obs1:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.20
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':9000 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - netprobe
-    - serve
-  obs2:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.21
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':9000 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - netprobe
-    - serve
-  turn:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.30
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':3478 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - turnserver
-    - -c
-    - /lab-config/coturn.conf
-  pbx:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.10
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    - ./config/asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
-    - ./config/asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
-    - ./config/asterisk/rtp.conf:/etc/asterisk/rtp.conf:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && asterisk -rx "core waitfullybooted"
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - asterisk
-    - -f
-    - -vvv
-networks:
-  wan:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.0.0/24
-        gateway: 10.77.0.254
-  lana:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.1.0/24
-        gateway: 10.77.1.254
-  lanb:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.2.0/24
-        gateway: 10.77.2.254
-  transit:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.10.0/24
-        gateway: 10.77.10.254
-```
-
-### compose.iroh.yml
-
-```yaml
-services:
-  iroh-relay:
-    image: natlab-iroh:local
-    init: true
-    cap_drop: [ALL]
-    cap_add: [NET_ADMIN, NET_RAW, DAC_OVERRIDE]
-    security_opt: [no-new-privileges:true]
-    environment: {ROLE: endpoint}
-    networks:
-      wan: {ipv4_address: 10.77.0.40}
-    sysctls:
-      net.ipv4.ip_forward: "0"
-      net.ipv4.conf.all.rp_filter: "0"
-      net.ipv4.conf.default.rp_filter: "0"
-      net.ipv6.conf.all.disable_ipv6: "1"
-      net.ipv6.conf.default.disable_ipv6: "1"
-    volumes:
-      - ./artifacts:/out
-      - ./config:/lab-config:ro
-    command: [iroh-relay, --dev, --config-path, /lab-config/iroh-dev.toml]
-    healthcheck:
-      test: [CMD, curl, --noproxy, '*', --fail, --silent, http://10.77.0.40:3340/healthz]
-      interval: 2s
-      timeout: 2s
-      retries: 60
-```
-
-### compose.private.yml
-
-```yaml
-services:
-  ra:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '1'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lana:
-        ipv4_address: 10.77.1.1
-      wan:
-        ipv4_address: 10.77.0.2
-    environment:
-      ROLE: router
-      LAN_IP: 10.77.1.1
-      WAN_IP: 10.77.0.2
-      LAN_CIDR: 10.77.1.0/24
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  rb:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '1'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lanb:
-        ipv4_address: 10.77.2.1
-      wan:
-        ipv4_address: 10.77.0.3
-    environment:
-      ROLE: router
-      LAN_IP: 10.77.2.1
-      WAN_IP: 10.77.0.3
-      LAN_CIDR: 10.77.2.0/24
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  a:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lana:
-        ipv4_address: 10.77.1.10
-    environment:
-      ROLE: endpoint
-      GW: 10.77.1.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  b:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lanb:
-        ipv4_address: 10.77.2.10
-    environment:
-      ROLE: endpoint
-      GW: 10.77.2.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  obs1:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.20
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':9000 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - netprobe
-    - serve
-  obs2:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.21
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':9000 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - netprobe
-    - serve
-  turn:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.30
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':3478 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - turnserver
-    - -c
-    - /lab-config/coturn.conf
-  pbx:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lana:
-        ipv4_address: 10.77.1.20
-    environment:
-      ROLE: endpoint
-      GW: 10.77.1.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    - ./config/asterisk/pjsip.private.conf:/etc/asterisk/pjsip.conf:ro
-    - ./config/asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
-    - ./config/asterisk/rtp.conf:/etc/asterisk/rtp.conf:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && asterisk -rx "core waitfullybooted"
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - asterisk
-    - -f
-    - -vvv
-networks:
-  wan:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.0.0/24
-        gateway: 10.77.0.254
-  lana:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.1.0/24
-        gateway: 10.77.1.254
-  lanb:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.2.0/24
-        gateway: 10.77.2.254
-```
-
-### compose.single.yml
-
-```yaml
-services:
-  ra:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '1'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lana:
-        ipv4_address: 10.77.1.1
-      wan:
-        ipv4_address: 10.77.0.2
-    environment:
-      ROLE: router
-      LAN_IP: 10.77.1.1
-      WAN_IP: 10.77.0.2
-      LAN_CIDR: 10.77.1.0/24
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  rb:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '1'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lanb:
-        ipv4_address: 10.77.2.1
-      wan:
-        ipv4_address: 10.77.0.3
-    environment:
-      ROLE: router
-      LAN_IP: 10.77.2.1
-      WAN_IP: 10.77.0.3
-      LAN_CIDR: 10.77.2.0/24
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  a:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lana:
-        ipv4_address: 10.77.1.10
-    environment:
-      ROLE: endpoint
-      GW: 10.77.1.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  b:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      lanb:
-        ipv4_address: 10.77.2.10
-    environment:
-      ROLE: endpoint
-      GW: 10.77.2.1
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD
-      - test
-      - -f
-      - /run/lab.ready
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-  obs1:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.20
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':9000 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - netprobe
-    - serve
-  obs2:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.21
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':9000 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - netprobe
-    - serve
-  turn:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.30
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && ss -H -lun | grep -q ':3478 '
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - turnserver
-    - -c
-    - /lab-config/coturn.conf
-  pbx:
-    image: ${LAB_IMAGE:-natlab-node:local}
-    init: true
-    cap_drop:
-    - ALL
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - FOWNER
-    security_opt:
-    - no-new-privileges:true
-    sysctls:
-      net.ipv6.conf.all.disable_ipv6: '1'
-      net.ipv6.conf.default.disable_ipv6: '1'
-      net.ipv4.ip_forward: '0'
-      net.ipv4.conf.all.rp_filter: '0'
-      net.ipv4.conf.default.rp_filter: '0'
-      net.ipv4.conf.all.accept_redirects: '0'
-      net.ipv4.conf.default.accept_redirects: '0'
-      net.ipv4.conf.all.send_redirects: '0'
-      net.ipv4.conf.default.send_redirects: '0'
-    networks:
-      wan:
-        ipv4_address: 10.77.0.10
-    environment:
-      ROLE: endpoint
-    volumes:
-    - ./artifacts:/out
-    - ./config:/lab-config:ro
-    - ./config/asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
-    - ./config/asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
-    - ./config/asterisk/rtp.conf:/etc/asterisk/rtp.conf:ro
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - test -f /run/lab.ready && asterisk -rx "core waitfullybooted"
-      interval: 1s
-      timeout: 1s
-      retries: 60
-    stop_grace_period: 15s
-    command:
-    - asterisk
-    - -f
-    - -vvv
-networks:
-  wan:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.0.0/24
-        gateway: 10.77.0.254
-  lana:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.1.0/24
-        gateway: 10.77.1.254
-  lanb:
-    driver: bridge
-    internal: true
-    enable_ipv6: false
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: 'false'
-      com.docker.network.bridge.inhibit_ipv4: 'true'
-      com.docker.network.bridge.enable_icc: 'true'
-    ipam:
-      config:
-      - subnet: 10.77.2.0/24
-        gateway: 10.77.2.254
-```
-
-### compose.sut.example.yml
-
-```yaml
-# Merge with ONE topology. Run: docker compose -p natlab-single -f compose.single.yml -f compose.sut.example.yml ...
-services:
-  sut-a:
-    build:
-      context: .
-      dockerfile: Dockerfile.sut
-    image: natlab-sut:local
-    init: true
-    network_mode: service:a
-    depends_on:
-      a: {condition: service_healthy}
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    user: "1000:1000"
-    working_dir: /work
-    environment:
-      CARGO_HOME: /cargo
-      CARGO_TARGET_DIR: /target
-      RUST_LOG: info
-      LAB_NODE: a
-      LAB_ARTIFACTS: /out
-    volumes:
-      - ${SUT_ROOT:?Set SUT_ROOT to actual project root}:/work:ro
-      - ./artifacts:/out
-      - ./cache/cargo-a:/cargo
-      - ./cache/target-a:/target
-    command: [sleep, infinity]
-  sut-b:
-    image: natlab-sut:local
-    init: true
-    network_mode: service:b
-    depends_on:
-      b: {condition: service_healthy}
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    user: "1000:1000"
-    working_dir: /work
-    environment:
-      CARGO_HOME: /cargo
-      CARGO_TARGET_DIR: /target
-      RUST_LOG: info
-      LAB_NODE: b
-      LAB_ARTIFACTS: /out
-    volumes:
-      - ${SUT_ROOT:?Set SUT_ROOT}:/work:ro
-      - ./artifacts:/out
-      - ./cache/cargo-b:/cargo
-      - ./cache/target-b:/target
-    command: [sleep, infinity]
-```
-
-### compose.timeout.example.yml
-
-```yaml
-# Merge with a topology; recreate ra before the scenario; current flows must be absent.
-services:
-  ra:
-    sysctls:
-      net.netfilter.nf_conntrack_udp_timeout: "10"
-      net.netfilter.nf_conntrack_udp_timeout_stream: "10"
-```
-
-### compose.turn-tls.yml
-
-```yaml
-services:
-  turn:
-    command: [turnserver, -c, /lab-config/coturn.tls.conf]
-```
-
-### config/asterisk/extensions.conf
-
-```text
-[general]
-static=yes
-writeprotect=yes
-[lab]
-exten => _100[12],1,Dial(PJSIP/${EXTEN},45)
- same => n,Hangup()
-exten => 600,1,Answer()
- same => n,Echo()
- same => n,Hangup()
-```
-
-### config/asterisk/pjsip.conf
-
-```text
-[global]
-type=global
-user_agent=natlab
-
-[transport-udp]
-type=transport
-protocol=udp
-bind=0.0.0.0:5060
-
-[transport-tcp]
-type=transport
-protocol=tcp
-bind=0.0.0.0:5060
-
-[endpoint-common](!)
-type=endpoint
-context=lab
-disallow=all
-allow=ulaw
-allow=alaw
-direct_media=no
-rtp_symmetric=yes
-force_rport=yes
-rewrite_contact=yes
-
-[1001](endpoint-common)
-auth=auth1001
-aors=1001
-[auth1001]
-type=auth
-auth_type=userpass
-username=1001
-password=lab-1001
-[1001]
-type=aor
-max_contacts=1
-remove_existing=yes
-qualify_frequency=10
-
-[1002](endpoint-common)
-auth=auth1002
-aors=1002
-[auth1002]
-type=auth
-auth_type=userpass
-username=1002
-password=lab-1002
-[1002]
-type=aor
-max_contacts=1
-remove_existing=yes
-qualify_frequency=10
-```
-
-### config/asterisk/pjsip.private.conf
-
-```text
-[global]
-type=global
-user_agent=natlab
-
-[transport-udp]
-type=transport
-protocol=udp
-bind=0.0.0.0:5060
-local_net=10.77.1.0/24
-external_signaling_address=10.77.0.2
-external_media_address=10.77.0.2
-
-[transport-tcp]
-type=transport
-protocol=tcp
-bind=0.0.0.0:5060
-local_net=10.77.1.0/24
-external_signaling_address=10.77.0.2
-external_media_address=10.77.0.2
-
-[endpoint-common](!)
-type=endpoint
-context=lab
-disallow=all
-allow=ulaw
-allow=alaw
-direct_media=no
-rtp_symmetric=yes
-force_rport=yes
-rewrite_contact=yes
-
-[1001](endpoint-common)
-auth=auth1001
-aors=1001
-[auth1001]
-type=auth
-auth_type=userpass
-username=1001
-password=lab-1001
-[1001]
-type=aor
-max_contacts=1
-remove_existing=yes
-qualify_frequency=10
-
-[1002](endpoint-common)
-auth=auth1002
-aors=1002
-[auth1002]
-type=auth
-auth_type=userpass
-username=1002
-password=lab-1002
-[1002]
-type=aor
-max_contacts=1
-remove_existing=yes
-qualify_frequency=10
-```
-
-### config/asterisk/rtp.conf
-
-```text
-[general]
-rtpstart=10000
-rtpend=10199
-icesupport=no
-```
-
-### config/coturn.conf
-
-```text
-listening-ip=10.77.0.30
-relay-ip=10.77.0.30
-listening-port=3478
-min-port=50000
-max-port=50199
-fingerprint
-lt-cred-mech
-realm=lab
-user=lab:lab-secret
-no-cli
-no-tls
-no-dtls
-# Deliberate closed-lab private peer destinations; not a production security template.
-log-file=stdout
-simple-log
-verbose
-```
-
-### config/fixture.json
-
-```json
-{
-  "wan": "10.77.0.2",
-  "client_cidr": "10.77.1.0/24",
-  "flows": [
-    {
-      "src": "10.77.1.10",
-      "sport": 42000,
-      "dst": "10.77.0.20",
-      "dport": 9000
-    },
-    {
-      "src": "10.77.1.10",
-      "sport": 42000,
-      "dst": "10.77.0.20",
-      "dport": 9001
-    },
-    {
-      "src": "10.77.1.10",
-      "sport": 42000,
-      "dst": "10.77.0.21",
-      "dport": 9000
-    }
-  ]
-}
-```
-
-### config/iroh-dev.toml
-
-```toml
-# --dev, relay-only baseline; deliberately no QUIC address discovery / no HTTPS.
-http_bind_addr = "0.0.0.0:3340"
-enable_relay = true
-enable_metrics = true
-metrics_bind_addr = "0.0.0.0:9090"
-enable_quic_addr_discovery = false
-```
-
-### config/iroh-tls.example.toml
-
-```toml
-# Validate against the PINNED iroh-relay source/CLI before qualification.
-# Run WITHOUT --dev. Use explicit client trust + hostname relay.lab -> 10.77.0.40.
-http_bind_addr = "0.0.0.0:80"
-enable_relay = true
-enable_metrics = true
-metrics_bind_addr = "0.0.0.0:9090"
-enable_quic_addr_discovery = true
-quic_bind_addr = "0.0.0.0:7842"
-[tls]
-https_bind_addr = "0.0.0.0:443"
-hostname = "relay.lab"
-cert_mode = "Manual"
-manual_cert_path = "/lab-config/tls/relay.crt"
-manual_key_path = "/lab-config/tls/relay.key"
-```
-
-### config/private-pbx-transport.txt
-
-```text
-# In config/asterisk/pjsip.conf add the following lines to EACH [transport-*] section,
-# BEFORE the next section header; remove again before using single/double.
-local_net=10.77.1.0/24
-external_signaling_address=10.77.0.2
-external_media_address=10.77.0.2
-```
-
-### lab
-
-```text
-#!/usr/bin/env bash
-set -euo pipefail
-cd "$(dirname "$0")"
-variant=${LAB_VARIANT:-single}
-case "$variant" in single|double|private) ;; *) echo 'Invalid LAB_VARIANT' >&2; exit 2;; esac
-export LAB_VARIANT="$variant"
-project="natlab-${variant}"
-dc=(docker compose -p "$project" -f "compose.${variant}.yml")
-case "${1:-help}" in
- build) docker build -t natlab-node:local .;;
- pjsua-build) docker build -f Dockerfile.pjsua -t natlab-pjsua:local .;;
- up) mkdir -p artifacts; chmod 1777 artifacts; "${dc[@]}" up -d --wait --wait-timeout 180;;
- down) "${dc[@]}" down --remove-orphans;;
- config) "${dc[@]}" config;;
- ps) "${dc[@]}" ps;;
- exec) shift; "${dc[@]}" exec -T "$@";;
- exec-bg) shift; "${dc[@]}" exec -T -d "$@";;
- logs) "${dc[@]}" logs --no-color --timestamps;;
- test) cargo test --manifest-path accept/Cargo.toml --offline -- --nocapture --test-threads=1;;
- capture-start|capture-stop)
-  action=${1#capture-}
-  for s in $("${dc[@]}" config --services); do
-   "${dc[@]}" exec -T "$s" /lab/capture.sh "$action" "$variant-$s"
-  done;;
- collect)
-  mkdir -p artifacts/state
-  docker version >artifacts/state/docker-version.txt
-  docker info >artifacts/state/docker-info.txt
-  docker compose version >artifacts/state/compose-version.txt
-  "${dc[@]}" config >artifacts/state/resolved-compose.yml
-  "${dc[@]}" logs --no-color --timestamps >artifacts/state/compose.log 2>&1
-  for s in $("${dc[@]}" config --services); do
-   "${dc[@]}" exec -T "$s" /lab/state.sh >"artifacts/state/$s.txt" 2>&1 || true
-   id=$("${dc[@]}" ps -q "$s"); docker inspect "$id" >"artifacts/state/$s.inspect.json"
-  done
-  docker image inspect natlab-node:local >artifacts/state/image.json
-  ;;
- smoke)
-  "$0" capture-start
-  set +e
-  "$0" test >artifacts/acceptance.log 2>&1; rc=$?
-  "$0" collect; "$0" capture-stop
-  exit "$rc";;
- *) echo './lab {build|pjsua-build|up|down|config|ps|exec SERVICE CMD...|exec-bg SERVICE CMD...|logs|test|capture-start|capture-stop|collect|smoke}' >&2; exit 2;;
-esac
-```
-
-### probe/Cargo.toml
-
-```toml
-[package]
-name = "netprobe"
-version = "0.1.0"
-edition = "2021"
-```
-
-### probe/src/main.rs
-
-```rust
-use std::{env,io::{Read,Write},net::{TcpListener,TcpStream,UdpSocket},thread,time::{Duration,Instant}};
-fn server(){
-    for port in [9000,9001] {
-        let u=UdpSocket::bind(("0.0.0.0",port)).unwrap();
-        thread::spawn(move|| {let mut b=[0u8;65535]; loop {
-            let (n,peer)=u.recv_from(&mut b).unwrap();
-            let mut v=format!("{}|",peer).into_bytes();v.extend_from_slice(&b[..n]);
-            u.send_to(&v,peer).unwrap();
-        }});
-        let l=TcpListener::bind(("0.0.0.0",port)).unwrap();
-        thread::spawn(move||for c in l.incoming(){thread::spawn(move|| {
-            let mut c=c.unwrap(); let mut b=[0u8;65536];
-            loop{match c.read(&mut b){Ok(0)|Err(_)=>break,Ok(n)=>{if c.write_all(&b[..n]).is_err(){break}}}}
-        });});
-    }
-    loop {thread::park();}
-}
-fn udp(a:&[String]){
-    let dst=&a[2];let source:u16=a[3].parse().unwrap();
-    let count:u64=a[4].parse().unwrap();let gap:u64=a[5].parse().unwrap();
-    let u=UdpSocket::bind(("0.0.0.0",source)).unwrap();
-    u.set_read_timeout(Some(Duration::from_millis(700))).unwrap();
-    let mut good=0;let mut rtts=vec![];let mut observed=String::new();let mut b=[0u8;65535];
-    for seq in 0..count{
-        let msg=format!("natlab-{seq:08}");let start=Instant::now();
-        u.send_to(msg.as_bytes(),dst).unwrap();
-        let deadline=start+Duration::from_millis(700);
-        while Instant::now()<deadline {
-            match u.recv_from(&mut b){Ok((n,_))=>{
-                let x=String::from_utf8_lossy(&b[..n]);
-                if let Some((p,body))=x.split_once('|') {if body==msg {
-                    observed=p.to_string();good+=1;rtts.push(start.elapsed().as_secs_f64()*1000.0);break;
-                }}
-            },Err(_)=>break}
-        }
-        thread::sleep(Duration::from_millis(gap));
-    }
-    rtts.sort_by(|a,b|a.total_cmp(b));
-    let p95=if rtts.is_empty(){0.0}else{rtts[((rtts.len()-1) as f64*0.95).ceil() as usize]};
-    println!("{{\"protocol\":\"udp\",\"sent\":{count},\"received\":{good},\"observed\":\"{observed}\",\"rtt_p95_ms\":{p95:.3}}}");
-    if good!=count{std::process::exit(1)}
-}
-fn tcp(a:&[String]){
-    let dst=a[2].parse().unwrap();let len:usize=a[3].parse().unwrap();
-    let mut c=TcpStream::connect_timeout(&dst,Duration::from_secs(3)).unwrap();
-    c.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
-    c.set_write_timeout(Some(Duration::from_secs(10))).unwrap();
-    let p:Vec<u8>=(0..len).map(|i|(i%251)as u8).collect();let expected=p.clone();
-    let mut writer=c.try_clone().unwrap(); let start=Instant::now();
-    let t=thread::spawn(move||writer.write_all(&p).unwrap());
-    let mut got=vec![0;len];c.read_exact(&mut got).unwrap();t.join().unwrap();assert_eq!(got,expected);
-    println!("{{\"protocol\":\"tcp\",\"bytes\":{len},\"integrity\":true,\"elapsed_ms\":{:.3}}}",start.elapsed().as_secs_f64()*1000.0);
-}
-fn main(){let a:Vec<_>=env::args().collect();match a.get(1).map(String::as_str){
-    Some("serve")=>server(),Some("udp")=>udp(&a),Some("tcp")=>tcp(&a),
-    _=>{eprintln!("netprobe serve | udp DEST_IP:PORT SOURCE_PORT COUNT GAP_MS | tcp DEST_IP:PORT BYTES");std::process::exit(2)}
-}}
-```
-
-### requirements.txt
-
-```text
-PyYAML>=6,<7
-```
-
-### scripts/capture.sh
-
+Decode actual existing filename, not assumed ring suffix:
 ```sh
-#!/bin/sh
-set -eu
-cmd=${1:?start|stop}; name=${2:-capture}
-case "$name" in *[!a-zA-Z0-9_-]*|'') exit 2;; esac
-case "$cmd" in
- start)
-  test ! -e /run/capture.pid
-  # No payload truncation; bounded capture ring; namespace-local visibility.
-  tcpdump -i any -s 0 -U -B 8192 -C 32 -W 8 -w "/out/$name.pcap" \
-    >/out/"$name".tcpdump.stdout 2>/out/"$name".tcpdump.stderr &
-  pid=$!; echo "$pid" >/run/capture.pid
-  sleep 1; kill -0 "$pid"
-  ;;
- stop)
-  if [ -f /run/capture.pid ]; then
-   pid=$(cat /run/capture.pid); kill -INT "$pid" 2>/dev/null || true
-   for i in $(seq 1 50); do kill -0 "$pid" 2>/dev/null || break; sleep .1; done
-   rm -f /run/capture.pid
-  fi
-  ;;
- *) exit 2;;
-esac
+./lab exec ra ls -lh /out
+./lab exec ra tshark -n -r /out/packets.pcap0 -Y sip -T json
+./lab exec ra tshark -n -r /out/packets.pcap0 -Y 'stun || turnchannel' -T json
+./lab exec ra tshark -n -r /out/packets.pcap0 -q -z conv,udp
+./lab exec ra tshark -n -r /out/packets.pcap0 -q -z rtp,streams
 ```
+Use `tshark -G protocols/fields` to resolve versioned dissectors; invalid filter is failure. RTP depends on SDP/heuristics/explicit decode. SRTP/QUIC encrypted capture alone cannot prove decoded media. Force-decode only documented range and record assumption. Merge rings with mergecap when needed, preserve originals.
 
-### scripts/check-audio.py
+Native observation: Windows vm/windows-collect.ps1 -OutDir; Mac bash vm/macos-collect.sh <dir>; Linux `ip netns exec ... ss/ip`. Host process listings do not include guest PIDs; namespace companion process views do not automatically include other container PID namespaces. Collect within actual SUT node/process context.
 
-```python
-#!/usr/bin/env python3
-# Baseline only: non-silence / duration / clipping, not MOS/POLQA or identity verification.
-import wave,array,json,math,sys
-out=[]
-for path in sys.argv[1:]:
-    with wave.open(path,'rb') as w:
-        assert w.getsampwidth()==2 and w.getnchannels()==1
-        rate=w.getframerate();v=array.array('h',w.readframes(w.getnframes()))
-    if sys.byteorder!='little': v.byteswap()
-    rms=math.sqrt(sum(x*x for x in v)/max(1,len(v)))
-    result={'file':path,'duration_s':len(v)/rate,'rms':rms,'clipped_fraction':sum(abs(x)>=32760 for x in v)/max(1,len(v))}
-    result['pass']=result['duration_s']>=10 and rms>=100 and result['clipped_fraction']<0.01
-    out.append(result)
-print(json.dumps(out,indent=2))
-if not all(x['pass'] for x in out):sys.exit(1)
+Correlate wallclock and monotonic timestamps, run/call/session IDs, tuples, sequence. Different VM clocks not identical; naive one-way latency across PCAP timestamps invalid without synchronization/error budget. Same-node RTT or corrected clock model preferred. Never change host clock to simulate guest/application drift.
+
+## 27. Diagnostic decision tree
+
+|Observed boundary|Next investigation|
+|---|---|
+|VM stopped|hypervisor state/start; resources/image|
+|guest exec fails|credential/agent/user-session/keychain, not NAT|
+|WG no handshake|Endpoint reachability/publish/firewall/key pairing/clock|
+|handshake but no inner send|SUT bind/routes/AllowedIPs/native firewall|
+|ingress wg inner present, LAN absent|ingress routes/forward/counters|
+|RA LAN present, WAN absent|router policy/route/rp_filter/current fault|
+|WAN present, server absent|server route/listener/firewall/advertisement|
+|server reply, RA WAN reply, LAN absent|conntrack/NAT reverse/filter|
+|ingress WG TX, native no data|peer selector/native route/firewall|
+|SIP success, no RTP|SDP/RTP range/slot/codec|
+|RTP present, PCM wrong|decode/crypto/stimulus/loopback/recording|
+|P2P success, path unknown|product telemetry + relay/router byte evidence|
+
+Capture facts before mutation. One configuration change per hypothesis. Collect stdout/stderr/exit at every boundary. Repair narrowest failing layer, not automatic full reinstall. If state uncertain after fault, bounded recreation is valid; preserve failed-run evidence first.
+
+Mac startup errors: inspect keychain and Virtualization log. `tart ip` failure: DHCP identifier/lease resolver before assigning random addresses. Carrier relay error: front allowlist, host reachability, infra IP changed, UDP publish; inner NAT not yet implicated. Windows Direct failure: host privilege/guest credential/guest OS compatibility/running state; guest IP firewall irrelevant to Direct.
+
+## 28. Result schemas, quality gates, repetitions
+
+Per-run fields:
+```text
+run_id,scenario,seed,host_os,guest_os,arch,vm/image_ids,source_shas,lock_hash,
+topology,nat_profile_id,qualification_hash,link_profile,resources,
+expected_path,observed_path,setup_ms,media_start_ms,rtt_percentiles,
+loss_definition,jitter_definition,decoded_hash,correlation,lag_ms,drift_ppm,
+gaps,clipping,bytes_direct,bytes_relay,reconnect_ms,rss_fd_task_deltas,
+assertions[{name,status,expected,observed,threshold,evidence}],status,exit_code
 ```
+Thresholds version-controlled before run. Initial engineering-policy examples, not external standards: zero corruption; zero unexpected direct traffic in relay-only case; negative completion<=15s; nominal call setup<=5s; bidirectional media>=20s; nominal RTP loss<=0.1%; PCM RMS>=100/32768; clipping<1%; correlation>=0.9 after codec/lag alignment. Calibrate codec baseline before using correlation threshold. Lossy profiles derive budgets from impairment and repeated baseline, not copied nominal targets.
 
-### scripts/fixture-nat.py
+Repeat baseline>=30 as initial policy, more when reliability claim requires. Report success/total and confidence interval. Zero failures in n independent comparable trials gives one-sided95% upper failure bound `1-0.05^(1/n)`, approximately3/n; no observed failure is not zero probability. Scheduling remains nondeterministic despite seed.
 
-```python
-#!/usr/bin/env python3
-# Generate finite-universe UDP EIM or APDM + APDF fixture. Apply ONLY inside a router.
-# Required: fixed client source ports; no collisions; no unlisted traffic. Not general NAT.
-import sys,json,ipaddress
-mode=sys.argv[1]; cfg=json.load(open(sys.argv[2]))
-assert mode in ['eim','apdm']
-wan=str(ipaddress.ip_address(cfg['wan']))
-flows=cfg['flows'];seen=set();slots={};rules=[];nextport=44000
-for f in flows:
-    src=str(ipaddress.ip_address(f['src']));sport=int(f['sport'])
-    dst=str(ipaddress.ip_address(f['dst']));dport=int(f['dport'])
-    assert 1<=sport<=65535 and 1<=dport<=65535
-    key=(src,sport) if mode=='eim' else (src,sport,dst,dport)
-    if key not in slots: slots[key]=nextport;nextport+=1
-    assert nextport<65000
-    flow=(src,sport,dst,dport);assert flow not in seen;seen.add(flow)
-    rules.append(f'ip saddr {src} udp sport {sport} ip daddr {dst} udp dport {dport} counter snat to {wan}:{slots[key]}')
-# Separate priority earlier than baseline NAT. Explicit unmatched UDP drop prevents fallback.
-print('table ip fixture_nat {')
-print(' chain post { type nat hook postrouting priority 90; policy accept;')
-for r in rules: print('  '+r)
-print(' }\n}')
-print('table inet fixture_allow {')
-print(' chain forward { type filter hook forward priority -10; policy accept;')
-print('  ct state established,related accept')
-for f in flows:
-    print(f"  ip saddr {f['src']} udp sport {int(f['sport'])} ip daddr {f['dst']} udp dport {int(f['dport'])} accept")
-# ACCEPT here cannot bypass later baseline APDF DROP. Reverse unsolicited packets stay blocked.
-print(f'  ip saddr {cfg["client_cidr"]} meta l4proto udp counter drop')
-print(' }\n}')
-```
+Soak policy example>=1h plus1000 call/connect cycles; warmup then resource slopes; RSS/fd/task/handle/channel/allocation leaks; expiry cleanup; no stale service sessions. Fix capacity budgets from measured baseline. Underlay relay/VM CPU saturation identified separately from network profile. ARM emulation/Rosetta results separate from native architecture performance.
 
-### scripts/link.sh
+Release scopes: topology/path; required NAT properties; actual native SIP/decoded media; actual TURN; actual custom P2P bootstrap/relay/direct/recovery; required media/data modes; quality/soak; complete provenance. Infrastructure PASS is useful independently; full release requires only declared mandatory scopes, no silent skip.
 
-```sh
-#!/bin/sh
-set -eu
-direction=${1:?lan|wan}; shift
-case "$direction" in lan) dev=$(cat /run/lan.if);; wan) dev=$(cat /run/wan.if);; *) exit 2;; esac
-if [ "${1:-}" = clear ]; then tc qdisc del dev "$dev" root 2>/dev/null || true
-else tc qdisc replace dev "$dev" root netem "$@"; fi
-tc -s qdisc show dev "$dev"
-```
+## 29. Security, provenance, cleanup
 
-### scripts/make-tone.py
+Artifacts may contain SIP auth, identities, plaintext media, private addresses, tokens, optional TLS keys. Restrict access; explicit approval/redaction before upload. Do not collect private WG configs or key-bearing command dumps. `docker inspect` may reveal env secrets; prefer protected config/secret mechanisms for product credentials.
 
-```python
-#!/usr/bin/env python3
-import wave,struct,math
-from pathlib import Path
-p=Path(__file__).resolve().parent.parent/'config'/'tone.wav'
-with wave.open(str(p),'wb') as w:
-    w.setnchannels(1);w.setsampwidth(2);w.setframerate(8000)
-    w.writeframes(b''.join(struct.pack('<h',int(6000*(math.sin(2*math.pi*440*i/8000)+0.4*math.sin(2*math.pi*701*i/8000)))) for i in range(8000*3)))
-```
+Run directory unique UTC timestamp+random suffix. Save resolved config, source/lock hashes, image IDs/digests, host/guest/kernel/tool versions, public-key fingerprints only, seed, resource limits, mutation sequence, command/exit/events, PCAP/drop stats, result schema. Static validation and observed execution separate.
 
-### scripts/node.sh
+Cleanup order:
+1. Stop products gracefully; deadline then process-tree termination.
+2. Stop/flush captures; collect guest and infrastructure state.
+3. Hash/archive complete run, verify copied artifacts.
+4. Disable native tunnels; uninstall Windows tunnel services.
+5. `./lab down` using actual overlay sequence if applicable.
+6. Stop run VMs; keep immutable templates; delete clones only by explicit identity.
+7. Remove exact created firewall/route rules; stop host outer relay.
+8. Confirm no residual processes/listeners/interfaces/routes.
 
-```sh
-#!/bin/sh
-set -eu
-umask 022
-rm -f /run/lab.ready
-mkdir -p /out
-# No host networking, no host sysctl/firewall manipulation. Discover interfaces by IP.
-iface() { ip -o -4 addr show | awk -v a="$1" '{split($4,b,"/");if(b[1]==a){print $2;exit}}'; }
-# Never let Docker's gateway select the experimental path.
-while ip -4 route del default 2>/dev/null; do :; done
-if [ -n "${GW:-}" ]; then ip -4 route add default via "$GW"; fi
-printf 'nameserver 10.77.0.53\noptions attempts:1 timeout:1\n' >/etc/resolv.conf
-# Disable NIC offloads where supported. Record failures; never silently claim wire fidelity.
-for dev in $(ip -o link show | awk -F': ' '{split($2,a,"@");if(a[1]!="lo") print a[1]}'); do
-  ethtool -K "$dev" gro off gso off tso off lro off 2>>/out/offload-errors.log || true
-done
-nft -f - <<'EOF'
-flush ruleset
-table inet labguard {
- chain output {
-  type filter hook output priority 0; policy drop;
-  ip daddr 127.0.0.11 counter drop
-  oifname "lo" accept
-  ip daddr 10.77.0.0/16 accept
- }
-}
-EOF
-if [ "${ROLE:-endpoint}" = router ]; then
-  : "${LAN_IP:?}" "${WAN_IP:?}" "${LAN_CIDR:?}"
-  LAN_IF=$(iface "$LAN_IP"); WAN_IF=$(iface "$WAN_IP")
-  test -n "$LAN_IF"; test -n "$WAN_IF"
-  printf '%s\n' "$LAN_IF" >/run/lan.if
-  printf '%s\n' "$WAN_IF" >/run/wan.if
-  nft -f - <<EOF
- table inet labfilter {
-  chain forward {
-   type filter hook forward priority 0; policy drop;
-   ct state invalid counter drop
-   ct state established,related counter accept
-   iifname "$LAN_IF" oifname "$WAN_IF" ip saddr $LAN_CIDR counter accept
-  }
- }
- table ip labnat {
-  chain prerouting { type nat hook prerouting priority dstnat; policy accept; }
-  chain postrouting {
-   type nat hook postrouting priority srcnat; policy accept;
-   ip saddr $LAN_CIDR oifname "$WAN_IF" counter snat to $WAN_IP
-  }
- }
-EOF
-fi
-# IPv4 reference lab: IPv6 disabled via Compose sysctls, not left as a bypass.
-touch /run/lab.ready
-exec "$@"
-```
+Never global prune, host nft/pf flush, blanket firewall disable, delete arbitrary host routes/VM disks, or silently destroy existing templates. Generated config/key archive protected; ordinary evidence archive excludes secrets. Failed runs retained.
 
-### scripts/pjsua.py
+## 30. Template sealing and automation boundary
 
-```python
-#!/usr/bin/env python3
-import os, sys, subprocess, signal, time, threading
-node, user, server = sys.argv[1:4]
-base='/out/'+node
-fifo=base+'.fifo'
-try: os.unlink(fifo)
-except FileNotFoundError: pass
-os.mkfifo(fifo,0o666)
-args=['pjsua','--null-audio','--local-port=5060','--rtp-port=4000',
-      '--id=sip:'+user+'@'+server,'--registrar=sip:'+server,
-      '--realm=lab','--username='+user,'--password=lab-'+user,
-      '--auto-answer=200','--max-calls=1', '--log-level=5',
-      '--play-file=/lab-config/tone.wav','--auto-play',
-      '--rec-file='+base+'.wav','--auto-rec']
-log=open(base+'.pjsua.log','wb',buffering=0)
-p=subprocess.Popen(args,stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT)
-open(base+'.pid','w').write(str(os.getpid()))
-def pump():
-    # Open RDWR: no EOF between command writers; commands use legacy pjsua CLI.
-    fd=os.open(fifo,os.O_RDWR)
-    while p.poll() is None:
-        data=os.read(fd,4096)
-        if data:
-            try: p.stdin.write(data); p.stdin.flush()
-            except BrokenPipeError: return
-threading.Thread(target=pump,daemon=True).start()
-def stop(*_):
-    if p.poll() is None:
-        try: p.stdin.write(b'q\n'); p.stdin.flush(); p.wait(timeout=10)
-        except (BrokenPipeError,subprocess.TimeoutExpired): p.terminate()
-signal.signal(signal.SIGTERM,stop); signal.signal(signal.SIGINT,stop)
-try: sys.exit(p.wait())
-finally:
-    log.close()
-    try: os.unlink(fifo)
-    except FileNotFoundError: pass
-```
+Template seal checklist: OS/arch/version; approved accounts; agent OOB ready after restart; stdout/stderr/exit7 check; file SHA round-trip; WG interface create/delete; tools/runtime version; automatic service readiness; guest shutdown; immutable image hash/export. Clone for experiments.
 
-### scripts/policy.sh
+Cold machine may need firmware setting, admin approval, OS license/media, initial image setup, credential/TCC/keychain enrollment. Automation reports precise boundary once, then resumes; does not bypass security dialogs or claim GUI-free firmware interaction. Standard repeated build/test/observe/recover cycle remains CLI-only.
 
-```sh
-#!/bin/sh
-set -eu
-: "${ROLE:?}"
-test "$ROLE" = router
-case "${1:?normal|cut|udp-block|udp-timeout|clear}" in
- normal)
-  nft delete table inet fault 2>/dev/null || true
-  ;;
- cut)
-  nft delete table inet fault 2>/dev/null || true
-  nft -f - <<'EOF'
-table inet fault {
- chain forward { type filter hook forward priority -50; policy drop; counter drop; }
-}
-EOF
-  ;;
- udp-block)
-  nft delete table inet fault 2>/dev/null || true
-  nft -f - <<'EOF'
-table inet fault {
- chain forward { type filter hook forward priority -50; policy accept; meta l4proto udp counter drop; }
-}
-EOF
-  ;;
- udp-timeout)
-  echo 'Recreate router with namespace sysctls net.netfilter.nf_conntrack_udp_timeout and net.netfilter.nf_conntrack_udp_timeout_stream; no /proc/sys write bypass.' >&2
-  exit 2
-  ;;
- clear) conntrack -F;;
- *) exit 2;;
-esac
-```
+Current assets include implementation starting points, not proprietary images or unknown product adapters. Fully specified command contracts and diagnostics replace hidden assumptions; supported platform branches documented. Runtime checks on target machine supply confidence progressively, not a binary demand for universal prior certification.
 
-### scripts/private-pbx.sh
+## 31. Asset map and edit discipline
 
-```sh
-#!/bin/sh
-set -eu
-# Execute inside ra, private topology only; maps SIP UDP/TCP and RTP port-preservingly.
-wan=$(cat /run/wan.if)
-nft add rule ip labnat prerouting iifname "$wan" ip daddr 10.77.0.2 udp dport 5060 dnat to 10.77.1.20
-nft add rule ip labnat prerouting iifname "$wan" ip daddr 10.77.0.2 tcp dport 5060 dnat to 10.77.1.20
-nft add rule ip labnat prerouting iifname "$wan" ip daddr 10.77.0.2 udp dport 10000-10199 dnat to 10.77.1.20
-nft insert rule inet labfilter forward iifname "$wan" ip daddr 10.77.1.20 udp dport '{ 5060, 10000-10199 }' counter accept
-nft insert rule inet labfilter forward iifname "$wan" ip daddr 10.77.1.20 tcp dport 5060 counter accept
-```
+|Asset|Responsibility|
+|---|---|
+|AGENTS.md|agent execution invariants|
+|Dockerfile|Ubuntu service/router/ingress image|
+|generate.py|complete single/double Compose + WG key/config + plan|
+|lab|base topology CLI, captures, collection|
+|bootstrap/*|host/infrastructure tools, verified download, provenance|
+|vm/*|native VM creation/state collection|
+|scripts/node.sh|namespace routes/WG/NAT startup|
+|scripts/policy.sh,link.sh|bounded fault controls|
+|scripts/probe.py,observer.py|real UDP/TCP echo/data integrity|
+|scripts/nat-observe.py,inject.py,fixture.py|NAT observations/injection/finite mapping|
+|scripts/outer-relay.py|Mac host encrypted underlay carrier|
+|scripts/linux-endpoint.sh|host-binary namespace endpoint|
+|scripts/tls.sh|throwaway CA/service certificates|
+|config/*|PBX/TURN/finite-flow fixture|
+|compose.tls.json,compose.timeout.json|explicit overlays|
+|agent-run.py,inventory.example.json,jobs/*|OOB command execution contracts|
+|doctor.py|infrastructure command access check|
+|validate.py|Python/shell static checks|
 
-### scripts/qualify-nat.py
+Before edit: inspect config+plan+actual state. After edit: static validation; resolved Compose; affected path acceptance; required protocol checks. Change topology and assertions together. Source artifact names authoritative; snippets contextual examples, not a second implementation generation.
 
-```python
-#!/usr/bin/env python3
-# Host-side orchestrator, sequential port probes; observations only, not full RFC5780.
-import subprocess,json,os
-out=[]
-for dst in ['10.77.0.20:9000','10.77.0.20:9001','10.77.0.21:9000']:
-    p=subprocess.run(['./lab','exec','a','netprobe','udp',dst,'42000','1','0'],text=True,capture_output=True)
-    if p.returncode: raise SystemExit(p.stderr or p.stdout)
-    out.append({'destination':dst,**json.loads(p.stdout)})
-print(json.dumps({'mapping_observations':out,'filtering':'NOT_QUALIFIED','classification':'DO_NOT_INFER'},indent=2))
-```
+## 32. Source-grounded platform facts and verification scope
 
-### scripts/state.sh
+PowerShell Direct: Hyper-V host execution inside supported Windows guest without guest networking. Tart Guest Agent: `exec` I/O/exit, user-agent RPC readiness, independent of guest IP. Tart FAQ: keychain/headless caveats, default-NAT host access versus Softnet, DHCP identifier issue. WireGuard Windows: signed MSI deployment, tunnel service CLI, hidden-key state/logging. Linux WireGuard: namespace socket-origin mechanism. NAT RFC: mapping/filtering/hairpin distinctions.
 
-```sh
-#!/bin/sh
-set -u
-printf '\n=== CLOCK ===\n'; date -Ins
-printf '\n=== ADDR ===\n'; ip -j address
-printf '\n=== ROUTES ===\n'; ip -j -4 route show table all; ip rule
-printf '\n=== LINK ===\n'; ip -s link
-printf '\n=== SOCKETS ===\n'; ss -tunap
-printf '\n=== NFT ===\n'; nft -a list ruleset
-printf '\n=== TC ===\n'; tc -s qdisc show
-printf '\n=== CONNTRACK ===\n'; conntrack -L -o extended 2>&1
-printf '\n=== COUNTERS ===\n'; cat /proc/net/snmp; cat /proc/net/netstat
-printf '\n=== OFFLOAD ===\n'
-for x in /sys/class/net/*; do ethtool -k "${x##*/}" 2>&1; done
-exit 0
-```
+Relevant live-source identifiers: [web:124], [web:170], [web:168], [web:183], [web:33], [web:47]. Source locator metadata included in ZIP for offline resolution. No historical source documents packaged. Release verification report identifies exactly executed local static/loopback tests; excludes Hyper-V/macOS/Docker dataplane execution not performed during document generation.
 
-### scripts/tls.sh
+## 33. Wiki decomposition
 
-```sh
-#!/bin/sh
-set -eu
-cd "$(dirname "$0")/.."
-umask 077
-mkdir -p config/tls private
-openssl req -x509 -newkey rsa:3072 -nodes -days 30 \
-  -keyout config/tls/ca.key -out config/tls/ca.crt \
-  -subj /CN=NATENV-TEST-ONLY-CA -addext 'basicConstraints=critical,CA:TRUE' \
-  -addext 'keyUsage=critical,keyCertSign,cRLSign'
-for pair in 'turn:10.77.0.30' 'relay:10.77.0.40' 'pbx:10.77.0.10'; do
-  n=${pair%%:*}; ip=${pair#*:}
-  openssl req -newkey rsa:2048 -nodes -keyout config/tls/$n.key \
-    -out config/tls/$n.csr -subj "/CN=$n.lab"
-  printf 'subjectAltName=DNS:%s.lab,IP:%s\nextendedKeyUsage=serverAuth\n' "$n" "$ip" >config/tls/$n.ext
-  openssl x509 -req -in config/tls/$n.csr -CA config/tls/ca.crt \
-    -CAkey config/tls/ca.key -CAcreateserial -days 14 \
-    -extfile config/tls/$n.ext -out config/tls/$n.crt
-  # Only throwaway isolated-lab service keys; CA key remains host-only below.
-  chmod 644 config/tls/$n.key config/tls/$n.crt
-done
-# Never mount CA signing key into a container.
-mv config/tls/ca.key private/ca-signing-key.DO-NOT-MOUNT
-chmod 600 private/ca-signing-key.DO-NOT-MOUNT
-sed '/^no-tls$/d; /^no-dtls$/d' config/coturn.conf >config/coturn.tls.conf
-cat >>config/coturn.tls.conf <<'EOF'
-tls-listening-port=5349
-cert=/lab-config/tls/turn.crt
-pkey=/lab-config/tls/turn.key
-EOF
-
-chmod 755 config/tls
-chmod 644 config/tls/ca.crt
-```
-
-## Appendix B — Validation record
-
-```json
-{
-  "status": "static_checks_only",
-  "checks": [
-    {
-      "check": "shell_syntax",
-      "file": "scripts/node.sh",
-      "status": "pass"
-    },
-    {
-      "check": "shell_syntax",
-      "file": "scripts/capture.sh",
-      "status": "pass"
-    },
-    {
-      "check": "shell_syntax",
-      "file": "scripts/state.sh",
-      "status": "pass"
-    },
-    {
-      "check": "shell_syntax",
-      "file": "scripts/policy.sh",
-      "status": "pass"
-    },
-    {
-      "check": "shell_syntax",
-      "file": "scripts/link.sh",
-      "status": "pass"
-    },
-    {
-      "check": "python_syntax",
-      "file": "scripts/pjsua.py",
-      "status": "pass"
-    },
-    {
-      "check": "shell_syntax",
-      "file": "lab",
-      "status": "pass"
-    },
-    {
-      "check": "yaml_parse",
-      "file": "compose.single.yml",
-      "status": "pass"
-    },
-    {
-      "check": "yaml_parse",
-      "file": "compose.double.yml",
-      "status": "pass"
-    },
-    {
-      "check": "yaml_parse",
-      "file": "compose.private.yml",
-      "status": "pass"
-    },
-    {
-      "check": "yaml_parse",
-      "file": "compose.sut.example.yml",
-      "status": "pass"
-    },
-    {
-      "check": "shell_syntax",
-      "file": "scripts/private-pbx.sh",
-      "status": "pass"
-    },
-    {
-      "check": "python_syntax",
-      "file": "scripts/qualify-nat.py",
-      "status": "pass"
-    },
-    {
-      "check": "python_syntax",
-      "file": "scripts/fixture-nat.py",
-      "status": "pass"
-    },
-    {
-      "check": "python_syntax",
-      "file": "scripts/check-audio.py",
-      "status": "pass"
-    },
-    {
-      "check": "yaml_parse",
-      "file": "compose.timeout.example.yml",
-      "status": "pass"
-    },
-    {
-      "check": "yaml_parse",
-      "file": "compose.iroh.yml",
-      "status": "pass"
-    },
-    {
-      "check": "shell_syntax",
-      "file": "scripts/tls.sh",
-      "status": "pass"
-    },
-    {
-      "check": "yaml_parse",
-      "file": "compose.turn-tls.yml",
-      "status": "pass"
-    },
-    {
-      "check": "topology_static_invariants",
-      "variant": "single",
-      "status": "pass"
-    },
-    {
-      "check": "topology_static_invariants",
-      "variant": "double",
-      "status": "pass"
-    },
-    {
-      "check": "topology_static_invariants",
-      "variant": "private",
-      "status": "pass"
-    },
-    {
-      "check": "fixture_generator_apdm",
-      "status": "pass"
-    },
-    {
-      "check": "fixture_generator_eim",
-      "status": "pass"
-    },
-    {
-      "check": "rust_compile",
-      "manifest": "probe/Cargo.toml",
-      "status": "not_run",
-      "reason": "cargo unavailable"
-    },
-    {
-      "check": "rust_compile",
-      "manifest": "accept/Cargo.toml",
-      "status": "not_run",
-      "reason": "cargo unavailable"
-    },
-    {
-      "check": "docker_runtime",
-      "status": "not_run",
-      "reason": "No usable Docker daemon was available to this execution environment; no runtime tests claimed."
-    },
-    {
-      "check": "python_syntax",
-      "file": "scripts/make-tone.py",
-      "status": "pass"
-    }
-  ],
-  "not_certified": [
-    "Docker build/runtime",
-    "nft rules execution",
-    "Asterisk/PJSUA calls",
-    "coturn relay transfer",
-    "iroh relay/client interoperation",
-    "actual user Rust SUT",
-    "full NAT filtering/lifetime qualification",
-    "media quality SLOs"
-  ]
-}
-```
+Split by numbered section: contract; architecture/address plan; OS provisioning; underlay; native tunnels; path acceptance; product adapters; bootstrap; relay; SIP/media; TURN/TLS; P2P; NAT; fault injection; observation; diagnosis; result/provenance; cleanup. Preserve central address plan and asset map as single authoritative pages. Do not duplicate mutable IP/port tables across independently edited pages. Each operation page specifies context, prerequisites, command, ready criterion, expected evidence, failure branch, rollback.
