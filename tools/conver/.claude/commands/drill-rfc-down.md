@@ -214,7 +214,7 @@ Invocation:
 | `generate-dir-templates-delta.js` | Step 3 delta-only new-file templates |
 | `refresh-file-headers.js` | Step 3 existing-file headers/cross-references only |
 | `split-delta-analyzer.js` | Step 4 candidates + four-axis advisory |
-| `split-step.js` | Step 4 stage/approve/reject driver |
+| `split-step.js` | Step 4 stage/approve/reject driver; `--approve --condense` ends at the shared partition minimum |
 | `detect-orphan-contracts.js` | Step 4/5 read-only orphan-contract report; never auto-assign |
 | `verify-consistencies.js` | Step 5 six-consistency inspection |
 | `verify-step.js` | Step 5 PASS/FAIL blocking gate |
@@ -639,11 +639,11 @@ Stage advisory includes status-overwrite risk, unmapped modified node, duplicate
 node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --dirs-tree-delta="$DIRS_TREE_PATH.delta.json" --stage
 echo '{"title":"Session storage","nodeIds":["N0003"],"scope":[],"testUnit":[],"testIntegration":[],"testExceptions":[],"changes":[]}' | node "$DRILL_DIR/../tickets/add-ticket.js" "$TICKETS_PATH.staging.json" "P1"
 echo '{"title":"Auth module extended"}' | node "$DRILL_DIR/../tickets/update-ticket.js" "$TICKETS_PATH.staging.json" "P0-1"
-node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --approve
+node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --approve --condense
 node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 ```
 
-- `--approve`: does not re-run the analyzer; validates/promotes the exact AI-designed staging Tickets.
+- `--approve --condense`: does not re-run the analyzer; validates the exact AI-designed staging Tickets, promotes it, then runs the shared `condense-tickets.js --apply --merge-status=todo` and `--gate`. A refusal restores the pre-approve `Tickets.json` and keeps the staging design. Without `--condense`, the promote is unchanged.
 - formula delta: after the ticket edits, project the RFC formulas onto the staging Tickets before approve. No sidecar → skip this block:
   ```bash
   node "$DRILL_DIR/../tickets/merge-formulas-to-tickets.js" --tickets="$TICKETS_PATH.staging.json" --dirs-tree="$DIRS_TREE_PATH" --sidecar="$RFC_DIR/RFC-FORMULAS.json" --spec="$SPEC_PATH" --tree-manifest="$WORKSPACE_ROOT/WORKSPACIFY-TREE-MANIFEST.json" --write
@@ -656,7 +656,7 @@ node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 - never silently overwrite status.
 - Destructive change: ticket deletion forbidden by default; explicit AI approval only; never hand-edit the JSON.
 - round `R<N>` / `phaseId`: existing phasify conventions.
-- only ticket writes: staging add/update tools; driver promote.
+- only ticket writes: staging add/update tools; driver promote; the shared `condense-tickets.js` when `--condense` is passed.
 
 ### Step 5: verify
 

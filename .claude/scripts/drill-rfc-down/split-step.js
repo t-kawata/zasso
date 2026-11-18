@@ -19,6 +19,9 @@
  *             promotes the staging copy to the real Tickets.json. The analyzer
  *             is NOT re-run — the staged Tickets.json, which the AI crafted via
  *             add-ticket.js / update-ticket.js, is the plan.
+ *             With --condense, the promoted copy is condensed by the shared CLI
+ *             and gated; refusal restores the pre-approve Tickets.json and keeps
+ *             the staging design for repair.
  *   --reject  discards the staging copy; the real Tickets.json stays
  *             byte-identical (perfect-before-write gate).
  *
@@ -40,6 +43,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const ANALYZER = path.join(SCRIPT_DIR, 'split-delta-analyzer.js');
 const { validateTickets } = require(path.resolve(SCRIPT_DIR, '../lib/validate-tickets.js'));
+const { condenseAfterWrite } = require(path.resolve(SCRIPT_DIR, '../tickets/lib/condense-after-write.js'));
 
 /** Spawn a node script and return the result. */
 // [::TICKET::] PX-162, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-162|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
@@ -63,6 +67,12 @@ function candidatesPathOf(ticketsPath) {
 // [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function deltaPathOf(ticketsPath) {
   return `${ticketsPath}.delta.json`;
+}
+
+/** The pre-approve copy a refused condensation restores. */
+function approveBackupPathOf(ticketsPath) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return path.join(path.dirname(ticketsPath), `Tickets.pre-approve-${stamp}.json`);
 }
 
 /** A stable identity for a ticket across phases (used by the delta derivation). */
@@ -225,11 +235,16 @@ function verifyStagingTickets(ticketsPath) {
   }
 }
 
-/** Promote the staging copy to the real Tickets.json (the only promote path). */
+/**
+ * Promote the staging copy to the real Tickets.json.
+ *
+ * With `keepStaging`, the staging design survives until the post-promote
+ * condensation succeeds; a refused condensation leaves it available for repair.
+ */
 // [::TICKET::] PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
-function promoteStagingToReal(ticketsPath) {
+function promoteStagingToReal(ticketsPath, { keepStaging = false } = {}) {
   fs.copyFileSync(stagingPathOf(ticketsPath), ticketsPath);
-  fs.rmSync(stagingPathOf(ticketsPath), { force: true });
+  if (!keepStaging) fs.rmSync(stagingPathOf(ticketsPath), { force: true });
 }
 
 /** Discard the staging copy, leaving the real Tickets.json untouched. */
@@ -254,16 +269,18 @@ function main() {
   let ticketsPath = '';
   let dtdPath = '';
   let mode = '';
+  let condense = false;
   for (const arg of args) {
     if (arg.startsWith('--tickets=')) ticketsPath = arg.slice('--tickets='.length);
     else if (arg.startsWith('--dirs-tree-delta=')) dtdPath = arg.slice('--dirs-tree-delta='.length);
     else if (arg === '--stage') mode = 'stage';
     else if (arg === '--approve') mode = 'approve';
     else if (arg === '--reject') mode = 'reject';
+    else if (arg === '--condense') condense = true;
   }
 
   if (!ticketsPath || !mode) {
-    console.error('Usage: split-step.js --tickets=<path> [--dirs-tree-delta=<path>] [--stage|--approve|--reject]');
+    console.error('Usage: split-step.js --tickets=<path> [--dirs-tree-delta=<path>] [--stage|--approve [--condense]|--reject]');
     process.exit(1);
   }
   if (mode === 'stage' && !dtdPath) {
@@ -271,6 +288,13 @@ function main() {
       '--stage requires --dirs-tree-delta to produce the candidate report.',
       'no dirs-tree-delta path was provided, so the analyzer has nothing to analyze.',
       'run --stage with --dirs-tree-delta=<path> pointing at the Step 3 dirs-tree-delta.json.'
+    );
+  }
+  if (condense && mode !== 'approve') {
+    failWithEnglishError(
+      '--condense requires --approve.',
+      'only --approve promotes the staged Tickets.json that condensation operates on.',
+      'drop --condense or run --approve --condense.'
     );
   }
 
@@ -302,12 +326,28 @@ function main() {
     }
     verifyStagingTickets(ticketsPath);
     const beforeTickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
-    const stagedTickets = JSON.parse(fs.readFileSync(stagingPathOf(ticketsPath), 'utf8'));
-    const delta = deriveTicketsDelta(beforeTickets, stagedTickets, digestFile(ticketsPath));
+    const sourceDigest = digestFile(ticketsPath);
+    const backupPath = condense ? approveBackupPathOf(ticketsPath) : null;
+    if (backupPath !== null) fs.copyFileSync(ticketsPath, backupPath);
+    promoteStagingToReal(ticketsPath, { keepStaging: condense });
+    if (condense) {
+      const result = condenseAfterWrite({ ticketsPath, backupPath });
+      if (!result.ok) {
+        failWithEnglishError(
+          `${result.code}: ${String(result.stderr ?? '').trim()}`,
+          'the promoted Tickets.json did not reach the shared partition minimum and was restored to the pre-approve document.',
+          'fix the staged partition (budget or phase floor) and re-run --stage, then --approve --condense.'
+        );
+      }
+      fs.rmSync(stagingPathOf(ticketsPath), { force: true });
+    }
+    const finalTickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+    const delta = deriveTicketsDelta(beforeTickets, finalTickets, sourceDigest);
     fs.writeFileSync(deltaPathOf(ticketsPath), JSON.stringify(delta, null, 2) + '\n', 'utf8');
-    promoteStagingToReal(ticketsPath);
     removeCandidates(ticketsPath);
-    process.stdout.write('Staged Tickets.json verified and promoted; tickets-delta.json written for Step 5.\n');
+    process.stdout.write(condense
+      ? 'Staged Tickets.json verified, condensed, and promoted; tickets-delta.json written for Step 5.\n'
+      : 'Staged Tickets.json verified and promoted; tickets-delta.json written for Step 5.\n');
     process.exit(0);
   }
 }

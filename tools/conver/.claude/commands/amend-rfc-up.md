@@ -324,6 +324,14 @@ node "$AMEND_DIR/verify.js" converge --first=@"$AMEND_OUT/verify-final-1-$PKG_ID
 node "$AMEND_DIR/verify.js" converge --first=@"$AMEND_OUT/cross-final-1-$PKG_ID.json" --second=@"$AMEND_OUT/cross-final-2-$PKG_ID.json"
 ```
 
+The condensation gate is read-only: every changed package must already be at the shared
+partition minimum. `CONDENSE_REQUIRED`, `PHASE_BELOW_MIN_TICKETS` or `OMISSION_TICKET_UNMEASURED`
+is a finding routed to `/condense-tickets` or `/split-to-tickets`, never an in-place merge here:
+
+```bash
+node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --gate --tickets="$PKG_TICKETS"
+```
+
 Workspace verification checks every `crossPackageImpacts[]` target and reference; its findings enter the same repair loop:
 
 ```bash

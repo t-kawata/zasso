@@ -31,11 +31,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('node:child_process');
 const { directionOf, isHardEdge, providerConsumerEdge } = require('./lib/edge-order.js');
 const { writeLine } = require('../lib/cli-output');
 const { resolveGraphPath } = require('../lib/resolve-graph-path.js');
 const { runMutationGate } = require('../tickets/ticket-mutation-gate.js');
+const { condenseAfterWrite } = require('../tickets/lib/condense-after-write.js');
 const {
   refreshTicketDistributionDigests,
   writeTicketDistributionAggregate,
@@ -2023,45 +2023,23 @@ function isV3Managed(ticketsPath) {
     && fs.existsSync(path.join(path.dirname(ticketsPath), V3_STATE_FILE_NAME));
 }
 
-/** The shared condensation script. */
-const CONDENSE_SCRIPT = path.join(__dirname, '../tickets/condense-tickets.js');
-
-/** Restore the pre-merge Tickets.json when the post-merge condensation fails. */
-// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function restorePreMerge(ticketsPath, backupPath) {
-  if (typeof backupPath === 'string' && backupPath.length > 0 && fs.existsSync(backupPath)) {
-    fs.copyFileSync(backupPath, ticketsPath);
-  }
-}
-
-/** The default runner: the shared condense CLI in the package directory. */
-// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function runCondense(args, cwd) {
-  return spawnSync(process.execPath, args, { cwd, encoding: 'utf8' });
-}
-
 /**
  * Condense the legacy merge to the partition minimum and gate the result.
  *
- * The legacy merge creates one ticket per omission. The shared condense CLI
+ * The legacy merge creates one ticket per omission. The shared transaction
  * applies the calibrated budget (including contractCount), renumbers and runs
  * the post-write gates. A failure restores the pre-merge Tickets.json, so a
- * failed command never leaves the one-per-omission set behind.
+ * failed command never leaves the one-per-omission set behind. The historical
+ * apply-failure code is preserved for existing callers and tests.
  */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function condenseAfterMerge({ ticketsPath, backupPath, run = runCondense }) {
-  const cwd = path.dirname(ticketsPath);
-  const apply = run([CONDENSE_SCRIPT, '--apply', '--tickets=' + ticketsPath, '--merge-status=todo'], cwd);
-  if (apply.status !== 0) {
-    restorePreMerge(ticketsPath, backupPath);
-    return { ok: false, code: 'CONDENSE_AFTER_MERGE_FAILED', stderr: apply.stderr ?? '' };
-  }
-  const gate = run([CONDENSE_SCRIPT, '--gate', '--tickets=' + ticketsPath], cwd);
-  if (gate.status !== 0) {
-    restorePreMerge(ticketsPath, backupPath);
-    return { ok: false, code: 'CONDENSE_GATE_FAILED', stderr: gate.stderr ?? '' };
-  }
-  return { ok: true };
+function condenseAfterMerge({ ticketsPath, backupPath, run }) {
+  return condenseAfterWrite({
+    ticketsPath,
+    backupPath,
+    run,
+    failureCode: 'CONDENSE_AFTER_MERGE_FAILED',
+  });
 }
 
 function main() {
