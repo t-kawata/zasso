@@ -1,8 +1,8 @@
 {
   "schema": "law-bundle/v1",
   "skill": "rust-interface-law",
-  "generated_at": "2026-11-14",
-  "rules": 486,
+  "generated_at": "2026-11-18",
+  "rules": 500,
   "sections": 565,
   "sources": [
     "sources/00-FOUNDATION.md",
@@ -23,6 +23,7 @@
     "sources/48-IMPLEMENTATION-BLUEPRINT.md",
     "sources/50-PROJECT-TEMPLATE.md",
     "sources/55-IMPLEMENTATION-CONTRACTS.md",
-    "sources/90-MIGRATION.md"
+    "sources/90-MIGRATION.md",
+    "update/UPDATE001.md"
   ]
 }

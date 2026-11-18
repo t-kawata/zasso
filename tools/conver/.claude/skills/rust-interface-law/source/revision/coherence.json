@@ -1,0 +1,57 @@
+{
+  "schema": "revision-coherence/v1",
+  "profile": "law",
+  "required": [
+    "body",
+    "source",
+    "registry",
+    "api",
+    "profile",
+    "conformance",
+    "policy",
+    "contract",
+    "test",
+    "template",
+    "index",
+    "asset"
+  ],
+  "dispositions": {
+    "body": {
+      "op": "update-rule"
+    },
+    "source": {
+      "op": "add-source"
+    },
+    "registry": {
+      "op": "update-rule"
+    },
+    "api": {
+      "op": "update-api-contract"
+    },
+    "profile": {
+      "unchanged": "no declared profile changes; binding-specific choices are fixed by per-binding rules"
+    },
+    "conformance": {
+      "op": "update-conformance"
+    },
+    "policy": {
+      "unchanged": "the revision document adds no process policy beyond its own directives"
+    },
+    "contract": {
+      "unchanged": "no interface contract entry changes; operation API obligations are rule text"
+    },
+    "test": {
+      "unchanged": "generated tests re-derive the rule count; no new test obligation artifact"
+    },
+    "template": {
+      "unchanged": "templates carry no rule-specific text"
+    },
+    "index": {
+      "op": "update-generated-index"
+    },
+    "asset": {
+      "unchanged": "the skill ships no execution assets"
+    }
+  },
+  "gaps": []
+}

@@ -50,6 +50,7 @@ test('C005 installed mode passes and source/installed SHA match', () => {
       verifier,
       '--skill', installed,
       '--mode', 'installed',
+      '--kind', 'update',
       '--path-alias', aliasPath,
       '--out', join(target, 'verification.json'),
     ], { encoding: 'utf8' });

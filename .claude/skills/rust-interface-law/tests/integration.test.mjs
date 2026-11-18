@@ -38,17 +38,17 @@ function runIngest(args, cwd = repoRoot) {
   });
 }
 
-test('19 docs and the expert package generate 486 rule concepts and zero gaps', () => {
+test('19 docs and the expert package generate 500 rule concepts and zero gaps', () => {
   const manifest = readFileSync(join(root, 'source/manifest.toml'), 'utf8');
   const sources = (manifest.match(/\[\[file\]\]/g) ?? []).length;
   const lock = JSON.parse(readFileSync(join(root, 'atoms.lock.json'), 'utf8'));
   const ruleMap = JSON.parse(readFileSync(join(root, 'source/rule-concepts.json'), 'utf8'));
   const rules = lock.rules ?? [];
   assert.equal(sources, 19);
-  assert.equal(rules.length, 486);
-  assert.equal(new Set(rules.map((rule) => rule.rule_id)).size, 486);
-  assert.equal(Object.keys(ruleMap.byRule).length, 486);
-  assert.equal(new Set(Object.values(ruleMap.byRule).map((rule) => rule.concept_id)).size, 486);
+  assert.equal(rules.length, 500);
+  assert.equal(new Set(rules.map((rule) => rule.rule_id)).size, 500);
+  assert.equal(Object.keys(ruleMap.byRule).length, 500);
+  assert.equal(new Set(Object.values(ruleMap.byRule).map((rule) => rule.concept_id)).size, 500);
 });
 
 // @verifies C001

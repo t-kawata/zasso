@@ -55,12 +55,12 @@ test('C002 manifest hashes match the source bytes', () => {
 
 test('C002 lock rules and source spans re-derive from the registry', () => {
   const ruleMap = JSON.parse(readFileSync(join(root, 'source/rule-concepts.json'), 'utf8'));
-  assert.equal(Object.keys(ruleMap.byRule).length, 486);
+  assert.equal(Object.keys(ruleMap.byRule).length, 500);
   for (const rule of Object.values(ruleMap.byRule)) {
     assert.ok(aliasMap.aliases[rule.source_alias], rule.rule_id);
     assert.match(rule.source_span, /^\d+-\d+$/, rule.rule_id);
   }
-  assert.equal((lock.rules ?? []).length, 486);
+  assert.equal((lock.rules ?? []).length, 500);
 });
 
 test('C002 coverage partitions every source line', () => {

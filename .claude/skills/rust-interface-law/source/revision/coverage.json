@@ -1,0 +1,819 @@
+{
+  "schema": "revision-coverage/v1",
+  "document": "update/UPDATE001.md",
+  "items": [
+    {
+      "kind": "paragraph",
+      "line": 1,
+      "line_sha256": "2b23eb5f51374f53196a63e61231360d605b1dc311bab5d25b624ea30144e036",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "purpose statement: close conformance conditions without fixing implementation"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "line": 3,
+      "line_sha256": "f9bb696cdc36bffc289b01b87bf2ce6a88329433477af41591b67c8580c2bad3",
+      "dispositions": [
+        {
+          "kind": "non-normative",
+          "ref": "heading"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 5,
+      "line_sha256": "f3c0b2c62a63e551849d7eff2cf1a2882b2927ca2c3b1033586b513412bd5ae7",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "introduces the contract-closure norms realized by FREE-14, FREE-15, and FREE-16"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 7,
+      "line_sha256": "529b40b2365a3c299adde886ef050cc522ff31fa696f3878d991a4f6728f611f",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "FREE-14"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 8,
+      "line_sha256": "62b67e1f685b7fef51102005dddd27774be3fee38c42965c53aab035d0b6b221",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "blockquote continuation"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 9,
+      "line_sha256": "6408ad4b4029a4e4c9f89a27b99b649648422bc1b5e6b42b4910a65dd0657b6d",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "FREE-15"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 10,
+      "line_sha256": "62b67e1f685b7fef51102005dddd27774be3fee38c42965c53aab035d0b6b221",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "blockquote continuation"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 11,
+      "line_sha256": "b496748da76d10f8b861d68bd3918e5b0c3f3ab4b74b933f98a57dcef35be3c2",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "FREE-16"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 13,
+      "line_sha256": "f3b32f6bc6aa9e27e357e9a2632b33465267ad7c86104c053606d697eb4e2921",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "UPDATE001-NO-APPROVAL"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "line": 15,
+      "line_sha256": "df6ebc76ff53058bae9a23ad5553991da5407ba5cbf37ecb2c5f925b6ecf0d31",
+      "dispositions": [
+        {
+          "kind": "non-normative",
+          "ref": "heading"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 17,
+      "line_sha256": "0b7cf51ad413d530ff088f671d53bdfcb996331c6a196fa537167d6f8160bf95",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-AUTH-06"
+        }
+      ]
+    },
+    {
+      "kind": "code-block",
+      "line": 19,
+      "line_sha256": "704a963b30cbc716405e7b16f5814284acc07ca8ba697d22c2d8da5d5b712369",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "rust signature fence for ErasedAuthenticatedOperation::replay_authorize"
+        }
+      ]
+    },
+    {
+      "kind": "code-block",
+      "line": 20,
+      "line_sha256": "ef76cb1f7a1f235c14d51815a0454d55969e1319e7fce06de124e83062cfc619",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "rust signature: lifetime and receiver"
+        }
+      ]
+    },
+    {
+      "kind": "code-block",
+      "line": 21,
+      "line_sha256": "890563a4325eda5b02cc0b6de74b5c2c99e7ce1c3304b1bb26647ee3e0fd0d64",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "rust signature: authenticated context"
+        }
+      ]
+    },
+    {
+      "kind": "code-block",
+      "line": 22,
+      "line_sha256": "f68b60fff24ae3087393e2ee3627dd18b83068c89bfc54d1992c271b67a712d9",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "rust signature: replay record"
+        }
+      ]
+    },
+    {
+      "kind": "code-block",
+      "line": 23,
+      "line_sha256": "78606beb8b8cf7101bf2a1933f1f133e787a37d6eef5a2a5794acc28ed66d275",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "rust signature: result type"
+        }
+      ]
+    },
+    {
+      "kind": "code-block",
+      "line": 24,
+      "line_sha256": "793d35809860ab1e75815a5341cfab65b89ab372e5681975040a3bac01d76c84",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "rust signature: delegate target signature"
+        }
+      ]
+    },
+    {
+      "kind": "code-block",
+      "line": 25,
+      "line_sha256": "f1b901847390b0ed7e374e7c1e464ec17b46a427c487a5ad6cbd2906405083d5",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "rust signature fence close"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 27,
+      "line_sha256": "2df2cc1c4845ffc761c0c7e826211fc85f8dd78e7a73c9a3d23187309e9ba1cb",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OPS-19"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 28,
+      "line_sha256": "94a86ad360f9195d291afe6c5813a151d1367cfd3f788bd46483d9fa448a50f8",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-AUTH-07"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 29,
+      "line_sha256": "5077b26627d58184cba5945984182ae13769703822fa8f653d040aca376af512",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-12"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 30,
+      "line_sha256": "8b1d88f56762c6a73035338e41d1097db4cf860c8a25c88d71b3f3e331a4c135",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "CONF-25"
+        },
+        {
+          "kind": "operation",
+          "ref": "CONF-47"
+        },
+        {
+          "kind": "operation",
+          "ref": "CONF-65"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 32,
+      "line_sha256": "d7a114f57594745902b046baf95e4c045810d04a1be690f7eb6537260275e9d1",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "implementation discretion: erased representation, wrapper type name, and storage form are not fixed"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "line": 34,
+      "line_sha256": "4eada36ca0f213e961f7f5048438a867dc02806ece2894ca4126e5cd17889bfb",
+      "dispositions": [
+        {
+          "kind": "non-normative",
+          "ref": "heading"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 36,
+      "line_sha256": "98f11ba426efd312448e7d621f6caef7f87107e0147b4859a87d776a11fc13e6",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-IDEM-02"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 38,
+      "line_sha256": "3878c4935fc5bf47fba2a59b5791964c082593fa99f7523b77543fe03fa1fc09",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "introduces the required order table"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 40,
+      "line_sha256": "9453512178a6bf87537993280e93d96a90cfab7a5df6b1b11ecffaf395486e14",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "table header: branch and required order"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 41,
+      "line_sha256": "4199ba454d6d3ae83657120c2bb6bd674eefc0dd7d3cd4cc844171dc6725135b",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "table separator"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 42,
+      "line_sha256": "6d53429b447fd9fdf1ebe4e5d9af70a51685aeb6c52ae6c71f5daa5044d142c0",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OPS-05"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 43,
+      "line_sha256": "21659a834f3bd38735c762061bdadfbb64d5f83be67fabf189fdd622e0be0253",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "replay order: validation, finalized record, current authorization, stored result; realized by OPS-19 and CONF-25"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 44,
+      "line_sha256": "ae73d527843bec2ecb278e8d8c227724e1e49692a7b62f1db5354b04ffc06dae",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-02"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 46,
+      "line_sha256": "54612405c4c8f13e8ef352e6e9d5869a33a1971f2a9bb12f2d9e829008204606",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "introduces the in-flight target rules and the OPS-06 distinction"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 48,
+      "line_sha256": "deba275da58d23c39943c4254ee5d8fedbb0c869b930b63c80b1e30f968193e2",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-IDEM-11"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 49,
+      "line_sha256": "7aaf1bac0e54437c184cd19b5d39d9282cf91d3bdb91f5975b51fc1601a92d59",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OPS-06"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 50,
+      "line_sha256": "f7c48bfec3dfd05483a4098cb3238161cca658fe5f0142730706699ae3851108",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "CONF-24"
+        },
+        {
+          "kind": "operation",
+          "ref": "CONF-26"
+        },
+        {
+          "kind": "operation",
+          "ref": "CONF-66"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 52,
+      "line_sha256": "ddf8047e4cf87925fdbc238657b6e2e3b31421a461e3983c9c4229c05bdc793b",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "implementation discretion: database, columns, locking, and failed-claim retention are not fixed"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "line": 54,
+      "line_sha256": "2194a9b44f9da2a68bb462d8366d5eaecf420c9ff72b73447c1d535676c29308",
+      "dispositions": [
+        {
+          "kind": "non-normative",
+          "ref": "heading"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 56,
+      "line_sha256": "3b4baabbe828920f383524e7a2ac03b66746128ae5d6600efa9cdef102cbfd6e",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-IDEM-09"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 58,
+      "line_sha256": "fefe14321ca20fb6bd21a606f5b0feb3f65dad2cdb104b70736f0cb4a6cd0320",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "table header: owner and responsibility"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 59,
+      "line_sha256": "4199ba454d6d3ae83657120c2bb6bd674eefc0dd7d3cd4cc844171dc6725135b",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "table separator"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 60,
+      "line_sha256": "397bcd795377436530a29f4a8c82b662d62108fa85b9e53e4e4504e1381f8e07",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "dispatcher responsibility: claim acquisition and claim capability; realized by OP-IDEM-09"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 61,
+      "line_sha256": "337f090dffb506bb380b90227cc893aaadd632de7e9d0101c5ead01ec7032e4e",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-IDEM-03"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 62,
+      "line_sha256": "3665777b1690b04c8c6f6b855d42562d40ee3766a12654e8b3167341f1b810f6",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-IDEM-08"
+        },
+        {
+          "kind": "operation",
+          "ref": "OP-TX-07"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 64,
+      "line_sha256": "751a939e6f4c1c92ace1dda29c04ca95f200f2381f2252129671d5a8de26d504",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "introduces the concrete revision instructions"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 66,
+      "line_sha256": "0597afd46292ce8b52dd232373b48adae65671444bfdc5dd95ab20a1df9903ca",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-IDEM-12"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 67,
+      "line_sha256": "0d8fc0aeaaf1d81559af2b95b9992d831384eb313e7373d201ca6cfae2ffbfe9",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "post-check prohibition: is_completed alone is not atomicity proof; realized by OP-IDEM-12"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 68,
+      "line_sha256": "877e9f3f8f8560c80c5677af09fd0599f0f7a0386c0be7a4aaca5d1c2d71b138",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-IDEM-04"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 69,
+      "line_sha256": "d77ac1eeb7e7fb9babebbe65428d2f338269349c5bc07b2dd2a9e815a9ddd3ec",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "CONF-46"
+        },
+        {
+          "kind": "operation",
+          "ref": "CONF-48"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 71,
+      "line_sha256": "e067e03dfa8bbdccef4210f52992da7be4f99921520d52f00ee6a1842aa6e04d",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "implementation discretion: the shared API expresses claim capability and atomic completion; SQL, database product, transaction object, and locking are not fixed"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "line": 73,
+      "line_sha256": "aa60463314c83926837988fb3c4ecb322e64e0b08fbb4b60eb390a13d4bf25b7",
+      "dispositions": [
+        {
+          "kind": "non-normative",
+          "ref": "heading"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 75,
+      "line_sha256": "5449a143945fc84e92fd93818c8581e21a52c0cca182a4ca2b98446d62527cba",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OPS-02"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 77,
+      "line_sha256": "3f7f4110f4f18998566b8432f9965621c5377a66534c826db130e1ac69f277cf",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "common model facets: input, context, correlation, and success or failure meaning; realized by OPS-02"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 78,
+      "line_sha256": "06a7e2a9834bb172aeee6ec198682558e9f07a3b6bd44476bcb2f06cd6ed712c",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "binding discretion: wire and CLI forms are defined per binding"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 79,
+      "line_sha256": "c12f5fa5ca011e629c2cfab9454d6f1b4423deffea6ae1a1db80b477d4bfe980",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "IF-08"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 80,
+      "line_sha256": "6daf7d8cfc645eca0e0b3cceb1fb8e03b8949514456604eeafa6d0ed71f0701a",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "CONF-67"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "line": 82,
+      "line_sha256": "f73df7bb9765bff84befe20a9805fdd2ff02306e476b9895665fc6b6410fec82",
+      "dispositions": [
+        {
+          "kind": "non-normative",
+          "ref": "heading"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 84,
+      "line_sha256": "a5111104d3d065bebfb47a1a4d089e79a3e7f15af82c342bf4cf8582d9f935e3",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "MCP-19"
+        },
+        {
+          "kind": "operation",
+          "ref": "A2A-23"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 86,
+      "line_sha256": "f74946bad797ad4ed8b06b2989554640ac1c084fa1e7ececdc76e80ce1d9d931",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "table header: binding matter and revision"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 87,
+      "line_sha256": "4199ba454d6d3ae83657120c2bb6bd674eefc0dd7d3cd4cc844171dc6725135b",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "table separator"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 88,
+      "line_sha256": "f780f8321d7ef5c7655a380f6215718a6859c414c55c416c380382d2bca2b715",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "binding facet: operation and input selection"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 89,
+      "line_sha256": "db9459a6dbb679e47f6428892f17dfb894c650ff3e9ebecb6e55d3d28d7227fe",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "binding facet: protocol failure and business failure representation"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 90,
+      "line_sha256": "19b6736bc23e985aef3a92d9462694bab71d0233adef5db6325761e9f100b5d9",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "MCP-21"
+        },
+        {
+          "kind": "operation",
+          "ref": "A2A-24"
+        }
+      ]
+    },
+    {
+      "kind": "table-row",
+      "line": 91,
+      "line_sha256": "a75d27c97a20ade49a2ccdfca970491610fefd244e708ec5aac28c21e59f54af",
+      "dispositions": [
+        {
+          "kind": "interpretation",
+          "ref": "binding facet: lifecycle mapping for stream, task, and cancellation"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 93,
+      "line_sha256": "6f13532c092b0f538d1d6abc9f623d9dc942c078d61272428aa63475a6e064f2",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "DOC-18"
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "line": 95,
+      "line_sha256": "ffb29f842cdc6cde4b5366f98125ab66894c0f50aed183e1075167c48a484731",
+      "dispositions": [
+        {
+          "kind": "non-normative",
+          "ref": "heading"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 97,
+      "line_sha256": "131b286ecaa18b9a6dc9fa9f43e75c6a6bd636772c3b5f95ef72921eea787966",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "OP-13"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 98,
+      "line_sha256": "3ca29ba05ad49e81347699f0071520d3a9d092763f17605ad4290dc727eed6d7",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "DOC-19"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 99,
+      "line_sha256": "cdaa2f5085a3edaa3ff1619b69122544e9ad5dc04d14757bfe421982f12eedd0",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "SSO-08"
+        },
+        {
+          "kind": "operation",
+          "ref": "SSO-11"
+        }
+      ]
+    },
+    {
+      "kind": "list-item",
+      "line": 100,
+      "line_sha256": "d0d4e8fcef7e8dbf7159029cd4f64945530cbfad6baa9c6e17cd9a31dae3afd3",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "UPDATE001-ALIGN"
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "line": 102,
+      "line_sha256": "a74a82bd1269d31a9788d6971b38e7b0f5582c4dd123de391b9e6f3fb103f5cf",
+      "dispositions": [
+        {
+          "kind": "operation",
+          "ref": "UPDATE001-COMPLETION"
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "items": 70,
+    "unmapped": 0,
+    "unaccountedBaseline": 0,
+    "coherenceGaps": 0,
+    "interpretations": 31
+  }
+}

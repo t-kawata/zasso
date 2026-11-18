@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OPS-02 — The wire envelope MUST be `{context, request}` and the reply `{request_id, result}` or `{request_id, error}`."
-description: "The wire envelope MUST be `{context, request}` and the reply `{request_id, result}` or `{request_id, error}`."
+title: "OPS-02 — The common invocation and result model MUST define the operation input, invocation context, correlation identifier, and success or failure meaning. Each binding MUST define its wire or CLI representation; one JSON shape MUST NOT be required for every protocol."
+description: "The common invocation and result model MUST define the operation input, invocation context, correlation identifier, and success or failure meaning. Each binding MUST define its wire or CLI representation; one JSON shape MUST NOT be required for every protocol."
 sources: 
   - resource: "sources/15-RULE-REGISTRY.md"
     id: "ops-02"
@@ -26,7 +26,7 @@ x-verification: "V3 schema test."
 ---
 # OPS-02
 
-The wire envelope MUST be `{context, request}` and the reply `{request_id, result}` or `{request_id, error}`.
+The common invocation and result model MUST define the operation input, invocation context, correlation identifier, and success or failure meaning. Each binding MUST define its wire or CLI representation; one JSON shape MUST NOT be required for every protocol.
 
 | Field | Value |
 |---|---|

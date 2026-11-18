@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OP-IDEM-04 — `external` uses a lease and `recover_expired`."
-description: "`external` uses a lease and `recover_expired`."
+title: "OP-IDEM-04 — `external` uses a lease and `recover_expired`. Its lease updates and forward recovery MUST remain distinct from `same-transaction` and MUST NOT be described as providing the same atomicity."
+description: "`external` uses a lease and `recover_expired`. Its lease updates and forward recovery MUST remain distinct from `same-transaction` and MUST NOT be described as providing the same atomicity."
 sources: 
   - resource: "sources/21-OPERATION.md"
     id: "op-idem-04"
@@ -26,7 +26,7 @@ x-verification: "V3 crash test."
 ---
 # OP-IDEM-04
 
-`external` uses a lease and `recover_expired`.
+`external` uses a lease and `recover_expired`. Its lease updates and forward recovery MUST remain distinct from `same-transaction` and MUST NOT be described as providing the same atomicity.
 
 | Field | Value |
 |---|---|

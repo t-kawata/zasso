@@ -1,0 +1,688 @@
+{
+  "schema": "revision-plan/v1",
+  "skill": "rust-interface-law",
+  "role": "law-revision",
+  "adapter": "law",
+  "revision": {
+    "sha256": "a6aa47dbbe59bc87af5ee438be5b15162291ff9b58eeff8c3fb790726b0b1c32"
+  },
+  "operations": [
+    {
+      "op": "update-rule",
+      "target": "OP-12",
+      "statement": "Idempotency for anonymous operations is opt-in and keyed by peer plus operation. Anonymous replay MUST be declared per operation, MUST NOT receive an authenticated context, and MUST NOT reuse the authenticated replay path.",
+      "weakening": false,
+      "evidence": {
+        "line": 29,
+        "line_sha256": "5077b26627d58184cba5945984182ae13769703822fa8f653d040aca376af512"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "CONF-25",
+      "statement": "A replay MUST re-authorize the current caller before returning the stored result. A re-authorization failure MUST return an authorization error and MUST NOT execute `prepare` or `execute`.",
+      "weakening": false,
+      "evidence": {
+        "line": 30,
+        "line_sha256": "8b1d88f56762c6a73035338e41d1097db4cf860c8a25c88d71b3f3e331a4c135"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "CONF-47",
+      "statement": "A replay after a successful delete, create, or approve MUST return the stored result with current authorization, not a state-precondition error, only when the current caller is authorized.",
+      "weakening": false,
+      "evidence": {
+        "line": 30,
+        "line_sha256": "8b1d88f56762c6a73035338e41d1097db4cf860c8a25c88d71b3f3e331a4c135"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "CONF-65",
+      "statement": "Generated validation MUST run before the idempotency claim for both replay and new requests; replay MUST call `replay_authorize` and MUST NOT call `prepare` or `execute`.",
+      "weakening": false,
+      "evidence": {
+        "line": 30,
+        "line_sha256": "8b1d88f56762c6a73035338e41d1097db4cf860c8a25c88d71b3f3e331a4c135"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OP-IDEM-02",
+      "statement": "`claim` MUST be keyed by namespace, key, canonical request hash, and lease. It MUST be atomic, MUST NOT require an authorized target, and MUST produce exactly one `Acquired` for concurrent claims.",
+      "weakening": false,
+      "evidence": {
+        "line": 36,
+        "line_sha256": "98f11ba426efd312448e7d621f6caef7f87107e0147b4859a87d776a11fc13e6"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OPS-05",
+      "statement": "The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` for target resolution and authorization, then `execute`) → commit/outbox → result/reply.",
+      "weakening": false,
+      "evidence": {
+        "line": 42,
+        "line_sha256": "6d53429b447fd9fdf1ebe4e5d9af70a51685aeb6c52ae6c71f5daa5044d142c0"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OP-02",
+      "statement": "`prepare` performs target resolution, validation, and authorization; it has no business side effect. A failed `prepare` MUST leave no replayable success result and MUST fail or release the claim.",
+      "weakening": false,
+      "evidence": {
+        "line": 44,
+        "line_sha256": "ae73d527843bec2ecb278e8d8c227724e1e49692a7b62f1db5354b04ffc06dae"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OPS-06",
+      "statement": "No business state change or external business effect MAY occur before authorization succeeds. Execution-control metadata such as a claim MAY be recorded before authorization; a claim alone MUST NOT authorize a business change.",
+      "weakening": false,
+      "evidence": {
+        "line": 49,
+        "line_sha256": "7aaf1bac0e54437c184cd19b5d39d9282cf91d3bdb91f5975b51fc1601a92d59"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "CONF-24",
+      "statement": "Concurrent claims for the same namespace and key MUST produce one execution.",
+      "weakening": false,
+      "evidence": {
+        "line": 50,
+        "line_sha256": "f7c48bfec3dfd05483a4098cb3238161cca658fe5f0142730706699ae3851108"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "CONF-26",
+      "statement": "The same key with a different canonical request hash MUST return a conflict.",
+      "weakening": false,
+      "evidence": {
+        "line": 50,
+        "line_sha256": "f7c48bfec3dfd05483a4098cb3238161cca658fe5f0142730706699ae3851108"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OP-IDEM-09",
+      "statement": "For `same-transaction`, the unit of work that commits the business change MUST include idempotency completion and outbox intent in the same transaction. The dispatcher MUST NOT finalize a `same-transaction` success outside that transaction.",
+      "weakening": false,
+      "evidence": {
+        "line": 56,
+        "line_sha256": "3b4baabbe828920f383524e7a2ac03b66746128ae5d6600efa9cdef102cbfd6e"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OP-IDEM-03",
+      "statement": "`same-transaction` MUST store the idempotency completion, business mutation, authorized target, and outbox intent in one business commit.",
+      "weakening": false,
+      "evidence": {
+        "line": 61,
+        "line_sha256": "337f090dffb506bb380b90227cc893aaadd632de7e9d0101c5ead01ec7032e4e"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OP-IDEM-08",
+      "statement": "A claim carries a generation and fencing token; `complete`, `fail`, and `renew` MUST reject a stale owner. Persistence MUST reject a commit from a stale generation or fencing token.",
+      "weakening": false,
+      "evidence": {
+        "line": 62,
+        "line_sha256": "3665777b1690b04c8c6f6b855d42562d40ee3766a12654e8b3167341f1b810f6"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OP-IDEM-04",
+      "statement": "`external` uses a lease and `recover_expired`. Its lease updates and forward recovery MUST remain distinct from `same-transaction` and MUST NOT be described as providing the same atomicity.",
+      "weakening": false,
+      "evidence": {
+        "line": 68,
+        "line_sha256": "877e9f3f8f8560c80c5677af09fd0599f0f7a0386c0be7a4aaca5d1c2d71b138"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "CONF-46",
+      "statement": "An expired lease owner MUST NOT complete or commit after a new owner acquires the claim.",
+      "weakening": false,
+      "evidence": {
+        "line": 69,
+        "line_sha256": "d77ac1eeb7e7fb9babebbe65428d2f338269349c5bc07b2dd2a9e815a9ddd3ec"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "CONF-48",
+      "statement": "Same-transaction completion, business mutation, authorized target, and outbox intent MUST be atomic; a rollback leaves none of them, and a crash after commit recovers both the result and the event.",
+      "weakening": false,
+      "evidence": {
+        "line": 69,
+        "line_sha256": "d77ac1eeb7e7fb9babebbe65428d2f338269349c5bc07b2dd2a9e815a9ddd3ec"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "OPS-02",
+      "statement": "The common invocation and result model MUST define the operation input, invocation context, correlation identifier, and success or failure meaning. Each binding MUST define its wire or CLI representation; one JSON shape MUST NOT be required for every protocol.",
+      "weakening": false,
+      "evidence": {
+        "line": 75,
+        "line_sha256": "5449a143945fc84e92fd93818c8581e21a52c0cca182a4ca2b98446d62527cba"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "IF-08",
+      "statement": "Every operation response MUST carry the operation's `request_id`; streaming messages MUST carry a correlation identifier. A protocol rejection before the operation is invoked MUST follow that protocol's own correlation rule.",
+      "weakening": false,
+      "evidence": {
+        "line": 79,
+        "line_sha256": "c12f5fa5ca011e629c2cfab9454d6f1b4423deffea6ae1a1db80b477d4bfe980"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "MCP-19",
+      "statement": "`McpConfig` MUST record the adopted protocol version, transport profile, and capabilities, and MUST declare a binding for the selected profile that fixes operation-to-tool selection, success and failure representation, correlation location, and lifecycle mapping.",
+      "weakening": false,
+      "evidence": {
+        "line": 84,
+        "line_sha256": "a5111104d3d065bebfb47a1a4d089e79a3e7f15af82c342bf4cf8582d9f935e3"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "A2A-23",
+      "statement": "`A2aConfig` MUST record the adopted protocol version, transport profile, and capabilities, and MUST declare a binding for the selected profile that fixes operation-to-skill or message selection, success and failure representation, correlation location, and lifecycle mapping.",
+      "weakening": false,
+      "evidence": {
+        "line": 84,
+        "line_sha256": "a5111104d3d065bebfb47a1a4d089e79a3e7f15af82c342bf4cf8582d9f935e3"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "MCP-21",
+      "statement": "Every tool result MUST carry the operation's `request_id` in the location declared by the selected MCP binding.",
+      "weakening": false,
+      "evidence": {
+        "line": 90,
+        "line_sha256": "19b6736bc23e985aef3a92d9462694bab71d0233adef5db6325761e9f100b5d9"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "A2A-24",
+      "statement": "Every task artifact MUST carry the operation's `request_id` in the location declared by the selected A2A binding.",
+      "weakening": false,
+      "evidence": {
+        "line": 90,
+        "line_sha256": "19b6736bc23e985aef3a92d9462694bab71d0233adef5db6325761e9f100b5d9"
+      }
+    },
+    {
+      "op": "update-rule",
+      "target": "SSO-08",
+      "statement": "External accounts MUST be stored in `external_identities` with `UNIQUE(issuer, subject)`. Business tables MUST NOT store external provider IDs.",
+      "weakening": false,
+      "evidence": {
+        "line": 99,
+        "line_sha256": "cdaa2f5085a3edaa3ff1619b69122544e9ad5dc04d14757bfe421982f12eedd0"
+      },
+      "class": "C"
+    },
+    {
+      "op": "update-rule",
+      "target": "SSO-11",
+      "statement": "Adding SSO MUST change only: the `identity-sso` crate, authentication adapters, assembly wiring, configuration, and `external_identities`. Business operations, `VerifiedIdentity`, and business tables MUST remain unchanged.",
+      "weakening": false,
+      "evidence": {
+        "line": 99,
+        "line_sha256": "cdaa2f5085a3edaa3ff1619b69122544e9ad5dc04d14757bfe421982f12eedd0"
+      },
+      "class": "O"
+    },
+    {
+      "op": "add-rule",
+      "id": "FREE-14",
+      "class": "G",
+      "parent": "FREE",
+      "applicability": "all",
+      "phase": "scope",
+      "statement": "A contract MUST define the responsibilities, observable guarantees, and verification conditions at its shared boundary. It MUST NOT prescribe implementation choices that do not affect those guarantees.",
+      "id_rationale": "Contract closure and implementation discretion are a new general obligation, not a specialization of an existing freedom rule.",
+      "evidence": {
+        "line": 7,
+        "line_sha256": "529b40b2365a3c299adde886ef050cc522ff31fa696f3878d991a4f6728f611f"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "FREE-15",
+      "class": "G",
+      "parent": "FREE",
+      "applicability": "all",
+      "phase": "scope",
+      "statement": "Implementers MUST resolve unspecified details, ambiguities, and local inconsistencies using rule precedence, design intent, compatibility requirements, and safety invariants, and MUST carry the resolution through implementation and verification. The resolution SHOULD change the fewest shared guarantees and preserve legitimate extension points.",
+      "id_rationale": "The duty to resolve unspecified details is an independent obligation about implementer conduct.",
+      "evidence": {
+        "line": 9,
+        "line_sha256": "6408ad4b4029a4e4c9f89a27b99b649648422bc1b5e6b42b4910a65dd0657b6d"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "FREE-16",
+      "class": "G",
+      "parent": "FREE",
+      "applicability": "all",
+      "phase": "scope",
+      "statement": "Where a choice affects interoperability within a declared profile, the profile or binding MUST specify that choice. Otherwise, conforming implementations MAY differ.",
+      "id_rationale": "Interoperability-critical choices require a declared profile or binding decision; this is independent of the closure and resolution duties.",
+      "evidence": {
+        "line": 11,
+        "line_sha256": "b496748da76d10f8b861d68bd3918e5b0c3f3ab4b74b933f98a57dcef35be3c2"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "OP-AUTH-06",
+      "class": "C",
+      "parent": "OP-AUTH",
+      "applicability": "all",
+      "phase": "operation",
+      "statement": "`ErasedAuthenticatedOperation` MUST expose `replay_authorize` and delegate to `Operation::replay_authorize` with the typed signature.",
+      "id_rationale": "The erased wrapper delegation is a shared-API obligation distinct from the replay semantics.",
+      "evidence": {
+        "line": 17,
+        "line_sha256": "0b7cf51ad413d530ff088f671d53bdfcb996331c6a196fa537167d6f8160bf95"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "OPS-19",
+      "class": "C",
+      "parent": "OPS",
+      "applicability": "all",
+      "phase": "operation",
+      "statement": "On `ClaimOutcome::Replay` the dispatcher MUST call `replay_authorize` and MUST NOT call `prepare_validated` or `execute`; it MUST return the stored result only after authorization succeeds.",
+      "id_rationale": "The replay branch call sequence is an independently testable dispatcher obligation.",
+      "evidence": {
+        "line": 27,
+        "line_sha256": "2df2cc1c4845ffc761c0c7e826211fc85f8dd78e7a73c9a3d23187309e9ba1cb"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "OP-AUTH-07",
+      "class": "C",
+      "parent": "OP-AUTH",
+      "applicability": "all",
+      "phase": "operation",
+      "statement": "Replay authorization MUST evaluate the current caller. A recorded target identifies the resource being authorized and MUST NOT be treated as evidence that the original executor was permitted.",
+      "id_rationale": "Current-caller authorization is an independent semantic obligation, separate from the replay call sequence.",
+      "evidence": {
+        "line": 28,
+        "line_sha256": "94a86ad360f9195d291afe6c5813a151d1367cfd3f788bd46483d9fa448a50f8"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "OP-IDEM-11",
+      "class": "C",
+      "parent": "OP-IDEM",
+      "applicability": "all",
+      "phase": "operation",
+      "statement": "An in-flight claim record MAY have an undetermined authorization target. A replayable result MUST carry the target information required for re-authorization; an undetermined or placeholder target MUST NOT be stored.",
+      "id_rationale": "The target-information requirement for replayable results is an independent idempotency obligation.",
+      "evidence": {
+        "line": 48,
+        "line_sha256": "deba275da58d23c39943c4254ee5d8fedbb0c869b930b63c80b1e30f968193e2"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "CONF-66",
+      "class": "P",
+      "parent": "CONF",
+      "applicability": "conformance",
+      "phase": "conformance",
+      "statement": "A claim whose authorization target is not finalized MUST NOT return a stored result.",
+      "id_rationale": "Refusing a stored result from an undetermined claim is a distinct conformance condition.",
+      "evidence": {
+        "line": 50,
+        "line_sha256": "f7c48bfec3dfd05483a4098cb3238161cca658fe5f0142730706699ae3851108"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "OP-TX-07",
+      "class": "C",
+      "parent": "OP-TX",
+      "applicability": "all",
+      "phase": "operation",
+      "statement": "A committed same-transaction result and its outbox intent MUST be recoverable after a crash. A rollback MUST leave no business change, completion result, or outbox intent.",
+      "id_rationale": "Crash and rollback atomicity is an independent transaction guarantee.",
+      "evidence": {
+        "line": 62,
+        "line_sha256": "3665777b1690b04c8c6f6b855d42562d40ee3766a12654e8b3167341f1b810f6"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "OP-IDEM-12",
+      "class": "C",
+      "parent": "OP-IDEM",
+      "applicability": "all",
+      "phase": "operation",
+      "statement": "For `same-transaction`, completion MUST be owned by the unit of work and MUST NOT be performed by a synchronous `ExecutionScope::complete` or `fail` that implicitly calls the asynchronous store. An `is_completed()` post-check alone MUST NOT be treated as proof of atomicity.",
+      "id_rationale": "Completion ownership and the post-check prohibition are independent same-transaction API obligations.",
+      "evidence": {
+        "line": 66,
+        "line_sha256": "0597afd46292ce8b52dd232373b48adae65671444bfdc5dd95ab20a1df9903ca"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "CONF-67",
+      "class": "P",
+      "parent": "CONF",
+      "applicability": "conformance",
+      "phase": "conformance",
+      "statement": "For each implemented profile, conformance MUST verify that the representation conforms to the protocol and maps to the common invocation and result model. Byte equality across protocols MUST NOT be required.",
+      "id_rationale": "Per-profile representation conformance is an independent conformance obligation.",
+      "evidence": {
+        "line": 80,
+        "line_sha256": "6daf7d8cfc645eca0e0b3cceb1fb8e03b8949514456604eeafa6d0ed71f0701a"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "DOC-18",
+      "class": "C",
+      "parent": "DOC",
+      "applicability": "all",
+      "phase": "docs",
+      "statement": "Interface documentation and conformance MUST read the binding declaration as the source of truth for protocol version, transport, capabilities, correlation location, and lifecycle mapping; one SDK or correlation location MUST NOT be imposed across profiles.",
+      "id_rationale": "Binding declarations as the documentation source of truth is an independent documentation obligation.",
+      "evidence": {
+        "line": 93,
+        "line_sha256": "6f13532c092b0f538d1d6abc9f623d9dc942c078d61272428aa63475a6e064f2"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "OP-13",
+      "class": "C",
+      "parent": "OP",
+      "applicability": "all",
+      "phase": "operation",
+      "statement": "Project operation types MUST use the types provided by `operation-contract`; a project MUST register its operations and wire them in the assembly. Shared type placement is defined by Part III.2.",
+      "id_rationale": "Shared-type placement and assembly wiring are independent of handler behavior.",
+      "evidence": {
+        "line": 97,
+        "line_sha256": "131b286ecaa18b9a6dc9fa9f43e75c6a6bd636772c3b5f95ef72921eea787966"
+      }
+    },
+    {
+      "op": "add-rule",
+      "id": "DOC-19",
+      "class": "C",
+      "parent": "DOC",
+      "applicability": "all",
+      "phase": "docs",
+      "statement": "Rule ranges in index sections MUST be generated from the rule registry. Hand-written ranges MUST NOT be used; the index MUST reference Part III.12 and Part III.15 instead of duplicating their ranges.",
+      "id_rationale": "Generated index ranges are an independent documentation obligation.",
+      "evidence": {
+        "line": 98,
+        "line_sha256": "3ca29ba05ad49e81347699f0071520d3a9d092763f17605ad4290dc727eed6d7"
+      }
+    },
+    {
+      "op": "process-directive",
+      "id": "UPDATE001-NO-APPROVAL",
+      "directive": "This revision MUST NOT add judgment-recording, approval-waiting, or human-confirmation procedures; it defines only what the norm closes and what implementation judgment decides.",
+      "evidence": {
+        "line": 13,
+        "line_sha256": "f3b32f6bc6aa9e27e357e9a2632b33465267ad7c86104c053606d697eb4e2921"
+      }
+    },
+    {
+      "op": "process-directive",
+      "id": "UPDATE001-ALIGN",
+      "directive": "A rule change MUST align the rule body, shared API, registry, applicable profile, and conformance expectations in the same revision. A new rule ID MUST be assigned only to an obligation that existing IDs cannot express as a specialization.",
+      "evidence": {
+        "line": 100,
+        "line_sha256": "d0d4e8fcef7e8dbf7159029cd4f64945530cbfad6baa9c6e17cd9a31dae3afd3"
+      }
+    },
+    {
+      "op": "completion-criterion",
+      "id": "UPDATE001-COMPLETION",
+      "criterion": "For the same input and the same declared profile, two conforming implementations MUST NOT disagree on authorization, retry, commit, or client compatibility. Storage, internal structure, execution method, optimization, and profile-declared choices MAY differ.",
+      "conformance_target": "CONF-25,CONF-47,CONF-48,CONF-65,CONF-66,CONF-67",
+      "evidence": {
+        "line": 102,
+        "line_sha256": "a74a82bd1269d31a9788d6971b38e7b0f5582c4dd123de391b9e6f3fb103f5cf"
+      }
+    }
+  ],
+  "interpretations": [
+    {
+      "line": 1,
+      "line_sha256": "2b23eb5f51374f53196a63e61231360d605b1dc311bab5d25b624ea30144e036",
+      "disposition": "purpose statement: close conformance conditions without fixing implementation"
+    },
+    {
+      "line": 5,
+      "line_sha256": "f3c0b2c62a63e551849d7eff2cf1a2882b2927ca2c3b1033586b513412bd5ae7",
+      "disposition": "introduces the contract-closure norms realized by FREE-14, FREE-15, and FREE-16"
+    },
+    {
+      "line": 8,
+      "line_sha256": "62b67e1f685b7fef51102005dddd27774be3fee38c42965c53aab035d0b6b221",
+      "disposition": "blockquote continuation"
+    },
+    {
+      "line": 10,
+      "line_sha256": "62b67e1f685b7fef51102005dddd27774be3fee38c42965c53aab035d0b6b221",
+      "disposition": "blockquote continuation"
+    },
+    {
+      "line": 19,
+      "line_sha256": "704a963b30cbc716405e7b16f5814284acc07ca8ba697d22c2d8da5d5b712369",
+      "disposition": "rust signature fence for ErasedAuthenticatedOperation::replay_authorize"
+    },
+    {
+      "line": 20,
+      "line_sha256": "ef76cb1f7a1f235c14d51815a0454d55969e1319e7fce06de124e83062cfc619",
+      "disposition": "rust signature: lifetime and receiver"
+    },
+    {
+      "line": 21,
+      "line_sha256": "890563a4325eda5b02cc0b6de74b5c2c99e7ce1c3304b1bb26647ee3e0fd0d64",
+      "disposition": "rust signature: authenticated context"
+    },
+    {
+      "line": 22,
+      "line_sha256": "f68b60fff24ae3087393e2ee3627dd18b83068c89bfc54d1992c271b67a712d9",
+      "disposition": "rust signature: replay record"
+    },
+    {
+      "line": 23,
+      "line_sha256": "78606beb8b8cf7101bf2a1933f1f133e787a37d6eef5a2a5794acc28ed66d275",
+      "disposition": "rust signature: result type"
+    },
+    {
+      "line": 24,
+      "line_sha256": "793d35809860ab1e75815a5341cfab65b89ab372e5681975040a3bac01d76c84",
+      "disposition": "rust signature: delegate target signature"
+    },
+    {
+      "line": 25,
+      "line_sha256": "f1b901847390b0ed7e374e7c1e464ec17b46a427c487a5ad6cbd2906405083d5",
+      "disposition": "rust signature fence close"
+    },
+    {
+      "line": 32,
+      "line_sha256": "d7a114f57594745902b046baf95e4c045810d04a1be690f7eb6537260275e9d1",
+      "disposition": "implementation discretion: erased representation, wrapper type name, and storage form are not fixed"
+    },
+    {
+      "line": 38,
+      "line_sha256": "3878c4935fc5bf47fba2a59b5791964c082593fa99f7523b77543fe03fa1fc09",
+      "disposition": "introduces the required order table"
+    },
+    {
+      "line": 40,
+      "line_sha256": "9453512178a6bf87537993280e93d96a90cfab7a5df6b1b11ecffaf395486e14",
+      "disposition": "table header: branch and required order"
+    },
+    {
+      "line": 41,
+      "line_sha256": "4199ba454d6d3ae83657120c2bb6bd674eefc0dd7d3cd4cc844171dc6725135b",
+      "disposition": "table separator"
+    },
+    {
+      "line": 43,
+      "line_sha256": "21659a834f3bd38735c762061bdadfbb64d5f83be67fabf189fdd622e0be0253",
+      "disposition": "replay order: validation, finalized record, current authorization, stored result; realized by OPS-19 and CONF-25"
+    },
+    {
+      "line": 46,
+      "line_sha256": "54612405c4c8f13e8ef352e6e9d5869a33a1971f2a9bb12f2d9e829008204606",
+      "disposition": "introduces the in-flight target rules and the OPS-06 distinction"
+    },
+    {
+      "line": 52,
+      "line_sha256": "ddf8047e4cf87925fdbc238657b6e2e3b31421a461e3983c9c4229c05bdc793b",
+      "disposition": "implementation discretion: database, columns, locking, and failed-claim retention are not fixed"
+    },
+    {
+      "line": 58,
+      "line_sha256": "fefe14321ca20fb6bd21a606f5b0feb3f65dad2cdb104b70736f0cb4a6cd0320",
+      "disposition": "table header: owner and responsibility"
+    },
+    {
+      "line": 59,
+      "line_sha256": "4199ba454d6d3ae83657120c2bb6bd674eefc0dd7d3cd4cc844171dc6725135b",
+      "disposition": "table separator"
+    },
+    {
+      "line": 60,
+      "line_sha256": "397bcd795377436530a29f4a8c82b662d62108fa85b9e53e4e4504e1381f8e07",
+      "disposition": "dispatcher responsibility: claim acquisition and claim capability; realized by OP-IDEM-09"
+    },
+    {
+      "line": 64,
+      "line_sha256": "751a939e6f4c1c92ace1dda29c04ca95f200f2381f2252129671d5a8de26d504",
+      "disposition": "introduces the concrete revision instructions"
+    },
+    {
+      "line": 67,
+      "line_sha256": "0d8fc0aeaaf1d81559af2b95b9992d831384eb313e7373d201ca6cfae2ffbfe9",
+      "disposition": "post-check prohibition: is_completed alone is not atomicity proof; realized by OP-IDEM-12"
+    },
+    {
+      "line": 71,
+      "line_sha256": "e067e03dfa8bbdccef4210f52992da7be4f99921520d52f00ee6a1842aa6e04d",
+      "disposition": "implementation discretion: the shared API expresses claim capability and atomic completion; SQL, database product, transaction object, and locking are not fixed"
+    },
+    {
+      "line": 77,
+      "line_sha256": "3f7f4110f4f18998566b8432f9965621c5377a66534c826db130e1ac69f277cf",
+      "disposition": "common model facets: input, context, correlation, and success or failure meaning; realized by OPS-02"
+    },
+    {
+      "line": 78,
+      "line_sha256": "06a7e2a9834bb172aeee6ec198682558e9f07a3b6bd44476bcb2f06cd6ed712c",
+      "disposition": "binding discretion: wire and CLI forms are defined per binding"
+    },
+    {
+      "line": 86,
+      "line_sha256": "f74946bad797ad4ed8b06b2989554640ac1c084fa1e7ececdc76e80ce1d9d931",
+      "disposition": "table header: binding matter and revision"
+    },
+    {
+      "line": 87,
+      "line_sha256": "4199ba454d6d3ae83657120c2bb6bd674eefc0dd7d3cd4cc844171dc6725135b",
+      "disposition": "table separator"
+    },
+    {
+      "line": 88,
+      "line_sha256": "f780f8321d7ef5c7655a380f6215718a6859c414c55c416c380382d2bca2b715",
+      "disposition": "binding facet: operation and input selection"
+    },
+    {
+      "line": 89,
+      "line_sha256": "db9459a6dbb679e47f6428892f17dfb894c650ff3e9ebecb6e55d3d28d7227fe",
+      "disposition": "binding facet: protocol failure and business failure representation"
+    },
+    {
+      "line": 91,
+      "line_sha256": "a75d27c97a20ade49a2ccdfca970491610fefd244e708ec5aac28c21e59f54af",
+      "disposition": "binding facet: lifecycle mapping for stream, task, and cancellation"
+    }
+  ],
+  "coherence": {
+    "required": [
+      "body",
+      "source",
+      "registry",
+      "api",
+      "profile",
+      "conformance",
+      "policy",
+      "contract",
+      "test",
+      "template",
+      "index",
+      "asset"
+    ],
+    "dispositions": {
+      "body": {
+        "op": "update-rule"
+      },
+      "source": {
+        "op": "add-source"
+      },
+      "registry": {
+        "op": "update-rule"
+      },
+      "api": {
+        "op": "update-api-contract"
+      },
+      "profile": {
+        "unchanged": "no declared profile changes; binding-specific choices are fixed by per-binding rules"
+      },
+      "conformance": {
+        "op": "update-conformance"
+      },
+      "policy": {
+        "unchanged": "the revision document adds no process policy beyond its own directives"
+      },
+      "contract": {
+        "unchanged": "no interface contract entry changes; operation API obligations are rule text"
+      },
+      "test": {
+        "unchanged": "generated tests re-derive the rule count; no new test obligation artifact"
+      },
+      "template": {
+        "unchanged": "templates carry no rule-specific text"
+      },
+      "index": {
+        "op": "update-generated-index"
+      },
+      "asset": {
+        "unchanged": "the skill ships no execution assets"
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "CONF-46 — An expired lease owner cannot complete or commit after a new owner acquires the claim."
-description: "An expired lease owner cannot complete or commit after a new owner acquires the claim."
+title: "CONF-46 — An expired lease owner MUST NOT complete or commit after a new owner acquires the claim."
+description: "An expired lease owner MUST NOT complete or commit after a new owner acquires the claim."
 sources: 
   - resource: "sources/40-CONFORMANCE.md"
     id: "conf-46"
@@ -26,7 +26,7 @@ x-verification: "V3 test."
 ---
 # CONF-46
 
-An expired lease owner cannot complete or commit after a new owner acquires the claim.
+An expired lease owner MUST NOT complete or commit after a new owner acquires the claim.
 
 | Field | Value |
 |---|---|

@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "CONF-65 — Generated validation runs before the idempotency claim for both replay and new requests; replay calls `replay_authorize` and not `prepare`."
-description: "Generated validation runs before the idempotency claim for both replay and new requests; replay calls `replay_authorize` and not `prepare`."
+title: "CONF-65 — Generated validation MUST run before the idempotency claim for both replay and new requests; replay MUST call `replay_authorize` and MUST NOT call `prepare` or `execute`."
+description: "Generated validation MUST run before the idempotency claim for both replay and new requests; replay MUST call `replay_authorize` and MUST NOT call `prepare` or `execute`."
 sources: 
   - resource: "sources/40-CONFORMANCE.md"
     id: "conf-65"
@@ -26,7 +26,7 @@ x-verification: "V3 test."
 ---
 # CONF-65
 
-Generated validation runs before the idempotency claim for both replay and new requests; replay calls `replay_authorize` and not `prepare`.
+Generated validation MUST run before the idempotency claim for both replay and new requests; replay MUST call `replay_authorize` and MUST NOT call `prepare` or `execute`.
 
 | Field | Value |
 |---|---|

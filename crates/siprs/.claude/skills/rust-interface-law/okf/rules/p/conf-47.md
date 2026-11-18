@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "CONF-47 — A replay after a successful delete, create, or approve returns the stored result with current authorization, not a state-precondition error."
-description: "A replay after a successful delete, create, or approve returns the stored result with current authorization, not a state-precondition error."
+title: "CONF-47 — A replay after a successful delete, create, or approve MUST return the stored result with current authorization, not a state-precondition error, only when the current caller is authorized."
+description: "A replay after a successful delete, create, or approve MUST return the stored result with current authorization, not a state-precondition error, only when the current caller is authorized."
 sources: 
   - resource: "sources/40-CONFORMANCE.md"
     id: "conf-47"
@@ -26,7 +26,7 @@ x-verification: "V3 test."
 ---
 # CONF-47
 
-A replay after a successful delete, create, or approve returns the stored result with current authorization, not a state-precondition error.
+A replay after a successful delete, create, or approve MUST return the stored result with current authorization, not a state-precondition error, only when the current caller is authorized.
 
 | Field | Value |
 |---|---|

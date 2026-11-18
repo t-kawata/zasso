@@ -127,6 +127,12 @@
       "decision": "excluded",
       "reason": "directory index",
       "phrase": "Index"
+    },
+    {
+      "alias": "update/UPDATE001.md",
+      "sha256": "a6aa47dbbe59bc87af5ee438be5b15162291ff9b58eeff8c3fb790726b0b1c32",
+      "decision": "included",
+      "reason": "revision input"
     }
   ]
 }

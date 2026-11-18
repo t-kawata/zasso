@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "CONF-24 — Concurrent claims for the same namespace and key produce one execution."
-description: "Concurrent claims for the same namespace and key produce one execution."
+title: "CONF-24 — Concurrent claims for the same namespace and key MUST produce one execution."
+description: "Concurrent claims for the same namespace and key MUST produce one execution."
 sources: 
   - resource: "sources/40-CONFORMANCE.md"
     id: "conf-24"
@@ -26,7 +26,7 @@ x-verification: "V3 concurrency test."
 ---
 # CONF-24
 
-Concurrent claims for the same namespace and key produce one execution.
+Concurrent claims for the same namespace and key MUST produce one execution.
 
 | Field | Value |
 |---|---|

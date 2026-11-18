@@ -1,0 +1,8 @@
+{
+  "schema": "revision-artifact-map/v1",
+  "artifacts": {
+    "rule_concepts": "source/rule-concepts.json",
+    "lock": "atoms.lock.json",
+    "bundle": "okf/"
+  }
+}

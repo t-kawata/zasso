@@ -1,0 +1,2021 @@
+{
+  "schema": "revision-ledger/v1",
+  "baseline": {
+    "version": "0.3.2",
+    "digest": "812891c8891ba31ec875bd35aadd28205fb7c7eb2130d3e140e44f9915b6d574"
+  },
+  "revision": {
+    "sha256": "a6aa47dbbe59bc87af5ee438be5b15162291ff9b58eeff8c3fb790726b0b1c32",
+    "plan_sha256": null
+  },
+  "rules": {
+    "A2A-01": {
+      "concept_id": "rules/g/a2a-01",
+      "status": "unchanged"
+    },
+    "A2A-02": {
+      "concept_id": "rules/c/a2a-02",
+      "status": "unchanged"
+    },
+    "A2A-03": {
+      "concept_id": "rules/c/a2a-03",
+      "status": "unchanged"
+    },
+    "A2A-04": {
+      "concept_id": "rules/c/a2a-04",
+      "status": "unchanged"
+    },
+    "A2A-05": {
+      "concept_id": "rules/c/a2a-05",
+      "status": "unchanged"
+    },
+    "A2A-06": {
+      "concept_id": "rules/c/a2a-06",
+      "status": "unchanged"
+    },
+    "A2A-07": {
+      "concept_id": "rules/c/a2a-07",
+      "status": "unchanged"
+    },
+    "A2A-08": {
+      "concept_id": "rules/c/a2a-08",
+      "status": "unchanged"
+    },
+    "A2A-09": {
+      "concept_id": "rules/c/a2a-09",
+      "status": "unchanged"
+    },
+    "A2A-10": {
+      "concept_id": "rules/c/a2a-10",
+      "status": "unchanged"
+    },
+    "A2A-11": {
+      "concept_id": "rules/c/a2a-11",
+      "status": "unchanged"
+    },
+    "A2A-12": {
+      "concept_id": "rules/c/a2a-12",
+      "status": "unchanged"
+    },
+    "A2A-13": {
+      "concept_id": "rules/c/a2a-13",
+      "status": "unchanged"
+    },
+    "A2A-14": {
+      "concept_id": "rules/c/a2a-14",
+      "status": "unchanged"
+    },
+    "A2A-15": {
+      "concept_id": "rules/c/a2a-15",
+      "status": "unchanged"
+    },
+    "A2A-16": {
+      "concept_id": "rules/c/a2a-16",
+      "status": "unchanged"
+    },
+    "A2A-17": {
+      "concept_id": "rules/c/a2a-17",
+      "status": "unchanged"
+    },
+    "A2A-18": {
+      "concept_id": "rules/c/a2a-18",
+      "status": "unchanged"
+    },
+    "A2A-19": {
+      "concept_id": "rules/c/a2a-19",
+      "status": "unchanged"
+    },
+    "A2A-20": {
+      "concept_id": "rules/c/a2a-20",
+      "status": "unchanged"
+    },
+    "A2A-21": {
+      "concept_id": "rules/c/a2a-21",
+      "status": "unchanged"
+    },
+    "A2A-22": {
+      "concept_id": "rules/c/a2a-22",
+      "status": "unchanged"
+    },
+    "A2A-23": {
+      "concept_id": "rules/c/a2a-23",
+      "status": "updated"
+    },
+    "A2A-24": {
+      "concept_id": "rules/c/a2a-24",
+      "status": "updated"
+    },
+    "APP-01": {
+      "concept_id": "rules/o/app-01",
+      "status": "unchanged"
+    },
+    "APP-02": {
+      "concept_id": "rules/o/app-02",
+      "status": "unchanged"
+    },
+    "APP-03": {
+      "concept_id": "rules/o/app-03",
+      "status": "unchanged"
+    },
+    "APP-04": {
+      "concept_id": "rules/o/app-04",
+      "status": "unchanged"
+    },
+    "APP-05": {
+      "concept_id": "rules/o/app-05",
+      "status": "unchanged"
+    },
+    "APP-06": {
+      "concept_id": "rules/o/app-06",
+      "status": "unchanged"
+    },
+    "APP-07": {
+      "concept_id": "rules/o/app-07",
+      "status": "unchanged"
+    },
+    "ARC-01": {
+      "concept_id": "rules/c/arc-01",
+      "status": "unchanged"
+    },
+    "ARC-02": {
+      "concept_id": "rules/c/arc-02",
+      "status": "unchanged"
+    },
+    "ARC-03": {
+      "concept_id": "rules/c/arc-03",
+      "status": "unchanged"
+    },
+    "ARC-04": {
+      "concept_id": "rules/c/arc-04",
+      "status": "unchanged"
+    },
+    "ARC-05": {
+      "concept_id": "rules/c/arc-05",
+      "status": "unchanged"
+    },
+    "ARC-06": {
+      "concept_id": "rules/c/arc-06",
+      "status": "unchanged"
+    },
+    "ARC-07": {
+      "concept_id": "rules/c/arc-07",
+      "status": "unchanged"
+    },
+    "ARC-08": {
+      "concept_id": "rules/c/arc-08",
+      "status": "unchanged"
+    },
+    "ARC-09": {
+      "concept_id": "rules/c/arc-09",
+      "status": "unchanged"
+    },
+    "ARC-10": {
+      "concept_id": "rules/c/arc-10",
+      "status": "unchanged"
+    },
+    "AUTH-01": {
+      "concept_id": "rules/c/auth-01",
+      "status": "unchanged"
+    },
+    "AUTH-02": {
+      "concept_id": "rules/c/auth-02",
+      "status": "unchanged"
+    },
+    "AUTH-03": {
+      "concept_id": "rules/c/auth-03",
+      "status": "unchanged"
+    },
+    "AUTH-04": {
+      "concept_id": "rules/c/auth-04",
+      "status": "unchanged"
+    },
+    "AUTH-05": {
+      "concept_id": "rules/c/auth-05",
+      "status": "unchanged"
+    },
+    "AUTH-06": {
+      "concept_id": "rules/c/auth-06",
+      "status": "unchanged"
+    },
+    "AUTH-07": {
+      "concept_id": "rules/c/auth-07",
+      "status": "unchanged"
+    },
+    "AUTH-08": {
+      "concept_id": "rules/c/auth-08",
+      "status": "unchanged"
+    },
+    "AUTH-09": {
+      "concept_id": "rules/c/auth-09",
+      "status": "unchanged"
+    },
+    "AUTH-10": {
+      "concept_id": "rules/c/auth-10",
+      "status": "unchanged"
+    },
+    "AUTH-11": {
+      "concept_id": "rules/c/auth-11",
+      "status": "unchanged"
+    },
+    "AUTH-12": {
+      "concept_id": "rules/c/auth-12",
+      "status": "unchanged"
+    },
+    "AUTH-13": {
+      "concept_id": "rules/c/auth-13",
+      "status": "unchanged"
+    },
+    "AUTH-14": {
+      "concept_id": "rules/c/auth-14",
+      "status": "unchanged"
+    },
+    "AUTH-15": {
+      "concept_id": "rules/c/auth-15",
+      "status": "unchanged"
+    },
+    "AUTH-16": {
+      "concept_id": "rules/c/auth-16",
+      "status": "unchanged"
+    },
+    "AUTH-17": {
+      "concept_id": "rules/c/auth-17",
+      "status": "unchanged"
+    },
+    "AUTH-18": {
+      "concept_id": "rules/c/auth-18",
+      "status": "unchanged"
+    },
+    "AUTH-19": {
+      "concept_id": "rules/c/auth-19",
+      "status": "unchanged"
+    },
+    "AUTH-20": {
+      "concept_id": "rules/c/auth-20",
+      "status": "unchanged"
+    },
+    "AUTH-21": {
+      "concept_id": "rules/c/auth-21",
+      "status": "unchanged"
+    },
+    "AUTH-22": {
+      "concept_id": "rules/c/auth-22",
+      "status": "unchanged"
+    },
+    "AUTH-23": {
+      "concept_id": "rules/c/auth-23",
+      "status": "unchanged"
+    },
+    "AUTH-24": {
+      "concept_id": "rules/c/auth-24",
+      "status": "unchanged"
+    },
+    "AUTH-25": {
+      "concept_id": "rules/c/auth-25",
+      "status": "unchanged"
+    },
+    "AUTH-26": {
+      "concept_id": "rules/c/auth-26",
+      "status": "unchanged"
+    },
+    "AUTH-27": {
+      "concept_id": "rules/c/auth-27",
+      "status": "unchanged"
+    },
+    "AUTH-28": {
+      "concept_id": "rules/c/auth-28",
+      "status": "unchanged"
+    },
+    "AUTH-29": {
+      "concept_id": "rules/c/auth-29",
+      "status": "unchanged"
+    },
+    "AUTH-30": {
+      "concept_id": "rules/c/auth-30",
+      "status": "unchanged"
+    },
+    "AUTH-31": {
+      "concept_id": "rules/c/auth-31",
+      "status": "unchanged"
+    },
+    "AUTHZ-01": {
+      "concept_id": "rules/c/authz-01",
+      "status": "unchanged"
+    },
+    "AUTHZ-02": {
+      "concept_id": "rules/c/authz-02",
+      "status": "unchanged"
+    },
+    "AUTHZ-03": {
+      "concept_id": "rules/c/authz-03",
+      "status": "unchanged"
+    },
+    "AUTHZ-04": {
+      "concept_id": "rules/c/authz-04",
+      "status": "unchanged"
+    },
+    "AUTHZ-05": {
+      "concept_id": "rules/c/authz-05",
+      "status": "unchanged"
+    },
+    "AUTHZ-06": {
+      "concept_id": "rules/c/authz-06",
+      "status": "unchanged"
+    },
+    "AUTHZ-07": {
+      "concept_id": "rules/c/authz-07",
+      "status": "unchanged"
+    },
+    "AUTHZ-08": {
+      "concept_id": "rules/c/authz-08",
+      "status": "unchanged"
+    },
+    "AUTHZ-09": {
+      "concept_id": "rules/c/authz-09",
+      "status": "unchanged"
+    },
+    "BP-01": {
+      "concept_id": "rules/c/bp-01",
+      "status": "unchanged"
+    },
+    "BP-02": {
+      "concept_id": "rules/c/bp-02",
+      "status": "unchanged"
+    },
+    "BP-03": {
+      "concept_id": "rules/c/bp-03",
+      "status": "unchanged"
+    },
+    "BP-04": {
+      "concept_id": "rules/c/bp-04",
+      "status": "unchanged"
+    },
+    "BP-05": {
+      "concept_id": "rules/c/bp-05",
+      "status": "unchanged"
+    },
+    "BP-06": {
+      "concept_id": "rules/c/bp-06",
+      "status": "unchanged"
+    },
+    "BP-07": {
+      "concept_id": "rules/c/bp-07",
+      "status": "unchanged"
+    },
+    "BP-08": {
+      "concept_id": "rules/c/bp-08",
+      "status": "unchanged"
+    },
+    "BP-09": {
+      "concept_id": "rules/c/bp-09",
+      "status": "unchanged"
+    },
+    "BP-10": {
+      "concept_id": "rules/g/bp-10",
+      "status": "unchanged"
+    },
+    "BP-11": {
+      "concept_id": "rules/c/bp-11",
+      "status": "unchanged"
+    },
+    "BP-12": {
+      "concept_id": "rules/c/bp-12",
+      "status": "unchanged"
+    },
+    "BP-13": {
+      "concept_id": "rules/c/bp-13",
+      "status": "unchanged"
+    },
+    "BP-14": {
+      "concept_id": "rules/c/bp-14",
+      "status": "unchanged"
+    },
+    "BP-15": {
+      "concept_id": "rules/c/bp-15",
+      "status": "unchanged"
+    },
+    "BP-16": {
+      "concept_id": "rules/c/bp-16",
+      "status": "unchanged"
+    },
+    "BP-17": {
+      "concept_id": "rules/c/bp-17",
+      "status": "unchanged"
+    },
+    "BP-18": {
+      "concept_id": "rules/c/bp-18",
+      "status": "unchanged"
+    },
+    "BP-19": {
+      "concept_id": "rules/g/bp-19",
+      "status": "unchanged"
+    },
+    "BP-20": {
+      "concept_id": "rules/c/bp-20",
+      "status": "unchanged"
+    },
+    "CLI-01": {
+      "concept_id": "rules/g/cli-01",
+      "status": "unchanged"
+    },
+    "CLI-02": {
+      "concept_id": "rules/c/cli-02",
+      "status": "unchanged"
+    },
+    "CLI-03": {
+      "concept_id": "rules/c/cli-03",
+      "status": "unchanged"
+    },
+    "CLI-04": {
+      "concept_id": "rules/c/cli-04",
+      "status": "unchanged"
+    },
+    "CLI-05": {
+      "concept_id": "rules/c/cli-05",
+      "status": "unchanged"
+    },
+    "CLI-06": {
+      "concept_id": "rules/c/cli-06",
+      "status": "unchanged"
+    },
+    "CLI-07": {
+      "concept_id": "rules/c/cli-07",
+      "status": "unchanged"
+    },
+    "CLI-08": {
+      "concept_id": "rules/c/cli-08",
+      "status": "unchanged"
+    },
+    "CLI-09": {
+      "concept_id": "rules/c/cli-09",
+      "status": "unchanged"
+    },
+    "CLI-10": {
+      "concept_id": "rules/c/cli-10",
+      "status": "unchanged"
+    },
+    "CLI-11": {
+      "concept_id": "rules/c/cli-11",
+      "status": "unchanged"
+    },
+    "CLI-12": {
+      "concept_id": "rules/c/cli-12",
+      "status": "unchanged"
+    },
+    "CLI-13": {
+      "concept_id": "rules/c/cli-13",
+      "status": "unchanged"
+    },
+    "CLI-14": {
+      "concept_id": "rules/c/cli-14",
+      "status": "unchanged"
+    },
+    "CONF-01": {
+      "concept_id": "rules/p/conf-01",
+      "status": "unchanged"
+    },
+    "CONF-02": {
+      "concept_id": "rules/p/conf-02",
+      "status": "unchanged"
+    },
+    "CONF-03": {
+      "concept_id": "rules/p/conf-03",
+      "status": "unchanged"
+    },
+    "CONF-04": {
+      "concept_id": "rules/p/conf-04",
+      "status": "unchanged"
+    },
+    "CONF-05": {
+      "concept_id": "rules/p/conf-05",
+      "status": "unchanged"
+    },
+    "CONF-06": {
+      "concept_id": "rules/p/conf-06",
+      "status": "unchanged"
+    },
+    "CONF-07": {
+      "concept_id": "rules/p/conf-07",
+      "status": "unchanged"
+    },
+    "CONF-08": {
+      "concept_id": "rules/p/conf-08",
+      "status": "unchanged"
+    },
+    "CONF-09": {
+      "concept_id": "rules/p/conf-09",
+      "status": "unchanged"
+    },
+    "CONF-10": {
+      "concept_id": "rules/p/conf-10",
+      "status": "unchanged"
+    },
+    "CONF-11": {
+      "concept_id": "rules/p/conf-11",
+      "status": "unchanged"
+    },
+    "CONF-12": {
+      "concept_id": "rules/p/conf-12",
+      "status": "unchanged"
+    },
+    "CONF-13": {
+      "concept_id": "rules/p/conf-13",
+      "status": "unchanged"
+    },
+    "CONF-14": {
+      "concept_id": "rules/p/conf-14",
+      "status": "unchanged"
+    },
+    "CONF-15": {
+      "concept_id": "rules/p/conf-15",
+      "status": "unchanged"
+    },
+    "CONF-16": {
+      "concept_id": "rules/p/conf-16",
+      "status": "unchanged"
+    },
+    "CONF-17": {
+      "concept_id": "rules/p/conf-17",
+      "status": "unchanged"
+    },
+    "CONF-18": {
+      "concept_id": "rules/p/conf-18",
+      "status": "unchanged"
+    },
+    "CONF-19": {
+      "concept_id": "rules/p/conf-19",
+      "status": "unchanged"
+    },
+    "CONF-20": {
+      "concept_id": "rules/p/conf-20",
+      "status": "unchanged"
+    },
+    "CONF-21": {
+      "concept_id": "rules/p/conf-21",
+      "status": "unchanged"
+    },
+    "CONF-22": {
+      "concept_id": "rules/p/conf-22",
+      "status": "unchanged"
+    },
+    "CONF-23": {
+      "concept_id": "rules/p/conf-23",
+      "status": "unchanged"
+    },
+    "CONF-24": {
+      "concept_id": "rules/p/conf-24",
+      "status": "updated"
+    },
+    "CONF-25": {
+      "concept_id": "rules/p/conf-25",
+      "status": "updated"
+    },
+    "CONF-26": {
+      "concept_id": "rules/p/conf-26",
+      "status": "updated"
+    },
+    "CONF-27": {
+      "concept_id": "rules/p/conf-27",
+      "status": "unchanged"
+    },
+    "CONF-28": {
+      "concept_id": "rules/p/conf-28",
+      "status": "unchanged"
+    },
+    "CONF-29": {
+      "concept_id": "rules/p/conf-29",
+      "status": "unchanged"
+    },
+    "CONF-30": {
+      "concept_id": "rules/p/conf-30",
+      "status": "unchanged"
+    },
+    "CONF-31": {
+      "concept_id": "rules/p/conf-31",
+      "status": "unchanged"
+    },
+    "CONF-32": {
+      "concept_id": "rules/p/conf-32",
+      "status": "unchanged"
+    },
+    "CONF-33": {
+      "concept_id": "rules/p/conf-33",
+      "status": "unchanged"
+    },
+    "CONF-34": {
+      "concept_id": "rules/p/conf-34",
+      "status": "unchanged"
+    },
+    "CONF-35": {
+      "concept_id": "rules/p/conf-35",
+      "status": "unchanged"
+    },
+    "CONF-36": {
+      "concept_id": "rules/p/conf-36",
+      "status": "unchanged"
+    },
+    "CONF-37": {
+      "concept_id": "rules/p/conf-37",
+      "status": "unchanged"
+    },
+    "CONF-38": {
+      "concept_id": "rules/p/conf-38",
+      "status": "unchanged"
+    },
+    "CONF-39": {
+      "concept_id": "rules/p/conf-39",
+      "status": "unchanged"
+    },
+    "CONF-40": {
+      "concept_id": "rules/p/conf-40",
+      "status": "unchanged"
+    },
+    "CONF-41": {
+      "concept_id": "rules/p/conf-41",
+      "status": "unchanged"
+    },
+    "CONF-42": {
+      "concept_id": "rules/p/conf-42",
+      "status": "unchanged"
+    },
+    "CONF-43": {
+      "concept_id": "rules/p/conf-43",
+      "status": "unchanged"
+    },
+    "CONF-44": {
+      "concept_id": "rules/p/conf-44",
+      "status": "unchanged"
+    },
+    "CONF-45": {
+      "concept_id": "rules/p/conf-45",
+      "status": "unchanged"
+    },
+    "CONF-46": {
+      "concept_id": "rules/p/conf-46",
+      "status": "updated"
+    },
+    "CONF-47": {
+      "concept_id": "rules/p/conf-47",
+      "status": "updated"
+    },
+    "CONF-48": {
+      "concept_id": "rules/p/conf-48",
+      "status": "updated"
+    },
+    "CONF-49": {
+      "concept_id": "rules/p/conf-49",
+      "status": "unchanged"
+    },
+    "CONF-50": {
+      "concept_id": "rules/p/conf-50",
+      "status": "unchanged"
+    },
+    "CONF-51": {
+      "concept_id": "rules/p/conf-51",
+      "status": "unchanged"
+    },
+    "CONF-52": {
+      "concept_id": "rules/p/conf-52",
+      "status": "unchanged"
+    },
+    "CONF-53": {
+      "concept_id": "rules/p/conf-53",
+      "status": "unchanged"
+    },
+    "CONF-54": {
+      "concept_id": "rules/p/conf-54",
+      "status": "unchanged"
+    },
+    "CONF-55": {
+      "concept_id": "rules/p/conf-55",
+      "status": "unchanged"
+    },
+    "CONF-56": {
+      "concept_id": "rules/p/conf-56",
+      "status": "unchanged"
+    },
+    "CONF-57": {
+      "concept_id": "rules/p/conf-57",
+      "status": "unchanged"
+    },
+    "CONF-58": {
+      "concept_id": "rules/p/conf-58",
+      "status": "unchanged"
+    },
+    "CONF-59": {
+      "concept_id": "rules/p/conf-59",
+      "status": "unchanged"
+    },
+    "CONF-60": {
+      "concept_id": "rules/p/conf-60",
+      "status": "unchanged"
+    },
+    "CONF-61": {
+      "concept_id": "rules/p/conf-61",
+      "status": "unchanged"
+    },
+    "CONF-62": {
+      "concept_id": "rules/p/conf-62",
+      "status": "unchanged"
+    },
+    "CONF-63": {
+      "concept_id": "rules/p/conf-63",
+      "status": "unchanged"
+    },
+    "CONF-64": {
+      "concept_id": "rules/p/conf-64",
+      "status": "unchanged"
+    },
+    "CONF-65": {
+      "concept_id": "rules/p/conf-65",
+      "status": "updated"
+    },
+    "CORE-01": {
+      "concept_id": "rules/c/core-01",
+      "status": "unchanged"
+    },
+    "CORE-02": {
+      "concept_id": "rules/c/core-02",
+      "status": "unchanged"
+    },
+    "CORE-03": {
+      "concept_id": "rules/c/core-03",
+      "status": "unchanged"
+    },
+    "CORE-04": {
+      "concept_id": "rules/c/core-04",
+      "status": "unchanged"
+    },
+    "CORE-05": {
+      "concept_id": "rules/c/core-05",
+      "status": "unchanged"
+    },
+    "CORE-06": {
+      "concept_id": "rules/c/core-06",
+      "status": "unchanged"
+    },
+    "CORE-07": {
+      "concept_id": "rules/c/core-07",
+      "status": "unchanged"
+    },
+    "CORE-08": {
+      "concept_id": "rules/c/core-08",
+      "status": "unchanged"
+    },
+    "CORE-09": {
+      "concept_id": "rules/c/core-09",
+      "status": "unchanged"
+    },
+    "CORE-10": {
+      "concept_id": "rules/c/core-10",
+      "status": "unchanged"
+    },
+    "DOC-01": {
+      "concept_id": "rules/g/doc-01",
+      "status": "unchanged"
+    },
+    "DOC-02": {
+      "concept_id": "rules/c/doc-02",
+      "status": "unchanged"
+    },
+    "DOC-03": {
+      "concept_id": "rules/c/doc-03",
+      "status": "unchanged"
+    },
+    "DOC-04": {
+      "concept_id": "rules/c/doc-04",
+      "status": "unchanged"
+    },
+    "DOC-05": {
+      "concept_id": "rules/c/doc-05",
+      "status": "unchanged"
+    },
+    "DOC-06": {
+      "concept_id": "rules/g/doc-06",
+      "status": "unchanged"
+    },
+    "DOC-07": {
+      "concept_id": "rules/c/doc-07",
+      "status": "unchanged"
+    },
+    "DOC-08": {
+      "concept_id": "rules/c/doc-08",
+      "status": "unchanged"
+    },
+    "DOC-09": {
+      "concept_id": "rules/g/doc-09",
+      "status": "unchanged"
+    },
+    "DOC-10": {
+      "concept_id": "rules/c/doc-10",
+      "status": "unchanged"
+    },
+    "DOC-11": {
+      "concept_id": "rules/g/doc-11",
+      "status": "unchanged"
+    },
+    "DOC-12": {
+      "concept_id": "rules/g/doc-12",
+      "status": "unchanged"
+    },
+    "DOC-13": {
+      "concept_id": "rules/c/doc-13",
+      "status": "unchanged"
+    },
+    "DOC-14": {
+      "concept_id": "rules/c/doc-14",
+      "status": "unchanged"
+    },
+    "DOC-15": {
+      "concept_id": "rules/g/doc-15",
+      "status": "unchanged"
+    },
+    "DOC-16": {
+      "concept_id": "rules/c/doc-16",
+      "status": "unchanged"
+    },
+    "DOC-17": {
+      "concept_id": "rules/c/doc-17",
+      "status": "unchanged"
+    },
+    "ERR-01": {
+      "concept_id": "rules/c/err-01",
+      "status": "unchanged"
+    },
+    "ERR-02": {
+      "concept_id": "rules/c/err-02",
+      "status": "unchanged"
+    },
+    "ERR-03": {
+      "concept_id": "rules/c/err-03",
+      "status": "unchanged"
+    },
+    "ERR-04": {
+      "concept_id": "rules/c/err-04",
+      "status": "unchanged"
+    },
+    "ERR-05": {
+      "concept_id": "rules/c/err-05",
+      "status": "unchanged"
+    },
+    "GRPC-01": {
+      "concept_id": "rules/g/grpc-01",
+      "status": "unchanged"
+    },
+    "GRPC-02": {
+      "concept_id": "rules/c/grpc-02",
+      "status": "unchanged"
+    },
+    "GRPC-03": {
+      "concept_id": "rules/c/grpc-03",
+      "status": "unchanged"
+    },
+    "GRPC-04": {
+      "concept_id": "rules/c/grpc-04",
+      "status": "unchanged"
+    },
+    "GRPC-05": {
+      "concept_id": "rules/g/grpc-05",
+      "status": "unchanged"
+    },
+    "GRPC-06": {
+      "concept_id": "rules/c/grpc-06",
+      "status": "unchanged"
+    },
+    "GRPC-07": {
+      "concept_id": "rules/c/grpc-07",
+      "status": "unchanged"
+    },
+    "GRPC-08": {
+      "concept_id": "rules/c/grpc-08",
+      "status": "unchanged"
+    },
+    "GRPC-09": {
+      "concept_id": "rules/c/grpc-09",
+      "status": "unchanged"
+    },
+    "GRPC-10": {
+      "concept_id": "rules/c/grpc-10",
+      "status": "unchanged"
+    },
+    "GRPC-11": {
+      "concept_id": "rules/c/grpc-11",
+      "status": "unchanged"
+    },
+    "GRPC-12": {
+      "concept_id": "rules/c/grpc-12",
+      "status": "unchanged"
+    },
+    "GRPC-13": {
+      "concept_id": "rules/c/grpc-13",
+      "status": "unchanged"
+    },
+    "GRPC-14": {
+      "concept_id": "rules/c/grpc-14",
+      "status": "unchanged"
+    },
+    "GRPC-15": {
+      "concept_id": "rules/c/grpc-15",
+      "status": "unchanged"
+    },
+    "GRPC-16": {
+      "concept_id": "rules/c/grpc-16",
+      "status": "unchanged"
+    },
+    "GRPC-17": {
+      "concept_id": "rules/c/grpc-17",
+      "status": "unchanged"
+    },
+    "GRPC-18": {
+      "concept_id": "rules/c/grpc-18",
+      "status": "unchanged"
+    },
+    "GRPC-19": {
+      "concept_id": "rules/c/grpc-19",
+      "status": "unchanged"
+    },
+    "ID-01": {
+      "concept_id": "rules/c/id-01",
+      "status": "unchanged"
+    },
+    "ID-02": {
+      "concept_id": "rules/c/id-02",
+      "status": "unchanged"
+    },
+    "ID-03": {
+      "concept_id": "rules/c/id-03",
+      "status": "unchanged"
+    },
+    "ID-04": {
+      "concept_id": "rules/c/id-04",
+      "status": "unchanged"
+    },
+    "ID-05": {
+      "concept_id": "rules/c/id-05",
+      "status": "unchanged"
+    },
+    "ID-06": {
+      "concept_id": "rules/c/id-06",
+      "status": "unchanged"
+    },
+    "IDN-07": {
+      "concept_id": "rules/o/c/idn-07",
+      "status": "unchanged"
+    },
+    "IDN-08": {
+      "concept_id": "rules/o/c/idn-08",
+      "status": "unchanged"
+    },
+    "IDN-09": {
+      "concept_id": "rules/o/c/idn-09",
+      "status": "unchanged"
+    },
+    "IDN-10": {
+      "concept_id": "rules/o/c/idn-10",
+      "status": "unchanged"
+    },
+    "IDN-11": {
+      "concept_id": "rules/o/c/idn-11",
+      "status": "unchanged"
+    },
+    "IDN-12": {
+      "concept_id": "rules/o/c/idn-12",
+      "status": "unchanged"
+    },
+    "IDN-13": {
+      "concept_id": "rules/o/c/idn-13",
+      "status": "unchanged"
+    },
+    "IDN-14": {
+      "concept_id": "rules/o/c/idn-14",
+      "status": "unchanged"
+    },
+    "IDN-15": {
+      "concept_id": "rules/o/c/idn-15",
+      "status": "unchanged"
+    },
+    "IDN-16": {
+      "concept_id": "rules/o/c/idn-16",
+      "status": "unchanged"
+    },
+    "IDN-17": {
+      "concept_id": "rules/o/c/idn-17",
+      "status": "unchanged"
+    },
+    "IDN-18": {
+      "concept_id": "rules/o/c/idn-18",
+      "status": "unchanged"
+    },
+    "IDN-19": {
+      "concept_id": "rules/o/c/idn-19",
+      "status": "unchanged"
+    },
+    "IDN-20": {
+      "concept_id": "rules/o/c/idn-20",
+      "status": "unchanged"
+    },
+    "IDN-21": {
+      "concept_id": "rules/o/c/idn-21",
+      "status": "unchanged"
+    },
+    "IDN-22": {
+      "concept_id": "rules/o/c/idn-22",
+      "status": "unchanged"
+    },
+    "IDN-23": {
+      "concept_id": "rules/o/c/idn-23",
+      "status": "unchanged"
+    },
+    "IDN-24": {
+      "concept_id": "rules/o/c/idn-24",
+      "status": "unchanged"
+    },
+    "IF-01": {
+      "concept_id": "rules/c/if-01",
+      "status": "unchanged"
+    },
+    "IF-02": {
+      "concept_id": "rules/c/if-02",
+      "status": "unchanged"
+    },
+    "IF-03": {
+      "concept_id": "rules/c/if-03",
+      "status": "unchanged"
+    },
+    "IF-04": {
+      "concept_id": "rules/c/if-04",
+      "status": "unchanged"
+    },
+    "IF-05": {
+      "concept_id": "rules/c/if-05",
+      "status": "unchanged"
+    },
+    "IF-06": {
+      "concept_id": "rules/c/if-06",
+      "status": "unchanged"
+    },
+    "IF-07": {
+      "concept_id": "rules/c/if-07",
+      "status": "unchanged"
+    },
+    "IF-08": {
+      "concept_id": "rules/c/if-08",
+      "status": "updated"
+    },
+    "MCP-01": {
+      "concept_id": "rules/c/mcp-01",
+      "status": "unchanged"
+    },
+    "MCP-02": {
+      "concept_id": "rules/c/mcp-02",
+      "status": "unchanged"
+    },
+    "MCP-03": {
+      "concept_id": "rules/g/mcp-03",
+      "status": "unchanged"
+    },
+    "MCP-04": {
+      "concept_id": "rules/g/mcp-04",
+      "status": "unchanged"
+    },
+    "MCP-05": {
+      "concept_id": "rules/c/mcp-05",
+      "status": "unchanged"
+    },
+    "MCP-06": {
+      "concept_id": "rules/c/mcp-06",
+      "status": "unchanged"
+    },
+    "MCP-07": {
+      "concept_id": "rules/c/mcp-07",
+      "status": "unchanged"
+    },
+    "MCP-08": {
+      "concept_id": "rules/c/mcp-08",
+      "status": "unchanged"
+    },
+    "MCP-09": {
+      "concept_id": "rules/c/mcp-09",
+      "status": "unchanged"
+    },
+    "MCP-10": {
+      "concept_id": "rules/c/mcp-10",
+      "status": "unchanged"
+    },
+    "MCP-11": {
+      "concept_id": "rules/c/mcp-11",
+      "status": "unchanged"
+    },
+    "MCP-12": {
+      "concept_id": "rules/c/mcp-12",
+      "status": "unchanged"
+    },
+    "MCP-13": {
+      "concept_id": "rules/c/mcp-13",
+      "status": "unchanged"
+    },
+    "MCP-14": {
+      "concept_id": "rules/c/mcp-14",
+      "status": "unchanged"
+    },
+    "MCP-15": {
+      "concept_id": "rules/c/mcp-15",
+      "status": "unchanged"
+    },
+    "MCP-16": {
+      "concept_id": "rules/c/mcp-16",
+      "status": "unchanged"
+    },
+    "MCP-17": {
+      "concept_id": "rules/c/mcp-17",
+      "status": "unchanged"
+    },
+    "MCP-18": {
+      "concept_id": "rules/c/mcp-18",
+      "status": "unchanged"
+    },
+    "MCP-19": {
+      "concept_id": "rules/c/mcp-19",
+      "status": "updated"
+    },
+    "MCP-20": {
+      "concept_id": "rules/c/mcp-20",
+      "status": "unchanged"
+    },
+    "MCP-21": {
+      "concept_id": "rules/c/mcp-21",
+      "status": "updated"
+    },
+    "OBS-01": {
+      "concept_id": "rules/c/obs-01",
+      "status": "unchanged"
+    },
+    "OBS-02": {
+      "concept_id": "rules/c/obs-02",
+      "status": "unchanged"
+    },
+    "OBS-03": {
+      "concept_id": "rules/c/obs-03",
+      "status": "unchanged"
+    },
+    "OBS-04": {
+      "concept_id": "rules/c/obs-04",
+      "status": "unchanged"
+    },
+    "OBS-05": {
+      "concept_id": "rules/c/obs-05",
+      "status": "unchanged"
+    },
+    "OP-01": {
+      "concept_id": "rules/c/op-01",
+      "status": "unchanged"
+    },
+    "OP-02": {
+      "concept_id": "rules/c/op-02",
+      "status": "updated"
+    },
+    "OP-03": {
+      "concept_id": "rules/c/op-03",
+      "status": "unchanged"
+    },
+    "OP-04": {
+      "concept_id": "rules/c/op-04",
+      "status": "unchanged"
+    },
+    "OP-05": {
+      "concept_id": "rules/c/op-05",
+      "status": "unchanged"
+    },
+    "OP-06": {
+      "concept_id": "rules/c/op-06",
+      "status": "unchanged"
+    },
+    "OP-07": {
+      "concept_id": "rules/c/op-07",
+      "status": "unchanged"
+    },
+    "OP-08": {
+      "concept_id": "rules/g/op-08",
+      "status": "unchanged"
+    },
+    "OP-09": {
+      "concept_id": "rules/c/op-09",
+      "status": "unchanged"
+    },
+    "OP-10": {
+      "concept_id": "rules/c/op-10",
+      "status": "unchanged"
+    },
+    "OP-11": {
+      "concept_id": "rules/c/op-11",
+      "status": "unchanged"
+    },
+    "OP-12": {
+      "concept_id": "rules/c/op-12",
+      "status": "updated"
+    },
+    "OP-AUTH-01": {
+      "concept_id": "rules/c/op-auth-01",
+      "status": "unchanged"
+    },
+    "OP-AUTH-02": {
+      "concept_id": "rules/c/op-auth-02",
+      "status": "unchanged"
+    },
+    "OP-AUTH-03": {
+      "concept_id": "rules/c/op-auth-03",
+      "status": "unchanged"
+    },
+    "OP-AUTH-04": {
+      "concept_id": "rules/c/op-auth-04",
+      "status": "unchanged"
+    },
+    "OP-AUTH-05": {
+      "concept_id": "rules/c/op-auth-05",
+      "status": "unchanged"
+    },
+    "OP-IDEM-01": {
+      "concept_id": "rules/c/op-idem-01",
+      "status": "unchanged"
+    },
+    "OP-IDEM-02": {
+      "concept_id": "rules/c/op-idem-02",
+      "status": "updated"
+    },
+    "OP-IDEM-03": {
+      "concept_id": "rules/c/op-idem-03",
+      "status": "updated"
+    },
+    "OP-IDEM-04": {
+      "concept_id": "rules/c/op-idem-04",
+      "status": "updated"
+    },
+    "OP-IDEM-05": {
+      "concept_id": "rules/c/op-idem-05",
+      "status": "unchanged"
+    },
+    "OP-IDEM-06": {
+      "concept_id": "rules/c/op-idem-06",
+      "status": "unchanged"
+    },
+    "OP-IDEM-07": {
+      "concept_id": "rules/c/op-idem-07",
+      "status": "unchanged"
+    },
+    "OP-IDEM-08": {
+      "concept_id": "rules/g/op-idem-08",
+      "status": "updated"
+    },
+    "OP-IDEM-09": {
+      "concept_id": "rules/c/op-idem-09",
+      "status": "updated"
+    },
+    "OP-IDEM-10": {
+      "concept_id": "rules/c/op-idem-10",
+      "status": "unchanged"
+    },
+    "OP-TX-01": {
+      "concept_id": "rules/c/op-tx-01",
+      "status": "unchanged"
+    },
+    "OP-TX-02": {
+      "concept_id": "rules/c/op-tx-02",
+      "status": "unchanged"
+    },
+    "OP-TX-03": {
+      "concept_id": "rules/c/op-tx-03",
+      "status": "unchanged"
+    },
+    "OP-TX-04": {
+      "concept_id": "rules/c/op-tx-04",
+      "status": "unchanged"
+    },
+    "OP-TX-05": {
+      "concept_id": "rules/c/op-tx-05",
+      "status": "unchanged"
+    },
+    "OP-TX-06": {
+      "concept_id": "rules/c/op-tx-06",
+      "status": "unchanged"
+    },
+    "OP-VAL-01": {
+      "concept_id": "rules/g/op-val-01",
+      "status": "unchanged"
+    },
+    "OP-VAL-02": {
+      "concept_id": "rules/c/op-val-02",
+      "status": "unchanged"
+    },
+    "OP-VAL-03": {
+      "concept_id": "rules/c/op-val-03",
+      "status": "unchanged"
+    },
+    "OPS-01": {
+      "concept_id": "rules/c/ops-01",
+      "status": "unchanged"
+    },
+    "OPS-02": {
+      "concept_id": "rules/c/ops-02",
+      "status": "updated"
+    },
+    "OPS-03": {
+      "concept_id": "rules/c/ops-03",
+      "status": "unchanged"
+    },
+    "OPS-04": {
+      "concept_id": "rules/g/ops-04",
+      "status": "unchanged"
+    },
+    "OPS-05": {
+      "concept_id": "rules/g/ops-05",
+      "status": "updated"
+    },
+    "OPS-06": {
+      "concept_id": "rules/c/ops-06",
+      "status": "updated"
+    },
+    "OPS-07": {
+      "concept_id": "rules/c/ops-07",
+      "status": "unchanged"
+    },
+    "OPS-08": {
+      "concept_id": "rules/c/ops-08",
+      "status": "unchanged"
+    },
+    "OPS-09": {
+      "concept_id": "rules/c/ops-09",
+      "status": "unchanged"
+    },
+    "OPS-10": {
+      "concept_id": "rules/c/ops-10",
+      "status": "unchanged"
+    },
+    "OPS-11": {
+      "concept_id": "rules/c/ops-11",
+      "status": "unchanged"
+    },
+    "OPS-12": {
+      "concept_id": "rules/c/ops-12",
+      "status": "unchanged"
+    },
+    "OPS-13": {
+      "concept_id": "rules/g/ops-13",
+      "status": "unchanged"
+    },
+    "OPS-14": {
+      "concept_id": "rules/c/ops-14",
+      "status": "unchanged"
+    },
+    "OPS-15": {
+      "concept_id": "rules/c/ops-15",
+      "status": "unchanged"
+    },
+    "OPS-16": {
+      "concept_id": "rules/c/ops-16",
+      "status": "unchanged"
+    },
+    "OPS-17": {
+      "concept_id": "rules/c/ops-17",
+      "status": "unchanged"
+    },
+    "OPS-18": {
+      "concept_id": "rules/g/ops-18",
+      "status": "unchanged"
+    },
+    "REST-01": {
+      "concept_id": "rules/c/rest-01",
+      "status": "unchanged"
+    },
+    "REST-02": {
+      "concept_id": "rules/c/rest-02",
+      "status": "unchanged"
+    },
+    "REST-03": {
+      "concept_id": "rules/c/rest-03",
+      "status": "unchanged"
+    },
+    "REST-04": {
+      "concept_id": "rules/c/rest-04",
+      "status": "unchanged"
+    },
+    "REST-05": {
+      "concept_id": "rules/c/rest-05",
+      "status": "unchanged"
+    },
+    "REST-06": {
+      "concept_id": "rules/c/rest-06",
+      "status": "unchanged"
+    },
+    "REST-07": {
+      "concept_id": "rules/c/rest-07",
+      "status": "unchanged"
+    },
+    "REST-08": {
+      "concept_id": "rules/c/rest-08",
+      "status": "unchanged"
+    },
+    "REST-09": {
+      "concept_id": "rules/c/rest-09",
+      "status": "unchanged"
+    },
+    "REST-10": {
+      "concept_id": "rules/c/rest-10",
+      "status": "unchanged"
+    },
+    "REST-11": {
+      "concept_id": "rules/c/rest-11",
+      "status": "unchanged"
+    },
+    "REST-12": {
+      "concept_id": "rules/c/rest-12",
+      "status": "unchanged"
+    },
+    "REST-13": {
+      "concept_id": "rules/c/rest-13",
+      "status": "unchanged"
+    },
+    "REST-14": {
+      "concept_id": "rules/c/rest-14",
+      "status": "unchanged"
+    },
+    "REST-15": {
+      "concept_id": "rules/c/rest-15",
+      "status": "unchanged"
+    },
+    "REST-16": {
+      "concept_id": "rules/c/rest-16",
+      "status": "unchanged"
+    },
+    "REST-17": {
+      "concept_id": "rules/c/rest-17",
+      "status": "unchanged"
+    },
+    "REST-18": {
+      "concept_id": "rules/c/rest-18",
+      "status": "unchanged"
+    },
+    "SEC-01": {
+      "concept_id": "rules/c/sec-01",
+      "status": "unchanged"
+    },
+    "SEC-02": {
+      "concept_id": "rules/c/sec-02",
+      "status": "unchanged"
+    },
+    "SEC-03": {
+      "concept_id": "rules/c/sec-03",
+      "status": "unchanged"
+    },
+    "SEC-04": {
+      "concept_id": "rules/c/sec-04",
+      "status": "unchanged"
+    },
+    "SEC-05": {
+      "concept_id": "rules/c/sec-05",
+      "status": "unchanged"
+    },
+    "SSO-01": {
+      "concept_id": "rules/o/c/sso-01",
+      "status": "unchanged"
+    },
+    "SSO-02": {
+      "concept_id": "rules/o/c/sso-02",
+      "status": "unchanged"
+    },
+    "SSO-03": {
+      "concept_id": "rules/o/c/sso-03",
+      "status": "unchanged"
+    },
+    "SSO-04": {
+      "concept_id": "rules/o/c/sso-04",
+      "status": "unchanged"
+    },
+    "SSO-05": {
+      "concept_id": "rules/o/c/sso-05",
+      "status": "unchanged"
+    },
+    "SSO-06": {
+      "concept_id": "rules/o/c/sso-06",
+      "status": "unchanged"
+    },
+    "SSO-07": {
+      "concept_id": "rules/o/c/sso-07",
+      "status": "unchanged"
+    },
+    "SSO-08": {
+      "concept_id": "rules/o/c/sso-08",
+      "status": "updated"
+    },
+    "SSO-09": {
+      "concept_id": "rules/o/c/sso-09",
+      "status": "unchanged"
+    },
+    "SSO-10": {
+      "concept_id": "rules/o/c/sso-10",
+      "status": "unchanged"
+    },
+    "SSO-11": {
+      "concept_id": "rules/o/c/sso-11",
+      "status": "updated"
+    },
+    "SSO-12": {
+      "concept_id": "rules/o/c/sso-12",
+      "status": "unchanged"
+    },
+    "VAL-01": {
+      "concept_id": "rules/c/val-01",
+      "status": "unchanged"
+    },
+    "VAL-02": {
+      "concept_id": "rules/c/val-02",
+      "status": "unchanged"
+    },
+    "VAL-03": {
+      "concept_id": "rules/c/val-03",
+      "status": "unchanged"
+    },
+    "VAL-04": {
+      "concept_id": "rules/c/val-04",
+      "status": "unchanged"
+    },
+    "VAL-05": {
+      "concept_id": "rules/c/val-05",
+      "status": "unchanged"
+    },
+    "VAL-06": {
+      "concept_id": "rules/c/val-06",
+      "status": "unchanged"
+    },
+    "VAL-07": {
+      "concept_id": "rules/c/val-07",
+      "status": "unchanged"
+    },
+    "VAL-08": {
+      "concept_id": "rules/c/val-08",
+      "status": "unchanged"
+    },
+    "VAL-09": {
+      "concept_id": "rules/c/val-09",
+      "status": "unchanged"
+    },
+    "VAL-10": {
+      "concept_id": "rules/c/val-10",
+      "status": "unchanged"
+    },
+    "VAL-11": {
+      "concept_id": "rules/c/val-11",
+      "status": "unchanged"
+    },
+    "VAL-12": {
+      "concept_id": "rules/g/val-12",
+      "status": "unchanged"
+    },
+    "VAL-13": {
+      "concept_id": "rules/c/val-13",
+      "status": "unchanged"
+    },
+    "VAL-14": {
+      "concept_id": "rules/c/val-14",
+      "status": "unchanged"
+    },
+    "VAL-15": {
+      "concept_id": "rules/c/val-15",
+      "status": "unchanged"
+    },
+    "VAL-16": {
+      "concept_id": "rules/g/val-16",
+      "status": "unchanged"
+    },
+    "VAL-17": {
+      "concept_id": "rules/c/val-17",
+      "status": "unchanged"
+    },
+    "VAL-18": {
+      "concept_id": "rules/c/val-18",
+      "status": "unchanged"
+    },
+    "VAL-19": {
+      "concept_id": "rules/g/val-19",
+      "status": "unchanged"
+    },
+    "VAL-20": {
+      "concept_id": "rules/g/val-20",
+      "status": "unchanged"
+    },
+    "WS-01": {
+      "concept_id": "rules/c/ws-01",
+      "status": "unchanged"
+    },
+    "WS-02": {
+      "concept_id": "rules/c/ws-02",
+      "status": "unchanged"
+    },
+    "WS-03": {
+      "concept_id": "rules/c/ws-03",
+      "status": "unchanged"
+    },
+    "WS-04": {
+      "concept_id": "rules/c/ws-04",
+      "status": "unchanged"
+    },
+    "WS-05": {
+      "concept_id": "rules/c/ws-05",
+      "status": "unchanged"
+    },
+    "WS-06": {
+      "concept_id": "rules/c/ws-06",
+      "status": "unchanged"
+    },
+    "WS-07": {
+      "concept_id": "rules/c/ws-07",
+      "status": "unchanged"
+    },
+    "WS-08": {
+      "concept_id": "rules/c/ws-08",
+      "status": "unchanged"
+    },
+    "WS-09": {
+      "concept_id": "rules/c/ws-09",
+      "status": "unchanged"
+    },
+    "WS-10": {
+      "concept_id": "rules/c/ws-10",
+      "status": "unchanged"
+    },
+    "WS-11": {
+      "concept_id": "rules/c/ws-11",
+      "status": "unchanged"
+    },
+    "WS-12": {
+      "concept_id": "rules/c/ws-12",
+      "status": "unchanged"
+    },
+    "WS-13": {
+      "concept_id": "rules/c/ws-13",
+      "status": "unchanged"
+    },
+    "WS-14": {
+      "concept_id": "rules/c/ws-14",
+      "status": "unchanged"
+    },
+    "WS-15": {
+      "concept_id": "rules/c/ws-15",
+      "status": "unchanged"
+    },
+    "WS-16": {
+      "concept_id": "rules/c/ws-16",
+      "status": "unchanged"
+    },
+    "WS-17": {
+      "concept_id": "rules/c/ws-17",
+      "status": "unchanged"
+    },
+    "WS-18": {
+      "concept_id": "rules/c/ws-18",
+      "status": "unchanged"
+    },
+    "WS-19": {
+      "concept_id": "rules/c/ws-19",
+      "status": "unchanged"
+    },
+    "WS-20": {
+      "concept_id": "rules/c/ws-20",
+      "status": "unchanged"
+    },
+    "WS-21": {
+      "concept_id": "rules/c/ws-21",
+      "status": "unchanged"
+    },
+    "WS-22": {
+      "concept_id": "rules/c/ws-22",
+      "status": "unchanged"
+    },
+    "WS-23": {
+      "concept_id": "rules/c/ws-23",
+      "status": "unchanged"
+    },
+    "WS-24": {
+      "concept_id": "rules/c/ws-24",
+      "status": "unchanged"
+    },
+    "WS-25": {
+      "concept_id": "rules/c/ws-25",
+      "status": "unchanged"
+    },
+    "WS-26": {
+      "concept_id": "rules/c/ws-26",
+      "status": "unchanged"
+    },
+    "WS-27": {
+      "concept_id": "rules/c/ws-27",
+      "status": "unchanged"
+    },
+    "WS-28": {
+      "concept_id": "rules/c/ws-28",
+      "status": "unchanged"
+    },
+    "WS-29": {
+      "concept_id": "rules/c/ws-29",
+      "status": "unchanged"
+    },
+    "WS-30": {
+      "concept_id": "rules/c/ws-30",
+      "status": "unchanged"
+    },
+    "WS-31": {
+      "concept_id": "rules/c/ws-31",
+      "status": "unchanged"
+    },
+    "WS-32": {
+      "concept_id": "rules/c/ws-32",
+      "status": "unchanged"
+    },
+    "REST-19": {
+      "concept_id": "rules/c/rest-19",
+      "status": "unchanged"
+    },
+    "REST-20": {
+      "concept_id": "rules/c/rest-20",
+      "status": "unchanged"
+    },
+    "REST-21": {
+      "concept_id": "rules/c/rest-21",
+      "status": "unchanged"
+    },
+    "WS-33": {
+      "concept_id": "rules/c/ws-33",
+      "status": "unchanged"
+    },
+    "WS-34": {
+      "concept_id": "rules/c/ws-34",
+      "status": "unchanged"
+    },
+    "WS-35": {
+      "concept_id": "rules/c/ws-35",
+      "status": "unchanged"
+    },
+    "CLI-15": {
+      "concept_id": "rules/c/cli-15",
+      "status": "unchanged"
+    },
+    "CLI-16": {
+      "concept_id": "rules/c/cli-16",
+      "status": "unchanged"
+    },
+    "CLI-17": {
+      "concept_id": "rules/c/cli-17",
+      "status": "unchanged"
+    },
+    "GRPC-20": {
+      "concept_id": "rules/c/grpc-20",
+      "status": "unchanged"
+    },
+    "GRPC-21": {
+      "concept_id": "rules/c/grpc-21",
+      "status": "unchanged"
+    },
+    "GRPC-22": {
+      "concept_id": "rules/c/grpc-22",
+      "status": "unchanged"
+    },
+    "MCP-22": {
+      "concept_id": "rules/c/mcp-22",
+      "status": "unchanged"
+    },
+    "MCP-23": {
+      "concept_id": "rules/c/mcp-23",
+      "status": "unchanged"
+    },
+    "MCP-24": {
+      "concept_id": "rules/c/mcp-24",
+      "status": "unchanged"
+    },
+    "MCP-25": {
+      "concept_id": "rules/c/mcp-25",
+      "status": "unchanged"
+    },
+    "MCP-26": {
+      "concept_id": "rules/c/mcp-26",
+      "status": "unchanged"
+    },
+    "MCP-27": {
+      "concept_id": "rules/c/mcp-27",
+      "status": "unchanged"
+    },
+    "A2A-25": {
+      "concept_id": "rules/c/a2a-25",
+      "status": "unchanged"
+    },
+    "A2A-26": {
+      "concept_id": "rules/c/a2a-26",
+      "status": "unchanged"
+    },
+    "A2A-27": {
+      "concept_id": "rules/c/a2a-27",
+      "status": "unchanged"
+    },
+    "A2A-28": {
+      "concept_id": "rules/c/a2a-28",
+      "status": "unchanged"
+    },
+    "A2A-29": {
+      "concept_id": "rules/c/a2a-29",
+      "status": "unchanged"
+    },
+    "A2A-30": {
+      "concept_id": "rules/c/a2a-30",
+      "status": "unchanged"
+    },
+    "IMP-01": {
+      "concept_id": "rules/c/imp-01",
+      "status": "unchanged"
+    },
+    "IMP-02": {
+      "concept_id": "rules/c/imp-02",
+      "status": "unchanged"
+    },
+    "IMP-03": {
+      "concept_id": "rules/c/imp-03",
+      "status": "unchanged"
+    },
+    "IMP-04": {
+      "concept_id": "rules/c/imp-04",
+      "status": "unchanged"
+    },
+    "IMP-05": {
+      "concept_id": "rules/c/imp-05",
+      "status": "unchanged"
+    },
+    "IMP-06": {
+      "concept_id": "rules/c/imp-06",
+      "status": "unchanged"
+    },
+    "IMP-07": {
+      "concept_id": "rules/c/imp-07",
+      "status": "unchanged"
+    },
+    "IMP-08": {
+      "concept_id": "rules/c/imp-08",
+      "status": "unchanged"
+    },
+    "IMP-09": {
+      "concept_id": "rules/c/imp-09",
+      "status": "unchanged"
+    },
+    "IMP-10": {
+      "concept_id": "rules/c/imp-10",
+      "status": "unchanged"
+    },
+    "IMP-11": {
+      "concept_id": "rules/c/imp-11",
+      "status": "unchanged"
+    },
+    "IMP-12": {
+      "concept_id": "rules/c/imp-12",
+      "status": "unchanged"
+    },
+    "INV-06": {
+      "concept_id": "rules/c/inv-06",
+      "status": "unchanged"
+    },
+    "FREE-01": {
+      "concept_id": "rules/g/free-01",
+      "status": "unchanged"
+    },
+    "FREE-02": {
+      "concept_id": "rules/g/free-02",
+      "status": "unchanged"
+    },
+    "FREE-03": {
+      "concept_id": "rules/g/free-03",
+      "status": "unchanged"
+    },
+    "FREE-04": {
+      "concept_id": "rules/g/free-04",
+      "status": "unchanged"
+    },
+    "FREE-05": {
+      "concept_id": "rules/g/free-05",
+      "status": "unchanged"
+    },
+    "FREE-06": {
+      "concept_id": "rules/g/free-06",
+      "status": "unchanged"
+    },
+    "FREE-07": {
+      "concept_id": "rules/g/free-07",
+      "status": "unchanged"
+    },
+    "FREE-08": {
+      "concept_id": "rules/g/free-08",
+      "status": "unchanged"
+    },
+    "FREE-09": {
+      "concept_id": "rules/g/free-09",
+      "status": "unchanged"
+    },
+    "FREE-10": {
+      "concept_id": "rules/g/free-10",
+      "status": "unchanged"
+    },
+    "FREE-11": {
+      "concept_id": "rules/g/free-11",
+      "status": "unchanged"
+    },
+    "FREE-12": {
+      "concept_id": "rules/g/free-12",
+      "status": "unchanged"
+    },
+    "FREE-13": {
+      "concept_id": "rules/g/free-13",
+      "status": "unchanged"
+    },
+    "VER-01": {
+      "concept_id": "rules/g/ver-01",
+      "status": "unchanged"
+    },
+    "VER-02": {
+      "concept_id": "rules/g/ver-02",
+      "status": "unchanged"
+    },
+    "VER-03": {
+      "concept_id": "rules/g/ver-03",
+      "status": "unchanged"
+    },
+    "VER-04": {
+      "concept_id": "rules/g/ver-04",
+      "status": "unchanged"
+    },
+    "VER-05": {
+      "concept_id": "rules/g/ver-05",
+      "status": "unchanged"
+    },
+    "VER-06": {
+      "concept_id": "rules/g/ver-06",
+      "status": "unchanged"
+    },
+    "FREE-14": {
+      "concept_id": "rules/g/free-14",
+      "status": "added"
+    },
+    "FREE-15": {
+      "concept_id": "rules/g/free-15",
+      "status": "added"
+    },
+    "FREE-16": {
+      "concept_id": "rules/g/free-16",
+      "status": "added"
+    },
+    "OP-AUTH-06": {
+      "concept_id": "rules/c/op-auth-06",
+      "status": "added"
+    },
+    "OPS-19": {
+      "concept_id": "rules/c/ops-19",
+      "status": "added"
+    },
+    "OP-AUTH-07": {
+      "concept_id": "rules/c/op-auth-07",
+      "status": "added"
+    },
+    "OP-IDEM-11": {
+      "concept_id": "rules/c/op-idem-11",
+      "status": "added"
+    },
+    "CONF-66": {
+      "concept_id": "rules/p/conf-66",
+      "status": "added"
+    },
+    "OP-TX-07": {
+      "concept_id": "rules/c/op-tx-07",
+      "status": "added"
+    },
+    "OP-IDEM-12": {
+      "concept_id": "rules/c/op-idem-12",
+      "status": "added"
+    },
+    "CONF-67": {
+      "concept_id": "rules/p/conf-67",
+      "status": "added"
+    },
+    "DOC-18": {
+      "concept_id": "rules/c/doc-18",
+      "status": "added"
+    },
+    "OP-13": {
+      "concept_id": "rules/c/op-13",
+      "status": "added"
+    },
+    "DOC-19": {
+      "concept_id": "rules/c/doc-19",
+      "status": "added"
+    }
+  },
+  "authorizations": [],
+  "counts": {
+    "unchanged": 462,
+    "updated": 24,
+    "added": 14,
+    "retired": 0
+  },
+  "ledger_sha256": "71067efdf5ef75fa506a684b86a4e90df0cfe39de1e2c445d564523b1f3f396b"
+}

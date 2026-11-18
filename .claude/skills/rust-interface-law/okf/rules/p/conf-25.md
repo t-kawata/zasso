@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "CONF-25 — A replay re-authorizes before returning the stored result."
-description: "A replay re-authorizes before returning the stored result."
+title: "CONF-25 — A replay MUST re-authorize the current caller before returning the stored result. A re-authorization failure MUST return an authorization error and MUST NOT execute `prepare` or `execute`."
+description: "A replay MUST re-authorize the current caller before returning the stored result. A re-authorization failure MUST return an authorization error and MUST NOT execute `prepare` or `execute`."
 sources: 
   - resource: "sources/40-CONFORMANCE.md"
     id: "conf-25"
@@ -26,7 +26,7 @@ x-verification: "V3 test."
 ---
 # CONF-25
 
-A replay re-authorizes before returning the stored result.
+A replay MUST re-authorize the current caller before returning the stored result. A re-authorization failure MUST return an authorization error and MUST NOT execute `prepare` or `execute`.
 
 | Field | Value |
 |---|---|

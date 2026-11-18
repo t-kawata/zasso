@@ -1,0 +1,34 @@
+{
+  "schema": "revision-policy/v1",
+  "id_policy": "append",
+  "allow_rename_rule": false,
+  "directives": [
+    {
+      "id": "UPDATE001-NO-APPROVAL",
+      "directive": "This revision MUST NOT add judgment-recording, approval-waiting, or human-confirmation procedures; it defines only what the norm closes and what implementation judgment decides.",
+      "evidence": {
+        "line": 13,
+        "line_sha256": "f3b32f6bc6aa9e27e357e9a2632b33465267ad7c86104c053606d697eb4e2921"
+      }
+    },
+    {
+      "id": "UPDATE001-ALIGN",
+      "directive": "A rule change MUST align the rule body, shared API, registry, applicable profile, and conformance expectations in the same revision. A new rule ID MUST be assigned only to an obligation that existing IDs cannot express as a specialization.",
+      "evidence": {
+        "line": 100,
+        "line_sha256": "d0d4e8fcef7e8dbf7159029cd4f64945530cbfad6baa9c6e17cd9a31dae3afd3"
+      }
+    }
+  ],
+  "completion_criteria": [
+    {
+      "id": "UPDATE001-COMPLETION",
+      "criterion": "For the same input and the same declared profile, two conforming implementations MUST NOT disagree on authorization, retry, commit, or client compatibility. Storage, internal structure, execution method, optimization, and profile-declared choices MAY differ.",
+      "conformance_target": "CONF-25,CONF-47,CONF-48,CONF-65,CONF-66,CONF-67",
+      "evidence": {
+        "line": 102,
+        "line_sha256": "a74a82bd1269d31a9788d6971b38e7b0f5582c4dd123de391b9e6f3fb103f5cf"
+      }
+    }
+  ]
+}

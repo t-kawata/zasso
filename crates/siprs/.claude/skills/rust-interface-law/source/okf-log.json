@@ -2,6 +2,10 @@
   "schema": "okf-log/v1",
   "entries": [
     {
+      "date": "2026-11-18",
+      "text": "Applied update 0.4.0."
+    },
+    {
       "date": "2026-11-14",
       "text": "Generated 486 rule concepts and 565 section concepts."
     }

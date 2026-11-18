@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "MCP-21 — Every tool result carries the operation's `request_id` in a machine-readable field."
-description: "Every tool result carries the operation's `request_id` in a machine-readable field."
+title: "MCP-21 — Every tool result MUST carry the operation's `request_id` in the location declared by the selected MCP binding."
+description: "Every tool result MUST carry the operation's `request_id` in the location declared by the selected MCP binding."
 sources: 
   - resource: "sources/34-MCP.md"
     id: "mcp-21"
@@ -26,7 +26,7 @@ x-verification: "V3 test."
 ---
 # MCP-21
 
-Every tool result carries the operation's `request_id` in a machine-readable field.
+Every tool result MUST carry the operation's `request_id` in the location declared by the selected MCP binding.
 
 | Field | Value |
 |---|---|

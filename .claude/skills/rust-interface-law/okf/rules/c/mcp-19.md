@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "MCP-19 — `McpConfig` records the adopted protocol version, transport profile, and capabilities."
-description: "`McpConfig` records the adopted protocol version, transport profile, and capabilities."
+title: "MCP-19 — `McpConfig` MUST record the adopted protocol version, transport profile, and capabilities, and MUST declare a binding for the selected profile that fixes operation-to-tool selection, success and failure representation, correlation location, and lifecycle mapping."
+description: "`McpConfig` MUST record the adopted protocol version, transport profile, and capabilities, and MUST declare a binding for the selected profile that fixes operation-to-tool selection, success and failure representation, correlation location, and lifecycle mapping."
 sources: 
   - resource: "sources/34-MCP.md"
     id: "mcp-19"
@@ -26,7 +26,7 @@ x-verification: "V2 config check."
 ---
 # MCP-19
 
-`McpConfig` records the adopted protocol version, transport profile, and capabilities.
+`McpConfig` MUST record the adopted protocol version, transport profile, and capabilities, and MUST declare a binding for the selected profile that fixes operation-to-tool selection, success and failure representation, correlation location, and lifecycle mapping.
 
 | Field | Value |
 |---|---|

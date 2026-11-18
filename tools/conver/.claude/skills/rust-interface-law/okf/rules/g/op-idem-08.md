@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OP-IDEM-08 — A claim carries a generation and fencing token; `complete`, `fail`, and `renew` reject a stale owner."
-description: "A claim carries a generation and fencing token; `complete`, `fail`, and `renew` reject a stale owner."
+title: "OP-IDEM-08 — A claim carries a generation and fencing token; `complete`, `fail`, and `renew` MUST reject a stale owner. Persistence MUST reject a commit from a stale generation or fencing token."
+description: "A claim carries a generation and fencing token; `complete`, `fail`, and `renew` MUST reject a stale owner. Persistence MUST reject a commit from a stale generation or fencing token."
 sources: 
   - resource: "sources/21-OPERATION.md"
     id: "op-idem-08"
@@ -26,7 +26,7 @@ x-verification: "V3 test."
 ---
 # OP-IDEM-08
 
-A claim carries a generation and fencing token; `complete`, `fail`, and `renew` reject a stale owner.
+A claim carries a generation and fencing token; `complete`, `fail`, and `renew` MUST reject a stale owner. Persistence MUST reject a commit from a stale generation or fencing token.
 
 | Field | Value |
 |---|---|

@@ -1,0 +1,8 @@
+{
+  "schema": "law-build-identity/v1",
+  "skill": "rust-interface-law",
+  "version": "0.4.0",
+  "baseline_version": "0.3.2",
+  "baseline_digest": "812891c8891ba31ec875bd35aadd28205fb7c7eb2130d3e140e44f9915b6d574",
+  "revision_sha256": "a6aa47dbbe59bc87af5ee438be5b15162291ff9b58eeff8c3fb790726b0b1c32"
+}

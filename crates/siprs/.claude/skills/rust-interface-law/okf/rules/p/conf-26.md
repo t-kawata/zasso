@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "CONF-26 — Same key with a different canonical request returns conflict."
-description: "Same key with a different canonical request returns conflict."
+title: "CONF-26 — The same key with a different canonical request hash MUST return a conflict."
+description: "The same key with a different canonical request hash MUST return a conflict."
 sources: 
   - resource: "sources/40-CONFORMANCE.md"
     id: "conf-26"
@@ -26,7 +26,7 @@ x-verification: "V3 test."
 ---
 # CONF-26
 
-Same key with a different canonical request returns conflict.
+The same key with a different canonical request hash MUST return a conflict.
 
 | Field | Value |
 |---|---|

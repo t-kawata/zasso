@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OP-IDEM-03 — `same-transaction` stores the result in the business commit."
-description: "`same-transaction` stores the result in the business commit."
+title: "OP-IDEM-03 — `same-transaction` MUST store the idempotency completion, business mutation, authorized target, and outbox intent in one business commit."
+description: "`same-transaction` MUST store the idempotency completion, business mutation, authorized target, and outbox intent in one business commit."
 sources: 
   - resource: "sources/21-OPERATION.md"
     id: "op-idem-03"
@@ -26,7 +26,7 @@ x-verification: "V3 crash test."
 ---
 # OP-IDEM-03
 
-`same-transaction` stores the result in the business commit.
+`same-transaction` MUST store the idempotency completion, business mutation, authorized target, and outbox intent in one business commit.
 
 | Field | Value |
 |---|---|

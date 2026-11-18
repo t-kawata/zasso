@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OP-IDEM-02 — `claim` is atomic; concurrent claims produce one `Acquired`."
-description: "`claim` is atomic; concurrent claims produce one `Acquired`."
+title: "OP-IDEM-02 — `claim` MUST be keyed by namespace, key, canonical request hash, and lease. It MUST be atomic, MUST NOT require an authorized target, and MUST produce exactly one `Acquired` for concurrent claims."
+description: "`claim` MUST be keyed by namespace, key, canonical request hash, and lease. It MUST be atomic, MUST NOT require an authorized target, and MUST produce exactly one `Acquired` for concurrent claims."
 sources: 
   - resource: "sources/21-OPERATION.md"
     id: "op-idem-02"
@@ -26,7 +26,7 @@ x-verification: "V3 concurrency test."
 ---
 # OP-IDEM-02
 
-`claim` is atomic; concurrent claims produce one `Acquired`.
+`claim` MUST be keyed by namespace, key, canonical request hash, and lease. It MUST be atomic, MUST NOT require an authorized target, and MUST produce exactly one `Acquired` for concurrent claims.
 
 | Field | Value |
 |---|---|

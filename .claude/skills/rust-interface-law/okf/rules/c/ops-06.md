@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OPS-06 — No side effect MAY occur before authorization succeeds."
-description: "No side effect MAY occur before authorization succeeds."
+title: "OPS-06 — No business state change or external business effect MAY occur before authorization succeeds. Execution-control metadata such as a claim MAY be recorded before authorization; a claim alone MUST NOT authorize a business change."
+description: "No business state change or external business effect MAY occur before authorization succeeds. Execution-control metadata such as a claim MAY be recorded before authorization; a claim alone MUST NOT authorize a business change."
 sources: 
   - resource: "sources/15-RULE-REGISTRY.md"
     id: "ops-06"
@@ -27,7 +27,7 @@ x-verification: "V3 failure-injection test."
 ---
 # OPS-06
 
-No side effect MAY occur before authorization succeeds.
+No business state change or external business effect MAY occur before authorization succeeds. Execution-control metadata such as a claim MAY be recorded before authorization; a claim alone MUST NOT authorize a business change.
 
 | Field | Value |
 |---|---|

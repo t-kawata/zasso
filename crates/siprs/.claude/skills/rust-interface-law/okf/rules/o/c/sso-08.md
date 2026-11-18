@@ -18,7 +18,7 @@ x-enforcement: "negative-auth suite"
 x-parent: "SSO"
 x-phase: "operation"
 x-requires: [rules/c/arc-01, rules/o/app-01]
-x-rule-class: "O/C"
+x-rule-class: "C"
 x-rule-id: "SSO-08"
 x-source-part: "Part II"
 x-source-span: "391-391"

@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "CONF-48 — Same-transaction completion, business mutation, and outbox intent are atomic; a crash after commit recovers both the result and the event."
-description: "Same-transaction completion, business mutation, and outbox intent are atomic; a crash after commit recovers both the result and the event."
+title: "CONF-48 — Same-transaction completion, business mutation, authorized target, and outbox intent MUST be atomic; a rollback leaves none of them, and a crash after commit recovers both the result and the event."
+description: "Same-transaction completion, business mutation, authorized target, and outbox intent MUST be atomic; a rollback leaves none of them, and a crash after commit recovers both the result and the event."
 sources: 
   - resource: "sources/40-CONFORMANCE.md"
     id: "conf-48"
@@ -26,7 +26,7 @@ x-verification: "V3 crash test."
 ---
 # CONF-48
 
-Same-transaction completion, business mutation, and outbox intent are atomic; a crash after commit recovers both the result and the event.
+Same-transaction completion, business mutation, authorized target, and outbox intent MUST be atomic; a rollback leaves none of them, and a crash after commit recovers both the result and the event.
 
 | Field | Value |
 |---|---|

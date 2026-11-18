@@ -2,7 +2,7 @@
   "schema": "law-source-coverage/v3",
   "counts": {
     "headings": 325,
-    "ruleRows": 457,
+    "ruleRows": 471,
     "concepts": 325,
     "aliases": 7,
     "nonNormative": 0,

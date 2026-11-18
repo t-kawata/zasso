@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OP-IDEM-09 — `same-transaction` requires `ExecutionScope::complete` before `uow.commit`; the dispatcher verifies completion."
-description: "`same-transaction` requires `ExecutionScope::complete` before `uow.commit`; the dispatcher verifies completion."
+title: "OP-IDEM-09 — For `same-transaction`, the unit of work that commits the business change MUST include idempotency completion and outbox intent in the same transaction. The dispatcher MUST NOT finalize a `same-transaction` success outside that transaction."
+description: "For `same-transaction`, the unit of work that commits the business change MUST include idempotency completion and outbox intent in the same transaction. The dispatcher MUST NOT finalize a `same-transaction` success outside that transaction."
 sources: 
   - resource: "sources/21-OPERATION.md"
     id: "op-idem-09"
@@ -26,7 +26,7 @@ x-verification: "V3 crash test."
 ---
 # OP-IDEM-09
 
-`same-transaction` requires `ExecutionScope::complete` before `uow.commit`; the dispatcher verifies completion.
+For `same-transaction`, the unit of work that commits the business change MUST include idempotency completion and outbox intent in the same transaction. The dispatcher MUST NOT finalize a `same-transaction` success outside that transaction.
 
 | Field | Value |
 |---|---|

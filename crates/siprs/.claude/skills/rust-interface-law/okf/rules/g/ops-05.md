@@ -1,7 +1,7 @@
 ---
 type: "Rule"
-title: "OPS-05 — The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` then execute) → commit/outbox → result/reply."
-description: "The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` then execute) → commit/outbox → result/reply."
+title: "OPS-05 — The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` for target resolution and authorization, then `execute`) → commit/outbox → result/reply."
+description: "The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` for target resolution and authorization, then `execute`) → commit/outbox → result/reply."
 sources: 
   - resource: "sources/15-RULE-REGISTRY.md"
     id: "ops-05"
@@ -26,7 +26,7 @@ x-verification: "V3 instrumented pipeline test."
 ---
 # OPS-05
 
-The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` then execute) → commit/outbox → result/reply.
+The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` for target resolution and authorization, then `execute`) → commit/outbox → result/reply.
 
 | Field | Value |
 |---|---|

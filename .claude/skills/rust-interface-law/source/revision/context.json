@@ -1,0 +1,72 @@
+{
+  "schema": "revision-context/v1",
+  "skill": "rust-interface-law",
+  "role": "law-revision",
+  "adapter": "law",
+  "baseline_path": null,
+  "baseline_version": "0.3.2",
+  "version": "0.4.0",
+  "date": "2026-11-18",
+  "language": "ja",
+  "id_policy": "append",
+  "allow_rename_rule": false,
+  "external_approval": null,
+  "statements": [
+    "Idempotency for anonymous operations is opt-in and keyed by peer plus operation. Anonymous replay MUST be declared per operation, MUST NOT receive an authenticated context, and MUST NOT reuse the authenticated replay path.",
+    "A replay MUST re-authorize the current caller before returning the stored result. A re-authorization failure MUST return an authorization error and MUST NOT execute `prepare` or `execute`.",
+    "A replay after a successful delete, create, or approve MUST return the stored result with current authorization, not a state-precondition error, only when the current caller is authorized.",
+    "Generated validation MUST run before the idempotency claim for both replay and new requests; replay MUST call `replay_authorize` and MUST NOT call `prepare` or `execute`.",
+    "`claim` MUST be keyed by namespace, key, canonical request hash, and lease. It MUST be atomic, MUST NOT require an authorized target, and MUST produce exactly one `Acquired` for concurrent claims.",
+    "The execution pipeline MUST follow this order: decode/size → authenticate or establish anonymity → authentication requirement → scope → deadline/admission → generated input validation → idempotency claim → replay branch (`replay_authorize` then stored result) or acquire branch (`prepare` for target resolution and authorization, then `execute`) → commit/outbox → result/reply.",
+    "`prepare` performs target resolution, validation, and authorization; it has no business side effect. A failed `prepare` MUST leave no replayable success result and MUST fail or release the claim.",
+    "No business state change or external business effect MAY occur before authorization succeeds. Execution-control metadata such as a claim MAY be recorded before authorization; a claim alone MUST NOT authorize a business change.",
+    "Concurrent claims for the same namespace and key MUST produce one execution.",
+    "The same key with a different canonical request hash MUST return a conflict.",
+    "For `same-transaction`, the unit of work that commits the business change MUST include idempotency completion and outbox intent in the same transaction. The dispatcher MUST NOT finalize a `same-transaction` success outside that transaction.",
+    "`same-transaction` MUST store the idempotency completion, business mutation, authorized target, and outbox intent in one business commit.",
+    "A claim carries a generation and fencing token; `complete`, `fail`, and `renew` MUST reject a stale owner. Persistence MUST reject a commit from a stale generation or fencing token.",
+    "`external` uses a lease and `recover_expired`. Its lease updates and forward recovery MUST remain distinct from `same-transaction` and MUST NOT be described as providing the same atomicity.",
+    "An expired lease owner MUST NOT complete or commit after a new owner acquires the claim.",
+    "Same-transaction completion, business mutation, authorized target, and outbox intent MUST be atomic; a rollback leaves none of them, and a crash after commit recovers both the result and the event.",
+    "The common invocation and result model MUST define the operation input, invocation context, correlation identifier, and success or failure meaning. Each binding MUST define its wire or CLI representation; one JSON shape MUST NOT be required for every protocol.",
+    "Every operation response MUST carry the operation's `request_id`; streaming messages MUST carry a correlation identifier. A protocol rejection before the operation is invoked MUST follow that protocol's own correlation rule.",
+    "`McpConfig` MUST record the adopted protocol version, transport profile, and capabilities, and MUST declare a binding for the selected profile that fixes operation-to-tool selection, success and failure representation, correlation location, and lifecycle mapping.",
+    "`A2aConfig` MUST record the adopted protocol version, transport profile, and capabilities, and MUST declare a binding for the selected profile that fixes operation-to-skill or message selection, success and failure representation, correlation location, and lifecycle mapping.",
+    "Every tool result MUST carry the operation's `request_id` in the location declared by the selected MCP binding.",
+    "Every task artifact MUST carry the operation's `request_id` in the location declared by the selected A2A binding.",
+    "External accounts MUST be stored in `external_identities` with `UNIQUE(issuer, subject)`. Business tables MUST NOT store external provider IDs.",
+    "Adding SSO MUST change only: the `identity-sso` crate, authentication adapters, assembly wiring, configuration, and `external_identities`. Business operations, `VerifiedIdentity`, and business tables MUST remain unchanged.",
+    "A contract MUST define the responsibilities, observable guarantees, and verification conditions at its shared boundary. It MUST NOT prescribe implementation choices that do not affect those guarantees.",
+    "Implementers MUST resolve unspecified details, ambiguities, and local inconsistencies using rule precedence, design intent, compatibility requirements, and safety invariants, and MUST carry the resolution through implementation and verification. The resolution SHOULD change the fewest shared guarantees and preserve legitimate extension points.",
+    "Where a choice affects interoperability within a declared profile, the profile or binding MUST specify that choice. Otherwise, conforming implementations MAY differ.",
+    "`ErasedAuthenticatedOperation` MUST expose `replay_authorize` and delegate to `Operation::replay_authorize` with the typed signature.",
+    "On `ClaimOutcome::Replay` the dispatcher MUST call `replay_authorize` and MUST NOT call `prepare_validated` or `execute`; it MUST return the stored result only after authorization succeeds.",
+    "Replay authorization MUST evaluate the current caller. A recorded target identifies the resource being authorized and MUST NOT be treated as evidence that the original executor was permitted.",
+    "An in-flight claim record MAY have an undetermined authorization target. A replayable result MUST carry the target information required for re-authorization; an undetermined or placeholder target MUST NOT be stored.",
+    "A claim whose authorization target is not finalized MUST NOT return a stored result.",
+    "A committed same-transaction result and its outbox intent MUST be recoverable after a crash. A rollback MUST leave no business change, completion result, or outbox intent.",
+    "For `same-transaction`, completion MUST be owned by the unit of work and MUST NOT be performed by a synchronous `ExecutionScope::complete` or `fail` that implicitly calls the asynchronous store. An `is_completed()` post-check alone MUST NOT be treated as proof of atomicity.",
+    "For each implemented profile, conformance MUST verify that the representation conforms to the protocol and maps to the common invocation and result model. Byte equality across protocols MUST NOT be required.",
+    "Interface documentation and conformance MUST read the binding declaration as the source of truth for protocol version, transport, capabilities, correlation location, and lifecycle mapping; one SDK or correlation location MUST NOT be imposed across profiles.",
+    "Project operation types MUST use the types provided by `operation-contract`; a project MUST register its operations and wire them in the assembly. Shared type placement is defined by Part III.2.",
+    "Rule ranges in index sections MUST be generated from the rule registry. Hand-written ranges MUST NOT be used; the index MUST reference Part III.12 and Part III.15 instead of duplicating their ranges.",
+    "For the same input and the same declared profile, two conforming implementations MUST NOT disagree on authorization, retry, commit, or client compatibility. Storage, internal structure, execution method, optimization, and profile-declared choices MAY differ."
+  ],
+  "inferences": [
+    {
+      "field": "role",
+      "source": "plan",
+      "value": "law-revision"
+    },
+    {
+      "field": "version",
+      "source": "change-class",
+      "value": "0.4.0"
+    },
+    {
+      "field": "date",
+      "source": "active-ticket",
+      "value": "2026-11-18"
+    }
+  ]
+}
