@@ -758,8 +758,9 @@ flowchart TD
 **Endpoint と完了記録**:
 
 - **境界の skip**: 全チケットが terminal で、`.conver-boundary.json` の ticket-set digest が一致し、consolidate/find が COMPLETE（または `-n` による find の SKIPPED）で、final resolve が済んでいるパッケージは `/consolidate-stubs` と `/find-omissions` を再実行しません。
-- **legacy 完了の adopt**: 全チケットが terminal で、読める `.conver-boundary.json` が無いパッケージは、conver が review を観測していないため境界を実行せず、`completionSource: "legacy"` の完了記録を書いて endpoint にします。`/consolidate-stubs` も `/find-omissions` も走りません。破損・部分書き込みも同じ扱いで、警告だけを出します。
-- **境界が走る条件**: 読める記録が存在し、endpoint でない場合だけ consolidate/find を実行します（final resolve 待ち、IN_PROGRESS、digest 不一致など）。記録の不在を「境界が未実行」と解釈しません。
+- **legacy 完了の adopt**: 全チケットが terminal で、読める `.conver-boundary.json` が無いパッケージ、または boundary が開始済みで未完のパッケージ（`consolidate` / `find` が non-null）は、境界を実行せず `completionSource: "legacy"` の完了記録を書いて endpoint にします。`/consolidate-stubs` も `/find-omissions` も走りません。破損・部分書き込みも同じ扱いで、警告だけを出します。
+- **境界が走る条件**: 全 terminal でも、次は adopt しません — 完了した find の digest が現在の ticket set と不一致（ticket set が変わった）、または boundary が未開始で `lastReviewedAt` / `reviewedSinceResolve` が残っている（review が境界を負っている）場合。この2つだけ consolidate/find を実行します。
+- **起動時の resolve**: パッケージ開始時に `reviewedSinceResolve` が cadence に達していても、未 terminal チケットがあれば最初のチケットコマンドを優先し、resolve はその後の iteration で実行します。全 terminal でチケットコマンドが無い場合のみ resolve が先に走ります。`-r 0` は従来どおり resolve を無効化します。
 - **完了記録**: 各パッケージの `Tickets.json` の隣に `.conver-boundary.json` を置きます。最終 review の ticket key と時刻、`reviewedSinceResolve`、consolidate/find の状態と終了時刻、post-find の ticket-set digest、`completionSource`（`boundary` / `legacy`）と `adoptedAt` を保存します。write は temp file + rename で行い、途中で落ちても古い有効な document を読みます。
 - **watcher の終了**: 選択した全パッケージが endpoint になった時点で scheduler を止め、exit 0 で終了します。`-P` で明示選択した場合は、未完了の先行パッケージがあっても何も処理しないため、endpoint 判定を ORDER_CROSSING より先に行います。`-P` を指定しない場合はワークスペース全体が endpoint になったときに終了します。
 - **境界 Slack**: consolidate と find の完了時に 1 通だけ、`[workspace] package consolidate HH:mm / find HH:mm TZ (last: KEY) — added N` を送ります。find が追加したチケットがあれば `added N` で示し、`-n 1` で find を省略した場合は `find skipped` と表示します。

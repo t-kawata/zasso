@@ -1216,33 +1216,94 @@ describe("runPackageLoop — unfinished find recovery", () => {
     );
   });
 
-  it("C001: a boundary IN_PROGRESS is resumed without the invalid-status notice", async () => {
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("C004: adopts an all-terminal package with an interrupted find", async () => {
     const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
     const fixture = writeFixture(data);
     writeBoundaryState(fixture.directory, boundaryFor(data, "IN_PROGRESS"));
-    const recorded: Recorded = {
-      sessions: [],
-      commands: [],
-      phases: [],
-      stops: [],
-      boundaries: [],
-    };
+    const recorded = emptyRecorded();
+
+    const processed = await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advanceStatus),
+    );
+
+    assert.strictEqual(processed, 0);
+    assert.deepStrictEqual(recorded.commands, []);
+    assert.strictEqual(
+      completionSourceOf(readBoundaryState(fixture.directory)),
+      "legacy",
+    );
+  });
+
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("C004: adopts an all-terminal package whose consolidate completed and find never started", async () => {
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryFor(data, null));
+    const recorded = emptyRecorded();
+
+    const processed = await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advanceStatus),
+    );
+
+    assert.strictEqual(processed, 0);
+    assert.deepStrictEqual(recorded.commands, []);
+    assert.strictEqual(
+      completionSourceOf(readBoundaryState(fixture.directory)),
+      "legacy",
+    );
+  });
+
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("C004: a completed find with a stale digest still runs consolidate and find", async () => {
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, {
+      ...endpointStateFor(data),
+      ticketSetDigest: "sha256:stale",
+    });
+    const recorded = emptyRecorded();
 
     await runPackageLoop(
       fixture.packageEntry,
       options(),
-      deps(fixture, recorded, advanceStatus, {
-        detectUnfinishedFind: async () => ({
-          unfinished: true,
-          evidence: [{ kind: "boundary" }],
-        }),
-      }),
+      deps(fixture, recorded, advanceStatus),
     );
 
-    assert.strictEqual(recorded.stops.length, 0);
-    assert.strictEqual(recorded.findUnfinished?.length, 1);
-    const findCommands = findCommandsOf(recorded);
-    assert.strictEqual(findCommands.length, 1);
-    assert.ok(findCommands[0]?.includes(FIND_RESUME_DIRECTIVE));
+    const commands = recorded.commands.map((entry) => entry.command);
+    const consolidateIndex = commands.indexOf("/consolidate-stubs");
+    const findIndex = commands.indexOf("/find-omissions");
+    assert.ok(consolidateIndex >= 0);
+    assert.ok(findIndex > consolidateIndex);
+  });
+
+  // [::TICKET::] PX-448 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-448 --for-spec --no-implementation-order`.
+  it("C001: starts with the ticket command when a durable resolve is pending", async () => {
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "planned" }] }]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, {
+      ...createBoundaryState("pkg-fixture"),
+      lastReviewedTicketKey: "P0-1",
+      lastReviewedAt: "1970-01-01T00:00:00.000Z",
+      reviewedSinceResolve: 4,
+    });
+    const recorded = emptyRecorded();
+
+    await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advanceStatus),
+    );
+
+    const commands = recorded.commands.map((entry) => entry.command);
+    assert.strictEqual(commands[0], "/start-ticket P0-1");
+    const resolveIndex = commands.findIndex((command) =>
+      command.startsWith("/resolve-ticket"),
+    );
+    assert.ok(resolveIndex > 0, `commands: ${commands.join(", ")}`);
   });
 });

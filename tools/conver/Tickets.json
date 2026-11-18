@@ -69923,23 +69923,24 @@
         {
           "id": 446,
           "phaseId": -1,
-          "status": "todo",
+          "status": "reviewed",
           "title": "Adopt a pre-existing terminal package without running its boundary",
           "specPath": "~/shyme/zasso/tools/conver/specs/PX-446.md",
-          "background": "### Goal\nA package whose every ticket is terminal when conver first reads it must never execute /consolidate-stubs or /find-omissions, even when no .conver-boundary.json exists. conver records the package as a legacy completion and treats it as an endpoint.\n\n### Purpose\nThe durable boundary record is proof that conver observed the reviews and owes a boundary. Its absence is not proof that the boundary is pending. A package completed before PX-413, completed on another machine whose record was not carried over, or completed outside conver has no record; today the loop misreads that absence as \"run the boundary once\" and starts an expensive, non-idempotent find against a completed package.\n\n### Motivation\nOn 2026-11-18 a conver run over crystal started /find-omissions for crystal-protocol-types. The package's 17 tickets had been terminal since 2026-11-12 and its omission artifacts already existed. The same condition affects crystal-adapter-clock, crystal-adapter-current-authority and gaia-foundation. Completed packages must not execute find.\n\n### Constraints\nThe adoption decision must be deterministic from Tickets.json plus the presence/readability of .conver-boundary.json; no network, no clock-dependent branch. Adoption must not rewrite Tickets.json. A valid boundary record still governs: a non-endpoint record (pending resolve, IN_PROGRESS command, digest mismatch) runs the boundary as before. A review observed by conver after adoption invalidates the adoption and restores the normal boundary path. No new runtime dependency. TDD Red-Green-Refactor is mandatory.",
+          "background": "### Goal\nA package whose every ticket is terminal when conver first reads it must never execute /consolidate-stubs or /find-omissions, even when no .conver-boundary.json exists or when the record shows an interrupted boundary. conver records the package as a legacy completion and treats it as an endpoint.\n\n### Purpose\nThe durable boundary record is proof that conver observed the reviews and owes a boundary. Its absence, or an incomplete record, is not proof that the implementation is pending. A package completed before PX-413, completed on another machine whose record was not carried over, completed outside conver, or left with an interrupted boundary has no completed boundary record; today the loop resumes or reruns the boundary before moving to the first package with real work.\n\n### Motivation\nOn 2026-11-18 a conver run over crystal started /find-omissions for crystal-protocol-types. Later, crystal-adapter-clock had consolidate: COMPLETE and find: IN_PROGRESS; the next start resumed its find instead of reaching crystal-core P1-9. Completed packages must not execute find, and an interrupted boundary must not preempt the first pending ticket of the workspace.\n\n### Constraints\nThe adoption decision is deterministic from Tickets.json plus the boundary record; no network, no clock-dependent branch. Adoption must not rewrite Tickets.json. A completed find whose digest differs from the current ticket set still runs the boundary. A readable record with no started boundary and a review timestamp or pending resolve is not adopted. A review observed by conver after adoption invalidates the adoption. No new runtime dependency. TDD Red-Green-Refactor is mandatory.",
           "scope": [
             "boundary-state.ts: legacy completion source, constructor and endpoint branch",
             "boundary-state.test.ts: constructor, predicate and invalidation unit tests",
-            "runner.ts: adopt before clearForNextRound when no readable state exists and every ticket is terminal",
-            "runner.test.ts: adoption, idempotence, unreadable-state, watcher-endpoint and boundary-still-runs tests",
+            "runner.ts: adopt before clearForNextRound when the ticket set is terminal and the boundary did not complete for it: missing, unreadable, or interrupted",
+            "runner.test.ts: adoption, idempotence, unreadable-state, interrupted-boundary, watcher-endpoint and boundary-still-runs tests",
             "README.md: endpoint and adoption rule"
           ],
           "acceptanceCriteria": [
             "An all-terminal package with no boundary state executes zero commands, writes a legacy completion record with the current ticket-set digest, leaves Tickets.json byte-identical, and is endpoint on every later call.",
+            "An all-terminal package whose record shows a started but incomplete boundary adopts the same way and executes zero commands.",
             "An all-terminal package with an unreadable boundary state adopts the same way and logs a warning; it never executes find.",
-            "An all-terminal package with a readable non-endpoint boundary state still runs consolidate and find.",
-            "An empty ticket set adopts without running the boundary.",
-            "A later review clears the legacy source and restores the boundary path.",
+            "An all-terminal package with a completed find whose digest differs from the current ticket set still runs consolidate and find.",
+            "An all-terminal package with no started boundary and a review timestamp still runs its resolve and boundary.",
+            "An empty ticket set adopts without running the boundary. A later review clears the legacy source and restores the boundary path.",
             "runWorkspaceLoop reports allSelectedComplete: true after adopting a pre-existing terminal package."
           ],
           "testUnit": [
@@ -69947,18 +69948,36 @@
             "isPackageEndpoint is true for a matching legacy record and false for a changed digest or a non-terminal ticket",
             "markReviewed invalidates a legacy record and the endpoint predicate becomes false",
             "A legacy record round-trips through writeBoundaryState and readBoundaryState",
-            "A readable pending state is not adopted",
-            "An unreadable state is treated as no record and adopted when the ticket set is terminal"
+            "An interrupted-find or consolidate-only record is adopted",
+            "A completed find with a stale digest is not adopted",
+            "A readable record with no started boundary and a review timestamp is not adopted",
+            "An unreadable state is treated as no record and adopted when the ticket set is terminal",
+            "UT: C001 precondition Tickets.json parses every ticket is terminal and readBoundaryState returns null missing or unreadable. postcondition runPackageLoop executes zero commands does not rewrite Tickets.json writes a legacy completion record with the current digest and returns processed = 0. invariant The legacy record is endpoint only while the digest matches and the ticket set stays terminal.\n  ```ts\n  const state = readBoundaryState(fixture.directory);\n  assert.equal(completionSourceOf(state), \"legacy\");\n  ```",
+            "UT: C002 precondition A readable boundary state exists its completed find digest differs from the current ticket set or it has no started boundary but a review timestamp. postcondition The loop follows the existing command order and runs consolidate and find it never adopts. invariant A completed find with a stale digest or a review-created pending boundary still runs the boundary.\n  ```ts\n  const commands = recorded.commands.map((entry) => entry.command);\n  assert.ok(commands.includes(\"/consolidate-stubs\"));\n  ```",
+            "UT: C003 precondition A legacy completion record exists and a ticket becomes terminal during a run. postcondition markReviewed changes completionSource to boundary clears the digest and both command records and increments reviewedSinceResolve. invariant An adopted record can never survive a later review.\n  ```ts\n  const reviewed = markReviewed(legacyState(), \"P0-1\", REVIEW_AT);\n  assert.equal(completionSourceOf(reviewed), \"boundary\");\n  ```",
+            "UT: C004 precondition Every ticket is terminal a readable boundary record has consolidate or find non-null and it is not a completed find whose digest differs from the current ticket set. postcondition The loop executes zero commands writes a legacy completion record and treats the package as endpoint. invariant A started-but-incomplete boundary is abandoned at startup not resumed.\n  ```ts\n  const state = readBoundaryState(fixture.directory);\n  assert.equal(completionSourceOf(state), \"legacy\");\n  ```",
+            "UT: C005 precondition Every ticket is terminal a readable boundary record has no started command and lastReviewedAt is non-null or reviewedSinceResolve is greater than zero. postcondition The loop runs the pending resolve and/or boundary it never adopts. invariant A boundary owed by a review survives a process restart.\n  ```ts\n  const commands = recorded.commands.map((entry) => entry.command);\n  assert.ok(commands[0].startsWith(\"/resolve-ticket\"));\n  ```"
           ],
           "testIntegration": [
             "runPackageLoop on an all-terminal fixture with no state executes zero commands, writes the legacy record, leaves Tickets.json byte-identical, and skips again on the second call",
+            "An all-terminal fixture with consolidate COMPLETE and find IN_PROGRESS executes zero commands and writes the legacy record",
+            "An all-terminal fixture with consolidate COMPLETE and find null executes zero commands and writes the legacy record",
+            "An all-terminal fixture with a completed find and a stale digest runs consolidate and find",
+            "An all-terminal fixture with no started boundary and reviewedSinceResolve 1 runs resolve, consolidate and find",
             "The same fixture with a corrupt state file adopts and warns",
-            "A pre-boundary state runs consolidate and find once",
             "A find-added ticket forces a new review and a new boundary",
-            "runWorkspaceLoop returns allSelectedComplete true after adoption"
+            "A manual find that adds tickets after adoption makes the legacy digest stale; the added tickets are implemented from the first one, and consolidate and find still run. With -n 1, consolidate still runs and find is recorded as SKIPPED",
+            "runWorkspaceLoop returns allSelectedComplete true after adoption",
+            "IT: An all-terminal package with no boundary state executes zero commands, writes a legacy completion record with the current ticket-set digest, leaves Tickets.json byte-identical, and is endpoint on every later call.",
+            "IT: An all-terminal package whose record shows a started but incomplete boundary adopts the same way and executes zero commands.",
+            "IT: An all-terminal package with an unreadable boundary state adopts the same way and logs a warning; it never executes find.",
+            "IT: An all-terminal package with a completed find whose digest differs from the current ticket set still runs consolidate and find.",
+            "IT: An all-terminal package with no started boundary and a review timestamp still runs its resolve and boundary.",
+            "IT: An empty ticket set adopts without running the boundary. A later review clears the legacy source and restores the boundary path.",
+            "IT: runWorkspaceLoop reports allSelectedComplete true after adopting a pre-existing terminal package."
           ],
-          "invariants": "No readable boundary state plus an all-terminal ticket set means adopt, never run the boundary. An adopted record is endpoint only while its ticketSetDigest equals the digest of the current Tickets.json and every ticket stays terminal. A review after adoption sets completionSource to boundary, clears the digest and both command records, and increments reviewedSinceResolve. A readable state that proves the boundary is pending is never adopted.",
-          "investigation": "crystal-protocol-types had 17 terminal tickets (R1/R2), omission artifacts from 2026-11-12, and no .conver-boundary.json on any branch. PX-413 landed 2026-11-13, after the package completed. dist/boundary-state.js isPackageEndpoint returned false and dist/next-action.js returned consolidate then find. The same held for crystal-adapter-clock, crystal-adapter-current-authority and gaia-foundation. crystal implementation order starts with those three packages, so the run reached them first.",
+          "invariants": "An all-terminal ticket set whose boundary did not complete for it — no record, an unreadable record, or a started-but-incomplete record — means adopt, never run the boundary. A completed find (COMPLETE or SKIPPED) whose digest differs from the current ticket set is not adopted. A readable record with no started boundary and a non-null lastReviewedAt or reviewedSinceResolve greater than zero is not adopted. An adopted record is endpoint only while its ticketSetDigest equals the digest of the current Tickets.json and every ticket stays terminal. A review after adoption sets completionSource to boundary, clears the digest and both command records, and increments reviewedSinceResolve.",
+          "investigation": "crystal-protocol-types had 17 terminal tickets and no boundary record on any branch; PX-413 landed after it completed. crystal-adapter-clock then had consolidate COMPLETE, find IN_PROGRESS, digest null; the loop resumed the find before crystal-core P1-9. dist/boundary-state.js and dist/next-action.js reproduced consolidate/find for both. crystal implementation order starts with protocol-types, clock and current-authority, so the run reached them first. A read-only simulation with the new predicate reaches crystal-core P1-9, gaia-network P0-2 and pjsip-prebuilt P10-1.",
           "boyScoutPlan": "Keep the adoption decision in boundary-state.ts with verb-phrase names; the runner only calls read state, decide endpoint/adoption, persist and return. Extract the legacy constructor and the legacy endpoint branch so the predicate reads as prose. Update the README rule that currently says a missing record reruns the boundary once.",
           "relatedTicketIds": "PX-413",
           "contracts": [
@@ -69972,9 +69991,9 @@
             {
               "id": "C002",
               "sourceEdge": "step:boundary-still-runs",
-              "precondition": "A readable boundary state exists and isPackageEndpoint is false.",
+              "precondition": "A readable boundary state exists, its completed find digest differs from the current ticket set, or it has no started boundary but a review timestamp.",
               "postcondition": "The loop follows the existing command order and runs consolidate and find; it never adopts.",
-              "invariant": "Only the absence of a readable record triggers adoption."
+              "invariant": "A completed find with a stale digest, or a review-created pending boundary, still runs the boundary."
             },
             {
               "id": "C003",
@@ -69982,8 +70001,113 @@
               "precondition": "A legacy completion record exists and a ticket becomes terminal during a run.",
               "postcondition": "markReviewed changes completionSource to boundary, clears the digest and both command records, and increments reviewedSinceResolve.",
               "invariant": "An adopted record can never survive a later review."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "step:interrupted-boundary-adoption",
+              "precondition": "Every ticket is terminal; a readable boundary record has consolidate or find non-null; and it is not a completed find whose digest differs from the current ticket set.",
+              "postcondition": "The loop executes zero commands, writes a legacy completion record, and treats the package as endpoint.",
+              "invariant": "A started-but-incomplete boundary is abandoned at startup, not resumed."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "step:review-boundary-still-runs",
+              "precondition": "Every ticket is terminal; a readable boundary record has no started command; and lastReviewedAt is non-null or reviewedSinceResolve is greater than zero.",
+              "postcondition": "The loop runs the pending resolve and/or boundary; it never adopts.",
+              "invariant": "A boundary owed by a review survives a process restart."
             }
-          ]
+          ],
+          "changes": [
+            {
+              "before": "Adoption fired only when the boundary record was missing or unreadable; an all-terminal package with a started-but-incomplete record resumed or reran the boundary before the first pending ticket.",
+              "after": "An all-terminal package is adopted when the boundary did not complete for its ticket set: missing, unreadable, or started-but-incomplete. A completed find with a stale digest and a review-created pending boundary still run.",
+              "description": "src/runner.ts: add shouldAdoptTerminalPackage and adopt before clearForNextRound; src/boundary-state.ts: legacy completion source and endpoint branch; tests and README updated."
+            }
+          ],
+          "done_at": "2026-11-18T11:32:32.169Z",
+          "planTestCode": [
+            "UT: C001 no record adopts\n  ```ts\n  const state = readBoundaryState(fixture.directory);\n  assert.equal(completionSourceOf(state), \"legacy\");\n  ```",
+            "UT: C002 readable pending boundary still runs\n  ```ts\n  const consolidate = commands.indexOf(\"/consolidate-stubs\");\n  assert.ok(consolidate >= 0);\n  ```",
+            "UT: C003 a review invalidates adoption\n  ```ts\n  const reviewed = markReviewed(legacyState(), \"P0-1\", REVIEW_AT);\n  assert.equal(completionSourceOf(reviewed), \"boundary\");\n  ```",
+            "UT: C004 interrupted boundary adopts\n  ```ts\n  const state = readBoundaryState(fixture.directory);\n  assert.equal(completionSourceOf(state), \"legacy\");\n  ```",
+            "UT: C005 review-created boundary still runs\n  ```ts\n  const commands = recorded.commands.map((entry) => entry.command);\n  assert.ok(commands[0].startsWith(\"/resolve-ticket\"));\n  ```"
+          ],
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 413 conver unit tests passed; tsc exit 0\nBundle freshness: pass\nStart simulation: crystal -> crystal-core P1-9; gaia -> gaia-network P0-2; doors -> pjsip-prebuilt P10-1",
+          "rfcDiscrepancies": [],
+          "notes": "Review report (PX-446):\n- Fundamental correctness: adoption is a general predicate over ticket terminality and boundary completion, not a package-name exception. Missing, unreadable and started-but-incomplete boundaries adopt; a completed find with a stale digest and a review-created pending boundary still run. This corrects the startup decision order, not the symptom.\n- Fixed during review: C002 invariant corrected (the old text said only a missing record triggers adoption); helper names aligned with translatability; planTestCode/test metadata and the completion certificate added.\n- Validation: 413 tests pass; tsc exit 0; quality checks 0; annotation verify 0 missing/ambiguous; crimes 0; stubs 0; bundle freshness pass; read-only workspace simulation starts at crystal-core P1-9.\n- Residual risks: the interrupted boundary is abandoned by design and there is no force-boundary flag; an old conver reading a legacy record can rerun the boundary, so every PC must use the new bundle; adoption of an unreadable record can skip a boundary and logs a warning.\n- Formula dry-run: not applicable (RFC-Dirs-Tree.json and RFC-FORMULAS.json absent).",
+          "completedAt": "2026-11-18",
+          "reviewed_at": "2026-11-18T11:38:14.793Z"
+        },
+        {
+          "id": 448,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Start a package with its first ticket command, not a pending resolve",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-448.md",
+          "background": "### Goal\nWhen a package starts with a non-terminal ticket and its durable reviewedSinceResolve has reached the resolve cadence, the first command must be that ticket's one-step command. The pending resolve runs on a later iteration of the same run.\n\n### Purpose\nThe durable review count is housekeeping state. It must not preempt the first implementation command when conver starts a package. The operator expects -P/workspace startup to begin at the first ticket that still needs work.\n\n### Motivation\nOn 2026-11-18 doors/crates/pjsip-prebuilt had reviewedSinceResolve: 4 and P10-1 in planned. A fresh run printed /resolve-ticket P10-1 first; the expected start was /start-ticket P10-1. The resolve is due, but it is not the work the run should start with.\n\n### Constraints\nThe resolve is not dropped: after the first ticket command it still runs in the same process. A pending final resolve before the boundary (all tickets terminal, no ticket command) still runs first. The existing cadence test keeps its behavior. -r 0 disables the periodic resolve as before. -n 1 is unaffected. No new dependency. TDD Red-Green-Refactor is mandatory.",
+          "scope": [
+            "runner.ts: defer a starting resolve until after the first ticket command",
+            "runner.test.ts: startup deferral, final-resolve-before-boundary and cadence regression tests",
+            "README.md: record the startup rule"
+          ],
+          "acceptanceCriteria": [
+            "A package with reviewedSinceResolve >= resolveEvery and a non-terminal ticket executes the ticket command first; the resolve follows in the same run.",
+            "A package with reviewedSinceResolve >= resolveEvery and no ticket command (all terminal) still executes the resolve first.",
+            "After a ticket command, the existing rule resolve before the next ticket when the cadence is reached still holds.",
+            "resolveEvery = 0 never executes a resolve."
+          ],
+          "testUnit": [
+            "A planned ticket with reviewedSinceResolve 4 and resolveEvery 3 starts with /start-ticket; the resolve follows at index 1",
+            "An all-terminal record with reviewedSinceResolve 1 starts with /resolve-ticket, then consolidate and find",
+            "The existing resolve-before-next-ticket cadence test remains green",
+            "resolveEvery 0 produces no resolve command",
+            "All existing runner, boundary, adoption and P27-2 tests remain green",
+            "UT: C001 precondition reviewedSinceResolve >= resolveEvery, resolveEvery > 0, and the first non-terminal ticket maps to a command. postcondition The first executed command is that ticket command; the same run executes a resolve before the package completes. invariant The durable count is preserved and drives the later resolve.\n  ```ts\n  const commands = recorded.commands.map((entry) => entry.command);\n  assert.equal(commands[0], \"/start-ticket P0-1\");\n  const resolveIndex = commands.findIndex((command) => command.startsWith(\"/resolve-ticket\"));\n  assert.ok(resolveIndex > 0);\n  ```",
+            "UT: C002 precondition reviewedSinceResolve >= resolveEvery, resolveEvery > 0, and no ticket command exists (all tickets terminal). postcondition The resolve runs first, followed by the boundary. invariant The deferral applies only when a ticket command exists.\n  ```ts\n  const commands = recorded.commands.map((entry) => entry.command);\n  assert.ok(commands[0].startsWith(\"/resolve-ticket\"));\n  ```"
+          ],
+          "invariants": "The first command of a package run is a ticket command whenever a non-terminal ticket exists. A pending resolve is never lost; it runs later in the same run. The durable reviewedSinceResolve is not reset by the deferral. The deferral applies only before the first ticket command, never after one has run.",
+          "investigation": "doors/crates/pjsip-prebuilt/.conver-boundary.json has lastReviewedTicketKey P8-3, reviewedSinceResolve 4, consolidate null, find null. Tickets.json has P10-1 planned as the first non-terminal ticket. runPackageLoop seeds reviewedSinceResolve 4, so deriveNextAction returns resolve before the ticket command. Expected: /start-ticket P10-1 first.",
+          "boyScoutPlan": "Keep the deferral in runPackageLoop with a named helper that derives the ticket action by zeroing only the pending resolve count. The first command becomes readable as: if a resolve is due and a ticket command exists, run the ticket command; the next iteration runs the resolve. Update the README startup rule.",
+          "relatedTicketIds": "PX-403,PX-404,PX-413",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "step:startup-ticket-first",
+              "precondition": "reviewedSinceResolve >= resolveEvery, resolveEvery > 0, and the first non-terminal ticket maps to a command.",
+              "postcondition": "The first executed command is that ticket command; the same run executes a resolve before the package completes.",
+              "invariant": "The durable count is preserved and drives the later resolve."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "step:final-resolve-first",
+              "precondition": "reviewedSinceResolve >= resolveEvery, resolveEvery > 0, and no ticket command exists (all tickets terminal).",
+              "postcondition": "The resolve runs first, followed by the boundary.",
+              "invariant": "The deferral applies only when a ticket command exists."
+            }
+          ],
+          "changes": [
+            {
+              "before": "A durable reviewedSinceResolve at or above the cadence made deriveNextAction return resolve before the first ticket command at package startup.",
+              "after": "The first ticket command is preferred when a non-terminal ticket exists; the pending resolve runs on the next iteration of the same run.",
+              "description": "src/runner.ts: add actionForNextStep and hasRunCommand; runner.test.ts: startup deferral test; README updated."
+            }
+          ],
+          "done_at": "2026-11-18T11:32:37.775Z",
+          "planTestCode": [
+            "UT: C001 startup ticket command first\n  ```ts\n  const commands = recorded.commands.map((entry) => entry.command);\n  assert.equal(commands[0], \"/start-ticket P0-1\");\n  ```",
+            "UT: C002 final resolve before boundary\n  ```ts\n  const commands = recorded.commands.map((entry) => entry.command);\n  assert.ok(commands[0].startsWith(\"/resolve-ticket\"));\n  ```"
+          ],
+          "testIntegration": [
+            "IT: A package with reviewedSinceResolve >= resolveEvery and a non-terminal ticket executes the ticket command first; the resolve follows in the same run.",
+            "IT: A package with reviewedSinceResolve >= resolveEvery and no ticket command (all terminal) still executes the resolve first.",
+            "IT: After a ticket command, the existing rule resolve before the next ticket when the cadence is reached still holds.",
+            "IT: resolveEvery = 0 never executes a resolve."
+          ],
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 413 conver unit tests passed; tsc exit 0\nBundle freshness: pass\nStart simulation: doors -> pjsip-prebuilt P10-1; the due resolve follows",
+          "rfcDiscrepancies": [],
+          "notes": "Review report (PX-448):\n- Fundamental correctness: the deferral changes startup ordering only. reviewedSinceResolve is preserved; the first ticket command runs first; the pending resolve runs on the next iteration; a final resolve before the boundary and the post-command cadence are unchanged. This corrects the durable state's preemption, not the symptom.\n- Fixed during review: helper renamed to deriveActionForNextStep; planTestCode/test metadata and the completion certificate added.\n- Validation: 413 tests pass; tsc exit 0; quality checks 0; annotation verify 0 missing/ambiguous; crimes 0; stubs 0; bundle freshness pass; read-only workspace simulation starts at pjsip-prebuilt P10-1.\n- Residual risks: the resolve is second by design, not first; -r 0 suppresses it. The deferral applies only before the first ticket command, so a resolve after a review keeps the existing order.\n- Formula dry-run: not applicable (RFC-Dirs-Tree.json and RFC-FORMULAS.json absent).",
+          "completedAt": "2026-11-18",
+          "reviewed_at": "2026-11-18T11:38:15.244Z"
         }
       ]
     },

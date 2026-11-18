@@ -7,9 +7,11 @@
 //
 // The absence of a record is not evidence that the boundary is pending: a package may
 // have been completed before this state existed, on another working tree, or outside
-// conver. When every ticket is terminal and no readable record exists, the package is
-// adopted as a legacy completion and no boundary command runs. A readable record still
-// governs: a stale or partial one means the boundary is pending.
+// conver. When every ticket is terminal and the boundary did not complete for that
+// ticket set — no readable record, or a started-but-incomplete one — the package is
+// adopted as a legacy completion and no boundary command runs. Two records still
+// govern: a completed find whose digest differs (the set changed), and a record with
+// no started boundary but a review timestamp or pending resolve.
 // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
 import { createHash } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -204,7 +206,7 @@ export function createLegacyCompletionState(
   return {
     ...createBoundaryState(packageId),
     lastReviewedTicketKey: lastKey,
-    lastReviewedAt: lastCompletedAt(ticketsData) ?? at,
+    lastReviewedAt: findLastCompletedAt(ticketsData) ?? at,
     ticketSetDigest: computeTicketSetDigest(ticketsData),
     completionSource: BOUNDARY_COMPLETION_LEGACY,
     adoptedAt: at,
@@ -212,8 +214,8 @@ export function createLegacyCompletionState(
 }
 
 /** The completion time of the last ticket in array order, when it carries one. */
-// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
-function lastCompletedAt(ticketsData: TicketsJson): string | null {
+// [::TICKET::] PX-446, PX-448 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-446|PX-448) --for-spec --no-implementation-order`.
+function findLastCompletedAt(ticketsData: TicketsJson): string | null {
   for (
     let phaseIndex = ticketsData.phases.length - 1;
     phaseIndex >= 0;

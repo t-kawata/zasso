@@ -7,9 +7,9 @@
 // cwd. A repeated command escalates three times and then stops conver instead
 // of silently moving on.
 //
-// A package that arrives with every ticket terminal and no readable boundary
-// record is adopted, never scanned: the boundary belongs to the ticket set
-// conver actually observed.
+// A package that arrives with every ticket terminal and no completed boundary
+// for its ticket set is adopted, never scanned. A completed find with a stale
+// digest, and a review-created record with no started boundary, still run it.
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -29,6 +29,7 @@ import type {
 } from "./notifier.js";
 import {
   BOUNDARY_STATUS_COMPLETE,
+  BOUNDARY_STATUS_SKIPPED,
   boundaryStatePath,
   computeTicketSetDigest,
   createBoundaryState,
@@ -443,6 +444,70 @@ function createPackageState(
   };
 }
 
+/**
+ * True when a terminal ticket set must be adopted instead of scanned.
+ *
+ * The implementation is complete, so a missing, unreadable or interrupted
+ * boundary is not evidence of pending work. Two records still owe a boundary:
+ * a completed find whose digest differs (the ticket set changed), and a record
+ * with no started boundary but a review timestamp or pending resolve.
+ */
+// [::TICKET::] PX-446, PX-448 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-446|PX-448) --for-spec --no-implementation-order`.
+function shouldAdoptTerminalPackage(
+  initialState: BoundaryState | null,
+  ticketsData: TicketsJson,
+): boolean {
+  if (!isTicketSetTerminal(ticketsData)) return false;
+  if (initialState === null) return true;
+
+  const completedFind =
+    initialState.find?.status === BOUNDARY_STATUS_COMPLETE ||
+    initialState.find?.status === BOUNDARY_STATUS_SKIPPED;
+  if (
+    completedFind &&
+    initialState.ticketSetDigest !== computeTicketSetDigest(ticketsData)
+  ) {
+    return false;
+  }
+
+  if (initialState.consolidate !== null || initialState.find !== null) {
+    return true;
+  }
+  return (
+    initialState.lastReviewedAt === null &&
+    initialState.reviewedSinceResolve === 0
+  );
+}
+
+/**
+ * Return the action to execute now.
+ *
+ * A durable resolve must not preempt the first ticket command of a run. When a
+ * ticket command exists, derive it with only the pending resolve count zeroed;
+ * the resolve still runs on the next iteration.
+ */
+// [::TICKET::] PX-446, PX-448 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-446|PX-448) --for-spec --no-implementation-order`.
+function deriveActionForNextStep(
+  ticketsData: TicketsJson,
+  progress: PackageProgress,
+  hasRunCommand: boolean,
+): NextAction {
+  const action = deriveNextAction(ticketsData, progress);
+  if (hasRunCommand || action.kind !== "resolve") return action;
+  try {
+    const ticketAction = deriveNextAction(ticketsData, {
+      ...progress,
+      reviewedSinceResolve: 0,
+    });
+    return ticketAction.kind === "command" ? ticketAction : action;
+  } catch (error) {
+    // No ticket command exists for this status (remanded or unknown); keep the
+    // original resolve action and let the existing recovery handle the status.
+    if (error instanceof InvalidTicketStatusError) return action;
+    throw error;
+  }
+}
+
 // [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 interface PhaseNotificationInput {
   options: WorkspaceLoopOptions;
@@ -820,16 +885,18 @@ export async function runPackageLoop(
       return 0;
     }
 
-    // No readable record and nothing left to do means the ticket set completed
-    // before conver owned the boundary. Adopting it is the only action that
-    // cannot run find against a completed package; the written legacy record
-    // also lets the watcher terminate normally.
+    // A terminal ticket set whose boundary did not complete for it is adopted,
+    // never scanned. A started-but-incomplete boundary is not evidence of
+    // pending implementation; the written record also lets the watcher terminate.
     // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
-    if (initialState === null && isTicketSetTerminal(currentData)) {
-      const stateFileExists = existsSync(boundaryStatePath(pkg.directory));
-      if (stateFileExists) {
+    if (shouldAdoptTerminalPackage(initialState, currentData)) {
+      if (initialState === null && existsSync(boundaryStatePath(pkg.directory))) {
         process.stderr.write(
           `[boundary] package=${pkg.name} unreadable boundary state; adopting the completed ticket set\n`,
+        );
+      } else if (initialState !== null) {
+        process.stderr.write(
+          `[boundary] package=${pkg.name} incomplete boundary abandoned; adopting the terminal ticket set\n`,
         );
       }
       const adopted = createLegacyCompletionState(pkg.id, currentData, nowIso(deps));
@@ -863,12 +930,13 @@ export async function runPackageLoop(
       initialState?.reviewedSinceResolve ?? 0,
     );
     let processed = 0;
+    let hasRunCommand = false;
 
     while (processed < budget) {
       const ticketsData = readTicketsOrThrow(pkg.ticketsPath);
       let action: NextAction;
       try {
-        action = deriveNextAction(ticketsData, state.progress);
+        action = deriveActionForNextStep(ticketsData, state.progress, hasRunCommand);
       } catch (error) {
         if (error instanceof InvalidTicketStatusError) {
           const stopContext = stopContextFor({
@@ -953,6 +1021,7 @@ export async function runPackageLoop(
 
       if (action.kind === "command") {
         await runTicketStep({ pkg, options, action, state, deps });
+        hasRunCommand = true;
         const afterData = readTicketsOrThrow(pkg.ticketsPath);
         const { phaseId, id } = parseTicketKey(action.ticketKey);
         const afterStatus = statusOfTicket(afterData, phaseId, id);
