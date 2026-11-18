@@ -1,6 +1,6 @@
 ---
-description: Build a complete *-okf wiki skill from English Markdown sources on the Open Knowledge Format v0.2 model; verify in dev and installed modes; install.
-argument-hint: "<skill-name>=<source-doc>... | <skill-name> <source-doc>..."
+description: Build or update a complete *-okf wiki skill from English Markdown sources on the Open Knowledge Format v0.2 model; verify in dev and installed modes; install.
+argument-hint: "<skill-name> <source-doc>... | <skill-name>=<source-doc>... | update <skill-name> <revision-doc>"
 disable-model-invocation: true
 ---
 
@@ -13,6 +13,21 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 # /build-okf-skill
 
 Role: build a verified `*-okf` wiki skill from English Markdown. The skill is an Open Knowledge Format v0.2 bundle plus a deterministic CLI. It exposes navigation, reachability, trust, freshness, sources, and context. It is not a law gate.
+
+## Usage
+
+```bash
+# Build: one skill from one or more English sources
+/build-okf-skill my-okf <source-doc>
+/build-okf-skill my-okf=<source-doc> my-okf=<source-doc>
+
+# Update: opt-in, one installed skill, one reference or revision document
+/build-okf-skill update my-okf <revision-doc>
+```
+
+- Build is the default. `update` is exclusive: no flags, no build form in the same invocation.
+- `<skill-name>` matches `*-okf`. Update uses the installed skill as its baseline.
+- The document carries the new knowledge. A reference article adds concepts; a structured update changes them. Raw non-English text stays in `PRE-OKF-ORIGINAL.md`.
 
 ## Path Anchor
 

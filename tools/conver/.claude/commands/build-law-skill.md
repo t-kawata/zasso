@@ -1,6 +1,6 @@
 ---
-description: Build a complete *-law skill from English Markdown sources; verify with the canonical verifier in dev and installed modes; install.
-argument-hint: "<skill-name>=<source-doc>... | <skill-name> <source-doc>..."
+description: Build or update a complete *-law skill from English Markdown sources; verify with the canonical verifier in dev and installed modes; install.
+argument-hint: "<skill-name> <source-doc>... | <skill-name>=<source-doc>... | update <skill-name> <revision-doc>"
 disable-model-invocation: true
 ---
 
@@ -13,6 +13,21 @@ Strictly prohibit questions, confirmations, approvals, options, and human-decisi
 # /build-law-skill
 
 Role: build verified `*-law` skills from English Markdown. Derive profile, registry, source set, aliases, ledgers, OKF, runtime, tests, bundle, installer, integration. Canonical verifier decides completion in dev and installed modes. Never install unverified.
+
+## Usage
+
+```bash
+# Build: one skill from one or more English sources
+/build-law-skill my-law <source-doc>
+/build-law-skill my-law=<source-doc> my-law=<source-doc>
+
+# Update: opt-in, one installed skill, one revision document
+/build-law-skill update my-law <revision-doc>
+```
+
+- Build is the default. `update` is exclusive: no flags, no build form in the same invocation.
+- `<skill-name>` matches `*-law`. Update uses the installed skill as its baseline.
+- The revision document carries the instructions. It may be structured, prose, or non-English; raw text stays in `PRE-OKF-ORIGINAL.md`.
 
 ## Path Anchor
 
