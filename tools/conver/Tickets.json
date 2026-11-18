@@ -69919,6 +69919,71 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-18",
           "reviewed_at": "2026-11-18T06:54:29.475Z"
+        },
+        {
+          "id": 446,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "Adopt a pre-existing terminal package without running its boundary",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-446.md",
+          "background": "### Goal\nA package whose every ticket is terminal when conver first reads it must never execute /consolidate-stubs or /find-omissions, even when no .conver-boundary.json exists. conver records the package as a legacy completion and treats it as an endpoint.\n\n### Purpose\nThe durable boundary record is proof that conver observed the reviews and owes a boundary. Its absence is not proof that the boundary is pending. A package completed before PX-413, completed on another machine whose record was not carried over, or completed outside conver has no record; today the loop misreads that absence as \"run the boundary once\" and starts an expensive, non-idempotent find against a completed package.\n\n### Motivation\nOn 2026-11-18 a conver run over crystal started /find-omissions for crystal-protocol-types. The package's 17 tickets had been terminal since 2026-11-12 and its omission artifacts already existed. The same condition affects crystal-adapter-clock, crystal-adapter-current-authority and gaia-foundation. Completed packages must not execute find.\n\n### Constraints\nThe adoption decision must be deterministic from Tickets.json plus the presence/readability of .conver-boundary.json; no network, no clock-dependent branch. Adoption must not rewrite Tickets.json. A valid boundary record still governs: a non-endpoint record (pending resolve, IN_PROGRESS command, digest mismatch) runs the boundary as before. A review observed by conver after adoption invalidates the adoption and restores the normal boundary path. No new runtime dependency. TDD Red-Green-Refactor is mandatory.",
+          "scope": [
+            "boundary-state.ts: legacy completion source, constructor and endpoint branch",
+            "boundary-state.test.ts: constructor, predicate and invalidation unit tests",
+            "runner.ts: adopt before clearForNextRound when no readable state exists and every ticket is terminal",
+            "runner.test.ts: adoption, idempotence, unreadable-state, watcher-endpoint and boundary-still-runs tests",
+            "README.md: endpoint and adoption rule"
+          ],
+          "acceptanceCriteria": [
+            "An all-terminal package with no boundary state executes zero commands, writes a legacy completion record with the current ticket-set digest, leaves Tickets.json byte-identical, and is endpoint on every later call.",
+            "An all-terminal package with an unreadable boundary state adopts the same way and logs a warning; it never executes find.",
+            "An all-terminal package with a readable non-endpoint boundary state still runs consolidate and find.",
+            "An empty ticket set adopts without running the boundary.",
+            "A later review clears the legacy source and restores the boundary path.",
+            "runWorkspaceLoop reports allSelectedComplete: true after adopting a pre-existing terminal package."
+          ],
+          "testUnit": [
+            "createLegacyCompletionState writes completionSource legacy, adoptedAt, the last ticket key and the current digest with both command records null",
+            "isPackageEndpoint is true for a matching legacy record and false for a changed digest or a non-terminal ticket",
+            "markReviewed invalidates a legacy record and the endpoint predicate becomes false",
+            "A legacy record round-trips through writeBoundaryState and readBoundaryState",
+            "A readable pending state is not adopted",
+            "An unreadable state is treated as no record and adopted when the ticket set is terminal"
+          ],
+          "testIntegration": [
+            "runPackageLoop on an all-terminal fixture with no state executes zero commands, writes the legacy record, leaves Tickets.json byte-identical, and skips again on the second call",
+            "The same fixture with a corrupt state file adopts and warns",
+            "A pre-boundary state runs consolidate and find once",
+            "A find-added ticket forces a new review and a new boundary",
+            "runWorkspaceLoop returns allSelectedComplete true after adoption"
+          ],
+          "invariants": "No readable boundary state plus an all-terminal ticket set means adopt, never run the boundary. An adopted record is endpoint only while its ticketSetDigest equals the digest of the current Tickets.json and every ticket stays terminal. A review after adoption sets completionSource to boundary, clears the digest and both command records, and increments reviewedSinceResolve. A readable state that proves the boundary is pending is never adopted.",
+          "investigation": "crystal-protocol-types had 17 terminal tickets (R1/R2), omission artifacts from 2026-11-12, and no .conver-boundary.json on any branch. PX-413 landed 2026-11-13, after the package completed. dist/boundary-state.js isPackageEndpoint returned false and dist/next-action.js returned consolidate then find. The same held for crystal-adapter-clock, crystal-adapter-current-authority and gaia-foundation. crystal implementation order starts with those three packages, so the run reached them first.",
+          "boyScoutPlan": "Keep the adoption decision in boundary-state.ts with verb-phrase names; the runner only calls read state, decide endpoint/adoption, persist and return. Extract the legacy constructor and the legacy endpoint branch so the predicate reads as prose. Update the README rule that currently says a missing record reruns the boundary once.",
+          "relatedTicketIds": "PX-413",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "step:legacy-adoption",
+              "precondition": "Tickets.json parses, every ticket is terminal, and readBoundaryState returns null (missing or unreadable).",
+              "postcondition": "runPackageLoop executes zero commands, does not rewrite Tickets.json, writes a legacy completion record with the current digest, and returns processed = 0.",
+              "invariant": "The legacy record is endpoint only while the digest matches and the ticket set stays terminal."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "step:boundary-still-runs",
+              "precondition": "A readable boundary state exists and isPackageEndpoint is false.",
+              "postcondition": "The loop follows the existing command order and runs consolidate and find; it never adopts.",
+              "invariant": "Only the absence of a readable record triggers adoption."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "step:review-invalidates-adoption",
+              "precondition": "A legacy completion record exists and a ticket becomes terminal during a run.",
+              "postcondition": "markReviewed changes completionSource to boundary, clears the digest and both command records, and increments reviewedSinceResolve.",
+              "invariant": "An adopted record can never survive a later review."
+            }
+          ]
         }
       ]
     },

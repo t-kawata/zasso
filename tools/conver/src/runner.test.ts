@@ -14,8 +14,10 @@ import {
 } from "./runner.js";
 import type { PackageLoopDeps, WorkspaceLoopOptions } from "./runner.js";
 import {
+  BOUNDARY_STATE_FILE,
   computeTicketSetDigest,
   createBoundaryState,
+  createLegacyCompletionState,
   readBoundaryState,
   writeBoundaryState,
 } from "./boundary-state.js";
@@ -122,6 +124,29 @@ function endpointStateFor(data: TicketsJson, packageId = "pkg-fixture"): Boundar
   };
 }
 
+// A review observed by conver, with the boundary not yet run. This is the only
+// shape that still owes consolidate and find.
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+function boundaryPendingState(
+  data: TicketsJson,
+  packageId = "pkg-fixture",
+): BoundaryState {
+  return {
+    ...createBoundaryState(packageId),
+    lastReviewedTicketKey: "P0-1",
+    lastReviewedAt: "1970-01-01T00:00:00.000Z",
+    reviewedSinceResolve: 0,
+    ticketSetDigest: null,
+    consolidate: null,
+    find: null,
+  };
+}
+
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+function completionSourceOf(state: BoundaryState | null): string | undefined {
+  return (state as unknown as { completionSource?: string } | null)?.completionSource;
+}
+
 // [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 interface Recorded {
   sessions: string[];
@@ -130,6 +155,11 @@ interface Recorded {
   stops: StopContext[];
   boundaries: BoundaryCompleteContext[];
   findUnfinished?: FindUnfinishedContext[];
+}
+
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+function emptyRecorded(): Recorded {
+  return { sessions: [], commands: [], phases: [], stops: [], boundaries: [] };
 }
 
 // [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
@@ -356,6 +386,166 @@ describe("runPackageLoop — strict order and cwd", () => {
 
 // @verifies C001, C002, C004, C005, C006
 describe("runPackageLoop — durable boundary completion", () => {
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("adopts a pre-existing terminal package without running the boundary", async () => {
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    const before = readFileSync(fixture.ticketsPath, "utf-8");
+    const recorded = emptyRecorded();
+
+    const processed = await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advanceStatus),
+    );
+
+    assert.strictEqual(processed, 0);
+    assert.deepStrictEqual(recorded.commands, []);
+    assert.deepStrictEqual(recorded.boundaries, []);
+    assert.strictEqual(readFileSync(fixture.ticketsPath, "utf-8"), before);
+    const state = readBoundaryState(fixture.directory);
+    assert.strictEqual(completionSourceOf(state), "legacy");
+    assert.strictEqual(state?.ticketSetDigest, computeTicketSetDigest(data));
+
+    recorded.commands.length = 0;
+    const second = await runPackageLoop(
+      fixture.packageEntry,
+      options(),
+      deps(fixture, recorded, advanceStatus),
+    );
+    assert.strictEqual(second, 0);
+    assert.deepStrictEqual(recorded.commands, []);
+  });
+
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("adopts a pre-existing terminal package when the state file is unreadable", async () => {
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    writeFileSync(join(fixture.directory, BOUNDARY_STATE_FILE), "{broken");
+    const recorded = emptyRecorded();
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (message: string) => warnings.push(message);
+    try {
+      const processed = await runPackageLoop(
+        fixture.packageEntry,
+        options(),
+        deps(fixture, recorded, advanceStatus),
+      );
+      assert.strictEqual(processed, 0);
+      assert.deepStrictEqual(recorded.commands, []);
+      assert.strictEqual(
+        completionSourceOf(readBoundaryState(fixture.directory)),
+        "legacy",
+      );
+      assert.ok(warnings.length > 0);
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("reaches the endpoint by adopting a pre-existing terminal package", async () => {
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    const recorded = emptyRecorded();
+
+    const result = await runWorkspaceLoop(
+      options({
+        workspace: {
+          root: "/ws",
+          name: "ws",
+          packages: [fixture.packageEntry],
+        },
+      }),
+      deps(fixture, recorded, advanceStatus),
+    );
+
+    assert.strictEqual(result.processed, 0);
+    assert.strictEqual(result.allSelectedComplete, true);
+    assert.deepStrictEqual(recorded.commands, []);
+    assert.strictEqual(
+      completionSourceOf(readBoundaryState(fixture.directory)),
+      "legacy",
+    );
+  });
+
+  // A manual find may add tickets after a package was adopted. The legacy
+  // digest no longer matches, so the adoption must not suppress the boundary
+  // once the added tickets are reviewed.
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("runs the boundary after a manual find adds tickets to an adopted package", async () => {
+    const original = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(original);
+    writeBoundaryState(
+      fixture.directory,
+      createLegacyCompletionState("pkg-fixture", original, "2026-11-18T00:00:00.000Z"),
+    );
+    const withAdded = JSON.parse(
+      readFileSync(fixture.ticketsPath, "utf-8"),
+    ) as TicketsJson;
+    withAdded.phases[0]?.tickets.push({
+      id: 2,
+      phaseId: 0,
+      status: "todo",
+      title: "added by a manual find",
+    });
+    writeFileSync(fixture.ticketsPath, JSON.stringify(withAdded, null, 2));
+    const recorded = emptyRecorded();
+
+    const processed = await runPackageLoop(
+      fixture.packageEntry,
+      options({ resolveEvery: 0 }),
+      deps(fixture, recorded, advanceStatus),
+    );
+
+    assert.strictEqual(processed, 1);
+    const commands = recorded.commands.map((entry) => entry.command);
+    assert.deepStrictEqual(commands.slice(0, 4), [
+      "/make-ticket P0-2",
+      "/plan-ticket P0-2",
+      "/start-ticket P0-2",
+      "/review-ticket P0-2",
+    ]);
+    assert.strictEqual(commands.at(-2), "/consolidate-stubs");
+    assert.strictEqual(commands.at(-1), "/find-omissions");
+    const state = readBoundaryState(fixture.directory);
+    assert.strictEqual(completionSourceOf(state), "boundary");
+    assert.strictEqual(state?.find?.status, "COMPLETE");
+  });
+
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  it("keeps -n 1 semantics after a manual find adds tickets to an adopted package", async () => {
+    const original = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(original);
+    writeBoundaryState(
+      fixture.directory,
+      createLegacyCompletionState("pkg-fixture", original, "2026-11-18T00:00:00.000Z"),
+    );
+    const withAdded = JSON.parse(
+      readFileSync(fixture.ticketsPath, "utf-8"),
+    ) as TicketsJson;
+    withAdded.phases[0]?.tickets.push({
+      id: 2,
+      phaseId: 0,
+      status: "todo",
+      title: "added by a manual find",
+    });
+    writeFileSync(fixture.ticketsPath, JSON.stringify(withAdded, null, 2));
+    const recorded = emptyRecorded();
+
+    await runPackageLoop(
+      fixture.packageEntry,
+      options({ resolveEvery: 0, noFind: true }),
+      deps(fixture, recorded, advanceStatus),
+    );
+
+    const commands = recorded.commands.map((entry) => entry.command);
+    assert.strictEqual(commands.at(-1), "/consolidate-stubs");
+    assert.ok(!commands.includes("/find-omissions"));
+    assert.strictEqual(readBoundaryState(fixture.directory)?.find?.status, "SKIPPED");
+  });
+
   it("skips an endpoint package without touching Tickets.json", async () => {
     const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
     const fixture = writeFixture(data);
@@ -384,6 +574,7 @@ describe("runPackageLoop — durable boundary completion", () => {
   it("runs the boundary once, notifies once, and skips the next tick", async () => {
     const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
     const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryPendingState(data));
     const recorded: Recorded = {
       sessions: [],
       commands: [],
@@ -456,9 +647,9 @@ describe("runPackageLoop — durable boundary completion", () => {
   });
 
   it("continues the package when find adds a forNextRound ticket", async () => {
-    const fixture = writeFixture(
-      tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]),
-    );
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryPendingState(data));
     const recorded: Recorded = {
       sessions: [],
       commands: [],
@@ -500,9 +691,9 @@ describe("runPackageLoop — durable boundary completion", () => {
   });
 
   it("does not complete the boundary when find throws", async () => {
-    const fixture = writeFixture(
-      tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]),
-    );
+    const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
+    const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryPendingState(data));
     const recorded: Recorded = {
       sessions: [],
       commands: [],
@@ -534,6 +725,7 @@ describe("runPackageLoop — durable boundary completion", () => {
   it("records a skipped find when noFind is set and reaches the endpoint", async () => {
     const data = tickets([{ id: 0, tickets: [{ id: 1, status: "reviewed" }] }]);
     const fixture = writeFixture(data);
+    writeBoundaryState(fixture.directory, boundaryPendingState(data));
     const recorded: Recorded = {
       sessions: [],
       commands: [],
@@ -567,33 +759,22 @@ describe("runPackageLoop — durable boundary completion", () => {
     assert.deepStrictEqual(recorded.commands, []);
   });
 
-  it("runs the boundary once for an empty ticket set and then skips", async () => {
+  it("adopts an empty ticket set without running the boundary", async () => {
     const fixture = writeFixture(tickets([]));
-    const recorded: Recorded = {
-      sessions: [],
-      commands: [],
-      phases: [],
-      stops: [],
-      boundaries: [],
-    };
+    const recorded = emptyRecorded();
 
-    await runPackageLoop(
-      fixture.packageEntry,
-      options(),
-      deps(fixture, recorded, advanceStatus),
-    );
-    const firstRunCommands = recorded.commands.map((entry) => entry.command);
-    assert.strictEqual(firstRunCommands[0], "/consolidate-stubs");
-    assert.strictEqual(firstRunCommands[1], "/find-omissions");
-
-    recorded.commands.length = 0;
     const processed = await runPackageLoop(
       fixture.packageEntry,
       options(),
       deps(fixture, recorded, advanceStatus),
     );
+
     assert.strictEqual(processed, 0);
     assert.deepStrictEqual(recorded.commands, []);
+    assert.strictEqual(
+      completionSourceOf(readBoundaryState(fixture.directory)),
+      "legacy",
+    );
   });
 
   it("exits when an explicit endpoint selection skips an earlier pending package", async () => {

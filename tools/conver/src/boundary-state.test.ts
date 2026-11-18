@@ -26,6 +26,8 @@ import {
   ticketKeysOf,
   writeBoundaryState,
 } from "./boundary-state.js";
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+import * as boundaryStateModule from "./boundary-state.js";
 import type { BoundaryState, BoundaryStateIo } from "./boundary-state.js";
 import type { TicketsJson } from "./tickets.js";
 import type { WorkspacePackage } from "./workspace.js";
@@ -57,6 +59,28 @@ function tickets(
 }
 
 const REVIEW_AT = "2026-11-13T00:00:00.000Z";
+
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+type LegacyBoundaryModule = {
+  createLegacyCompletionState?: (
+    packageId: string,
+    data: TicketsJson,
+    at: string,
+  ) => BoundaryState;
+};
+
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+const legacyBoundary = boundaryStateModule as unknown as LegacyBoundaryModule;
+
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+function completionSourceOf(state: BoundaryState): string | undefined {
+  return (state as unknown as { completionSource?: string }).completionSource;
+}
+
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+function adoptedAtOf(state: BoundaryState): string | null | undefined {
+  return (state as unknown as { adoptedAt?: string | null }).adoptedAt;
+}
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
 function endpointState(data: TicketsJson, packageId = "pkg-fixture"): BoundaryState {
@@ -291,6 +315,81 @@ describe("isPackageEndpoint", () => {
       },
     };
     assert.equal(isPackageEndpoint(empty, emptyState), true);
+  });
+});
+
+// @verifies C001, C003 — a pre-existing terminal package is adopted, not rescanned
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+describe("legacy completion adoption", () => {
+  const data = tickets([{ id: 0, tickets: [{ id: 1, status: "R2" }] }]);
+
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  function legacyState(): BoundaryState {
+    const createLegacy = legacyBoundary.createLegacyCompletionState;
+    assert.equal(typeof createLegacy, "function", "legacy constructor must exist");
+    return createLegacy!("pkg-fixture", data, REVIEW_AT);
+  }
+
+  it("records the source, the digest and no boundary commands", () => {
+    const state = legacyState();
+    assert.equal(completionSourceOf(state), "legacy");
+    assert.equal(adoptedAtOf(state), REVIEW_AT);
+    assert.equal(state.ticketSetDigest, computeTicketSetDigest(data));
+    assert.equal(state.consolidate, null);
+    assert.equal(state.find, null);
+    assert.equal(state.reviewedSinceResolve, 0);
+  });
+
+  it("is endpoint while the digest matches and the ticket set stays terminal", () => {
+    const state = legacyState();
+    assert.equal(isPackageEndpoint(data, state), true);
+    const changed = tickets([
+      { id: 0, tickets: [{ id: 1, status: "R2" }, { id: 2, status: "R2" }] },
+    ]);
+    assert.equal(isPackageEndpoint(changed, state), false);
+    const pending = tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]);
+    assert.equal(isPackageEndpoint(pending, state), false);
+  });
+
+  it("does not accept a legacy record that carries boundary commands", () => {
+    const state = legacyState();
+    const withFind: BoundaryState = {
+      ...state,
+      find: {
+        status: "IN_PROGRESS",
+        startedAt: REVIEW_AT,
+        finishedAt: null,
+        addedTicketKeys: [],
+      },
+    };
+    assert.equal(isPackageEndpoint(data, withFind), false);
+  });
+
+  it("hands a legacy record back to the boundary path after a resolve", () => {
+    const resolved = markResolved(legacyState());
+    assert.equal(completionSourceOf(resolved), "boundary");
+    assert.equal(isPackageEndpoint(data, resolved), false);
+  });
+
+  it("is invalidated by a later review", () => {
+    const reviewed = markReviewed(
+      legacyState(),
+      "P0-1",
+      "2026-11-14T00:00:00.000Z",
+    );
+    assert.equal(completionSourceOf(reviewed), "boundary");
+    assert.equal(adoptedAtOf(reviewed), null);
+    assert.equal(reviewed.ticketSetDigest, null);
+    assert.equal(reviewed.consolidate, null);
+    assert.equal(reviewed.find, null);
+    assert.equal(isPackageEndpoint(data, reviewed), false);
+  });
+
+  it("round-trips through the state file", () => {
+    const directory = mkdtempSync(join(tmpdir(), "conver-boundary-"));
+    const state = legacyState();
+    writeBoundaryState(directory, state);
+    assert.deepEqual(readBoundaryState(directory), state);
   });
 });
 

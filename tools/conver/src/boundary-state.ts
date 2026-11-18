@@ -3,8 +3,14 @@
 // A package boundary (/consolidate-stubs -> /find-omissions) belongs to one ticket
 // set, not to one watcher tick. The watcher recreates its in-memory progress on every
 // tick, so the completion is persisted beside Tickets.json and read before any command
-// runs. The predicate is deliberately conservative: an unreadable, stale, or partial
-// record means "run the boundary again", never "skip it".
+// runs.
+//
+// The absence of a record is not evidence that the boundary is pending: a package may
+// have been completed before this state existed, on another working tree, or outside
+// conver. When every ticket is terminal and no readable record exists, the package is
+// adopted as a legacy completion and no boundary command runs. A readable record still
+// governs: a stale or partial one means the boundary is pending.
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
 import { createHash } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -15,12 +21,32 @@ import type { WorkspacePackage } from "./workspace.js";
 /** The state file sits beside Tickets.json so a package carries its own completion. */
 export const BOUNDARY_STATE_FILE = ".conver-boundary.json";
 
-/** A schema change must invalidate old records rather than reinterpret them. */
+// A breaking schema change must invalidate old records rather than reinterpret
+// them. An additive optional field does not: an older record's meaning is
+// unchanged, so PX-446 did not bump this version.
+/** The record shape version. */
 export const BOUNDARY_STATE_VERSION = 1;
 
 export const BOUNDARY_STATUS_IN_PROGRESS = "IN_PROGRESS";
 export const BOUNDARY_STATUS_COMPLETE = "COMPLETE";
 export const BOUNDARY_STATUS_SKIPPED = "SKIPPED";
+
+/** conver observed the boundary and ran its commands. */
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+export const BOUNDARY_COMPLETION_BOUNDARY = "boundary";
+
+/** conver adopted a ticket set that was already terminal when it first read it. */
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+export const BOUNDARY_COMPLETION_LEGACY = "legacy";
+
+/**
+ * How the record was established. An absent value on an older record means
+ * BOUNDARY_COMPLETION_BOUNDARY.
+ */
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+export type BoundaryCompletionSource =
+  | typeof BOUNDARY_COMPLETION_BOUNDARY
+  | typeof BOUNDARY_COMPLETION_LEGACY;
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
 export type BoundaryCommandStatus =
@@ -51,6 +77,12 @@ export interface BoundaryState {
   ticketSetDigest: string | null;
   consolidate: BoundaryCommandRecord | null;
   find: BoundaryCommandRecord | null;
+  /** Absent on records written before PX-446; those mean "boundary". */
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  completionSource?: BoundaryCompletionSource;
+  /** When conver adopted a pre-existing terminal ticket set. */
+  // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+  adoptedAt?: string | null;
 }
 
 /** File-system seam so write failures and corrupt reads remain unit-testable. */
@@ -109,6 +141,14 @@ export function isPackageEndpoint(
   if (state.reviewedSinceResolve !== 0) return false;
   if (state.ticketSetDigest === null) return false;
   if (state.ticketSetDigest !== computeTicketSetDigest(ticketsData)) return false;
+  if (totalTickets(ticketsData) > 0 && state.lastReviewedAt === null) return false;
+  if (
+    state.completionSource === BOUNDARY_COMPLETION_LEGACY &&
+    state.consolidate === null &&
+    state.find === null
+  ) {
+    return typeof state.adoptedAt === "string";
+  }
   if (state.consolidate?.status !== BOUNDARY_STATUS_COMPLETE) return false;
   if (state.find === null) return false;
   if (
@@ -117,7 +157,6 @@ export function isPackageEndpoint(
   ) {
     return false;
   }
-  if (totalTickets(ticketsData) > 0 && state.lastReviewedAt === null) return false;
   return boundaryFinishedAfterLastReview(state);
 }
 
@@ -142,7 +181,49 @@ export function createBoundaryState(packageId: string): BoundaryState {
     ticketSetDigest: null,
     consolidate: null,
     find: null,
+    completionSource: BOUNDARY_COMPLETION_BOUNDARY,
+    adoptedAt: null,
   };
+}
+
+/**
+ * Record a ticket set that was already terminal when conver first read it.
+ *
+ * The record carries the current digest so a later ticket-set change invalidates
+ * it, and no command records because no boundary ran. `completionSource` keeps
+ * the adoption distinguishable from a boundary that completed normally.
+ */
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+export function createLegacyCompletionState(
+  packageId: string,
+  ticketsData: TicketsJson,
+  at: string,
+): BoundaryState {
+  const keys = ticketKeysOf(ticketsData);
+  const lastKey = keys[keys.length - 1] ?? null;
+  return {
+    ...createBoundaryState(packageId),
+    lastReviewedTicketKey: lastKey,
+    lastReviewedAt: lastCompletedAt(ticketsData) ?? at,
+    ticketSetDigest: computeTicketSetDigest(ticketsData),
+    completionSource: BOUNDARY_COMPLETION_LEGACY,
+    adoptedAt: at,
+  };
+}
+
+/** The completion time of the last ticket in array order, when it carries one. */
+// [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+function lastCompletedAt(ticketsData: TicketsJson): string | null {
+  for (
+    let phaseIndex = ticketsData.phases.length - 1;
+    phaseIndex >= 0;
+    phaseIndex--
+  ) {
+    const phase = ticketsData.phases[phaseIndex];
+    const lastTicket = phase?.tickets[phase.tickets.length - 1];
+    if (lastTicket?.completedAt !== undefined) return lastTicket.completedAt;
+  }
+  return null;
 }
 
 /**
@@ -162,11 +243,18 @@ export function markReviewed(
     ticketSetDigest: null,
     consolidate: null,
     find: null,
+    completionSource: BOUNDARY_COMPLETION_BOUNDARY,
+    adoptedAt: null,
   };
 }
 
 export function markResolved(state: BoundaryState): BoundaryState {
-  return { ...state, reviewedSinceResolve: 0 };
+  return {
+    ...state,
+    reviewedSinceResolve: 0,
+    completionSource: BOUNDARY_COMPLETION_BOUNDARY,
+    adoptedAt: null,
+  };
 }
 
 /**
@@ -185,9 +273,21 @@ export function markBoundaryStarted(
     addedTicketKeys: [],
   };
   if (kind === "consolidate") {
-    return { ...state, consolidate: started, find: null, ticketSetDigest: null };
+    return {
+      ...state,
+      consolidate: started,
+      find: null,
+      ticketSetDigest: null,
+      completionSource: BOUNDARY_COMPLETION_BOUNDARY,
+      adoptedAt: null,
+    };
   }
-  return { ...state, find: started };
+  return {
+    ...state,
+    find: started,
+    completionSource: BOUNDARY_COMPLETION_BOUNDARY,
+    adoptedAt: null,
+  };
 }
 
 /**
@@ -234,6 +334,8 @@ export function markFindSkipped(
       addedTicketKeys: [],
     },
     ticketSetDigest: digest,
+    completionSource: BOUNDARY_COMPLETION_BOUNDARY,
+    adoptedAt: null,
   };
 }
 
@@ -334,7 +436,11 @@ function isBoundaryState(value: unknown): value is BoundaryState {
     candidate.reviewedSinceResolve >= 0 &&
     isNullableString(candidate.ticketSetDigest) &&
     (candidate.consolidate === null || isCommandRecord(candidate.consolidate)) &&
-    (candidate.find === null || isCommandRecord(candidate.find))
+    (candidate.find === null || isCommandRecord(candidate.find)) &&
+    (candidate.completionSource === undefined ||
+      candidate.completionSource === BOUNDARY_COMPLETION_BOUNDARY ||
+      candidate.completionSource === BOUNDARY_COMPLETION_LEGACY) &&
+    (candidate.adoptedAt === undefined || isNullableString(candidate.adoptedAt))
   );
 }
 

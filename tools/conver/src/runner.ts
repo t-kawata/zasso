@@ -6,6 +6,10 @@
 // enter a phase out of order. Every command runs with the package directory as
 // cwd. A repeated command escalates three times and then stops conver instead
 // of silently moving on.
+//
+// A package that arrives with every ticket terminal and no readable boundary
+// record is adopted, never scanned: the boundary belongs to the ticket set
+// conver actually observed.
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -25,8 +29,10 @@ import type {
 } from "./notifier.js";
 import {
   BOUNDARY_STATUS_COMPLETE,
+  boundaryStatePath,
   computeTicketSetDigest,
   createBoundaryState,
+  createLegacyCompletionState,
   isPackageEndpoint,
   isTicketSetTerminal,
   markBoundaryCompleted,
@@ -814,10 +820,31 @@ export async function runPackageLoop(
       return 0;
     }
 
+    // No readable record and nothing left to do means the ticket set completed
+    // before conver owned the boundary. Adopting it is the only action that
+    // cannot run find against a completed package; the written legacy record
+    // also lets the watcher terminate normally.
+    // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
+    if (initialState === null && isTicketSetTerminal(currentData)) {
+      const stateFileExists = existsSync(boundaryStatePath(pkg.directory));
+      if (stateFileExists) {
+        process.stderr.write(
+          `[boundary] package=${pkg.name} unreadable boundary state; adopting the completed ticket set\n`,
+        );
+      }
+      const adopted = createLegacyCompletionState(pkg.id, currentData, nowIso(deps));
+      persistBoundaryState(pkg, adopted, deps);
+      process.stdout.write(
+        `[boundary] package=${pkg.name} endpoint=true reason=legacy-adoption\n`,
+      );
+      return 0;
+    }
+
     let boundaryState = initialState ?? createBoundaryState(pkg.id);
-    // A package can arrive already terminal (manual review or a previous run).
-    // No review transition will fire, so record the last ticket at boundary seed
-    // time; otherwise the record could never prove the boundary belongs to it.
+    // A readable record can predate the review bookkeeping. When the ticket set
+    // is already terminal and the record carries no review time, seed it now so
+    // the completed boundary can prove it belongs to this ticket set.
+    // [::TICKET::] PX-446 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-446 --for-spec --no-implementation-order`.
     if (boundaryState.lastReviewedAt === null && isTicketSetTerminal(currentData)) {
       const keys = ticketKeysOf(currentData);
       const lastKey = keys[keys.length - 1];
