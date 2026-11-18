@@ -69323,6 +69323,173 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-17",
           "reviewed_at": "2026-11-17T08:44:15.803Z"
+        },
+        {
+          "id": 443,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Condense find-omissions output at write time with conserved obligations",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-443.md",
+          "invariants": "- [Normal condition] Every added omission ticket measures non-zero implementation work: testUnit.length + testIntegration.length > 0 and the ticket stays within ticket-work-budget.json.\n- [Error invariant] A candidate that fails the condensation fixed point, conservation, schema or ownership is never promoted; Tickets.json is restored byte-for-byte and no OMISSION-* artifact is rebased.\n- [Internal state invariant] Every detected non-proven clause belongs to exactly one sink; the universe multiset equals the sum of the ticket, proof, repair, worklist and design multisets, with no duplicate and no missing key.\n- [Boundary invariant] A phase is at its partition minimum iff condensePlan(phase).count equals its ticket count; condensation across a non-todo barrier never happens; a merge preserves the contract, clause, formula and test multisets.",
+          "background": "### Goal\nMake /find-omissions write only the contiguous-partition-minimum ticket set for the authored implementation work it detects, and make that write a precondition rather than a follow-up command.\n\n### Purpose\nA detected evidence item (one clause of one contract) must never become its own ticket. Tickets are work units bounded by the calibrated split budget; evidence is payload. This keeps the ticket set executable and prevents an evidence backlog from becoming hundreds of tickets.\n\n### Motivation\nOn 2026-11-17 the v3 run for crates/pjsip-prebuilt expanded 149 remaining clauses into 57 per-contract tickets in one phase. Every ticket had contracts: [], testUnit: [], testIntegration: [] (zero measured work); P15 held 46 groups rooted at P0-1, 5 at P1-2, 1 at P1-1 and 5 unowned. The write at find-omissions-run.js:394-396 bypassed ticket-mutation-gate.js, so an empty-contracts document (tickets-schema.json requires minItems 1) was committed and repaired out of band. Condensation exists (condense-tickets.js) but is not wired into the v3 write path, and its output would lose omissionStableKey ownership, re-creating the same set on the next run.\n\n### Constraints\n- No numeric ticket cap and no target count; the count is the partition-minimum output.\n- Only the calibrated budget in ticket-work-budget.json may size a ticket.\n- Every detected non-proven clause must end in exactly one tracked sink (ticket, proof, repair, worklist, design).\n- Non-todo statuses are merge barriers; completed work is never reopened.\n- All Tickets.json writes must pass through one transaction gate; a refused write restores the pre-image byte-for-byte.\n- Backward compatible: existing packages with grandfathered non-minimal phases must still accept a new ticket; minimality is enforced on changed phases only.",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - .claude/scripts/tickets/lib/blocker-plan.js — add workKind mapping and accumulate every non-proven clause of a group into clauses[]; stop dropping sibling clauses in addGroup.\n  - .claude/scripts/tickets/lib/omission-work-unit.js (new) — classifyBlockerEntry, workKindOf, atomOf, buildWorkUnits, projectContract.\n  - .claude/scripts/tickets/lib/omission-plan-gate.js (new) — verifyOmissionPlan: U1 measured work, U2 work kind, U3 changed-phase fixed point, U4 idempotency, OMISSION_EVIDENCE_TICKET, OMISSION_OWNERSHIP_DECLARED, schema.\n  - .claude/scripts/tickets/apply-omission-findings.js — planOmissionTickets groups implementation atoms by the contiguous partition minimum, fills testUnit/testIntegration from planned tests, writes contracts, nodeIds: [], omissionUnitKey, omissionStableKeys, omissionUnits; returns repairs and classifications separately.\n  - .claude/scripts/tickets/lib/ticket-partition.js — mergeTicketGroup unions omissionStableKeys and omissionUnits and keeps every absorbed clause.\n  - .claude/scripts/tickets/ticket-mutation-gate.js — runMutationGate accepts extraVerify and retainBefore/rollback; move the distribution aggregate write after verification.\n  - .claude/scripts/tickets/find-omissions-run.js — remove the direct write; run in-memory condensation, verifyOmissionPlan, runMutationGate, then rebaseArtifacts and marker rewrite in one transaction; route appendRepairTicket through the gate.\n  - .claude/scripts/tickets/condense-tickets.js — apply U1 to omission-origin tickets; add a workspace aggregate gate.\n  - .claude/scripts/tickets/condense-rebase.js — export rebaseArtifacts({cwd, keyMap}) while keeping the CLI.\n  - .claude/scripts/tickets/lib/proof-migration.js — use the same planner; no second ticket-creation path.\n  - .claude/scripts/tickets/check-ticket-set.js (new) — run condense --gate across a workspace and report every non-fixed-point package.\n  - .claude/commands/find-omissions.md, condense-tickets.md, condense-workspace.md — state the write precondition, mark Step 9.5 as legacy repair, and remove the claim that a post-hoc command is the condensation mechanism.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - Repair of the doors crates/pjsip-prebuilt ticket set (nodeIds stripping, condense, rebase) — an operational migration performed after this mechanism ships; it needs the stable-key union first.\n  - Detection completeness (inventory extraction, TEST-INDEX root coverage, mutation quality, disposition judgment) — governed by the existing v3 gates and follow-up tickets; this ticket guarantees conservation of detected obligations, not detection itself.\n  - Changing ticket-work-budget.json ceilings — the calibrated budget is authoritative; an uncalibrated number is prohibited.\n  - Reopening completed tickets — forbidden by the existing status model.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - conver loop (src/next-action.ts, src/runner.ts) — an optional boundary check can run condense-tickets --gate; not required by this ticket but the API must stay callable.\n  - Installed .claude copies in downstream packages — the guard must be reinstalled; a fix only in the conver repository does not reach doors.\n  - Repair ledger (OMISSION-REPAIRS.json) and classification worklist — they become live sinks in the conservation manifest."
+          ],
+          "testUnit": [
+            "UT: [Normal] C001 blocker-plan accumulates all five non-proven clause keys of one contract into a single group entry instead of keeping only the first clause (lib/blocker-plan.js addGroup)",
+            "UT: [Normal] C002 workKindOf maps test-missing and unmapped to implementation, proof-missing/stale/failed to repair, and unclassified/disposition-unverified/unresolved to classification (lib/omission-work-unit.js)",
+            "UT: [Normal] C002 a proof-missing remainder creates zero tickets and one deduplicated repair record",
+            "UT: [Normal] C003 planOmissionTickets builds one atom per implementation clause and returns the contiguous partition minimum under ticket-work-budget.json; each ticket testUnit+testIntegration equals its atoms and nodeIds is empty",
+            "UT: [Normal] C003 a candidate whose phases are at the partition minimum passes verifyOmissionPlan with every added ticket carrying omissionUnits",
+            "UT: [Normal] C004 mergeTicketGroup unions omissionStableKeys and omissionUnits so every absorbed group key remains live on the survivor",
+            "UT: [Normal] C005 find-omissions-run promotes the condensed document through runMutationGate and writes nothing directly",
+            "UT: [Error] C003 an added ticket whose measured workload is zero is refused with OMISSION_TICKET_UNMEASURED and Tickets.json stays byte-identical",
+            "UT: [Error] C003 a candidate that is not a condensation fixed point is refused with OMISSION_SET_NOT_MINIMAL",
+            "UT: [Error] C003 a one-contract-per-ticket candidate without a test plan is refused with OMISSION_EVIDENCE_TICKET",
+            "UT: [Error] C003 an omission ticket with a non-empty nodeIds array is refused with OMISSION_OWNERSHIP_DECLARED",
+            "UT: [Error] C004 a contract projection failure becomes OMISSION_CONTRACT_UNPROJECTABLE in the repair ledger and no atom is dropped",
+            "UT: [Error] C004 closing a repair record as completed without evidenceDigest is rejected by the repair gate",
+            "UT: [Error] C005 appendRepairTicket cannot write Tickets.json outside runMutationGate and is refused by the single-write-path test",
+            "UT: [Boundary] C003 exactly 18 testUnit and 6 testIntegration entries are accepted; one additional entry is split into the next ticket rather than rejected",
+            "UT: [Boundary] C003 a non-todo barrier inside a phase prevents a merge across it",
+            "UT: [Boundary] C004 149 clauses across 57 contracts yield exactly 149 sink assignments",
+            "UT: [Invariant] C004 the universe multiset equals the sum of ticket, proof, repair, worklist and design multisets; dropping one clause fails conservation",
+            "UT: [Invariant] C004 condensing a 57-ticket set to the partition minimum preserves the contract, clause, formula and test multisets",
+            "UT: [Invariant] C004 running the same plan twice creates zero new tickets and reuses the survivor by omissionStableKeys membership",
+            "UT: [Invariant] C005 a refused mutation restores Tickets.json byte-for-byte",
+            "UT: [Invariant] C005 every added omission ticket carries at least one schema-valid contract and no empty contracts array",
+            "UT: C001 precondition — A contract group aggregates every non-proven clause of one contract",
+            "UT: C001 postcondition — Every aggregated clause key is retained in the group clause list",
+            "UT: C001 invariant — Grouping never reduces the count of clause keys",
+            "UT: C002 precondition — A measured blocking class identifies the work a clause requires",
+            "UT: C002 postcondition — Only test-missing and unmapped classes become implementation atoms",
+            "UT: C002 invariant — Repair and classification classes never become tickets",
+            "UT: C003 precondition — Every implementation clause contributes one measured test atom",
+            "UT: C003 postcondition — The committed ticket set equals the contiguous partition minimum under the calibrated budget",
+            "UT: C003 invariant — No ticket exceeds the calibrated budget and adjacent tickets cannot merge",
+            "UT: C004 precondition — The obligation manifest lists every detected non-proven clause",
+            "UT: C004 postcondition — Each detected clause maps to exactly one tracked sink",
+            "UT: C004 invariant — The clause multiset before condensation equals the clause multiset after",
+            "UT: C005 precondition — A mutation proposes an omission ticket document",
+            "UT: C005 postcondition — The document is promoted only after every gate passes",
+            "UT: C005 invariant — A refused mutation leaves Tickets.json byte-identical",
+            "UT: [AC1] **[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - A find run whose remainder contains proof-missing clauses and 40 test gaps writes only the contiguous-partition-minimum implementation tickets. Every ticket carries measured testUnit/testIntegration, non-empty contracts, empty nodeIds and all its clause keys. Proof-missing clauses create zero tickets and one deduplicated repair record. A second identical run creates zero new tickets.",
+            "UT: [AC2] **[Error case] — Describe an error scenario the feature must handle:**\n  - A candidate shaped like the doors incident (57 per-contract evidence tickets, zero measured work) is refused with OMISSION_TICKET_UNMEASURED and OMISSION_SET_NOT_MINIMAL. Nothing is written, Tickets.json is byte-identical, and the report names every finding.",
+            "UT: [AC3] **[Edge case] — Describe any boundary or exception to verify:**\n  - A ticket exactly at budget (18 testUnit, 6 testIntegration) is accepted; one more test splits into the next ticket; a non-todo barrier prevents a merge across it; condense-tickets --gate then reports NO_CHANGE."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] C005 find-omissions-run invokes planOmissionTickets, verifyOmissionPlan, runMutationGate and rebaseArtifacts in that order inside one transaction and performs no direct Tickets.json write",
+            "IT: [Verification] C003 a doors-shaped fixture with 46, 5, 1 and 5 groups plus 40 test gaps produces only the partition-minimum implementation tickets and zero repair or classification tickets",
+            "IT: [Verification] C004 condense-tickets --apply on the fixture then condense-tickets --gate exits zero and a second run prints NO_CHANGE",
+            "IT: [Verification] C004 check-ticket-set.js over a workspace reports every package whose committed set is not a condensation fixed point",
+            "IT: [Prerequisites] C005 RFC-GRAPH.json, SEQUENCES.json, CONTRACT-COVERAGE.json, TEST-INDEX.json and ticket-work-budget.json are present",
+            "IT: [Related tickets] C005 PX-437 planner, PX-442 workspace proof isolation, PX-407 finding application"
+          ],
+          "testExceptions": [],
+          "instrumentation": "- [Logging] find-omissions-run reports refused: {code, findings} and never exits 0 after a refusal; each refusal names the ticket key or clause key.\n- [Metrics] report counts per sink (tickets, proofs, repairs, worklist, design), createdTickets, reusedTickets, condensedFrom records, and the partition count before/after.\n- [Error tracking] named codes: OMISSION_TICKET_UNMEASURED, OMISSION_SET_NOT_MINIMAL, OMISSION_EVIDENCE_TICKET, OMISSION_OWNERSHIP_DECLARED, OMISSION_REPAIR_TICKETIZED, OMISSION_DUPLICATE_UNIT, OMISSION_CONTRACT_UNPROJECTABLE, OMISSION_TEST_UNPLANNABLE, CONDENSE_OBLIGATION_LOST, MUTATION_ROLLED_BACK.\n- [Health check] condense-tickets --gate and check-ticket-set.js exit non-zero with the package path and finding code; no silent pass.\nReview: static quality check passed (0 issues); translatability no issues; 58 affected tests passed.",
+          "notes": "- [Implementation steps] 1) mutation gate extraVerify/rollback + aggregate order; 2) blocker-plan workKind + clause accumulation; 3) omission-work-unit; 4) planOmissionTickets atom-to-DP; 5) omission-plan-gate + find write precondition; 6) merge union; 7) condense-rebase export + transaction; 8) condense --gate U1 + check-ticket-set; 9) command docs.\n- [Risks] Wiring condensation before the stable-key union re-creates the absorbed set on the next run. Step 6 must land before step 5 is enabled in production, or the gate must stay behind a flag until both exist.\n- [Caveats] U3 applies only to phases changed by the mutation; applying it to every phase would block legacy packages that already carry grandfathered non-minimal phases. The mutation gate's distribution aggregate write currently happens before verification (ticket-mutation-gate.js:397-399); moving it after promotion is required for byte-identical refusal.\n- [Open items] Detection completeness, contract text digest in the conservation manifest, and mutation-quality calibration remain separate guarantees; they are not closed by this ticket.\n- [Future improvements] Add a content digest per contract clause and an inventory-completeness check; expose the workspace check in CI.\n\n- [Law] Law: not applicable — rust-interface-law applies exited 3; no crates/** interface unit matched.\nImplementation summary:\n- Changed files: .claude/scripts/tickets/lib/blocker-plan.js, lib/omission-work-unit.js (new), lib/omission-plan-gate.js (new), lib/ticket-partition.js, ticket-mutation-gate.js, apply-omission-findings.js, find-omissions-run.js, condense-tickets.js, condense-rebase.js, check-ticket-set.js (new), .claude/commands/find-omissions.md, condense-tickets.md, condense-workspace.md.\n- Tests added: mutation-gate-extra-verify, omission-sibling-clauses, omission-work-unit, omission-plan-minimality, omission-plan-gate, condense-omission-stable-keys, condense-omission-gate.\n- Test results: 38 new/affected tests pass; e2e-find-omissions 6/6; proof-migration and e2e-legacy-migration 17/17; the broader affected set 57/57. Two pre-existing failures remain in condense-preservation.test.cjs and condense-split-step.test.cjs; they also fail at HEAD and are the PX-142 baseline, not regressions.\n- Baseline note: the legacy planner keeps a compatibility path for callers without an inventory; it now emits a schema-valid contract instead of contracts: [].\n- Investigation line numbers are from the pre-implementation read; the Step 5a [::TICKET::] annotations may shift them.\n\n- Doors-shaped integration test: 149 clauses across 57 contracts produce 6 measured tickets plus 22 named repairs; the clause union is conserved and a second run creates zero tickets.\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues (verb-phrase names, no new generic vars or magic numbers; console.log only in the CLI entry point)\n- Tests: 58 affected tests passed; e2e-find-omissions 6/6; proof-migration and e2e-legacy-migration 17/17\n- Review finding and fix: conservation accepted any non-empty fallback artifact; hardened to require each unassigned clause to name a recognized non-ticket sink by measured status, with a regression test\n- Baseline: condense-preservation and condense-split-step fail at HEAD as well; not regressions\n- Accepted deviation: proof-migration keeps the legacy planner path with schema-valid contracts for backward compatibility; the v3 find path uses the new planner\n- Law: not applicable",
+          "acceptanceCriteria": [
+            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - A find run whose remainder contains proof-missing clauses and 40 test gaps writes only the contiguous-partition-minimum implementation tickets. Every ticket carries measured testUnit/testIntegration, non-empty contracts, empty nodeIds and all its clause keys. Proof-missing clauses create zero tickets and one deduplicated repair record. A second identical run creates zero new tickets.",
+            "**[Error case] — Describe an error scenario the feature must handle:**\n  - A candidate shaped like the doors incident (57 per-contract evidence tickets, zero measured work) is refused with OMISSION_TICKET_UNMEASURED and OMISSION_SET_NOT_MINIMAL. Nothing is written, Tickets.json is byte-identical, and the report names every finding.",
+            "**[Edge case] — Describe any boundary or exception to verify:**\n  - A ticket exactly at budget (18 testUnit, 6 testIntegration) is accepted; one more test splits into the next ticket; a non-todo barrier prevents a merge across it; condense-tickets --gate then reports NO_CHANGE."
+          ],
+          "investigation": "- Write path: find-omissions-run.js:394-396 writes plan.ticketsData directly with writeTemporaryThenRename; the file never imports or calls ticket-mutation-gate.js. appendRepairTicket (find-omissions-run.js:140-170) also writes Tickets.json directly, and applyRepairLadder (find-omissions-run.js:179-210) handles only the first failed gate.\n- Planner: apply-omission-findings.js:171-248 creates one ticket per remainder entry. The entry group is scope|contractId (lib/blocker-plan.js:88-95) and addGroup (lib/blocker-plan.js:44-48) keeps only the first clause of a group, so 149 clauses become 57 entries. The created ticket carries contracts: [], testUnit: [], testIntegration: [], acceptanceCriteria: [] (apply-omission-findings.js:220-232). One plan call creates one omission phase (apply-omission-findings.js:182-184), concentrating all 57 in P15. Owner reuse matches only top-level omissionStableKey/owner/clone chain (apply-omission-findings.js:197-206).\n- Schema: tickets-schema.json:165-171 requires contracts on every ticket, and :582-585 sets minItems 1. The generated empty array is therefore schema-invalid; ticket additionalProperties is true (:380), so new fields omissionUnitKey, omissionStableKeys and omissionUnits are safe to add.\n- Mutation gate: ticket-mutation-gate.js:375-443 snapshots, verifies and promotes; evaluateOwnership (:418) rejects an omission ticket that claims nodes without a transfer; the header (:1-16) states contracts are obligations, not ownership. The distribution aggregate is written at :397-399 before verification, so a refused mutation can leave the aggregate updated.\n- Condensation: lib/ticket-partition.js:127-180 is the contiguous partition DP; condensePlan is :552-616; mergeTicketGroup (:447-545) unions contracts, formulas and machine arrays and records absorbed records in condensedFrom (:490-530). Outcome tickets 190-197 show only todo is mergeable. condense-tickets.js:627-663 runs the partition and package gates; applyPlan is async at :828.\n- Workload: lib/ticket-workload.js:236-262 derives ownedContracts from nodeIds, and :320-327 counts testUnit/testIntegration lengths. Omission tickets with empty nodeIds and empty test arrays therefore measure zero workload, regardless of how many contracts they name.\n- Commands: .claude/commands/find-omissions.md:121-127 states the v3 flow is one non-interactive script; the exit contract at :138-145 requires remainder 0, no open ticket and no pending repair. Step 9.5 condensation (:389-394) follows the legacy Step 9 phasify path, which v3 does not run, so the v3 ticket creation has no condensation step in its own sequence.\n- conver: src/next-action.ts:110-163 derives command, resolve, consolidate, find or complete; there is no condense action. src/find-policy.ts sets MAX_FIND_ROUNDS = 5.\n- Incident evidence: 2026-11-17 21:31 and 21:33 v3 runs reported remainder 149 and proofCache reused 306 / missing 62; commit 7119d15 added 57 todo tickets to P15, with rootTicketKey counts 46 (P0-1), 5 (P1-2), 1 (P1-1) and 5 unowned.",
+          "boyScoutPlan": "- Split lib/blocker-plan.js addGroup into accumulateGroupClauses (verb phrase) and rename entry to blocker, group to canonicalGroupKey; the function then reads as \"accumulate every clause of the canonical group\".\n- Split apply-omission-findings.js planOmissionTickets into classifyRemainder, buildImplementationAtoms, planMinimumTickets, materializeTicket and collectRepairSinks; one function, one responsibility, and the call sequence reads as the flow.\n- Extract every finding code into a frozen OMISSION_PLAN_CODES constant map instead of inline string literals.\n- Replace appendRepairTicket's direct write with runMutationGate so the repair path cannot bypass the transaction; this is a violation in touched code.\n- Remove the empty contracts write: projectContract returns a schema-valid contract or null, and the null case becomes a named repair, never a ticket with contracts: [].\n- Name the empty machine arrays (EMPTY_NODE_IDS, EMPTY_TEST_PLAN) and the sink kinds (SINK_TICKET, SINK_PROOF, SINK_REPAIR, SINK_WORKLIST, SINK_DESIGN).\n- Remove the unenforced post-hoc condensation claim from the v3 procedure and mark Step 9.5 as legacy repair only; a false step in the command file is a comment/code contradiction.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "find-omissions→CONTRACT-COVERAGE",
+              "precondition": "A contract group aggregates every non-proven clause of one contract",
+              "postcondition": "Every aggregated clause key is retained in the group clause list",
+              "invariant": "Grouping never reduces the count of clause keys"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "find-omissions→blocker-plan",
+              "precondition": "A measured blocking class identifies the work a clause requires",
+              "postcondition": "Only test-missing and unmapped classes become implementation atoms",
+              "invariant": "Repair and classification classes never become tickets"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "find-omissions→ticket-work-budget",
+              "precondition": "Every implementation clause contributes one measured test atom",
+              "postcondition": "The committed ticket set equals the contiguous partition minimum under the calibrated budget",
+              "invariant": "No ticket exceeds the calibrated budget and adjacent tickets cannot merge"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "find-omissions→OMISSION-OBLIGATION-MANIFEST",
+              "precondition": "The obligation manifest lists every detected non-proven clause",
+              "postcondition": "Each detected clause maps to exactly one tracked sink",
+              "invariant": "The clause multiset before condensation equals the clause multiset after"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "find-omissions→ticket-mutation-gate",
+              "precondition": "A mutation proposes an omission ticket document",
+              "postcondition": "The document is promoted only after every gate passes",
+              "invariant": "A refused mutation leaves Tickets.json byte-identical"
+            }
+          ],
+          "created_at": "2026-11-17",
+          "updated_at": "2026-11-17",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-17T14:41:16.315Z",
+          "planTestCode": [
+            "C001 — a contract group retains every sibling clause.\n```js\nconst { blockerEntriesOf } = require('../../.claude/scripts/tickets/lib/blocker-plan.js');\nconst coverage = { clauses: [\n  { key: 'clause|pkg-alpha|C001|precondition|0123456789abcdef', status: 'TEST_MISSING' },\n  { key: 'clause|pkg-alpha|C001|postcondition|0123456789abcdee', status: 'TEST_MISSING' },\n  { key: 'clause|pkg-alpha|C001|invariant|0123456789abcded', status: 'TEST_MISSING' }\n]};\nconst inventory = { scope: 'pkg-alpha', clauses: [] };\nconst entries = blockerEntriesOf({ inventory, coverage });\nassert.equal(entries.length, 1);\nassert.equal(entries[0].clauses.length, 3);\n```",
+            "C002 — work-kind routing keeps proof repair out of tickets.\n```js\nconst { workKindOf } = require('../../.claude/scripts/tickets/lib/omission-work-unit.js');\nassert.equal(workKindOf('test-missing'), 'implementation');\nassert.equal(workKindOf('unmapped'), 'implementation');\nassert.equal(workKindOf('proof-missing'), 'repair');\nassert.equal(workKindOf('unclassified'), 'classification');\n```",
+            "C003 — the plan is the contiguous partition minimum at the budget boundary.\n```js\nconst { planOmissionTickets } = require('../../.claude/scripts/tickets/apply-omission-findings.js');\nconst atoms = Array.from({ length: 19 }, (_, index) => ({\n  key: 'clause|pkg-alpha|C' + String(index + 1).padStart(3, '0') + '|precondition|0123456789abcd' + String(index).padStart(2, '0'),\n  contractId: 'C' + String(index + 1).padStart(3, '0'),\n  element: 'precondition',\n  group: 'pkg-alpha|C' + String(index + 1).padStart(3, '0'),\n  owner: 'P1-1',\n  blockingClass: 'test-missing'\n}));\nconst plan = planOmissionTickets({ remainder: atoms, inventory, ticketsData: { phases: [] }, phases: [] });\nassert.equal(plan.created.length, 2);\nassert.equal(plan.created[0].testUnit.length, 18);\nassert.equal(plan.created[1].testUnit.length, 1);\nassert.equal(plan.created.every((ticket) => ticket.nodeIds.length === 0), true);\n```",
+            "C004 — conservation rejects a dropped clause and accepts a complete mapping.\n```js\nconst { verifyOmissionPlan } = require('../../.claude/scripts/tickets/lib/omission-plan-gate.js');\nconst clause = 'clause|pkg-alpha|C001|precondition|0123456789abcdef';\nconst candidate = { phases: [{ id: 1, tickets: [{\n  id: 1, phaseId: 1, status: 'todo', nodeIds: [],\n  testUnit: ['omission-test:' + clause], testIntegration: [],\n  contracts: [{ id: 'C001' }],\n  omissionUnits: [{ unitKey: 'pkg-alpha|P1-1', groups: [{ group: 'pkg-alpha|C001', clauses: [clause] }] }]\n}]}] };\nconst artifacts = {\n  inventory: { clauses: [{ key: clause }] },\n  coverage: { clauses: [{ key: clause, status: 'TEST_MISSING' }] },\n  graph: null, dirsTree: null, view: null,\n  budget: { operations: 8, sequenceSteps: 8, ownedContracts: 4, files: 15, testUnit: 18, testIntegration: 6, modules: 4 },\n  components: ['operations', 'sequenceSteps', 'ownedContracts', 'files', 'testUnit', 'testIntegration', 'modules'],\n  mergeStatusPolicy: 'todo'\n};\nassert.equal(verifyOmissionPlan({ before: { phases: [] }, candidate, addedKeys: ['P1-1'], artifacts }).ok, true);\ncandidate.phases[0].tickets[0].omissionUnits = [];\nassert.equal(verifyOmissionPlan({ before: { phases: [] }, candidate, addedKeys: ['P1-1'], artifacts }).ok, false);\n```",
+            "C005 — a refused mutation leaves Tickets.json byte-identical.\n```js\nconst fs = require('node:fs');\nconst { runMutationGate } = require('../../.claude/scripts/tickets/ticket-mutation-gate.js');\nconst beforeBytes = fs.readFileSync(ticketsPath);\nconst result = runMutationGate({\n  ticketsPath,\n  manifest: { command: 'find-omissions', added: ['P1-1'], origin: 'omission' },\n  afterDocument: brokenDocument,\n  extraVerify: () => [{ code: 'OMISSION_SET_NOT_MINIMAL', subject: 'P1-1', message: 'not a fixed point' }],\n  packageDirectory\n});\nassert.equal(result.ok, false);\nassert.deepEqual(fs.readFileSync(ticketsPath), beforeBytes);\n```",
+            "IT — a doors-shaped fixture keeps every clause across the produced tickets.\n```js\nconst { planOmissionTickets } = require('../../.claude/scripts/tickets/apply-omission-findings.js');\nconst owners = [...Array(46).fill('P0-1'), ...Array(5).fill('P1-2'), 'P1-1', ...Array(5).fill(null)];\nconst atoms = owners.map((owner, index) => ({\n  key: 'clause|pjsip-prebuilt|C' + String(index + 1).padStart(3, '0') + '|precondition|0123456789abcd' + String(index % 100).padStart(2, '0'),\n  contractId: 'C' + String(index + 1).padStart(3, '0'),\n  element: 'precondition',\n  group: 'pjsip-prebuilt|C' + String(index + 1).padStart(3, '0'),\n  owner,\n  blockingClass: 'test-missing'\n}));\nconst plan = planOmissionTickets({ remainder: atoms, inventory, ticketsData: { phases: [] }, phases: [] });\nassert.equal(plan.created.reduce((total, ticket) => total + ticket.testUnit.length, 0), 57);\nassert.equal(plan.created.every((ticket) => ticket.testUnit.length <= 18), true);\nassert.equal(plan.created.some((ticket) => ticket.contracts.length === 0), false);\n```"
+          ],
+          "planned_at": "2026-11-18T01:13:32.236Z",
+          "startedAt": "2026-11-18",
+          "changes": [
+            {
+              "before": "blocker-plan kept only the first clause of a contract group",
+              "after": "accumulateGroupClauses keeps every clause key in clauses[]",
+              "description": "C001 sibling clause conservation"
+            },
+            {
+              "before": "planOmissionTickets created one ticket per contract entry",
+              "after": "planWorkUnitTickets routes implementation atoms through minimumContiguousPartition and fills measured testUnit/testIntegration",
+              "description": "C003 partition-minimum planning"
+            },
+            {
+              "before": "find-omissions-run wrote Tickets.json directly",
+              "after": "verifyOmissionPlan + runMutationGate promote the candidate; a refusal writes nothing",
+              "description": "C005 write precondition and atomic refusal"
+            },
+            {
+              "before": "ticket-mutation-gate had no extra verifier or rollback token",
+              "after": "extraVerify and retainBefore/rollback added; the distribution stamp moved after verification",
+              "description": "C005 transaction support"
+            },
+            {
+              "before": "mergeTicketGroup dropped omissionStableKeys/omissionUnits and rebuilt contracts to []",
+              "after": "the merge unions both fields and preserves omission contracts",
+              "description": "C004 condensation conservation"
+            },
+            {
+              "before": "condense gates did not inspect omission tickets",
+              "after": "collectOmissionFindings rejects unmeasured omission tickets; check-ticket-set reports every package",
+              "description": "C003 postcondition gate"
+            },
+            {
+              "before": "the v3 procedure implied post-hoc condensation",
+              "after": "the write is a precondition and Step 9.5 is legacy repair",
+              "description": "command documentation"
+            }
+          ],
+          "done_at": "2026-11-18T01:24:34.136Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-18",
+          "reviewed_at": "2026-11-18T01:28:25.686Z"
         }
       ]
     },

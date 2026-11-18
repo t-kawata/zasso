@@ -142,6 +142,7 @@ Exit contract:
 - Completed tickets are never reopened; their status is not changed. A live open owner is reused.
 - No project-condition stop: a missing adapter, runner, inventory or proof environment follows the repair ladder and becomes an automatic repair or a deduplicated repair ticket.
 - No operator approval request: a pre-existing test failure, design mismatch or unresolved finding becomes a ticket or repair item with evidence. The run never stops for a decision.
+- Write precondition: the run promotes `Tickets.json` only through `runMutationGate` after `verifyOmissionPlan` proves every added ticket is measured implementation work, the changed phase is at its contiguous partition minimum, and every detected clause has one sink. A refused plan writes nothing and reports `refused` findings with exit 10.
 - Terminal condition: remainder = 0, no open ticket, no pending repair.
 
 This block is additive. The preflight, Steps 1–11 and the reverse section below are unchanged.
@@ -386,12 +387,14 @@ mutation gate: merge = `ticket-mutation-gate.js` transaction; refusal leaves Tic
 invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to the current directory (the Tickets.json root).
 gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → back to Step 1, clear all excuses, re-run.
 
-# Step 9.5 — Condense todo-only
+# Step 9.5 — Condense todo-only (legacy repair path)
 
 ```bash
 node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json --merge-status=todo
 ```
 merges only contiguous all-todo groups; every non-todo status is a barrier; phase floor applies only to all-todo phases. archive → write → gates; failure restores the archive. second run NO_CHANGE.
+
+This step repairs a pre-v3 ticket set. The v3 script already writes the contiguous partition minimum, so Step 9.5 is a no-op on a v3 result and is never the mechanism that keeps the set small.
 
 # Step 9.6 — Rebase omission convergence and rewrite markers
 

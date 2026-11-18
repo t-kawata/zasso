@@ -624,9 +624,36 @@ function partitionFindingsForDocument(artifacts, document) {
   return findings;
 }
 
+/** The omission tickets that carry no measured work or no live unit payload. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function collectOmissionFindings(document) {
+  const findings = [];
+  for (const phase of document?.phases ?? []) {
+    for (const ticket of phase.tickets ?? []) {
+      if (ticket?.origin?.kind !== 'omission') continue;
+      const key = ticket.phaseId === -1 || phase.id === -1
+        ? `PX-${ticket.id}`
+        : `P${phase.id}-${ticket.id}`;
+      if ((ticket.testUnit ?? []).length + (ticket.testIntegration ?? []).length === 0) {
+        findings.push(`${key}: OMISSION_TICKET_UNMEASURED`);
+      }
+      if ((ticket.omissionUnits ?? []).length === 0) {
+        findings.push(`${key}: OMISSION_EVIDENCE_TICKET`);
+      }
+    }
+  }
+  return findings;
+}
+
 /** Run the post-write gates for a package. */
-// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-443) --for-spec --no-implementation-order`.
 function runGates(artifacts, document) {
+  const omissionFindings = collectOmissionFindings(document);
+  if (omissionFindings.length > 0) {
+    const error = new Error(omissionFindings.join('; '));
+    error.code = 'CONDENSE_GATE_FAILED';
+    throw error;
+  }
   const partitionFindings = partitionFindingsForDocument(artifacts, document);
   if (partitionFindings.length > 0) {
     const error = new Error(partitionFindings.map((entry) => `${entry.code}: ${entry.message}`).join('; '));
@@ -926,7 +953,7 @@ async function applyPlan(options = {}) {
 }
 
 /** The read-only gate used by the split final step. */
-// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402|PX-443) --for-spec --no-implementation-order`.
 async function gateTickets(options = {}) {
   const artifacts = await loadArtifacts(options);
   artifacts.preserveCompleted = options.preserveCompleted !== false;
@@ -937,6 +964,10 @@ async function gateTickets(options = {}) {
       .filter((phase) => phase.before !== phase.after)
       .map((phase) => `P${phase.phaseId}: ${phase.before} -> ${phase.after}`);
     return { ok: false, code: 'CONDENSE_REQUIRED', findings, plan };
+  }
+  const omissionFindings = collectOmissionFindings(artifacts.ticketsDocument);
+  if (omissionFindings.length > 0) {
+    return { ok: false, code: 'OMISSION_TICKET_UNMEASURED', findings: omissionFindings, plan };
   }
   const identity = validateIdentity(artifacts.ticketsDocument, { requireDense: true });
   if (!identity.ok) {
@@ -1204,6 +1235,9 @@ module.exports = {
   buildPlan,
   applyPlan,
   gateTickets,
+  collectOmissionFindings,
+  condenseDocument: condenseToFixedPoint,
+  resolveBudget,
   rehydrate,
   auditContractOwnership,
   repairContractsFromLedger,

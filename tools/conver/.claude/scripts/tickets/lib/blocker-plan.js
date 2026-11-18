@@ -40,11 +40,18 @@ function blockingClassOf(clause) {
   return 'unresolved';
 }
 
-/** Add one entry unless its contract group already exists. */
-// [::TICKET::] PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-442 --for-spec --no-implementation-order`.
-function addGroup(groups, entry) {
-  if (groups.has(entry.group)) return;
-  groups.set(entry.group, entry);
+/** Add one entry or merge its clause keys into the existing contract group. */
+// [::TICKET::] PX-442, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-442|PX-443) --for-spec --no-implementation-order`.
+function accumulateGroupClauses(groups, blocker) {
+  const incoming = Array.isArray(blocker.clauses) && blocker.clauses.length > 0
+    ? blocker.clauses
+    : [blocker.key];
+  const existing = groups.get(blocker.group);
+  if (existing === undefined) {
+    groups.set(blocker.group, { ...blocker, clauses: [...incoming].sort() });
+    return;
+  }
+  existing.clauses = [...new Set([...existing.clauses, ...incoming])].sort();
 }
 
 /** The clause owner named by the inventory. */
@@ -59,7 +66,7 @@ function ownerOf({ clausesByKey, key }) {
  * @param {{inventory:object|null, coverage:object, testIndex?:object, classes?:string[]|null}} input
  * @returns {object[]}
  */
-// [::TICKET::] PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-442 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-442, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-442|PX-443) --for-spec --no-implementation-order`.
 function blockerEntriesOf({ inventory, coverage, classes = null }) {
   const clausesByKey = new Map((inventory?.clauses ?? []).map((clause) => [clause.key, clause]));
   const groups = new Map();
@@ -69,8 +76,9 @@ function blockerEntriesOf({ inventory, coverage, classes = null }) {
     const parsed = parseClauseKey(firstKey);
     const scope = parsed?.scope ?? inventory?.scope ?? 'package';
     const contractId = conflict.contractId ?? parsed?.contractId ?? 'unknown';
-    addGroup(groups, {
+    accumulateGroupClauses(groups, {
       key: 'conflict|' + String(conflict.code ?? 'conflict') + '|' + [...(conflict.keys ?? [])].sort().join(','),
+      clauses: [...(conflict.keys ?? [])].sort(),
       contractId,
       element: conflict.element ?? null,
       group: scope + '|' + contractId,
@@ -85,8 +93,9 @@ function blockerEntriesOf({ inventory, coverage, classes = null }) {
     const parsed = parseClauseKey(clause.key);
     const scope = parsed?.scope ?? inventory?.scope ?? 'package';
     const contractId = parsed?.contractId ?? 'unknown';
-    addGroup(groups, {
+    accumulateGroupClauses(groups, {
       key: clause.key,
+      clauses: [clause.key],
       contractId,
       element: parsed?.element ?? null,
       group: scope + '|' + contractId,
