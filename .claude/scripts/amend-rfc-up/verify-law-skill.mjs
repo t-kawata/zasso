@@ -14,6 +14,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as checks from './law-verify/v3.mjs';
+import * as updateChecks from './law-verify/v4.mjs';
+import * as buildReport from './law-verify/report.mjs';
+import * as updateReport from './law-verify/report-update.mjs';
 import {
   CHECK_CONTRACT,
   CHECK_SET_VERSION,
@@ -42,6 +45,7 @@ function defaultAliasPath(skillPath) {
 }
 
 export async function verifyLawSkill({
+// [::TICKET::] PX-445 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-445 --for-spec --no-implementation-order`.
   skillPath,
   root = process.cwd(),
   sourceRoot = null,
@@ -49,16 +53,21 @@ export async function verifyLawSkill({
   mode = null,
   outPath = null,
   skipTests = false,
+  kind = 'build',
 } = {}) {
   const resolvedSkillPath = path.resolve(skillPath);
   if (!exists(resolvedSkillPath)) {
     throw Object.assign(new Error(`law skill not found: ${resolvedSkillPath}`), { code: 'LAW_SKILL_INVALID' });
   }
+  if (kind !== 'build' && kind !== 'update') {
+    throw Object.assign(new Error(`unknown verifier kind: ${kind}`), { code: 'VERIFIER_KIND_INVALID' });
+  }
   const resolvedMode = resolveMode({ mode, sourceRoot });
   const aliasPath = pathAlias ?? defaultAliasPath(resolvedSkillPath);
   const runtime = checks.prepareRuntime({ skillPath: resolvedSkillPath });
+  const report = kind === 'update' ? updateReport : buildReport;
 
-  const actions = {
+  const buildActions = {
     layer: () => checks.checkLayer({ skillPath: resolvedSkillPath, mode: resolvedMode }),
     manifest: () => checks.checkManifest({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
     lock: () => checks.checkLock({ skillPath: resolvedSkillPath }),
@@ -97,10 +106,27 @@ export async function verifyLawSkill({
     performance: () => checks.checkPerformance({ skillPath: resolvedSkillPath }),
   };
 
+  const updateActions = {
+    ...buildActions,
+    revisionContract: () => updateChecks.checkRevisionContract({ skillPath: resolvedSkillPath }),
+    revisionCoverage: () => updateChecks.checkRevisionCoverage({ skillPath: resolvedSkillPath }),
+    revisionPreservation: () => updateChecks.checkRevisionPreservation({ skillPath: resolvedSkillPath }),
+    revisionLedger: () => updateChecks.checkRevisionLedger({ skillPath: resolvedSkillPath }),
+    revisionAuthorization: () => updateChecks.checkRevisionAuthorization({ skillPath: resolvedSkillPath }),
+    revisionCoherence: () => updateChecks.checkRevisionCoherence({ skillPath: resolvedSkillPath }),
+    revisionPolicy: () => updateChecks.checkRevisionPolicy({ skillPath: resolvedSkillPath }),
+    revisionDeterminism: () => updateChecks.checkRevisionDeterminism({ skillPath: resolvedSkillPath }),
+    revisionIdempotence: () => updateChecks.checkRevisionIdempotence({ skillPath: resolvedSkillPath }),
+    revisionFreshness: () => updateChecks.checkRevisionFreshness({ skillPath: resolvedSkillPath }),
+    revisionAssets: () => updateChecks.checkRevisionAssets({ skillPath: resolvedSkillPath }),
+    ruleIdentity: () => updateChecks.checkRevisionRuleIdentity({ skillPath: resolvedSkillPath }),
+  };
+  const actions = kind === 'update' ? updateActions : buildActions;
+
   const results = {};
-  for (const contract of CHECK_CONTRACT) {
+  for (const contract of report.CHECK_CONTRACT) {
     if (contract.mode === 'dev' && resolvedMode === 'installed') {
-      results[contract.name] = notRun(contract);
+      results[contract.name] = report.notRun(contract);
       continue;
     }
     const action = actions[contract.name];
@@ -111,21 +137,22 @@ export async function verifyLawSkill({
   }
 
   const failed = Object.values(results).some((entry) => entry.status === 'failed');
-  const report = {
+  const verificationReport = {
     schema: 'law-skill-verification/v1',
     status: failed ? 'failed' : 'machine_verified',
+    kind,
     mode: resolvedMode,
-    check_set_version: CHECK_SET_VERSION,
+    check_set_version: report.CHECK_SET_VERSION,
     skill: resolvedSkillPath,
     root: path.resolve(root),
     source_root: sourceRoot ? path.resolve(sourceRoot) : null,
     path_alias: aliasPath,
-    required_checks: requiredChecks(resolvedMode).filter((name) => !(skipTests && name === 'tests')),
+    required_checks: report.requiredChecks(resolvedMode).filter((name) => !(skipTests && name === 'tests')),
     checks: results,
-    closure_sha256: closureSha256({ mode: resolvedMode, checks: results }),
+    closure_sha256: report.closureSha256({ mode: resolvedMode, checks: results }),
   };
-  if (outPath) writeAtomic(path.resolve(outPath), `${JSON.stringify(report, null, 2)}\n`);
-  return report;
+  if (outPath) writeAtomic(path.resolve(outPath), `${JSON.stringify(verificationReport, null, 2)}\n`);
+  return verificationReport;
 }
 
 export function assertMachineVerified({ report }) {
@@ -164,11 +191,13 @@ export async function main(argv = process.argv.slice(2)) {
       mode: argumentValue(argv, 'mode'),
       outPath,
       skipTests: argv.includes('--skip-tests'),
+      kind: argumentValue(argv, 'kind') || 'build',
     });
     assertMachineVerified({ report });
     process.stdout.write(`${JSON.stringify({
       ok: true,
       schema: report.schema,
+      kind: report.kind,
       mode: report.mode,
       check_set_version: report.check_set_version,
       closure_sha256: report.closure_sha256,

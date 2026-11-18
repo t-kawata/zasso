@@ -1,6 +1,6 @@
 ---
-description: Build a complete *-law skill from English Markdown sources; verify with the canonical verifier in dev and installed modes; install.
-argument-hint: "<skill-name>=<source-doc>... | <skill-name> <source-doc>..."
+description: Build or update a complete *-law skill from English Markdown sources; verify with the canonical verifier in dev and installed modes; install.
+argument-hint: "<skill-name> <source-doc>... | <skill-name>=<source-doc>... | update <skill-name> <revision-doc>"
 disable-model-invocation: true
 ---
 
@@ -63,6 +63,7 @@ set remains the invocation's source set.
 - `<skill-name> <source-doc> [<source-doc> ...]` — one skill; every remaining argument is a source.
 - `<skill-name>=<source-doc> [<skill-name>=<source-doc> ...]` — one or more skills; repeated name adds a source.
 - Optional free-form block: the first blank line ends the source list; every following line is the instruction candidate. At most one skill per invocation when the block is present.
+- `update <skill-name> <revision-doc>` — opt-in update subroute; the document is the update input and the installed skill is the baseline. The update form is exclusive; no flags.
 - Mixing forms → rejected as `INVALID_ARGUMENT`. Empty argument → `INVALID_ARGUMENT`.
 - No flags in the source list. Hyphen-leading source argument → `INVALID_ARGUMENT`.
 - Source repository-relative. Absolute accepted only inside repository; manifest stores alias.
@@ -457,6 +458,28 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 - Report mutation results + adoption gaps.
 - Completion: every skill `machine_verified` in dev and installed, `rebuild` byte-identical, install verified, acceptance record pass.
 
+## Update Subroute
+
+The default path remains build mode (`Step 0`–`Step 14`). The update subroute is opt-in and only runs when the first positional token is `update` or the first source carries `update: true` / `revision: true`. It does not change the build steps, check-set v3, or build outputs.
+
+- L0 Mode and role: infer the skill, baseline, version, date, language, id policy, and role (`law-revision`, `build-source`, or `NO_NORMATIVE_CHANGE`).
+- L1 Baseline: verify the installed skill in installed mode; adopt its artifacts; stop on drift.
+- L2 Document: normalize, measure, and record line and heading hashes; keep raw text only in the original.
+- L3 Plan: parse structured operations or author the plan; validate targets, IDs, evidence, specialization, and rename policy.
+- L4 Coverage and interpretations: every block has a disposition or interpretation; no silent omission.
+- L5 Coherence: apply the law profile to every referenced artifact class.
+- L6 Identity: preserve rule IDs; tombstone retired IDs; keep `kept_id` on split and merge.
+- L7 Authorization: destructive or weakening operations carry document evidence; external approval is optional.
+- L8 Generate: copy the baseline skill tree to staging; patch only the rule, lock, delivery, coverage, index, and log artifacts the revision changes; keep the runtime (`dist/`, `okf-core/`, `scripts/`) byte-identical to the baseline.
+- L9 Ledger: hash the canonical ledger; record baseline and document digests.
+- L10 Original: write the raw revision input to `PRE-OKF-ORIGINAL.md` and `source/pre-okf-original/v1`; keep the baseline artifacts under `source/baseline/`.
+- L11 Version and freshness: bump the version, write the log, and set freshness metadata.
+- L12 Verify: run the canonical verifier in `--kind update --mode dev` with the staging alias map; every required v4 check must be `machine_verified`.
+- L13 Install: atomic replace with backup and rollback; a failure leaves the baseline untouched. Run the verifier in `--kind update --mode installed` on the installed tree; source/installed SHA must match.
+- L14 Report: record the baseline digest, role, version, change counts, closures, and install path.
+
+Execution: call `applyLawRevision` from `law-revision/apply.mjs` with `{baselineSkill, plan, documentMap, context, outDir, documentText, documentAlias, sourceRoot, revisionPath, aliasPath, baselineAliasPath}`. It copies the baseline tree, patches changed rule pages, rebuilds `atoms.lock.json`, `source/rule-concepts.json`, `source/coverage-v3.json`, `source/delivery.json`, the OKF indexes, and the log. Verify dev with `verify-law-skill.mjs --kind update --mode dev --source-root <root> --path-alias <staging alias>`. Install with `installWithRollback` from `revision/install.mjs`. Verify installed with `--kind update --mode installed --path-alias <staging alias>` and compare `sha256Tree` source/installed.
+
 ## Verification Gates
 
 | Gate | Pass |
@@ -464,6 +487,7 @@ Scan generated tree for example literals + Rust tokens. The command body names n
 | Canonical verifier dev | `verify-law-skill.mjs` exit 0; `check_set_version: 3`; 36 checks; every dev-required check `machine_verified`; closure recorded |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style`, `conformance`, `lint`, `profile`, `graph`, `context`, `navigation`, `ruleIdentity`, `performance`, `traversalEnvelope`, `frontierCompleteness`, `unknownId`, `graphReach`, `facetSufficiency`, `guidanceDeterminism`, `sourceCoverage`, `aliasResolution`, `rulePreservation`, `bodyFidelity` |
 | Canonical verifier installed | installed tree; 19 required checks `machine_verified`; source/installed SHA match |
+| Canonical verifier update | `verify-law-skill.mjs --kind update`; `check_set_version: 4`; dev and installed required checks `machine_verified`; adapter output is a full installable skill; source/installed SHA match |
 | Integration | `verify-law-integration.mjs --mode check --require-skill` exit 0; six canonical lines; no drift, duplicate, location, or CLI leak |
 | Check set | `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style` |
 | Bundle lint | `check lint` exit 0 |

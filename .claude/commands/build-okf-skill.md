@@ -1,6 +1,6 @@
 ---
-description: Build a complete *-okf wiki skill from English Markdown sources on the Open Knowledge Format v0.2 model; verify in dev and installed modes; install.
-argument-hint: "<skill-name>=<source-doc>... | <skill-name> <source-doc>..."
+description: Build or update a complete *-okf wiki skill from English Markdown sources on the Open Knowledge Format v0.2 model; verify in dev and installed modes; install.
+argument-hint: "<skill-name> <source-doc>... | <skill-name>=<source-doc>... | update <skill-name> <revision-doc>"
 disable-model-invocation: true
 ---
 
@@ -64,6 +64,7 @@ set remains the invocation's source set.
 
 - `<skill-name> <source-doc> [<source-doc> ...]` — one skill; every remaining argument is a source.
 - `<skill-name>=<source-doc> [<skill-name>=<source-doc> ...]` — one or more skills; repeated name adds a source.
+- `update <skill-name> <revision-doc>` — opt-in update subroute; the document is the update input and the installed skill is the baseline. The update form is exclusive; no flags.
 - Mixing forms → `INVALID_ARGUMENT`. Empty argument → `INVALID_ARGUMENT`.
 - No flags. Hyphen-leading argument → `INVALID_ARGUMENT`.
 - Source repository-relative. Absolute accepted only inside the repository; the manifest stores an alias.
@@ -491,12 +492,31 @@ Scan the generated tree for example literals, original paths, ticket ids, and CJ
 - Report mutation results + adoption gaps.
 - Completion: every skill `machine_verified` in dev and installed, `rebuild` byte-identical, install verified, acceptance record pass.
 
+## Update Subroute
+
+The default path remains build mode. The update subroute is opt-in and runs only with the `update` token or `update: true` / `revision: true`. It does not change the build steps, check-set v3, or build outputs.
+
+- O0 Mode and role: infer `okf-reference` or `okf-update`; reject a law role.
+- O1 Baseline: verify the installed skill and adopt its inventory, lock, coverage, and log.
+- O2 Document: measure the reference or update document; keep raw non-English text only in the original.
+- O3 Plan: add-source, update-source, reference-only, concept operations, and coherence.
+- O4 Coverage: every heading, preamble block, code block, and line has a disposition or interpretation.
+- O5 Bundle: copy the baseline skill tree to staging; apply source and concept operations to `okf/`; rewrite links; recompute requires and indexes; keep the runtime (`dist/`, `okf-core/`, `scripts/`) byte-identical to the baseline.
+- O6 Freshness: set generated, verified, and stale-after metadata; append the dated log.
+- O7 Assets: reconcile asset roots, concepts, and ledgers.
+- O8 Verify: run the canonical verifier in `--kind update --mode dev`; every required v4 check must be `machine_verified`.
+- O9 Install: atomic replace with backup and rollback. Run `--kind update --mode installed`; source/installed SHA must match.
+- O10 Report: record the role, version, concept counts, coverage, asset parity, closures, and install path.
+
+Execution: call `applyOkfRevision` from `okf-revision/apply.mjs` with `{baselineSkill, role, plan, documentMap, context, outDir, sourceText, sourceAlias, sourceRoot, revisionPath, aliasPath}`. It copies the baseline tree, writes changed concepts under `okf/`, rebuilds `atoms.lock.json`, `source/concept-inventory.json`, `source/coverage.json`, the combined `source/source.baseline.md`, the manifest, the indexes, and the log. Verify dev with `verify-okf-skill.mjs --kind update --mode dev --source-root <root> --path-alias <staging alias>`. Install with `installWithRollback` from `revision/install.mjs`. Verify installed with `--kind update --mode installed` and compare `sha256Tree` source/installed.
+
 ## Verification Gates
 
 | Gate | Pass |
 |---|---|
 | Canonical verifier dev | exit 0; `check_set_version` from `checks.json`; every dev check `machine_verified`; closure recorded |
 | Canonical verifier installed | installed tree; every installed check `machine_verified`; source/installed SHA match |
+| Canonical verifier update | `verify-okf-skill.mjs --kind update`; `check_set_version: 4`; dev and installed required checks `machine_verified`; adapter output is a full installable skill; source/installed SHA match |
 | Conformance | three official conditions only |
 | Lint | broken link, missing index, orphan, unknown type/key, stale, source mismatch |
 | Profile | required types/concepts/rules, closure |

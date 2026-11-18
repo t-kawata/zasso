@@ -53,6 +53,9 @@ import {
   checkRuntime,
   checkTests,
 } from './okf-verify/checks-runtime.mjs';
+import * as updateChecks from './okf-verify/v4.mjs';
+import * as buildReport from './okf-verify/report.mjs';
+import * as updateReport from './okf-verify/report-update.mjs';
 import {
   CHECK_CONTRACT,
   CHECK_SET_VERSION,
@@ -81,6 +84,7 @@ function defaultAliasPath(skillPath) {
 }
 
 export async function verifyOkfSkill({
+// [::TICKET::] PX-445 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-445 --for-spec --no-implementation-order`.
   skillPath,
   root = process.cwd(),
   sourceRoot = null,
@@ -88,15 +92,20 @@ export async function verifyOkfSkill({
   mode = null,
   outPath = null,
   skipTests = false,
+  kind = 'build',
 } = {}) {
   const resolvedSkillPath = path.resolve(skillPath);
   if (!exists(resolvedSkillPath)) {
     throw Object.assign(new Error(`okf skill not found: ${resolvedSkillPath}`), { code: 'OKF_SKILL_INVALID' });
   }
+  if (kind !== 'build' && kind !== 'update') {
+    throw Object.assign(new Error(`unknown verifier kind: ${kind}`), { code: 'VERIFIER_KIND_INVALID' });
+  }
   const resolvedMode = resolveMode({ mode, sourceRoot });
   const aliasPath = pathAlias ?? defaultAliasPath(resolvedSkillPath);
+  const reportContract = kind === 'update' ? updateReport : buildReport;
 
-  const actions = {
+  const buildActions = {
     layer: () => checkLayer({ skillPath: resolvedSkillPath, mode: resolvedMode }),
     manifest: () => checkManifest({ skillPath: resolvedSkillPath, sourceRoot, aliasPath }),
     lock: () => checkLock({ skillPath: resolvedSkillPath, mode: resolvedMode }),
@@ -135,10 +144,26 @@ export async function verifyOkfSkill({
     performance: () => checkPerformance({ skillPath: resolvedSkillPath }),
   };
 
+  const updateActions = {
+    ...buildActions,
+    revisionContract: () => updateChecks.checkRevisionContract({ skillPath: resolvedSkillPath }),
+    revisionCoverage: () => updateChecks.checkRevisionCoverage({ skillPath: resolvedSkillPath }),
+    revisionPreservation: () => updateChecks.checkRevisionPreservation({ skillPath: resolvedSkillPath }),
+    revisionLedger: () => updateChecks.checkRevisionLedger({ skillPath: resolvedSkillPath }),
+    revisionAuthorization: () => updateChecks.checkRevisionAuthorization({ skillPath: resolvedSkillPath }),
+    revisionCoherence: () => updateChecks.checkRevisionCoherence({ skillPath: resolvedSkillPath }),
+    revisionPolicy: () => updateChecks.checkRevisionPolicy({ skillPath: resolvedSkillPath }),
+    revisionDeterminism: () => updateChecks.checkRevisionDeterminism({ skillPath: resolvedSkillPath }),
+    revisionIdempotence: () => updateChecks.checkRevisionIdempotence({ skillPath: resolvedSkillPath }),
+    revisionFreshness: () => updateChecks.checkRevisionFreshness({ skillPath: resolvedSkillPath }),
+    revisionAssets: () => updateChecks.checkRevisionAssets({ skillPath: resolvedSkillPath }),
+  };
+  const actions = kind === 'update' ? updateActions : buildActions;
+
   const checks = {};
-  for (const contract of CHECK_CONTRACT) {
+  for (const contract of reportContract.CHECK_CONTRACT) {
     if (contract.mode === 'dev' && resolvedMode === 'installed') {
-      checks[contract.name] = notRun(contract);
+      checks[contract.name] = reportContract.notRun(contract);
       continue;
     }
     const action = actions[contract.name];
@@ -151,16 +176,17 @@ export async function verifyOkfSkill({
   const failed = Object.values(checks).some((entry) => entry.status === 'failed');
   const report = {
     schema: 'okf-skill-verification/v1',
+    kind,
     mode: resolvedMode,
-    check_set_version: CHECK_SET_VERSION,
+    check_set_version: reportContract.CHECK_SET_VERSION,
     status: failed ? 'failed' : 'machine_verified',
     skill: resolvedSkillPath,
     root: path.resolve(root),
     source_root: sourceRoot ? path.resolve(sourceRoot) : null,
     path_alias: aliasPath,
-    required_checks: requiredChecks(resolvedMode).filter((name) => !(skipTests && name === 'tests')),
+    required_checks: reportContract.requiredChecks(resolvedMode).filter((name) => !(skipTests && name === 'tests')),
     checks,
-    closure_sha256: closureSha256({ mode: resolvedMode, checks }),
+    closure_sha256: reportContract.closureSha256({ mode: resolvedMode, checks }),
   };
   if (outPath) writeAtomic(path.resolve(outPath), `${JSON.stringify(report, null, 2)}\n`);
   return report;
@@ -199,9 +225,10 @@ export async function main(argv = process.argv.slice(2)) {
       mode: argumentValue(argv, 'mode'),
       outPath: argumentValue(argv, 'out'),
       skipTests: argv.includes('--skip-tests'),
+      kind: argumentValue(argv, 'kind') || 'build',
     });
     assertOkfMachineVerified({ report });
-    process.stdout.write(`${JSON.stringify({ ok: true, schema: report.schema, mode: report.mode, check_set_version: report.check_set_version, closure_sha256: report.closure_sha256 })}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, schema: report.schema, kind: report.kind, mode: report.mode, check_set_version: report.check_set_version, closure_sha256: report.closure_sha256 })}\n`);
     return 0;
   } catch (error) {
     process.stdout.write(`${JSON.stringify({ ok: false, code: error.code || 'OKF_SKILL_INVALID', message: error.message, failed: error.failed || [] })}\n`);

@@ -1,0 +1,193 @@
+{
+  "check_set_version": "4",
+  "checks": [
+    {
+      "name": "layer",
+      "mode": "both"
+    },
+    {
+      "name": "manifest",
+      "mode": "dev"
+    },
+    {
+      "name": "lock",
+      "mode": "both"
+    },
+    {
+      "name": "coverage",
+      "mode": "dev"
+    },
+    {
+      "name": "registry",
+      "mode": "dev"
+    },
+    {
+      "name": "boundary",
+      "mode": "both"
+    },
+    {
+      "name": "provenance",
+      "mode": "dev"
+    },
+    {
+      "name": "citation",
+      "mode": "dev"
+    },
+    {
+      "name": "graph",
+      "mode": "both"
+    },
+    {
+      "name": "freshness",
+      "mode": "dev"
+    },
+    {
+      "name": "conflicts",
+      "mode": "dev"
+    },
+    {
+      "name": "retrieval",
+      "mode": "both"
+    },
+    {
+      "name": "usage",
+      "mode": "both"
+    },
+    {
+      "name": "runtime",
+      "mode": "dev"
+    },
+    {
+      "name": "tests",
+      "mode": "dev"
+    },
+    {
+      "name": "installer",
+      "mode": "both"
+    },
+    {
+      "name": "determinism",
+      "mode": "dev"
+    },
+    {
+      "name": "distribution",
+      "mode": "both"
+    },
+    {
+      "name": "style",
+      "mode": "dev"
+    },
+    {
+      "name": "conformance",
+      "mode": "both"
+    },
+    {
+      "name": "lint",
+      "mode": "dev"
+    },
+    {
+      "name": "profile",
+      "mode": "dev"
+    },
+    {
+      "name": "indexlog",
+      "mode": "dev"
+    },
+    {
+      "name": "trust",
+      "mode": "dev"
+    },
+    {
+      "name": "sources",
+      "mode": "dev"
+    },
+    {
+      "name": "context",
+      "mode": "both"
+    },
+    {
+      "name": "navigation",
+      "mode": "both"
+    },
+    {
+      "name": "containment",
+      "mode": "both"
+    },
+    {
+      "name": "library",
+      "mode": "dev"
+    },
+    {
+      "name": "performance",
+      "mode": "dev"
+    },
+    {
+      "name": "traversalEnvelope",
+      "mode": "both"
+    },
+    {
+      "name": "frontierCompleteness",
+      "mode": "dev"
+    },
+    {
+      "name": "unknownId",
+      "mode": "both"
+    },
+    {
+      "name": "graphReach",
+      "mode": "both"
+    },
+    {
+      "name": "facetSufficiency",
+      "mode": "both"
+    },
+    {
+      "name": "guidanceDeterminism",
+      "mode": "dev"
+    },
+    {
+      "name": "revisionContract",
+      "mode": "both"
+    },
+    {
+      "name": "revisionCoverage",
+      "mode": "dev"
+    },
+    {
+      "name": "revisionPreservation",
+      "mode": "both"
+    },
+    {
+      "name": "revisionLedger",
+      "mode": "both"
+    },
+    {
+      "name": "revisionAuthorization",
+      "mode": "both"
+    },
+    {
+      "name": "revisionCoherence",
+      "mode": "both"
+    },
+    {
+      "name": "revisionPolicy",
+      "mode": "dev"
+    },
+    {
+      "name": "revisionDeterminism",
+      "mode": "dev"
+    },
+    {
+      "name": "revisionIdempotence",
+      "mode": "dev"
+    },
+    {
+      "name": "revisionFreshness",
+      "mode": "both"
+    },
+    {
+      "name": "revisionAssets",
+      "mode": "both"
+    }
+  ]
+}
