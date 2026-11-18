@@ -142,9 +142,15 @@ Exit contract:
 - Completed tickets are never reopened; their status is not changed. A live open owner is reused.
 - No project-condition stop: a missing adapter, runner, inventory or proof environment follows the repair ladder and becomes an automatic repair or a deduplicated repair ticket.
 - No operator approval request: a pre-existing test failure, design mismatch or unresolved finding becomes a ticket or repair item with evidence. The run never stops for a decision.
+- Write precondition: the run promotes `Tickets.json` only through `runMutationGate` after `verifyOmissionPlan` proves every added ticket is measured implementation work, the changed phase is at its contiguous partition minimum, and every detected clause has one sink. A refused plan writes nothing and reports `refused` findings with exit 10.
+- Budget: `ticket-work-budget.json` v4 measures `contractCount` (distinct RFC contracts per ticket) in addition to the test plan, so an omission ticket cannot grow past the calibrated contract ceiling. `calibrate-work-budget.js` computes the nearest-rank P75 over completed measured tickets; run it after each review round. An uncalibrated ceiling is prohibited.
 - Terminal condition: remainder = 0, no open ticket, no pending repair.
 
 This block is additive. The preflight, Steps 1–11 and the reverse section below are unchanged.
+
+Legacy write paths are for pre-v3 packages only. Step 0's `apply-omission-findings.js`, Steps 1–8's `add-omission-ticket.js`, and Step 9's `phasify-omissions.js` each create one ticket per omission and are not the v3 condensation mechanism. When `OMISSION-CONVERGENCE-V3.json` exists, `phasify-omissions.js` refuses the merge and `find-omissions-run.js` is the only writer of `Tickets.json`.
+
+Every legacy omission ticket still carries a measured plan: the clone replaces the source `testUnit` with one planned test per failed evaluation and records `omissionUnits`; a Step 0 finding keeps its own plan and copies the source contracts. `phasify-omissions.js` then runs the shared `condense-tickets.js --apply` and `--gate`, so a pre-v3 package is condensed to the same partition minimum. A legacy omission with neither a failed evaluation nor a test plan cannot pass the gate; the merge restores the pre-merge `Tickets.json` and stops.
 
 ### Step 0.45 — Legacy artifact migration (automatic)
 
@@ -386,12 +392,16 @@ mutation gate: merge = `ticket-mutation-gate.js` transaction; refusal leaves Tic
 invariant: built-in STUB key rewrite — cloned ticket's `stubs[]` referencing an OLD key gets every marker key rewritten to the clone's new key (`P{newPhase}-{newId}`), relative to the current directory (the Tickets.json root).
 gate: merge REJECTED (exit≠0) if any stub still carries a terminal excuse → back to Step 1, clear all excuses, re-run.
 
-# Step 9.5 — Condense todo-only
+prohibition: never run Step 9 after a v3 run. `OMISSION-CONVERGENCE-V3.json` makes `phasify-omissions.js` refuse; the v3 script already wrote the contiguous partition minimum through the mutation gate.
+
+# Step 9.5 — Verify the condensed merge (all paths)
 
 ```bash
-node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --tickets=Tickets.json --merge-status=todo
+node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --gate --tickets=Tickets.json --merge-status=todo
 ```
-merges only contiguous all-todo groups; every non-todo status is a barrier; phase floor applies only to all-todo phases. archive → write → gates; failure restores the archive. second run NO_CHANGE.
+read-only gate over the committed set; nonzero → stop with the named finding. `--apply --merge-status=todo` merges only contiguous all-todo groups; every non-todo status is a barrier; phase floor applies only to all-todo phases; archive → write → gates; failure restores the archive.
+
+`phasify-omissions.js` runs the same `--apply` and `--gate` immediately after the legacy merge, and restores the pre-merge `Tickets.json` if either fails. The v3 script already writes the contiguous partition minimum, so the apply is NO_CHANGE on a v3 result. This step is the final postcondition, not the only condensation mechanism.
 
 # Step 9.6 — Rebase omission convergence and rewrite markers
 

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "components": [
     "operations",
     "sequenceSteps",
@@ -7,16 +7,18 @@
     "files",
     "testUnit",
     "testIntegration",
-    "modules"
+    "modules",
+    "contractCount"
   ],
   "budget": {
     "operations": 8,
     "sequenceSteps": 8,
     "ownedContracts": 4,
     "files": 15,
-    "testUnit": 18,
+    "testUnit": 24,
     "testIntegration": 6,
-    "modules": 4
+    "modules": 4,
+    "contractCount": 8
   },
   "excluded": [
     "providerBoundaryContracts",
@@ -28,5 +30,5 @@
     "budget",
     "ownership-boundary"
   ],
-  "provenance": "Initial v3 calibration keeps the v2 ceilings and replaces assertion-based merge refusals with the contiguous partition minimum. Replace the ceilings with the measured P75 after the first reviewed v3 tickets."
+  "provenance": "Initial v4 calibration: testUnit 24 and contractCount 8 keep one ticket within eight standard three-element contracts, replacing the v3 testUnit 18 / implicit six-contract ceiling. The graph-derived ceilings remain the v2 values. Replace every ceiling with the measured P75 via calibrate-work-budget.js after the first reviewed v3 tickets."
 }

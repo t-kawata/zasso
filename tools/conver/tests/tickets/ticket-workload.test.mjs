@@ -132,6 +132,8 @@ test('C001 v2 workload counts implementation work only', () => {
     testUnit: 2,
     testIntegration: 1,
     modules: 2,
+    // The v4 component is additive; the v2 component list still ignores it.
+    contractCount: 0,
   });
   assert.equal('contracts' in workload, false);
   assert.equal('kinds' in workload, false);

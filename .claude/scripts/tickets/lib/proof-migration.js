@@ -106,6 +106,7 @@ function emptyReport() {
     repairsOpenDiagnostic: 0,
     ticketsCreated: 0,
     ticketsReused: 0,
+    ticketsRefused: [],
     unsupported: [],
     changed: { coverage: false, ledger: false, repairs: false, tickets: false },
     findings: [],
@@ -338,11 +339,22 @@ function migrateArtifacts({ cwd, coverage, ledger, repairs, ticketsData, invento
   if (droppedKeys.size > 0) {
     const entries = blockerEntriesOf({ inventory, coverage: usableCoverage, testIndex, classes: ['unstable-target'] })
       .filter((entry) => droppedKeys.has(entry.key));
-    const plan = planOmissionTickets({ remainder: entries, ticketsData: ticketsDoc ?? { phases: [] }, phases: ticketsDoc?.phases ?? [] });
-    ticketsDoc = plan.ticketsData;
-    report.ticketsCreated = plan.created.length;
-    report.ticketsReused = plan.reusedTickets;
-    if (report.ticketsCreated > 0) report.changed.tickets = true;
+    if (inventory === null) {
+      // The legacy planner creates one zero-work ticket per entry. Without an
+      // inventory there is no measured atom to partition, so the migration
+      // names the refusal instead of reintroducing the evidence-ticket set.
+      report.ticketsRefused = entries.map((entry) => ({
+        code: 'OMISSION_MIGRATION_INVENTORY_MISSING',
+        subject: entry.key,
+        message: 'the unstable target needs a rebuilt inventory before a ticket can be planned',
+      }));
+    } else {
+      const plan = planOmissionTickets({ remainder: entries, inventory, ticketsData: ticketsDoc ?? { phases: [] }, phases: ticketsDoc?.phases ?? [] });
+      ticketsDoc = plan.ticketsData;
+      report.ticketsCreated = plan.created.length;
+      report.ticketsReused = plan.reusedTickets;
+      if (report.ticketsCreated > 0) report.changed.tickets = true;
+    }
   }
 
   if (reportOnly) {

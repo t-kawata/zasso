@@ -27,6 +27,7 @@ const { createLedger, judgeCoverage, mergeObligations, readLedger, writeLedger }
 const { scanClauseCoverage } = require('./lib/coverage-map.js');
 const { loadDispositions } = require('./lib/dispositions.js');
 const { buildProofInputsByKey } = require('./lib/proof-plan.js');
+const { legacyOmissionWorkOf } = require('./lib/legacy-omission-work-unit.js');
 const { resolveAdapters } = require('./build-test-index.js');
 
 const DETECTOR_FAILED = 'DETECTOR_FAILED';
@@ -103,8 +104,9 @@ function normalizeFinding(detector, rawFinding) {
 /** The minimum ticket shape add-omission-ticket.js accepts. */
 // [::TICKET::] PX-407 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-407 --for-spec --no-implementation-order`.
 function toOmissionTicket(finding) {
-  return {
+  const ticket = {
     title: finding.code + ': ' + finding.assetId,
+    status: 'todo',
     background: 'Detected by ' + finding.code + ' on the ' + finding.surface + ' surface ' + finding.assetId + '.',
     scope: [finding.surface + ':' + finding.assetId],
     testUnit: ['UT: ' + finding.problem],
@@ -113,6 +115,15 @@ function toOmissionTicket(finding) {
     originalTicketKey: finding.ticketKey,
     omissionStableKey: finding.stableKey,
   };
+  // The Step 0 finding already carries its own test plan. Add the omission unit
+  // the condense gate requires, without replacing that plan.
+  const work = legacyOmissionWorkOf(ticket);
+  if (work !== null) {
+    ticket.omissionStableKeys = work.omissionStableKeys;
+    ticket.omissionUnitKeys = work.omissionUnitKeys;
+    ticket.omissionUnits = work.omissionUnits;
+  }
+  return ticket;
 }
 
 /** The tickets a per-ticket detector must run against. */

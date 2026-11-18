@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { legacyOmissionWorkOf } = require('./lib/legacy-omission-work-unit.js');
 
 // -- Constants --
 
@@ -371,7 +372,7 @@ function lookupTicket(ticketsData, ticketKey) {
  */
 // [::TICKET::] PX-431 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-431 --for-spec --no-implementation-order`.
 function buildOmissionClone(sourceTicket, ticketKey, omissions) {
-  return {
+  const clone = {
     ...sourceTicket,
     foundOmissions: omissions,
     originalTicketKey: ticketKey,
@@ -382,6 +383,18 @@ function buildOmissionClone(sourceTicket, ticketKey, omissions) {
     phaseId: -1,
     status: 'todo',
   };
+  // The source's test plan covers the source, not this omission. Replace it with
+  // the measured plan derived from the failed evaluations; a clone with no
+  // evaluation stays test-less and the condense gate fails closed.
+  const work = legacyOmissionWorkOf(clone, { replaceTestPlan: true });
+  clone.testUnit = work === null ? [] : work.testUnit;
+  clone.testIntegration = work === null ? [] : work.testIntegration;
+  if (work !== null) {
+    clone.omissionStableKeys = work.omissionStableKeys;
+    clone.omissionUnitKeys = work.omissionUnitKeys;
+    clone.omissionUnits = work.omissionUnits;
+  }
+  return clone;
 }
 
 /**

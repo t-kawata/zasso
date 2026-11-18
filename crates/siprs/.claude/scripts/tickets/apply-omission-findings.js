@@ -11,6 +11,7 @@
  */
 
 const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { inferTicketKey, toOmissionTicket } = require('./omission-gap-scan.js');
@@ -18,6 +19,9 @@ const { FINDING_CLASS } = require('./lib/omission-convergence.js');
 const { writeTemporaryThenRename } = require('./lib/atomic-write.js');
 const { isCompletedStatus } = require('./lib/ticket-status.js');
 const { findTicketRecord, resolveRootTicketKey } = require('./add-omission-ticket.js');
+const { atomsOfImplementation } = require('./lib/omission-work-unit.js');
+const { minimumContiguousPartition } = require('./lib/ticket-partition.js');
+const { WORKLOAD_COMPONENTS, parseWorkBudget } = require('./lib/ticket-workload.js');
 
 const INDEX_FILE_NAME = 'OMISSION-TICKET-INDEX.json';
 const BACKLOG_FILE_NAME = 'OMISSION-IMPROVEMENT-BACKLOG.json';
@@ -98,7 +102,17 @@ function applyFindings({ cwd, ticketsPath = null, report, state = null, reportOn
       else backlog.push({ stableKey: finding.stableKey, surface: finding.surface, assetId: finding.assetId, problem: finding.problem });
       continue;
     }
-    createOmissionTicket({ cwd, ticketsPath: tickets, ticket: toOmissionTicket({ ...finding, ticketKey: sourceTicket }), omissionsFilePath });
+    const ticket = toOmissionTicket({ ...finding, ticketKey: sourceTicket });
+    // A Step 0 finding has no contracts of its own; the source ticket's
+    // contracts are the obligation the omission re-implements. Without them the
+    // post-merge condense gate would see a contract-less ticket and fail closed.
+    const sourceRecord = findTicketRecord(readJson(tickets, { phases: [] }), sourceTicket);
+    if (Array.isArray(sourceRecord?.contracts) && sourceRecord.contracts.length > 0) {
+      ticket.contracts = sourceRecord.contracts;
+    }
+    ticket.originalTicketKey = sourceTicket;
+    ticket.origin = { kind: 'omission', sourceTicket };
+    createOmissionTicket({ cwd, ticketsPath: tickets, ticket, omissionsFilePath });
     index.tickets[finding.stableKey] = { sourceTicket, createdAt: new Date().toISOString() };
     ticketedKeys.push(finding.stableKey);
     createdTickets += 1;
@@ -167,8 +181,25 @@ function ownsContract(ticket, contractId) {
  * @param {{remainder:object[], ticketsData:object, phases:object[]}} input
  * @returns {{created:object[], reused:string[], reusedTickets:number, phasesCreated:number, backlog:object[], ticketsData:object, phases:object[]}}
  */
-// [::TICKET::] PX-437, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-442) --for-spec --no-implementation-order`.
-function planOmissionTickets({ remainder, ticketsData, phases = null }) {
+// [::TICKET::] PX-437, PX-442, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-442|PX-443) --for-spec --no-implementation-order`.
+/** A schema-valid contract for a legacy entry without an inventory. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function legacyContractOf(entry, ownerTicket) {
+  const ownerContracts = Array.isArray(ownerTicket?.contracts) ? ownerTicket.contracts : [];
+  const projected = ownerContracts.find((contract) => contract?.id === entry.contractId);
+  if (projected !== undefined) return projected;
+  const id = 'contract-omission-' + String(entry.contractId ?? 'unknown').replace(/[^A-Za-z0-9_.-]/g, '-');
+  return {
+    id,
+    sourceEdge: 'omission:' + String(entry.group ?? 'group'),
+    precondition: 'The measured clause is present in the source ticket',
+    postcondition: 'The clause is proved by a fresh test',
+    invariant: 'No detected clause is dropped',
+  };
+}
+
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function planLegacyTickets({ remainder, ticketsData, phases = null }) {
   const workingPhases = (phases ?? ticketsData?.phases ?? []).map((phase) => ({ ...phase, tickets: [...(phase.tickets ?? [])] }));
   const workingData = { ...(ticketsData ?? {}), phases: workingPhases };
   // Only tickets that existed before this plan can own a group. A ticket
@@ -211,6 +242,7 @@ function planOmissionTickets({ remainder, ticketsData, phases = null }) {
     }
 
     const rootKey = owner === null ? null : resolveRootTicketKey({ ticketKey: owner, ticketsData: workingData });
+    const ownerTicket = owner === null ? null : findTicketRecord(workingData, owner);
     let phase = workingPhases.find((candidate) => candidate.id === omissionPhaseId);
     if (phase === undefined) {
       phase = { id: omissionPhaseId, name: 'Omissions: canonical clause coverage', characteristics: '', tickets: [] };
@@ -222,7 +254,7 @@ function planOmissionTickets({ remainder, ticketsData, phases = null }) {
       phaseId: omissionPhaseId,
       status: 'todo',
       title: 'Omission: ' + group,
-      contracts: [],
+      contracts: [legacyContractOf(entry, ownerTicket)],
       testUnit: [],
       testIntegration: [],
       acceptanceCriteria: [],
@@ -245,6 +277,181 @@ function planOmissionTickets({ remainder, ticketsData, phases = null }) {
     ticketsData: { ...workingData, phases: workingPhases },
     phases: workingPhases,
   };
+}
+
+const DEFAULT_BUDGET_FILE = path.join(__dirname, 'ticket-work-budget.json');
+
+/** The calibrated budget, or a named refusal. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function resolvePlanBudget(budget) {
+  if (budget !== null && typeof budget === 'object' && !Array.isArray(budget)) return budget;
+  const parsed = parseWorkBudget(readJson(DEFAULT_BUDGET_FILE, null));
+  if (!parsed.valid) {
+    const error = new Error('WORK_BUDGET_INVALID: ' + parsed.errors.join('; '));
+    error.code = 'WORK_BUDGET_INVALID';
+    throw error;
+  }
+  return parsed.budget;
+}
+
+/** A stable identity for the atoms one ticket covers. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function omissionUnitKeyOf(atoms) {
+  const digest = createHash('sha256')
+    .update(atoms.map((atom) => atom.key).sort().join('\n'))
+    .digest('hex')
+    .slice(0, 16);
+  return 'omission-unit:' + digest;
+}
+
+/** Union contracts by id; different clauses for one id are a defect. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function mergeContractList(atoms) {
+  const byId = new Map();
+  for (const atom of atoms) {
+    const serialized = JSON.stringify(atom.contract);
+    const existing = byId.get(atom.contract.id);
+    if (existing !== undefined && existing !== serialized) {
+      const error = new Error('DUPLICATE_CONTRACT_ID: ' + atom.contract.id);
+      error.code = 'DUPLICATE_CONTRACT_ID';
+      throw error;
+    }
+    byId.set(atom.contract.id, serialized);
+  }
+  return [...byId.values()]
+    .map((serialized) => JSON.parse(serialized))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+/** Group atoms into the ticket's omission payload. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function omissionUnitsOf(atoms) {
+  const byGroup = new Map();
+  for (const atom of atoms) {
+    const existing = byGroup.get(atom.group);
+    if (existing === undefined) {
+      byGroup.set(atom.group, {
+        group: atom.group,
+        contractId: atom.contractId,
+        blockingClass: atom.blockingClass,
+        clauses: [atom.key],
+        rootTicketKey: atom.owner ?? null,
+      });
+      continue;
+    }
+    existing.clauses.push(atom.key);
+    if (existing.rootTicketKey !== (atom.owner ?? null)) existing.rootTicketKey = null;
+  }
+  return [...byGroup.values()]
+    .map((unit) => ({ ...unit, clauses: [...new Set(unit.clauses)].sort() }))
+    .sort((left, right) => left.group.localeCompare(right.group));
+}
+
+/** Materialize one partition group as a ticket. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function materializeOmissionTicket({ atoms, unitKey, phaseId, id }) {
+  const stableKeys = [...new Set(atoms.map((atom) => atom.group))].sort();
+  const owners = [...new Set(atoms.map((atom) => atom.owner).filter((owner) => typeof owner === 'string'))];
+  const rootTicketKey = owners.length === 1 ? owners[0] : null;
+  return {
+    id,
+    phaseId,
+    status: 'todo',
+    title: 'Omission remediation: ' + stableKeys.length + ' contract(s)',
+    contracts: mergeContractList(atoms),
+    testUnit: [...new Set(atoms.map((atom) => atom.plannedTest.id))],
+    testIntegration: [],
+    testExceptions: [],
+    acceptanceCriteria: [],
+    nodeIds: [],
+    default_files: [],
+    omissionUnitKey: unitKey,
+    omissionUnitKeys: [unitKey],
+    omissionStableKeys: stableKeys,
+    omissionUnits: omissionUnitsOf(atoms),
+    rootTicketKey,
+    origin: { kind: 'omission', sourceTicket: rootTicketKey },
+  };
+}
+
+/** Plan the contiguous partition minimum for measured implementation work. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {} }) {
+  const workingPhases = (phases ?? ticketsData?.phases ?? []).map((phase) => ({ ...phase, tickets: [...(phase.tickets ?? [])] }));
+  const workingData = { ...(ticketsData ?? {}), phases: workingPhases };
+  const existingRecords = flattenTicketRecords(workingData);
+  const { atoms, repairs, classifications, unprojectable } = atomsOfImplementation(remainder, inventory);
+  const sortedAtoms = [...atoms].sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
+  const budgetValue = resolvePlanBudget(budget);
+  const pseudoTickets = sortedAtoms.map((atom, index) => ({
+    id: index + 1,
+    phaseId: -1,
+    status: 'todo',
+    nodeIds: [],
+    default_files: [],
+    // The partition measures distinct RFC contracts, not graph units.
+    contracts: [atom.contract],
+    testUnit: [atom.plannedTest.id],
+    testIntegration: [],
+  }));
+  const partition = minimumContiguousPartition(pseudoTickets, context ?? {}, budgetValue, {
+    components,
+    mergeStatusPolicy: 'todo',
+  });
+
+  const omissionPhaseId = nextOmissionPhaseId(workingPhases);
+  const created = [];
+  const reused = [];
+  let phase = null;
+
+  for (const group of partition.groups) {
+    const members = sortedAtoms.slice(group.start, group.end);
+    const unitKey = omissionUnitKeyOf(members);
+    const openOwner = existingRecords.find((record) => !isCompletedStatus(record.ticket.status)
+      && (record.ticket.omissionUnitKeys ?? []).includes(unitKey));
+    if (openOwner !== undefined) {
+      if (!reused.includes(openOwner.key)) reused.push(openOwner.key);
+      continue;
+    }
+    if (phase === null) {
+      phase = { id: omissionPhaseId, name: 'Omissions: canonical clause coverage', characteristics: '', tickets: [] };
+      workingPhases.push(phase);
+    }
+    const nextId = phase.tickets.length === 0 ? 1 : Math.max(...phase.tickets.map((ticket) => ticket.id)) + 1;
+    const ticket = materializeOmissionTicket({ atoms: members, unitKey, phaseId: omissionPhaseId, id: nextId });
+    phase.tickets.push(ticket);
+    created.push(ticket);
+  }
+
+  return {
+    created,
+    reused,
+    reusedTickets: reused.length,
+    phasesCreated: created.length > 0 ? 1 : 0,
+    backlog: [],
+    repairs,
+    classifications,
+    unprojectable,
+    ticketsData: { ...workingData, phases: workingPhases },
+    phases: workingPhases,
+  };
+}
+
+/**
+ * Plan omission tickets.
+ *
+ * Measured classes route through the work-unit partition. A caller that has no
+ * inventory keeps the legacy per-entry path; the find gate refuses a legacy plan.
+ */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function planOmissionTickets({ remainder, inventory = null, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {} }) {
+  const measured = inventory !== null
+    && Array.isArray(remainder)
+    && remainder.every((entry) => typeof entry?.blockingClass === 'string');
+  if (!measured) {
+    return { ...planLegacyTickets({ remainder, ticketsData, phases }), repairs: [], classifications: [], unprojectable: [] };
+  }
+  return planWorkUnitTickets({ remainder, inventory, ticketsData, phases, budget, components, context });
 }
 
 /** CLI entry point. */

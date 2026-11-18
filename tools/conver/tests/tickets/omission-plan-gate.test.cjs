@@ -84,6 +84,15 @@ test('C003: a ticket without measured work is refused', () => {
   assert.equal(result.findings.some((finding) => finding.code === 'OMISSION_TICKET_UNMEASURED'), true);
 });
 
+test('C003: a ticket with contracts but no test work is unmeasured', () => {
+  const result = verify({
+    candidate: { phases: [{ id: 2, tickets: [ticket({ testUnit: [], testIntegration: [] })] }] },
+    art: artifacts({ components: [...COMPONENTS, 'contractCount'] }),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((finding) => finding.code === 'OMISSION_TICKET_UNMEASURED'), true);
+});
+
 test('C003: an omission ticket that declares node ownership is refused', () => {
   const result = verify({ candidate: { phases: [{ id: 2, tickets: [ticket({ nodeIds: ['N0001'] })] }] } });
   assert.equal(result.ok, false);
@@ -112,6 +121,17 @@ test('C004: an unassigned clause with a proof sink is conserved', () => {
     }),
   });
   assert.equal(result.ok, true);
+});
+
+test('C004: an unassigned UNMAPPED clause is a lost obligation', () => {
+  const other = 'clause|pkg-alpha|C002|precondition|0123456789abcdee';
+  const result = verify({
+    candidate: { phases: [] },
+    addedKeys: [],
+    art: artifacts({ coverage: { clauses: [{ key: other, status: 'UNMAPPED' }] } }),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((finding) => finding.code === 'OMISSION_OBLIGATION_LOST'), true);
 });
 
 test('C004: a non-empty repair ledger does not conserve an unassigned implementation clause', () => {

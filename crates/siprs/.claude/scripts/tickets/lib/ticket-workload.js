@@ -29,6 +29,20 @@ const WORKLOAD_COMPONENTS = Object.freeze([
   'modules',
 ]);
 
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+/**
+ * The eight components of a v4 workload.
+ *
+ * `contractCount` counts the distinct RFC contracts a ticket carries. It is
+ * separate from `ownedContracts`, which counts graph distribution units and is
+ * always zero for an omission ticket because omission tickets never claim
+ * node ownership.
+ */
+const CALIBRATED_WORKLOAD_COMPONENTS = Object.freeze([
+  ...WORKLOAD_COMPONENTS,
+  'contractCount',
+]);
+
 /** The five components a version-1 budget still measures. */
 const LEGACY_WORKLOAD_COMPONENTS = Object.freeze([
   'operations',
@@ -316,7 +330,7 @@ function legacyWorkloadOfNodes(nodeIds, context = {}) {
 }
 
 /** The v2 work a ticket carries. */
-// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-347, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-443) --for-spec --no-implementation-order`.
 function workloadOfTicket(ticket, context = {}) {
   const workload = workloadOfNodes(ticket?.nodeIds ?? [], context);
   const files = effectiveFileSet(ticket, context);
@@ -324,6 +338,13 @@ function workloadOfTicket(ticket, context = {}) {
   workload.modules = moduleNamesOf(files).size;
   workload.testUnit = Array.isArray(ticket?.testUnit) ? ticket.testUnit.length : 0;
   workload.testIntegration = Array.isArray(ticket?.testIntegration) ? ticket.testIntegration.length : 0;
+  // Distinct RFC contracts, not graph units. Two tickets that name the same
+  // contract count it once; a missing or non-string id is not a contract.
+  workload.contractCount = new Set(
+    (ticket?.contracts ?? [])
+      .map((contract) => contract?.id)
+      .filter((id) => typeof id === 'string' && id.length > 0),
+  ).size;
   return workload;
 }
 
@@ -338,7 +359,7 @@ function legacyWorkloadOfTicket(ticket, context = {}) {
 }
 
 /** The work a phase carries, in the requested mode. */
-// [::TICKET::] PX-347 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-347 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-347, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-443) --for-spec --no-implementation-order`.
 function workloadOfPhase(phase, context = {}, options = {}) {
   const mode = options.mode === 'v1' ? 'v1' : 'v2';
   const components = options.components
@@ -363,19 +384,25 @@ function workloadOfPhase(phase, context = {}, options = {}) {
     return total;
   }
 
-  // The v2 file and module counts are set-valued: two tickets that share a file
-  // or a module must not double-count it at the phase level.
+  // The v2 file, module and contract counts are set-valued: two tickets that
+  // share a file, a module or a contract must not double-count it at the phase
+  // level.
   const files = new Set();
+  const contractIds = new Set();
   for (const ticket of tickets) {
     const workload = workloadOf(ticket, context);
     for (const component of components) {
-      if (component === 'files' || component === 'modules') continue;
+      if (component === 'files' || component === 'modules' || component === 'contractCount') continue;
       total[component] += workload[component] ?? 0;
     }
     for (const filePath of effectiveFileSet(ticket, context)) files.add(filePath);
+    for (const contract of ticket?.contracts ?? []) {
+      if (typeof contract?.id === 'string' && contract.id.length > 0) contractIds.add(contract.id);
+    }
   }
   if (components.includes('files')) total.files = files.size;
   if (components.includes('modules')) total.modules = moduleNamesOf(files).size;
+  if (components.includes('contractCount')) total.contractCount = contractIds.size;
   return total;
 }
 
@@ -527,19 +554,23 @@ function feasibilityOf(phase, budget, context = {}, options = {}) {
  * Validate a `ticket-work-budget.json` document.
  *
  * Version 1 keeps the five legacy components. Version 2 uses the seven
- * implementation-work components. Any other version is invalid.
+ * implementation-work components. Version 3 is the contiguous-minimum policy
+ * over those seven. Version 4 adds the calibrated contract-count component.
+ * Any other version is invalid.
  */
-// [::TICKET::] PX-347, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-394) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-347, PX-394, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-347|PX-394|PX-443) --for-spec --no-implementation-order`.
 function parseWorkBudget(document) {
   if (document === null || typeof document !== 'object' || Array.isArray(document)) {
     return { valid: false, errors: ['budget document must be an object'], budget: null, mode: null, components: null, excluded: [] };
   }
   const errors = [];
   const version = document.version;
-  if (version !== 1 && version !== 2 && version !== 3) errors.push('version must be 1, 2 or 3');
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) errors.push('version must be 1, 2, 3 or 4');
   const mode = version === 1 ? 'v1' : 'v2';
-  const policy = version === 3 ? 'contiguous-minimum' : (version === 2 ? 'merge-evidence' : 'legacy');
-  const components = mode === 'v1' ? LEGACY_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS;
+  const policy = version === 3 || version === 4 ? 'contiguous-minimum' : (version === 2 ? 'merge-evidence' : 'legacy');
+  const components = mode === 'v1'
+    ? LEGACY_WORKLOAD_COMPONENTS
+    : (version === 4 ? CALIBRATED_WORKLOAD_COMPONENTS : WORKLOAD_COMPONENTS);
 
   const declared = Array.isArray(document.components) ? document.components : [];
   for (const component of components) {
@@ -566,7 +597,7 @@ function parseWorkBudget(document) {
     }
   }
 
-  if (version === 3 && document.splitReasons !== undefined) {
+  if ((version === 3 || version === 4) && document.splitReasons !== undefined) {
     if (!Array.isArray(document.splitReasons) || document.splitReasons.some((entry) => !SPLIT_REASONS.includes(entry))) {
       errors.push(`splitReasons must be a subset of ${SPLIT_REASONS.join(', ')}`);
     }
@@ -1127,6 +1158,7 @@ function partitionFindings(findings) {
 
 module.exports = {
   WORKLOAD_COMPONENTS,
+  CALIBRATED_WORKLOAD_COMPONENTS,
   LEGACY_WORKLOAD_COMPONENTS,
   SPLIT_REASONS,
   WORKLOAD_CODES,

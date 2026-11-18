@@ -102,7 +102,17 @@ function applyFindings({ cwd, ticketsPath = null, report, state = null, reportOn
       else backlog.push({ stableKey: finding.stableKey, surface: finding.surface, assetId: finding.assetId, problem: finding.problem });
       continue;
     }
-    createOmissionTicket({ cwd, ticketsPath: tickets, ticket: toOmissionTicket({ ...finding, ticketKey: sourceTicket }), omissionsFilePath });
+    const ticket = toOmissionTicket({ ...finding, ticketKey: sourceTicket });
+    // A Step 0 finding has no contracts of its own; the source ticket's
+    // contracts are the obligation the omission re-implements. Without them the
+    // post-merge condense gate would see a contract-less ticket and fail closed.
+    const sourceRecord = findTicketRecord(readJson(tickets, { phases: [] }), sourceTicket);
+    if (Array.isArray(sourceRecord?.contracts) && sourceRecord.contracts.length > 0) {
+      ticket.contracts = sourceRecord.contracts;
+    }
+    ticket.originalTicketKey = sourceTicket;
+    ticket.origin = { kind: 'omission', sourceTicket };
+    createOmissionTicket({ cwd, ticketsPath: tickets, ticket, omissionsFilePath });
     index.tickets[finding.stableKey] = { sourceTicket, createdAt: new Date().toISOString() };
     ticketedKeys.push(finding.stableKey);
     createdTickets += 1;
@@ -366,7 +376,7 @@ function materializeOmissionTicket({ atoms, unitKey, phaseId, id }) {
 
 /** Plan the contiguous partition minimum for measured implementation work. */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null, budget = null, context = {} }) {
+function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {} }) {
   const workingPhases = (phases ?? ticketsData?.phases ?? []).map((phase) => ({ ...phase, tickets: [...(phase.tickets ?? [])] }));
   const workingData = { ...(ticketsData ?? {}), phases: workingPhases };
   const existingRecords = flattenTicketRecords(workingData);
@@ -379,11 +389,13 @@ function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null,
     status: 'todo',
     nodeIds: [],
     default_files: [],
+    // The partition measures distinct RFC contracts, not graph units.
+    contracts: [atom.contract],
     testUnit: [atom.plannedTest.id],
     testIntegration: [],
   }));
   const partition = minimumContiguousPartition(pseudoTickets, context ?? {}, budgetValue, {
-    components: WORKLOAD_COMPONENTS,
+    components,
     mergeStatusPolicy: 'todo',
   });
 
@@ -432,14 +444,14 @@ function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null,
  * inventory keeps the legacy per-entry path; the find gate refuses a legacy plan.
  */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function planOmissionTickets({ remainder, inventory = null, ticketsData, phases = null, budget = null, context = {} }) {
+function planOmissionTickets({ remainder, inventory = null, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {} }) {
   const measured = inventory !== null
     && Array.isArray(remainder)
     && remainder.every((entry) => typeof entry?.blockingClass === 'string');
   if (!measured) {
     return { ...planLegacyTickets({ remainder, ticketsData, phases }), repairs: [], classifications: [], unprojectable: [] };
   }
-  return planWorkUnitTickets({ remainder, inventory, ticketsData, phases, budget, context });
+  return planWorkUnitTickets({ remainder, inventory, ticketsData, phases, budget, components, context });
 }
 
 /** CLI entry point. */

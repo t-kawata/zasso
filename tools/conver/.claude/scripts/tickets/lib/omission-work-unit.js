@@ -74,20 +74,32 @@ function projectContract(inventory, contractId) {
 
 /** One implementation clause as the partition atom. */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function atomOf(blocker, clauseKey, contract) {
+function atomOf(blocker, clauseKey, contract, blockingClass) {
   return {
     key: clauseKey,
     group: blocker.group,
     contractId: blocker.contractId,
     owner: blocker.owner ?? null,
-    blockingClass: blocker.blockingClass,
+    blockingClass: blockingClass ?? blocker.blockingClass,
     contract,
     plannedTest: { id: 'omission-test:' + clauseKey, kind: 'unit' },
   };
 }
 
+/** The per-clause classes a blocker carries, with a legacy single-class fallback. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function clauseClassesOf(blocker) {
+  if (Array.isArray(blocker?.clauseClasses) && blocker.clauseClasses.length > 0) return blocker.clauseClasses;
+  return (blocker?.clauses ?? [blocker?.key]).map((key) => ({ key, blockingClass: blocker?.blockingClass }));
+}
+
 /**
  * Split blockers into implementation atoms and named non-ticket sinks.
+ *
+ * Each clause is routed by its own measured class. A contract can hold a
+ * test-missing clause and a proof-missing clause at the same time; routing the
+ * whole group by its first class would either ticket the repair or drop the
+ * implementation work.
  *
  * @returns {{atoms:object[], repairs:object[], classifications:object[], unprojectable:object[]}}
  */
@@ -99,23 +111,30 @@ function atomsOfImplementation(blockers, inventory) {
   const unprojectable = [];
 
   for (const blocker of blockers ?? []) {
-    const kind = workKindOf(blocker.blockingClass);
-    if (kind === WORK_KIND.REPAIR) {
-      repairs.push(blocker);
-      continue;
+    const implementation = [];
+    const repair = [];
+    const classification = [];
+    const classByKey = new Map();
+    for (const entry of clauseClassesOf(blocker)) {
+      classByKey.set(entry.key, entry.blockingClass);
+      const kind = workKindOf(entry.blockingClass);
+      if (kind === WORK_KIND.IMPLEMENTATION) implementation.push(entry.key);
+      else if (kind === WORK_KIND.CLASSIFICATION) classification.push(entry.key);
+      else repair.push(entry.key);
     }
-    if (kind === WORK_KIND.CLASSIFICATION) {
-      classifications.push(blocker);
-      continue;
+
+    if (implementation.length > 0) {
+      const contract = projectContract(inventory, blocker.contractId);
+      if (contract === null) {
+        unprojectable.push({ ...blocker, clauses: [...new Set(implementation)].sort() });
+      } else {
+        for (const clauseKey of [...new Set(implementation)].sort()) {
+          atoms.push(atomOf(blocker, clauseKey, contract, classByKey.get(clauseKey)));
+        }
+      }
     }
-    const contract = projectContract(inventory, blocker.contractId);
-    if (contract === null) {
-      unprojectable.push(blocker);
-      continue;
-    }
-    for (const clauseKey of [...(blocker.clauses ?? [blocker.key])].sort()) {
-      atoms.push(atomOf(blocker, clauseKey, contract));
-    }
+    if (repair.length > 0) repairs.push({ ...blocker, clauses: [...new Set(repair)].sort() });
+    if (classification.length > 0) classifications.push({ ...blocker, clauses: [...new Set(classification)].sort() });
   }
 
   return { atoms, repairs, classifications, unprojectable };

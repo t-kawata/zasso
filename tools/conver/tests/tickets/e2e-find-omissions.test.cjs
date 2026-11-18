@@ -107,6 +107,39 @@ test('C005: a held package lock reports work and mutates nothing', () => {
   }
 });
 
+test('C004: an unprojectable contract becomes a named repair, not a refusal of the whole plan', () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'px443-e2e-unprojectable-'));
+  try {
+    fs.writeFileSync(path.join(cwd, 'CONTRACT-INVENTORY-CONFIG.json'), JSON.stringify({
+      adapter: { id: 'fixture-adapter', version: 1, scope: 'pkg-alpha', contractIdScope: 'global', elements: ['precondition', 'postcondition', 'invariant'], applicability: 'TESTABLE' },
+      sources: [{ kind: 'manifest', artifact: 'CONTRACT-MANIFEST.json', clauses: [
+        { contractId: 'C001', element: 'precondition', text: 'input is present' },
+        { contractId: 'C001', element: 'postcondition', text: 'output is stored' },
+        { contractId: 'C001', element: 'invariant', text: 'state is unchanged' },
+        { contractId: 'C002', element: 'precondition', text: 'a partial contract' },
+        { contractId: 'C002', element: 'postcondition', text: 'has no invariant' },
+      ] }],
+    }));
+    fs.writeFileSync(path.join(cwd, 'Tickets.json'), JSON.stringify({ title: 'fixture', round: 1, metadata: {}, phases: [] }));
+    fs.writeFileSync(path.join(cwd, 'TEST-MANIFEST.json'), JSON.stringify({ version: 1, tests: [] }));
+
+    const result = run(cwd);
+    assert.equal(result.status, 10);
+    assert.equal(result.json.createdTickets, 1);
+    assert.equal(result.json.sinks.unprojectable, 1);
+    assert.equal(result.json.unprojectable[0].code, 'OMISSION_CONTRACT_UNPROJECTABLE');
+    assert.equal(result.json.unprojectable[0].contractId, 'C002');
+    assert.equal(result.json.refused, undefined);
+
+    const document = JSON.parse(fs.readFileSync(path.join(cwd, 'Tickets.json'), 'utf8'));
+    const tickets = document.phases.flatMap((phase) => phase.tickets);
+    assert.equal(tickets.length, 1);
+    assert.equal(tickets[0].contracts[0].id, 'C001');
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test('C006: a package with no normative source creates one repair ticket and continues', () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'px437-e2e-repair-'));
   try {

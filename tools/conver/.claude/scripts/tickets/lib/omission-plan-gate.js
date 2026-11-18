@@ -27,23 +27,39 @@ const OMISSION_PLAN_CODES = Object.freeze({
   DUPLICATE_UNIT: 'OMISSION_DUPLICATE_UNIT',
   SCHEMA: 'OMISSION_TICKET_SCHEMA_INVALID',
   CONSERVATION: 'OMISSION_OBLIGATION_LOST',
+  OVER_BUDGET: 'OMISSION_TICKET_OVER_BUDGET',
 });
 
 const OMISSION_WORK_KIND = 'implementation';
 
 /** Coverage statuses whose work is tracked outside a ticket. */
+// UNMAPPED is deliberately absent: an unmapped clause needs implementation work
+// and must become a ticket. Letting a status name itself as a sink would let a
+// planner drop it while the conservation gate still passed.
 const NON_TICKET_SINK_STATUSES = new Set([
   'CLAUSE_PROOF_MISSING',
   'CLAUSE_PROOF_STALE',
   'CLAUSE_PROOF_FAILED',
   'UNSTABLE_PROOF_TARGET',
   'UNCLASSIFIED',
-  'UNMAPPED',
   'CLAUSE_DISPOSITION_UNVERIFIED',
   'DEFERRED_EXPIRED',
   'CONFLICT',
   'CONFLICTING_TEXT',
 ]);
+
+/** The clause keys a repair record names. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function repairSinkClauses(records) {
+  const keys = new Set();
+  for (const record of records ?? []) {
+    const candidates = Array.isArray(record?.clauses) ? record.clauses : [record?.key, record?.clauseKey];
+    for (const key of candidates) {
+      if (typeof key === 'string' && key.startsWith('clause|')) keys.add(key);
+    }
+  }
+  return keys;
+}
 
 /** The public key of one ticket record. */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
@@ -76,9 +92,12 @@ function unitKeysOf(ticket) {
 
 /** Whether a ticket measures at least one unit of implementation work. */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function isMeasured(ticket, context, components) {
+function isMeasured(ticket, context) {
   const workload = workloadOfTicket(ticket, context);
-  return components.some((component) => (workload?.[component] ?? 0) > 0);
+  // A contract count is context, not implementation work. U1 is specifically
+  // the test plan: a ticket with contracts but no tests is an evidence ticket.
+  const testWork = (workload?.testUnit ?? 0) + (workload?.testIntegration ?? 0);
+  return testWork > 0;
 }
 
 /** The measured clause keys that are not proven. */
@@ -136,8 +155,17 @@ function verifyOmissionPlan({ before, candidate, addedKeys = [], artifacts = {} 
       && workKindOf(unit.blockingClass) !== OMISSION_WORK_KIND)) {
       findings.push(finding(OMISSION_PLAN_CODES.REPAIR_TICKETIZED, key, 'repair or classification work became a ticket'));
     }
-    if (!isMeasured(ticket, context, components)) {
+    if (!isMeasured(ticket, context)) {
       findings.push(finding(OMISSION_PLAN_CODES.UNMEASURED, key, 'the measured workload is zero'));
+    }
+    if (artifacts.budget !== null && artifacts.budget !== undefined) {
+      const workload = workloadOfTicket(ticket, context);
+      const over = components.filter((component) => (
+        (workload?.[component] ?? 0) > (artifacts.budget?.[component] ?? Number.POSITIVE_INFINITY)
+      ));
+      if (over.length > 0) {
+        findings.push(finding(OMISSION_PLAN_CODES.OVER_BUDGET, key, 'over budget: ' + over.join(', ')));
+      }
     }
   }
 
@@ -152,9 +180,10 @@ function verifyOmissionPlan({ before, candidate, addedKeys = [], artifacts = {} 
   // measured status. A non-empty repair ledger is not enough: an unassigned
   // implementation clause is lost even when some other clause owns a repair.
   const coverageByKey = new Map((artifacts.coverage?.clauses ?? []).map((clause) => [clause.key, clause]));
+  const repaired = repairSinkClauses(artifacts.repairs?.records);
   for (const key of unassigned) {
     const status = coverageByKey.get(key)?.status;
-    if (!NON_TICKET_SINK_STATUSES.has(status)) {
+    if (!NON_TICKET_SINK_STATUSES.has(status) && !repaired.has(key)) {
       findings.push(finding(OMISSION_PLAN_CODES.CONSERVATION, key, 'the clause has no ticket and no recognized non-ticket sink'));
     }
   }

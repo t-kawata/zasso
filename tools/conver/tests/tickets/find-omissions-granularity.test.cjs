@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
 
 const { blockerEntriesOf } = require('../../.claude/scripts/tickets/lib/blocker-plan.js');
 const { planOmissionTickets } = require('../../.claude/scripts/tickets/apply-omission-findings.js');
+const { verifyOmissionPlan } = require('../../.claude/scripts/tickets/lib/omission-plan-gate.js');
 
 const BUDGET = Object.freeze({
   operations: 8,
@@ -61,6 +62,31 @@ test('C003/C004: 149 clauses across 57 contracts become few measured tickets plu
   const repaired = plan.unprojectable.flatMap((entry) => entry.clauses);
   assert.equal(ticketed.length + repaired.length, 149);
   assert.ok(ticketed.length > 0);
+});
+
+test('C004: the doors-shaped plan is conserved by its named unprojectable repairs', () => {
+  const { coverage, inventory } = fixture();
+  const remainder = blockerEntriesOf({ inventory, coverage });
+  const plan = planOmissionTickets({ remainder, inventory, ticketsData: { phases: [] }, phases: [], budget: BUDGET, context: {} });
+  const addedKeys = plan.created.map((ticket) => `P${ticket.phaseId}-${ticket.id}`);
+
+  // The 22 contracts without an invariant cannot be projected into a ticket
+  // contract. They must still be a recognized repair sink, otherwise the gate
+  // refuses the whole plan and the 6 measured tickets are never written.
+  const result = verifyOmissionPlan({
+    before: { phases: [] },
+    candidate: plan.ticketsData,
+    addedKeys,
+    artifacts: {
+      coverage,
+      budget: BUDGET,
+      repairs: { records: [...plan.repairs, ...plan.unprojectable] },
+      context: {},
+      mergeStatusPolicy: 'todo',
+    },
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.findings.slice(0, 3)));
 });
 
 test('C003: the same doors-shaped input twice creates zero new tickets', () => {

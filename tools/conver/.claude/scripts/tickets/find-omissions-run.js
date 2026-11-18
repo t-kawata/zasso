@@ -63,11 +63,13 @@ function readJson(filePath, fallback) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-/** The calibrated work budget, or null when the shipped file is invalid. */
+/** The calibrated work budget and the components it declares. */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function resolveFindBudget() {
+function resolveFindBudgetArtifacts() {
   const parsed = parseWorkBudget(readJson(path.join(__dirname, 'ticket-work-budget.json'), null));
-  return parsed.valid ? parsed.budget : null;
+  return parsed.valid
+    ? { budget: parsed.budget, components: parsed.components }
+    : { budget: null, components: WORKLOAD_COMPONENTS };
 }
 
 /** The key of one ticket record. */
@@ -133,6 +135,18 @@ function reportOf({ gate, plan, ticketsData, repairs, reportOnly }) {
     phasesCreated: reportOnly ? 0 : plan.phasesCreated,
     openTickets: openTicketCount(ticketsData),
     blockers: gate.gates.filter((entry) => !entry.ok).map((entry) => ({ gate: entry.name, problem: entry.problem ?? null })),
+    sinks: {
+      tickets: plan.created.length,
+      repairs: (plan.repairs ?? []).length,
+      classifications: (plan.classifications ?? []).length,
+      unprojectable: (plan.unprojectable ?? []).length,
+    },
+    unprojectable: (plan.unprojectable ?? []).map((entry) => ({
+      code: 'OMISSION_CONTRACT_UNPROJECTABLE',
+      contractId: entry.contractId ?? null,
+      group: entry.group ?? null,
+      clauses: [...(entry.clauses ?? [])].sort(),
+    })),
     repairs,
     reportOnly,
   };
@@ -404,10 +418,12 @@ function main() {
       }
     }
 
+    const budgetArtifacts = resolveFindBudgetArtifacts();
     const plan = planOmissionTickets({
       remainder: blockerEntriesOf({ inventory, coverage: scan.coverage, testIndex }),
       inventory,
-      budget: resolveFindBudget(),
+      budget: budgetArtifacts.budget,
+      components: budgetArtifacts.components,
       context: {},
       ticketsData,
       phases: ticketsData.phases ?? [],
@@ -424,8 +440,8 @@ function main() {
           repairs: { records: [...(repairs ?? []), ...(plan.repairs ?? []), ...(plan.unprojectable ?? [])] },
           worklist,
           designQueue: readJson(path.join(cwd, 'DESIGN-AMENDMENT-QUEUE.json'), { findings: [] }),
-          budget: resolveFindBudget(),
-          components: WORKLOAD_COMPONENTS,
+          budget: budgetArtifacts.budget,
+          components: budgetArtifacts.components,
           context: {},
           mergeStatusPolicy: 'todo',
         },

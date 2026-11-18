@@ -183,6 +183,7 @@ function keyFor(judgment) {
 }
 
 // [::TICKET::] PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
 function rebaseOmissionArtifacts({ cwd, pre, post, dryRun = false } = {}) {
   const root = path.resolve(cwd ?? process.cwd());
   const keyMap = buildCondenseKeyMap(pre, post);
@@ -268,6 +269,7 @@ function rebaseOmissionArtifacts({ cwd, pre, post, dryRun = false } = {}) {
 
 module.exports = {
   rebaseOmissionArtifacts,
+  rebaseArtifacts: rebaseOmissionArtifacts,
   resolveKey,
   acceptanceMap,
   buildCondenseKeyMap,

@@ -31,6 +31,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('node:child_process');
 const { directionOf, isHardEdge, providerConsumerEdge } = require('./lib/edge-order.js');
 const { writeLine } = require('../lib/cli-output');
 const { resolveGraphPath } = require('../lib/resolve-graph-path.js');
@@ -195,6 +196,15 @@ function parseArguments(argv) {
   // does not need OMISSIONS or GRAPH inputs.
   if (opts.rollback) {
     return opts;
+  }
+
+  // The v3 script is the single omission write path. The legacy merge is kept
+  // for pre-v3 packages, but it cannot be allowed to add a second ticket set
+  // (one per omission) beside the v3 partition-minimum set.
+  if (isV3Managed(opts.ticketsPath)) {
+    console.error('[ERROR] this package is v3-managed (' + V3_STATE_FILE_NAME + ' is present).');
+    console.error('[ERROR] phasify-omissions is the legacy merge and will not modify Tickets.json. Use find-omissions-run.js.');
+    process.exit(1);
   }
 
   // Auto-discover OMISSIONS from CWD if not specified
@@ -1976,15 +1986,24 @@ function runPhasifyOmissions(opts) {
     process.exit(1);
   }
 
+  // The legacy merge is one ticket per omission. Condense it through the same
+  // calibrated partition and gates as the v3 writer; a failure restores the
+  // pre-merge Tickets.json so a mass set can never survive the command.
+  const condensed = condenseAfterMerge({ ticketsPath: opts.ticketsPath, backupPath });
+  if (!condensed.ok) {
+    console.error('[ERROR] ' + condensed.code + ': ' + String(condensed.stderr).trim());
+    console.error('Tickets.json restored from: ' + backupPath);
+    process.exit(1);
+  }
+
   // Step Q: Move artifacts to subdirectories (PX-112)
   moveArtifacts(opts, phasifiedOutputPath, snapshotPath, ts);
 
   // Final summary line
-  var totalMergedTickets = 0;
-  for (var pi = 0; pi < output.phases.length; pi++) {
-    totalMergedTickets += (output.phases[pi].tickets || []).length;
-  }
-  writeLine('Tickets.json: merged ' + output.phases.length + ' phase(s), ' + totalMergedTickets + ' ticket(s)');
+  const finalDocument = JSON.parse(fs.readFileSync(opts.ticketsPath, 'utf8'));
+  const finalTicketCount = (finalDocument.phases ?? [])
+    .flatMap(function(phase) { return phase.tickets || []; }).length;
+  writeLine('Tickets.json: merged ' + output.phases.length + ' phase(s), condensed to ' + finalTicketCount + ' ticket(s)');
 }
 
 // ============================================================
@@ -1992,6 +2011,59 @@ function runPhasifyOmissions(opts) {
 // ============================================================
 
 // [::TICKET::] PX-107 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-107 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+/** The v3 run's state file, written beside the package Tickets.json. */
+const V3_STATE_FILE_NAME = 'OMISSION-CONVERGENCE-V3.json';
+
+/** Whether the v3 find flow owns this package's ticket write. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function isV3Managed(ticketsPath) {
+  return typeof ticketsPath === 'string'
+    && ticketsPath.length > 0
+    && fs.existsSync(path.join(path.dirname(ticketsPath), V3_STATE_FILE_NAME));
+}
+
+/** The shared condensation script. */
+const CONDENSE_SCRIPT = path.join(__dirname, '../tickets/condense-tickets.js');
+
+/** Restore the pre-merge Tickets.json when the post-merge condensation fails. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function restorePreMerge(ticketsPath, backupPath) {
+  if (typeof backupPath === 'string' && backupPath.length > 0 && fs.existsSync(backupPath)) {
+    fs.copyFileSync(backupPath, ticketsPath);
+  }
+}
+
+/** The default runner: the shared condense CLI in the package directory. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function runCondense(args, cwd) {
+  return spawnSync(process.execPath, args, { cwd, encoding: 'utf8' });
+}
+
+/**
+ * Condense the legacy merge to the partition minimum and gate the result.
+ *
+ * The legacy merge creates one ticket per omission. The shared condense CLI
+ * applies the calibrated budget (including contractCount), renumbers and runs
+ * the post-write gates. A failure restores the pre-merge Tickets.json, so a
+ * failed command never leaves the one-per-omission set behind.
+ */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function condenseAfterMerge({ ticketsPath, backupPath, run = runCondense }) {
+  const cwd = path.dirname(ticketsPath);
+  const apply = run([CONDENSE_SCRIPT, '--apply', '--tickets=' + ticketsPath, '--merge-status=todo'], cwd);
+  if (apply.status !== 0) {
+    restorePreMerge(ticketsPath, backupPath);
+    return { ok: false, code: 'CONDENSE_AFTER_MERGE_FAILED', stderr: apply.stderr ?? '' };
+  }
+  const gate = run([CONDENSE_SCRIPT, '--gate', '--tickets=' + ticketsPath], cwd);
+  if (gate.status !== 0) {
+    restorePreMerge(ticketsPath, backupPath);
+    return { ok: false, code: 'CONDENSE_GATE_FAILED', stderr: gate.stderr ?? '' };
+  }
+  return { ok: true };
+}
+
 function main() {
   const opts = parseArguments(process.argv.slice(2));
   runPhasifyOmissions(opts);
@@ -2006,6 +2078,8 @@ if (require.main === module) {
 // ============================================================
 
 module.exports = {
+  condenseAfterMerge,
+  isV3Managed,
   parseArguments,
   resolveGraphPathArgument,
   extractOmissionSubgraph,

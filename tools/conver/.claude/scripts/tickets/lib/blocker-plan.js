@@ -10,6 +10,33 @@
  */
 
 const { parseClauseKey } = require('./contract-clause.js');
+const { workKindOf } = require('./omission-work-unit.js');
+
+/** Work kinds rank the class a clause keeps when two blockers name the same key. */
+const WORK_KIND_RANK = Object.freeze({
+  implementation: 3,
+  classification: 2,
+  repair: 1,
+});
+
+/** The rank of a blocking class. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function classRank(blockingClass) {
+  return WORK_KIND_RANK[workKindOf(blockingClass)] ?? WORK_KIND_RANK.repair;
+}
+
+/** Merge per-clause classes, keeping the strongest work kind for a shared key. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function mergeClauseClasses(existing, incoming) {
+  const byKey = new Map((existing ?? []).map((entry) => [entry.key, entry]));
+  for (const entry of incoming ?? []) {
+    const previous = byKey.get(entry.key);
+    if (previous === undefined || classRank(entry.blockingClass) > classRank(previous.blockingClass)) {
+      byKey.set(entry.key, { key: entry.key, blockingClass: entry.blockingClass });
+    }
+  }
+  return [...byKey.values()].sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
+}
 
 const PROVEN_STATUSES = new Set([
   'PROVEN',
@@ -46,12 +73,20 @@ function accumulateGroupClauses(groups, blocker) {
   const incoming = Array.isArray(blocker.clauses) && blocker.clauses.length > 0
     ? blocker.clauses
     : [blocker.key];
+  const incomingClasses = Array.isArray(blocker.clauseClasses)
+    ? blocker.clauseClasses
+    : incoming.map((key) => ({ key, blockingClass: blocker.blockingClass }));
   const existing = groups.get(blocker.group);
   if (existing === undefined) {
-    groups.set(blocker.group, { ...blocker, clauses: [...incoming].sort() });
+    groups.set(blocker.group, {
+      ...blocker,
+      clauses: [...incoming].sort(),
+      clauseClasses: mergeClauseClasses([], incomingClasses),
+    });
     return;
   }
   existing.clauses = [...new Set([...existing.clauses, ...incoming])].sort();
+  existing.clauseClasses = mergeClauseClasses(existing.clauseClasses, incomingClasses);
 }
 
 /** The clause owner named by the inventory. */
@@ -76,9 +111,17 @@ function blockerEntriesOf({ inventory, coverage, classes = null }) {
     const parsed = parseClauseKey(firstKey);
     const scope = parsed?.scope ?? inventory?.scope ?? 'package';
     const contractId = conflict.contractId ?? parsed?.contractId ?? 'unknown';
+    const conflictKey = 'conflict|' + String(conflict.code ?? 'conflict') + '|' + [...(conflict.keys ?? [])].sort().join(',');
     accumulateGroupClauses(groups, {
-      key: 'conflict|' + String(conflict.code ?? 'conflict') + '|' + [...(conflict.keys ?? [])].sort().join(','),
+      key: conflictKey,
       clauses: [...(conflict.keys ?? [])].sort(),
+      // The conflict itself is a repair sink even when one of its clause keys is
+      // also implementation work. Keep the conflict key in the class list so it
+      // is not lost when the stronger implementation class wins for the clause.
+      clauseClasses: [
+        { key: conflictKey, blockingClass: 'conflict' },
+        ...(conflict.keys ?? []).map((key) => ({ key, blockingClass: 'conflict' })),
+      ],
       contractId,
       element: conflict.element ?? null,
       group: scope + '|' + contractId,
@@ -105,7 +148,9 @@ function blockerEntriesOf({ inventory, coverage, classes = null }) {
   }
 
   return [...groups.values()]
-    .filter((entry) => classes === null || classes.includes(entry.blockingClass))
+    .filter((entry) => classes === null
+      || classes.includes(entry.blockingClass)
+      || (entry.clauseClasses ?? []).some((clause) => classes.includes(clause.blockingClass)))
     .sort((left, right) => (left.group < right.group ? -1 : left.group > right.group ? 1 : 0));
 }
 

@@ -25,6 +25,9 @@ const { requireSupportedVersion } = require('./lib/versioned-json.js');
 const { reconcileLegacy } = require('./lib/legacy-reconcile.js');
 const { repairKeyOf, runRepairLadder } = require('./lib/repair-ladder.js');
 const { DISPOSITIONS_FILE_NAME, loadDispositions } = require('./lib/dispositions.js');
+const { verifyOmissionPlan } = require('./lib/omission-plan-gate.js');
+const { runMutationGate } = require('./ticket-mutation-gate.js');
+const { WORKLOAD_COMPONENTS, parseWorkBudget } = require('./lib/ticket-workload.js');
 const {
   buildProofEntries,
   buildProofInputsByKey,
@@ -58,6 +61,15 @@ function argumentValue(args, name) {
 function readJson(filePath, fallback) {
   if (!fs.existsSync(filePath)) return fallback;
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+/** The calibrated work budget and the components it declares. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function resolveFindBudgetArtifacts() {
+  const parsed = parseWorkBudget(readJson(path.join(__dirname, 'ticket-work-budget.json'), null));
+  return parsed.valid
+    ? { budget: parsed.budget, components: parsed.components }
+    : { budget: null, components: WORKLOAD_COMPONENTS };
 }
 
 /** The key of one ticket record. */
@@ -123,6 +135,18 @@ function reportOf({ gate, plan, ticketsData, repairs, reportOnly }) {
     phasesCreated: reportOnly ? 0 : plan.phasesCreated,
     openTickets: openTicketCount(ticketsData),
     blockers: gate.gates.filter((entry) => !entry.ok).map((entry) => ({ gate: entry.name, problem: entry.problem ?? null })),
+    sinks: {
+      tickets: plan.created.length,
+      repairs: (plan.repairs ?? []).length,
+      classifications: (plan.classifications ?? []).length,
+      unprojectable: (plan.unprojectable ?? []).length,
+    },
+    unprojectable: (plan.unprojectable ?? []).map((entry) => ({
+      code: 'OMISSION_CONTRACT_UNPROJECTABLE',
+      contractId: entry.contractId ?? null,
+      group: entry.group ?? null,
+      clauses: [...(entry.clauses ?? [])].sort(),
+    })),
     repairs,
     reportOnly,
   };
@@ -135,8 +159,21 @@ function upsertRepairRecord(records, record) {
   return [...remaining, record].sort((left, right) => (left.repairKey < right.repairKey ? -1 : left.repairKey > right.repairKey ? 1 : 0));
 }
 
-/** Append one repair ticket, idempotent by repairKey. */
-// [::TICKET::] PX-437 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-437 --for-spec --no-implementation-order`.
+/** A schema-valid process contract for a repair ticket. */
+// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
+function repairContractOf(record) {
+  const suffix = String(record?.repairKey ?? 'unknown').replace(/^sha256:/, '').slice(0, 16);
+  return {
+    id: 'contract-repair-' + suffix,
+    sourceEdge: 'repair:' + String(record?.kind ?? 'unknown'),
+    precondition: 'The repair blocker is present in the package',
+    postcondition: 'The repair completes or the diagnostic ticket carries the remaining work',
+    invariant: 'No unresolved blocker is silently dropped',
+  };
+}
+
+/** Append one repair ticket, idempotent by repairKey, through the mutation gate. */
+// [::TICKET::] PX-437, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-443) --for-spec --no-implementation-order`.
 function appendRepairTicket({ cwd, record, reportOnly }) {
   if (reportOnly) return record.ticketKey ?? '(planned)';
   const ticketsPath = path.join(cwd, 'Tickets.json');
@@ -160,13 +197,27 @@ function appendRepairTicket({ cwd, record, reportOnly }) {
     status: 'todo',
     title: 'Repair: ' + record.kind,
     repairKey: record.repairKey,
-    contracts: [],
+    contracts: [repairContractOf(record)],
     testUnit: [],
     testIntegration: [],
     acceptanceCriteria: [],
+    origin: { kind: 'repair', sourceTicket: null },
   });
-  writeTemporaryThenRename(ticketsPath, JSON.stringify(ticketsData, null, 2) + '\n');
-  return ticketKeyOfRecord(phaseId, id);
+  const ticketKey = ticketKeyOfRecord(phaseId, id);
+  const gate = runMutationGate({
+    ticketsPath,
+    manifest: { command: 'find-omissions', reason: 'repair ticket', added: [ticketKey], origin: 'repair' },
+    afterDocument: ticketsData,
+    verify: () => [],
+    packageDirectory: cwd,
+    filesChanged: false,
+  });
+  if (!gate.ok) {
+    const error = new Error(gate.findings.map((finding) => finding.code + ': ' + finding.message).join('; '));
+    error.code = 'REPAIR_TICKET_REFUSED';
+    throw error;
+  }
+  return ticketKey;
 }
 
 /**
@@ -175,9 +226,15 @@ function appendRepairTicket({ cwd, record, reportOnly }) {
  * A blocker is a work item: an automatic repair or one deduplicated repair
  * ticket. It is never a process failure.
  */
-// [::TICKET::] PX-437, PX-440 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-443) --for-spec --no-implementation-order`.
 function applyRepairLadder({ cwd, gate, reportOnly, worklist = null }) {
-  const blockerGate = (gate.gates ?? []).find((entry) => !entry.ok);
+  // A null problem is an unnamed state, and `repair` / `open-tickets` are
+  // consequences of the open repair already recorded. Neither is a new work
+  // item: creating a record for them duplicates the sink that owns the work.
+  const blockerGate = (gate.gates ?? []).find((entry) => !entry.ok
+    && entry.problem !== null
+    && entry.name !== 'repair'
+    && entry.name !== 'open-tickets');
   if (blockerGate === undefined) return null;
   const unclassified = blockerGate.name === 'coverage' && (worklist?.clauses?.length ?? 0) > 0;
   const blocker = unclassified
@@ -218,7 +275,7 @@ function applyRepairLadder({ cwd, gate, reportOnly, worklist = null }) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-437, PX-440, PX-441, PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441|PX-442) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440, PX-441, PX-442, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441|PX-442|PX-443) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
@@ -361,11 +418,48 @@ function main() {
       }
     }
 
+    const budgetArtifacts = resolveFindBudgetArtifacts();
     const plan = planOmissionTickets({
       remainder: blockerEntriesOf({ inventory, coverage: scan.coverage, testIndex }),
+      inventory,
+      budget: budgetArtifacts.budget,
+      components: budgetArtifacts.components,
+      context: {},
       ticketsData,
       phases: ticketsData.phases ?? [],
     });
+    const addedOmissionKeys = plan.created.map((ticket) => ticketKeyOfRecord(ticket.phaseId, ticket.id));
+    const planVerification = plan.created.length === 0
+      ? { ok: true, findings: [] }
+      : verifyOmissionPlan({
+        before: ticketsData,
+        candidate: plan.ticketsData,
+        addedKeys: addedOmissionKeys,
+        artifacts: {
+          coverage: scan.coverage,
+          repairs: { records: [...(repairs ?? []), ...(plan.repairs ?? []), ...(plan.unprojectable ?? [])] },
+          worklist,
+          designQueue: readJson(path.join(cwd, 'DESIGN-AMENDMENT-QUEUE.json'), { findings: [] }),
+          budget: budgetArtifacts.budget,
+          components: budgetArtifacts.components,
+          context: {},
+          mergeStatusPolicy: 'todo',
+        },
+      });
+    let refused = planVerification.ok ? null : planVerification.findings;
+    if (!reportOnly && refused === null && (plan.created.length > 0 || migrationTickets > 0)) {
+      const mutation = runMutationGate({
+        ticketsPath,
+        manifest: { command: 'find-omissions', reason: 'omission tickets', added: addedOmissionKeys, origin: 'omission' },
+        afterDocument: plan.ticketsData,
+        extraVerify: () => planVerification.findings,
+        verify: () => [],
+        packageDirectory: cwd,
+        filesChanged: false,
+      });
+      if (!mutation.ok) refused = mutation.findings;
+    }
+    const writtenTickets = refused === null ? plan.created.length + migrationTickets : 0;
     const v3StatePath = path.join(cwd, CONVERGENCE_V3_FILE_NAME);
     const v3State = readJson(v3StatePath, { version: 1, runs: [] });
     const previousRun = (v3State.runs ?? []).length > 0 ? v3State.runs[v3State.runs.length - 1] : null;
@@ -377,7 +471,7 @@ function main() {
       repairs,
       openTickets: openTicketCount(ticketsData),
       dispositions,
-      convergenceState: { debtBefore: previousDebt, newTickets: plan.created.length + migrationTickets, previous: previousRun },
+      convergenceState: { debtBefore: previousDebt, newTickets: writtenTickets, previous: previousRun },
     });
     if (!reportOnly) {
       const runs = [...(v3State.runs ?? []), {
@@ -391,15 +485,14 @@ function main() {
       writeTemporaryThenRename(v3StatePath, JSON.stringify({ version: 1, runs }, null, 2) + '\n');
     }
 
-    if (!reportOnly && (plan.created.length > 0 || migrationTickets > 0)) {
-      writeTemporaryThenRename(ticketsPath, JSON.stringify(plan.ticketsData, null, 2) + '\n');
-    }
-
     let repairRecords = repairs;
     // A changed measurement is re-measured, not repaired: the next identical
     // run is the fixed-point check. Creating a repair ticket here would make
     // every real change leave an open item that blocks the run that confirms it.
-    const firstFailedGate = (gate.gates ?? []).find((entry) => !entry.ok);
+    const firstFailedGate = (gate.gates ?? []).find((entry) => !entry.ok
+      && entry.problem !== null
+      && entry.name !== 'repair'
+      && entry.name !== 'open-tickets');
     const convergenceOnly = firstFailedGate?.name === 'convergence';
     if (!gate.complete && !convergenceOnly && plan.created.length === 0 && plan.reusedTickets === 0 && migrationTickets === 0) {
       const repair = applyRepairLadder({ cwd, gate, reportOnly, worklist });
@@ -414,9 +507,10 @@ function main() {
           Object.entries(record).filter(([field]) => !volatileRepairFields.has(field)),
         ))
       : repairRecords;
-    const report = reportOf({ gate, plan, ticketsData: plan.ticketsData, repairs: reportedRepairs, reportOnly });
-    report.createdTickets = reportOnly ? 0 : plan.created.length + migrationTickets;
+    const report = reportOf({ gate, plan, ticketsData: refused === null ? plan.ticketsData : ticketsData, repairs: reportedRepairs, reportOnly });
+    report.createdTickets = reportOnly ? 0 : writtenTickets;
     report.plannedCreated = plan.created.length + migrationTickets;
+    if (refused !== null) report.refused = refused;
     report.reusedTickets = plan.reusedTickets + migration.report.ticketsReused;
     report.migration = migration.report;
     report.worklist = { unclassified: worklist.clauses.length, path: worklist.clauses.length > 0 ? WORKLIST_FILE_NAME : null };
@@ -436,7 +530,7 @@ function main() {
     };
     process.stdout.write(JSON.stringify(report) + '\n');
     const pendingRepairs = (report.repairs ?? []).filter((record) => isOpenRepair({ repair: record })).length;
-    const complete = gate.complete && report.createdTickets === 0 && report.openTickets === 0 && pendingRepairs === 0;
+    const complete = refused === null && gate.complete && report.createdTickets === 0 && report.openTickets === 0 && pendingRepairs === 0;
     exitCode = complete ? 0 : 10;
   } catch (error) {
     const named = error?.code === 'UNSUPPORTED_VERSION';

@@ -19,6 +19,7 @@ const PHASIFY = path.resolve(
   "../../.claude/scripts/rfc-graph/phasify-omissions.js",
 );
 const {
+  isV3Managed,
   resolveGraphPathArgument,
 } = require("../../.claude/scripts/rfc-graph/phasify-omissions.js");
 
@@ -31,6 +32,21 @@ function writeGraph(directory, name) {
   fs.writeFileSync(file, JSON.stringify({ nodes: [], edges: [] }), "utf8");
   return file;
 }
+
+test("C005: a v3-managed package refuses the legacy merge", () => {
+  const directory = makeDirectory();
+  const ticketsPath = path.join(directory, "Tickets.json");
+  const before = JSON.stringify({ title: "fixture", phases: [] }) + "\n";
+  fs.writeFileSync(ticketsPath, before, "utf8");
+  fs.writeFileSync(path.join(directory, "OMISSION-CONVERGENCE-V3.json"), JSON.stringify({ version: 1, runs: [] }), "utf8");
+
+  assert.equal(isV3Managed(ticketsPath), true);
+  const result = spawnSync(process.execPath, [PHASIFY, "--tickets=" + ticketsPath], { cwd: directory, encoding: "utf8" });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /v3-managed/);
+  assert.equal(fs.readFileSync(ticketsPath, "utf8"), before);
+});
 
 test("C005: an explicit --graph argument is honored", () => {
   const directory = makeDirectory();

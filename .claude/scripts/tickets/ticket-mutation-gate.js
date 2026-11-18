@@ -371,7 +371,7 @@ function updateSplitReceipt(packageDirectory, afterDigest, manifest) {
  *   graphPath?: string, dirsTreePath?: string, specPath?: string, viewPath?: string,
  *   treeManifestPath?: string, filesChanged?: boolean}} input
  */
-// [::TICKET::] PX-378 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-378 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-378, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-378|PX-443) --for-spec --no-implementation-order`.
 function runMutationGate(input) {
   const {
     ticketsPath,
@@ -379,6 +379,8 @@ function runMutationGate(input) {
     afterDocument = null,
     mutate = null,
     verify = verifyMutationDocument,
+    extraVerify = null,
+    retainBefore = false,
     packageDirectory = path.dirname(ticketsPath),
     filesChanged = false,
   } = input;
@@ -394,15 +396,6 @@ function runMutationGate(input) {
   const before = snapshotTickets(ticketsPath);
   const beforeDocument = JSON.parse(before.bytes.toString('utf8'));
   const after = afterDocument ?? (mutate === null ? cloneDocument(beforeDocument) : mutate(cloneDocument(beforeDocument)));
-  if (JSON.stringify(after) !== JSON.stringify(beforeDocument)) {
-    writeTicketDistributionAggregate(after);
-  }
-  const afterBytes = Buffer.from(`${JSON.stringify(after, null, 2)}\n`, 'utf8');
-  const afterDigest = createHash('sha256').update(afterBytes).digest('hex');
-  const stagingPath = `${ticketsPath}.staging.${process.pid}.${Date.now()}`;
-  const beforePath = `${ticketsPath}.before.${process.pid}.${Date.now()}`;
-  fs.writeFileSync(stagingPath, afterBytes);
-  fs.writeFileSync(beforePath, before.bytes);
 
   const context = buildMutationContext({
     packageDirectory,
@@ -416,10 +409,32 @@ function runMutationGate(input) {
   });
 
   const ownership = evaluateOwnership({ before: beforeDocument, after, manifest, graph: context.graphPath === null ? null : JSON.parse(fs.readFileSync(context.graphPath, 'utf8')) });
+  // An extra verifier runs before the distribution stamp so a refusal leaves the
+  // caller's candidate document byte-clean.
+  const extraFindings = typeof extraVerify === 'function' ? extraVerify(after, ticketsPath, context) : [];
+  if (ownership.findings.length > 0 || extraFindings.length > 0) {
+    return {
+      ok: false,
+      findings: [...ownership.findings, ...extraFindings],
+      manifest: { ...manifest, beforeDigest: before.digest, afterDigest: null },
+    };
+  }
+
+  const promoted = cloneDocument(after);
+  if (JSON.stringify(promoted) !== JSON.stringify(beforeDocument)) {
+    writeTicketDistributionAggregate(promoted);
+  }
+  const afterBytes = Buffer.from(`${JSON.stringify(promoted, null, 2)}\n`, 'utf8');
+  const afterDigest = createHash('sha256').update(afterBytes).digest('hex');
+  const stagingPath = `${ticketsPath}.staging.${process.pid}.${Date.now()}`;
+  const beforePath = `${ticketsPath}.before.${process.pid}.${Date.now()}`;
+  fs.writeFileSync(stagingPath, afterBytes);
+  fs.writeFileSync(beforePath, before.bytes);
+
   const beforeFindings = verify(beforeDocument, beforePath, context);
-  const afterFindings = verify(after, stagingPath, context);
+  const afterFindings = verify(promoted, stagingPath, context);
   const newFindings = diffFindings(beforeFindings, afterFindings);
-  const findings = [...ownership.findings, ...newFindings];
+  const findings = [...ownership.findings, ...extraFindings, ...newFindings];
 
   if (findings.length > 0) {
     fs.rmSync(stagingPath, { force: true });
@@ -433,12 +448,26 @@ function runMutationGate(input) {
 
   atomicWrite(ticketsPath, afterBytes);
   fs.rmSync(stagingPath, { force: true });
-  fs.rmSync(beforePath, { force: true });
   updateSplitReceipt(packageDirectory, afterDigest, manifest);
+  const promotedManifest = { ...manifest, beforeDigest: before.digest, afterDigest };
+  if (retainBefore) {
+    return {
+      ok: true,
+      findings: [],
+      manifest: promotedManifest,
+      beforePath,
+      rollback: () => {
+        restoreTickets(before);
+        fs.rmSync(beforePath, { force: true });
+      },
+      commit: () => fs.rmSync(beforePath, { force: true }),
+    };
+  }
+  fs.rmSync(beforePath, { force: true });
   return {
     ok: true,
     findings: [],
-    manifest: { ...manifest, beforeDigest: before.digest, afterDigest },
+    manifest: promotedManifest,
   };
 }
 

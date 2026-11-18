@@ -81,6 +81,11 @@ fi
    node "$CLAUDE_DIR/scripts/tickets/condense-tickets.js" --apply --workspace="$PWD" --merge-status=todo
    ```
 3. Re-run → `NO_CHANGE` for every package; zero bytes written.
+4. Postcondition gate: verify every package, including the omission-work check.
+   ```bash
+   node "$CLAUDE_DIR/scripts/tickets/check-ticket-set.js" --workspace="$PWD"
+   ```
+   A failing package is reported with its path and finding code; the workspace is not condensed twice to hide it.
 
 ## Report
 

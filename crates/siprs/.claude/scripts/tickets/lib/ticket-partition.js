@@ -64,6 +64,9 @@ const MACHINE_ARRAY_FIELDS = Object.freeze([
   'targetCrimes',
   'foundOmissions',
   'stubs',
+  'omissionStableKeys',
+  'omissionUnitKeys',
+  'omissionUnits',
 ]);
 
 /** Array fields whose elements are objects and therefore deduplicated structurally. */
@@ -72,6 +75,7 @@ const OBJECT_MACHINE_FIELDS = Object.freeze([
   'targetCrimes',
   'foundOmissions',
   'stubs',
+  'omissionUnits',
 ]);
 
 /** String fields unioned into the survivor. */
@@ -127,7 +131,7 @@ function isCompleted(ticket) {
  * @param {{ components?: string[], preserveCompleted?: boolean }} [options]
  * @returns {{ count: number, groups: Array<object>, forcedBoundaries: Array<object>, irreducible: Array<object>, skippedGroups: Array<object>, workloads: Array<object> }}
  */
-// [::TICKET::] PX-415, PX-416, PX-394 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-443) --for-spec --no-implementation-order`.
 function minimumContiguousPartition(tickets, context, budget, options = {}) {
   const components = options.components ?? WORKLOAD_COMPONENTS;
   const preserveCompleted = options.preserveCompleted === true;
@@ -155,11 +159,15 @@ function minimumContiguousPartition(tickets, context, budget, options = {}) {
     const cached = workloadCache.get(cacheKey);
     if (cached !== undefined) return cached;
     const members = tickets.slice(start, end);
+    const contractIds = new Set(members
+      .flatMap((ticket) => (ticket.contracts ?? []).map((contract) => contract?.id))
+      .filter((id) => typeof id === 'string' && id.length > 0));
     const synthetic = {
       nodeIds: unionValues(...members.map((ticket) => ticket.nodeIds ?? [])),
       default_files: unionValues(...members.map((ticket) => ticket.default_files ?? [])),
       testUnit: unionValues(...members.map((ticket) => ticket.testUnit ?? [])),
       testIntegration: unionValues(...members.map((ticket) => ticket.testIntegration ?? [])),
+      contracts: [...contractIds].map((id) => ({ id })),
     };
     const workload = workloadOfTicket(synthetic, context);
     workloadCache.set(cacheKey, workload);
@@ -438,7 +446,7 @@ function flattenNestedLedger(ticket, generation) {
 }
 
 /** The survivor ticket of a merged group and the tickets it absorbed. */
-// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-415, PX-416, PX-394, PX-396, PX-402, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-415|PX-416|PX-394|PX-396|PX-402|PX-443) --for-spec --no-implementation-order`.
 function mergeTicketGroup(tickets, group, options = {}) {
   const start = group?.start ?? 0;
   const end = group?.end ?? tickets.length;
@@ -479,7 +487,8 @@ function mergeTicketGroup(tickets, group, options = {}) {
   if (unlistedFileReason === undefined) delete merged.unlistedFileReason;
   else merged.unlistedFileReason = remapTicketReferences(unlistedFileReason, keyMap);
 
-  merged.contracts = options.rebuildContracts === true
+  const preservesOmissionContracts = members.some((ticket) => ticket?.origin?.kind === 'omission');
+  merged.contracts = (options.rebuildContracts === true && !preservesOmissionContracts)
     ? []
     : remapTicketReferences(mergeContractsForGroup(members), keyMap);
   // `contracts` is optional but, when present, the schema rejects an empty array.

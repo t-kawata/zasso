@@ -89,6 +89,11 @@ fi
    fi
    ```
 4. Re-run → `NO_CHANGE`; zero bytes written.
+5. Postcondition gate: the committed set must pass the read-only gate, including the omission-work check.
+   ```bash
+   node "$CLAUDE_DIR/scripts/tickets/check-ticket-set.js" --workspace="$PWD"
+   ```
+   A package not at its contiguous partition minimum, or carrying an omission ticket with no measured work or no live `omissionUnits`, fails with the package path and finding code.
 
 ## Repairing an existing workspace
 

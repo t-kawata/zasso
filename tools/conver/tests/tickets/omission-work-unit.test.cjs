@@ -14,6 +14,7 @@ const {
   projectContract,
   workKindOf,
 } = require('../../.claude/scripts/tickets/lib/omission-work-unit.js');
+const { blockerEntriesOf } = require('../../.claude/scripts/tickets/lib/blocker-plan.js');
 
 /** A clause of one contract. */
 // [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-443 --for-spec --no-implementation-order`.
@@ -64,6 +65,45 @@ test('C002: an unprojectable contract returns null and is not guessed', () => {
   };
 
   assert.equal(projectContract(inventory, 'C001'), null);
+});
+
+test('C002: mixed clause classes in one contract are routed per clause', () => {
+  const inventory = {
+    scope: 'pkg-alpha',
+    clauses: [
+      clause('C001', 'precondition', 'input is non-empty'),
+      clause('C001', 'postcondition', 'the result is a user'),
+      clause('C001', 'invariant', 'the id never changes'),
+    ],
+  };
+  const [precondition, postcondition, invariant] = inventory.clauses.map((entry) => entry.key);
+
+  const mixedOrder = {
+    clauses: [
+      { key: precondition, status: 'TEST_MISSING' },
+      { key: postcondition, status: 'CLAUSE_PROOF_MISSING' },
+      { key: invariant, status: 'TEST_MISSING' },
+    ],
+  };
+  const forward = atomsOfImplementation(blockerEntriesOf({ inventory, coverage: mixedOrder }), inventory);
+  assert.deepEqual(forward.atoms.map((atom) => atom.key).sort(), [precondition, invariant].sort());
+  assert.deepEqual(forward.repairs.flatMap((entry) => entry.clauses), [postcondition]);
+
+  const proofFirst = {
+    clauses: [
+      { key: postcondition, status: 'CLAUSE_PROOF_MISSING' },
+      { key: precondition, status: 'TEST_MISSING' },
+      { key: invariant, status: 'TEST_MISSING' },
+    ],
+  };
+  const reversed = atomsOfImplementation(blockerEntriesOf({ inventory, coverage: proofFirst }), inventory);
+  assert.deepEqual(reversed.atoms.map((atom) => atom.key).sort(), [precondition, invariant].sort());
+  assert.deepEqual(reversed.repairs.flatMap((entry) => entry.clauses), [postcondition]);
+
+  // The migration filters by one class; a mixed group must still match when the
+  // requested class belongs to any of its clauses, not only the first one.
+  assert.equal(blockerEntriesOf({ inventory, coverage: mixedOrder, classes: ['proof-missing'] }).length, 1);
+  assert.equal(blockerEntriesOf({ inventory, coverage: mixedOrder, classes: ['test-missing'] }).length, 1);
 });
 
 test('C002: only implementation blockers become atoms; the rest are named sinks', () => {
