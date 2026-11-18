@@ -1,0 +1,11 @@
+{
+  "timezone": "Asia/Tokyo",
+  "intervalMinutes": 15,
+  "filters": [
+    {
+      "startTime": "00:00",
+      "endTime": "23:59",
+      "days": ["2999-01-01"]
+    }
+  ]
+}
