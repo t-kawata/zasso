@@ -253,3 +253,115 @@ test('C006: an unclassified clause becomes a worklist, then a verified dispositi
     fs.rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+// @verifies C001
+// @verifies C002
+// @verifies C003
+// @verifies C004
+// [::TICKET::] PX-444: the v3 runner writes provenance and the package note to Tickets.json.
+test('PX-444: the runner writes splitReason, created_at, generic notes and the package note', () => {
+// [::TICKET::] PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-444 --for-spec --no-implementation-order`.
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'px444-e2e-'));
+  try {
+    writeMeasuredFixture(cwd, { version: 1, notes: 'Project laboratory clause' });
+
+    const result = run(cwd);
+    assert.equal(result.status, 10);
+    assert.ok(result.json.createdTickets > 1, 'the measured work needs more than one ticket');
+
+    const document = JSON.parse(fs.readFileSync(path.join(cwd, 'Tickets.json'), 'utf8'));
+    const omissionTickets = document.phases
+      .flatMap((phase) => (phase.tickets ?? []))
+      .filter((ticket) => ticket.origin?.kind === 'omission');
+    assert.ok(omissionTickets.length > 1, 'the plan created omission tickets');
+
+    for (const ticket of omissionTickets) {
+      assert.equal(ticket.splitReason, 'budget');
+      assert.match(ticket.created_at, /^\d{4}-\d{2}-\d{2}$/);
+      assert.ok(ticket.notes.includes('Affected contracts:'));
+      assert.ok(ticket.notes.includes('re-running the coverage flow. Project laboratory clause'));
+    }
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+/** The contract count that exceeds the v4 measured-work ceilings. */
+const MEASURED_CONTRACT_COUNT = 9;
+
+/**
+ * Write a measured package whose 27 clauses need more than one omission ticket.
+ *
+ * @param {string} cwd — temporary package directory
+ * @param {object|null} noteDocument — OMISSION-TICKET-NOTES.json content, or null
+ */
+// [::TICKET::] PX-444: the measured fixture shared by the provenance cases.
+// [::TICKET::] PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-444 --for-spec --no-implementation-order`.
+function writeMeasuredFixture(cwd, noteDocument) {
+  const contracts = Array.from({ length: MEASURED_CONTRACT_COUNT }, (_, index) => {
+    const id = 'C' + String(index + 1).padStart(3, '0');
+    return { id, precondition: id + ' precondition', postcondition: id + ' postcondition', invariant: id + ' invariant' };
+  });
+  fs.writeFileSync(path.join(cwd, 'CONTRACT-INVENTORY-CONFIG.json'), JSON.stringify({
+    adapter: { id: 'fixture-adapter', version: 1, scope: 'pkg-alpha', contractIdScope: 'global', elements: ['precondition', 'postcondition', 'invariant'], applicability: 'TESTABLE' },
+    sources: [{ kind: 'graph', artifact: 'RFC-GRAPH.json', edges: [{ id: 'E001', contracts }] }],
+  }));
+  fs.writeFileSync(path.join(cwd, 'RFC-GRAPH.json'), JSON.stringify({ edges: [{ id: 'E001', contracts }] }));
+  fs.writeFileSync(path.join(cwd, 'Tickets.json'), JSON.stringify({
+    title: 'fixture',
+    round: 1,
+    metadata: {},
+    phases: [{ id: 1, name: 'P1', tickets: [{ id: 1, phaseId: 1, status: 'reviewed', contracts }] }],
+  }));
+  fs.writeFileSync(path.join(cwd, 'TEST-MANIFEST.json'), JSON.stringify({ version: 1, tests: [] }));
+  if (noteDocument !== null) {
+    fs.writeFileSync(path.join(cwd, 'OMISSION-TICKET-NOTES.json'), JSON.stringify(noteDocument));
+  }
+}
+
+// @verifies C004
+// [::TICKET::] PX-444: a malformed package note is a named refusal and writes no ticket.
+test('PX-444: a malformed package note is a named refusal and leaves Tickets.json unchanged', () => {
+  for (const [noteDocument, expectedCode] of [
+    [{ version: 2, notes: 'x' }, 'UNSUPPORTED_VERSION'],
+    [{ version: 1, notes: '   ' }, 'OMISSION_TICKET_NOTES_INVALID'],
+  ]) {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'px444-e2e-bad-note-'));
+    try {
+      writeMeasuredFixture(cwd, noteDocument);
+      const before = fs.readFileSync(path.join(cwd, 'Tickets.json'), 'utf8');
+
+      const result = run(cwd);
+      assert.equal(result.status, 10);
+      assert.equal(result.json.code, expectedCode);
+      assert.equal(fs.readFileSync(path.join(cwd, 'Tickets.json'), 'utf8'), before);
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+});
+
+// @verifies C005
+// [::TICKET::] PX-444: without a package note the generic provenance is unchanged.
+test('PX-444: without a package note the generic provenance is unchanged', () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'px444-e2e-no-note-'));
+  try {
+    writeMeasuredFixture(cwd, null);
+
+    const result = run(cwd);
+    assert.equal(result.status, 10);
+    const omissionTickets = JSON.parse(fs.readFileSync(path.join(cwd, 'Tickets.json'), 'utf8'))
+      .phases
+      .flatMap((phase) => (phase.tickets ?? []))
+      .filter((ticket) => ticket.origin?.kind === 'omission');
+    assert.ok(omissionTickets.length > 1);
+
+    for (const ticket of omissionTickets) {
+      assert.equal(ticket.notes.includes('Project laboratory clause'), false);
+      assert.ok(ticket.notes.startsWith('Omission ticket created by the /find-omissions v3 measured-coverage flow.'));
+      assert.ok(ticket.notes.endsWith('re-running the coverage flow.'));
+    }
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});

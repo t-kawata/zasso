@@ -22,6 +22,7 @@ const { findTicketRecord, resolveRootTicketKey } = require('./add-omission-ticke
 const { atomsOfImplementation } = require('./lib/omission-work-unit.js');
 const { minimumContiguousPartition } = require('./lib/ticket-partition.js');
 const { WORKLOAD_COMPONENTS, parseWorkBudget } = require('./lib/ticket-workload.js');
+const { loadProjectTicketNotes } = require('./lib/project-ticket-notes.js');
 
 const INDEX_FILE_NAME = 'OMISSION-TICKET-INDEX.json';
 const BACKLOG_FILE_NAME = 'OMISSION-IMPROVEMENT-BACKLOG.json';
@@ -347,9 +348,34 @@ function omissionUnitsOf(atoms) {
     .sort((left, right) => left.group.localeCompare(right.group));
 }
 
+/** The date convention shared with insert-field-template.js. */
+// [::TICKET::] PX-444: one date-only convention for generated tickets.
+// [::TICKET::] PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-444 --for-spec --no-implementation-order`.
+function todayIsoDate() {
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * The generic provenance note of one generated ticket.
+ *
+ * The text is derived only from the ticket's own atoms and owner, so conver
+ * never learns a project's clause. A package-owned clause is appended verbatim
+ * by the caller and is not interpreted here.
+ */
+// [::TICKET::] PX-444: derive provenance from atoms, not from a project.
+// [::TICKET::] PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-444 --for-spec --no-implementation-order`.
+function omissionNotesOf({ stableKeys, rootTicketKey, ticketNotes }) {
+  const contracts = stableKeys.map((key) => key.split('|').pop()).join(', ');
+  const source = rootTicketKey === null ? 'no single source ticket' : 'source ticket ' + rootTicketKey;
+  const generic = 'Omission ticket created by the /find-omissions v3 measured-coverage flow. '
+    + 'Affected contracts: ' + contracts + ' (' + source + '). '
+    + 'Resolve by mapping each clause to a test, proving detection with a mutation, and re-running the coverage flow.';
+  return ticketNotes.length === 0 ? generic : generic + ' ' + ticketNotes;
+}
+
 /** Materialize one partition group as a ticket. */
-// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function materializeOmissionTicket({ atoms, unitKey, phaseId, id }) {
+// [::TICKET::] PX-443, PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-443|PX-444) --for-spec --no-implementation-order`.
+function materializeOmissionTicket({ atoms, unitKey, phaseId, id, ticketNotes }) {
   const stableKeys = [...new Set(atoms.map((atom) => atom.group))].sort();
   const owners = [...new Set(atoms.map((atom) => atom.owner).filter((owner) => typeof owner === 'string'))];
   const rootTicketKey = owners.length === 1 ? owners[0] : null;
@@ -371,13 +397,16 @@ function materializeOmissionTicket({ atoms, unitKey, phaseId, id }) {
     omissionUnits: omissionUnitsOf(atoms),
     rootTicketKey,
     origin: { kind: 'omission', sourceTicket: rootTicketKey },
+    created_at: todayIsoDate(),
+    notes: omissionNotesOf({ stableKeys, rootTicketKey, ticketNotes }),
   };
 }
 
 /** Plan the contiguous partition minimum for measured implementation work. */
-// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {} }) {
+// [::TICKET::] PX-443, PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-443|PX-444) --for-spec --no-implementation-order`.
+function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {}, projectDir = null, ticketNotes = null }) {
   const workingPhases = (phases ?? ticketsData?.phases ?? []).map((phase) => ({ ...phase, tickets: [...(phase.tickets ?? [])] }));
+  const resolvedTicketNotes = ticketNotes ?? (projectDir === null ? '' : loadProjectTicketNotes(projectDir));
   const workingData = { ...(ticketsData ?? {}), phases: workingPhases };
   const existingRecords = flattenTicketRecords(workingData);
   const { atoms, repairs, classifications, unprojectable } = atomsOfImplementation(remainder, inventory);
@@ -418,9 +447,16 @@ function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null,
       workingPhases.push(phase);
     }
     const nextId = phase.tickets.length === 0 ? 1 : Math.max(...phase.tickets.map((ticket) => ticket.id)) + 1;
-    const ticket = materializeOmissionTicket({ atoms: members, unitKey, phaseId: omissionPhaseId, id: nextId });
+    const ticket = materializeOmissionTicket({ atoms: members, unitKey, phaseId: omissionPhaseId, id: nextId, ticketNotes: resolvedTicketNotes });
     phase.tickets.push(ticket);
     created.push(ticket);
+  }
+
+  // A multi-ticket phase is rejected by the condensation gate unless every
+  // ticket names why it is separate. The partition splits only to fit the work
+  // budget, and a single-ticket phase carries no splitReason (PX-394).
+  if (created.length > 1) {
+    for (const ticket of created) ticket.splitReason = 'budget';
   }
 
   return {
@@ -443,15 +479,15 @@ function planWorkUnitTickets({ remainder, inventory, ticketsData, phases = null,
  * Measured classes route through the work-unit partition. A caller that has no
  * inventory keeps the legacy per-entry path; the find gate refuses a legacy plan.
  */
-// [::TICKET::] PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-443 --for-spec --no-implementation-order`.
-function planOmissionTickets({ remainder, inventory = null, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {} }) {
+// [::TICKET::] PX-443, PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-443|PX-444) --for-spec --no-implementation-order`.
+function planOmissionTickets({ remainder, inventory = null, ticketsData, phases = null, budget = null, components = WORKLOAD_COMPONENTS, context = {}, projectDir = null, ticketNotes = null }) {
   const measured = inventory !== null
     && Array.isArray(remainder)
     && remainder.every((entry) => typeof entry?.blockingClass === 'string');
   if (!measured) {
     return { ...planLegacyTickets({ remainder, ticketsData, phases }), repairs: [], classifications: [], unprojectable: [] };
   }
-  return planWorkUnitTickets({ remainder, inventory, ticketsData, phases, budget, components, context });
+  return planWorkUnitTickets({ remainder, inventory, ticketsData, phases, budget, components, context, projectDir, ticketNotes });
 }
 
 /** CLI entry point. */
