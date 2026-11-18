@@ -1,7 +1,11 @@
-// dashboard.test.ts — fixed header, timer, resize, scroll and cleanup.
+// @verifies C002 — PX-449 fixed-row budget
+// @verifies C003 — PX-449 immediate activity repaint
+// @verifies C005 — PX-449 non-TTY no-op
+// dashboard.test.ts — fixed header, NOW row, timer, resize, scroll and cleanup.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ProgressDashboard } from "./dashboard.js";
+import stringWidth from "string-width";
+import { computeFixedBudget, ProgressDashboard } from "./dashboard.js";
 import type { ProgressSnapshot } from "./model.js";
 import type { WorkspaceModel } from "../workspace.js";
 
@@ -102,6 +106,54 @@ function buildDynamic(options: {
     isTty: true,
     write: (chunk) => options.writes.push(chunk),
     readSnapshot: () => snapshot(options.count),
+    terminalSize: () => ({ ...options.size }),
+    now: () => 0,
+    setInterval: options.timer.setInterval,
+    clearInterval: options.timer.clearInterval,
+    setRawMode: () => {},
+  });
+}
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+function crystalWorkspace(): WorkspaceModel {
+  const names = ["crystal-core", "crystal-adapter-clock", "crystal-protocol-types"];
+  return {
+    root: "/ws",
+    name: "crystal",
+    packages: names.map((name) => ({
+      id: name,
+      name,
+      path: `crates/${name}`,
+      directory: `/ws/crates/${name}`,
+      ticketsPath: `/ws/crates/${name}/Tickets.json`,
+    })),
+  };
+}
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+function crystalSnapshot(): ProgressSnapshot {
+  return {
+    packages: ["crystal-core", "crystal-adapter-clock", "crystal-protocol-types"].map((name) => ({
+      name,
+      path: `crates/${name}`,
+      phases: [{ id: 0, tickets: [{ id: 1, status: "todo" }] }],
+    })),
+  };
+}
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+function buildCrystal(options: {
+  timer: Timer;
+  writes: string[];
+  size: { columns: number; rows: number };
+  isTty?: boolean;
+}) {
+  return new ProgressDashboard({
+    workspace: crystalWorkspace(),
+    intervalMs: 5000,
+    isTty: options.isTty ?? true,
+    write: (chunk) => options.writes.push(chunk),
+    readSnapshot: () => crystalSnapshot(),
     terminalSize: () => ({ ...options.size }),
     now: () => 0,
     setInterval: options.timer.setInterval,
@@ -227,7 +279,7 @@ describe("ProgressDashboard", () => {
     const dashboard = buildDynamic({ timer, writes, count: 10, size: { columns: 80, rows: 40 } });
     dashboard.start();
     const output = writes.join("");
-    for (let row = 1; row <= 10; row += 1) {
+    for (let row = 1; row <= 11; row += 1) {
       assert.ok(
         output.includes(`\x1b[${row};1H\x1b[2K`),
         `row ${row} must be erased before its content is painted`,
@@ -242,12 +294,12 @@ describe("ProgressDashboard", () => {
     const size = { columns: 80, rows: 40 };
     const dashboard = buildDynamic({ timer, writes, count: 10, size });
     dashboard.start();
-    assert.ok(writes.join("").includes("\x1b[11;40r"));
+    assert.ok(writes.join("").includes("\x1b[12;40r"));
     writes.length = 0;
     size.rows = 34;
     dashboard.handleResize();
     assert.ok(
-      writes.join("").includes("\x1b[11;34r"),
+      writes.join("").includes("\x1b[12;34r"),
       "a height change must reissue DECSTBM even when the header line count is stable",
     );
     dashboard.stop();
@@ -259,9 +311,9 @@ describe("ProgressDashboard", () => {
     const dashboard = buildDynamic({ timer, writes, count: 10, size: { columns: 80, rows: 40 } });
     dashboard.start();
     const output = writes.join("");
-    // Header lines = 10, so the log region starts at row 11. The save must
-    // happen there and the restore must return there.
-    assert.ok(output.includes("\x1b[11;1H\x1b7"));
+    // Header lines = 11 (NOW + 10 packages), so the log region starts at row 12.
+    // The save must happen there and the restore must return there.
+    assert.ok(output.includes("\x1b[12;1H\x1b7"));
     assert.ok(output.endsWith("\x1b8"));
     dashboard.stop();
   });
@@ -286,5 +338,157 @@ describe("ProgressDashboard", () => {
       );
     }
     dashboard.stop();
+  });
+});
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+describe("computeFixedBudget", () => {
+  it("C002 keeps four log rows and clamps indicator and package rows", () => {
+    assert.deepStrictEqual(computeFixedBudget(4, 10), { packageRows: 0, indicatorRows: 0, fixedRows: 0 });
+    assert.deepStrictEqual(computeFixedBudget(5, 10), { packageRows: 0, indicatorRows: 0, fixedRows: 1 });
+    assert.deepStrictEqual(computeFixedBudget(6, 10), { packageRows: 1, indicatorRows: 0, fixedRows: 2 });
+    assert.deepStrictEqual(computeFixedBudget(8, 10), { packageRows: 1, indicatorRows: 2, fixedRows: 4 });
+    assert.deepStrictEqual(computeFixedBudget(8, 3), { packageRows: 3, indicatorRows: 0, fixedRows: 4 });
+    for (let rows = 5; rows <= 40; rows += 1) {
+      assert.ok(computeFixedBudget(rows, 29).fixedRows <= rows - 4, `rows=${rows}`);
+    }
+  });
+});
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+describe("ProgressDashboard NOW row", () => {
+  it("C001 paints idle NOW on row 1 and packages from row 2", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildDynamic({ timer, writes, count: 10, size: { columns: 80, rows: 24 } });
+    dashboard.start();
+    const output = writes.join("");
+    const nowIndex = output.indexOf("NOW: idle");
+    const firstPackageIndex = output.indexOf("P0 [");
+    assert.ok(nowIndex >= 0);
+    assert.ok(firstPackageIndex > nowIndex);
+    assert.ok(output.includes("\x1b[1;1H\x1b[2K"));
+    assert.ok(output.includes("\x1b[2;1H\x1b[2K"));
+    assert.ok(output.includes("\x1b[12;24r"));
+    dashboard.stop();
+  });
+
+  it("C003 repaints row 1 immediately when a command starts and ends", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildCrystal({ timer, writes, size: { columns: 80, rows: 24 } });
+    dashboard.start();
+    assert.ok(writes.join("").includes("\x1b[5;24r"));
+    writes.length = 0;
+    dashboard.setActivity({ packageName: "crystal-core", command: "/start-ticket", ticketKey: "P1-9" });
+    const running = writes.join("");
+    assert.ok(running.includes("NOW: [core] /start-ticket P1-9"));
+    assert.ok(running.includes("\x1b[1;1H"));
+    assert.ok(running.includes("\x1b[2;1H"));
+    writes.length = 0;
+    dashboard.setActivity(null);
+    assert.ok(writes.join("").includes("NOW: idle"));
+    dashboard.stop();
+  });
+
+  it("C002 leaves four log rows on a five-row terminal and draws only NOW", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildDynamic({ timer, writes, count: 10, size: { columns: 80, rows: 5 } });
+    dashboard.start();
+    const output = writes.join("");
+    assert.ok(output.includes("NOW: idle"));
+    assert.ok(output.includes("\x1b[2;5r"));
+    assert.ok(!output.includes("P0 ["));
+    dashboard.stop();
+  });
+
+  it("C002 recomputes the fixed budget after a resize", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const size = { columns: 80, rows: 24 };
+    const dashboard = buildDynamic({ timer, writes, count: 10, size });
+    dashboard.start();
+    writes.length = 0;
+    size.rows = 7;
+    dashboard.handleResize();
+    assert.ok(writes.join("").includes("\x1b[4;7r"), "three fixed rows start the log at row 4");
+    dashboard.stop();
+  });
+
+  it("C002 releases the scroll region when the terminal becomes too short", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const size = { columns: 80, rows: 40 };
+    const dashboard = buildDynamic({ timer, writes, count: 10, size });
+    dashboard.start();
+    writes.length = 0;
+    size.rows = 4;
+    dashboard.handleResize();
+    assert.strictEqual(writes.join(""), "\x1b7\x1b[r\x1b8\x1b[?25h");
+    writes.length = 0;
+    size.rows = 24;
+    dashboard.handleResize();
+    assert.ok(writes.join("").includes("\x1b[2J"), "growing back clears the inherited screen");
+    assert.ok(writes.join("").includes("\x1b[12;24r"));
+    dashboard.stop();
+  });
+
+  it("C002 keeps the fixed height when only one indicator side is used", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = build({ isTty: true, timer, writes, rows: 8, activeIndex: 0 });
+    dashboard.start();
+    const output = writes.join("");
+    assert.ok(output.includes("\x1b[5;8r"), "four fixed rows start the log at row 5");
+    assert.ok(output.includes("\x1b[2;1H\x1b[2K"), "the unused top indicator row is still painted");
+    assert.ok(output.includes("\x1b[3;1H\x1b[2K"), "the package row follows the reserved indicator row");
+    dashboard.stop();
+  });
+
+  it("C003 keeps the running activity across a timer refresh", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildCrystal({ timer, writes, size: { columns: 80, rows: 24 } });
+    dashboard.start();
+    dashboard.setActivity({ packageName: "crystal-core", command: "/start-ticket", ticketKey: "P1-9" });
+    writes.length = 0;
+    timer.callback?.();
+    assert.ok(writes.join("").includes("NOW: [core] /start-ticket P1-9"));
+    dashboard.stop();
+  });
+
+  it("C004 pads a wide-character NOW row to exactly the terminal width", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildCrystal({ timer, writes, size: { columns: 20, rows: 24 } });
+    dashboard.start();
+    writes.length = 0;
+    dashboard.setActivity({
+      packageName: "crystal-部署core",
+      command: "/start-ticket",
+      ticketKey: "P1-9",
+    });
+    const output = writes.join("");
+    const rowStart = output.indexOf("\x1b[1;1H\x1b[2K") + "\x1b[1;1H\x1b[2K".length;
+    const rowEnd = output.indexOf("\x1b[2;1H");
+    const painted = output.slice(rowStart, rowEnd).replace(/\x1b\[[0-9;]*m/g, "");
+    assert.strictEqual(stringWidth(painted), 20);
+    dashboard.stop();
+  });
+
+  it("C005 writes nothing, including NOW, when stdout is not a TTY", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = buildCrystal({
+      timer,
+      writes,
+      size: { columns: 80, rows: 24 },
+      isTty: false,
+    });
+    dashboard.start();
+    dashboard.setActivity({ packageName: "crystal-core", command: "/start-ticket", ticketKey: "P1-9" });
+    assert.deepStrictEqual(writes, []);
+    assert.strictEqual(timer.callback, null);
   });
 });

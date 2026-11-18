@@ -77,7 +77,7 @@ async function runNormalMode(
   await runWorkspaceLoop(buildLoopOptions(cli, model, display));
 }
 
-// [::TICKET::] PX-403, PX-404, PX-408, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-408, PX-413, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413|PX-449) --for-spec --no-implementation-order`.
 type WatcherModeResult = "terminated" | "endpoint" | "config-error";
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
@@ -269,6 +269,11 @@ export async function main(): Promise<void> {
         onUpdate: (update) => renderer.handle(toDisplayEvent(update)),
         onFlush: () => renderer.flush(),
         onPackageStart: (packageName) => dashboard?.follow(packageName),
+        // [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+        onCommandStart: (packageName, command, ticketKey) =>
+          dashboard?.setActivity({ packageName, command, ticketKey }),
+        // [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+        onCommandEnd: () => dashboard?.setActivity(null),
       };
   dashboard?.start();
   if (runtimeDependencies.message !== "") {

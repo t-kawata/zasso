@@ -1,10 +1,12 @@
+// @verifies C001 — PX-449 NOW line format
+// @verifies C004 — PX-449 one-line safety
 // @verifies C005
-// layout.test.ts — aligned header lines, phase columns and floor percent.
+// layout.test.ts — aligned header lines, phase columns, floor percent and the NOW line.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import chalk from "chalk";
-import { renderHeader } from "./layout.js";
-import type { ProgressSnapshot } from "./model.js";
+import { renderActivityLine, renderHeader, visibleColumns } from "./layout.js";
+import type { CurrentActivity, ProgressSnapshot } from "./model.js";
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 function stripAnsi(value: string): string {
@@ -304,5 +306,129 @@ describe("renderHeader", () => {
     } finally {
       chalk.level = previousLevel;
     }
+  });
+});
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+describe("renderActivityLine", () => {
+  const startActivity: CurrentActivity = {
+    packageName: "crystal-core",
+    command: "/start-ticket",
+    ticketKey: "P1-9",
+  };
+
+  it("C001 renders the running package, command and ticket on exactly one row", () => {
+    const plain = renderActivityLine(startActivity, {
+      terminalWidth: 60,
+      color: false,
+      shortPackageName: "core",
+    });
+    assert.strictEqual(plain, "NOW: [core] /start-ticket P1-9".padEnd(60));
+    assert.strictEqual(visibleColumns(plain), 60);
+    assert.strictEqual(plain.split("\n").length, 1);
+  });
+
+  it("C001 colors the NOW row dark green with white text without changing the text", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 3;
+    try {
+      const plain = renderActivityLine(startActivity, {
+        terminalWidth: 60,
+        color: false,
+        shortPackageName: "core",
+      });
+      const colored = renderActivityLine(startActivity, {
+        terminalWidth: 60,
+        color: true,
+        shortPackageName: "core",
+      });
+      assert.ok(colored.startsWith("\x1b[48;2;20;83;45m"), "dark-green background");
+      assert.ok(colored.includes("\x1b[37m") || colored.includes("\x1b[97m"), "white foreground");
+      assert.strictEqual(stripAnsi(colored), plain);
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("C001 renders a boundary command without a ticket and idle activity as one row", () => {
+    const boundary = renderActivityLine(
+      { packageName: "crystal-core", command: "/consolidate-stubs", ticketKey: null },
+      { terminalWidth: 60, color: false, shortPackageName: "core" },
+    );
+    assert.strictEqual(boundary.trimEnd(), "NOW: [core] /consolidate-stubs");
+    const idle = renderActivityLine(null, { terminalWidth: 20, color: false });
+    assert.strictEqual(idle, "NOW: idle".padEnd(20));
+    assert.strictEqual(idle.split("\n").length, 1);
+  });
+
+  it("C004 sanitizes control sequences and keeps exactly one row", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 3;
+    try {
+      const hostile: CurrentActivity = {
+        packageName: "core\x1b[2J\x07\nsuffix\u009b2J",
+        command: "/start-ticket\x1b]0;title\x07",
+        ticketKey: "P1-9",
+      };
+      const line = renderActivityLine(hostile, { terminalWidth: 80, color: true });
+      assert.strictEqual(line.split("\n").length, 1);
+      assert.strictEqual(visibleColumns(line), 80);
+      assert.ok(!line.includes("\x1b[2J"), "CSI must be removed");
+      assert.ok(!line.includes("\x1b]0;"), "OSC must be removed");
+      assert.ok(!line.includes("\u009b"), "C1 CSI must be removed");
+      // Only the SGR wrappers this function adds may remain.
+      assert.ok(!line.replace(/\x1b\[[0-9;]*m/g, "").includes("\x1b"));
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("C004 truncates to the terminal width and never splits a surrogate pair", () => {
+    const narrow = renderActivityLine(startActivity, {
+      terminalWidth: 10,
+      color: false,
+      shortPackageName: "core",
+    });
+    assert.strictEqual(visibleColumns(narrow), 10);
+    assert.ok(narrow.endsWith("…"));
+
+    const emoji = renderActivityLine(
+      { packageName: "crystal-🚀core", command: "/start-ticket", ticketKey: "P1-9" },
+      { terminalWidth: 19, color: false },
+    );
+    assert.strictEqual(visibleColumns(emoji), 19);
+    const withoutPairs = emoji.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+    assert.ok(!/[\uD800-\uDFFF]/.test(withoutPairs), "no lone surrogate");
+  });
+
+  it("C001 pads with spaces so the background covers the whole row", () => {
+    const line = renderActivityLine(null, { terminalWidth: 15, color: false });
+    assert.strictEqual(line.length, 15);
+    assert.ok(line.startsWith("NOW: idle"));
+  });
+});
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+describe("renderHeader short names", () => {
+  it("C001 uses the full-workspace names supplied by the dashboard", () => {
+    const lines = renderHeader(
+      {
+        packages: [
+          { name: "crystal-core", path: "a", phases: [{ id: 0, tickets: todoTickets(1) }] },
+          { name: "crystal-adapter-clock", path: "b", phases: [{ id: 0, tickets: todoTickets(1) }] },
+        ],
+      },
+      { terminalWidth: 80, color: false, shortNames: ["core", "clock"] },
+    );
+    assert.ok(lines[0]?.startsWith("core "));
+    assert.ok(lines[1]?.startsWith("clock "));
+  });
+
+  it("C001 falls back to slice derivation when the supplied names do not match", () => {
+    const lines = renderHeader(
+      { packages: [{ name: "crystal-core", path: "a", phases: [{ id: 0, tickets: todoTickets(1) }] }] },
+      { terminalWidth: 80, color: false, shortNames: ["core", "extra"] },
+    );
+    assert.ok(lines[0]?.startsWith("crystal-core "));
   });
 });

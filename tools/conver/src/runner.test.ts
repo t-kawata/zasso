@@ -1,3 +1,4 @@
+// @verifies C003 — PX-449 command hooks fire before and after execution
 // runner.test.ts — strict package loop, cwd, escalation, boundaries and Slack.
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -13,6 +14,7 @@ import {
   runWorkspaceLoop,
 } from "./runner.js";
 import type { PackageLoopDeps, WorkspaceLoopOptions } from "./runner.js";
+import type { DisplayHooks } from "./runner.js";
 import {
   BOUNDARY_STATE_FILE,
   computeTicketSetDigest,
@@ -271,6 +273,84 @@ describe("runPackageLoop — strict order and cwd", () => {
     assert.strictEqual(recorded.phases.length, 1);
     assert.strictEqual(recorded.phases[0]?.packageComplete, true);
     assert.strictEqual(recorded.stops.length, 0);
+  });
+
+  it("C003 reports every ticket command to the display hooks before and after execution", async () => {
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded: Recorded = { sessions: [], commands: [], phases: [], stops: [], boundaries: [] };
+    const calls: string[] = [];
+    const display: DisplayHooks = {
+      onUpdate: () => {},
+      onFlush: () => {},
+      onPackageStart: () => {},
+      onCommandStart: (packageName, command, ticketKey) => {
+        calls.push(`start:${packageName}:${command}:${ticketKey}`);
+      },
+      onCommandEnd: () => calls.push("end"),
+    };
+    await runPackageLoop(
+      fixture.packageEntry,
+      options({ display }),
+      deps(fixture, recorded, advanceStatus),
+    );
+    assert.deepStrictEqual(calls.slice(0, 2), [
+      "start:fixture:/make-ticket:P0-1",
+      "end",
+    ]);
+    const starts = calls.filter((call) => call.startsWith("start:"));
+    const ends = calls.filter((call) => call === "end");
+    assert.strictEqual(ends.length, starts.length);
+  });
+
+  it("C003 reports resolve and boundary activity with and without a ticket key", async () => {
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded: Recorded = { sessions: [], commands: [], phases: [], stops: [], boundaries: [] };
+    const calls: Array<{ command: string; ticketKey: string | null }> = [];
+    const display: DisplayHooks = {
+      onUpdate: () => {},
+      onFlush: () => {},
+      onPackageStart: () => {},
+      onCommandStart: (_packageName, command, ticketKey) => {
+        calls.push({ command, ticketKey });
+      },
+      onCommandEnd: () => {},
+    };
+    await runPackageLoop(
+      fixture.packageEntry,
+      options({ display, resolveEvery: 1, pushEnabled: true }),
+      deps(fixture, recorded, advanceStatus),
+    );
+    assert.ok(calls.some((call) => call.command === "/resolve-ticket" && call.ticketKey === "P0-1"));
+    assert.ok(calls.some((call) => call.command === "/epush-branch" && call.ticketKey === null));
+    assert.ok(calls.some((call) => call.command === "/consolidate-stubs" && call.ticketKey === null));
+    assert.ok(calls.some((call) => call.command === "/find-omissions" && call.ticketKey === null));
+    assert.ok(calls.every((call) => !call.command.includes("\n")));
+  });
+
+  it("C003 clears the activity through finally when a command fails", async () => {
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded: Recorded = { sessions: [], commands: [], phases: [], stops: [], boundaries: [] };
+    const calls: string[] = [];
+    const display: DisplayHooks = {
+      onUpdate: () => {},
+      onFlush: () => {},
+      onPackageStart: () => {},
+      onCommandStart: (_packageName, command) => calls.push(`start:${command}`),
+      onCommandEnd: () => calls.push("end"),
+    };
+    const failing = deps(fixture, recorded, advanceStatus, {
+      runCommand: async () => {
+        throw new Error("boom");
+      },
+    });
+    await assert.rejects(
+      runPackageLoop(fixture.packageEntry, options({ display }), failing),
+      /boom/,
+    );
+    assert.deepStrictEqual(calls, ["start:/make-ticket", "end"]);
   });
 
   it("does not move to the next ticket before the first is reviewed", async () => {
@@ -935,6 +1015,7 @@ describe("buildFindCommand", () => {
 
 describe("runPackageLoop — unfinished find recovery", () => {
   it("C001/C002/C003/C004: a remanded ticket sends two notices and resumes find with the directive", async () => {
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
     const data = tickets([
       {
         id: 0,
@@ -954,6 +1035,16 @@ describe("runPackageLoop — unfinished find recovery", () => {
       boundaries: [],
     };
     const events: string[] = [];
+    const activityCalls: Array<{ command: string; ticketKey: string | null }> = [];
+    const display: DisplayHooks = {
+      onUpdate: () => {},
+      onFlush: () => {},
+      onPackageStart: () => {},
+      onCommandStart: (_packageName, command, ticketKey) => {
+        activityCalls.push({ command, ticketKey });
+      },
+      onCommandEnd: () => {},
+    };
     const advance = (command: string, current: Fixture): void => {
       if (command.startsWith("/find-omissions")) {
         events.push("find");
@@ -969,7 +1060,7 @@ describe("runPackageLoop — unfinished find recovery", () => {
 
     await runPackageLoop(
       fixture.packageEntry,
-      options(),
+      options({ display }),
       deps(fixture, recorded, advance, {
         detectUnfinishedFind: async () => ({
           unfinished: true,
@@ -1000,6 +1091,12 @@ describe("runPackageLoop — unfinished find recovery", () => {
       `/find-omissions\n\n${FIND_RESUME_DIRECTIVE}`,
     );
     assert.strictEqual(recorded.boundaries.length, 1);
+    assert.ok(
+      activityCalls.some(
+        (call) => call.command === "/find-omissions" && call.ticketKey === "P0-2",
+      ),
+    );
+    assert.ok(activityCalls.every((call) => !call.command.includes("\n")));
   });
 
   it("C001: after the resumed find adds a ticket the loop runs make, plan, start and review", async () => {

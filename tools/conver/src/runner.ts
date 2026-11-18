@@ -78,12 +78,18 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 /** The display layer's hooks; absent in non-TTY/plain runs. */
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-404, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-449) --for-spec --no-implementation-order`.
 export interface DisplayHooks {
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
   onUpdate(update: SessionUpdate): void;
   onFlush(): void;
   onPackageStart(packageName: string): void;
+  /** The NOW row onCommandStart; absent when no dashboard exists. */
+  // [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+  onCommandStart?(packageName: string, command: string, ticketKey: string | null): void;
+  /** The NOW row returns to idle even when the command throws. */
+  // [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+  onCommandEnd?(): void;
 }
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
@@ -571,7 +577,7 @@ async function stopAndThrow(
   throw new LoopStoppedError(context);
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-449) --for-spec --no-implementation-order`.
 async function runResolve(
   pkg: WorkspacePackage,
   options: WorkspaceLoopOptions,
@@ -581,15 +587,29 @@ async function runResolve(
   const config = toSessionConfig(options);
   const runOptions = toRunCommandOptions(options);
   printCommandHeader("/resolve-ticket", ticketKey);
-  await runWithDeps(pkg, config, deps, async (session) => {
-    await deps.runCommand(session, `/resolve-ticket ${pkg.directory}`, runOptions);
+  await runDisplayedCommand({
+    pkg,
+    options,
+    command: "/resolve-ticket",
+    ticketKey,
+    execute: () =>
+      runWithDeps(pkg, config, deps, async (session) => {
+        await deps.runCommand(session, `/resolve-ticket ${pkg.directory}`, runOptions);
+      }),
   });
   process.stdout.write("\n>>> ✅ resolve 完了\n");
 
   if (options.pushEnabled) {
     printCommandHeader("/epush-branch");
-    await runWithDeps(pkg, config, deps, async (session) => {
-      await deps.runCommand(session, "/epush-branch", runOptions);
+    await runDisplayedCommand({
+      pkg,
+      options,
+      command: "/epush-branch",
+      ticketKey: null,
+      execute: () =>
+        runWithDeps(pkg, config, deps, async (session) => {
+          await deps.runCommand(session, "/epush-branch", runOptions);
+        }),
     });
     process.stdout.write("\n>>> ✅ epush-branch 完了\n");
   }
@@ -613,21 +633,30 @@ function runWithDeps<T>(
   );
 }
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-449) --for-spec --no-implementation-order`.
 async function runBoundary(
   pkg: WorkspacePackage,
   command: string,
   options: WorkspaceLoopOptions,
   deps: PackageLoopDeps,
+  ticketKey: string | null,
 ): Promise<void> {
   const runOptions = toRunCommandOptions(options);
-  // The resume directive is a prompt suffix, not a command name; keep the
-  // header to the first line so the console stays readable.
-  printCommandHeader(command.split("\n")[0] ?? command);
-  await runWithDeps(pkg, toSessionConfig(options), deps, async (session) => {
-    await deps.runCommand(session, command, runOptions);
+  // The resume directive is a prompt suffix, not a command name; keep both the
+  // console header and the NOW row to the first line.
+  const label = command.split("\n")[0] ?? command;
+  printCommandHeader(label);
+  await runDisplayedCommand({
+    pkg,
+    options,
+    command: label,
+    ticketKey,
+    execute: () =>
+      runWithDeps(pkg, toSessionConfig(options), deps, async (session) => {
+        await deps.runCommand(session, command, runOptions);
+      }),
   });
-  process.stdout.write(`\n>>> ✅ ${command.split("\n")[0]?.replace("/", "") ?? command} 完了\n`);
+  process.stdout.write(`\n>>> ✅ ${label.replace("/", "")} 完了\n`);
 }
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
@@ -659,7 +688,7 @@ interface BoundaryRunResult {
  * Run one boundary command and persist its lifecycle. A crash between the start
  * write and the completion write leaves IN_PROGRESS, which is never endpoint.
  */
-// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-413, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-413|PX-449) --for-spec --no-implementation-order`.
 interface BoundaryRunInput {
   pkg: WorkspacePackage;
   kind: "consolidate" | "find";
@@ -667,9 +696,11 @@ interface BoundaryRunInput {
   options: WorkspaceLoopOptions;
   deps: PackageLoopDeps;
   state: BoundaryState;
+  /** The ticket a resumed find is attributed to; null for consolidate. */
+  ticketKey?: string | null;
 }
 
-// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-413, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-413|PX-449) --for-spec --no-implementation-order`.
 async function runPackageBoundary(
   input: BoundaryRunInput,
 ): Promise<BoundaryRunResult> {
@@ -678,7 +709,7 @@ async function runPackageBoundary(
   persistBoundaryState(pkg, started, deps);
 
   const beforeKeys = new Set(ticketKeysOf(readTicketsOrThrow(pkg.ticketsPath)));
-  await runBoundary(pkg, command, options, deps);
+  await runBoundary(pkg, command, options, deps, input.ticketKey ?? null);
 
   const afterData = readTicketsOrThrow(pkg.ticketsPath);
   const addedTicketKeys = ticketKeysOf(afterData).filter(
@@ -754,13 +785,13 @@ interface FindBoundaryRequest {
  * the package directory, so conver never injects a path.
  */
 // [::TICKET::] P27-2 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-2 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-439 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-439 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-439, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-439|PX-449) --for-spec --no-implementation-order`.
 async function runFindBoundary(request: FindBoundaryRequest): Promise<BoundaryRunResult> {
   const { pkg, options, deps, state, resume, ticketKey } = request;
   await waitForWindow(options.watcherConfig);
   if (resume) await notifyFindUnfinished(options, pkg, ticketKey, deps);
   const command = buildFindCommand(resume);
-  return runPackageBoundary({ pkg, kind: "find", command, options, deps, state });
+  return runPackageBoundary({ pkg, kind: "find", command, options, deps, state, ticketKey });
 }
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -791,13 +822,44 @@ interface CommandExecutionInput {
   deps: PackageLoopDeps;
 }
 
-// [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
+/**
+ * Run one command while publishing it to the display. The end hook is in a
+ * finally block: a failed command must not leave its name on the NOW row.
+ */
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+interface DisplayedCommandInput {
+  pkg: WorkspacePackage;
+  options: WorkspaceLoopOptions;
+  command: string;
+  ticketKey: string | null;
+  execute: () => Promise<void>;
+}
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+async function runDisplayedCommand(input: DisplayedCommandInput): Promise<void> {
+  input.options.display?.onCommandStart?.(input.pkg.name, input.command, input.ticketKey);
+  try {
+    await input.execute();
+  } finally {
+    input.options.display?.onCommandEnd?.();
+  }
+}
+
+// [::TICKET::] PX-413, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-413|PX-449) --for-spec --no-implementation-order`.
 async function executeCommand(input: CommandExecutionInput): Promise<void> {
   const { session, options, pkg, action, escalationLevel, deps } = input;
   printCommandHeader(action.command, action.ticketKey);
-  await deps.runCommand(session, `${action.command} ${action.ticketKey}`, {
-    ...toRunCommandOptions(options),
-    escalationLevel,
+  await runDisplayedCommand({
+    pkg,
+    options,
+    command: action.command,
+    ticketKey: action.ticketKey,
+    execute: async () => {
+      await deps.runCommand(session, `${action.command} ${action.ticketKey}`, {
+        ...toRunCommandOptions(options),
+        escalationLevel,
+      });
+    },
   });
   recordExecution(options, pkg, action, deps);
 }

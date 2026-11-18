@@ -6,23 +6,32 @@
 // it receives a snapshot and returns strings. Color is optional so tests can
 // assert the exact text without ANSI noise.
 import chalk from "chalk";
-import type { ProgressPackage, ProgressPhase, ProgressSnapshot } from "./model.js";
+import stringWidth from "string-width";
+import type { CurrentActivity, ProgressPackage, ProgressPhase, ProgressSnapshot } from "./model.js";
 import { packagePercent, symbolForStatus } from "./model.js";
 import { stripCommonPrefix } from "./short-name.js";
+import { sanitizeTerminalText } from "../display/terminal-text.js";
 
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-404, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-449) --for-spec --no-implementation-order`.
 export interface HeaderOptions {
   terminalWidth: number;
   color: boolean;
+  /** Names supplied by the dashboard so rows and the NOW line agree. */
+  shortNames?: readonly string[];
 }
 
 export const HEADER_BACKGROUND = "#0b1f3a";
 /** Dark red for status marks: visibly red on the navy header without glaring. */
 export const STATUS_SYMBOL_RED = "#d32f2f";
+/** Dark green for the NOW row: distinct from the navy package rows. */
+export const ACTIVITY_BACKGROUND = "#14532d";
 const PALE_YELLOW = "#f5e6a8";
 const NAME_GAP = "  ";
 const PERCENT_WIDTH = 4;
 const STATUS_SYMBOLS = new Set(["x", "_", "|", "/"]);
+const ACTIVITY_LABEL = "NOW:";
+const ACTIVITY_IDLE = "NOW: idle";
+const ELLIPSIS = "…";
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 function phaseLabel(phaseId: number): string {
@@ -50,11 +59,95 @@ function phaseColored(phase: ProgressPhase): string {
   return `${chalk.hex(PALE_YELLOW)(phaseLabel(phase.id))} [ ${symbols} ]`;
 }
 
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+/** Visible columns of a string; wide characters count as two. */
+export function visibleColumns(value: string): number {
+  return stringWidth(value.replace(/\x1b\[[0-9;]*m/g, ""));
+}
+
+/** Options for the single fixed row that names the running command. */
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+export interface ActivityLineOptions {
+  terminalWidth: number;
+  color: boolean;
+  /** The workspace-wide short name of the active package. */
+  shortPackageName?: string;
+}
+
+/**
+ * Remove every escape and control character from data that will sit on the
+ * fixed row. The shared log sanitizer keeps SGR so log text can be colored;
+ * activity text is untrusted and must not change any terminal state.
+ */
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+function sanitizeActivityText(value: string): string {
+  return sanitizeTerminalText(value)
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    // C1 controls (0x80-0x9f) are single-byte CSI/OSC introducers on some
+    // terminals even without ESC; they are never legitimate in a name.
+    .replace(/[\u0080-\u009f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Fit one line to `width` columns by code point, never splitting a surrogate. */
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+function truncateToColumns(value: string, width: number): string {
+  if (width <= 0) return "";
+  if (visibleColumns(value) <= width) return value;
+  const target = Math.max(0, width - 1);
+  let kept = "";
+  for (const character of value) {
+    if (visibleColumns(kept + character) > target) break;
+    kept += character;
+  }
+  return `${kept}${ELLIPSIS}`;
+}
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+function padToColumns(value: string, width: number): string {
+  const missing = width - visibleColumns(value);
+  return missing > 0 ? value + " ".repeat(missing) : value;
+}
+
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+function formatActivity(activity: CurrentActivity, shortPackageName?: string): string {
+  const packageName = sanitizeActivityText(shortPackageName ?? activity.packageName);
+  const command = sanitizeActivityText(activity.command);
+  const parts = [ACTIVITY_LABEL, `[${packageName}]`];
+  if (command !== "") parts.push(command);
+  if (activity.ticketKey !== null) {
+    const ticketKey = sanitizeActivityText(activity.ticketKey);
+    if (ticketKey !== "") parts.push(ticketKey);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Render the fixed NOW row. It is always one row: data is sanitized, truncated
+ * by visible width and padded so the background covers the whole terminal.
+ */
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+export function renderActivityLine(
+  activity: CurrentActivity | null,
+  options: ActivityLineOptions,
+): string {
+  if (options.terminalWidth <= 0) return "";
+  const text = activity === null
+    ? ACTIVITY_IDLE
+    : formatActivity(activity, options.shortPackageName);
+  const fitted = padToColumns(
+    truncateToColumns(text, options.terminalWidth),
+    options.terminalWidth,
+  );
+  if (!options.color) return fitted;
+  return chalk.bgHex(ACTIVITY_BACKGROUND)(chalk.white(fitted));
+}
+
+// [::TICKET::] PX-404, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-449) --for-spec --no-implementation-order`.
 function truncate(value: string, width: number): string {
-  if (value.length <= width) return value;
-  if (width <= 1) return value.slice(0, width);
-  return `${value.slice(0, width - 1)}…`;
+  if (visibleColumns(value) <= width) return value;
+  if (width <= 1) return Array.from(value).slice(0, Math.max(0, width)).join("");
+  return `${truncateToColumns(value, width)}`;
 }
 
 interface PhaseBlock {
@@ -154,7 +247,11 @@ export function renderHeader(
 ): string[] {
   if (snapshot.packages.length === 0) return [];
 
-  const short = stripCommonPrefix(snapshot.packages.map((entry) => entry.name));
+  const suppliedNames = options.shortNames;
+  const short = suppliedNames !== undefined
+    && suppliedNames.length === snapshot.packages.length
+    ? { names: [...suppliedNames] }
+    : stripCommonPrefix(snapshot.packages.map((entry) => entry.name));
   const nameWidth = Math.max(...short.names.map((name) => name.length));
 
   const rows = snapshot.packages.map((packageEntry, index) => {

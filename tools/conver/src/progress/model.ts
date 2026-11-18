@@ -32,6 +32,18 @@ export interface ProgressSnapshot {
   packages: ProgressPackage[];
 }
 
+/**
+ * The command the runner is executing right now. Absent activity means the
+ * loop is between commands (deriving the next action, waiting for a time
+ * window, or finished), which the dashboard renders as `NOW: idle`.
+ */
+// [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
+export interface CurrentActivity {
+  packageName: string;
+  command: string;
+  ticketKey: string | null;
+}
+
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 export class ProgressReadError extends Error {
   constructor(
