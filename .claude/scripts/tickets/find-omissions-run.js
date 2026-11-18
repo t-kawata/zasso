@@ -275,7 +275,7 @@ function applyRepairLadder({ cwd, gate, reportOnly, worklist = null }) {
 }
 
 /** CLI entry point. */
-// [::TICKET::] PX-437, PX-440, PX-441, PX-442, PX-443 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441|PX-442|PX-443) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-437, PX-440, PX-441, PX-442, PX-443, PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-437|PX-440|PX-441|PX-442|PX-443|PX-444) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const cwd = path.resolve(argumentValue(args, 'cwd') ?? process.cwd());
@@ -427,6 +427,7 @@ function main() {
       context: {},
       ticketsData,
       phases: ticketsData.phases ?? [],
+      projectDir: cwd,
     });
     const addedOmissionKeys = plan.created.map((ticket) => ticketKeyOfRecord(ticket.phaseId, ticket.id));
     const planVerification = plan.created.length === 0
@@ -533,11 +534,12 @@ function main() {
     const complete = refused === null && gate.complete && report.createdTickets === 0 && report.openTickets === 0 && pendingRepairs === 0;
     exitCode = complete ? 0 : 10;
   } catch (error) {
-    const named = error?.code === 'UNSUPPORTED_VERSION';
+    // [::TICKET::] PX-444: a malformed package note is a named refusal, not an internal defect.
+    const named = error?.code === 'UNSUPPORTED_VERSION' || error?.code === 'OMISSION_TICKET_NOTES_INVALID';
     process.stdout.write(JSON.stringify({
       coverageComplete: false,
       remainder: null,
-      code: named ? 'UNSUPPORTED_VERSION' : 'INTERNAL_DEFECT',
+      code: named ? error.code : 'INTERNAL_DEFECT',
       problem: error instanceof Error ? error.message : String(error),
     }) + '\n');
     exitCode = 10;

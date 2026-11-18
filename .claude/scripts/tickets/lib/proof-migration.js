@@ -305,7 +305,7 @@ function reportWorkspaceInputs({ cwd, coverage, adapter, report }) {
  *
  * @returns {{coverage:object|null, ledger:object|null, repairs:object|null, ticketsData:object|null, report:object, changed:object}}
  */
-// [::TICKET::] PX-442 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-442 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-442, PX-444 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-442|PX-444) --for-spec --no-implementation-order`.
 function migrateArtifacts({ cwd, coverage, ledger, repairs, ticketsData, inventory = null, testIndex = null, adapters = [], reportOnly = false, now = new Date().toISOString() }) {
   const report = emptyReport();
   const coverageDoc = clone(coverage === undefined ? readJsonIfPresent(path.join(cwd, COVERAGE_FILE_NAME)) : coverage);
@@ -349,7 +349,14 @@ function migrateArtifacts({ cwd, coverage, ledger, repairs, ticketsData, invento
         message: 'the unstable target needs a rebuilt inventory before a ticket can be planned',
       }));
     } else {
-      const plan = planOmissionTickets({ remainder: entries, inventory, ticketsData: ticketsDoc ?? { phases: [] }, phases: ticketsDoc?.phases ?? [] });
+      // PX-442 C003: an unstable target must still become one remediation
+      // ticket. The measured planner routes this class to a repair sink, so the
+      // migration uses the per-entry legacy plan that emits omissionStableKey.
+      const plan = planOmissionTickets({
+        remainder: entries,
+        ticketsData: ticketsDoc ?? { phases: [] },
+        phases: ticketsDoc?.phases ?? [],
+      });
       ticketsDoc = plan.ticketsData;
       report.ticketsCreated = plan.created.length;
       report.ticketsReused = plan.reusedTickets;
