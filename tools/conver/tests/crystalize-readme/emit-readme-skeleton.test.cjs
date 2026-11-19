@@ -1,3 +1,5 @@
+// [::TICKET::] PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-452 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-451 --for-spec --no-implementation-order`.
 /**
  * emit-readme-skeleton.test.cjs — Tests for emit-readme-skeleton.js (PX-156, Step 1 end)
  *
@@ -26,6 +28,7 @@ const {
   emitSkeletonToFile,
   deriveReadmePath,
   parseArguments,
+  backupHumanReadme,
 } = require(SCRIPT);
 
 let tmpDir;
@@ -69,8 +72,8 @@ describe('emitSkeleton', () => {
   it('emits the H1 title, target RFC line, and graph line', () => {
     const text = emitSkeleton(makeStatus([]));
     assert.ok(text.startsWith('# RFC-ROOT\n'));
-    assert.ok(text.includes(`> 対象 RFC: ${path.join(tmpDir, 'RFC-ROOT.md')}`));
-    assert.ok(text.includes(`> 生成グラフ: ${path.join(tmpDir, 'RFC-ROOT-GRAPH.json')}`));
+    assert.ok(text.includes(`> Source RFC: ${path.join(tmpDir, 'RFC-ROOT.md')}`));
+    assert.ok(text.includes(`> Generated graph: ${path.join(tmpDir, 'RFC-ROOT-GRAPH.json')}`));
   });
 
   it('emits exactly one TEMPLATE-README per confirmed usage heading (C001-Pre)', () => {
@@ -181,5 +184,134 @@ describe('CLI', () => {
     const readme = fs.readFileSync(path.join(path.dirname(sourceFile), 'README.md'), 'utf8');
     assert.ok(readme.includes(MARKER_TEMPLATE_EXAMPLES));
     assert.ok(!readme.includes('旧タイトル'));
+  });
+});
+
+describe('--plan carry-forward — PX-451', () => {
+  it('preserves a body and marks only the reanalyzed section', () => {
+    const status = makeStatus([
+      { id: 'H1', heading: 'Quick start', level: 1, confirmedContent: 'x', status: 'derived' },
+      { id: 'H2', heading: 'Errors', level: 1, confirmedContent: 'y', status: 'derived' },
+    ]);
+    const text = emitSkeleton(status, {
+      plan: {
+        nodes: [
+          { id: 'H1', heading: 'Quick start', level: 1, action: 'preserve', body: 'Complete prose.' },
+          { id: 'H2', heading: 'Errors', level: 1, action: 'reanalyze' },
+        ],
+        examples: { action: 'preserve', body: 'Complete example.' },
+      },
+    });
+    assert.ok(text.includes('Complete prose.'));
+    assert.equal((text.match(/<::TEMPLATE-README::>/g) || []).length, 1);
+    assert.ok(text.includes('Complete example.'));
+    assert.ok(!text.includes(MARKER_TEMPLATE_EXAMPLES));
+  });
+
+  it('rejects Japanese content when englishOnly is set', () => {
+    const status = makeStatus([
+      { id: 'H1', heading: 'クイックスタート', level: 1, confirmedContent: 'x', status: 'derived' },
+    ]);
+    assert.throws(() => emitSkeletonToFile(status, { englishOnly: true }), /README language violation/);
+  });
+});
+
+describe('C001 — human README backup', () => {
+  it('backs up a human README once and never overwrites the backup', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px452-c001-'));
+    try {
+      const readmePath = path.join(dir, 'README.md');
+      fs.writeFileSync(readmePath, '# Human notes\n\nKeep me.\n', 'utf8');
+      const first = backupHumanReadme(readmePath);
+      assert.equal(first.backedUp, true);
+      assert.equal(
+        fs.readFileSync(path.join(dir, 'README.pre-crystalize.md'), 'utf8'),
+        '# Human notes\n\nKeep me.\n',
+      );
+      const second = backupHumanReadme(readmePath);
+      assert.equal(second.backedUp, false);
+      assert.equal(second.reason, 'backup-exists');
+      fs.writeFileSync(readmePath, '# Rewritten notes\n', 'utf8');
+      backupHumanReadme(readmePath);
+      assert.equal(
+        fs.readFileSync(path.join(dir, 'README.pre-crystalize.md'), 'utf8'),
+        '# Human notes\n\nKeep me.\n',
+        'the first backup is never replaced',
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not back up a marked README or a missing README', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px452-c001-marked-'));
+    try {
+      const readmePath = path.join(dir, 'README.md');
+      fs.writeFileSync(readmePath, '# Generated\n\n<::TEMPLATE-README::>\n', 'utf8');
+      assert.deepEqual(backupHumanReadme(readmePath), { backedUp: false, reason: 'marked-readme' });
+      assert.equal(fs.existsSync(path.join(dir, 'README.pre-crystalize.md')), false);
+      assert.deepEqual(backupHumanReadme(path.join(dir, 'absent.md')), { backedUp: false, reason: 'no-readme' });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('C003 — packageRoot README writer', () => {
+  it('prefers packageRoot over rfcDir and keeps the legacy path when absent', () => {
+    const rfcDir = path.join(tmpDir, 'docs');
+    const status = {
+      sourceFile: path.join(rfcDir, 'RFC-ROOT.md'),
+      graphFile: path.join(rfcDir, 'RFC-ROOT-GRAPH.json'),
+      grill: { toc: { nodes: [] } },
+    };
+    assert.equal(deriveReadmePath(status, { packageRoot: tmpDir }), path.join(tmpDir, 'README.md'));
+    assert.equal(deriveReadmePath(status), path.join(rfcDir, 'README.md'));
+  });
+
+  it('parses --package-root and the CLI writes the package-root README', () => {
+    const root = path.join(tmpDir, 'cli-package-root');
+    const rfcDir = path.join(root, 'docs');
+    fs.mkdirSync(rfcDir, { recursive: true });
+    const sourceFile = path.join(rfcDir, 'RFC-ROOT.md');
+    fs.writeFileSync(sourceFile, '# RFC Root\n', 'utf8');
+    const graphPath = path.join(rfcDir, 'RFC-ROOT-GRAPH.json');
+    fs.writeFileSync(graphPath, JSON.stringify({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
+    fs.writeFileSync(path.join(rfcDir, 'CRYSTALIZE-Status.json'), JSON.stringify({
+      sourceFile,
+      graphFile: graphPath,
+      currentStep: 2,
+      steps: {},
+      grill: { tocApproved: true, examplesApproved: false, toc: { nodes: [] }, sections: [] },
+    }), 'utf8');
+    fs.writeFileSync(path.join(rfcDir, 'README.md'), '# Human RFC notes\n', 'utf8');
+
+    const parsed = parseArguments([`--graph=${graphPath}`, `--package-root=${root}`]);
+    assert.equal(parsed.packageRoot, root);
+
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`, `--package-root=${root}`], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(fs.existsSync(path.join(root, 'README.md')), true);
+    assert.equal(fs.existsSync(path.join(rfcDir, 'README.md')), true, 'the human RFC-dir README is untouched');
+    assert.ok(fs.readFileSync(path.join(rfcDir, 'README.md'), 'utf8').includes('Human RFC notes'));
+  });
+});
+
+describe('C010 and C014 — preserved body integrity', () => {
+  it('copies a preserved body byte-identically', () => {
+    const body = 'Run `tool --help`.\n\n- first\n- second';
+    const status = makeStatus([]);
+    const text = emitSkeleton(status, {
+      plan: { nodes: [{ id: 'H1', heading: 'Quick start', level: 1, action: 'preserve', body }] },
+    });
+    assert.ok(text.includes(body));
+    assert.equal((text.match(/<::TEMPLATE-README::>/g) || []).length, 0);
+  });
+
+  it('refuses a preserved body that starts with a markdown heading', () => {
+    const status = makeStatus([]);
+    assert.throws(() => emitSkeleton(status, {
+      plan: { nodes: [{ id: 'H1', heading: 'Quick start', level: 1, action: 'preserve', body: '## Injected\n\nBody.' }] },
+    }), /must not include a heading/);
   });
 });

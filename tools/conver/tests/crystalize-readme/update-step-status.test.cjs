@@ -1,6 +1,12 @@
+// [::TICKET::] PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-452 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-451 --for-spec --no-implementation-order`.
 /**
  * update-step-status.test.cjs — Tests for the crystalize update-step-status.js
  * @verifies C002
+ * @verifies C007
+ * @verifies C007/precondition
+ * @verifies C007/postcondition
+ * @verifies C007/invariant
  *
  * Manages CRYSTALIZE-Status.json: step transitions 0..4 plus the Step 1
  * per-heading TOC grill. The grill records a durable toc.nodes tree
@@ -32,6 +38,11 @@ const {
   executeApproveToc,
   executeResolveSection,
   executeMarkResidue,
+  executeSetToc,
+  executeSetSectionStates,
+  executeRecordResidue,
+  executeReconcileResidues,
+  executeSetWorkspace,
   executeResetSections,
   atomicWrite,
   MIN_STEP,
@@ -451,5 +462,73 @@ describe('atomicWrite', () => {
     assert.equal(JSON.parse(fs.readFileSync(target, 'utf8')).ok, true);
     const leftovers = fs.readdirSync(tmpDir).filter((f) => f.includes('.tmp.'));
     assert.deepEqual(leftovers, []);
+  });
+});
+
+describe('refine, residue, and workspace extensions — PX-451', () => {
+  it('set-toc stores derived nodes and end-step 1 accepts them', () => {
+    const status = createDefaultStatus(graphPath);
+    executeSetToc(status, {
+      nodes: [
+        { id: 'H1', heading: 'Purpose', level: 1 },
+        { id: 'H2', heading: 'Quick start', level: 1 },
+        { id: 'H3', heading: 'Capabilities', level: 1 },
+        { id: 'H4', heading: 'Inputs, outputs, and effects', level: 1 },
+        { id: 'H5', heading: 'Preconditions, postconditions, and invariants', level: 1 },
+        { id: 'H6', heading: 'Errors and failure behavior', level: 1 },
+        { id: 'H7', heading: 'Constraints and non-goals', level: 1 },
+        { id: 'H9', heading: 'Examples (implementation samples) spec and design', level: 1 },
+      ],
+    });
+    assert.equal(status.grill.toc.nodes.length, 8);
+    assert.ok(status.grill.toc.nodes.every((node) => node.status === 'derived'));
+    assert.equal(status.grill.tocApproved, true);
+    executeEndStep(status, 1);
+    assert.equal(status.steps['1'], STATUS_DONE);
+  });
+
+  it('set-section-states records preserved and reanalyzed sections', () => {
+    const status = createDefaultStatus(graphPath);
+    executeSetSectionStates(status, {
+      sections: [
+        { id: 'H1', heading: 'Purpose', state: 'complete', action: 'preserve', evidenceDigest: 'a' },
+        { id: 'H2', heading: 'Errors', state: 'residue', evidenceDigest: 'b' },
+      ],
+    });
+    assert.equal(status.grill.sections[0].preserved, true);
+    assert.equal(status.grill.sections[1].state, 'residue');
+  });
+
+  it('record-residue and reconcile-residues track the lifecycle', () => {
+    const status = createDefaultStatus(graphPath);
+    executeSetSectionStates(status, {
+      sections: [{ id: 'H1', heading: 'Purpose', state: 'residue' }],
+    });
+    executeRecordResidue(status, {
+      residue: {
+        level: 'package',
+        layer: 'interface',
+        element: 'account.add',
+        sectionIds: ['H1'],
+        evidence: [{ kind: 'interface-gap', ref: 'src/lib.rs:10' }],
+        reinforcement: { design: 'Implement add', acceptance: 'Add a test' },
+        evidenceDigest: 'a',
+      },
+    });
+    assert.equal(status.grill.residues.length, 1);
+    assert.equal(status.grill.residues[0].state, 'new');
+
+    status.grill.sections[0].state = 'complete';
+    executeReconcileResidues(status, { sections: status.grill.sections });
+    assert.equal(status.grill.residues[0].state, 'resolved');
+  });
+
+  it('set-workspace records the workspace README state', () => {
+    const status = createDefaultStatus(graphPath);
+    executeSetWorkspace(status, {
+      workspace: { path: '/tmp/README.md', unitId: 'pkg-a', state: 'updated' },
+    });
+    assert.equal(status.grill.workspace.unitId, 'pkg-a');
+    assert.equal(status.grill.workspace.state, 'updated');
   });
 });

@@ -1,6 +1,5 @@
 ---
-description: Generate a user-facing usage README from an RFC graph (section-by-section inspection loop method).
-argument-hint: </path/to/*-GRAPH.json>
+description: Generate a package and workspace boundary-contract README group from the package RFC graph (section-by-section inspection loop).
 allowed-tools: Read, Write, Bash
 disable-model-invocation: true
 ---
@@ -11,19 +10,13 @@ MUST run uninterrupted through the final Step. DO NOT end the turn except on fin
 
 Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
-**Exception to the above, scoped to this command only**: the heading proposals of Step 1 — sub-steps 1-2 through 1-7 — are the one genuine `ask; stop` checkpoint of this file: a literal, blocking wait for the user's answer. The prohibition is narrowed there by exactly what those sub-steps require, and nowhere else: 1-2 presents options, and 1-5 delegates the choice of a content proposal to the human. It is not a violation of this block; it is the one designed exception, and it is stated explicitly at its point of use.
+# /crystalize-readme
 
-# /crystalize-readme <graph-path>
+Role: the package README and the workspace README are the boundary contract document group. This command is the only producer of that group. Each package section is judged section by section: "is an implementation that fully works per this section's described usage currently achievable?" A writable section becomes a complete description. An unwritable section becomes a RESIDUE record carrying concrete evidence and a reinforcement design inside README.md under `<::README-RESIDUE::>` (examples use `<::EXAMPLES-RESIDUE::>`). RESIDUE is not a memo: it is source material for implementation tickets. No standalone RESIDUE file.
 
-Role: RFC graph (`*-GRAPH.json`) → user-facing usage README. Each section judged section-by-section: "is an implementation that fully works per this section's described usage currently achievable?" → complete description, or residue description. Cannot-be-written sections carry the concrete evidence of danger/omission/contradiction/deficiency + implementation reinforcement design, inside README.md, under `<::README-RESIDUE::>` (examples: `<::EXAMPLES-RESIDUE::>`). RESIDUE is not a "why it can't be written" memo — it must be strict, rigorous source material for implementation tickets. no standalone RESIDUE file.
+The shipping role is unchanged. Per package, RESIDUE is extracted; `/drill-rfc-down` ticketizes it; the implementation loop runs until no RESIDUE remains. The workspace README is updated from the package READMEs on every run. Completion is never guaranteed by a gate: the command converges; the outer loop decides shipment.
 
-Downstream (role): `/drill-rfc-down`.
-- consumes: RESIDUE entries (evidence + reinforcement design)
-- contract: ticketizes them into implementation tickets
-
-Upstream (role): the make→plan→start→review ticket pipeline.
-- produces: reviewed/implemented tickets with detailed specs
-- guarantee: `specs/<ticket-key>.md` exists for each; `Tickets.json` lists them
+**Generated README language: English only.** Package and workspace README headings, prose, residue, and examples are English. Source material in any language may inform the content; no non-ASCII letter may appear in the generated README. `validate-readme-language.js` rejects every letter outside A-Z/a-z (Japanese, Cyrillic, Hangul, Arabic, accented Latin) before every write; digits, punctuation, and symbols pass.
 
 **Path anchor (mandatory — resolve once).**
 
@@ -39,165 +32,198 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 
 | Context | Language |
 |---|---|
-| Chat, proposals, explanations addressing user | Japanese only |
+| Chat, proposals, explanations addressing the user | Japanese only |
 | Code comments | English |
 | Design docs, plans, tasks | English |
 | Runtime logs | English |
+| Generated package and workspace README | English only |
 | Every other non-user-directed context | English |
 
 ## Arguments
 
-- arg (required): path to the graph JSON (absolute or relative) — e.g. `crates/siprs/RFC-ROOT-GRAPH.json`, `/absolute/path/to/rfc-doc-GRAPH.json`
+This command takes no argument. The package graph is a package artifact:
 
-## Preflight: Output Path Derivation and Execution Mode Determination (Deterministic)
+- `RFC-GRAPH.json` in the package directory, or
+- exactly one `*-GRAPH.json` when the canonical name is absent.
+
+The same `lib/resolve-graph-path.js` locator used by `/find-omissions` resolves it. An explicit graph path is not accepted. Any argument produces `UNEXPECTED_ARGUMENT` and stops.
+
+## Preflight: derive the graph and the boundary paths (deterministic)
 
 ```bash
-node "$CLAUDE_DIR/scripts/crystalize-readme/derive-output-paths.js" --graph="$ARGUMENTS" || exit 1
-```
-gate: graph unreadable / structure invalid / `sourceFile` missing → error, exit1.
-out (success): English Markdown — Mode, path set, existence flags = prerequisites for later Steps.
-
-Mode (detected once, here only — no re-detection later):
-- `README.md` or `CRYSTALIZE-Status.json` exists → **refine** (prior run detected; this execution refines/updates)
-- neither exists → **fresh** (from scratch)
-
-out template (fields differ by mode, structure identical):
-```markdown
-## crystalize-readme Preflight
-
-**Mode: fresh|refine** — <fresh: no previous run detected | refine: a previous run detected (README.md and/or CRYSTALIZE-Status.json exists)>. This execution will <fresh: start from scratch | refine: refine and update the existing artifacts>.
-
-| Path | Value |
-|------|-------|
-| sourceFile | /path/to/rfc/RFC-ROOT.md |
-| rfcDir | /path/to/rfc |
-| examplesDir | /path/to/rfc/examples |
-| readmePath | /path/to/rfc/README.md |
-
-- sourceFile exists: yes
-- README.md exists: fresh=no / refine=yes
-- CRYSTALIZE-Status.json exists: fresh=no / refine=yes
+[ -z "$ARGUMENTS" ] || { echo "[ERROR] UNEXPECTED_ARGUMENT"; echo "Cause: /crystalize-readme takes no graph path."; echo "Action: Run it with no argument in the package directory."; exit 1; }
+GRAPH_PATH="$(node "$CLAUDE_DIR/scripts/crystalize-readme/derive-graph-path.js")" || exit 1
+node "$CLAUDE_DIR/scripts/crystalize-readme/derive-output-paths.js" --graph="$GRAPH_PATH" || exit 1
+SOURCE_FILE="$(node "$CLAUDE_DIR/scripts/crystalize-readme/derive-output-paths.js" --graph="$GRAPH_PATH" --field=sourceFile)" || exit 1
+BOUNDARY_JSON="$(node "$CLAUDE_DIR/scripts/crystalize-readme/discover-boundary.js" "$(pwd)")" || exit 1
+printf '%s\n' "$BOUNDARY_JSON"
+PACKAGE_ROOT="$(node "$CLAUDE_DIR/scripts/crystalize-readme/discover-boundary.js" "$(pwd)" --field=packageRoot)" || exit 1
+PRIOR_README="$PACKAGE_ROOT/README.md"
+WORKSPACE_README="$(node "$CLAUDE_DIR/scripts/crystalize-readme/discover-boundary.js" "$(pwd)" --field=workspaceReadmePath)" || exit 1
+INTERFACES="$(node "$CLAUDE_DIR/scripts/crystalize-readme/discover-boundary.js" "$(pwd)" --field=interfaces)" || exit 1
+LANGUAGES="$(node "$CLAUDE_DIR/scripts/crystalize-readme/discover-boundary.js" "$(pwd)" --field=sourceLanguage)" || exit 1
+EVIDENCE_DIGEST="$(node "$CLAUDE_DIR/scripts/crystalize-readme/collect-evidence.js" "$(pwd)" --field=packageDigest)" || exit 1
+STATUS_PATH="$(dirname "$SOURCE_FILE")/CRYSTALIZE-Status.json"
 ```
 
-| Path | Description |
-|------|------|
-| `sourceFile` | RFC doc the graph was generated from (existence confirmed at Preflight); Step 0's read target |
-| `rfcDir` | directory containing the source RFC document |
-| `examplesDir` | `<rfcDir>/examples/` — implementation samples |
-| `readmePath` | `<rfcDir>/README.md` — README output destination |
+`derive-graph-path.js` fails closed on `MISSING` and `AMBIGUOUS`. `derive-output-paths.js` derives `sourceFile`, `rfcDir`, `examplesDir`, and `readmePath`, and detects fresh/refine. `discover-boundary.js` derives `packageRoot`, `workspaceRoot`, `unitId`, `role`, declared interfaces, the package README path, and the workspace README path; its scalar fields are captured once so every writer and reader targets the same files. When `packageRoot` differs from `rfcDir`, the package README writer targets `packageRoot/README.md`, the loop reads that same file, and the divergence is displayed. `EVIDENCE_DIGEST` is the package-level evidence digest used by the over-detection advisory.
 
-## Marker Classification (Single Source of Truth: `validate-marker-grammar.js`)
+Mode is detected once:
 
-| Section type | Work unit (unprocessed) | Residue (cannot be written) |
+- `README.md` or `CRYSTALIZE-Status.json` exists → **refine**.
+- neither exists → **fresh**.
+
+## Marker Classification (single source: `validate-marker-grammar.js`)
+
+| Section type | Work unit | Residue |
 |---|---|---|
 | Usage section | `<::TEMPLATE-README::>` | `<::README-RESIDUE::>` |
 | Examples section | `<::TEMPLATE-EXAMPLES::>` | `<::EXAMPLES-RESIDUE::>` |
 
-## Workflow Steps
+## Workflow
 
-### Step 0: Read sourceFile
+### Step 0: Read the source RFC
 
-Read `sourceFile` from Preflight. out: prerequisite for Step 1 (TOC grill).
-gate: do not proceed to Step 1+ until complete.
+Read `sourceFile` from Preflight. In refine mode, also read the existing README and `CRYSTALIZE-Status.json`. This is the prerequisite for Step 1.
 
-### Step 1: Grill — Hierarchical Headings (Table of Contents)
+### Step 1: Derive and set the TOC (non-interactive)
 
-Finalize the README TOC. uses Step 0's `sourceFile` content as prerequisite.
+#### 1-1. Collect evidence
 
-Policy: usage-focused TOC, no technical deep-dive. every heading gets a hierarchical path ID (`H1`, `H1-1`, `H1-2`, `H1-2-1`, `H2`, `H2-1`, ...) — parent = strip trailing `-<n>` (`H1-2-1`'s parent is `H1-2`). invariant: a child can exist only after its parent; an ID without its parent (e.g. `H2-1` without `H2`) is a structural violation → rejected.
-
-#### 1-1. In refine mode, if `README.md exists: yes`, read the existing README.md and use it as prerequisite information for the heading proposals in 1-2 below (propose with the goal of refining and updating by referencing the previous headings and content). The finalized heading set is re-emitted to README.md in 1-8, and all sections are re-analyzed in Step 2. In fresh mode, skip 1-1.
-refine: read existing README.md as prerequisite for 1-2's proposals (goal: refine/update by referencing prior headings/content). the finalized heading set is re-emitted in 1-8, all sections re-analyzed in Step 2.
-fresh: skip.
-
-#### 1-2. **Heading proposals (non-deterministic)**: The AI synthesizes each usage-focused TOC heading based on `sourceFile`. Each heading takes the form `{id, heading, contentOptions[], recommendation, reason, existingIds}` and carries a "content proposal" answerable with A/B/C or Yes/No. `existingIds` is the full set of existing node IDs (indicating that the parent exists). Each proposal must clearly state **the AI's recommendation and its reason**.
-judge: AI synthesizes each usage-focused TOC heading from `sourceFile`. shape: `{id, heading, contentOptions[], recommendation, reason, existingIds}` — a content proposal answerable A/B/C or Yes/No. `existingIds` = full set of existing node IDs (parent-exists evidence). every proposal states the AI's recommendation + reason.
-
-#### 1-3. **Validation gate (deterministic, mandatory)**: Validate every proposal with `validate-toc-proposal.js` **before presenting it to the user**. Restructure until `valid:true`; never present an unvalidated proposal.
-gate: validate every proposal with `validate-toc-proposal.js` **before presenting to the user**. restructure until `valid:true`; never present an unvalidated proposal.
 ```bash
-echo '{"id":"H1-1","heading":"アカウントの追加","contentOptions":["add_account() と register() を呼ぶコード","SipAccountHandle 経由で登録状態を確認するコード","set_registration_enabled() で動的に登録を切り替えるコード"],"recommendation":"add_account() と register() を呼ぶコード","reason":"アカウント追加は最も基本的な操作であり、先に最小のコードを示すのが効果的なため","existingIds":["H1"]}' | node "$CLAUDE_DIR/scripts/crystalize-readme/validate-toc-proposal.js" || exit 1
-```
-fields: `id` (path ID, parent = strip trailing `-<n>`) / `heading` / `contentOptions` (2–4 options, A/B/C or Yes/No) / `recommendation` / `reason` / `existingIds` (full existing-ID set, parent must be included).
-this is a **living example** grounded in the real public API of the actual crate (siprs: `add_account`/`register`/`SipAccountHandle`) — assemble proposals with concrete content grounded in the actual target API/usage.
-invariant: heading/option/reason content in Japanese.
-
-#### 1-4. **Record proposals**: Record the validated proposal JSON in CRYSTALIZE-Status.json via `propose-heading`.
-```bash
-echo '<proposal-json>' | node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$ARGUMENTS" propose-heading
+node "$CLAUDE_DIR/scripts/crystalize-readme/collect-evidence.js" "$(pwd)"
 ```
 
-#### 1-5. **User response**: The user answers **with A/B/C/Yes/No per ID**. Free comments are also allowed. If a free comment is received, re-run the 1-2 heading proposals later in line with its content.
-**ask; stop** — the one designed exception to this file's global auto;never-ask.
-wait: user answers **A/B/C/Yes/No per ID**. free comments allowed → free comment received: re-run 1-2's proposals accordingly.
+The collector emits graph, source, seed, obligation, step-contract, spec, and example digests, the RFC-declared Rust surface, the implemented surface (advisory), and the language surface. Everything is recomputed; nothing is stored.
 
-#### 1-6. **Record confirmations**: For each answer, record the confirmed content via `confirm-heading`. `confirmedContent` is the content of the chosen option.
-`confirmedContent` = the chosen option's content.
+#### 1-2. Derive the candidate TOC
+
 ```bash
-echo '{"id":"H1-1","confirmedContent":"add_account() と register() を呼ぶコード"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$ARGUMENTS" confirm-heading
+node "$CLAUDE_DIR/scripts/crystalize-readme/derive-toc.js" \
+  --source-file="$SOURCE_FILE" \
+  --graph="$GRAPH_PATH" \
+  --interfaces="$INTERFACES" \
+  --languages="$LANGUAGES" \
+  --status="$STATUS_PATH"
 ```
 
-#### 1-7. **Completion condition**: Do not proceed until all heading items and their content are finalized. Repeat the revision and re-proposal of heading suggestions from 1-2 above until everything is finalized. After all nodes are finalized, complete Step 1 with `end-step 1`. **The final heading must always be "Examples（implementation samples）spec and design"**.
-gate: do not proceed until all heading items + content are finalized. loop 1-2→1-6 (revise/re-propose) until everything finalized. invariant: the final heading must always be "Examples（実装サンプル）仕様と設計". then `end-step 1`.
+The candidate always contains the semantic families (purpose, quick start, capabilities, inputs/outputs/effects, preconditions/postconditions/invariants, errors, constraints), the language usage family, the interface family when interfaces are declared, and Examples last. In refine mode, prior headings are preserved.
 
-#### 1-8. **Skeleton output (end of Step 1, deterministic)**: Mechanically output the finalized heading set + the examples section to README.md via script. The `<::TEMPLATE-README::>` marker is automatically attached to each usage section, and the `<::TEMPLATE-EXAMPLES::>` marker to the examples section.
+#### 1-3. Finalize and validate
+
+The AI may reword, merge, or add headings. It must not remove a previously complete heading without a retirement record carrying a reason and evidence.
+
 ```bash
-node "$CLAUDE_DIR/scripts/crystalize-readme/emit-readme-skeleton.js" --graph="$ARGUMENTS"
+echo '{"nodes":<final nodes>,"waivers":<waivers>,"retirements":<retirements>}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/validate-toc-structure.js" || exit 1
+echo '{"nodes":<final nodes>,"waivers":<waivers>,"retirements":<retirements>}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$GRAPH_PATH" set-toc
 ```
-mechanically writes the finalized heading set + examples section to README.md; auto-attaches `<::TEMPLATE-README::>` to each usage section, `<::TEMPLATE-EXAMPLES::>` to the examples section.
-invariant (fresh=refine, common): even if README.md exists (refine), **overwrite** with the new skeleton — prior body/residue NOT preserved; **all sections re-analyzed** in Step 2 (refinement happens via heading re-finalization + re-analysis; still, heavily reference the old README.md content).
+
+`set-toc` writes every node with `status: "derived"`; `end-step 1` accepts derived nodes. Legacy status files with confirmed nodes remain valid.
+
+#### 1-4. Plan refine and emit the skeleton
+
+Build the plan from prior sections and the current evidence:
+
+- prior complete + unchanged digest → `preserve`;
+- prior complete + changed digest → `reanalyze`;
+- prior residue → `reanalyze`;
+- absent → `new`.
+
+The AI may upgrade `preserve` to `reanalyze` with a recorded reason. The reverse is rejected.
+
+In refine mode, pipe the per-section input (`priorSections`, `priorNodes`, `currentEvidence`) to `plan-refine.js` with `--readme`; every `preserve` node receives its prior body byte-for-byte, and a preserve node whose body is missing is downgraded to `reanalyze`. Omitting `--readme` returns actions only, which would silently lose the carry-forward.
+
 ```bash
-node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$ARGUMENTS" reset-sections
+node "$CLAUDE_DIR/scripts/crystalize-readme/plan-refine.js" --readme="$PRIOR_README" \
+  < /tmp/crystalize-plan-input.json > /tmp/crystalize-plan.json
+node "$CLAUDE_DIR/scripts/crystalize-readme/emit-readme-skeleton.js" \
+  --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" \
+  --plan=/tmp/crystalize-plan.json --english-only
+echo '{"sections":<planned sections>}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$GRAPH_PATH" set-section-states
 ```
-`reset-sections` empties `grill.sections`/`examplesApproved`, starts Step 2 as full re-analysis.
-gate: do not proceed to Step 2 until complete.
 
-### Step 2: Section-by-Section Inspection Loop
+In fresh mode, omit `--plan`; every section carries `<::TEMPLATE-README::>`. The no-plan path is unchanged: it overwrites the README and re-marks every usage section. Before the first overwrite, a README with no crystalize marker is copied once to `README.pre-crystalize.md`; an existing backup is never replaced and a marked README is not copied.
 
-Transitions each finalized-heading section to complete description or residue description. judgment is per-section.
+#### 1-5. End Step 1
 
-refine: run identically to fresh, on the README.md re-emitted at 1-8. all sections carry `<::TEMPLATE-README::>` → all subject to inspection; prior finalized state NOT inherited. still, heavily reference the old README.md content.
+```bash
+node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$GRAPH_PATH" end-step 1
+```
 
-Entry determination (deterministic, mandatory): display ticket list, identify src-reading entry point. ticket key known (e.g. P3-2) → detailed spec at `specs/<ticket-key>.md`.
-mutation boundary: any `Tickets.json` write → `ticket-mutation-gate.js` (snapshot→verify→promote/rollback); specs/README-only run = gate no-op.
+### Step 2: Section-by-section inspection loop
+
+Entry determination: display the ticket list and identify the source-reading entry point.
+
 ```bash
 node "$CLAUDE_DIR/scripts/tickets/list-phases-and-tickets.js" Tickets.json
+node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --list
 ```
 
-Loop body:
-1. check loop state (deterministic): `node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" --list` — lists unresolved sections (`<::TEMPLATE-README::>` remaining).
-2. analyze implementation (evidence required): per `<::TEMPLATE-README::>` section, identify its ticket key, analyze `specs/<ticket>.md` → src. invariant: judgments without physical evidence are prohibited.
-3. judgment (per-section, non-deterministic): "can be written" iff the implementation is complete — fully working without danger/omission/contradiction/deficiency (usage-only description, no internal deep-dive).
-   - can be written → prepare complete `content`, pass `{id, heading, content}` to `resolve-section`. script replaces the section (removes `<::TEMPLATE-README::>`), marks complete.
-   - cannot be written → describe concrete evidence of danger/omission/contradiction/deficiency + reinforcement design as `content`, pass `{id, heading, content}` to `mark-residue`. script replaces the marker with `<::README-RESIDUE::>`, marks residue.
-   invariant: **the AI must not hand-edit the README** — both transitions go through the script.
-```bash
-echo '{"id":"H1-1","heading":"アカウントの追加","content":"<完全な本文>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-section
-echo '{"id":"H1-2","heading":"通話","content":"<証拠と実装補強設計>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-residue
-```
-4. exit condition (deterministic):
-```bash
-node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" --check
-```
-judge: read the English message text, not the exit code. "Loop converged" (all usage sections complete/residue, no marker-grammar violations; `<::TEMPLATE-EXAMPLES::>` still open is fine — Step 3's target) → exit loop, proceed to Step 3. "Loop not converged" (message enumerates unresolved sections/violations) → fix per instructions, continue loop.
+Judgment order for every section:
 
-### Step 3: Examples-Specific Step (After Loop Exit)
+1. Does an implementation exist that fully works per the section's usage? Evidence: specs, source, tests, interface surface, examples.
+2. Can that boundary be described exactly sufficient in the semantic, language, and interface layers?
+3. Is the section consistent with the package and workspace composition?
 
-Finalizes the trailing "Examples（実装サンプル）仕様と設計" section. resolving `<::TEMPLATE-EXAMPLES::>` is this Step's job — NOT part of Step 2's convergence check.
+A section is writable only when 1 passes. Contract existence never substitutes for 1.
 
-1. complete coverage (non-deterministic): synthesize one implementation example covering everything in every non-Examples section.
-2. concreteness (non-deterministic): must include exhaustive contracts (pre/post/invariant), unit+integration tests satisfying all contracts, implementation code, build method, post-build operation — design nearly as concrete as the implementation itself.
-3. inspection loop (non-deterministic): inspect whether Examples is a perfect, complete-coverage implementation example; repeat corrections on any deficiency.
-4. finalize (deterministic, script): "reliably works, can be written" → pass complete design as `content` to `resolve-examples` — removes `<::TEMPLATE-EXAMPLES::>`, inserts complete description, marks complete. cannot be written → pass concrete evidence + reinforcement design as `content` to `mark-examples-residue` — replaces with `<::EXAMPLES-RESIDUE::>`, marks residue. invariant: **the AI must not hand-edit the README**. both rejected with an error if the entry gate hasn't converged or the marker is absent.
+- Writable → `resolve-section` with the complete English content.
+- Not writable → `mark-residue` with concrete evidence and a reinforcement design. Include the structured `residue` object when the cause is root-caused; the command records a stable id and deduplicates it.
+
 ```bash
-echo '{"content":"<完全な examples 設計>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" resolve-examples
-echo '{"content":"<証拠と実装補強設計>"}' | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" mark-examples-residue
+echo '{"id":"H1-1","heading":"<heading>","content":"<English content>"}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --english-only resolve-section
+echo '{"id":"H1-2","heading":"<heading>","content":"<evidence and reinforcement>","residue":{"level":"package","layer":"interface","element":"<element>","evidence":[{"kind":"interface-gap","ref":"<file:line>"}],"reinforcement":{"design":"<design>","acceptance":"<acceptance>"}}}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --require-structured-residue --english-only mark-residue
 ```
-5. completion condition (deterministic):
+
+`--require-structured-residue` is the command path's rule: a prose-only residue is refused because it would bypass the stable id, deduplication, and lifecycle. A legal residue carries `level`, `layer`, `element`, at least one `evidence` item, and a non-empty `reinforcement.design` and `reinforcement.acceptance`.
+
+After the loop, reconcile residues and check both convergence and residue structure:
+
 ```bash
-node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$ARGUMENTS" --check-examples
+echo '{"sections":<section states>}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$GRAPH_PATH" reconcile-residues
+node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --check
+node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --check-residues --evidence-digest="$EVIDENCE_DIGEST"
 ```
-judge: read the English message text, not the exit code. "Examples resolved" (zero `<::TEMPLATE-EXAMPLES::>`, marker grammar clean) → Step complete. "Examples not resolved" (message enumerates unresolved usage sections / remaining `<::TEMPLATE-EXAMPLES::>` / grammar violations) → fix per instructions, re-run.
+
+`--check` succeeds when every usage section is complete or residue and the marker grammar is clean. `--check-residues` succeeds when every active residue has evidence and reinforcement, ids are unique, every README marker has a registry record, every active record has a marker, and resolved ids are absent from the README. It also reports `POSSIBLE_OVER_DETECTION` as an advisory when many new residues appear while the evidence digest is unchanged; the advisory never blocks convergence.
+
+### Step 3: Examples and workspace README
+
+Finalize the trailing Examples section. It is not part of Step 2's convergence check.
+
+```bash
+echo '{"content":"<complete English examples design>"}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --english-only resolve-examples
+echo '{"content":"<evidence and reinforcement>","residue":{"level":"package","layer":"interface","element":"<element>","evidence":[{"kind":"example-failure","ref":"<file:line>"}],"reinforcement":{"design":"<design>","acceptance":"<acceptance>"}}}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --require-structured-residue --english-only mark-examples-residue
+node "$CLAUDE_DIR/scripts/crystalize-readme/loop-drive-readme.js" --graph="$GRAPH_PATH" --package-root="$PACKAGE_ROOT" --check-examples
+```
+
+Then update the workspace README before `end-step 3`. Only managed blocks are written; human text outside blocks stays byte-identical, the update runs under an exclusive lock, and both blocks must be English. The workspace block carries purpose, the package table, topology, exposed interfaces, cross-package recipes, non-goals, and workspace residue. The package table is deterministic: put `<!-- crystalize-aggregate -->` in the workspace block and supply `aggregate` records; the writer replaces the placeholder with a unit-id-sorted table that lists missing packages as `not crystallized`. The package block carries the unit id, path, role, interfaces, README link, contract state, and dependency edges. There is no completion gate.
+
+```bash
+echo '{"unitId":"<unit id>","packageBlock":"<English package block>","workspaceBlock":"<English workspace block with <!-- crystalize-aggregate -->>","aggregate":{"packageBlocks":<package records>,"knownUnits":<unit ids>}}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/workspace-readme.js" --file="$WORKSPACE_README" --update --english-only
+echo '{"workspace":{"path":"'"$WORKSPACE_README"'","unitId":"<unit id>","state":"updated"}}' \
+  | node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$GRAPH_PATH" set-workspace
+node "$CLAUDE_DIR/scripts/crystalize-readme/update-step-status.js" --graph="$GRAPH_PATH" end-step 3
+```
+
+### Convergence policy
+
+- Exit when every usage section is complete or residue, Examples is resolved, and every residue is actionable.
+- Do not wait for zero residue. A concrete residue is a successful handoff to `/drill-rfc-down`.
+- Do not create a residue for style, wording preference, or a general "documentation is missing" claim.
+- Deduplicate by root cause; a stable id may appear in several sections, but the evidence is one record.
+- If new residue count is high while the evidence digest is unchanged, consolidate or waive with a recorded reason.
+- Do not fail because some packages have not run. The workspace README is rebuilt from the package blocks that exist.
+- Implementation completeness remains the absolute precondition. A previously complete section may be preserved only when its evidence digest is unchanged.
 
 ## Reverse rotation only — the return path from a RESIDUE to its scenario and its route
 **Rotation gate** — this section runs only when `return-refs-reverse-mode` holds. `return-refs.js` is invoked with `--mode=reverse`; without the flag the artefact is returned itself and no return reference is written, so this section cannot fire in a forward run.

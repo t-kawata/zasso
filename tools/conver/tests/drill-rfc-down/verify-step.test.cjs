@@ -1,3 +1,5 @@
+// [::TICKET::] PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-452 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-451 --for-spec --no-implementation-order`.
 /**
  * verify-step.test.cjs — Tests for the Step 5 verify driver (PX-169)
  *
@@ -247,5 +249,68 @@ describe('PX-369 cross-package API verdict', () => {
     const apiGate = report.p2.gates.find((gate) => gate.name === 'verify-api-consistency');
     assert.ok(apiGate, JSON.stringify(report.p2.gates));
     assert.equal(apiGate.exitCode, 1, 'the defect is recorded as residue');
+  });
+});
+
+// PX-452 @verifies residue-coverage P2
+describe('P2 residue coverage (advisory)', () => {
+  const README = [
+    '# Package',
+    '',
+    '## Account add',
+    '',
+    '<::README-RESIDUE::>',
+    '<!-- crystalize-residue: id=RSD-aaaaaaaaaaaa level=package layer=interface element=account.add -->',
+    'Evidence and reinforcement.',
+    '',
+  ].join('\n');
+
+  it('does not add the gate when no README is supplied', () => {
+    const project = setupProject();
+    const { sessionDir, result } = runVerifyStepWithSession(project);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.p2.gates.some((gate) => gate.name === 'residue-coverage'), false);
+  });
+
+  it('reports an uncovered residue while COMPLETE stays unchanged', () => {
+    const project = setupProject();
+    const readmePath = path.join(path.dirname(project.rfcPath), 'README.md');
+    fs.writeFileSync(readmePath, README, 'utf8');
+    const { sessionDir, result } = runVerifyStepWithSession(project, [`--readme=${readmePath}`]);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.state, 'COMPLETE', 'P2 never blocks');
+    const gate = report.p2.gates.find((entry) => entry.name === 'residue-coverage');
+    assert.equal(gate.exitCode, 1, JSON.stringify(report.p2.gates));
+    assert.ok(report.p2.findings.some((finding) => finding.code === 'RESIDUE_UNCOVERED'));
+  });
+
+  it('passes when a ticket names the residue id', () => {
+    const project = setupProject();
+    const readmePath = path.join(path.dirname(project.rfcPath), 'README.md');
+    fs.writeFileSync(readmePath, README, 'utf8');
+    const tickets = JSON.parse(fs.readFileSync(project.ticketsPath, 'utf8'));
+    tickets.phases[0].tickets[0].residueIds = ['RSD-aaaaaaaaaaaa'];
+    writeJson(project.ticketsPath, tickets);
+
+    const { sessionDir, result } = runVerifyStepWithSession(project, [`--readme=${readmePath}`]);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.state, 'COMPLETE');
+    const gate = report.p2.gates.find((entry) => entry.name === 'residue-coverage');
+    assert.equal(gate.exitCode, 0, JSON.stringify(report.p2.gates));
+    assert.equal(report.p2.findings.some((finding) => finding.code === 'RESIDUE_UNCOVERED'), false);
+  });
+
+  it('reads the workspace README when only that path is supplied', () => {
+    const project = setupProject();
+    const workspaceReadme = path.join(tmpRoot, 'workspace-readme.md');
+    fs.writeFileSync(workspaceReadme, README, 'utf8');
+    const { sessionDir, result } = runVerifyStepWithSession(project, [`--workspace-readme=${workspaceReadme}`]);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(sessionDir, 'DRILL-REPORT.json'), 'utf8'));
+    assert.equal(report.p2.gates.find((entry) => entry.name === 'residue-coverage').exitCode, 1);
   });
 });

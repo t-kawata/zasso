@@ -657,3 +657,165 @@ describe('CLI — --check-examples (examples step completion)', () => {
     assert.match(result.stderr, /resolve-section/, 'fix guidance points to the Step 2 loop when usage sections are unresolved');
   });
 });
+
+describe('structured residue — PX-451', () => {
+// [::TICKET::] PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-451|PX-452) --for-spec --no-implementation-order`.
+  function setResidues(fx, residues) {
+    const statusPath = path.join(fx.dir, 'CRYSTALIZE-Status.json');
+    const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+    status.grill.residues = residues;
+    fs.writeFileSync(statusPath, JSON.stringify(status), 'utf8');
+  }
+
+  const validRecord = {
+    id: 'RSD-aaaaaaaaaaaa',
+    level: 'package',
+    layer: 'interface',
+    element: 'account.add',
+    evidence: [{ kind: 'interface-gap', ref: 'src/lib.rs:10' }],
+    reinforcement: { design: 'Implement add', acceptance: 'Add a test' },
+    state: 'persisting',
+    sectionIds: ['A'],
+  };
+
+  it('--check-residues accepts a valid registry', () => {
+    const fx = materialize('residues-valid', readmeWith(
+      `## A\n\n${MARKER_README_RESIDUE}\n<!-- crystalize-residue: id=RSD-aaaaaaaaaaaa level=package layer=interface element=account.add -->\nEvidence`,
+      `${EXAMPLES_HEADING}\n\nComplete design.`,
+    ));
+    setResidues(fx, [validRecord]);
+    const result = spawnSync('node', [SCRIPT, '--check-residues', `--graph=${fx.graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).ok, true);
+  });
+
+  it('--check-residues rejects an evidence-free record', () => {
+    const fx = materialize('residues-invalid', readmeWith(
+      `## A\n\n${MARKER_README_RESIDUE}\nEvidence`,
+      `${EXAMPLES_HEADING}\n\nComplete design.`,
+    ));
+    setResidues(fx, [{ ...validRecord, evidence: [] }]);
+    const result = spawnSync('node', [SCRIPT, '--check-residues', `--graph=${fx.graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.equal(JSON.parse(result.stdout).ok, false);
+  });
+
+  it('mark-residue registers the stable id and renders the invisible comment', () => {
+    const fx = materialize('residues-mark', readmeWith(
+      `## A\n\n${MARKER_TEMPLATE_README}`,
+      `${EXAMPLES_HEADING}\n\nComplete design.`,
+    ));
+    const input = JSON.stringify({
+      id: 'H1',
+      heading: 'A',
+      content: 'The account add entry is missing.',
+      residue: {
+        level: 'package',
+        layer: 'interface',
+        element: 'account.add',
+        evidence: [{ kind: 'interface-gap', ref: 'src/lib.rs:10' }],
+        reinforcement: { design: 'Implement add', acceptance: 'Add a test' },
+        evidenceDigest: 'digest-a',
+      },
+    });
+    const result = spawnSync('node', [SCRIPT, '--english-only', 'mark-residue', `--graph=${fx.graphPath}`], { input, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const readme = fs.readFileSync(fx.readmePath, 'utf8');
+    assert.match(readme, /crystalize-residue: id=RSD-[0-9a-f]{12}/);
+    const status = JSON.parse(fs.readFileSync(path.join(fx.dir, 'CRYSTALIZE-Status.json'), 'utf8'));
+    assert.equal(status.grill.residues.length, 1);
+    assert.equal(status.grill.sections.find((section) => section.id === 'H1').state, 'residue');
+  });
+
+  it('rejects Japanese content when --english-only is set', () => {
+    const fx = materialize('residues-japanese', readmeWith(
+      `## A\n\n${MARKER_TEMPLATE_README}`,
+      `${EXAMPLES_HEADING}\n\nComplete design.`,
+    ));
+    const input = JSON.stringify({ id: 'H1', heading: 'A', content: '本文は日本語です。' });
+    const result = spawnSync('node', [SCRIPT, '--english-only', 'resolve-section', `--graph=${fx.graphPath}`], { input, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /language violation/i);
+  });
+});
+
+describe('C005 — structured residue enforcement', () => {
+  it('parses --require-structured-residue and rejects a prose-only mark-residue', () => {
+    const parsed = parseArguments([`--graph=${path.join(tmpDir, 'g.json')}`, '--require-structured-residue', 'mark-residue']);
+    assert.equal(parsed.requireStructuredResidue, true);
+
+    const fx = materialize('require-structure', readmeWith(
+      `## A\n\n${MARKER_TEMPLATE_README}`,
+      `${EXAMPLES_HEADING}\n\nComplete design.`,
+    ));
+    const input = JSON.stringify({ id: 'H1', heading: 'A', content: 'No structure.' });
+    const result = spawnSync('node', [
+      SCRIPT, '--require-structured-residue', 'mark-residue', `--graph=${fx.graphPath}`,
+    ], { input, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /structured residue/i);
+    assert.ok(fs.readFileSync(fx.readmePath, 'utf8').includes(MARKER_TEMPLATE_README), 'the README is untouched');
+  });
+
+  it('refuses a prose-only residue in --check-residues', () => {
+    const fx = materialize('prose-residue-check', readmeWith(
+      `## A\n\n${MARKER_README_RESIDUE}\nProse only.`,
+      `${EXAMPLES_HEADING}\n\nComplete design.`,
+    ));
+    const result = spawnSync('node', [SCRIPT, '--check-residues', `--graph=${fx.graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /prose residue has no registry record/i);
+  });
+});
+
+describe('C008 — over-detection advisory', () => {
+// [::TICKET::] PX-452, PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-452|PX-451) --for-spec --no-implementation-order`.
+  function residueReadme(count) {
+    const sections = [];
+    for (let index = 0; index < count; index += 1) {
+      sections.push(`## S${index}\n\n${MARKER_README_RESIDUE}\n<!-- crystalize-residue: id=RSD-00000000000${index} level=package layer=interface element=e${index} -->\nEvidence`);
+    }
+    sections.push(`${EXAMPLES_HEADING}\n\nComplete design.`);
+    return readmeWith(...sections);
+  }
+
+// [::TICKET::] PX-452, PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-452|PX-451) --for-spec --no-implementation-order`.
+  function newRecords(count) {
+    return Array.from({ length: count }, (_, index) => ({
+      id: `RSD-00000000000${index}`,
+      level: 'package',
+      layer: 'interface',
+      element: `e${index}`,
+      evidence: [{ kind: 'interface-gap', ref: `src/lib.rs:${index}` }],
+      reinforcement: { design: 'Implement', acceptance: 'Add a test' },
+      state: 'new',
+      sectionIds: [`S${index}`],
+    }));
+  }
+
+  it('reports POSSIBLE_OVER_DETECTION without failing when evidence is unchanged', () => {
+    const fx = materialize('over-detection', residueReadme(4));
+    const statusPath = path.join(fx.dir, 'CRYSTALIZE-Status.json');
+    const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+    status.grill.residues = newRecords(4);
+    fs.writeFileSync(statusPath, JSON.stringify(status), 'utf8');
+
+    const first = spawnSync('node', [
+      SCRIPT, '--check-residues', `--evidence-digest=digest-a`, `--graph=${fx.graphPath}`,
+    ], { encoding: 'utf8' });
+    assert.equal(first.status, 0, first.stderr);
+
+    const second = spawnSync('node', [
+      SCRIPT, '--check-residues', `--evidence-digest=digest-a`, `--graph=${fx.graphPath}`,
+    ], { encoding: 'utf8' });
+    assert.equal(second.status, 0, second.stderr);
+    assert.match(second.stderr, /POSSIBLE_OVER_DETECTION/);
+    assert.equal(JSON.parse(second.stdout).overDetection.advisory, 'POSSIBLE_OVER_DETECTION');
+
+    const changed = spawnSync('node', [
+      SCRIPT, '--check-residues', `--evidence-digest=digest-b`, `--graph=${fx.graphPath}`,
+    ], { encoding: 'utf8' });
+    assert.equal(changed.status, 0, changed.stderr);
+    assert.doesNotMatch(changed.stderr, /POSSIBLE_OVER_DETECTION/);
+  });
+});

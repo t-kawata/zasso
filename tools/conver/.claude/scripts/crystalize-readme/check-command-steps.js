@@ -156,13 +156,15 @@ function readNamedSteps(paragraph) {
  * @param {string} text
  * @returns {{ fault: string|null, defined: string[], unresolved: Array<{ identifier: string, defined: string[] }> }}
  */
-// [::TICKET::] PX-271 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-271 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-271, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-271|PX-451|PX-452) --for-spec --no-implementation-order`.
 function inspectCommandSteps(text) {
   const defined = readDefinedSteps(text);
   const block = readCriticalBlock(text);
 
   if (block.heading === null) return { fault: NO_BLOCK, defined, unresolved: [] };
-  if (block.exception === '') return { fault: NO_EXCEPTION, defined, unresolved: [] };
+  // An absolute prohibition is the new non-interactive form. Only a present
+  // exception has to resolve; its absence is not a fault.
+  if (block.exception === '') return { fault: null, defined, unresolved: [] };
 
   const unresolved = readNamedSteps(block.exception)
     .filter((identifier) => !defined.includes(identifier))
@@ -244,12 +246,36 @@ function main(argv) {
   return 0;
 }
 
+/** The tokens a fully non-interactive command must not carry. */
+const INTERACTIVE_TOKENS = [
+  { name: 'ask; stop', pattern: /\*\*ask;\s*stop\*\*/i },
+  { name: 'propose-heading', pattern: /propose-heading/i },
+  { name: 'confirm-heading', pattern: /confirm-heading/i },
+  { name: 'A/B/C choice', pattern: /\bA\/B\/C\b/ },
+  { name: 'user answers', pattern: /user answers/i },
+];
+
+/**
+ * Find interactive tokens that an absolute-prohibition command must not carry.
+ *
+ * @param {string} text
+ * @returns {string[]}
+ */
+// [::TICKET::] PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-451|PX-452) --for-spec --no-implementation-order`.
+function findInteractiveTokens(text) {
+  return INTERACTIVE_TOKENS
+    .filter((token) => token.pattern.test(String(text)))
+    .map((token) => token.name);
+}
+
 module.exports = {
   findUnresolvedSteps,
   inspectCommandSteps,
   readCriticalBlock,
   readDefinedSteps,
   readNamedSteps,
+  findInteractiveTokens,
+  INTERACTIVE_TOKENS,
 };
 
 if (require.main === module) {

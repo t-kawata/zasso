@@ -1,3 +1,5 @@
+// [::TICKET::] PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-452 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-451 --for-spec --no-implementation-order`.
 // PX-365 @verifies C004
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,4 +51,11 @@ test('C004 invariant: the existing step headings survive the surgical edits', ()
   for (const heading of ['### STEP 0', '### STEP 5c', '### STEP 8']) {
     assert.equal(GRILL.includes(heading), true, heading);
   }
+});
+
+test('residue coverage: verify-step receives the README paths and the ticket instruction is present', () => {
+  assert.equal(DRILL.includes('--readme="$README_PATH"'), true, 'package README path is passed');
+  assert.equal(DRILL.includes('--workspace-readme="$WORKSPACE_README_PATH"'), true, 'workspace README path is passed');
+  assert.equal(DRILL.includes('residueIds'), true, 'the ticket field is named');
+  assert.equal(/RESIDUE_UNCOVERED/.test(DRILL), true, 'the advisory is named');
 });

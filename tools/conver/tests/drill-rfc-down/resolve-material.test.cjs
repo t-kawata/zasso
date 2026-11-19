@@ -1,4 +1,10 @@
+// [::TICKET::] PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-452 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-451 --for-spec --no-implementation-order`.
 // PX-368 @verifies C002
+// PX-451 @verifies C006
+// @verifies C006/precondition
+// @verifies C006/postcondition
+// @verifies C006/invariant
 // The resolver is the one place a drill run decides what it reads. These tests pin the
 // order (discovered defaults first), the additive argument rule, the presence branch for
 // each optional input, and the resume rule that reads the session record instead of
@@ -127,5 +133,30 @@ describe('resolveDrillMaterial', () => {
     assert.equal(answer.resumed, true);
     assert.deepEqual(answer.materialPaths, ['/recorded/b.md', '/recorded/a.md']);
     assert.deepEqual(answer.addedArguments, []);
+  });
+});
+
+describe('PX-451 — workspace README discovery', () => {
+  it('discovers the package and workspace READMEs once each', () => {
+    const workspace = path.join(tmpRoot, 'ws-readme');
+    const packageDir = path.join(workspace, 'pkg');
+    fs.mkdirSync(packageDir, { recursive: true });
+    fs.writeFileSync(path.join(packageDir, 'README.md'), '# Package\n', 'utf8');
+    fs.writeFileSync(path.join(workspace, 'README.md'), '# Workspace\n', 'utf8');
+
+    const answer = resolveDrillMaterial({
+      packageDir,
+      workspaceRoot: workspace,
+      sessionDir: path.join(tmpRoot, 'no-session'),
+      arguments: [],
+      cwd: tmpRoot,
+    });
+
+    assert.equal(answer.readmePresent, true);
+    assert.equal(answer.workspaceReadmePresent, true);
+    assert.equal(answer.workspaceReadmePath, path.join(workspace, 'README.md'));
+    assert.ok(answer.materialPaths.includes(path.join(packageDir, 'README.md')));
+    assert.ok(answer.materialPaths.includes(path.join(workspace, 'README.md')));
+    assert.equal(new Set(answer.materialPaths).size, answer.materialPaths.length);
   });
 });

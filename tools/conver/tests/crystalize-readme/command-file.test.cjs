@@ -1,3 +1,5 @@
+// [::TICKET::] PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-452 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-451 --for-spec --no-implementation-order`.
 /**
  * command-file.test.cjs — the CRITICAL block of crystalize-readme.md, held against
  * the steps that file defines (Contracts C001, C002).
@@ -27,6 +29,7 @@ const path = require('node:path');
 
 const {
   findUnresolvedSteps,
+  findInteractiveTokens,
   readCriticalBlock,
   readNamedSteps,
 } = require('../../.claude/scripts/crystalize-readme/check-command-steps.js');
@@ -121,27 +124,25 @@ function refusedIdentifiers(result) {
 }
 
 describe('C001 — the CRITICAL block and the exception it carries', () => {
-  it('C001-Pre: the block carries a prohibition and an exception that names a step', () => {
-    const block = readCriticalBlock(readFileSync(COMMAND, 'utf8'));
+  it('C001-Pre: the block carries an absolute prohibition and no exception', () => {
+    const text = readFileSync(COMMAND, 'utf8');
+    const block = readCriticalBlock(text);
 
     assert.equal(block.heading, CRITICAL_TITLE, 'the block is found by its own heading');
     assert.ok(block.prohibition.length > 0, 'the prohibition paragraph is read');
-    assert.ok(block.exception.length > 0, 'the exception paragraph is read');
-    assert.ok(readNamedSteps(block.exception).length > 0, 'and it names at least one step');
+    assert.equal(block.exception, '', 'the non-interactive form carries no exception');
+    assert.deepEqual(findInteractiveTokens(text), [], 'no interactive token survives');
   });
 
-  it('C001-Post: every step the exception names resolves, and 1-2 is among them', () => {
+  it('C001-Post: the absolute prohibition resolves and carries no ask token', () => {
     const text = readFileSync(COMMAND, 'utf8');
 
     assert.deepEqual(
       findUnresolvedSteps(text),
       [],
-      'the exception names no step the file does not define',
+      'the file has no dangling exception',
     );
-    assert.ok(
-      readNamedSteps(readCriticalBlock(text).exception).includes('1-2'),
-      'the proposal sub-step is named, not only the answer sub-step',
-    );
+    assert.deepEqual(findInteractiveTokens(text), [], 'no ask, confirm, or A/B/C token survives');
   });
 
   it('C001-Inv: the prohibition keeps all five terms, so the exception narrows it only where it names', () => {
@@ -153,11 +154,11 @@ describe('C001 — the CRITICAL block and the exception it carries', () => {
     }
   });
 
-  it('C001-Pre: a block carrying no exception is refused rather than passed', () => {
+  it('C001-Pre: a block carrying no exception is the valid non-interactive form', () => {
     const result = withCommandFile(SILENT_FILE, runGuard);
 
-    assert.equal(result.status, 1, 'a block that excepts nothing is not a pass');
-    assert.match(result.stderr, /no exception paragraph/, 'and the guard says what is missing');
+    assert.equal(result.status, 0, 'an absolute prohibition needs no exception');
+    assert.equal(result.stdout.trim(), '', 'a passing guard says nothing');
   });
 });
 
@@ -235,5 +236,20 @@ describe('C001 — the three installs of the command file', () => {
       assert.match(digests[index], /^[0-9a-f]{64}$/, `${file} is readable`);
     }
     assert.equal(new Set(digests).size, 1, 'one text in three places');
+  });
+});
+
+describe('C003/C004/C005/C011 — the command uses the new inputs', () => {
+  it('names the package root, structured residue, workspace language, evidence digest, and source file', () => {
+    const text = readFileSync(COMMAND, 'utf8');
+    for (const token of [
+      '--package-root=',
+      '--require-structured-residue',
+      '--english-only',
+      '--evidence-digest=',
+      '--source-file=',
+    ]) {
+      assert.ok(text.includes(token), `${token} is wired into the command`);
+    }
   });
 });

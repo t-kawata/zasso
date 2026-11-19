@@ -13,7 +13,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 - **適合ループ（第五層・workspacify）**: 入力（空＋仕様書、または既存実装）を、4つのループが回る形へ適合させる。既存実装は逆回転で、空のプロジェクトは順回転で、同じ終端状態へ到達する。分割後は安全な実装順を示し、仕様書から全シーケンス・全オペレーションの要求台帳を作る
 - **上流ループ（分解）**: AIと人間が共同で 正典 RFC を書き、全パッケージ横断の受理証明を得てから、論理グラフ化し、ディレクトリ境界を決め、チケットに分解する
 - **実装ループ（収束）**: AIが全チケットを自動実装し、RFC 設計とのギャップを計測・解消して収束させる
-- **出荷ループ（商品化判定）**: 「ユーザーにとっての使い方がユーザーにとって素敵か」という視点から実装を解析・検証し、不足（RESIDUE）を洗い出す。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことが点検突破した状態を「出荷」とする。
+- **出荷ループ（商品化判定）**: 「ユーザーにとっての使い方がユーザーにとって素敵か」という視点から実装を解析・検証し、不足（RESIDUE）を洗い出す。`/crystalize-readme` の収束条件は「全セクションが完全な記述または RESIDUE」「marker 文法が正常」「residue レジストリが整合」であり、RESIDUE が残っていてもコマンドは収束する。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことを外側の出荷判定が確認した状態を「出荷」とする。
 - **進化ループ（再投資）**: 正典 RFC・グラフ・ディレクトリ構造・チケットを「差分」として矛盾なく進化させ、新たなチケットを生み出す。ビジネスの再投資と進化・適応を安全に進めるための装置である。
 - **API 整合ゲート**: `verify-api-consistency.mjs --workspace <root>` が全パッケージ RFC の Rust コードフェンスを宣言と使用として読み、パッケージ跨ぎの未定義シンボル・重複宣言・引数 arity・ジェネリック arity・種別不一致・未宣言依存を検出する。読めない構文は `UNPARSED_SURFACE` として advisory 報告し、黙って飛ばさない。smooth の closure では blocking、drill では P2 residue。跨ぎ編集は `guard-edit-surface.js --allow-cross-package=<evidence.json>` が必須で、編集対象パッケージの全ゲート exit 0 を証明する。
 
@@ -28,7 +28,7 @@ flowchart TD
     L5["適合ループ（第五層・workspacify・人間＋AI 実行）<br/>入力: 空＋仕様書（パターン4） / 既存実装（パターン1・2・3）<br/>/workspacify-reverse → /workspacify-tree<br/>→ /workspacify-allocate<br/>→ 実ディレクトリ ＋ 各パッケージの RFC-SEED.md<br/>workspacify-order: 実装順を表示・検査<br/>/educe-sequences: 全シーケンス・全オペレーションを台帳化<br/>→ 各パッケージの SEQUENCES.md / SEQUENCES.json"]
     UP["上流ループ（分解・人間＋AI 実行）<br/>各パッケージで /explain-seed → /grill-me-for-rfc<br/>→ 正典 RFC.md<br/>ワークスペースルートで /smooth-sequences（受理証明）<br/>各パッケージで /graphify-rfc → /boundify-graph<br/>→ /split-to-tickets<br/>→ RFC-GRAPH.json → RFC-Dirs-Tree.json<br/>→ Tickets.json"]
     IM["実装ループ（収束・AI 自動実行）<br/>make → plan → start → review<br/>→ resolve → consolidate → find<br/>→ omission を Tickets.json へマージ<br/>収束するまで再実装"]
-    SH["出荷ループ（商品化判定・人間＋AI 実行）<br/>/crystalize-readme RFC-GRAPH.json<br/>使い方 README をセクション単位で判定"]
+    SH["出荷ループ（商品化判定・人間＋AI 実行）<br/>/crystalize-readme（RFC-GRAPH.json 固定・引数なし）<br/>パッケージ＋ワークスペース README をセクション単位で判定"]
     EV["進化ループ（再投資・適応・人間＋AI 実行）<br/>/drill-rfc-down<br/>入力: RESIDUE / 自由会話 / 資料<br/>grill → graphify → boundify<br/>→ split → verify<br/>台帳・view を変えたら次の graphify 前に<br/>/smooth-sequences を再実行"]
 
     L5 -->|パッケージディレクトリごとに<br/>4つのループを再実体化| UP
@@ -45,7 +45,7 @@ flowchart TD
 | **適合ループ（第五層）** | 人間＋AI（Claude Code 上で実行） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` → `workspacify-order`（実装順の表示・検査） → `/educe-sequences`（要求台帳） | 入力（空＋仕様書 / 既存実装）を4つのループが回る形へ適合させ、**4つのループをパッケージディレクトリごとに再実体化**する。全シーケンス・全オペレーションを台帳化し、安全な実装順を機械的に示す。一周で終わらず、内側が実装を進めるたびに繰り返す |
 | **上流ループ** | 人間＋AI（`/smooth-sequences` は AI 自動実行） | `/explain-seed` → `/grill-me-for-rfc` → `/smooth-sequences` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | 種の事実と説明 → RFC 設計書の作成 → **全パッケージ横断の受理証明**（列挙・契約・配布の閉包） → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装（冒頭の前提ゲートで依存順を強制） → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
-| **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
+| **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。コマンドは全セクション complete|residue・marker 文法正常・residue レジストリ整合で収束する（RESIDUE 0 を待たない）。RESIDUE を `/drill-rfc-down` で実装補強した後、外側の出荷判定が RESIDUE 0 と実装・テストの充足を確認して出荷 |
 | **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | `Tickets.json` が存在すれば**引数なしでいつでも実行可能**。README の RESIDUE と SEQUENCES ビューは自動探索され、存在/不在で分岐し、引数は追加資料として後ろに足される。正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify でパッケージ内の貫通（view → 台帳 → GRAPH → 実装ヘッダ → Tickets）を機械検証する。`COMPLETE` は `DRILL-REPORT.json` だけが宣言する |
 
 **進化の入口は、上流ループを通過したかどうかで決まります** — 通過前は `/grill-me-for-rfc` の再実行、通過後は上表の `/drill-rfc-down` です。ループ単位の境界と但し書きは、後述の「/drill-rfc-down — 進化の扉」にある「進化の入口は、上流ループを通過したかどうかで決まる」を参照してください。
@@ -164,7 +164,11 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 
 ## /crystalize-readme — 出荷ループの入口
 
-**役割**: RFC グラフ（`*-GRAPH.json`）を入力に、**ユーザー向けの「使い方 README」**を生成します。判定基準は**「ユーザーにとっての使い方がユーザーにとって素敵か」**です。各 README セクションを1つずつ検証し、**「そのセクションに書かれた使い方が完全に動作する実装が現在存在するか」**を判定します。書けるセクションは「完全な記述」として確定し、書けないセクションは「RESIDUE 記述」として README 内に証拠と実装補強設計を残します。
+**役割**: パッケージとワークスペースの **README.md 群を境界契約文書**として生成・更新します。引数はありません。グラフはパッケージ直下の `RFC-GRAPH.json`（無ければ唯一の `*-GRAPH.json`）からコマンド内部で導出します。判定基準は**「ユーザーにとっての使い方がユーザーにとって素敵か」**であり、各 README セクションについて**「そのセクションに書かれた使い方が完全に動作する実装が現在存在するか」**を判定します。書けるセクションは完全な記述として確定し、書けないセクションは RESIDUE 記述として README 内に証拠と実装補強設計を残します。
+
+**生成 README の言語は英語のみ**です。見出し・本文・RESIDUE・例に日本語（ひらがな・カタカナ・CJK 漢字）を混入させません。旧版の日本語例は撤回されました。`validate-readme-language.js` が書き込み前に拒否します。
+
+**refine は過去の記述を再利用します。** 証拠ダイジェストが変わらない完成済みセクションはバイト単位で保持し、証拠が変わったセクションと RESIDUE セクションだけを再評価します。実装の完全性が絶対の前提であり、契約文書の存在だけを理由にセクションを書くことはありません。
 
 **RESIDUE とは**: 「なぜ書けないか」のメモではなく、**「README と examples の実装を完全にするための実装チケットの素材」**です。危険・欠落・矛盾・不備の具体的な証拠と、実装を補強するための設計が、README 内の `<::README-RESIDUE::>`（または examples 用の `<::EXAMPLES-RESIDUE::>`）マーカーと共に厳密に記述されます。RESIDUE は後に `/drill-rfc-down` によってチケット化されます。
 
@@ -180,7 +184,7 @@ conver の最高法規は「red 無き green は違反」と定めますが、**
 3. **Step 2 — セクション単位検査ループ**: 各セクションについて、対応するチケットの spec → 実装を読み、証拠に基づいて「書ける／書けない」を判定。書ける → `resolve-section`、書けない → `mark-residue`。AI が README を直接編集することは禁止
 4. **Step 3 — Examples 専用ステップ**: 末尾の「Examples（実装サンプル）仕様と設計」を仕上げ、`<::TEMPLATE-EXAMPLES::>` を解決するか RESIDUE 化する
 
-**収束と出荷**: 全セクションが「完全な記述」または「RESIDUE 記述」になればループは収束します。RESIDUE が残っていれば `/drill-rfc-down` へ渡して実装を補強し、refine モードで再検証します。**RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことを点検が突破した状態——それが「出荷」です。**
+**収束と出荷**: 全セクションが「完全な記述」または「RESIDUE 記述」になり、marker 文法と residue レジストリが整合すれば、コマンドは収束します（RESIDUE が残っていても収束です）。RESIDUE が残っていれば `/drill-rfc-down` へ渡して実装を補強し、refine モードで再検証します。**コマンドの収束と外側の出荷判定は別です。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことを外側の出荷判定が確認した状態——それが「出荷」です。**
 
 ---
 
@@ -589,9 +593,9 @@ node .claude/skills/<name>-okf/dist/skill.mjs required --entry <concept-id>
 
 ### 出荷ループ（人間＋AI 実行）
 
-#### `/crystalize-readme <GRAPHファイルパス>`
+#### `/crystalize-readme`
 
-RFC グラフを入力に「使い方 README」をセクション単位で検証・生成します。書けないセクションは RESIDUE（証拠＋実装補強設計）として README 内に残し、`/drill-rfc-down` のチケット化素材とします。RESIDUE ゼロで出荷判定。詳細は「[/crystalize-readme — 出荷ループの入口](#crystalize-readme--出荷ループの入口)」を参照。
+引数なしで実行します。パッケージ直下の `RFC-GRAPH.json`（無ければ唯一の `*-GRAPH.json`）を内部で導出し、パッケージ README とワークスペース README を境界契約文書としてセクション単位で検証・生成します。生成 README は英語のみです。書けないセクションは RESIDUE（証拠＋実装補強設計）として README 内に残し、`/drill-rfc-down` のチケット化素材とします。コマンドは「全セクション complete|residue」「marker 文法正常」「residue レジストリ整合」で収束し、RESIDUE 0 は外側の出荷判定が確認します。詳細は「[/crystalize-readme — 出荷ループの入口](#crystalize-readme--出荷ループの入口)」を参照。
 
 ### 進化ループ（人間＋AI 実行）
 
@@ -897,17 +901,26 @@ SMOOTH-SEQUENCES.json（ワークスペース直下・/smooth-sequences の完�
 
 ### CRYSTALIZE（`/crystalize-readme` の成果物）
 
-`/crystalize-readme` は、ユーザー向け使い方説明である **README.md**（RFC と同階層に出力）と、進捗・判定結果を記録する **CRYSTALIZE-Status.json** を生成・更新します。
+`/crystalize-readme` は、パッケージの **README.md**（`packageRoot/README.md`）とワークスペースルートの **README.md**、および進捗・判定結果を記録する **CRYSTALIZE-Status.json** を生成・更新します。生成 README は英語のみです。ワークスペース README は管理ブロック方式で、人間が書いた非管理領域を破壊しません。
 
 ```
-README.md（rfcDir/README.md に出力）
+packages/<unit>/README.md（パッケージ境界契約）
+├── 意味層: 目的・できること・IN/OUT/効果・前提/事後/不変・エラー・制約
+├── 言語利用層: 言語別マトリクスと利用手順
+├── インターフェース層: REST/WebSocket/CLI/gRPC/MCP/A2A の完全仕様
 ├── 使い方セクション: 完全な記述 or <::README-RESIDUE::>（証拠＋実装補強設計）
 └── 末尾: Examples セクション: 完全な設計 or <::EXAMPLES-RESIDUE::>
 
+<workspace-root>/README.md（ワークスペース境界契約）
+├── WORKSPACE 管理ブロック: 目的・パッケージ表・依存トポロジ・公開インターフェース・横断レシピ・非目標
+└── PACKAGE:<unit-id> 管理ブロック: unit・path・role・インターフェース・README リンク・契約状態
+
 CRYSTALIZE-Status.json
 ├── mode: "fresh"|"refine"（実行モード）
-├── headings[]: { id, heading, confirmedContent }（目次 grill の確定結果）
-├── sections[]: { id, status: "complete"|"residue"|"template", content }（セクション単位の判定）
+├── grill.toc: { nodes[], waivers[], retirements[] }（自動導出した目次）
+├── grill.sections: { id, heading, state: "complete"|"residue", evidenceDigest, preserved }（セクション単位の判定）
+├── grill.residues: { id, level, layer, element, evidence[], reinforcement, state: "new"|"persisting"|"resolved" }[]
+├── grill.workspace: { path, unitId, state }（ワークスペース README 更新状態）
 ├── examplesApproved: boolean
 └── 各 Step の進行状態（/crystalize-readme の update-step-status.js が更新）
 ```
@@ -996,7 +1009,7 @@ flowchart LR
 |---|---|---|
 | **上流** | RFC の `<!-- unit: -->` → `/graphify-rfc` がノードの `unitIds` に → `/boundify-graph` がヘッダの `units:` 行に → `/split-to-tickets` がチケットの `nodeIds` と `distribution` に | `/smooth-sequences` が列挙・契約・配布の閉包を受理し、graphify が `SMOOTH-VERDICT.json` を固定する。配布台帳ゲートが台帳の形を検査する |
 | **実装** | チケットが単位を宣言し、実装ファイルの `Initial Design Artifact` ヘッダが単位を名指しする（supreme law が保護する器の中に）。ステップ契約と境界契約は `contracts` に、前提は `prerequisites` に入る | `show-ticket-context` が契約・分担・前提を Markdown で出し、`verify-make-distribution` が契約の被覆を、`check-ticket-prerequisites` が依存順を検査する。`checkUnitProvenance` が**発明**と**欠落**を別々に報告する |
-| **出荷** | `/crystalize-readme` は**グラフだけ**を読む。グラフに単位IDがあるから船積層が単位を列挙できる | 船積層が見る単位集合 ＝ 台帳の単位集合 |
+| **出荷** | `/crystalize-readme` はグラフ、package 証拠（RFC source・RFC-SEED・OBLIGATION・specs・examples）、既存 README と CRYSTALIZE-Status、ワークスペース README を読む。単位IDはグラフと package 境界から列挙する | 船積層が見る単位集合 ＝ 台帳の単位集合 |
 | **進化** | `/drill-rfc-down` Step 1 が同じ検出器を呼び、同じ view を読む | 第六の一貫性が台帳 ⇄ グラフ ⇄ チケットを突き合わせ、**失われた単位は high severity** |
 
 **保証**
@@ -1155,7 +1168,9 @@ graphify の見出し抽出と Step 0 の重複解消は、コードフェンス
 
 ### 出荷ループ（`.claude/scripts/crystalize-readme/`）
 
-`derive-output-paths.js`（Preflight・モード判定）/ `update-step-status.js`（Step 進行管理・確認記録）/ `validate-toc-proposal.js`（目次提案の構造検証）/ `emit-readme-skeleton.js`（骨子の機械出力）/ `loop-drive-readme.js`（セクション検査ループの駆動・resolve-section / mark-residue / resolve-examples / mark-examples-residue）/ `validate-marker-grammar.js`（マーカー文法の単一情報源）
+`derive-graph-path.js`（引数なしのグラフ導出）/ `derive-output-paths.js`（Preflight・モード判定）/ `discover-boundary.js`（workspace/package/unit/interface 発見・--field 出力）/ `collect-evidence.js`（証拠とダイジェスト・packageDigest）/ `parse-toml-subset.js`（workspace-map 読み取り・未対応構文は fail closed）/ `parse-rust-source-surface.js`（実装面の advisory 抽出）/ `parse-language-surface.js`（TS/Python/Go の advisory 抽出）/ `derive-toc.js`（非対話の目次候補・--source-file/--graph/--status）/ `validate-toc-structure.js`（目次構造と必須家族の検証）/ `plan-refine.js`（証拠ベースの preserve/reanalyze 判定と body 引き継ぎ）/ `residue-registry.js`（安定 ID・重複排除・ライフサイクル・README 突合・過剰検出 advisory）/ `workspace-readme.js`（管理ブロックの原子的更新・O_EXCL ロック・英語限定・決定論的集約）/ `update-step-status.js`（Step 進行管理・set-toc / set-section-states / record-residue / reconcile-residues / set-workspace）/ `emit-readme-skeleton.js`（骨子の機械出力・--plan carry-forward・人間 README 退避・--package-root）/ `loop-drive-readme.js`（セクション検査ループの駆動・resolve-section / mark-residue / resolve-examples / mark-examples-residue / --require-structured-residue / --check-residues）/ `validate-readme-language.js`（生成 README の英語限定検査・全非 ASCII 文字）/ `validate-marker-grammar.js`（マーカー文法の単一情報源）
+
+`validate-toc-proposal.js` / `backfill-confirmed-content.js` / `list-sections.js` は**互換専用（legacy）**です。旧版の対話的な見出し提案と確認済み状態の読み出しのために残しており、新しい非対話経路は `derive-toc.js` / `validate-toc-structure.js` / `update-step-status.js set-toc` を使います。削除しないでください。
 
 ### question-gate（`.claude/scripts/question-gate/`）
 
@@ -1303,8 +1318,8 @@ install.js -t /path/to/target/.claude
 7. `conver.js` が実装ループを自動実行（make → plan → start → review → resolve）。各コマンドの冒頭で前提ゲートが走る
 8. `/consolidate-stubs` が `[::STUB::]` マーカーをチケット単位へ束ね直す（`/find-omissions` の必須前提）
 9. `/find-omissions` がギャップを計測し、実装起因の omission を `Tickets.json` にマージ → 収束するまで再実装
-10. find の積み増しが数ラウンドで収束したら、`/crystalize-readme` で「ユーザーにとって素敵か」の視点から使い方 README をセクション単位で検証（出荷ループ）
-11. RESIDUE が出たら `/drill-rfc-down` がチケット化して積み増し → 手順7へ戻って再実装。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たすことを点検突破したら出荷
+10. find の積み増しが数ラウンドで収束したら、`/crystalize-readme` を**引数なし**で実行し、「ユーザーにとって素敵か」の視点からパッケージ README とワークスペース README をセクション単位で検証（出荷ループ）。生成 README は英語のみ。書けないセクションは structured residue（安定 ID・証拠・実装補強設計）として README 内に残し、`--check` と `--check-residues` で収束を確認する
+11. RESIDUE が出たら `/drill-rfc-down` がチケット化して積み増し → 手順7へ戻って再実装。コマンドの収束（全セクション complete|residue・marker 文法正常・residue レジストリ整合）と外側の出荷判定は別であり、RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たすことを外側の出荷判定が確認したら出荷
 12. 市場変化や新要件があれば `/drill-rfc-down` で正典を進化させ（進化ループ）、積み増しチケットを手順7から再実装
 13. 実装が進んだら**適合ループへ戻ります**（`/workspacify-reverse` からの再適合）。2周目以降は必ず**パターン2**として再入し、パターン判定は入場審査ではなく毎回の再測定です（「[適合ループ — 4つの入口と第五層](#適合ループ--4つの入口と第五層)」を参照）
 
