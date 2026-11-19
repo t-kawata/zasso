@@ -265,7 +265,7 @@ describe("runPackageLoop — strict order and cwd", () => {
       "/start-ticket P0-1",
       "/review-ticket P0-1",
     ]);
-    assert.ok(commands.some((command) => command.startsWith("/resolve-ticket")));
+    assert.ok(commands.includes("/resolve-ticket"));
     assert.strictEqual(commands.at(-2), "/consolidate-stubs");
     assert.strictEqual(commands.at(-1), "/find-omissions");
     assert.ok(recorded.sessions.length > 0);
@@ -303,7 +303,7 @@ describe("runPackageLoop — strict order and cwd", () => {
     assert.strictEqual(ends.length, starts.length);
   });
 
-  it("C003 reports resolve and boundary activity with and without a ticket key", async () => {
+  it("C003 reports resolve without an argument or ticket key, and boundary activity without a ticket key", async () => {
 // [::TICKET::] PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-449 --for-spec --no-implementation-order`.
     const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
     const recorded: Recorded = { sessions: [], commands: [], phases: [], stops: [], boundaries: [] };
@@ -322,11 +322,16 @@ describe("runPackageLoop — strict order and cwd", () => {
       options({ display, resolveEvery: 1, pushEnabled: true }),
       deps(fixture, recorded, advanceStatus),
     );
-    assert.ok(calls.some((call) => call.command === "/resolve-ticket" && call.ticketKey === "P0-1"));
+    assert.ok(calls.some((call) => call.command === "/resolve-ticket" && call.ticketKey === null));
     assert.ok(calls.some((call) => call.command === "/epush-branch" && call.ticketKey === null));
     assert.ok(calls.some((call) => call.command === "/consolidate-stubs" && call.ticketKey === null));
     assert.ok(calls.some((call) => call.command === "/find-omissions" && call.ticketKey === null));
     assert.ok(calls.every((call) => !call.command.includes("\n")));
+    assert.deepStrictEqual(
+      recorded.commands.map((entry) => entry.command).filter((command) => command === "/resolve-ticket"),
+      ["/resolve-ticket"],
+    );
+    assert.ok(recorded.commands.every((entry) => !entry.command.startsWith("/resolve-ticket ")));
   });
 
   it("C003 clears the activity through finally when a command fails", async () => {
@@ -390,7 +395,7 @@ describe("runPackageLoop — strict order and cwd", () => {
       (entry) => entry.command === "/review-ticket P0-1",
     );
     const resolveIndex = recorded.commands.findIndex(
-      (entry) => entry.command.startsWith("/resolve-ticket"),
+      (entry) => entry.command === "/resolve-ticket",
     );
     assert.ok(reviewIndex >= 0);
     assert.ok(resolveIndex > reviewIndex);
@@ -720,7 +725,7 @@ describe("runPackageLoop — durable boundary completion", () => {
       deps(fixture, recorded, advanceStatus),
     );
 
-    assert.ok(recorded.commands[0]?.command.startsWith("/resolve-ticket"));
+    assert.strictEqual(recorded.commands[0]?.command, "/resolve-ticket");
     const tailCommands = recorded.commands.slice(-2).map((entry) => entry.command);
     assert.strictEqual(tailCommands[0], "/consolidate-stubs");
     assert.strictEqual(tailCommands[1], "/find-omissions");
@@ -1398,8 +1403,8 @@ describe("runPackageLoop — unfinished find recovery", () => {
 
     const commands = recorded.commands.map((entry) => entry.command);
     assert.strictEqual(commands[0], "/start-ticket P0-1");
-    const resolveIndex = commands.findIndex((command) =>
-      command.startsWith("/resolve-ticket"),
+    const resolveIndex = commands.findIndex(
+      (command) => command === "/resolve-ticket",
     );
     assert.ok(resolveIndex > 0, `commands: ${commands.join(", ")}`);
   });

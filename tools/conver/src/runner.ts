@@ -581,20 +581,23 @@ async function stopAndThrow(
 async function runResolve(
   pkg: WorkspacePackage,
   options: WorkspaceLoopOptions,
-  ticketKey: string,
   deps: PackageLoopDeps,
 ): Promise<void> {
   const config = toSessionConfig(options);
   const runOptions = toRunCommandOptions(options);
-  printCommandHeader("/resolve-ticket", ticketKey);
+  // Resolve is directory-scoped batch cleanup: its optional argument is a ticket
+  // key, not a path, and the package loop has no single ticket to attribute. The
+  // session already runs in the package directory, so the command takes no
+  // argument and the display shows no ticket key.
+  printCommandHeader("/resolve-ticket");
   await runDisplayedCommand({
     pkg,
     options,
     command: "/resolve-ticket",
-    ticketKey,
+    ticketKey: null,
     execute: () =>
       runWithDeps(pkg, config, deps, async (session) => {
-        await deps.runCommand(session, `/resolve-ticket ${pkg.directory}`, runOptions);
+        await deps.runCommand(session, "/resolve-ticket", runOptions);
       }),
   });
   process.stdout.write("\n>>> ✅ resolve 完了\n");
@@ -1113,7 +1116,7 @@ export async function runPackageLoop(
 
       if (action.kind === "resolve") {
         await waitForWindow(options.watcherConfig);
-        await runResolve(pkg, options, action.ticketKey, deps);
+        await runResolve(pkg, options, deps);
         state.progress.reviewedSinceResolve = 0;
         boundaryState = markResolved(boundaryState);
         persistBoundaryState(pkg, boundaryState, deps);
