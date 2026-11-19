@@ -34,6 +34,8 @@ const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 const { readGraphFile } = require('./validate-graph-arg.js');
 const { parentIdOf } = require('./validate-toc-proposal.js');
+const { validateTocStructure } = require('./validate-toc-structure.js');
+const { registerResidue, reconcileResidues } = require('./residue-registry.js');
 
 /** CLI flag: explicit status file path */
 const FLAG_STATUS = '--status=';
@@ -54,7 +56,10 @@ const MAX_STEP = 3;
 const STEP_SUBCOMMANDS = ['start-step', 'end-step', 'fail-step', 'reset-to-step'];
 
 /** Subcommands that read their input JSON from stdin */
-const STDIN_SUBCOMMANDS = ['propose-heading', 'confirm-heading', 'delete-heading', 'resolve-section', 'mark-residue'];
+const STDIN_SUBCOMMANDS = [
+  'propose-heading', 'confirm-heading', 'delete-heading', 'resolve-section', 'mark-residue',
+  'set-toc', 'set-section-states', 'record-residue', 'reconcile-residues', 'set-workspace',
+];
 
 /** Subcommands that take no extra argument */
 const NO_ARG_SUBCOMMANDS = ['approve-toc', 'status', 'cleanup', 'backup', 'reset-toc', 'reset-sections'];
@@ -150,7 +155,7 @@ function resolveStatusPath(parsed) {
  * @param {string} graphPath — Graph file path
  * @returns {Object} Default status data
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-156, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-156|PX-451|PX-452) --for-spec --no-implementation-order`.
 function createDefaultStatus(graphPath) {
   const graph = readGraphFile(graphPath);
   const sourceFile = path.resolve(fromHomeRelative(graph.sourceFile));
@@ -163,7 +168,14 @@ function createDefaultStatus(graphPath) {
     graphFile: path.resolve(graphPath),
     currentStep: MIN_STEP,
     steps,
-    grill: { tocApproved: false, examplesApproved: false, toc: { nodes: [] }, sections: [] },
+    grill: {
+      tocApproved: false,
+      examplesApproved: false,
+      toc: { nodes: [], waivers: [], retirements: [] },
+      sections: [],
+      residues: [],
+      workspace: {},
+    },
   };
 }
 
@@ -174,7 +186,7 @@ function createDefaultStatus(graphPath) {
  * @param {string} graphPath — Graph file path (used for the default)
  * @returns {Object} Status data
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-156, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-156|PX-451|PX-452) --for-spec --no-implementation-order`.
 function readStatus(statusPath, graphPath) {
   if (!fs.existsSync(statusPath)) {
     return createDefaultStatus(graphPath);
@@ -187,10 +199,23 @@ function readStatus(statusPath, graphPath) {
     throw new Error(`${statusPath} has invalid format. sourceFile / graphFile / currentStep / steps are required.`);
   }
   if (!statusData.grill) {
-    statusData.grill = { tocApproved: false, examplesApproved: false, toc: { nodes: [] }, sections: [] };
+    statusData.grill = {
+      tocApproved: false,
+      examplesApproved: false,
+      toc: { nodes: [], waivers: [], retirements: [] },
+      sections: [],
+      residues: [],
+      workspace: {},
+    };
   }
   if (!Array.isArray(statusData.grill.sections)) {
     statusData.grill.sections = [];
+  }
+  if (!Array.isArray(statusData.grill.residues)) {
+    statusData.grill.residues = [];
+  }
+  if (!statusData.grill.workspace || typeof statusData.grill.workspace !== 'object') {
+    statusData.grill.workspace = {};
   }
   if (!statusData.grill.toc || !Array.isArray(statusData.grill.toc.nodes)) {
     // Backward-compatible migration from the legacy id-only grill (PX-153):
@@ -206,6 +231,12 @@ function readStatus(statusPath, graphPath) {
         status: legacyConfirmed.includes(id) ? 'confirmed' : 'proposed',
       })),
     };
+  }
+  if (!Array.isArray(statusData.grill.toc.waivers)) {
+    statusData.grill.toc.waivers = [];
+  }
+  if (!Array.isArray(statusData.grill.toc.retirements)) {
+    statusData.grill.toc.retirements = [];
   }
   return statusData;
 }
@@ -276,10 +307,11 @@ function executeResetToStep(status, n) {
  * @param {Object} status — Status data
  * @returns {boolean} true when every node is confirmed
  */
-// [::TICKET::] PX-153, PX-154 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-154, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-153|PX-154|PX-451|PX-452) --for-spec --no-implementation-order`.
 function isTocComplete(status) {
   const nodes = status.grill.toc.nodes;
-  return nodes.length > 0 && nodes.every((node) => node.status === 'confirmed');
+  return nodes.length > 0
+    && nodes.every((node) => node.status === 'confirmed' || node.status === 'derived');
 }
 
 /**
@@ -480,6 +512,114 @@ function executeMarkResidue(status, request) {
   process.stdout.write(`Section marked residue: ${id}\n`);
 }
 
+/**
+ * set-toc: replace the TOC with a structurally validated, derived heading set.
+ *
+ * @param {Object} status — Status data
+ * @param {{nodes: Array<object>, waivers?: Array<object>, retirements?: Array<object>}} input
+ * @throws {Error} When the TOC is empty or structurally invalid
+ */
+// [::TICKET::] PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-451|PX-452) --for-spec --no-implementation-order`.
+function executeSetToc(status, input) {
+  const nodes = input && input.nodes;
+  if (!Array.isArray(nodes) || nodes.length === 0) {
+    throw new Error('set-toc requires a non-empty nodes array.');
+  }
+  const waivers = Array.isArray(input.waivers) ? input.waivers : [];
+  const retirements = Array.isArray(input.retirements) ? input.retirements : [];
+  const validation = validateTocStructure({ nodes, waivers, retirements });
+  if (!validation.valid) {
+    throw new Error(`TOC structure is invalid: ${validation.errors.join('; ')}`);
+  }
+
+  status.grill.toc.nodes = nodes.map((node) => ({
+    ...node,
+    level: node.level || String(node.id).split('-').length,
+    status: 'derived',
+  }));
+  status.grill.toc.waivers = waivers;
+  status.grill.toc.retirements = retirements;
+  status.grill.tocApproved = true;
+  process.stdout.write(`TOC set: ${nodes.length} headings (derived).\n`);
+}
+
+/**
+ * set-section-states: record which sections are preserved, complete or residue.
+ *
+ * @param {Object} status — Status data
+ * @param {{sections: Array<object>}} input
+ */
+// [::TICKET::] PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-451|PX-452) --for-spec --no-implementation-order`.
+function executeSetSectionStates(status, input) {
+  const sections = input && input.sections;
+  if (!Array.isArray(sections)) {
+    throw new Error('set-section-states requires a sections array.');
+  }
+  for (const section of sections) {
+    if (typeof section.id !== 'string' || typeof section.heading !== 'string') {
+      throw new Error('each section requires id and heading.');
+    }
+    const existing = status.grill.sections.find((entry) => entry.id === section.id);
+    const record = {
+      ...(existing || {}),
+      ...section,
+      state: section.state || (section.action === 'preserve' ? 'complete' : 'residue'),
+      preserved: section.action === 'preserve' || section.preserved === true,
+    };
+    if (existing) Object.assign(existing, record);
+    else status.grill.sections.push(record);
+  }
+  process.stdout.write(`Section states updated: ${sections.length}.\n`);
+}
+
+/**
+ * record-residue: upsert a structured residue into the registry.
+ *
+ * @param {Object} status — Status data
+ * @param {{residue: object}} input
+ */
+// [::TICKET::] PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-451|PX-452) --for-spec --no-implementation-order`.
+function executeRecordResidue(status, input) {
+  if (!input || !input.residue) {
+    throw new Error('record-residue requires a residue object.');
+  }
+  const registered = registerResidue(input.residue, status.grill.residues);
+  status.grill.residues = registered.registry;
+  process.stdout.write(`Residue recorded: ${registered.record.id} (${registered.record.state}).\n`);
+}
+
+/**
+ * reconcile-residues: mark resolved residues when their sections are complete.
+ *
+ * @param {Object} status — Status data
+ * @param {{sections?: Array<object>}} input
+ */
+// [::TICKET::] PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-451|PX-452) --for-spec --no-implementation-order`.
+function executeReconcileResidues(status, input) {
+  const sections = input && Array.isArray(input.sections)
+    ? input.sections
+    : status.grill.sections;
+  const reconciled = reconcileResidues(status.grill.residues, sections);
+  status.grill.residues = reconciled.registry;
+  process.stdout.write(`Residues reconciled: ${reconciled.resolved.length} resolved.\n`);
+}
+
+/**
+ * set-workspace: record the workspace README update state.
+ *
+ * @param {Object} status — Status data
+ * @param {{workspace?: object}} input
+ */
+// [::TICKET::] PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-451|PX-452) --for-spec --no-implementation-order`.
+function executeSetWorkspace(status, input) {
+  const workspace = input && input.workspace ? input.workspace : input;
+  if (!workspace || typeof workspace !== 'object') {
+    throw new Error('set-workspace requires a workspace object.');
+  }
+  status.grill.workspace = { ...(status.grill.workspace || {}), ...workspace };
+  process.stdout.write('Workspace state recorded.\n');
+}
+
 /** status: output the current status as formatted JSON. */
 // [::TICKET::] PX-152 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-152 --for-spec --no-implementation-order`.
 function executeStatus(status) {
@@ -559,7 +699,7 @@ function exitWithError(message, reason, action) {
 /**
  * Display usage instructions.
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156|PX-451|PX-452) --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(`
 update-step-status.js — CRYSTALIZE-Status.json management
@@ -581,6 +721,11 @@ Subcommands:
   approve-toc       Set tocApproved only when every node is confirmed
   resolve-section   Mark a section complete in grill.sections from stdin {id, heading}
   mark-residue      Mark a section as residue in grill.sections from stdin {id, heading}
+  set-toc           Replace grill.toc.nodes with a derived, validated heading set
+  set-section-states Record preserved/reanalyzed section states from stdin {sections}
+  record-residue    Upsert a structured residue into grill.residues
+  reconcile-residues Mark completed section residues resolved
+  set-workspace      Record the workspace README update state
   reset-sections    Clear grill.sections and examplesApproved (Step 2 restart)
   status            Output the current state as formatted JSON
   cleanup           Delete known temporary files (idempotent)
@@ -598,7 +743,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * main — parse arguments, dispatch subcommand, write atomically.
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156, PX-401 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156|PX-401) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156, PX-401, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156|PX-401|PX-451|PX-452) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -677,6 +822,21 @@ function main() {
       case 'mark-residue':
         executeMarkResidue(status, inputJson);
         break;
+      case 'set-toc':
+        executeSetToc(status, inputJson);
+        break;
+      case 'set-section-states':
+        executeSetSectionStates(status, inputJson);
+        break;
+      case 'record-residue':
+        executeRecordResidue(status, inputJson);
+        break;
+      case 'reconcile-residues':
+        executeReconcileResidues(status, inputJson);
+        break;
+      case 'set-workspace':
+        executeSetWorkspace(status, inputJson);
+        break;
       case 'status':
         executeStatus(status);
         process.exit(0);
@@ -735,6 +895,11 @@ module.exports = {
   executeApproveToc,
   executeResolveSection,
   executeMarkResidue,
+  executeSetToc,
+  executeSetSectionStates,
+  executeRecordResidue,
+  executeReconcileResidues,
+  executeSetWorkspace,
   executeResetSections,
   executeStatus,
   executeCleanup,

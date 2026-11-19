@@ -1,3 +1,4 @@
+// [::TICKET::] PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-451 --for-spec --no-implementation-order`.
 /**
  * The one pass that decides what a drill reads.
  *
@@ -104,8 +105,10 @@ function appendWithoutDuplicates(target, candidates) {
  *   readmePresent: boolean, readmePath: string|null, sequencesPresent: boolean,
  *   sequencesView: string|null, materialSummary: Array<object>, resumed: boolean }}
  */
+// [::TICKET::] PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-452 --for-spec --no-implementation-order`.
 export function resolveDrillMaterial({
   packageDir,
+  workspaceRoot = null,
   sessionDir = defaultSessionDirFor(path.join, packageDir),
   arguments: materialArguments = [],
   cwd = process.cwd(),
@@ -113,6 +116,8 @@ export function resolveDrillMaterial({
 } = {}) {
   const readmePath = path.join(packageDir, README_FILENAME);
   const readmePresent = fs.existsSync(readmePath);
+  const workspaceReadmePath = workspaceRoot ? path.join(workspaceRoot, README_FILENAME) : null;
+  const workspaceReadmePresent = workspaceReadmePath !== null && fs.existsSync(workspaceReadmePath);
 
   const sequences = findSequenceMaterial({
     rfcDir: packageDir,
@@ -131,6 +136,8 @@ export function resolveDrillMaterial({
       addedArguments: [],
       readmePresent,
       readmePath: readmePresent ? readmePath : null,
+      workspaceReadmePresent,
+      workspaceReadmePath: workspaceReadmePresent ? workspaceReadmePath : null,
       sequencesPresent,
       sequencesView,
       materialSummary: [],
@@ -140,6 +147,7 @@ export function resolveDrillMaterial({
 
   const discovered = [];
   if (readmePresent) discovered.push(readmePath);
+  if (workspaceReadmePresent && workspaceReadmePath !== readmePath) discovered.push(workspaceReadmePath);
   if (sequencesView !== null) discovered.push(sequencesView);
 
   const { materialPaths: argumentFiles, materialSummary, argumentEntries } = collectMaterialArguments(materialArguments, cwd);
@@ -156,6 +164,8 @@ export function resolveDrillMaterial({
     addedArguments,
     readmePresent,
     readmePath: readmePresent ? readmePath : null,
+    workspaceReadmePresent,
+    workspaceReadmePath: workspaceReadmePresent ? workspaceReadmePath : null,
     sequencesPresent,
     sequencesView,
     materialSummary,

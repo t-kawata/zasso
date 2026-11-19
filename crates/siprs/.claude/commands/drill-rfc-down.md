@@ -663,8 +663,10 @@ node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 G5 cross-artifact consistency; canonical RFC / GRAPH / Dirs-Tree / src / Tickets; zero contradiction.
 
 ```bash
-node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --tickets="$TICKETS_PATH" --session-dir="$SESSION_DIR" --workspace="$WORKSPACE_ROOT"
+node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --tickets="$TICKETS_PATH" --session-dir="$SESSION_DIR" --workspace="$WORKSPACE_ROOT" --readme="$README_PATH" --workspace-readme="$WORKSPACE_README_PATH"
 ```
+
+**Residue coverage (P2, advisory).** A ticket that implements a README residue records the stable id in its optional `residueIds` array (`RSD-<12 hex>`). The P2 `residue-coverage` gate reads the package and workspace READMEs, matches each structured residue to those tickets, and reports `RESIDUE_UNCOVERED` or `RESIDUE_UNSTRUCTURED`. The gate exits non-zero when residue remains but never blocks this package: `DRILL-REPORT` stays `COMPLETE`, and the next `/crystalize-readme` run re-observes any residue left unticketed.
 
 | Check | Severity |
 |---|---|

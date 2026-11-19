@@ -60,12 +60,23 @@ const {
   splitSections,
   validateMarkerGrammar,
 } = require('./validate-marker-grammar.js');
+const { assertReadmeLanguage } = require('./validate-readme-language.js');
+const { registerResidue, validateRegistry, detectOverDetection } = require('./residue-registry.js');
 
 /** CLI flag: explicit status file path */
 const FLAG_STATUS = '--status=';
 
 /** CLI flag: graph path from which the status path is derived */
 const FLAG_GRAPH = '--graph=';
+
+/** CLI flag: package root when it differs from rfcDir */
+const FLAG_PACKAGE_ROOT = '--package-root=';
+
+/** CLI flag: package evidence digest used by the over-detection advisory */
+const FLAG_EVIDENCE_DIGEST = '--evidence-digest=';
+
+/** CLI flag: the command path requires a structured residue payload */
+const FLAG_REQUIRE_STRUCTURED_RESIDUE = '--require-structured-residue';
 
 /** Fixed status filename inside rfcDir */
 const CRYSTALIZE_STATUS_FILENAME = 'CRYSTALIZE-Status.json';
@@ -92,27 +103,45 @@ const EXAMPLES_SECTION_ID = 'EXAMPLES';
  * Parse command line arguments.
  *
  * @param {string[]} [args] — Test argument array (defaults to process.argv when omitted)
- * @returns {{ statusPath: string|null, graphPath: string|null, check: boolean, checkExamples: boolean, list: boolean, subcommand: string|null }}
+ * @returns {{ statusPath: string|null, graphPath: string|null, check: boolean,
+ *   checkExamples: boolean, checkResidues: boolean, list: boolean, englishOnly: boolean,
+ *   packageRoot: string|null, evidenceDigest: string|null,
+ *   requireStructuredResidue: boolean, subcommand: string|null }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-451|PX-452) --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
   let statusPath = null;
   let graphPath = null;
   let check = false;
   let checkExamples = false;
+  let checkResidues = false;
   let list = false;
+  let englishOnly = false;
+  let packageRoot = null;
+  let evidenceDigest = null;
+  let requireStructuredResidue = false;
   let subcommand = null;
   for (const arg of argv) {
     if (arg.startsWith(FLAG_STATUS)) {
       statusPath = arg.slice(FLAG_STATUS.length);
     } else if (arg.startsWith(FLAG_GRAPH)) {
       graphPath = arg.slice(FLAG_GRAPH.length);
+    } else if (arg.startsWith(FLAG_PACKAGE_ROOT)) {
+      packageRoot = arg.slice(FLAG_PACKAGE_ROOT.length);
+    } else if (arg.startsWith(FLAG_EVIDENCE_DIGEST)) {
+      evidenceDigest = arg.slice(FLAG_EVIDENCE_DIGEST.length);
     } else if (arg === '--check') {
       check = true;
     } else if (arg === '--check-examples') {
       checkExamples = true;
+    } else if (arg === '--check-residues') {
+      checkResidues = true;
+    } else if (arg === FLAG_REQUIRE_STRUCTURED_RESIDUE) {
+      requireStructuredResidue = true;
+    } else if (arg === '--english-only') {
+      englishOnly = true;
     } else if (arg === '--list') {
       list = true;
     } else if (arg === SUBCOMMAND_RESOLVE || arg === SUBCOMMAND_MARK_RESIDUE
@@ -131,7 +160,19 @@ function parseArguments(args) {
   if (!statusPath && !graphPath) {
     throw new Error('--graph=<path> or --status=<path> is required.');
   }
-  return { statusPath, graphPath, check, checkExamples, list, subcommand };
+  return {
+    statusPath,
+    graphPath,
+    check,
+    checkExamples,
+    checkResidues,
+    list,
+    englishOnly,
+    packageRoot,
+    evidenceDigest,
+    requireStructuredResidue,
+    subcommand,
+  };
 }
 
 /**
@@ -155,11 +196,13 @@ function resolveStatusPath(parsed) {
  * @param {string} statusPath — Status file path
  * @returns {Object} Status data
  */
-// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-451|PX-452) --for-spec --no-implementation-order`.
 function readStatus(statusPath) {
   const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
   if (!status.grill) status.grill = {};
   if (!Array.isArray(status.grill.sections)) status.grill.sections = [];
+  if (!Array.isArray(status.grill.residues)) status.grill.residues = [];
+  if (!status.grill.workspace || typeof status.grill.workspace !== 'object') status.grill.workspace = {};
   return status;
 }
 
@@ -301,14 +344,32 @@ function checkSummary(verdict) {
 }
 
 /**
- * Derive the README path from the status sourceFile.
+ * Derive the README path: packageRoot when supplied, else rfcDir.
  *
  * @param {Object} status — CRYSTALIZE-Status.json content
- * @returns {string} Absolute README path (<rfcDir>/README.md)
+ * @param {{packageRoot?: string|null}} [options]
+ * @returns {string} Absolute README path
  */
-// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
-function deriveReadmePath(status) {
-  return path.join(path.dirname(status.sourceFile), README_FILENAME);
+// [::TICKET::] PX-156, PX-452, PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-452|PX-451) --for-spec --no-implementation-order`.
+function deriveReadmePath(status, options = {}) {
+  const base = options.packageRoot || path.dirname(status.sourceFile);
+  return path.join(base, README_FILENAME);
+}
+
+/**
+ * Reject a prose-only residue on the command path when the structured payload is
+ * required. A prose residue bypasses the stable id, deduplication, and lifecycle.
+ *
+ * @param {object} input — stdin object
+ * @param {boolean} required
+ * @throws {Error} When required and input.residue is absent
+ */
+// [::TICKET::] PX-452, PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-452|PX-451) --for-spec --no-implementation-order`.
+function assertStructuredResidue(input, required) {
+  if (!required) return;
+  if (!input || !input.residue || typeof input.residue !== 'object') {
+    throw new Error('mark-residue requires a structured residue object in this command path.');
+  }
 }
 
 /**
@@ -564,11 +625,11 @@ function examplesSummary(verdict) {
  * @param {{ statusPath: string|null, graphPath: string|null, subcommand: string|null }} parsed — Parsed arguments
  * @throws {Error} If input is invalid or the section is not found
  */
-// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-451|PX-452) --for-spec --no-implementation-order`.
 function executeSectionTransition(parsed) {
   const statusPath = resolveStatusPath(parsed);
   const status = readStatus(statusPath);
-  const readmePath = deriveReadmePath(status);
+  const readmePath = deriveReadmePath(status, { packageRoot: parsed.packageRoot });
   const input = readStdinJson();
   const { id, heading, content } = input;
   if (typeof id !== 'string' || id.trim() === '') throw new Error('input.id is required.');
@@ -577,13 +638,27 @@ function executeSectionTransition(parsed) {
 
   const text = fs.readFileSync(readmePath, 'utf8');
   const isResolve = parsed.subcommand === SUBCOMMAND_RESOLVE;
+  if (!isResolve) assertStructuredResidue(input, parsed.requireStructuredResidue);
+  if (parsed.englishOnly) assertReadmeLanguage(content);
   const confirmedContent = confirmedContentOf(status, id);
   const lead = confirmedContent && confirmedContent.trim() !== '' ? confirmedContent : null;
+
+  let residueComment = '';
+  if (!isResolve && input.residue) {
+    const registered = registerResidue(
+      { ...input.residue, sectionIds: [id] },
+      Array.isArray(status.grill.residues) ? status.grill.residues : [],
+    );
+    status.grill.residues = registered.registry;
+    const record = registered.record;
+    residueComment = `<!-- crystalize-residue: id=${record.id} level=${record.level} layer=${record.layer} element=${record.element} -->\n`;
+  }
+
   // Keep a blank line after the section so the next heading stays separated.
   const body = content.endsWith('\n') ? content : `${content}\n`;
   const next = isResolve
     ? resolveSection(text, heading, `${sectionHeadingLine(text, heading)}\n\n${lead ? `${lead}\n\n${body}` : body}`)
-    : markResidue(text, heading, body, lead);
+    : markResidue(text, heading, `${residueComment}${body}`, lead);
 
   atomicWrite(readmePath, next);
   updateSectionState(status, id, heading, isResolve ? 'complete' : 'residue');
@@ -607,14 +682,18 @@ function executeSectionTransition(parsed) {
  * @param {{ statusPath: string|null, graphPath: string|null, subcommand: string|null }} parsed — Parsed arguments
  * @throws {Error} If input is invalid, the loop has not converged, or the section lacks its template marker
  */
-// [::TICKET::] PX-156 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-156 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-451|PX-452) --for-spec --no-implementation-order`.
 function executeExamplesTransition(parsed) {
   const statusPath = resolveStatusPath(parsed);
   const status = readStatus(statusPath);
-  const readmePath = deriveReadmePath(status);
+  const readmePath = deriveReadmePath(status, { packageRoot: parsed.packageRoot });
   const input = readStdinJson();
   const { content } = input;
   if (typeof content !== 'string' || content.trim() === '') throw new Error('input.content is required.');
+  if (parsed.subcommand === SUBCOMMAND_MARK_EXAMPLES_RESIDUE) {
+    assertStructuredResidue(input, parsed.requireStructuredResidue);
+  }
+  if (parsed.englishOnly) assertReadmeLanguage(content);
 
   const text = fs.readFileSync(readmePath, 'utf8');
   const loop = checkLoopReady(text);
@@ -627,11 +706,21 @@ function executeExamplesTransition(parsed) {
   }
 
   const isResolve = parsed.subcommand === SUBCOMMAND_RESOLVE_EXAMPLES;
+  let residueComment = '';
+  if (!isResolve && input.residue) {
+    const registered = registerResidue(
+      { ...input.residue, sectionIds: [EXAMPLES_SECTION_ID] },
+      Array.isArray(status.grill.residues) ? status.grill.residues : [],
+    );
+    status.grill.residues = registered.registry;
+    const record = registered.record;
+    residueComment = `<!-- crystalize-residue: id=${record.id} level=${record.level} layer=${record.layer} element=${record.element} -->\n`;
+  }
   const body = content.endsWith('\n') ? content : `${content}\n`;
   const headingLine = sectionHeadingLine(text, TRAILING_SECTION_TITLE);
   const next = isResolve
     ? resolveSection(text, TRAILING_SECTION_TITLE, `${headingLine}\n\n${body}`)
-    : markExamplesResidue(text, TRAILING_SECTION_TITLE, body);
+    : markExamplesResidue(text, TRAILING_SECTION_TITLE, `${residueComment}${body}`);
 
   atomicWrite(readmePath, next);
   status.grill.examplesApproved = isResolve;
@@ -645,7 +734,7 @@ function executeExamplesTransition(parsed) {
 /**
  * main — CLI entry point.
  */
-// [::TICKET::] PX-156, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-366) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-156, PX-366, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-156|PX-366|PX-451|PX-452) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -687,8 +776,28 @@ function main() {
   try {
     const statusPath = resolveStatusPath(parsed);
     const status = readStatus(statusPath);
-    const readmePath = deriveReadmePath(status);
+    const readmePath = deriveReadmePath(status, { packageRoot: parsed.packageRoot });
     const text = fs.readFileSync(readmePath, 'utf8');
+    if (parsed.checkResidues) {
+      const previousDigest = status.grill.evidence ? status.grill.evidence.digest : null;
+      const overDetection = detectOverDetection({
+        registry: status.grill.residues || [],
+        sections: status.grill.sections || [],
+        evidenceDigest: parsed.evidenceDigest,
+        previousEvidenceDigest: previousDigest,
+      });
+      if (parsed.evidenceDigest) {
+        status.grill.evidence = { previousDigest, digest: parsed.evidenceDigest };
+        atomicWrite(statusPath, JSON.stringify(status, null, 2));
+      }
+      const verdict = { ...validateRegistry(status.grill.residues || [], text), overDetection };
+      process.stdout.write(`${JSON.stringify(verdict)}\n`);
+      process.stderr.write(verdict.ok
+        ? 'Residues valid: every record has evidence and reinforcement, ids are unique, and resolved ids are absent from the README.\n'
+        : `Residues invalid: ${verdict.errors.join('; ')}. Repair the reported records, then re-run --check-residues.\n`);
+      if (overDetection.advisory) process.stderr.write(`${overDetection.message}\n`);
+      process.exit(verdict.ok ? 0 : 1);
+    }
     if (parsed.check) {
       const verdict = checkLoopReady(text);
       process.stdout.write(JSON.stringify(verdict) + '\n');
@@ -745,9 +854,13 @@ module.exports = {
   checkExamplesReady,
   examplesSummary,
   executeExamplesTransition,
+  assertStructuredResidue,
   main,
   FLAG_STATUS,
   FLAG_GRAPH,
+  FLAG_PACKAGE_ROOT,
+  FLAG_EVIDENCE_DIGEST,
+  FLAG_REQUIRE_STRUCTURED_RESIDUE,
   README_FILENAME,
   SUBCOMMAND_RESOLVE,
   SUBCOMMAND_MARK_RESIDUE,

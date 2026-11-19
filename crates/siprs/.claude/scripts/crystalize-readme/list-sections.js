@@ -8,7 +8,7 @@ const { toHomeRelative } = require('../lib/path-utils');
 
 const DEFAULT_FILE_NAME = 'CRYSTALIZE-Status.json';
 
-// [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-231, PX-452, PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-231|PX-452|PX-451) --for-spec --no-implementation-order`.
 function main() {
   const filePath = process.argv[2] || path.join(process.cwd(), DEFAULT_FILE_NAME);
 
@@ -41,7 +41,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log('');
+  process.stdout.write('\n');
   for (const section of sections) {
     const id = section && section.id !== undefined ? section.id : '';
     const heading = section && section.heading !== undefined ? section.heading : '';
@@ -49,7 +49,7 @@ function main() {
       ? section.confirmedContent
       : '';
 
-    console.log(`${id}: ${heading}\n    ->>> ${confirmedContent || 'Nothing'}\n`);
+    process.stdout.write(`${id}: ${heading}\n    ->>> ${confirmedContent || 'Nothing'}\n\n`);
   }
 }
 

@@ -376,11 +376,12 @@ function formatResolutionErrorMessage(pathSource, sourcePath) {
  * @param {Object} vars — rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir
  * @returns {string} [VARIABLES] block
  */
-// [::TICKET::] PX-365, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-368|PX-369) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365, PX-368, PX-369, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-368|PX-369|PX-451|PX-452) --for-spec --no-implementation-order`.
 function formatVariablesBlock(vars) {
   const {
     rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir, workspaceRoot,
-    readmePresent = false, sequencesPresent = false, sequencesView = null,
+    readmePresent = false, workspaceReadmePath = null, workspaceReadmePresent = false,
+    sequencesPresent = false, sequencesView = null,
     materialPaths = [], addedArguments = [],
   } = vars;
   return [
@@ -395,6 +396,8 @@ function formatVariablesBlock(vars) {
     `DRILL_DIR=${drillDir}`,
     `WORKSPACE_ROOT=${workspaceRoot ?? ''}`,
     `README_PRESENT=${readmePresent === true}`,
+    `WORKSPACE_README_PATH=${workspaceReadmePath ?? ''}`,
+    `WORKSPACE_README_PRESENT=${workspaceReadmePresent === true}`,
     `SEQUENCES_PRESENT=${sequencesPresent === true}`,
     `SEQUENCES_VIEW=${sequencesView ?? ''}`,
     `MATERIAL_PATHS=${JSON.stringify(materialPaths)}`,
@@ -409,7 +412,7 @@ function formatVariablesBlock(vars) {
  * @param {Object} params — materialSummary, pipeline paths, pathSource, present, variablesBlock (optional)
  * @returns {string} Markdown report
  */
-// [::TICKET::] PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-368, PX-369, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-368|PX-369|PX-451|PX-452) --for-spec --no-implementation-order`.
 function formatPreflightMarkdown(options = {}) {
   const { materialSummary, pipeline, pathSource, present, variablesBlock, materialResolution = null } = options;
   const { rfcPath, graphPath, dirsTreePath, readmePath } = pipeline;
@@ -428,6 +431,7 @@ function formatPreflightMarkdown(options = {}) {
       '| Input | Path | Present |',
       '|-------|------|---------|',
       `| README.md (optional) | ${materialResolution.readmePath ?? '(absent)'} | ${materialResolution.readmePresent ? '✅' : '❌ optional'} |`,
+      `| Workspace README.md (optional) | ${materialResolution.workspaceReadmePath ?? '(absent)'} | ${materialResolution.workspaceReadmePresent ? '✅' : '❌ optional'} |`,
       `| SEQUENCES.md (optional) | ${materialResolution.sequencesView ?? '(absent)'} | ${materialResolution.sequencesPresent ? '✅' : '❌'} |`,
       '',
       materialResolution.resumed ? '_Resumed from the session material record._' : `_Added arguments: ${materialResolution.addedArguments.length}._`,
@@ -498,7 +502,7 @@ function formatAbortMessage(missing) {
 /**
  * main — CLI entry point (Step 0 Preflight).
  */
-// [::TICKET::] PX-365, PX-366, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-366|PX-368|PX-369) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-365, PX-366, PX-368, PX-369, PX-451, PX-452 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-365|PX-366|PX-368|PX-369|PX-451|PX-452) --for-spec --no-implementation-order`.
 function main() {
   if (require.main === module) {
     recordRunHistory('start', RUN_HISTORY);
@@ -525,8 +529,10 @@ function main() {
     }
     const rfcDir = path.dirname(rfcPath);
     const sessionDir = path.join(rfcDir, SESSION_DIR_NAME);
+    const workspaceRoot = findWorkspaceRoot(packageDir);
     const materialResolution = resolveDrillMaterial({
       packageDir,
+      workspaceRoot,
       sessionDir,
       arguments: materialArgs,
       cwd: process.cwd(),
@@ -540,7 +546,6 @@ function main() {
       process.stderr.write(`${formatAbortMessage(missing)}\n`);
       process.exit(EXIT_FAILURE);
     }
-    const workspaceRoot = findWorkspaceRoot(packageDir);
     const variablesBlock = formatVariablesBlock({
       rfcPath,
       rfcDir,
@@ -552,6 +557,8 @@ function main() {
       drillDir: DRILL_DIR,
       workspaceRoot,
       readmePresent: materialResolution.readmePresent,
+      workspaceReadmePath: materialResolution.workspaceReadmePath,
+      workspaceReadmePresent: materialResolution.workspaceReadmePresent,
       sequencesPresent: materialResolution.sequencesPresent,
       sequencesView: materialResolution.sequencesView,
       materialPaths: materialResolution.materialPaths,

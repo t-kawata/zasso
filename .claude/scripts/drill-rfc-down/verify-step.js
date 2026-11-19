@@ -29,6 +29,7 @@ import { parseSeedIdentity, resolveWorkspaceRoot } from '../spec-formula/index.m
 import repairFinding from '../lib/repair-finding.js';
 import recorder from '../lib/run-history-recorder.cjs';
 import { REPORT_STATES, writeDrillReport } from './drill-report.js';
+import { evaluateResidueCoverage } from './lib/residue-coverage.mjs';
 
 const { renderFindings } = repairFinding;
 
@@ -156,7 +157,38 @@ function runWorkspaceResidue(workspaceRoot) {
   };
 }
 
-// [::TICKET::] PX-169, PX-365, PX-368, PX-369 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-365|PX-368|PX-369) --for-spec --no-implementation-order`.
+/**
+ * The P2 residue-coverage gate, when a README path was supplied.
+ *
+ * Absence of both paths keeps the previous report exactly: no gate and no
+ * findings. The command passes the paths from preflight; other callers are
+ * unaffected.
+ *
+ * @param {{readmePath: string|null, workspaceReadmePath: string|null, ticketsPath: string|null}} input
+ * @returns {{gates: Array<object>, findings: Array<object>}}
+ */
+// [::TICKET::] PX-452, PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-452|PX-451) --for-spec --no-implementation-order`.
+function runResidueCoverage({ readmePath, workspaceReadmePath, ticketsPath }) {
+  const packageReadme = readmePath && readmePath.length > 0 ? readmePath : null;
+  const workspaceReadme = workspaceReadmePath && workspaceReadmePath.length > 0 ? workspaceReadmePath : null;
+  if (packageReadme === null && workspaceReadme === null) return { gates: [], findings: [] };
+  const readmeText = packageReadme !== null && existsSync(packageReadme) ? readFileSync(packageReadme, 'utf8') : '';
+  const workspaceReadmeText = workspaceReadme !== null && existsSync(workspaceReadme)
+    ? readFileSync(workspaceReadme, 'utf8')
+    : '';
+  let tickets = null;
+  if (ticketsPath !== null && existsSync(ticketsPath)) {
+    try {
+      tickets = JSON.parse(readFileSync(ticketsPath, 'utf8'));
+    } catch {
+      tickets = null;
+    }
+  }
+  const result = evaluateResidueCoverage({ readmeText, workspaceReadmeText, tickets });
+  return { gates: [result.gate], findings: result.findings };
+}
+
+// [::TICKET::] PX-169, PX-365, PX-368, PX-369, PX-452, PX-451 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-169|PX-365|PX-368|PX-369|PX-452|PX-451) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const rfcPath = argumentFor(args, 'rfc');
@@ -215,7 +247,16 @@ function main() {
   };
 
   const p1 = { gates: [consistencyGate, formulaGate, chainGate], findings: [...consistency.findings, ...formulaFindings] };
-  const p2 = runWorkspaceResidue(argumentFor(args, 'workspace'));
+  const workspaceP2 = runWorkspaceResidue(argumentFor(args, 'workspace'));
+  const residueP2 = runResidueCoverage({
+    readmePath: argumentFor(args, 'readme'),
+    workspaceReadmePath: argumentFor(args, 'workspace-readme'),
+    ticketsPath,
+  });
+  const p2 = {
+    gates: [...workspaceP2.gates, ...residueP2.gates],
+    findings: [...workspaceP2.findings, ...residueP2.findings],
+  };
   const sessionDir = resolveSessionDir(rfcPath);
   const written = writeDrillReport({ sessionDir, packageDir: path.dirname(rfcPath), p1, p2 });
 
@@ -248,4 +289,4 @@ if (isMainModule) {
   main();
 }
 
-export { formatFindingsReport, main };
+export { formatFindingsReport, main, runResidueCoverage };
