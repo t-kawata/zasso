@@ -222,6 +222,29 @@ flowchart TD
 
 **但し書き（より正確には `/graphify-rfc` が境界）** — 実際に入口が切り替わるのは上流ループの完了時ではなく、**`/graphify-rfc` が最初の派生成物 `RFC-GRAPH.json` を書いた瞬間**です（旧名の木では `*-GRAPH.json`）。以降は `/grill-me-for-rfc` が RFC の書き換えを拒否し、`/drill-rfc-down` へ誘導します。したがって `/graphify-rfc` 済み・`/boundify-graph` 未の狭間では、grill は拒否し、drill は前提成果物（`RFC-Dirs-Tree.json` / `Tickets.json`）が揃わず起動しません（`README.md` は任意で、無ければ `README_PRESENT=false` として続行します）。この窓では先に `/boundify-graph` まで進めてから `/drill-rfc-down` を使ってください。
 
+### `amend-rfc-up` と `drill-rfc-down` — 補強・強化か、進化・再設計か
+
+正典を更新する入口は2つあります。どちらも RFC・GRAPH・Dirs-Tree・Tickets に到達しますが、**決定が閉じているか、開いているか**が違います。
+
+| | `/amend-rfc-up` — 補強・強化 | `/drill-rfc-down` — 進化・再設計 |
+|---|---|---|
+| 決定 | **閉じている**。既に決まったことを適用する | **開いている**。未決の設計点を人間に聞いて決める |
+| 範囲 | **広い**。複数パッケージ横断・workspace impact まで検証する | **狭い**。単一パッケージを深く進化させる |
+| 書くもの | `## Design Amendments` への追記と、派生物の再導出 | 設計本文の進化と、staging された差分の承認 |
+| 保証 | 規則・義務・surface の網羅台帳 | 質問の settle 根拠・staging の承認・staleness の再審問 |
+| 主な危険 | 不定点を黙って「最小・後方互換・可逆」で埋める | 質問コストと、設計が行き過ぎること |
+| 向く作業 | レビュー指摘の反映、規約・法令への追随、漏れの補修、既決の仕様変更、パッケージ横断の修正 | 意味の変更、新概念の導入、公開契約の破壊的変更、GRAPH / Dirs-Tree の再編、staleness の再審問 |
+
+**境界の一言**: 骨格を保ったまま強くするのが **amend**、骨格まで変えうるのが **drill**。
+
+**迷ったら「質問が必要か」で分けます。** 質問が必要なら drill、不要なら amend です。amend は質問を禁止し、決定できない点を「最小・後方互換・可逆」で埋めるため、人間の体験や優先順位に関わる判断を任せてはいけません。drill は問いを最後の手段にしつつ、必要な点だけを方向の問いとして束ねます。
+
+**正典の状態による入口**:
+
+- 新規作成・全面書き換え（`standalone` / `partial`）→ `/grill-me-for-rfc`
+- 正典が揃っている（`materialized-fresh`）→ `/drill-rfc-down`
+- receipt が古い（`materialized-stale`）→ `/amend-rfc-up` の修復ループ
+
 **編集方針**:
 
 - 追記優先。全文書き換え・セクション削除・破壊的変更は禁止
@@ -575,6 +598,10 @@ RFC グラフを入力に「使い方 README」をセクション単位で検証
 #### `/drill-rfc-down [<material file|directory>...]`
 
 正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して verify で5成果物の相互整合性を機械検証し、積み増しチケットを生成します。問いは先に**先行記録から確定を試み**、確定できなかった点だけを `/grill-me-for-rfc`・`/explain-seed` とバイト同一の question-gate ブロックで束ねて聞きます。引数はマテリアル（参考資料）のファイル/ディレクトリで、RFC パスは `Tickets.json` の `metadata.resolvedPaths` から解決されます。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
+
+#### `/amend-rfc-up [<material file|directory>...]`
+
+正典が揃ったパッケージへ、**既に決まった変更**を証跡付きで適用します。自由記述の指示を差分に分解し、RFC の `## Design Amendments` への追記、GRAPH・Dirs-Tree・Tickets の再導出、規則・義務・surface の網羅台帳、workspace 横断 impact の検証までを非対話で実行します。質問はせず、決定できない点は「最小・後方互換・可逆」で埋めます。`materialized-fresh` / `materialized-stale` のみ対象で、`standalone` / `partial` は `/grill-me-for-rfc` へ誘導します。終端は `DESIGN_AMENDED` / `NO_CHANGE` / `BLOCKED`。drill との使い分けは「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」の「amend-rfc-up と drill-rfc-down」を参照。
 
 ---
 
