@@ -23,6 +23,8 @@ export interface DashboardOptions {
   clearInterval?: typeof clearInterval;
   setRawMode?: (enabled: boolean) => void;
   log?: (message: string) => void;
+  /** Full package names selected with -P; highlighted in the header. */
+  highlightPackages?: readonly string[];
 }
 
 const LOG_MIN_ROWS = 4;
@@ -278,6 +280,7 @@ export class ProgressDashboard {
         terminalWidth: columns,
         color: true,
         shortNames: shortNames.slice(start, end),
+        highlightNames: this.#options.highlightPackages,
       },
     );
     const indicator = (text: string): string =>

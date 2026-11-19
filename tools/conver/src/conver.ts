@@ -37,6 +37,15 @@ import type { DisplayHooks } from "./runner.js";
 const DEFAULT_TERMINAL_WIDTH = 120;
 const DEFAULT_TERMINAL_ROWS = 24;
 
+/**
+ * Format the -P selection for the startup banner. An omitted selection runs
+ * every package, so it says "(all)" rather than echoing an empty list.
+ */
+function formatTargetPackages(requested: readonly string[]): string {
+  const unique = [...new Set(requested)];
+  return unique.length === 0 ? "(all)" : unique.join(", ");
+}
+
 /** Log a fatal error without a raw trace. */
 export function reportFatalError(prefix: string, err: unknown): void {
   console.error(`${prefix}:`, err instanceof Error ? err.message : String(err));
@@ -232,6 +241,7 @@ export async function main(): Promise<void> {
         }),
         now: Date.now,
         setRawMode: (enabled) => process.stdin.setRawMode?.(enabled),
+        highlightPackages: options.packages,
       })
     : null;
   if (renderer !== null) setAgentStderrSink((text) => renderer.writeStderr(text));
@@ -283,6 +293,7 @@ export async function main(): Promise<void> {
   process.stdout.write("conver.js — ワークスペース処理を開始します\n");
   process.stdout.write(`  workspace=${model.name}\n`);
   process.stdout.write(`  packages=${model.packages.length}\n`);
+  process.stdout.write(`  targetPackages=${formatTargetPackages(options.packages)}\n`);
   process.stdout.write(`  model=${options.model}\n`);
   process.stdout.write(`  baseUrl=${options.baseUrl}\n`);
   process.stdout.write(`  maxCount=${options.maxCount}\n`);

@@ -58,7 +58,7 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.resolveEvery, 3);
     assert.strictEqual(options.pushEnabled, true);
     assert.strictEqual(options.verbose, true);
-    assert.strictEqual(options.timeoutMs, 1800000);
+    assert.strictEqual(options.timeoutMs, 5400000);
     assert.strictEqual(options.bindReviewInOneSession, true);
     assert.strictEqual(options.maxFindRounds, 5);
     assert.strictEqual(options.watcherConfig, undefined);

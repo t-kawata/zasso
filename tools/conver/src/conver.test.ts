@@ -249,6 +249,33 @@ describe("main", () => {
     assert.strictEqual(workspace.name, "ws");
   });
 
+  it("prints the -P target packages at startup", async () => {
+    mockExit();
+    state.cli.packages = ["doors-core", "doors-operation"];
+    const stdout = captureStream(process.stdout);
+    try {
+      await main();
+    } finally {
+      stdout.restore();
+    }
+
+    assert.ok(
+      stdout.chunks.join("").includes("  targetPackages=doors-core, doors-operation\n"),
+    );
+  });
+
+  it("prints targetPackages=(all) when -P is omitted", async () => {
+    mockExit();
+    const stdout = captureStream(process.stdout);
+    try {
+      await main();
+    } finally {
+      stdout.restore();
+    }
+
+    assert.ok(stdout.chunks.join("").includes("  targetPackages=(all)\n"));
+  });
+
   it("exits 1 when the workspace gate fails", async () => {
     mockExit();
     state.gateError = new MockWorkspaceGateError("no manifests");

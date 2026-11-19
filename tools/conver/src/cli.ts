@@ -7,6 +7,10 @@ import { MAX_FIND_ROUNDS } from "./find-policy.js";
 // 後方互換のため従来の DeepSeek エンドポイントを維持する。
 export const DEFAULT_BASE_URL = "https://api.deepseek.com/anthropic";
 
+// Wall-clock budget for one slash command, from prompt dispatch to the stop
+// message. Long resolve/build phases exceed 30 minutes, so the default is 90.
+const DEFAULT_COMMAND_TIMEOUT_SECONDS = 5400;
+
 /**
  * baseUrl を正規化する。
  * - 空文字・空白のみはデフォルトへフォールバック
@@ -61,7 +65,7 @@ Options:
   -u, --url <url>            Anthropic-compatible base URL (default: https://api.deepseek.com/anthropic)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 1)
-  --timeout <seconds>        Command timeout in seconds (default: 1800)
+  --timeout <seconds>        Command timeout in seconds (default: ${DEFAULT_COMMAND_TIMEOUT_SECONDS})
   -b, --bind-review-in-one-session <0|1>
                              Bind review in same session (default: 1)
   -w, --watcher <path>       Watcher config JSON path (exits 0 at the endpoint)
@@ -99,7 +103,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       push: { type: "string", short: "p", default: "1" },
       "slack-url": { type: "string", short: "s" },
       verbose: { type: "string", short: "v", default: "1" },
-      timeout: { type: "string", default: "1800" },
+      timeout: { type: "string", default: String(DEFAULT_COMMAND_TIMEOUT_SECONDS) },
       "bind-review-in-one-session": { type: "string", short: "b", default: "1" },
       "no-find": { type: "string", short: "n", default: "0" },
       "max-find-rounds": { type: "string", default: String(MAX_FIND_ROUNDS) },

@@ -100,6 +100,93 @@ describe("renderHeader", () => {
     }
   });
 
+  it("paints only the -P target package name in bold yellow", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 1;
+    try {
+      const lines = renderHeader(snapshot(), {
+        terminalWidth: 80,
+        color: true,
+        highlightNames: ["doors-core"],
+      });
+      assert.ok(lines[1]?.includes(chalk.bold.yellow("doors-core")));
+      assert.ok(!lines[0]?.includes(chalk.bold.yellow("pjsip-prebuilt")));
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("matches a partial -P name to the package it selects", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 1;
+    try {
+      const lines = renderHeader(snapshot(), {
+        terminalWidth: 80,
+        color: true,
+        highlightNames: ["doors"],
+      });
+      assert.ok(lines[1]?.includes(chalk.bold.yellow("doors-core")));
+      assert.ok(!lines[0]?.includes(chalk.bold.yellow("pjsip-prebuilt")));
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("keeps the percent column aligned when a name is highlighted", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 1;
+    try {
+      const lines = renderHeader(snapshot(), {
+        terminalWidth: 80,
+        color: true,
+        highlightNames: ["doors-core"],
+      });
+      assert.ok(lines[1]?.includes(chalk.bold.yellow("doors-core")));
+      const stripped = lines.map(stripAnsi);
+      assert.strictEqual(stripped[0]?.indexOf("%"), stripped[1]?.indexOf("%"));
+      assert.strictEqual(visibleColumns(lines[0] ?? ""), visibleColumns(lines[1] ?? ""));
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("truncates a highlighted name without dropping the width or percent column", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 1;
+    try {
+      const lines = renderHeader(snapshot(), {
+        terminalWidth: 20,
+        color: true,
+        highlightNames: ["pjsip-prebuilt"],
+      });
+      assert.ok(lines[0]?.includes(chalk.bold.yellow("pjsip-prebuilt")));
+      for (const line of lines) {
+        assert.ok(visibleColumns(line) <= 20);
+        assert.ok(stripAnsi(line).endsWith("%"));
+      }
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("ignores an empty -P entry instead of highlighting every package", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 1;
+    try {
+      const lines = renderHeader(snapshot(), {
+        terminalWidth: 80,
+        color: true,
+        highlightNames: [""],
+      });
+      for (const line of lines) {
+        assert.ok(!line.includes(chalk.bold.yellow("pjsip-prebuilt")));
+        assert.ok(!line.includes(chalk.bold.yellow("doors-core")));
+      }
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
   it("returns zero percent for a package with no tickets", () => {
     const lines = renderHeader(
       { packages: [{ name: "empty", path: ".", phases: [] }] },

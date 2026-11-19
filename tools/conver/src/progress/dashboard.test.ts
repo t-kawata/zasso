@@ -4,6 +4,7 @@
 // dashboard.test.ts — fixed header, NOW row, timer, resize, scroll and cleanup.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import chalk from "chalk";
 import stringWidth from "string-width";
 import { computeFixedBudget, ProgressDashboard } from "./dashboard.js";
 import type { ProgressSnapshot } from "./model.js";
@@ -189,6 +190,35 @@ describe("ProgressDashboard", () => {
     assert.strictEqual(timer.cleared, true);
     assert.ok(writes.join("").includes("\x1b[r"));
     assert.strictEqual(rawMode, false);
+  });
+
+  it("paints the -P target package name bold yellow in the header", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 1;
+    try {
+      const timer = fakeTimer();
+      const writes: string[] = [];
+      const dashboard = new ProgressDashboard({
+        workspace: crystalWorkspace(),
+        intervalMs: 5000,
+        isTty: true,
+        write: (chunk) => writes.push(chunk),
+        readSnapshot: () => crystalSnapshot(),
+        terminalSize: () => ({ columns: 120, rows: 30 }),
+        now: () => 0,
+        setInterval: timer.setInterval,
+        clearInterval: timer.clearInterval,
+        setRawMode: () => {},
+        highlightPackages: ["crystal-core"],
+      });
+      dashboard.start();
+      dashboard.stop();
+      const output = writes.join("");
+      assert.ok(output.includes(chalk.bold.yellow("core")));
+      assert.ok(!output.includes(chalk.bold.yellow("adapter-clock")));
+    } finally {
+      chalk.level = previousLevel;
+    }
   });
 
   it("preserves the cursor across the scroll-region reset on stop", () => {

@@ -644,7 +644,7 @@ node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 | `-p`, `--push` | resolve 後に `/epush-branch` を実行（0/1） | `1` |
 | `-m`, `--model` | 使用モデル | `deepseek-flash` |
 | `-v`, `--verbose` | 詳細表示（0/1） | `1` |
-| `--timeout` | 各コマンドのタイムアウト（秒） | `1800` |
+| `--timeout` | 各コマンドのタイムアウト（秒） | `5400` |
 | `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
 | `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。endpoint で exit 0） | — |
 | `-n`, `--no-find` | 全 reviewed 後の find をスキップ（consolidate は実行）（0/1） | `0` |

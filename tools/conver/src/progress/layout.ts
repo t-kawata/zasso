@@ -18,6 +18,8 @@ export interface HeaderOptions {
   color: boolean;
   /** Names supplied by the dashboard so rows and the NOW line agree. */
   shortNames?: readonly string[];
+  /** Full package names selected with -P; their names render bold yellow. */
+  highlightNames?: readonly string[];
 }
 
 export const HEADER_BACKGROUND = "#0b1f3a";
@@ -172,10 +174,24 @@ function phaseAreaWidth(blocks: readonly PhaseBlock[]): number {
   return blocks.reduce((sum, block) => sum + block.plain.length, 0) + blocks.length - 1;
 }
 
+/** A -P selection matches a package by exact name or by substring. */
+function isHighlighted(
+  packageName: string,
+  requested: readonly string[] | undefined,
+): boolean {
+  if (requested === undefined || requested.length === 0) return false;
+  return requested.some(
+    (name) => name.length > 0 && (packageName === name || packageName.includes(name)),
+  );
+}
+
 /**
  * Render one row's content to exactly `contentWidth` columns. The percent
  * suffix is appended by the caller, so an omitted phase marker can never
  * consume the percent column.
+ *
+ * Width math uses the plain name field; the painted field differs only by
+ * zero-width SGR codes, so highlighting can never shift the percent column.
  */
 function renderRowContent(
   name: string,
@@ -183,17 +199,25 @@ function renderRowContent(
   blocks: readonly PhaseBlock[],
   contentWidth: number,
   color: boolean,
+  highlight: boolean,
 ): string {
-  const nameField = `${name.padEnd(nameWidth)}${NAME_GAP}`;
-  if (nameField.length > contentWidth) {
+  const namePadding = " ".repeat(Math.max(0, nameWidth - name.length));
+  const nameFieldWidth = nameWidth + NAME_GAP.length;
+  const paintName = (value: string): string =>
+    color && highlight ? chalk.bold.yellow(value) : value;
+
+  if (nameFieldWidth > contentWidth) {
     // A very narrow terminal cannot show both the name gap and phases. Keep
     // the percent column by trimming only the name.
     const clippedName = truncate(name, contentWidth);
-    return clippedName + " ".repeat(Math.max(0, contentWidth - clippedName.length));
+    return paintName(clippedName) + " ".repeat(Math.max(0, contentWidth - clippedName.length));
   }
 
+  const nameFieldPlain = `${name}${namePadding}${NAME_GAP}`;
+  const nameFieldPainted = `${paintName(name)}${namePadding}${NAME_GAP}`;
+
   const fitted: PhaseBlock[] = [];
-  let used = nameField.length;
+  let used = nameFieldWidth;
   let omitted = false;
   for (const block of blocks) {
     const separatorWidth = fitted.length === 0 ? 0 : 1;
@@ -207,7 +231,7 @@ function renderRowContent(
     }
   }
 
-  let content = nameField;
+  let content = nameFieldPainted;
   if (fitted.length > 0) {
     content += fitted.map((block) => (color ? block.colored : block.plain)).join(" ");
   }
@@ -224,7 +248,7 @@ function renderRowContent(
         const separatorWidth = fitted.length === 0 ? 0 : 1;
         used -= separatorWidth + removed.plain.length;
       }
-      content = nameField;
+      content = nameFieldPainted;
       if (fitted.length > 0) {
         content += fitted.map((block) => (color ? block.colored : block.plain)).join(" ");
       }
@@ -232,7 +256,9 @@ function renderRowContent(
         content += "…";
         used += 1;
       } else {
-        content = `${content.slice(0, Math.max(0, contentWidth - 1))}…`;
+        // The name field exactly fills the line. Drop its last column so the
+        // omission marker still fits, painting the name prefix only.
+        content = `${paintName(name)}${nameFieldPlain.slice(name.length, Math.max(0, contentWidth - 1))}…`;
         used = contentWidth;
       }
     }
@@ -260,6 +286,7 @@ export function renderHeader(
     const percent = `${String(packagePercent(packageEntry)).padStart(PERCENT_WIDTH)}%`;
     return {
       name,
+      highlight: isHighlighted(packageEntry.name, options.highlightNames),
       blocks,
       percent,
       contentLength:
@@ -281,6 +308,7 @@ export function renderHeader(
       row.blocks,
       contentWidth,
       options.color,
+      row.highlight,
     );
     const line = `${content} ${row.percent}`;
     if (!options.color) return line;
