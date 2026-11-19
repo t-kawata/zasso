@@ -1,10 +1,13 @@
 // PX-433 @verifies C006 @verifies C008
+// PX-450 @verifies C001 @verifies C002 @verifies C003 @verifies C004
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   assertNoViolations,
+  buildExpectedFinalState,
   compareFinalState,
+  isFatalViolation,
   validateTimeline,
 } from '../../.claude/scripts/conver/progress-gif/validator.js';
 import { makeModel, packageModel } from './models.mjs';
@@ -74,4 +77,145 @@ test('C006: validate-timeline --model reads a model file', () => {
   }
 
   assert.equal(exitCode, 0);
+});
+
+// [::TICKET::] PX-450 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-450 --for-spec --no-implementation-order`.
+function zeroedPackage(id = 'pkg-1') {
+  return packageModel({ id });
+}
+
+// [::TICKET::] PX-450 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-450 --for-spec --no-implementation-order`.
+function previousSnapshotWith(stages) {
+  return { packages: [{ id: 'pkg-1', stages }] };
+}
+
+// [::TICKET::] PX-450 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-450 --for-spec --no-implementation-order`.
+function validateParity({ artifact, previousSnapshot = null, finalStages, uncovered = [] }) {
+  const finalModel = { packages: [{ id: artifact.id, stages: finalStages }] };
+  return validateTimeline({
+    model: makeModel({ packages: [artifact] }),
+    timeline: { timeline: [] },
+    previousSnapshot,
+    artifactModel: { packages: [artifact] },
+    finalModel,
+    uncovered,
+  });
+}
+
+test('C001: a reference above the artifact is a warning and the frame holds at the reference', () => {
+  const artifact = zeroedPackage();
+  artifact.stages = { ...artifact.stages, boundify: 0.5 };
+  const violations = validateParity({
+    artifact,
+    previousSnapshot: previousSnapshotWith({ boundify: 1 }),
+    finalStages: { ...artifact.stages, boundify: 1 },
+  });
+
+  const regression = violations.find((entry) => entry.code === 'ARTIFACT_REGRESSION');
+  assert.equal(Boolean(regression), true);
+  assert.equal(regression.severity, 'warning');
+  assert.equal(regression.packageId, 'pkg-1');
+  assert.equal(regression.stage, 'boundify');
+  assert.equal(violations.some((entry) => entry.code === 'FINAL_STATE_MISMATCH' && entry.severity !== 'warning'), false);
+});
+
+test('C001: gating is applied to both vectors before the componentwise maximum', () => {
+  const artifact = zeroedPackage();
+  artifact.stages = { ...artifact.stages, make: 0.5, plan: 1 };
+  const violations = validateParity({
+    artifact,
+    previousSnapshot: previousSnapshotWith({ make: 1, plan: 0 }),
+    finalStages: { ...artifact.stages, make: 1, plan: 0.5 },
+  });
+
+  assert.equal(violations.some((entry) => entry.code === 'FINAL_STATE_MISMATCH'), false);
+  const regression = violations.find((entry) => entry.code === 'ARTIFACT_REGRESSION');
+  assert.equal(regression.stage, 'make');
+});
+
+test('C001: without a reference the expected end equals the gated artifact', () => {
+  const artifact = zeroedPackage();
+  artifact.stages = { ...artifact.stages, make: 0.5 };
+  const expected = buildExpectedFinalState({ packages: [artifact] }, null);
+
+  assert.equal(Number(expected.packages[0].stages.make), 0.5);
+  assert.deepEqual(expected.regressions, []);
+});
+
+test('C001: buildExpectedFinalState returns the gated maximum and names regressions', () => {
+  const artifact = zeroedPackage();
+  artifact.stages = { ...artifact.stages, make: 0.5, plan: 1 };
+  const expected = buildExpectedFinalState(
+    { packages: [artifact] },
+    previousSnapshotWith({ make: 1, plan: 0 }),
+  );
+
+  assert.equal(Number(expected.packages[0].stages.make), 1);
+  assert.equal(Number(expected.packages[0].stages.plan), 0.5);
+  assert.deepEqual(expected.regressions.map((entry) => entry.stage), ['make']);
+});
+
+test('C002: an uncovered target is a warning and does not throw', () => {
+  const artifact = zeroedPackage();
+  const violations = validateParity({
+    artifact,
+    finalStages: artifact.stages,
+    uncovered: [{ code: 'UNCOVERED_ARTIFACT_STAGE', stage: 'make', packageId: 'pkg-1', detail: 'no run' }],
+  });
+
+  const uncovered = violations.find((entry) => entry.code === 'UNCOVERED_ARTIFACT_STAGE');
+  assert.equal(uncovered.severity, 'warning');
+  assert.doesNotThrow(() => assertNoViolations(violations));
+});
+
+test('C002: an uncovered target explains the parity undershoot and suppresses the error', () => {
+  const artifact = zeroedPackage();
+  artifact.stages = { ...artifact.stages, make: 1 };
+  const violations = validateParity({
+    artifact,
+    finalStages: { ...artifact.stages, make: 0.5 },
+    uncovered: [{ code: 'UNCOVERED_ARTIFACT_STAGE', stage: 'make', packageId: 'pkg-1', detail: 'no run' }],
+  });
+
+  assert.equal(violations.some((entry) => entry.code === 'FINAL_STATE_MISMATCH'), false);
+});
+
+test('C004: an unexplained undershoot keeps FINAL_STATE_MISMATCH at error severity', () => {
+  const artifact = zeroedPackage();
+  artifact.stages = { ...artifact.stages, make: 1 };
+  const violations = validateParity({ artifact, finalStages: { ...artifact.stages, make: 0.5 } });
+
+  const mismatch = violations.find((entry) => entry.code === 'FINAL_STATE_MISMATCH');
+  assert.equal(mismatch.severity, 'error');
+  assert.throws(() => assertNoViolations(violations), /FINAL_STATE_MISMATCH/);
+});
+
+test('C003: strict makes a warning fatal and non-strict publishes it', () => {
+  assert.equal(isFatalViolation({ severity: 'warning' }, { strict: false }), false);
+  assert.equal(isFatalViolation({ severity: 'warning' }, { strict: true }), true);
+  assert.equal(isFatalViolation({ severity: 'error' }, { strict: false }), true);
+});
+
+test('C004: causal order and previous-state findings keep error severity', () => {
+  const model = makeModel({ packages: [zeroedPackage()] });
+  const causal = validateTimeline({
+    model,
+    timeline: {
+      timeline: [
+        { kind: 'stage', stage: 'explain', packageId: null, orderT: 1000, evidenceT: 1000, recordId: 'explain-1' },
+        { kind: 'stage', stage: 'educe', packageId: null, orderT: 2000, evidenceT: 2000, recordId: 'educe-1' },
+      ],
+    },
+    previousSnapshot: null,
+    artifactModel: null,
+  });
+  assert.equal(causal.find((entry) => entry.code === 'CAUSAL_ORDER_VIOLATION').severity, 'error');
+
+  const previous = validateTimeline({
+    model,
+    timeline: { timeline: [] },
+    previousSnapshot: { generatedAt: '2026-11-02T00:00:00.000Z', packages: [{ id: 'pkg-1', stages: { make: 1 } }] },
+    artifactModel: null,
+  });
+  assert.equal(previous.find((entry) => entry.code === 'PREVIOUS_STATE_MISMATCH').severity, 'error');
 });

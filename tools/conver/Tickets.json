@@ -70276,6 +70276,164 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-18",
           "reviewed_at": "2026-11-18T12:06:04.178Z"
+        },
+        {
+          "id": 450,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Render the progress GIF in half-done workspaces by explaining artifact regressions and uncovered stages",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-450.md",
+          "background": "### Goal\nPublish the progress GIF/HTML in a workspace that is mid-rework, instead of failing closed, while keeping every structural timeline corruption fatal.\n\n### Purpose\nA workspace legitimately holds an artifact stage below the last accepted snapshot: an amend resets boundify to step 2, the status receipt is removed, and the previous snapshot still records completion. The timeline is monotonic, so the rendered final frame can only reach the componentwise maximum of the accepted reference and the current artifact. Comparing that frame with the raw artifact makes FINAL_STATE_MISMATCH unavoidable in every such workspace.\n\n### Motivation\nMeasured in ~/shyme/gaia at ee7694a5: pkg-0018 (crates/interfaces/gaia-websocket) has RFC-BOUNDIFY-Status.json at steps 0,1 done and 2 running (0.5), while snapshots/20261116150432.json and its pinned reference record boundify=1. make gif exits 1 and writes no HTML. Half-done workspaces are frequent, so the renderer must describe them rather than refuse them.\n\n### Constraints\nStructural violations stay fatal: CAUSAL_ORDER_VIOLATION, PREVIOUS_STATE_MISMATCH, PREVIOUS_PROGRESS_MISMATCH. The snapshot schema does not change. Normal renders keep zero violations and identical frames. The regression time is not estimated because history does not record it; the display stays at the accepted ceiling and the gap is named.",
+          "scope": [
+            "validator.js: add buildExpectedFinalState(artifactModel, previousSnapshot, tolerance): gated vectors per package, expected stage = componentwise max(gated reference, gated artifact), regressions named when gated artifact < gated reference",
+            "validator.js: report ARTIFACT_REGRESSION at warning severity for each regressed stage, naming package, stage, artifact value and reference value",
+            "validator.js: compare the rendered final frame with the expected final state; keep FINAL_STATE_MISMATCH at error severity only when the gap is not named by ARTIFACT_REGRESSION or UNCOVERED_ARTIFACT_STAGE",
+            "validator.js: emit UNCOVERED_ARTIFACT_STAGE at warning severity, preserving the code name, package id and stage",
+            "validator.js: export isFatalViolation(violation, { strict }) so run(), main() and validate-timeline share one fatality rule",
+            "draw-progress-gif.js: parse --strict (default false) and replace the duplicate fatal filters in run() and main() with isFatalViolation; keep --allow-uncovered accepted as a backward-compatible no-op and remove its special case",
+            "draw-progress-gif.js: print a ## timeline section in markdownReport listing severity, code, package, stage and detail for every violation, so warnings are visible without opening the snapshot",
+            "validate-timeline.js: parse --strict, use isFatalViolation, and rewrite the stale header comment that claims final-state parity is always a warning",
+            "tests: Red-first coverage for C001 regression, the gating chain, C002 uncovered publication and suppression, C003 strict gating, C004 genuine undershoot, no-reference behavior, structural severity and CLI flags",
+            "No change: loop.js event distribution, reconcileProgressToReference, buildFrames, layout, pixel rendering, GIF encoding",
+            "No change: snapshot schema, package/ticket totals, usage series and the reference pinning mechanism",
+            "No change: CAUSAL_ORDER_VIOLATION, PREVIOUS_STATE_MISMATCH, PREVIOUS_PROGRESS_MISMATCH remain error severity",
+            "API surface: new exports isFatalViolation and buildExpectedFinalState; draw and validate-timeline accept --strict; validateTimeline keeps its existing options and gains no required argument",
+            "Data format: timelineHealth.violations and .warnings may contain ARTIFACT_REGRESSION and UNCOVERED_ARTIFACT_STAGE; no snapshot field is added or removed",
+            "Config/dependency: no new dependency, environment variable or configuration file",
+            "Out of scope: recording regression events in history (future ticket), generation-aware reference invalidation (future ticket), non-monotonic animation that draws a drop at an unknown time",
+            "Affected areas: draw-progress-gif CLI publication and exit code, validate-timeline CLI exit code, snapshot timelineHealth contents; frame values, layout, encoder and normal render output are unaffected"
+          ],
+          "testUnit": [
+            "UT: C001 validateTimeline with previousSnapshot make=1, artifact make=0.5 and final make=1 returns ARTIFACT_REGRESSION at warning severity and no error-severity FINAL_STATE_MISMATCH",
+            "UT: C001 gating chain previousSnapshot {make:1,plan:0}, artifact {make:0.5,plan:1}, final {make:1,plan:1} reports no error-severity mismatch on plan and one regression warning on make",
+            "UT: C002 an uncovered entry yields UNCOVERED_ARTIFACT_STAGE at warning severity and assertNoViolations does not throw",
+            "UT: C002 an uncovered entry for make/pkg-1 explains a final frame of 0.5 against artifact 1 and suppresses the error-severity FINAL_STATE_MISMATCH",
+            "UT: C004 artifact make=1 with final make=0.5 and no regression or uncovered entry keeps FINAL_STATE_MISMATCH at error severity",
+            "UT: C001 with previousSnapshot null the expected end equals the gated artifact vector and parity behavior is unchanged",
+            "UT: C003 isFatalViolation returns false for a warning without strict, true for a warning with strict, and true for an error regardless of strict",
+            "UT: CAUSAL_ORDER_VIOLATION and PREVIOUS_STATE_MISMATCH keep error severity after the change",
+            "UT: parseArgs accepts --strict and --allow-uncovered without throwing and defaults strict to false",
+            "UT: buildExpectedFinalState returns the componentwise maximum of the gated reference and gated artifact vectors and names every regressed stage",
+            "UT: C001 precondition (finalModel, artifactModel and previousSnapshot where a gated reference stage exceeds the gated artifact stage) is constructed by validateParity in the regression and gating tests",
+            "UT: C001 postcondition (no error-severity FINAL_STATE_MISMATCH and one ARTIFACT_REGRESSION warning per regressed stage) is asserted by the regression test",
+            "UT: C001 invariant (the compared expected end equals the componentwise maximum of the gated reference and gated artifact vectors) is asserted by the buildExpectedFinalState test",
+            "UT: C004 postcondition (FINAL_STATE_MISMATCH is reported at error severity) is asserted by the unexplained undershoot test",
+            "UT: C004 invariant (structural violations CAUSAL_ORDER_VIOLATION and PREVIOUS_STATE_MISMATCH keep error severity) is asserted by the structural severity test"
+          ],
+          "testIntegration": [
+            "IT: run() on a fixture whose reference snapshot records boundify=1 while RFC-BOUNDIFY-Status.json has 2 of 4 steps done returns a non-null HTML output and records ARTIFACT_REGRESSION in timelineHealth",
+            "IT: C003 run() with strict on the same fixture returns output null so publication is blocked, and isFatalViolation reports that the process exits 1",
+            "IT: run() on a workspace without previous snapshots produces zero violations and a final frame equal to the artifact stage vector",
+            "IT: the markdown report of the regression fixture prints a ## timeline section containing ARTIFACT_REGRESSION and the package id"
+          ],
+          "testExceptions": [
+            "Item: real gaia, crystal and doors workspaces. Reason: the automated suite cannot test the real repositories because their evidence is external workspace data that is not shipped with the repository and is not deterministic in fixtures; the changed behavior itself is covered by synthetic fixtures, so this is not a design defect and not an architectural defect. Alternative: local validation runs node .claude/scripts/conver/draw-progress-gif.js -t <workspace> and records the exit code and timelineHealth.",
+            "Item: GIF pixel output. Reason: the suite cannot test pixel output meaningfully because this ticket changes no frame construction, layout or encoding, so pixel assertions cannot discriminate the change; the deterministic behavior is covered by frame-value and violation assertions, so this is not a design defect and not an architectural defect. Alternative: integration tests assert frame values, violation sets and publication outcome.",
+            "Item: main() process exit code inside node --test. Reason: the suite cannot test the process exit boundary without spawning a child CLI; the same rule is unit-tested through isFatalViolation and consumed by main(), so this is not a design defect and not an architectural defect. Alternative: isFatalViolation is unit-tested and both main() and run() consume it, so the exit rule has one tested source."
+          ],
+          "default_files": [
+            "tools/conver/.claude/scripts/conver/progress-gif/validator.js",
+            "tools/conver/.claude/scripts/conver/draw-progress-gif.js",
+            "tools/conver/.claude/scripts/conver/validate-timeline.js",
+            "tools/conver/tests/conver/timeline-validator.test.mjs",
+            "tools/conver/tests/conver/timeline-fail-closed.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a reference-versus-artifact regression (reference boundify=1, artifact 0.5) renders HTML, exits 0, prints ARTIFACT_REGRESSION in the report, and records it in timelineHealth",
+            "Error case: CAUSAL_ORDER_VIOLATION and PREVIOUS_STATE_MISMATCH keep severity error and block publication",
+            "Edge case: UNCOVERED_ARTIFACT_STAGE publishes with a named warning; the same render with --strict blocks publication and exits 1",
+            "Boundary: a workspace without previous snapshots keeps zero violations and a final frame equal to the gated artifact vector",
+            "Regression: a gap with no regression and no uncovered entry keeps FINAL_STATE_MISMATCH at error severity"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "final-state parity versus reference checkpoint",
+              "precondition": "finalModel, artifactModel and previousSnapshot where a gated reference stage exceeds the gated artifact stage",
+              "postcondition": "no error-severity FINAL_STATE_MISMATCH and one ARTIFACT_REGRESSION warning per regressed stage",
+              "invariant": "the compared expected end equals the componentwise maximum of the gated reference and gated artifact vectors"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "uncovered artifact target publication",
+              "precondition": "reconcile returns uncovered entries for a stage with an artifact target and no run",
+              "postcondition": "UNCOVERED_ARTIFACT_STAGE appears at warning severity and publication proceeds",
+              "invariant": "the code name, package id and stage remain named in the violation"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "strict publication gate",
+              "precondition": "--strict is set and the violation set contains only warnings",
+              "postcondition": "publication is blocked and the process exits 1",
+              "invariant": "without --strict the same violation set publishes and exits 0"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "genuine final-state undershoot",
+              "precondition": "the gated artifact exceeds the gated expected end with no regression or uncovered entry explaining the gap",
+              "postcondition": "FINAL_STATE_MISMATCH is reported at error severity",
+              "invariant": "structural violations CAUSAL_ORDER_VIOLATION and PREVIOUS_STATE_MISMATCH keep error severity"
+            }
+          ],
+          "notes": "- Implementation steps: (1) write the Red tests for C001-C004 in tests/conver/timeline-validator.test.mjs and tests/conver/timeline-fail-closed.test.mjs; (2) confirm they fail for the current implementation; (3) add buildExpectedFinalState and ARTIFACT_REGRESSION; (4) downgrade UNCOVERED_ARTIFACT_STAGE and suppress FINAL_STATE_MISMATCH when uncovered names the same package and stage; (5) add isFatalViolation, --strict and the report section; (6) run the impact set with node --test; (7) validate gaia, crystal and doors manually.\n- Risks: a gating chain can push a later stage above the raw artifact even when that stage's own reference is lower, so every comparison must use gated vectors; a genuinely corrupt artifact now publishes, which --strict is designed to stop in CI.\n- Caveats: --allow-uncovered becomes a no-op and stays accepted for compatibility; the regression time is unknown, so the final frame stays at the accepted ceiling instead of drawing a drop.\n- Open items: none.\n- Future improvements: record regression events in history so the animation can draw a real drop; invalidate reference checkpoints by generation or source digest; cancel --allow-uncovered in a later major version.\n- Law: not applicable. `applies` for rust-interface-law exited 3 because no changed path matches crates/** interface units.\nImplementation summary:\n- Changed files: tools/conver/.claude/scripts/conver/progress-gif/validator.js, tools/conver/.claude/scripts/conver/draw-progress-gif.js, tools/conver/.claude/scripts/conver/validate-timeline.js, tools/conver/tests/conver/timeline-validator.test.mjs, tools/conver/tests/conver/timeline-fail-closed.test.mjs; root and siprs copies resynced.\n- Red: 13 new tests added; validator exports were missing and parseArgs had no strict option, so they failed for the absence of implementation.\n- Green: all impact tests pass. Full tests/conver: 432 tests, 431 pass, 1 fail (C001 stage-order, reproduced on HEAD without these changes, date-dependent and unrelated).\n- Real workspaces: gaia dry-run exits 0 with warning ARTIFACT_REGRESSION pkg-0018 boundify; crystal and doors exit 0 with zero findings; gaia --strict exits 1 and writes no report.\n- Quality checks: 0 issues on the three source files and two test files.\n- Caveat: validate-timeline --root=gaia still exits 1 from a pre-existing PREVIOUS_PROGRESS_MISMATCH between the snapshot generatedAt and its pinned reference; this check is unrelated to PX-450 and stays fatal.\n- Test harness note: process.stdout.write patching under node --test swallows TAP result lines, so the new run() tests use quiet:true and formatTimelineSection instead of patching stdout.\nReview report:\n- Static quality check: passed\n- Translatability: no issues; createViolation, computeGatedStageVector and formatMarkdownReport renamed to verb phrases\n- Dependencies: three conver copies are byte-identical; annotations verified (11 files, 0 missing, 0 ambiguous)\n- Issues found and fixes applied: two pre-existing quality findings (markdownReport with 6 parameters, noun-phrase helpers) were fixed during review; no contract or behavior change\n- Validation: gaia dry-run exit 0 with ARTIFACT_REGRESSION pkg-0018 boundify; crystal and doors exit 0 with zero findings; gaia --strict exits 1\n- Known baseline outside this ticket: tests/conver/stage-order.test.mjs C001 fails at HEAD because advanceStageFrontier ignores a run without a role; not caused by PX-450 and not modified\n- Law: not applicable (applies exit 3)",
+          "invariants": "- 【Normal establishment】With no regressed stage and no uncovered entry, the expected final state equals the gated artifact vector, the violation list is empty, and frames are unchanged from the current behavior.\n- 【Error】CAUSAL_ORDER_VIOLATION, PREVIOUS_STATE_MISMATCH and PREVIOUS_PROGRESS_MISMATCH keep severity error and remain fatal with or without --strict.\n- 【Internal state】Final-state parity compares gateImplementationProgress vectors, never raw stage fractions; the expected end is the componentwise maximum of the gated reference and gated artifact vectors.\n- 【Boundary】Without a previousSnapshot the expected end equals the gated artifact vector; a gap that neither a regression nor an uncovered entry names stays FINAL_STATE_MISMATCH at error severity, and a warning is fatal only under --strict.",
+          "instrumentation": "- Logging: fatal violations keep printing [timeline] <CODE> <package> <stage> <detail> to stderr; warnings are printed in the markdown report under ## timeline with severity, code, package, stage and detail.\n- Metrics: none; the renderer is a local CLI and no counter or timer is introduced.\n- Error tracking: every violation carries code, severity, packageId, stage and detail, and is persisted in the snapshot timelineHealth.violations and .warnings.\n- Health check: timelineHealth.finalStateParity stays ok unless an unexplained FINAL_STATE_MISMATCH exists; ARTIFACT_REGRESSION and UNCOVERED_ARTIFACT_STAGE appear in warnings and in the finalStateParity-adjacent violation list.\nStatic quality check: passed (0 issues on 3 source files and 2 test files)\nTranslatability: no generic variables, no debug output, verb-phrase functions after renames (createViolation, computeGatedStageVector, formatMarkdownReport)\nTests: 39/39 impact set, 431/432 tests/conver; the single failure is a pre-existing C001 stage-order test that fails identically at HEAD",
+          "investigation": "- validator.js:24-165: validateTimeline pushes structural findings at error severity and appends uncovered entries with the default severity (line 151-153). Final parity uses the raw artifact model (lines 155-164) and compareFinalState compares history with that model (lines 169-193).\n- loop.js:588-593 gateImplementationProgress clamps each implementation stage to its predecessor. loop.js:665-679 checkpointTargets derives reference and artifact ends after gating. loop.js:744-790 distributes pre-reference events to the gated reference and at most max(0, end - reference) to post-reference events; an unexplained target becomes UNCOVERED_ARTIFACT_STAGE at line 786.\n- draw-progress-gif.js:496-530 builds finalPackages from the last frame and treats every non-warning violation as fatal. draw-progress-gif.js:599-601 sets exit 1 using a second filter that ignores options.allowUncovered. parseArgs (lines 56-86) accepts --allow-uncovered but publication and exit code disagree about it.\n- validate-timeline.js:8-10 documents final parity as a warning, while validateTimeline raises it to error when finalModel is present; the CLI fatal filter treats every non-warning as failure.\n- Measured evidence in ~/shyme/gaia at ee7694a5: crates/interfaces/gaia-websocket/RFC-BOUNDIFY-Status.json has steps 0,1 done and 2 running (2/4 = 0.5); commit 207f1b47 (v0.0.554) replaced the all-done status and its 2026-11-11 receipt after an amend; snapshots/20261116150432.json and its pinned reference (2026-11-12T04:21:58Z) record pkg-0018 boundify=1; the boundify history finish at 2026-11-08T12:21:39Z is COMPLETE. An instrumented run produced artifact 0.5, reference 1, final frame 1, and one boundify event with inc 1; make gif exited 1.\n- Baseline impact set: node --test tests/conver/timeline-validator.test.mjs tests/conver/timeline-reference-checkpoint.test.mjs tests/conver/timeline-fail-closed.test.mjs tests/conver/timeline-render-health.test.mjs tests/conver/timeline-gating.test.mjs tests/conver/history-only-timeline.test.mjs => 26 tests, 26 pass. Existing assertions check code presence and are not tied to severity or counts, so no test is weakened.",
+          "boyScoutPlan": "- Extract the expected-final-state calculation into a verb-named function buildExpectedFinalState and the fatality decision into isFatalViolation, replacing the two divergent filters currently duplicated between run() and main().\n- Reuse FINAL_STATE_TOLERANCE for every new comparison instead of a literal 0.01.\n- Rewrite the false validate-timeline.js header comment so the documented behavior matches the implementation.\n- Name each new value from the domain: gatedReference, gatedArtifact, expectedStages, regressedStage; no single-letter or generic names.\n- Return a named violation for every branch; never swallow a discrepancy or log it without a code.",
+          "created_at": "2026-11-19",
+          "updated_at": "2026-11-19",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-19T02:30:32.483Z",
+          "planTestCode": [
+            "UT: C001 regression versus the gated expected end\n```js\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { validateTimeline } from \"../../.claude/scripts/conver/progress-gif/validator.js\";\nimport { makeModel, packageModel } from \"./models.mjs\";\n\ntest(\"C001 regression is a warning and the gated expected end suppresses FINAL_STATE_MISMATCH\", () => {\n  const artifact = packageModel({ id: \"pkg-1\" });\n  artifact.stages = { ...artifact.stages, make: 0.5, plan: 1 };\n  const previousSnapshot = { packages: [{ id: \"pkg-1\", stages: { ...artifact.stages, make: 1, plan: 0 } }] };\n  const finalModel = { packages: [{ id: \"pkg-1\", stages: { ...artifact.stages, make: 1, plan: 0.5 } }] };\n  const violations = validateTimeline({ model: makeModel({ packages: [artifact] }), timeline: { timeline: [] }, previousSnapshot, artifactModel: { packages: [artifact] }, finalModel });\n  const regression = violations.find((entry) => entry.code === \"ARTIFACT_REGRESSION\" && entry.stage === \"make\");\n  assert.equal(regression.severity, \"warning\");\n  assert.equal(violations.some((entry) => entry.code === \"FINAL_STATE_MISMATCH\" && entry.severity !== \"warning\"), false);\n});\n```",
+            "UT: C002 uncovered target is a warning and suppresses the parity error\n```js\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { assertNoViolations, validateTimeline } from \"../../.claude/scripts/conver/progress-gif/validator.js\";\nimport { makeModel, packageModel } from \"./models.mjs\";\n\ntest(\"C002 uncovered target publishes and suppresses the parity error\", () => {\n  const artifact = packageModel({ id: \"pkg-1\" });\n  artifact.stages = { ...artifact.stages, make: 1 };\n  const finalModel = { packages: [{ id: \"pkg-1\", stages: { ...artifact.stages, make: 0.5 } }] };\n  const violations = validateTimeline({ model: makeModel({ packages: [artifact] }), timeline: { timeline: [] }, previousSnapshot: null, artifactModel: { packages: [artifact] }, finalModel, uncovered: [{ code: \"UNCOVERED_ARTIFACT_STAGE\", stage: \"make\", packageId: \"pkg-1\", detail: \"no run after the reference checkpoint\" }] });\n  const uncovered = violations.find((entry) => entry.code === \"UNCOVERED_ARTIFACT_STAGE\");\n  assert.equal(uncovered.severity, \"warning\");\n  assert.equal(violations.some((entry) => entry.code === \"FINAL_STATE_MISMATCH\"), false);\n  assert.doesNotThrow(() => assertNoViolations(violations));\n});\n```",
+            "UT: C003 strict turns a warning into a fatal outcome\n```js\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { isFatalViolation } from \"../../.claude/scripts/conver/progress-gif/validator.js\";\nimport { parseArgs, run } from \"../../.claude/scripts/conver/draw-progress-gif.js\";\nimport { writeWorkspace } from \"./fixtures.mjs\";\n\ntest(\"C003 strict makes a warning fatal while publication stays open without it\", async () => {\n  assert.equal(isFatalViolation({ severity: \"warning\" }, { strict: false }), false);\n  assert.equal(isFatalViolation({ severity: \"warning\" }, { strict: true }), true);\n  assert.equal(isFatalViolation({ severity: \"error\" }, { strict: false }), true);\n  assert.equal(parseArgs([\"-t\", \".\", \"--strict\"]).strict, true);\n  assert.equal(parseArgs([\"-t\", \".\", \"--allow-uncovered\"]).allowUncovered, true);\n});\n```",
+            "UT: C004 unexplained undershoot stays fatal\n```js\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { assertNoViolations, buildExpectedFinalState, validateTimeline } from \"../../.claude/scripts/conver/progress-gif/validator.js\";\nimport { makeModel, packageModel } from \"./models.mjs\";\n\ntest(\"C004 unexplained undershoot keeps FINAL_STATE_MISMATCH at error severity\", () => {\n  const artifact = packageModel({ id: \"pkg-1\" });\n  artifact.stages = { ...artifact.stages, make: 1 };\n  const finalModel = { packages: [{ id: \"pkg-1\", stages: { ...artifact.stages, make: 0.5 } }] };\n  const violations = validateTimeline({ model: makeModel({ packages: [artifact] }), timeline: { timeline: [] }, previousSnapshot: null, artifactModel: { packages: [artifact] }, finalModel });\n  const mismatch = violations.find((entry) => entry.code === \"FINAL_STATE_MISMATCH\");\n  assert.equal(mismatch.severity, \"error\");\n  assert.throws(() => assertNoViolations(violations), /FINAL_STATE_MISMATCH/);\n  const expected = buildExpectedFinalState({ packages: [artifact] }, null);\n  assert.equal(Number(expected.packages[0].stages.make), 1);\n  assert.deepEqual(expected.regressions, []);\n});\n```"
+          ],
+          "planned_at": "2026-11-19T02:32:05.146Z",
+          "startedAt": "2026-11-19",
+          "changes": [
+            {
+              "before": "final-state parity compared the final frame with the raw artifact model",
+              "after": "parity compares with buildExpectedFinalState: the componentwise maximum of the gated reference and gated artifact",
+              "description": "validator.js: expected final state for a monotonic timeline"
+            },
+            {
+              "before": "an artifact below the reference was a fatal FINAL_STATE_MISMATCH",
+              "after": "ARTIFACT_REGRESSION is reported as a warning and the frame holds at the reference ceiling",
+              "description": "validator.js: named regression warning"
+            },
+            {
+              "before": "UNCOVERED_ARTIFACT_STAGE was fatal unless --allow-uncovered",
+              "after": "UNCOVERED_ARTIFACT_STAGE is a warning and suppresses the duplicate parity error; --strict restores blocking",
+              "description": "validator.js: named uncovered warning"
+            },
+            {
+              "before": "run() and main() used two different fatal filters and --allow-uncovered only affected one",
+              "after": "both use isFatalViolation with --strict; --allow-uncovered stays accepted as a no-op",
+              "description": "draw-progress-gif.js: one fatality rule"
+            },
+            {
+              "before": "the CLI report did not show timeline findings",
+              "after": "formatTimelineSection prints severity, code, package, stage and detail under ## timeline",
+              "description": "draw-progress-gif.js: visible warnings"
+            },
+            {
+              "before": "validate-timeline treated every non-warning as fatal and documented parity incorrectly",
+              "after": "validate-timeline uses isFatalViolation, accepts --strict and documents the actual behavior",
+              "description": "validate-timeline.js: strict option and accurate header"
+            },
+            {
+              "before": "the root and siprs copies diverged from tools/conver",
+              "after": "draw-progress-gif.js, validate-timeline.js and progress-gif/validator.js are identical in all three copies",
+              "description": "installed copies resynced"
+            }
+          ],
+          "done_at": "2026-11-19T02:38:22.099Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-19",
+          "reviewed_at": "2026-11-19T02:40:08.541Z"
         }
       ]
     },

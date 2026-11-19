@@ -5,9 +5,9 @@
  * Usage:
  *   validate-timeline.js --root=<workspace> [--json]
  *
- * Exits 1 when a fatal chronology violation is present. Final-state parity is a
- * warning: the history-only final state is expected to differ from the old
- * artifact projection while a workspace migrates.
+ * Exits 1 when a fatal chronology violation is present. Named gaps (artifact
+ * regression, uncovered stage) are warnings and are published; structural
+ * violations stay fatal. --strict treats warnings as fatal for CI.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,13 +16,14 @@ import { fileURLToPath } from 'node:url';
 import { analyzeWorkspace } from './draw-progress-gif.js';
 import { buildTimeline, progressStateAt, STAGE_ORDER } from './progress-gif/loop.js';
 import { listSnapshots, readSnapshot } from './progress-gif/snapshot.js';
-import { validateTimeline } from './progress-gif/validator.js';
+import { isFatalViolation, validateTimeline } from './progress-gif/validator.js';
 
-// [::TICKET::] PX-433 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-433 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-433, PX-450 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-433|PX-450) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
-  const options = { root: process.cwd(), json: false, model: null, previous: null };
+  const options = { root: process.cwd(), json: false, model: null, previous: null, strict: false };
   for (const argument of argv) {
     if (argument === '--json') options.json = true;
+    else if (argument === '--strict') options.strict = true;
     else if (argument.startsWith('--root=')) options.root = argument.slice('--root='.length);
     else if (argument.startsWith('--model=')) options.model = argument.slice('--model='.length);
     else if (argument.startsWith('--previous=')) options.previous = argument.slice('--previous='.length);
@@ -65,7 +66,7 @@ export function main(argv = process.argv.slice(2)) {
     finalModel,
     uncovered: model.uncovered || [],
   });
-  const fatal = violations.filter((violation) => violation.severity !== 'warning');
+  const fatal = violations.filter((entry) => isFatalViolation(entry, options));
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify({ mode: model.timelineMode, violations }, null, 2)}\n`);

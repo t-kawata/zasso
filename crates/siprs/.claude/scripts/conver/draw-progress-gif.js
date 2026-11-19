@@ -23,7 +23,7 @@ import { CACHE_FILE_NAME } from './progress-gif/usage-cache.js';
 import { computeLayout, formatPercent } from './progress-gif/layout.js';
 import { renderHtml } from './progress-gif/html.js';
 import { countUnresolvedStubs } from './progress-gif/stubs.js';
-import { validateTimeline } from './progress-gif/validator.js';
+import { isFatalViolation, validateTimeline } from './progress-gif/validator.js';
 import { fitFramesToCeiling } from './progress-gif/engine.js';
 import { DEFAULT_FRAMES, clampFrames } from './progress-gif/viewer.js';
 import { loadFontBundle, collectUsedText } from './progress-gif/fonts.js';
@@ -63,6 +63,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
     snapshotDir: null,
     referenceSnapshot: null,
     allowUncovered: false,
+    strict: false,
+    quiet: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -80,7 +82,11 @@ export function parseArgs(argv = process.argv.slice(2)) {
     else if (argument === '--snapshot-dir') options.snapshotDir = argv[++index];
     else if (argument === '--reference-snapshot') options.referenceSnapshot = argv[++index];
     else if (argument.startsWith('--reference-snapshot=')) options.referenceSnapshot = argument.slice('--reference-snapshot='.length);
+    // Retained for existing scripts: named gaps no longer block publication, so
+    // this flag has no effect. --strict is the replacement for CI.
     else if (argument === '--allow-uncovered') options.allowUncovered = true;
+    else if (argument === '--strict') options.strict = true;
+    else if (argument === '--quiet') options.quiet = true;
     else throw new Error(`unknown argument: ${argument}\nusage: node draw-progress-gif.js -t <workspace> [options]`);
   }
   if (!options.target) throw new Error('usage: node draw-progress-gif.js -t <workspace> [options]: target is required');
@@ -396,7 +402,24 @@ function usageCachePath(root, options) {
 }
 
 // [::TICKET::] PX-349, PX-350, PX-351, PX-374 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-349|PX-350|PX-351|PX-374) --for-spec --no-implementation-order`.
-function markdownReport(model, options, output, layout, frames) {
+/**
+ * Render the named timeline findings as report lines. A published warning is
+ * invisible in the snapshot alone, so every finding is printed with its scope.
+ */
+// [::TICKET::] PX-450 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-450 --for-spec --no-implementation-order`.
+export function formatTimelineSection(violations = []) {
+  if (violations.length === 0) return [];
+  const lines = ['', '## timeline'];
+  for (const entry of violations) {
+    const scope = [entry.packageId, entry.stage].filter(Boolean).join(' ');
+    lines.push(`- ${entry.severity} ${entry.code}${scope ? ` ${scope}` : ''}: ${entry.detail}`);
+  }
+  return lines;
+}
+
+// [::TICKET::] PX-450 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-450 --for-spec --no-implementation-order`.
+function formatMarkdownReport(model, report) {
+  const { options, output, layout, frames, violations = [] } = report;
   const firstDensity = frames.length > 0 ? frames[0].density : 0;
   const finalDensity = frames.length > 0 ? frames[frames.length - 1].density : 0;
   const finalProgress = frames.length > 0 ? frames[frames.length - 1].overallProgress : 0;
@@ -430,6 +453,7 @@ function markdownReport(model, options, output, layout, frames) {
     lines.push('', '## warnings');
     for (const warning of model.warnings) lines.push(`- ${warning}`);
   }
+  lines.push(...formatTimelineSection(violations));
   return `${lines.join('\n')}\n`;
 }
 
@@ -521,8 +545,7 @@ export async function run(root, options) {
     uncovered: (model.uncovered || []).map((entry) => `${entry.stage}:${entry.packageId || 'workspace'}`),
     finalStateParity: violations.some((violation) => violation.code === 'FINAL_STATE_MISMATCH') ? 'mismatch' : 'ok',
   };
-  const fatal = violations.filter((violation) => violation.severity !== 'warning'
-    && !(options.allowUncovered && (violation.code === 'UNCOVERED_ARTIFACT_STAGE' || violation.code === 'FINAL_STATE_MISMATCH')));
+  const fatal = violations.filter((entry) => isFatalViolation(entry, options));
   if (fatal.length > 0) {
     for (const violation of fatal) {
       process.stderr.write(`[timeline] ${violation.code} ${violation.packageId ?? ''} ${violation.stage ?? ''} ${violation.detail}\n`);
@@ -530,7 +553,9 @@ export async function run(root, options) {
     return { model, frames, output: null, violations };
   }
   if (options.dryRun) {
-    process.stdout.write(markdownReport(model, options, null, estimatedLayout, frames));
+    if (!options.quiet) {
+      process.stdout.write(formatMarkdownReport(model, { options, output: null, layout: estimatedLayout, frames, violations }));
+    }
     return { model, frames, output: null, violations };
   }
   const outputDir = path.join(root, 'progress-gif');
@@ -564,7 +589,9 @@ export async function run(root, options) {
     snapshotFromModel(model, { overallProgress, timelineHealth: model.timelineHealth, reference }),
   );
   const output = { html: htmlPath, snapshot: snapshotPath };
-  process.stdout.write(markdownReport(model, options, output, estimatedLayout, frames));
+  if (!options.quiet) {
+    process.stdout.write(formatMarkdownReport(model, { options, output, layout: estimatedLayout, frames, violations }));
+  }
   if (options.open) openBrowser(htmlPath);
   return { model, frames, output, violations };
 }
@@ -596,7 +623,7 @@ export async function main() {
     }
     if (!stat.isDirectory()) throw new WorkspaceError(`target is not a directory: ${root}`, 2, 'Pass an existing workspace directory with -t.');
     const result = await run(root, options);
-    if (result && Array.isArray(result.violations) && result.violations.some((violation) => violation.severity !== 'warning')) {
+    if (result && Array.isArray(result.violations) && result.violations.some((entry) => isFatalViolation(entry, options))) {
       process.exitCode = 1;
     }
   } catch (error) {
