@@ -2,84 +2,61 @@
 description: "現在のブランチの未コミット変更・未pushコミットを処理してリモートにプッシュ（-u でブランチ自動作成）"
 ---
 
-# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
+# CRITICAL — NON-INTERACTIVE, END-TO-END
 
-Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) run uninterrupted through final Step. End turn only on final-Step completion or unresolvable external blocker. Waiting ≠ completion: Monitor/background/poll, resume. Never output progress-only.
 
-Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+No questions, confirmations, approvals, options, delegation. Read the evidence printed by Step 1; choose nothing beyond it. Prose synthesis is the only remaining work. Indeterminate → minimal, backward-compatible, reversible, conventional, lowest-risk. Ambiguity/failure ≠ stop: inspect, retry, monitor, isolate, fall back, continue. Final report only: outcome, artifacts, validation, assumptions, external blockers, risks.
 
-# JPush Branch — 日本語コミット＆ブランチプッシュ
+**Never run tests, builds, linters, or formatters. This command commits and pushes only.**
 
-現在のブランチの変更を処理してリモートにプッシュする。以下の2つを自動的に処理する：
+# JPush Branch — Japanese Commit & Push
 
-1. **未コミットの変更** → `git diff` を分析して日本語コミットメッセージを生成し、コミット
-2. **未pushのコミット** → `git log @{u}..HEAD` で未pushコミットを確認してからプッシュ
+Current branch → remote. Spec evidence → Japanese message → commit → push.
 
-プッシュは `git push -u origin <ブランチ名>` で行うため、リモートにブランチが存在しなくても自動的に作成される。
+## Step 1 — Evidence (one command)
 
-## Process
-
-### Step 1: 全体状態の確認
+Run once. It prints Markdown; every later Step reads it. Do not re-derive.
 
 ```bash
-git fetch origin
-git status --short
-git branch --show-current
-git log @{u}..HEAD --oneline 2>&1
+CLAUDE_DIR=$(d=$PWD; while [ ! -f "$d/.claude/scripts/tickets/collect-push-evidence.js" ] && [ "$d" != / ]; do d=$(dirname "$d"); done; printf '%s/.claude' "$d")
+node "$CLAUDE_DIR/scripts/tickets/collect-push-evidence.js"
 ```
 
-出力から以下を判断する：
-- 未コミット変更あり → Step 2 へ
-- 未コミット変更なし & 未pushコミットあり → Step 5 へ
-- いずれもなし → 何もせず終了
+## Step 2 — Dispatch (lookup only)
 
-### Step 2: 変更分析
+| State | Action |
+|---|---|
+| `conflicts` > 0 | Report "コンフリクトが解消されていません"; exit. |
+| `uncommitted` = 0 and `unpushed` > 0 | Step 4. |
+| `uncommitted` = 0 and `unpushed` = 0 | Report "変更はありません"; exit. |
+| `uncommitted` > 0 | Step 3. |
 
-```bash
-git diff
-git diff --cached
-git status
-```
+## Step 3 — Message (prose only; Japanese)
 
-以下の観点で分類する：
-- 新規追加されたファイル・機能
-- 修正された既存コード
-- 削除されたファイル
-- 設定や依存関係の変更
-- テストやドキュメントの変更
+- `Mode=exact` or `date-inferred` → subject `<Prefix>(<KEY>[,<KEY2>]): <変更概要>`
+- `Mode=diff` → subject `<Prefix>: <変更概要>`
+- Body: `- **変更内容**`, `- **変更理由**`, `- **影響範囲**` from `Spec evidence`, else `Changed surfaces`.
+- `KEY` ← `Selected specs` basenames; multi-key file → split on `, `.
+- Translate to Japanese; keep identifiers, paths, ticket keys verbatim.
+- Claim only what `Spec evidence` or `Changed surfaces` shows.
+- Do not run tests, builds, linters, or formatters.
 
-### Step 3: コミットメッセージを生成
-
-分類結果をもとに conventional commits 形式で日本語コミットメッセージを生成する：
-
-```
-<prefix>: <変更概要>
-
-- **変更内容**: ...
-- **変更理由**: ...
-- **影響範囲**: ...
-```
-
-**prefix** は `feat` / `fix` / `refactor` / `docs` / `test` / `chore` / `perf` / `style` から変更内容に合うものを選択する。
-
-### Step 4: コミット実行
+## Step 4 — Commit
 
 ```bash
 git add .
-git commit -m "<生成したメッセージ>"
+git commit -m "<message>"
 ```
 
-### Step 5: プッシュ
+## Step 5 — Push
 
 ```bash
-git push -u origin <現在のブランチ名>
+git push -u origin "$(git branch --show-current)"
 ```
 
-### Step 6: 結果報告
+Non-fast-forward → `git fetch --quiet origin`, report. No rebase, no force.
 
-プッシュ結果を簡潔に報告する。失敗した場合はエラー内容を表示して終了。「変更なし」の場合はその旨を報告して終了。
+## Step 6 — Report
 
-## Edge Cases
-
-- **コンフリクト残留**: `git status` に `UU` や `AA` などがある場合、「コンフリクトが解消されていません」と報告して終了。
-- **未コミット変更 & 未pushコミットの両方がない**: 何もせず「変更はありません」と報告して終了。
+commit sha, branch, push result, `Mode`. Failure → error text.

@@ -2,84 +2,60 @@
 description: "Commit uncommitted changes and push unpushed commits for the current branch (-u creates remote branch)"
 ---
 
-# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
+# CRITICAL — NON-INTERACTIVE, END-TO-END
 
-Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) run uninterrupted through final Step. End turn only on final-Step completion or unresolvable external blocker. Waiting ≠ completion: Monitor/background/poll, resume. Never output progress-only.
 
-Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+No questions, confirmations, approvals, options, delegation. Read the evidence printed by Step 1; choose nothing beyond it. Prose synthesis is the only remaining work. Indeterminate → minimal, backward-compatible, reversible, conventional, lowest-risk. Ambiguity/failure ≠ stop: inspect, retry, monitor, isolate, fall back, continue. Final report only: outcome, artifacts, validation, assumptions, external blockers, risks.
 
-# EPush Branch — English Commit & Branch Push
+**Never run tests, builds, linters, or formatters. This command commits and pushes only.**
 
-Process the current branch's changes and push to remote. Handles two scenarios automatically:
+# EPush Branch — English Commit & Push
 
-1. **Uncommitted changes** → analyze with `git diff`, generate an English commit message, and commit
-2. **Unpushed commits** → verify with `git log @{u}..HEAD`, then push
+Current branch → remote. Spec evidence → English message → commit → push.
 
-Push uses `git push -u origin <branch-name>`, so the remote branch is created automatically even if it does not exist yet.
+## Step 1 — Evidence (one command)
 
-## Process
-
-### Step 1: Check overall state
+Run once. It prints Markdown; every later Step reads it. Do not re-derive.
 
 ```bash
-git fetch origin
-git status --short
-git branch --show-current
-git log @{u}..HEAD --oneline 2>&1
+CLAUDE_DIR=$(d=$PWD; while [ ! -f "$d/.claude/scripts/tickets/collect-push-evidence.js" ] && [ "$d" != / ]; do d=$(dirname "$d"); done; printf '%s/.claude' "$d")
+node "$CLAUDE_DIR/scripts/tickets/collect-push-evidence.js"
 ```
 
-Branch based on output:
-- Uncommitted changes exist → go to Step 2
-- No uncommitted changes, unpushed commits exist → go to Step 5
-- Neither → exit without action
+## Step 2 — Dispatch (lookup only)
 
-### Step 2: Analyze changes
+| State | Action |
+|---|---|
+| `conflicts` > 0 | Report "Conflicts are not resolved"; exit. |
+| `uncommitted` = 0 and `unpushed` > 0 | Step 4. |
+| `uncommitted` = 0 and `unpushed` = 0 | Report "Nothing to push"; exit. |
+| `uncommitted` > 0 | Step 3. |
 
-```bash
-git diff
-git diff --cached
-git status
-```
+## Step 3 — Message (prose only)
 
-Classify changes into:
-- New files / features added
-- Existing code modified
-- Files deleted
-- Configuration / dependencies changed
-- Tests or documentation changed
+- `Mode=exact` or `date-inferred` → subject `<Prefix>(<KEY>[,<KEY2>]): <Goal summary>`
+- `Mode=diff` → subject `<Prefix>: <summary from Changed surfaces>`
+- Body: `- **What**`, `- **Why**`, `- **Impact**` from `Spec evidence`, else `Changed surfaces`.
+- `KEY` ← `Selected specs` basenames; multi-key file → split on `, `.
+- Claim only what `Spec evidence` or `Changed surfaces` shows.
+- Do not run tests, builds, linters, or formatters.
 
-### Step 3: Generate commit message
-
-Based on the classification, generate an English commit message in conventional commits format:
-
-```
-<prefix>: <brief description>
-
-- **What**: ...
-- **Why**: ...
-- **Impact**: ...
-```
-
-Choose **prefix** from `feat` / `fix` / `refactor` / `docs` / `test` / `chore` / `perf` / `style` according to the change type.
-
-### Step 4: Commit
+## Step 4 — Commit
 
 ```bash
 git add .
-git commit -m "<generated message>"
+git commit -m "<message>"
 ```
 
-### Step 5: Push
+## Step 5 — Push
 
 ```bash
-git push -u origin <current branch name>
+git push -u origin "$(git branch --show-current)"
 ```
 
-### Step 6: Report result
+Non-fast-forward → `git fetch --quiet origin`, report. No rebase, no force.
 
-Report the push result concisely. On failure, display the error and exit. If nothing changed, report that and exit.
+## Step 6 — Report
 
-## Edge Cases
-
-- **Unresolved conflicts**: If `git status` shows `UU` or `AA` markers, report "Conflicts are not resolved" and exit.
-- **No uncommitted changes and no unpushed commits**: Report "Nothing to push" and exit.
+commit sha, branch, push result, `Mode`. Failure → error text.

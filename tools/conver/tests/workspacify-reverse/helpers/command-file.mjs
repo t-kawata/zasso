@@ -76,10 +76,13 @@ export const FROZEN_FIRST_CLASS_RULE_CARRIERS = Object.freeze([
  * list is a decision with a reason rather than a default, so it is written down and
  * asserted — a command file that starts naming a script leaves this list, and one
  * that stops leaves it in the other direction.
+ *
+ * `epush-branch` and `jpush-branch` left this list when their evidence collection
+ * moved out of the prompt into `scripts/tickets/collect-push-evidence.js`; the
+ * measurement below reads the command text, so the move is visible rather than
+ * assumed.
  */
 export const SCRIPTLESS_COMMAND_FILES = Object.freeze([
-  'epush-branch',
-  'jpush-branch',
   'plan',
   'sessions',
   'skill-health', 'suggest-min-tickets',
