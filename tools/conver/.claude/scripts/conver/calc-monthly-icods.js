@@ -42,6 +42,8 @@ const CACHE_DIRECTORY = path.join('progress-gif', 'snapshots');
 const MONTH_KEY_LENGTH = 7;
 const EXIT_INVALID_INPUT = 2;
 const EXIT_UNEXPECTED_FAILURE = 3;
+const WARNING_COLOR = '\u001b[33m';
+const RESET_COLOR = '\u001b[0m';
 
 // [::TICKET::] PX-453 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-453 --for-spec --no-implementation-order`.
 function requireMonth(value, flag) {
@@ -164,7 +166,20 @@ function rangeHasRecords(series, range) {
   });
 }
 
+// [::TICKET::] PX-453 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-453 --for-spec --no-implementation-order`.
+/** Render the first-line warning; color is opt-in so piped output stays plain. */
+export function formatWarningLine(message, useColor = false) {
+  const line = `[WARN] ${message}`;
+  return useColor ? `${WARNING_COLOR}${line}${RESET_COLOR}` : line;
+}
+
+// [::TICKET::] PX-453 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-453 --for-spec --no-implementation-order`.
+function supportsColor(stdout) {
+  return Boolean(stdout && stdout.isTTY) && process.env.NO_COLOR === undefined;
+}
+
 /** Run the report and write the table to stdout. */
+// [::TICKET::] PX-453 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-453 --for-spec --no-implementation-order`.
 export async function run(options, io = {}) {
   const stdout = io.stdout || process.stdout;
   const stderr = io.stderr || process.stderr;
@@ -173,22 +188,19 @@ export async function run(options, io = {}) {
   assertWorkspaceDirectory(target);
   const cachePath = resolveUsageCachePath(target);
   const { aggregation, series } = await loadUsageSeries(target, cachePath);
-  if (aggregation.projectsDirMissing) {
-    throw new WorkspaceError(
-      `usage logs not found: ${aggregation.projectsDir}`,
-      2,
-      'Set CLAUDE_CONFIG_DIR to the Claude Code config that holds projects/.',
-    );
-  }
-  if (aggregation.projects.length === 0) {
-    throw new WorkspaceError(
-      `no usage logs for workspace: ${target}`,
-      2,
-      'Check that -t points at the workspace whose Claude Code logs exist.',
-    );
+  // The cache can still hold records when this machine has no local logs for
+  // the workspace; draw-progress-gif renders those cached records, so this
+  // report must not reject the same workspace. With neither source, render a
+  // zero table and put the reason on the first stdout line.
+  const hasSeries = series.length > 0;
+  const noLocalLogs = aggregation.projects.length === 0;
+  if (!hasSeries) {
+    stdout.write(`${formatWarningLine(`no Claude Code usage records found for ${target}; rendering zero totals`, supportsColor(stdout))}\n`);
+  } else if (noLocalLogs) {
+    stdout.write(`${formatWarningLine(`no local Claude Code usage logs found for ${target}; using cached usage records`, supportsColor(stdout))}\n`);
   }
   writeAggregationWarnings(aggregation, stderr);
-  if (!rangeHasRecords(series, options.range)) {
+  if (hasSeries && !rangeHasRecords(series, options.range)) {
     stderr.write(`[WARN] no usage records in ${options.range.from}..${options.range.to}; all months are zero\n`);
   }
   const rows = buildMonthlyUsageRows(series, options.range);
@@ -198,7 +210,8 @@ export async function run(options, io = {}) {
     range: options.range,
     currentMonth,
   });
-  stdout.write(`${table}\n`);
+  // Keep one blank line between the table and the next shell prompt.
+  stdout.write(`${table}\n\n`);
   return { rows, aggregation };
 }
 

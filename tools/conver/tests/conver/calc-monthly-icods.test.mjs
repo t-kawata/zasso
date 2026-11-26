@@ -31,6 +31,7 @@ import {
 } from '../../.claude/scripts/conver/progress-gif/loop.js';
 import { WorkspaceError } from '../../.claude/scripts/conver/progress-gif/parse.js';
 import {
+  formatWarningLine,
   parseArgs,
   resolveUsageCachePath,
 } from '../../.claude/scripts/conver/calc-monthly-icods.js';
@@ -303,6 +304,11 @@ test('C004: help exits 0 without reading logs', () => {
   assert.equal(result.stderr, '');
 });
 
+test('C004: warning line is yellow only when color is enabled', () => {
+  assert.equal(formatWarningLine('hello', false), '[WARN] hello');
+  assert.equal(formatWarningLine('hello', true), '\u001b[33m[WARN] hello\u001b[0m');
+});
+
 // @verifies C005/precondition
 // @verifies C005/invariant
 test('C005: cache path matches draw-progress-gif', () => {
@@ -337,6 +343,65 @@ test('C005: first run writes the cache and the second run is byte-identical', ()
   } finally {
     removeTree(workspace);
     removeTree(configDir);
+  }
+});
+
+// @verifies C005/postcondition
+test('IT C005: cached usage is reported when local logs are absent', () => {
+  const workspace = createWorkspace();
+  const warmConfig = createConfigDir();
+  const { configDir } = writeUsageFixture({
+    target: workspace,
+    configDir: warmConfig,
+    records: [
+      assistantRecord({
+        id: 'cached-1',
+        at: '2026-10-05T12:00:00+09:00',
+        cwd: workspace,
+        input: 1_000_000,
+        output: 0,
+      }),
+    ],
+  });
+  const coldConfig = createConfigDir();
+  fs.mkdirSync(path.join(coldConfig, 'projects'), { recursive: true });
+  try {
+    const args = ['-t', workspace, '--from', '2026-10', '--to', '2026-10'];
+    const warm = runCli(args, configDir);
+    assert.equal(warm.status, 0, warm.stderr);
+    const cold = runCli(args, coldConfig);
+    assert.equal(cold.status, 0, cold.stderr);
+    const coldLines = cold.stdout.split('\n');
+    assert.match(coldLines[0], /^\[WARN\] no local Claude Code usage logs found .*using cached usage records/);
+    assert.doesNotMatch(coldLines[0], /\u001b\[/);
+    assert.equal(parseMonthlyRows(cold.stdout).get('2026-10').miss, 1);
+  } finally {
+    removeTree(workspace);
+    removeTree(warmConfig);
+    removeTree(coldConfig);
+  }
+});
+
+test('IT C004: no logs and no cache renders a zero table with a warning first line', () => {
+  const workspace = createWorkspace();
+  const missingConfig = createConfigDir();
+  const emptyProjectsConfig = createConfigDir();
+  fs.mkdirSync(path.join(emptyProjectsConfig, 'projects'), { recursive: true });
+  try {
+    for (const configDir of [missingConfig, emptyProjectsConfig]) {
+      const result = runCli(['-t', workspace, '--from', '2026-10', '--to', '2026-11'], configDir);
+      assert.equal(result.status, 0, result.stderr);
+      const lines = result.stdout.split('\n');
+      assert.match(lines[0], /^\[WARN\] no Claude Code usage records found .*rendering zero totals/);
+      assert.doesNotMatch(lines[0], /\u001b\[/);
+      assert.equal(parseMonthlyRows(result.stdout).get('2026-10').miss, 0);
+      assert.equal(parseMonthlyRows(result.stdout).get('2026-11').miss, 0);
+      assert.match(result.stdout, /┘\n\n$/);
+    }
+  } finally {
+    removeTree(workspace);
+    removeTree(missingConfig);
+    removeTree(emptyProjectsConfig);
   }
 });
 
@@ -421,6 +486,7 @@ test('IT C004/C002: CLI rows equal independent aggregate sums', async () => {
   try {
     const result = runCli(['-t', workspace, '--from', months[0], '--to', months[2]], configDir);
     assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /┘\n\n$/);
     const parsed = parseMonthlyRows(result.stdout);
     assert.deepEqual([...parsed.keys()], months);
     const expected = await expectedMonthlySums(workspace, configDir, months);
@@ -484,9 +550,6 @@ test('IT C004: validation failures exit 2 with stderr and empty stdout', () => {
       }),
     ],
   });
-  const emptyConfig = createConfigDir();
-  const noMatchConfig = createConfigDir();
-  fs.mkdirSync(path.join(noMatchConfig, 'projects'), { recursive: true });
   try {
     const cases = [
       { args: [], configDir },
@@ -494,8 +557,6 @@ test('IT C004: validation failures exit 2 with stderr and empty stdout', () => {
       { args: ['-t', workspace, '--from', '2026-05', '--to', '2026-04'], configDir },
       { args: ['-t', workspace, '--nope'], configDir },
       { args: ['-t', path.join(workspace, 'missing')], configDir },
-      { args: ['-t', workspace], configDir: emptyConfig },
-      { args: ['-t', workspace], configDir: noMatchConfig },
     ];
     for (const entry of cases) {
       const result = runCli(entry.args, entry.configDir);
@@ -506,8 +567,6 @@ test('IT C004: validation failures exit 2 with stderr and empty stdout', () => {
   } finally {
     removeTree(workspace);
     removeTree(configDir);
-    removeTree(emptyConfig);
-    removeTree(noMatchConfig);
   }
 });
 

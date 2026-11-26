@@ -172,6 +172,8 @@ install-to-projects:
 	node install.js -y -t $(CONVER_DEPLOY_DIR)/.claude
 	node install.js -y -t ~/shyme/crystal/.claude
 	node install.js -y -t ~/shyme/doors/.claude
+	node install.js -y -t ~/shyme/rtx/.claude
+	node install.js -y -t ~/shyme/loom/.claude
 	cp README.md $(CONVER_DEPLOY_DIR)/README.md
 	cp scripts/version.mjs $(CONVER_DEPLOY_DIR)/version.mjs
 	cp scripts/verify-release.mjs $(CONVER_DEPLOY_DIR)/verify-release.mjs
@@ -187,3 +189,5 @@ push-all: build-conver
 	$(MAKE) -C ~/shyme/gaia push
 	$(MAKE) -C ~/shyme/crystal push
 	$(MAKE) -C ~/shyme/doors push
+	$(MAKE) -C ~/shyme/rtx push
+	$(MAKE) -C ~/shyme/loom push
