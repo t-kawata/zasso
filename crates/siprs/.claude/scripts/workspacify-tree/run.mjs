@@ -84,6 +84,7 @@ import { toHomeRelative } from '../lib/path-utils.js';
 import { withRunHistory } from '../conver/run-history.js';
 
 const MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+const SYSTEM_DESIGN_FILE_NAME = 'SYSTEM-DESIGN.md';
 const COMMAND_NAME = '/workspacify-tree';
 const GENERATOR_VERSION = '1.0.0';
 
@@ -103,6 +104,7 @@ const GENERATOR_VERSION = '1.0.0';
  * ends; no subcommand leaves a handle open, so it ends as soon as they do.
  */
 // [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function exitWhenDrained(code) {
   process.exitCode = code;
 }
@@ -112,7 +114,7 @@ function guide(text) {
   process.stderr.write(`[guide] ${text}\n`);
 }
 
-// [::TICKET::] P22-11, P24-9, PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P24-9|PX-366) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9, PX-366, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P24-9|PX-366|PX-454) --for-spec --no-implementation-order`.
 function main() {
 // [::TICKET::] PX-366 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-366 --for-spec --no-implementation-order`.
   const args = process.argv.slice(2);
@@ -124,9 +126,9 @@ function main() {
 
   try {
     if (subcommand === 'parse') {
-      runParse(args[1]);
+      runParse(args);
     } else if (subcommand === 'extract') {
-      runExtract(args[1]);
+      runExtract(args);
     } else if (subcommand === 'gate') {
       runGate(args);
     } else if (subcommand === 'finalize') {
@@ -146,12 +148,34 @@ function main() {
   }
 }
 
-// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
-function runParse(specPath) {
-  if (!specPath) {
-    throw new Error('parse requires exactly one <path-to-specification.md>');
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+/**
+ * Resolve the fixed specification of the forward rotation.
+ *
+ * The forward command takes no specification argument: the file is always
+ * SYSTEM-DESIGN.md at the workspace root, which is the subject directory. Reverse
+ * mode has its own input and is not routed through this resolver.
+ */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function resolveForwardSpec(specPath) {
+  const given = typeof specPath === 'string' ? specPath.trim() : '';
+  if (given !== '') {
+    throw new Error(
+      `the forward command takes no specification argument; ${SYSTEM_DESIGN_FILE_NAME} at the workspace root is fixed`,
+    );
   }
-  const analysis = analyzeSpec(specPath);
+  const resolved = path.join(process.cwd(), SYSTEM_DESIGN_FILE_NAME);
+  if (!existsSync(resolved)) {
+    throw new Error(`the workspace root ${process.cwd()} has no ${SYSTEM_DESIGN_FILE_NAME}`);
+  }
+  return resolved;
+}
+
+// [::TICKET::] P24-9, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-9|PX-454) --for-spec --no-implementation-order`.
+function runParse(args) {
+  refusePositionalArguments(args.slice(1));
+  const resolved = resolveForwardSpec(optionValue(args, '--spec'));
+  const analysis = analyzeSpec(resolved);
   process.stdout.write(
     JSON.stringify({
       status: analysis.reconstruction.status === 'PASS' ? 'PASS' : 'FAIL',
@@ -167,12 +191,11 @@ function runParse(specPath) {
   return exitWhenDrained(analysis.reconstruction.status === 'PASS' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
-// [::TICKET::] P24-9 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-9 --for-spec --no-implementation-order`.
-function runExtract(specPath) {
-  if (!specPath) {
-    throw new Error('extract requires exactly one <path-to-specification.md>');
-  }
-  const analysis = analyzeSpec(specPath);
+// [::TICKET::] P24-9, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-9|PX-454) --for-spec --no-implementation-order`.
+function runExtract(args) {
+  refusePositionalArguments(args.slice(1));
+  const resolved = resolveForwardSpec(optionValue(args, '--spec'));
+  const analysis = analyzeSpec(resolved);
   const inventory = buildInventory(analysis);
   const report = buildInventoryReport(inventory);
   // The pulse decides which observations the AI must settle, so it is published here
@@ -204,13 +227,27 @@ function refuseDecisionsArgument(args) {
   );
 }
 
-// [::TICKET::] P24-9, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-9|PX-215) --for-spec --no-implementation-order`.
+/**
+ * Refuse a bare positional argument.
+ *
+ * The forward stages derive their inputs from the subject directory. A positional
+ * path would name a document the command already knows the place of, and silently
+ * ignoring it reads exactly like a run that used it.
+ */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function refusePositionalArguments(args) {
+  const positional = args.filter((token) => !token.startsWith('--'));
+  if (positional.length === 0) return;
+  throw new Error(
+    `the forward command takes no argument; ${positional.map((token) => JSON.stringify(token)).join(', ')} was given`,
+  );
+}
+
+// [::TICKET::] P24-9, PX-215, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P24-9|PX-215|PX-454) --for-spec --no-implementation-order`.
 function runGate(args) {
   refuseDecisionsArgument(args.slice(1));
-  const specPath = optionValue(args, '--spec');
-  if (!specPath) {
-    throw new Error('gate requires --spec=<path>');
-  }
+  refusePositionalArguments(args.slice(1));
+  const specPath = resolveForwardSpec(optionValue(args, '--spec'));
   const decisionsPath = reservedTreeDecisionsPath(process.cwd());
   const analysis = analyzeSpec(specPath);
   const decisions = loadDecisionInput(path.resolve(decisionsPath));
@@ -260,13 +297,11 @@ function runGate(args) {
   return exitWhenDrained(pipeline.status === 'COMPLETE' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
-// [::TICKET::] P22-11, P24-9, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P24-9|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9, PX-215, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P24-9|PX-215|PX-454) --for-spec --no-implementation-order`.
 function runFinalize(args) {
   refuseDecisionsArgument(args.slice(1));
-  const specPath = optionValue(args, '--spec');
-  if (!specPath) {
-    throw new Error('finalize requires --spec=<path>');
-  }
+  refusePositionalArguments(args.slice(1));
+  const specPath = resolveForwardSpec(optionValue(args, '--spec'));
   const decisionsPath = reservedTreeDecisionsPath(process.cwd());
   const prepared = prepareForwardPipeline(specPath, decisionsPath);
   if (prepared.pipeline.status !== 'COMPLETE') {
@@ -1237,19 +1272,19 @@ function optionValue(args, flag) {
   return undefined;
 }
 
-// [::TICKET::] P22-11, P23-9, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P23-9|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P23-9, PX-214, PX-215, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|P23-9|PX-214|PX-215|PX-454) --for-spec --no-implementation-order`.
 function printUsage() {
   return [
-    'usage: /workspacify-tree <path-to-specification.md>',
+    'usage: /workspacify-tree <parse|extract|gate|finalize>',
     'subcommands:',
-    '  parse <spec>',
-    '  extract <spec>',
-    '  gate --spec=<path>',
-    '  finalize --spec=<path>',
+    '  parse',
+    '  extract',
+    '  gate',
+    '  finalize',
     '  reverse',
-    '          The specification is the one argument, and it survives because it is the',
-    '          entire input of pattern 4: an empty project holds nothing from which a',
-    '          specification path could be derived.',
+    `          The forward commands read ${SYSTEM_DESIGN_FILE_NAME} at the workspace root and`,
+    '          accept no specification argument. The fixed name is the entire input of',
+    '          pattern 4 and the only derivation an empty project can support.',
     `          The decisions document is read from ${RESERVED_ROOT_NAME}/${RESERVED_TREE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME}`,
     '          beneath the subject, which is the directory the command is run in. So is',
     '          everything reverse derives: the origin spec and the sidecar bundle from the',

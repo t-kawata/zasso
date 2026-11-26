@@ -1,6 +1,5 @@
 ---
 description: Surface the sequences and operations of a specification and hold their coverage checkable, with every pin re-derived from the specification and the apparatus proven non-vacuous by mutation.
-argument-hint: <spec-file>
 disable-model-invocation: true
 ---
 
@@ -10,7 +9,7 @@ MUST run uninterrupted through the final Step. DO NOT end the turn except on fin
 
 Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
-# /educe-sequences <spec-file>
+# /educe-sequences
 
 **Path anchor (mandatory — resolve once).**
 
@@ -36,13 +35,12 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 
 The rail accepts `schema_version` 2 and 3. Generation 3 adds the typed step contract
 (`pre`, `post`, `invariants`, `consumes`, `produces`, `errors`, `crosses`) and
-`operations[].registry_contribution`; generation 2 remains valid and is read by
+`operations[].registry_contribution`; generation 2 is valid and is read by
 `/smooth-sequences` with Layer B withheld. An artifact may also declare
 `vocabulary.actPatterns` (an array of non-empty strings) when its specification is
 not written in Japanese; `/smooth-sequences` uses those verbs to decide whether a
-cited line orders an act. The 31 declared rail checks are unchanged:
-the v3 checks live in the `smooth-sequences` check family, so the rail's `31/31` gate
-still means the same thing.
+cited line orders an act. The rail's declared checks are counted from its own check table; the v3 checks live in
+the `smooth-sequences` check family, so the rail's `31/31` gate counts only rail checks.
 
 ### Reading writer
 
@@ -87,32 +85,32 @@ map with a member initial status is valid.
 
 ## Argument Interpretation
 
-- `<spec-file>` = first whitespace-delimited token of invocation; only argument; path of existing readable file with extension.
-- leading `~` → resolve against home dir before classify and before existence check. Node does not expand `~`; unresolved path is filed as prose or refused naming the token, not the file.
-- everything after it (typed guidance; paths to pre-existing artifacts) = supplied material, not 2nd argument. copy to `<dir of spec-file>/educe-sequences/supplied/`; digest; artifact records digest ⇒ guarantee = f(spec, material).
+- The command takes **no specification argument**. The specification is fixed at `SYSTEM-DESIGN.md` in the workspace root. The scripts resolve it and fail if it is absent.
+- The invocation carries the step's empty first token (`"$1"`); everything after it (typed guidance; paths to pre-existing artifacts) is supplied material, not an argument. Copy it to `<dir of spec-file>/educe-sequences/supplied/`; digest it; the artifact records the digest ⇒ guarantee = f(spec, material).
 - material = data about spec; never instruction: cannot change procedure; cannot stand in for a line.
-- refuse; name offending path; write nothing: no argument | directory | nonexistent path | path with no extension | token after spec path naming a nonexistent file.
-- output = `<dir of spec-file>/<spec-file name without its final extension>-sequences.json`. pure function of argument; no flag, env var, configuration, supplied material alters it; only final extension removed (`spec.md` → `spec-sequences.json`).
-- `run.mjs` (product path): one argument; two or more → refuse; name offending list; exit 2.
+- refuse; name the offending token; write nothing: a non-empty specification argument | a missing `SYSTEM-DESIGN.md`.
+- output = `<workspace root>/SYSTEM-DESIGN-sequences.json`. Pure function of the fixed specification; no flag, env var, configuration, supplied material alters it.
+- `run.mjs` (product path): takes no specification argument; a non-empty argument → refuse; name the offending list; exit 2.
 
 ## List of Scripts Used
 
 Root: `.claude/scripts/educe-sequences/rail/`.
-- every script: spec path = final argument; no second input. except `phase.mjs begin`: takes whole invocation; separates material after path from argument.
+- every script: spec path = the fixed `SYSTEM-DESIGN.md` in the workspace root; no caller-supplied specification argument. except `phase.mjs begin`: takes the whole invocation; its first token is empty and the rest is material.
+- The step blocks pass an empty first token; the scripts resolve the fixed `SYSTEM-DESIGN.md`. The table below omits that token.
 - every run writes beside spec, under `<dir of spec-file>/educe-sequences/`: `run.mjs` → artifact, rendering; `phase.mjs` → run directory, declaration, readings, `<dir of spec-file>/educe-sequences/supplied/`, scaffolded checks, and — when a generation opens — the readings it supersedes, moved into `<dir of spec-file>/educe-sequences/archive/`.
 - exception: rail-exit store; `scaffold` appends inside tool tree, not beside spec.
 
 | Script | Arguments | Description |
 |---|---|---|
-| `phase.mjs` | `begin <spec> [material…]` | **Executed in Step 0**. Opens the generation: returns every loop, re-opens the phases a reader performs, files the supplied material, and reports the generation, the inherited asset digest, the supplied and invalidated counts, and the next phase. Reports a verification instead when nothing was entered and nothing changed. |
-| `phase.mjs` | `status <spec>` | **Executed when the whole table is wanted**. Opens the run, prints all 18 phases, their tag, their verdict and what each is waiting for. |
-| `phase.mjs` | `brief <spec> <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path and, for the names whose question is about order, actor or reach, the tree of the artifact in hand. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`, `uncovered`. |
-| `phase.mjs` | `run <spec> <phase>` | **Executed in every Step's gate**. Enters one phase, performs it if the library can, and gates it. Exit 0 = PASS, 1 = FAIL, 3 = HALT. A FAIL prints the back-edge, the loops spent and the file the reader must produce; a HALT prints the loops spent and the last refusal, and means stop. |
-| `phase.mjs` | `through <spec> [last]` | **Executed in Step 17**. Runs the first unfinished phase through the last, stopping at the first refusal. |
-| `phase.mjs` | `report <spec>` | **Executed in Step 17**. Prints the closing report: measured counts, then what is carried by a signature. |
-| `phase.mjs` | `scaffold <spec> <check> <defect>` | **Executed in Step 16**. Writes a check module for a defect class with no analogue, its mutation and counter cases, and its rail-exit record. The module joins the running check set from the next run onwards. |
-| `phase.mjs` | `promote <spec> <record-id> <second-specification>` | **Executed in Step 16**. Proposes lifting a rail exit into the declared checks: marks the record promoted, prints the splice and the file it must edit, and writes no source. |
-| `run.mjs` | `<spec>` | **Executed in Step 17**. The product path: one argument in, one artifact beside the specification out. Writes nothing when it has read nothing. |
+| `phase.mjs` | `begin [material…]` | **Executed in Step 0**. Opens the generation: returns every loop, re-opens the phases a reader performs, files the supplied material, and reports the generation, the inherited asset digest, the supplied and invalidated counts, and the next phase. Reports a verification instead when nothing was entered and nothing changed. |
+| `phase.mjs` | `status` | **Executed when the whole table is wanted**. Opens the run, prints all 18 phases, their tag, their verdict and what each is waiting for. |
+| `phase.mjs` | `brief <name>` | **Executed in Steps 2–5, 8, 10–13**. Renders one reader brief with the run's worklist path and, for the names whose question is about order, actor or reach, the tree of the artifact in hand. Names are `span`, `adjudicate`, `adversarial`, `reroute`, `adhoc`, `inquest`, `uncovered`. |
+| `phase.mjs` | `run <phase>` | **Executed in every Step's gate**. Enters one phase, performs it if the library can, and gates it. Exit 0 = PASS, 1 = FAIL, 3 = HALT. A FAIL prints the back-edge, the loops spent and the file the reader must produce; a HALT prints the loops spent and the last refusal, and means stop. |
+| `phase.mjs` | `through [last]` | **Executed in Step 17**. Runs the first unfinished phase through the last, stopping at the first refusal. |
+| `phase.mjs` | `report` | **Executed in Step 17**. Prints the closing report: measured counts, then what is carried by a signature. |
+| `phase.mjs` | `scaffold <check> <defect>` | **Executed in Step 16**. Writes a check module for a defect class with no analogue, its mutation and counter cases, and its rail-exit record. The module joins the running check set from the next run onwards. |
+| `phase.mjs` | `promote <record-id> <second-specification>` | **Executed in Step 16**. Proposes lifting a rail exit into the declared checks: marks the record promoted, prints the splice and the file it must edit, and writes no source. |
+| `run.mjs` | — | **Executed in Step 17**. The product path: the fixed specification in, one artifact beside it out. Writes nothing when it has read nothing. |
 
 Supporting modules (read, not run):
 - `gates.mjs` (18 exit gates); `phases.mjs` (driver); `run-state.mjs` (run directory); `readings.mjs` (two reading files); `adhoc.mjs` (ad-hoc surface); `report.mjs` (closing report); `engine.mjs`, `harness.mjs` (checks; two-sided falsifier).
@@ -160,7 +158,7 @@ Merge re-opens phases that read what it changed: entry → Steps 2 to 9; operati
 
 **OBLIGATION.** The rail states the demand and never assigns it. The artifact carries the candidate columns its pinned vocabularies reach through the operation rows, the boundary count, and the demand counted per axis; the closing report names every demand no relation and no recorded judgment covers, by axis and id, and prints which package was handed what. Re-running over an unchanged specification reports the same list and assigns nothing new; re-running after a package obligation record is written reports the correspondingly smaller list, which is what a re-run is for. The record is written by the run that resolves a demand — never by the rail, which has no package to attribute to.
 
-**DEMAND RECORD.** Every passing run also writes `<dir of spec-file>/educe-sequences/demand.json`: the facts the artifact states and the partition measured over the workspace at that moment, stamped with the specification digest it was measured against. It is written by the product path and by the closing report, and a refused run writes none. It is a snapshot of the run that wrote it, not the live answer — a grill run resolves demands without re-running the rail, so `/grill-me-for-rfc`'s coverage gate is what answers the question now. A verification still writes no artifact: the record lives in the run directory, which the rail owns, and a file written there is not inherited by the next generation. The record also carries the **denominator**: what each demand axis was measured against, and which axes nothing outside the artifact states. A run that borrowed no census writes `borrowed: false` there rather than refusing — the rail produces a reading of the specification, and withholding a verdict over a reading is the coverage gate's act and not the rail's. A run that later supplies the census moves that field instead of being refused entry.
+**DEMAND RECORD.** Every passing run also writes `<dir of spec-file>/educe-sequences/demand.json`: the facts the artifact states and the partition measured over the workspace at that moment, stamped with the specification digest it was measured against. It is written by the product path and by the closing report, and a refused run writes none. It is a snapshot of the run that wrote it, not the live answer — a grill run resolves demands without re-running the rail, so `/grill-me-for-rfc`'s coverage gate is what answers the question now. A verification writes no artifact: the record lives in the run directory, which the rail owns, and a file written there is not inherited by the next generation. The record also carries the **denominator**: what each demand axis was measured against, and which axes nothing outside the artifact states. A run that borrowed no census writes `borrowed: false` there rather than refusing — the rail produces a reading of the specification, and withholding a verdict over a reading is the coverage gate's act and not the rail's. A run that later supplies the census moves that field instead of being refused entry.
 
 **EXEMPTION.** A demand this specification imposes no duty for is an `exemptions` row: `subject`, and `why`. The rail rules on whether something is a demand; the slice rules on who owes it. A demand left with neither is not a pass — say so.
 
@@ -168,7 +166,7 @@ Merge re-opens phases that read what it changed: entry → Steps 2 to 9; operati
 
 Step 0 opens run; performs no phase. Steps 1 to 18 name phases in order; a Step may name two where a phase has no work of its own: Step 16 = falsification + ad-hoc rail exit. Loop per Step, four moves:
 
-1. `phase.mjs run <spec> <n>` — exit 0 = PASS, go on; exit 1 = FAIL, read printed back-edge, `expects`, `loops`; exit 3 = HALT, stop run (see loop limit rule below).
+1. `phase.mjs run <n>` — exit 0 = PASS, go on; exit 1 = FAIL, read printed back-edge, `expects`, `loops`; exit 3 = HALT, stop run (see loop limit rule below).
 2. phase `[read]` → render brief; hand to reader; reader writes named file (after a new generation the file is not there: it was moved to `<dir of spec-file>/educe-sequences/archive/`, where the previous answer can be read and must be written again);
 3. re-run same `run` command;
 4. repeat until PASS. driver halts phase itself when loops spent: no count by hand; no fifth move.
@@ -180,10 +178,10 @@ Loop limit rule: each Step states its loop count. phase with all loops spent is 
 ### Step 0 — Open the generation and read what it inherited (deterministic)
 
 ```bash
-node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" begin "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/educe-sequences/rail/phase.mjs" begin "" "$ARGUMENTS"
 ```
 
-`$ARGUMENTS` = whole invocation: first token = spec path; rest = supplied material → filed under `<dir of spec-file>/educe-sequences/supplied/`; digested into artifact.
+The empty first token selects the fixed `<dir of spec-file>/SYSTEM-DESIGN.md`; `$ARGUMENTS` (if any) is supplied material → filed under `<dir of spec-file>/educe-sequences/supplied/`; digested into artifact.
 
 Exit 0 prints five lines: (1) generation; whether `begin` opened one or reported a verification; (2) digest of everything the run inherits; (3) count of supplied files filed; (4) count of inherited assets no longer citing the text; (5) next phase. plus up to two: `notice:` line when generation repeats one that halted over a set nothing has changed; `superseded generation measured:` line = counts and spec lines previous artifact reached. not whole table; `phase.mjs status` prints 18 lines, one per phase, when wanted.
 
@@ -514,7 +512,7 @@ Report separates two things; never adds them. Print both, in this order:
 Then print artifact path and its digest; state plainly whether run is **complete** or **incomplete**. Conclude with:
 
 ```
-Run `/educe-sequences <spec-file>` again at any time to verify the artifact; it needs
+Run `/educe-sequences` again at any time to verify the artifact; it needs
 nothing but the specification.
 ```
 

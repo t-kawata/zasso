@@ -55,7 +55,9 @@ const VANISHED_CHECK_ID = 'every-held-name-survives-the-generation';
  *
  * @param {string[]} argv — the arguments after the script name
  * @param {{runInput?: {declaration: object, readings: object}, stdout?: (line: string) => void,
- *          stderr?: (line: string) => void, railExits?: unknown[]}} options
+ *          stderr?: (line: string) => void, railExits?: unknown[], cwd?: string}} options —
+ *   `cwd` names the workspace root that holds the fixed specification; the command line
+ *   resolves it from the process cwd, and a caller that already knows the root passes it.
  */
 // [::TICKET::] PX-242 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-242 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-244 --for-spec --no-implementation-order`.
@@ -69,7 +71,7 @@ export async function runCommand(argv, options = {}) {
   const stderr = options.stderr ?? ((line) => process.stderr.write(`${line}\n`));
   const runInput = options.runInput ?? null;
 
-  const parsed = parseSpecArgument(argv);
+  const parsed = parseSpecArgument(argv, options.cwd);
   if (!parsed.ok) {
     stderr(`refused: ${parsed.reason}`);
     return { exitCode: EXIT.MISUSED, artifactPath: null, summary: null, verdicts: [] };
@@ -188,6 +190,7 @@ export async function runCommand(argv, options = {}) {
  *   to refuse, which includes a specification that has no artifact beside it yet.
  */
 // [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 async function loadRunGround(specPath) {
   const spec = readSpecification(specPath);
   const artifactPath = artifactPathFor(specPath);
@@ -335,7 +338,7 @@ export function artifactExists(specPath) {
  * Read a run input from stdin when one was piped in.
  *
  * Stdin is not an argument, which is why it can carry the readings without breaking
- * the one-argument contract: a run with nothing piped in is a run that has read
+ * the fixed-specification contract: a run with nothing piped in is a run that has read
  * nothing, and it is refused at the first [read] phase rather than guessed at.
  */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
@@ -349,7 +352,7 @@ function readRunInputFromStdin() {
   }
 }
 
-// Command-line entry: `node rail/run.mjs <spec-file>`.
+// Command-line entry: `node rail/run.mjs` (the spec is SYSTEM-DESIGN.md).
 if (process.argv[1] !== undefined && process.argv[1].endsWith('run.mjs')) {
   process.exitCode = await withRunHistory(
     { command: 'educe-sequences', stage: 'educe' },

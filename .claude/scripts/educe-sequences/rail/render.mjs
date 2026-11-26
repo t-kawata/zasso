@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248, PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 // Write the rendering beside the specification (PX-248, PX-249).
 //
@@ -24,12 +25,13 @@ export const RENDER_EXIT = Object.freeze({ OK: 0, REFUSED: 1, MISUSED: 2 });
  * Render the artifact beside a specification.
  *
  * @param {string[]} argv — the arguments after the script name
- * @param {{railExits?: unknown[], inquest?: unknown[]}} options — the records a test supplies
+ * @param {{railExits?: unknown[], inquest?: unknown[], cwd?: string}} options — the records a
+ *   test supplies, and the workspace root that holds the fixed specification
  * @returns {Promise<{exitCode: number, renderingPath: string|null, reason: string}>}
  */
 // [::TICKET::] PX-248, PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-249) --for-spec --no-implementation-order`.
 export async function renderCommand(argv, options = {}) {
-  const parsed = parseSpecArgument(argv);
+  const parsed = parseSpecArgument(argv, options.cwd);
   if (!parsed.ok) return { exitCode: RENDER_EXIT.MISUSED, renderingPath: null, reason: parsed.reason };
 
   const verified = await verifyArtifact(parsed.specPath, options);
@@ -45,7 +47,7 @@ export async function renderCommand(argv, options = {}) {
   return { exitCode: RENDER_EXIT.OK, renderingPath, reason: `wrote ${renderingPath}` };
 }
 
-// Command-line entry: `node rail/render.mjs <spec-file>`.
+// Command-line entry: `node rail/render.mjs` (the spec is SYSTEM-DESIGN.md).
 if (process.argv[1] !== undefined && process.argv[1].endsWith('render.mjs')) {
   const outcome = await renderCommand(process.argv.slice(2));
   (outcome.exitCode === RENDER_EXIT.OK ? process.stdout : process.stderr).write(`${outcome.reason}\n`);

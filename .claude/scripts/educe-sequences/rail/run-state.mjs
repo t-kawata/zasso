@@ -1,6 +1,6 @@
 // The run directory and the phase status file (PX-241, contracts C015, C020).
 //
-// The one-argument contract says the artifact, the rendering and everything else the
+// The fixed-specification contract says the artifact, the rendering and everything else the
 // run touches are determined by the argument alone, so the state lives beside the
 // specification, in a directory named for this tool: `join(dirname(specPath),
 // 'educe-sequences')`.
@@ -145,6 +145,7 @@ export function writeStatus(directory, status) {
  */
 // [::TICKET::] PX-241, PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-241|PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function whyNotResumed(existing, specPath, spec) {
   if (existing.spec?.path !== basename(specPath)) {
     return {

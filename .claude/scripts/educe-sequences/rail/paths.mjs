@@ -1,12 +1,15 @@
-// path derivation for the one-argument contract (PX-240, contract C010).
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// path derivation for the fixed-specification contract (PX-240, PX-454, contract C010).
 //
 // The output location depends only on the argument, so a run and a verification
 // need nothing beyond the specification path. Two consequences are
 // deliberate: no flag, environment variable or configuration reaches this module,
 // and only the final extension is removed, so a name such as `spec.v32.final.md`
 // yields `spec.v32.final-sequences.json` rather than losing `final` as well.
-import { existsSync, statSync } from 'node:fs';
-import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, extname, join, resolve } from 'node:path';
+import process from 'node:process';
 // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 /** The suffix every artifact carries, and the extension each form uses. */
@@ -41,34 +44,36 @@ export function renderPathFor(specPath) {
   return directory === '.' ? derived : join(directory, derived);
 }
 
+/** The fixed specification name at the workspace root. */
+export const SYSTEM_DESIGN_FILE_NAME = 'SYSTEM-DESIGN.md';
+
 /**
- * Read the one positional argument.
+ * Resolve the fixed specification.
  *
- * A refusal names the offending argument rather than the rule, because the caller
- * of a command learns more from "two arguments were given: a, b" than from
- * "expected exactly one argument".
+ * The command takes no argument. The specification is always SYSTEM-DESIGN.md in
+ * the workspace root, which is the caller's cwd; an absent file is refused by
+ * name rather than falling back to another document.
  *
  * @param {string[]} argv — the arguments after the script name
+ * @param {string} [cwd] — the workspace root; defaults to the process cwd
  * @returns {{ok: true, specPath: string} | {ok: false, reason: string}}
  */
-export function parseSpecArgument(argv) {
-  if (argv.length === 0) {
-    return { ok: false, reason: 'no argument was given; /educe-sequences takes the specification path and nothing else' };
-  }
+export function parseSpecArgument(argv, cwd = process.cwd()) {
   if (argv.length > 1) {
-    return { ok: false, reason: `two or more arguments were given: ${argv.join(', ')}; /educe-sequences takes one` };
+    return { ok: false, reason: `the command takes no argument; ${argv.length} were given: ${argv.join(', ')}` };
   }
 
-  const [given] = argv;
-  if (!existsSync(given)) {
-    return { ok: false, reason: `the argument does not name an existing file: ${given}` };
-  }
-  if (statSync(given).isDirectory()) {
-    return { ok: false, reason: `the argument is a directory, not a specification file: ${given}` };
-  }
-  if (extname(given) === '') {
-    return { ok: false, reason: `the argument has no extension, so no artifact name can be derived from it: ${given}` };
+  const given = argv.length === 1 ? String(argv[0] ?? '').trim() : '';
+  if (given !== '') {
+    return {
+      ok: false,
+      reason: `the command takes no argument; the specification is ${SYSTEM_DESIGN_FILE_NAME} at the workspace root`,
+    };
   }
 
-  return { ok: true, specPath: isAbsolute(given) ? given : resolve(given) };
+  const specPath = resolve(cwd, SYSTEM_DESIGN_FILE_NAME);
+  if (!existsSync(specPath)) {
+    return { ok: false, reason: `the workspace root ${cwd} has no ${SYSTEM_DESIGN_FILE_NAME}` };
+  }
+  return { ok: true, specPath };
 }

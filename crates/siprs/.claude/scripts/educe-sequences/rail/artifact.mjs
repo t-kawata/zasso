@@ -16,7 +16,7 @@ import { digestOfSupplied } from './supplied.mjs';
 
 /** The command a reader is told to run to check the artifact later. */
 // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
-export const VERIFY_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs" <spec-file>';
+export const VERIFY_COMMAND = 'node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs"';
 
 /**
  * The fields a v3 artifact carries that a v2 composition cannot reproduce.
@@ -52,6 +52,7 @@ const NO_EXTERNAL_DEPENDENCY = 'none';
 
 /** The status members a status-bearing operation may use, or null when unstated. */
 // [::TICKET::] PX-385 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-385 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function operationStatusMembers(pins) {
   const enumeration = (pins?.enumerations ?? [])
     .find((entry) => entry.name === OPERATION_ENVELOPE.statusEnumeration);

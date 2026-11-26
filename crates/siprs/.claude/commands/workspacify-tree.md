@@ -1,6 +1,5 @@
 ---
 description: Analyse a long Markdown specification and publish WORKSPACIFY-TREE-MANIFEST.json as the single canonical authority (stage one)
-argument-hint: <path-to-specification.md>
 disable-model-invocation: true
 ---
 
@@ -36,11 +35,12 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 
 ## Arguments
 
-In: first/required/only argument `<path-to-specification.md>`.
+In: **no argument**. The forward commands read `SYSTEM-DESIGN.md` at the workspace root (the current directory); the scripts resolve it and fail if it is absent. A non-empty specification argument is refused.
 
 - Must be readable regular UTF-8 non-empty file with ≥1 ATX heading
 - No extra argument, dialogue, environment variable, hook, external fetch
-- Free-form input besides argument = additional information
+- Free-form input besides the fixed file = additional information
+- In the script table below, `<spec>` denotes the resolved fixed `SYSTEM-DESIGN.md`, not a caller-supplied argument.
 
 ## The canonical output and its constraints
 
@@ -52,10 +52,10 @@ Base: `.claude/scripts/workspacify-tree/`.
 
 | Script | Contract |
 |---|---|
-| `run.mjs parse <spec>` | G0/G1: input lock, normalization, hash, headings, segments, exact reconstruction; exit PASS/FAIL |
-| `run.mjs extract <spec>` | G2: independent object/claim/invariant/state-machine/error-code/required-test harvest with source traceability; prints statistics |
-| `run.mjs gate --spec=..` | real per-gate pipeline over decision input; only COMPLETE exits 0 |
-| `run.mjs finalize --spec=..` | apply ownership → all gates → manifest → self-hash → current-directory publish |
+| `run.mjs parse` | G0/G1: input lock, normalization, hash, headings, segments, exact reconstruction; reads the fixed `SYSTEM-DESIGN.md`; exit PASS/FAIL |
+| `run.mjs extract` | G2: independent object/claim/invariant/state-machine/error-code/required-test harvest with source traceability; prints statistics |
+| `run.mjs gate` | real per-gate pipeline over decision input; only COMPLETE exits 0 |
+| `run.mjs finalize` | apply ownership → all gates → manifest → self-hash → current-directory publish |
 | `run.mjs reverse` | reverse: G0–G5 then T1–T6 over measured project tree; reads `ARCHITECTURE-DELTA.json`; publishes `reverse_provenance`; only COMPLETE exits 0; failing gate publishes nothing |
 
 ## Statuses and gates
@@ -90,7 +90,7 @@ Output must let stage two verify coupling mechanically.
 Purpose: lock spec; readable/UTF-8/non-empty validation; normalize unified newlines preserving trailing newline; SHA-256; heading tree; `##` segments; exact recombination proof.
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" parse "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" parse
 ```
 
 Out: `source_hash` = normalized whole-input immutable fingerprint; `reconstruction` = segment recombination verification. Pass: reconstruction PASS and hash printed. Fail: correct nonexistent/directory/empty/non-UTF8/reconstruction-mismatch input; rerun.
@@ -100,7 +100,7 @@ Out: `source_hash` = normalized whole-input immutable fingerprint; `reconstructi
 Purpose: omission-free implementation-target candidates with source traceability. Deterministic patterns: table object column, inline code, claim blocks, normative phrases. Keep invariant/error code/required test independent from terms.
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" extract "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" extract
 ```
 
 Out: `harvested|confirmed|review_required|unresolved` statistics; `spec_pulse` candidates (`candidate_ids`, each `kind|chapter_ref|observation|evidence_refs`). AI: check canonical_name/aliases/classification/source_refs; settle misfiled/ambiguous candidates through Step-3 approvals. Harvester never deletes candidates. Pass: every candidate has source_refs; review_required/unresolved understood. Every boundary emitted here carries `stage2_contract_scope`; `/workspacify-allocate`'s `contract_registry` must satisfy exactly that scope, and `/smooth-sequences` checks the two against each other.
@@ -156,7 +156,7 @@ Record APPROVED only after all; statement summarizes checked items; approver nam
 ## Step 4: the gate loop (G3/G4)
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" gate "--spec=$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" gate
 ```
 
 Out: per-gate status and stdout `finalAudit`; COMPLETE/exit 0 iff all gates PASS and unresolved 0. Semantic-review absent/not APPROVED → G2/G3 REVIEW_REQUIRED.
@@ -186,7 +186,7 @@ Unlisted causes appear in `reasons`: tree/catalog path mismatch, edge/boundary m
 ## Step 5: finalize and publish (G5)
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" finalize "--spec=$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-tree/run.mjs" finalize
 ```
 
 Run only at all-PASS/unresolved-0. Finalize assembles canonical JSON/self-hash; invokes stage-two entry predicate immediately before publish. Stage-two acceptance proves complete tree, unique owner, dependency matrix, DAG, implementation order; no separate invocation.
@@ -236,7 +236,7 @@ Role: existing substantial implementation requires measured-tree grounding; pres
 - Decisions: fixed `workspacify/tree/DECISIONS.json`; read once; retained after success
 - No dialogue/env/hook/external fetch
 
-Forward G0–G5 unchanged; then T1–T6:
+Reverse mode runs forward G0–G5 first, then T1–T6:
 
 | Gate | FAIL | PASS |
 |---|---|---|
@@ -247,7 +247,7 @@ Forward G0–G5 unchanged; then T1–T6:
 | T5 logical/physical separation | unrecorded mismatch or absent delta | every mismatch recorded |
 | T6 reverse provenance | reverse provenance absent/unresolvable sidecar hash | present/resolves; forward deliberately absent/T6 inactive |
 
-T5 checks record presence, not no-difference. Even zero mismatch writes `ARCHITECTURE-DELTA.json`; agreement proves neither model correct. Reverse adds only `reverse_provenance` (bundle hash/count summary); COMPLETE meaning and manifest-hash normalization unchanged; forward manifests byte-identical.
+T5 checks record presence, not no-difference. Even zero mismatch writes `ARCHITECTURE-DELTA.json`; agreement proves neither model correct. Reverse adds only `reverse_provenance` (bundle hash/count summary); Reverse preserves the COMPLETE meaning and the manifest-hash normalization; forward manifests stay byte-identical.
 
 Reverse FAIL causes: disk extra/manifest missing (T1); source outside package (T2); nonexistent node file (T3); contradictory order/cycle (T4); omitted mismatch (T5); nonresolving provenance (T6).
 

@@ -10,7 +10,7 @@
  * package, and WORKSPACIFY-ALLOCATE-MANIFEST.json — the machine authority that
  * records what was proven. Intermediate artefacts are removed before it returns.
  */
-import { readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import process from 'node:process';
@@ -76,6 +76,7 @@ const DECISIONS_SCHEMA_PATH = fileURLToPath(new URL('./schemas/workspacify-alloc
 /** Gate that judges the self-grill loop and the reachability of its residuals. */
 const SELF_GRILL_GATE_ID = 'G3.7';
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function guide(message) {
   process.stderr.write(`[guide] ${message}\n`);
 }
@@ -377,21 +378,50 @@ function assertSemanticApproval(decisions) {
   }
 }
 
-export function runValidate(args) {
-  const manifestPath = args[1];
-  if (!manifestPath) {
-    throw new WorkSpacifyTreeError('validate requires exactly one <path-to-WORKSPACIFY-TREE-MANIFEST.json>', { gateId: 'G0' });
+/** The fixed stage-one manifest the forward commands read. */
+const FORWARD_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+
+/**
+ * Resolve the fixed stage-one manifest.
+ *
+ * The forward command takes no manifest argument: the file is always
+ * WORKSPACIFY-TREE-MANIFEST.json at the workspace root, which is the current
+ * directory. Reverse mode has its own input and is not routed here.
+ */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function resolveForwardManifest(manifestPath, cwd = process.cwd()) {
+  const given = typeof manifestPath === 'string' ? manifestPath.trim() : '';
+  if (given !== '') {
+    throw new WorkSpacifyTreeError(
+      `the forward command takes no manifest argument; ${FORWARD_MANIFEST_FILE_NAME} at the workspace root is fixed`,
+      { gateId: 'G0' },
+    );
   }
+  const resolved = path.join(cwd, FORWARD_MANIFEST_FILE_NAME);
+  if (!existsSync(resolved)) {
+    throw new WorkSpacifyTreeError(
+      `the workspace root ${cwd} has no ${FORWARD_MANIFEST_FILE_NAME}`,
+      { gateId: 'G0' },
+    );
+  }
+  return resolved;
+}
+
+/** The first token that is not an option, used only by the packet selector. */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function firstPositional(args) {
+  return args.find((token) => !token.startsWith('--'));
+}
+
+export function runValidate(args, cwd = process.cwd()) {
+  const manifestPath = resolveForwardManifest(args[1], cwd);
   const { manifest, manifestDir, sourceHash } = loadLockedInput(manifestPath);
   emit({ status: 'PASS', workspaceRoot: manifestDir, sourceHash, manifestHash: manifest.integrity.manifest_hash, gateSummary: 'G0:PASS G1:PASS' });
   guide('Validate PASS: the manifest and its co-located specification are locked. Next: run plan.');
 }
 
-export function runPlan(args) {
-  const manifestPath = args[1];
-  if (!manifestPath) {
-    throw new WorkSpacifyTreeError('plan requires exactly one <path-to-WORKSPACIFY-TREE-MANIFEST.json>', { gateId: 'G0' });
-  }
+export function runPlan(args, cwd = process.cwd()) {
+  const manifestPath = resolveForwardManifest(args[1], cwd);
   const { manifest, manifestDir } = loadLockedInput(manifestPath);
   const plan = buildDirectoryPlan({ tree: manifest.workspace?.tree, packages: manifest.workspace?.packages });
   if (!plan.consistent) {
@@ -409,11 +439,8 @@ export function runPlan(args) {
   guide('Plan PASS: the directory plan is safe and the workspace is fresh. Next: author the decisions input.');
 }
 
-export function runPacket(args) {
-  const manifestPath = args[1];
-  if (!manifestPath) {
-    throw new WorkSpacifyTreeError('packet requires exactly one <path-to-WORKSPACIFY-TREE-MANIFEST.json>', { gateId: 'G0' });
-  }
+export function runPacket(args, cwd = process.cwd()) {
+  const manifestPath = resolveForwardManifest(firstPositional(args.slice(1)), cwd);
   const { manifest, sourceText } = loadLockedInput(manifestPath);
   const requested = optionValue(args, '--package');
   const targets = requested ? [requested] : (manifest.workspace?.packages ?? []).map((pkg) => pkg.id);
@@ -422,12 +449,9 @@ export function runPacket(args) {
   guide('Packet PASS: authoring material printed for the requested packages. Next: write the decisions input from this material.');
 }
 
-export function runGate(args) {
+export function runGate(args, cwd = process.cwd()) {
   refuseDecisionsArgument(args.slice(1));
-  const manifestPath = args[1];
-  if (!manifestPath) {
-    throw new WorkSpacifyTreeError('gate requires exactly one <path-to-WORKSPACIFY-TREE-MANIFEST.json>', { gateId: 'G0' });
-  }
+  const manifestPath = resolveForwardManifest(args[1], cwd);
   const { manifest, manifestDir } = loadLockedInput(manifestPath);
   const decisions = loadDecisions(reservedAllocateDecisionsPath(manifestDir));
   const { expectedByPackage } = deriveExpectedAllocation({ ownershipEntries: manifest.workspace?.ownership?.entries ?? [], packages: manifest.workspace?.packages ?? [] });
@@ -440,12 +464,9 @@ export function runGate(args) {
 }
 
 // [::TICKET::] PX-219 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-219 --for-spec --no-implementation-order`.
-export function runFinalize(args) {
+export function runFinalize(args, cwd = process.cwd()) {
   refuseDecisionsArgument(args.slice(1));
-  const manifestPath = args[1];
-  if (!manifestPath) {
-    throw new WorkSpacifyTreeError('finalize requires exactly one <path-to-WORKSPACIFY-TREE-MANIFEST.json>', { gateId: 'G0' });
-  }
+  const manifestPath = resolveForwardManifest(args[1], cwd);
   const { manifest, manifestDir } = loadLockedInput(manifestPath);
   const decisionsPath = reservedAllocateDecisionsPath(manifestDir);
   const decisions = loadDecisions(decisionsPath);
@@ -796,23 +817,24 @@ const SUBCOMMANDS = {
  * which the rotation implements as `workspaceRoot = dirname(manifestPath)`; the
  * decisions document is derived and is named here so a reader learns where it went.
  */
-// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-215|PX-454) --for-spec --no-implementation-order`.
 function printUsage() {
   return [
-    'Usage: run.mjs <validate|plan|packet|gate|finalize> <path-to-WORKSPACIFY-TREE-MANIFEST.json>',
+    'Usage: run.mjs <validate|plan|packet|gate|finalize>',
     '       run.mjs reverse',
-    '       run.mjs packet <manifest> [--package=<id>]',
+    '       run.mjs packet [--package=<id>]',
     '',
-    '  validate <manifest>   Judge the stage-one manifest against the allocate entry gate',
-    '  plan <manifest>       Judge path safety and fresh-workspace-ness (G2)',
-    '  packet <manifest>     Print the per-package authoring material, for one package or for all',
-    '  gate <manifest>       Run the automatic gates and require the recorded semantic approval',
-    '  finalize <manifest>   Publish the tree, one RFC-SEED.md per package and the allocate manifest',
+    `  The forward commands read ${FORWARD_MANIFEST_FILE_NAME} at the workspace root`,
+    '  and accept no manifest argument.',
+    '  validate              Judge the stage-one manifest against the allocate entry gate',
+    '  plan                  Judge path safety and fresh-workspace-ness (G2)',
+    '  packet                Print the per-package authoring material, for one package or for all',
+    '  gate                  Run the automatic gates and require the recorded semantic approval',
+    '  finalize              Publish the tree, one RFC-SEED.md per package and the allocate manifest',
     '  reverse               Allocate into a project that already exists, in the directory the command is run in',
     '',
-    '  The manifest is the positional, and it survives because hiding it would break every',
-    '  pattern at once: its directory IS the workspace root, so a standard manifest path',
-    '  would create the generated workspace inside the reserve.',
+    '  The fixed manifest directory IS the workspace root, so a standard manifest path',
+    '  keeps the generated workspace out of the reserve.',
     `  The decisions document is read from ${RESERVED_ROOT_NAME}/${RESERVED_ALLOCATE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME}`,
     '  beneath the workspace root, and beneath the directory the command is run in for reverse.',
     '  It is not selectable: no argument, no environment variable and no pre-existing file',

@@ -124,6 +124,7 @@ export function stableManifestDigest(manifest) {
 
 /** Every file beneath a directory, depth first and name-sorted, as absolute paths. */
 // [::TICKET::] PX-207 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-207 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function listFilesRecursively(dir) {
   if (!existsSync(dir)) {
     return [];
@@ -195,7 +196,7 @@ export function runTreePair({ pair, projectRoot }) {
   const fixtureRoot = join(projectRoot, TREE_FIXTURES_RELATIVE_DIR);
   const workDir = mkdtempSync(join(tmpdir(), 'p22-1-tree-pair-'));
   try {
-    const specPath = join(workDir, pair.spec);
+    const specPath = join(workDir, 'SYSTEM-DESIGN.md');
     cpSync(join(fixtureRoot, pair.spec), specPath);
     // Staged where the rotation derives it, because the rotation selects nothing:
     // the working directory alone fixes the document's location.
@@ -203,7 +204,7 @@ export function runTreePair({ pair, projectRoot }) {
 
     const result = spawnSync(
       process.execPath,
-      [join(MODULE_ROOT, TREE_RUN_SCRIPT_RELATIVE_PATH), 'finalize', `--spec=${specPath}`],
+      [join(MODULE_ROOT, TREE_RUN_SCRIPT_RELATIVE_PATH), 'finalize'],
       { cwd: workDir, encoding: 'utf8' },
     );
     const manifestPath = join(workDir, TREE_MANIFEST_FILE_NAME);
@@ -241,7 +242,6 @@ export function runAllocateFixture({ fixture, projectRoot }) {
       [
         join(MODULE_ROOT, ALLOCATE_RUN_SCRIPT_RELATIVE_PATH),
         'finalize',
-        join(workDir, fixture.manifest),
       ],
       { cwd: workDir, encoding: 'utf8' },
     );

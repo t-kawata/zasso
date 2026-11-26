@@ -1,6 +1,5 @@
 ---
 description: Generate the real directory tree and one RFC-SEED.md per package from WORKSPACIFY-TREE-MANIFEST.json (stage two)
-argument-hint: <path-to-WORKSPACIFY-TREE-MANIFEST.json>
 disable-model-invocation: true
 ---
 
@@ -48,13 +47,11 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 
 ## Arguments
 
-In:
-- arg: `<path-to-WORKSPACIFY-TREE-MANIFEST.json>`; first, required, only argument.
-- `workspaceRoot = dirname(arg)`; root is a package (`.`); do not derive root from cwd, env, branch, or another path. This is the mechanism that makes the manifest a survivor: its directory is the workspace root itself, so no separate root argument can name the same workspace twice.
-- an argument is hidden unless hiding it breaks one of the four patterns; the stage-one command document is `workspacify-tree.md`, and its specification argument is the only other survivor.
-- arg must be: regular UTF-8 non-empty JSON file; tree-manifest schema-valid; required kind/status/audit/handoff fields valid; self-hash valid; co-located recorded specification re-hashes to `input.source_hash`.
+In: **no argument**. The forward commands read the stage-one manifest `WORKSPACIFY-TREE-MANIFEST.json` published by `/workspacify-tree` (see `workspacify-tree.md`) at the workspace root (the current directory); the scripts resolve it and fail if it is absent. A non-empty manifest argument is refused; `--package` is the packet subcommand's selector.
+- `workspaceRoot = dirname(WORKSPACIFY-TREE-MANIFEST.json) = cwd`; root is a package (`.`); do not derive root from env, branch, or another path. The fixed manifest directory is the workspace root itself, so no separate root argument can name the same workspace twice.
+- The fixed manifest must be: regular UTF-8 non-empty JSON file; tree-manifest schema-valid; required kind/status/audit/handoff fields valid; self-hash valid; co-located recorded specification re-hashes to `input.source_hash`.
 - no other arg/dialogue/env/hook/external fetch required.
-- free-form input beyond arg → additional information.
+- free-form input beyond the fixed manifest → additional information.
 - decisions input: `workspaceRoot/workspacify/allocate/DECISIONS.json`; derived only; no arg/env/pre-existing file may relocate it.
 
 ## The canonical output and its constraints
@@ -83,11 +80,11 @@ Root: `.claude/scripts/workspacify-allocate/`.
 
 | Script | Contract |
 |---|---|
-| `run.mjs validate <manifest>` | G0/G1 input lock: schema, self-hash, COMPLETE, final audit, handoff, co-located spec re-hash; exit 0 = PASS |
-| `run.mjs plan <manifest>` | G2: ancestor/leaf directory plan, leaf↔package bijection, path safety, existing-output policy |
-| `run.mjs packet <manifest> [--package=<id>]` | JSON authoring packet: owned inventory, source excerpts, boundary context |
-| `run.mjs gate <manifest>` | G3–G5/order: decisions/authoring, G3.7, render/local checks/parity/transfer, G4 bilateral contracts, G5 WIG/order, APPROVED; exit 0 only = COMPLETE |
-| `run.mjs finalize <manifest>` | G6: re-run gates; staged build; atomic publish; reload verification; cleanup |
+| `run.mjs validate` | G0/G1 input lock: schema, self-hash, COMPLETE, final audit, handoff, co-located spec re-hash; exit 0 = PASS |
+| `run.mjs plan` | G2: ancestor/leaf directory plan, leaf↔package bijection, path safety, existing-output policy |
+| `run.mjs packet [--package=<id>]` | JSON authoring packet: owned inventory, source excerpts, boundary context |
+| `run.mjs gate` | G3–G5/order: decisions/authoring, G3.7, render/local checks/parity/transfer, G4 bilateral contracts, G5 WIG/order, APPROVED; exit 0 only = COMPLETE |
+| `run.mjs finalize` | G6: re-run gates; staged build; atomic publish; reload verification; cleanup |
 | `run.mjs reverse` | reverse mode: A1–A5/A6; exact existing tree; one extra path BLOCKED; no top-level rename; failure publishes nothing |
 
 ## Statuses and gates
@@ -121,7 +118,7 @@ Machine verifies structure, transfer fidelity, coupling completeness; never pros
 Purpose: lock manifest + co-located spec; invalid lock invalidates later source trace.
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" validate "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" validate
 ```
 
 pass: exit 0; `{status:"PASS", workspaceRoot, sourceHash, manifestHash, gateSummary}`.
@@ -132,7 +129,7 @@ fail: stop; do not enter later Steps.
 Purpose: accept, never decide: segment→owner coverage; inventory→package allocation; edge→boundary→mandatory-clause table; implementation-order outline; path/fresh-workspace preliminary check.
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" plan "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" plan
 ```
 
 pass: exit 0; `{status:"PASS", plannedDirectoryCount, relativeDirs}`.
@@ -146,7 +143,7 @@ Purpose: write each `seed_required: true` semantic body as machine-verifiable de
 ### 3-1: obtaining the authoring packet
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" packet "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" packet
 # only a specific package: --package=pkg-0001
 ```
 
@@ -208,7 +205,7 @@ Artifacts:
 ## Step 4: the gate loop (G3/G4/G5/order)
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" gate "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" gate
 ```
 
 pass: exit 0; `{status:"COMPLETE", gateSummary}`.
@@ -229,7 +226,7 @@ Heal-loop gate:
 ## Step 5: building the canonical artefact and publishing it atomically (G6)
 
 ```bash
-node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" finalize "$ARGUMENTS"
+node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" finalize
 ```
 
 precondition: all gates PASS; `semantic_review.status === "APPROVED"`; else non-zero, never COMPLETE.
@@ -316,13 +313,13 @@ Allocation Index grammar:
 ## Appendix C: examples of run.mjs output
 
 ```text
-$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" validate ./WORKSPACIFY-TREE-MANIFEST.json
+$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" validate
 {"status":"PASS","workspaceRoot":"/work/specs","sourceHash":"ab12…","manifestHash":"cd34…","gateSummary":"G0:PASS G1:PASS"}
 
-$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" gate ./WORKSPACIFY-TREE-MANIFEST.json
+$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" gate
 {"status":"COMPLETE","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS semantic:APPROVED"}
 
-$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" finalize ./WORKSPACIFY-TREE-MANIFEST.json
+$ node "$CLAUDE_DIR/scripts/workspacify-allocate/run.mjs" finalize
 {"published":true,"workspaceRoot":"/work/specs","allocateManifestPath":"/work/specs/WORKSPACIFY-ALLOCATE-MANIFEST.json","allocateManifestHash":"ef56…","residue":["WORKSPACIFY-ALLOCATE-MANIFEST.json","WORKSPACIFY-TREE-MANIFEST.json","crates","spec.md","workspacify"],"inputManifestHash":"cd34…","directoryCount":7,"packageCount":3,"seedCount":3,"contractCount":2,"waveCount":2,"segmentCoverage":"5/5","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS G6:PASS semantic:APPROVED"}
 ```
 
