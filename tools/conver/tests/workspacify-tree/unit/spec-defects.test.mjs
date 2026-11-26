@@ -24,6 +24,7 @@ const CANDIDATES = [
   { id: 'pulse-000002', kind: 'extraction_gap', chapter_ref: 'h-000003', observation: 'y.', evidence_refs: ['h-000003'] },
 ];
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function resolved() {
   return {
     candidates: CANDIDATES,
@@ -93,7 +94,7 @@ test('C003 the CLI publishes the pulse summary and both hand-off sets', () => {
       '## Ledger', '', '| object | kind |', '|--------|------|',
       '| LedgerRecord | record |', '',
     ].join('\n');
-    const specPath = join(dir, 'spec.md');
+    const specPath = join(dir, 'SYSTEM-DESIGN.md');
     writeFileSync(specPath, sourceText);
     const headings = buildHeadingTree(sourceText.split('\n'), undefined, { sourceText });
     const { segments } = segmentAtHeadings({ sourceText, headings }, { segmentLevel: 2 });
@@ -127,7 +128,7 @@ test('C003 the CLI publishes the pulse summary and both hand-off sets', () => {
     };
     stageTreeDecisions(dir, decisions);
 
-    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stdout + result.stderr);
     const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
     assert.equal(manifest.structure.spec_pulse.summary.candidate_count, pulse.candidates.length);
@@ -140,7 +141,7 @@ test('C003 the CLI publishes the pulse summary and both hand-off sets', () => {
     // An unsettled candidate stops the run and names the candidate.
     // Staged again: the run above published, and a published run sweeps the document.
     stageTreeDecisions(dir, { ...decisions, residual_questions: [] });
-    const blocked = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const blocked = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(blocked.status, 0);
     // The machine-readable result is on stdout; the located reason is on stderr.
     assert.ok((blocked.stdout + blocked.stderr).includes(pulse.candidates[1].id), blocked.stdout + blocked.stderr);

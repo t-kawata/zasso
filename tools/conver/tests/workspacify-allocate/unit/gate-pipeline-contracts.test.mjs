@@ -11,6 +11,7 @@ import { runGate } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function silent(callback) {
   const stdout = process.stdout.write;
   const stderr = process.stderr.write;
@@ -41,7 +42,7 @@ test('C005 a dropped side, an undeclared contract and a weakened clause all stop
       decisions.seeds = decisions.seeds.map((seed) => (seed.packageId === 'pkg-a' ? { ...seed, contractEdges: [] } : seed));
     }));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath]),
+      () => runGate(['gate'], fixture.dir),
       (error) => error.gateId === 'G3' && /contract-boundary-001/.test(error.message),
     );
 
@@ -50,7 +51,7 @@ test('C005 a dropped side, an undeclared contract and a weakened clause all stop
       decisions.seeds[0].contractEdges = [{ ...decisions.seeds[0].contractEdges[0], contract_id: 'contract-ghost' }];
     }));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath]),
+      () => runGate(['gate'], fixture.dir),
       (error) => error.gateId === 'G3' && /contract-ghost/.test(error.message),
     );
 
@@ -62,7 +63,7 @@ test('C005 a dropped side, an undeclared contract and a weakened clause all stop
         : seed));
     }));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath]),
+      () => runGate(['gate'], fixture.dir),
       (error) => error.gateId === 'G4' && /contract-boundary-001/.test(error.message),
     );
   } finally {
@@ -81,7 +82,7 @@ test('C005 a clean payload passes with the cross-seed gates in the summary', () 
     process.stdout.write = (chunk) => { output += chunk; return true; };
     process.stderr.write = () => true;
     try {
-      runGate(['gate', fixture.manifestPath]);
+      runGate(['gate'], fixture.dir);
     } finally {
       process.stdout.write = stdout;
       process.stderr.write = stderr;

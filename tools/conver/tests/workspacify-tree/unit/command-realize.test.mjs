@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, existsSync, readdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, existsSync, readdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,6 +22,7 @@ const MD_PATH = join(CONVER_ROOT, '.claude/commands/workspacify-tree.md');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 const SPEC = join(FIXTURES, 'objects-table.md');
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function runCli(args, cwd = CONVER_ROOT) {
   return spawnSync(process.execPath, [RUN_SCRIPT, ...args], { cwd, encoding: 'utf8' });
 }
@@ -74,24 +75,27 @@ test('gate C002 [@verifies C002]: a real spec with review-required candidates do
   // derived at the subject: a call that inherited the repository would stage a
   // document into the repository.
   const dir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
+  copyFileSync(SPEC, join(dir, 'SYSTEM-DESIGN.md'));
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-long-ok.json'));
-  const gate = runCli(['gate', `--spec=${SPEC}`], dir);
+  const gate = runCli(['gate'], dir);
   assert.notEqual(gate.status, 0);
   assert.ok(!gate.stdout.includes('"status":"PASS"'));
 });
 
 test('gate C002 invariant [@verifies C002]: gate PASS only when the real gate pipeline passes', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
+  copyFileSync(SPEC, join(dir, 'SYSTEM-DESIGN.md'));
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-complete.json'));
-  const gate = runCli(['gate', `--spec=${SPEC}`], dir);
+  const gate = runCli(['gate'], dir);
   assert.equal(gate.status, 0, gate.stdout);
   assert.ok(gate.stdout.includes('COMPLETE'));
 });
 
 test('ownership C003 [@verifies C003]: finalize applies decisions ownership and a real spec reaches COMPLETE', () => {
   const outDir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
+  copyFileSync(SPEC, join(outDir, 'SYSTEM-DESIGN.md'));
   stageTreeDecisionsFrom(outDir, join(FIXTURES, 'decisions-complete.json'));
-  const finalize = runCli(['finalize', `--spec=${SPEC}`], outDir);
+  const finalize = runCli(['finalize'], outDir);
   assert.equal(finalize.status, 0, finalize.stdout);
   const manifest = JSON.parse(readFileSync(join(outDir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.equal(manifest.status, 'COMPLETE');
@@ -100,8 +104,9 @@ test('ownership C003 [@verifies C003]: finalize applies decisions ownership and 
 
 test('ownership C003 invariant [@verifies C003]: exactly one manifest is published and reload passes', () => {
   const outDir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
+  copyFileSync(SPEC, join(outDir, 'SYSTEM-DESIGN.md'));
   stageTreeDecisionsFrom(outDir, join(FIXTURES, 'decisions-complete.json'));
-  const finalize = runCli(['finalize', `--spec=${SPEC}`], outDir);
+  const finalize = runCli(['finalize'], outDir);
   assert.equal(finalize.status, 0);
   const files = readdirSync(outDir).filter((file) => file.endsWith('.json'));
   assert.deepEqual(files, ['WORKSPACIFY-TREE-MANIFEST.json']);
@@ -131,8 +136,9 @@ test('schema C004 invariant [@verifies C004]: a valid complete decisions object 
 
 test('manifest C005 [@verifies C005]: published manifest carries database_policy and contract_boundaries', () => {
   const outDir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
+  copyFileSync(SPEC, join(outDir, 'SYSTEM-DESIGN.md'));
   stageTreeDecisionsFrom(outDir, join(FIXTURES, 'decisions-complete.json'));
-  const finalize = runCli(['finalize', `--spec=${SPEC}`], outDir);
+  const finalize = runCli(['finalize'], outDir);
   assert.equal(finalize.status, 0);
   const manifest = JSON.parse(readFileSync(join(outDir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.ok(manifest.adapters.database_policy !== undefined);
@@ -186,7 +192,7 @@ test('PX-187 C004 [PX-187 @verifies C004]: gate without semantic_review is not C
   const decisions = loadDecisionInput(join(FIXTURES, 'decisions-complete.json'));
   delete decisions.semantic_review;
   stageTreeDecisions(dir, decisions);
-  const gate = runCli(['gate', `--spec=${SPEC}`], dir);
+  const gate = runCli(['gate'], dir);
   assert.notEqual(gate.status, 0, 'gate exits non-zero');
   assert.ok(!gate.stdout.includes('COMPLETE'), 'no COMPLETE status');
 });

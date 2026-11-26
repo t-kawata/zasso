@@ -38,6 +38,7 @@ import { MissingRuntimeDependencyError } from "./runtime-dependencies.js";
  * 使うため、EventEmitter を基底にしたモックが必要。
  */
 // [::TICKET::] PX-149 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function mockProc(overrides?: Record<string, unknown>): any {
   const proc = new EventEmitter() as any;
   proc.exitCode = null;
@@ -150,6 +151,19 @@ describe("runCommand", () => {
     assert.ok(promptArg.startsWith("/test-cmd\n\n"));
     assert.ok(promptArg.includes(CROSS_PACKAGE_DIRECTIVE));
     assert.ok(promptArg.includes(COMPLETION_REPORT_DIRECTIVE));
+  });
+
+  it("C006: forwards a promptOverride only when one is supplied", async () => {
+    let promptArg = "";
+    const session = mockSession({
+      session: mockSessionWithUpdates(
+        [{ kind: "stop", response: { stopReason: "end_turn" } }],
+        (cmd: string) => { promptArg = cmd as any; },
+      ) as any,
+    });
+
+    await runCommand(session, "/explain-seed", { ...baseOptions, promptOverride: "OVERRIDE" });
+    assert.ok(promptArg.endsWith("\n\nOVERRIDE"));
   });
 
   it("C001 forwards every update to onUpdate and calls onFlush at stop", async () => {

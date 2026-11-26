@@ -41,7 +41,7 @@ import {
 } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SPEC_SOURCE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
+const SPEC_SOURCE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
 const RUN_INPUT_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.run.json');
 const COMMAND_PATH = join(PROJECT_ROOT, '.claude/commands/educe-sequences.md');
 const PHASE = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
@@ -52,16 +52,17 @@ const COMMAND = readFileSync(COMMAND_PATH, 'utf8');
 /** The span reading the fixture's declaration is read with, in the shape a run records it. */
 // [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-292|PX-293) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function spanReading() {
   const [first, ...rest] = RUN_INPUT.readings.sequences;
   return [{ ...first, steps: RUN_INPUT.readings.steps, operations: RUN_INPUT.readings.operations }, ...rest];
 }
 
 /** A run directory's own path, with nothing written into it yet. */
-// [::TICKET::] PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-254 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-254, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-254|PX-454) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'px254-regen-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   return { root, specPath, spec: readSpecification(specPath), directory: join(root, 'educe-sequences') };
 }
@@ -165,10 +166,10 @@ test('C001 a phase that is not asked again keeps what it wrote', () => {
 
 test('C001 a re-opened read phase is refused until the reading is written again', () => {
   const run = seededRun();
-  assert.equal(spawnSync('node', [PHASE, 'through', run.specPath, '8'], { encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'through', '', '8'], { cwd: run.root, encoding: 'utf8' }).status, 0);
   openNextGeneration(run);
 
-  const refused = spawnSync('node', [PHASE, 'run', run.specPath, '8'], { encoding: 'utf8' });
+  const refused = spawnSync('node', [PHASE, 'run', '', '8'], { cwd: run.root, encoding: 'utf8' });
 
   assert.notEqual(refused.status, 0, 'the generation asks the reader again');
   assert.match(refused.stdout, /readings-span\.jsonl/, 'and names the file to write');
@@ -238,7 +239,7 @@ test('C003 a generation a reader has worked in opens the next and moves the read
   openNextGeneration(run);
   // The reader answers the generation it was given: the files exist again, written now.
   writeFixtureReadings(run.directory);
-  assert.equal(spawnSync('node', [PHASE, 'run', run.specPath, '1'], { encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'run', '', '1'], { cwd: run.root, encoding: 'utf8' }).status, 0);
 
   const next = openNextGeneration(run);
 
@@ -284,12 +285,12 @@ test('C004 the command file states the move and names the archive path', () => {
 
 test('C005 a re-opened read phase is not settled until the reader writes the file', () => {
   const run = seededRun();
-  assert.equal(spawnSync('node', [PHASE, 'through', run.specPath, '8'], { encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'through', '', '8'], { cwd: run.root, encoding: 'utf8' }).status, 0);
   openNextGeneration(run);
-  assert.notEqual(spawnSync('node', [PHASE, 'run', run.specPath, '8'], { encoding: 'utf8' }).status, 0);
+  assert.notEqual(spawnSync('node', [PHASE, 'run', '', '8'], { cwd: run.root, encoding: 'utf8' }).status, 0);
 
   writeFixtureReadings(run.directory);
-  const passed = spawnSync('node', [PHASE, 'through', run.specPath, '8'], { encoding: 'utf8' });
+  const passed = spawnSync('node', [PHASE, 'through', '', '8'], { cwd: run.root, encoding: 'utf8' });
 
   assert.equal(passed.status, 0, passed.stdout + passed.stderr);
   const status = JSON.parse(readFileSync(join(run.directory, 'status.json'), 'utf8'));

@@ -15,8 +15,8 @@ import {
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
-const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger-sequences.json');
+const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN-sequences.json');
 const CHECK_ID = 'steps-are-in-line-order-within-their-entry';
 
 const spec = readSpecification(SPEC_PATH);
@@ -24,6 +24,7 @@ const check = CHECKS.find((candidate) => candidate.id === CHECK_ID);
 
 /** The golden artifact, read fresh so one test cannot mutate another's fixture. */
 // [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }

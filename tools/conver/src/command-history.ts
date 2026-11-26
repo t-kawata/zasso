@@ -32,6 +32,40 @@ export const CROSS_PACKAGE_DIRECTIVE =
 export const COMPLETION_REPORT_DIRECTIVE =
   "On completion: brief telegraphic report, max 100 chars. No details.";
 
+/**
+ * The full non-interactive override, sent only to stages whose command document
+ * still allows a human question (explain and grill). The other stages already
+ * carry this block in their own command file, so re-sending it there would be a
+ * duplicate rather than an override.
+ */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+export const NON_INTERACTIVE_OVERRIDE = [
+  "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
+  "This directive overrides any conflicting instruction in the command above.",
+  "MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally.",
+  "Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions.",
+  "Do not address or consult a human; decide everything yourself and run to completion.",
+].join("\n");
+
+/** The targeted override for educe: its only conflict is the dynamic argument. */
+export const EDUCE_FIXED_SPEC_OVERRIDE =
+  "The specification is fixed at SYSTEM-DESIGN.md in the workspace root; the scripts resolve it and fail if it is absent. Do not ask for or refuse an argument; run with no argument.";
+
+/** explain must answer its own direction questions and leave no placeholder open. */
+export const EXPLAIN_OVERRIDE = [
+  NON_INTERACTIVE_OVERRIDE,
+  "Answer every direction question yourself using the command's answer mechanism. Leave no placeholder open; complete the explanation.",
+].join("\n");
+
+/**
+ * grill must decide, not record a default. The command's chosen_default path is
+ * a no-answer record, and recording it is not completion.
+ */
+export const GRILL_OVERRIDE = [
+  NON_INTERACTIVE_OVERRIDE,
+  "Do not use chosen_default or any recorded default to bypass a decision. Answer every open point yourself using the command's answer mechanism and complete the design.",
+].join("\n");
+
 /** Escalation texts, from a direct restatement to a final warning. */
 export const ESCALATION_MESSAGES: readonly [string, string, string] = Object.freeze([
   "The same command has already been sent for this ticket and the status has not " +
@@ -53,6 +87,7 @@ export const ESCALATION_MESSAGES: readonly [string, string, string] = Object.fre
 
 /** The location and reason recorded when the loop must stop. */
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export interface StopContext {
   workspace: string;
   packageName: string;
@@ -88,16 +123,27 @@ export class StopRequestedError extends Error {
 
 /**
  * Compose the text actually sent to the agent: the command, two newlines, the
- * cross-package directive, the completion report rule, and an optional
- * escalation message.
+ * cross-package directive, the completion report rule, an optional stage-specific
+ * override, and an optional escalation message.
+ *
+ * The override is opt-in: an undefined or empty value produces exactly the
+ * composition every existing caller already receives.
  */
-export function composePrompt(command: string, escalationLevel: number): string {
+export function composePrompt(
+  command: string,
+  escalationLevel: number,
+  promptOverride?: string,
+): string {
   if (!Number.isInteger(escalationLevel) || escalationLevel < 0 || escalationLevel > MAX_ESCALATIONS) {
     throw new RangeError(`escalation level must be 0..${MAX_ESCALATIONS}: ${escalationLevel}`);
   }
   const base = `${command}\n\n${CROSS_PACKAGE_DIRECTIVE}\n${COMPLETION_REPORT_DIRECTIVE}`;
-  if (escalationLevel === 0) return base;
-  return `${base}\n\n${ESCALATION_MESSAGES[escalationLevel - 1]}`;
+  const withOverride =
+    promptOverride === undefined || promptOverride === ""
+      ? base
+      : `${base}\n\n${promptOverride}`;
+  if (escalationLevel === 0) return withOverride;
+  return `${withOverride}\n\n${ESCALATION_MESSAGES[escalationLevel - 1]}`;
 }
 
 /**

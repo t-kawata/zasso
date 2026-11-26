@@ -61,17 +61,18 @@ import { digestOfSupplied, fileSuppliedMaterial, MATERIAL_FILE, SUPPLIED_DIRECTO
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const PHASE_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
 const TOOL_ROOT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences');
-const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+const SPEC_SOURCE = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 
 /** The ids the phase table declares as the ones a reader performs. */
 const READ_IDS = PHASES.filter((phase) => phase.tag === PHASE_TAGS.READ).map((phase) => phase.id);
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-generation-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   return { root, specPath, spec: readSpecification(specPath), directory: join(root, 'educe-sequences') };
 }
@@ -139,9 +140,9 @@ function haltPhaseTwo(context) {
 }
 
 /** Run the phase driver as the command file runs it. */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
-function begin(argv) {
-  return spawnSync('node', [PHASE_SCRIPT, ...argv], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+// [::TICKET::] PX-242, PX-243, PX-244, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-454) --for-spec --no-implementation-order`.
+function phase(argv, cwd) {
+  return spawnSync('node', [PHASE_SCRIPT, ...argv], { cwd, encoding: 'utf8' });
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +186,7 @@ test('C001 the paths the driver derives are the entry point the plan named', () 
 
 test('C001 a status written before this ticket is read as a run that has opened no generation', () => {
   const { specPath, spec, directory } = scratchRun();
-  writeStatus(directory, { spec: { path: 'ledger.md', sha256: spec.sha256, lines: spec.lineCount }, phases: [], readings: {} });
+  writeStatus(directory, { spec: { path: 'SYSTEM-DESIGN.md', sha256: spec.sha256, lines: spec.lineCount }, phases: [], readings: {} });
 
   const begun = beginRun({ specPath, spec });
 
@@ -199,7 +200,7 @@ test('C001 a status written before this ticket is read as a run that has opened 
 test('C001 a status written before this ticket that holds phase records is the generation it supersedes', () => {
   const { specPath, spec, directory } = scratchRun();
   writeStatus(directory, {
-    spec: { path: 'ledger.md', sha256: spec.sha256, lines: spec.lineCount },
+    spec: { path: 'SYSTEM-DESIGN.md', sha256: spec.sha256, lines: spec.lineCount },
     phases: [{ id: 2, status: 'refused', verdict: 'no line carries every limb', loops: 2 }],
     readings: {},
   });
@@ -217,7 +218,7 @@ test('C001 a status written before this ticket that holds phase records is the g
 // ---------------------------------------------------------------------------
 
 test('C002 a new generation re-opens the [read] phases and every deterministic proof stays done', () => {
-  const { specPath, spec, directory } = seededRun();
+  const { root, specPath, spec, directory } = seededRun();
   writeFileSync(join(directory, DECLARATION_FILE), `${JSON.stringify(RUN_INPUT.declaration, null, 2)}\n`);
 
   const begun = beginRun({ specPath, spec });
@@ -470,12 +471,12 @@ test('C006 two named paths with one basename are refused, because one would sile
 });
 
 test('C006 a prose token that begins with a slash is material, so the invocation still opens the generation', () => {
-  const { specPath, directory } = scratchRun();
+  const { root, specPath, directory } = scratchRun();
 
   // The command is named with a leading slash wherever it is written about, so the word
   // for it appears in the guidance a reader types. Classifying that word as a path makes
   // the invocation unopenable for a reason that has nothing to do with the specification.
-  const opened = begin(['begin', specPath, 'このコマンドを用いずに作った成果物を利用し /educe-sequences を成功させよ。']);
+  const opened = phase(['begin', '', 'このコマンドを用いずに作った成果物を利用し /educe-sequences を成功させよ。'], root);
 
   assert.equal(opened.status, 0, opened.stderr);
   assert.match(opened.stdout, /generation 1 \(new generation\)/);
@@ -487,10 +488,10 @@ test('C006 a prose token that begins with a slash is material, so the invocation
 });
 
 test('C006 an absolute path that cannot be read is still refused by name, so the narrowing swallows no typo', () => {
-  const { specPath } = scratchRun();
+  const { root, specPath } = scratchRun();
   const absent = join(tmpdir(), 'educe-absent-material.md');
 
-  const opened = begin(['begin', specPath, absent]);
+  const opened = phase(['begin', '', absent], root);
 
   assert.equal(opened.status, 1, 'a path with an extension is a path, and a missing one is still a fault');
   assert.match(opened.stderr, /does not exist/);
@@ -502,7 +503,7 @@ test('C006 a rooted path with no extension is filed when it names a file, so mat
   const script = join(root, 'preflight');
   writeFileSync(script, '#!/bin/sh\n');
 
-  const opened = begin(['begin', specPath, script]);
+  const opened = phase(['begin', '', script], root);
 
   // Narrowing the classifier must not turn a real file into prose: material that is not
   // filed is material the digest does not cover, and a digest that covers less than the
@@ -548,7 +549,7 @@ test('C006 the empty material digests to one value, so a run with no material is
 // ---------------------------------------------------------------------------
 
 test('C007 an edited specification invalidates by citation, names the primitive, and refuses nothing', () => {
-  const { specPath, spec, directory } = seededRun();
+  const { root, specPath, spec, directory } = seededRun();
   const before = readFileSync(join(directory, DECLARATION_FILE), 'utf8');
   appendFileSync(specPath, '\n## 11. Added later\n\nAn operator audits the ledger.\n');
   const edited = readSpecification(specPath);
@@ -590,7 +591,7 @@ test('C007 a declaration whose every part still cites a line survives whole', ()
 });
 
 test('C007 survivingAssets classifies each asset by the primitive that decided it', () => {
-  const { specPath } = scratchRun();
+  const { root, specPath } = scratchRun();
   const spec = readSpecification(specPath);
   const declaration = RUN_INPUT.declaration;
 
@@ -625,7 +626,7 @@ test('the specification basename binds one run directory to one specification', 
   const refused = beginRun({ specPath: otherPath, spec: other });
 
   assert.notEqual(refused.refused, null);
-  assert.match(refused.refused, /ledger\.md/);
+  assert.match(refused.refused, /SYSTEM-DESIGN\.md/);
   assert.equal(refused.generation, null);
 });
 
@@ -634,9 +635,9 @@ test('the artifact location stays a pure function of the specification, whatever
   const prior = join(root, 'pre-info.json');
   writeFileSync(prior, '{}\n');
 
-  assert.equal(artifactPathFor(specPath), join(root, 'ledger-sequences.json'));
+  assert.equal(artifactPathFor(specPath), join(root, 'SYSTEM-DESIGN-sequences.json'));
   beginRun({ specPath, spec, material: 'advice', namedPaths: [prior] });
-  assert.equal(artifactPathFor(specPath), join(root, 'ledger-sequences.json'));
+  assert.equal(artifactPathFor(specPath), join(root, 'SYSTEM-DESIGN-sequences.json'));
   assert.equal(artifactPathFor(specPath).includes(SUPPLIED_DIRECTORY), false);
 });
 
@@ -669,9 +670,9 @@ test('startRun still refunds nothing: the budget is begin\'s to return, not ever
 // ---------------------------------------------------------------------------
 
 test('IT begin opens a generation, then reports a verification over an unchanged run', () => {
-  const { specPath, directory } = scratchRun();
+  const { root, specPath, directory } = scratchRun();
 
-  const first = begin(['begin', specPath]);
+  const first = phase(['begin', ''], root);
   assert.equal(first.status, 0, first.stderr);
   assert.match(first.stdout, /^generation 1 \(new generation\)$/m);
   assert.match(first.stdout, /^asset digest: [0-9a-f]{64}$/m);
@@ -680,7 +681,7 @@ test('IT begin opens a generation, then reports a verification over an unchanged
   assert.match(first.stdout, /^next: 1$/m, 'a run that has opened its first generation starts at identity');
   const after = readFileSync(statusPath(directory), 'utf8');
 
-  const second = begin(['begin', specPath]);
+  const second = phase(['begin', ''], root);
 
   assert.equal(second.status, 0, second.stderr);
   assert.match(second.stdout, /^generation 1 \(verification\)$/m);
@@ -688,8 +689,8 @@ test('IT begin opens a generation, then reports a verification over an unchanged
 });
 
 test('IT begin over an edited specification opens a generation and refuses nothing', () => {
-  const { specPath, spec, directory } = seededRun();
-  const first = begin(['begin', specPath]);
+  const { root, specPath, spec, directory } = seededRun();
+  const first = phase(['begin', ''], root);
   assert.equal(first.status, 0, first.stderr);
   assert.equal(spec.sha256, readSpecification(specPath).sha256);
   // The generation that just opened asked for the declaration and the readings again, so the
@@ -698,7 +699,7 @@ test('IT begin over an edited specification opens a generation and refuses nothi
   seed(directory);
   appendFileSync(specPath, '\n## 11. Added later\n\nAn operator audits the ledger.\n');
 
-  const second = begin(['begin', specPath]);
+  const second = phase(['begin', ''], root);
 
   assert.equal(second.status, 0, second.stderr);
   assert.match(second.stdout, /new generation/);
@@ -707,12 +708,12 @@ test('IT begin over an edited specification opens a generation and refuses nothi
 });
 
 test('IT begin opens the next generation and prints the notice when the previous one halted over an unchanged set', () => {
-  const { specPath, directory } = openBare();
-  for (let attempt = 0; attempt < 4; attempt += 1) begin(['through', specPath]);
-  const halted = begin(['through', specPath]);
+  const { root, specPath, directory } = openBare();
+  for (let attempt = 0; attempt < 4; attempt += 1) phase(['through', ''], root);
+  const halted = phase(['through', ''], root);
   assert.equal(halted.status, HALT_EXIT_CODE, halted.stdout);
 
-  const reopened = begin(['begin', specPath]);
+  const reopened = phase(['begin', ''], root);
 
   assert.equal(reopened.status, 0, reopened.stderr);
   assert.match(reopened.stdout, /new generation/);
@@ -724,13 +725,13 @@ test('IT begin opens the next generation and prints the notice when the previous
   assert.equal(existsSync(join(directory, ARCHIVE_DIRECTORY, archivedFileName(DECLARATION_FILE, 1))), true);
 });
 
-test('IT the product path keeps its one-argument contract', () => {
-  const { specPath } = scratchRun();
+test('IT the product path keeps its no-argument contract', () => {
+  const { root, specPath } = scratchRun();
   const runScript = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/run.mjs');
-  const misused = spawnSync('node', [runScript, specPath, specPath], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const misused = spawnSync('node', [runScript, specPath, specPath], { cwd: root, encoding: 'utf8' });
 
   assert.equal(misused.status, 2);
-  assert.match(misused.stderr, /two or more arguments/);
+  assert.match(misused.stderr, /the command takes no argument/);
 });
 
 test('IT the artifact records the supplied digest, and verification compares it', () => {
@@ -740,8 +741,8 @@ test('IT the artifact records the supplied digest, and verification compares it'
   writeFileSync(prior, '{"entries":["admission"]}\n');
   beginRun({ specPath, spec, material: 'advice', namedPaths: [prior] });
 
-  const written = spawnSync('node', [runScript, specPath], {
-    cwd: PROJECT_ROOT,
+  const written = spawnSync('node', [runScript], {
+    cwd: root,
     encoding: 'utf8',
     input: JSON.stringify(RUN_INPUT),
   });
@@ -750,11 +751,11 @@ test('IT the artifact records the supplied digest, and verification compares it'
   const artifact = JSON.parse(readFileSync(artifactPathFor(specPath), 'utf8'));
   assert.equal(/^[0-9a-f]{64}$/.test(artifact.supplied.digest), true);
 
-  const verified = spawnSync('node', [runScript, specPath], { cwd: PROJECT_ROOT, encoding: 'utf8', input: '' });
+  const verified = spawnSync('node', [runScript], { cwd: root, encoding: 'utf8', input: '' });
   assert.equal(verified.status, 0, verified.stderr);
 
   writeFileSync(join(root, 'educe-sequences', SUPPLIED_DIRECTORY, 'material.md'), 'different advice\n');
-  const mismatched = spawnSync('node', [runScript, specPath], { cwd: PROJECT_ROOT, encoding: 'utf8', input: '' });
+  const mismatched = spawnSync('node', [runScript], { cwd: root, encoding: 'utf8', input: '' });
   assert.equal(mismatched.status, 1, 'an artifact whose supplied digest moved is refused');
   assert.match(mismatched.stderr, /supplied digest/);
 });
@@ -770,10 +771,10 @@ function mkdirIfNeeded(path) {
 // ---------------------------------------------------------------------------
 
 /** A throwaway home directory holding a specification and one file to supply. */
-// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-246|PX-454) --for-spec --no-implementation-order`.
 function scratchHome() {
   const root = mkdtempSync(join(tmpdir(), 'px246-home-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   writeFileSync(join(root, 'prior.md'), 'section 5 names the acts\n');
   return { root, specPath };
@@ -782,8 +783,8 @@ function scratchHome() {
 test('C008 a supplied path written with a tilde is filed when the file is under the home directory', () => {
   const { root, specPath } = scratchHome();
 
-  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', specPath, 'use ~/prior.md as a hint'],
-    { cwd: PROJECT_ROOT, encoding: 'utf8', env: { ...process.env, HOME: root } });
+  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', '', 'use ~/prior.md as a hint'],
+    { cwd: root, encoding: 'utf8', env: { ...process.env, HOME: root } });
 
   assert.equal(opened.status, 0, opened.stderr);
   assert.equal(
@@ -796,8 +797,8 @@ test('C008 a supplied path written with a tilde is filed when the file is under 
 test('C008 a tilde path that does not exist is refused by the name it resolves to', () => {
   const { root, specPath } = scratchHome();
 
-  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', specPath, 'use ~/absent.md as a hint'],
-    { cwd: PROJECT_ROOT, encoding: 'utf8', env: { ...process.env, HOME: root } });
+  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', '', 'use ~/absent.md as a hint'],
+    { cwd: root, encoding: 'utf8', env: { ...process.env, HOME: root } });
 
   assert.equal(opened.status, 1);
   assert.match(opened.stderr, /does not exist/);
@@ -817,7 +818,7 @@ test('C006 a supplied path is filed whatever its characters, and a word that onl
     'use 資料/仕様メモ.md and ascii-note.md and nested/deep.json as hints',
     'this sentence mentions v1.2 and e.g. as prose',
   ].join(' ');
-  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', specPath, invocation],
+  const opened = spawnSync('node', [PHASE_SCRIPT, 'begin', '', invocation],
     { cwd: root, encoding: 'utf8' });
 
   assert.equal(opened.status, 0, opened.stderr);

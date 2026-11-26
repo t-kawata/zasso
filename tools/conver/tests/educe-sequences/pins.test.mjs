@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // Pin re-derivation (PX-240, contracts C008, C012).
 //
 // The property under test is the one that keeps the single-input design from becoming
@@ -13,8 +14,8 @@ import { deriveSet, readSpecification } from '../../.claude/scripts/educe-sequen
 import { flattenPins, rederiveAll, rederivePin } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
 // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
-const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
-const ARTIFACT_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
+const SPEC_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
+const ARTIFACT_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url).pathname;
 
 const spec = readSpecification(SPEC_PATH);
 const artifact = JSON.parse(readFileSync(ARTIFACT_PATH, 'utf8'));

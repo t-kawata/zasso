@@ -1,4 +1,4 @@
-# ledger.md — sequences
+# SYSTEM-DESIGN.md — sequences
 
 - specification sha256: bae3bb680783bfeb475d747a06172198b4564c1f8c5d8de908fd36f7eb3db8fa
 - specification lines: 60
@@ -66,4 +66,4 @@ sequenceDiagram
 
 ## Verify
 
-`node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs" <spec-file>` exits 0
+`node "$(git rev-parse --show-toplevel)/.claude/scripts/educe-sequences/rail/run.mjs"` exits 0

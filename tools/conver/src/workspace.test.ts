@@ -4,13 +4,18 @@ import assert from "node:assert/strict";
 import {
   ALLOCATE_MANIFEST,
   ORDER_MANIFEST,
+  SYSTEM_DESIGN_FILE_NAME,
   TREE_MANIFEST,
   WorkspaceGateError,
   readWorkspace,
+  readWorkspaceForStagePlan,
+  resolveStageOrderSource,
+  resolveStageWorkspaceRoot,
   resolveWorkspaceRoot,
   validateImplementationOrder,
 } from "./workspace.js";
 import type { WorkspaceIo } from "./workspace.js";
+import { parseStagePlan } from "./stage-plan.js";
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 function tree(packages: Array<{ id: string; name: string; path: string }>): unknown {
@@ -197,6 +202,116 @@ describe("validateImplementationOrder", () => {
         error instanceof WorkspaceGateError &&
         error.code === "ORDER_TOOL_FAILED" &&
         error.message.includes("STALE_IMPLEMENTATION_ORDER"),
+    );
+  });
+});
+
+// @verifies C008
+describe("stage-aware workspace gate", () => {
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+  function allocateWithOrder(levels: string[][]): unknown {
+    return { status: "COMPLETE", implementation_order: { levels, serial: levels.flat() } };
+  }
+
+  it("C008: a workspacify plan is anchored by SYSTEM-DESIGN.md", () => {
+    const io = fakeIo({
+      files: new Set([`${ROOT}/${SYSTEM_DESIGN_FILE_NAME}`]),
+      manifests: {},
+    });
+    const plan = parseStagePlan("workspacify");
+    assert.strictEqual(resolveStageWorkspaceRoot(`${ROOT}/crates/doors-core`, plan, io), ROOT);
+    assert.throws(
+      () => resolveStageWorkspaceRoot(ROOT, plan, fakeIo({ files: new Set(), manifests: {} })),
+      (error: unknown) =>
+        error instanceof WorkspaceGateError && error.code === "MISSING_SYSTEM_DESIGN",
+    );
+  });
+
+  it("C008: an educe plan requires the tree and allocate manifests", () => {
+    const io = fakeIo({
+      files: new Set([`${ROOT}/${TREE_MANIFEST}`, `${ROOT}/${ALLOCATE_MANIFEST}`]),
+      manifests: {},
+    });
+    assert.strictEqual(resolveStageWorkspaceRoot(ROOT, parseStagePlan("educe"), io), ROOT);
+    assert.throws(
+      () => resolveStageWorkspaceRoot(ROOT, parseStagePlan("educe"), fakeIo({ files: new Set(), manifests: {} })),
+      (error: unknown) =>
+        error instanceof WorkspaceGateError && error.code === "MISSING_MANIFEST",
+    );
+  });
+
+  it("C008: an implementation plan keeps the existing three-manifest gate", () => {
+    const io = fakeIo({
+      files: new Set([
+        `${ROOT}/${TREE_MANIFEST}`,
+        `${ROOT}/${ALLOCATE_MANIFEST}`,
+        `${ROOT}/${ORDER_MANIFEST}`,
+      ]),
+      manifests: {
+        [`${ROOT}/${TREE_MANIFEST}`]: tree([{ id: "pkg-1", name: "doors-core", path: "crates/doors-core" }]),
+        [`${ROOT}/${ALLOCATE_MANIFEST}`]: allocate(),
+        [`${ROOT}/${ORDER_MANIFEST}`]: order([["pkg-1"]]),
+      },
+    });
+    assert.strictEqual(resolveStageWorkspaceRoot(ROOT, parseStagePlan("make,plan"), io), ROOT);
+  });
+
+  it("C008: pre-split order comes from the allocate manifest and post-split order from the sidecar", () => {
+    const manifests = {
+      [`${ROOT}/${TREE_MANIFEST}`]: tree([]),
+      [`${ROOT}/${ALLOCATE_MANIFEST}`]: allocateWithOrder([["pkg-1"], ["pkg-2"]]),
+      [`${ROOT}/${ORDER_MANIFEST}`]: order([["pkg-2"], ["pkg-1"]]),
+    };
+    const io = fakeIo({ files: new Set([ROOT]), manifests });
+    assert.deepStrictEqual(resolveStageOrderSource(ROOT, "educe", io), {
+      source: "build",
+      levels: [["pkg-1"], ["pkg-2"]],
+    });
+    assert.deepStrictEqual(resolveStageOrderSource(ROOT, "make", io), {
+      source: "implementation",
+      levels: [["pkg-2"], ["pkg-1"]],
+    });
+  });
+
+  it("C008: an upstream plan does not require Tickets.json and exposes seed_required", () => {
+    const io = fakeIo({
+      files: new Set([ROOT]),
+      manifests: {
+        [`${ROOT}/${TREE_MANIFEST}`]: {
+          status: "COMPLETE",
+          workspace: {
+            packages: [
+              { id: "pkg-1", name: "doors-core", path: "crates/doors-core" },
+              { id: "pkg-2", name: "doors-support", path: "crates/doors-support", seed_required: false },
+            ],
+          },
+        },
+        [`${ROOT}/${ALLOCATE_MANIFEST}`]: allocateWithOrder([["pkg-1"], ["pkg-2"]]),
+      },
+    });
+    const model = readWorkspaceForStagePlan(ROOT, parseStagePlan("educe,explain"), io);
+    assert.deepStrictEqual(model.packages.map((entry) => entry.path), [
+      "crates/doors-core",
+      "crates/doors-support",
+    ]);
+    assert.strictEqual(model.packages[0]?.seedRequired, true);
+    assert.strictEqual(model.packages[1]?.seedRequired, false);
+  });
+
+  it("C008: an implementation plan still requires every package Tickets.json", () => {
+    const io = fakeIo({
+      files: new Set([ROOT]),
+      manifests: {
+        [`${ROOT}/${TREE_MANIFEST}`]: tree([{ id: "pkg-1", name: "doors-core", path: "crates/doors-core" }]),
+        [`${ROOT}/${ALLOCATE_MANIFEST}`]: allocate(),
+        [`${ROOT}/${ORDER_MANIFEST}`]: order([["pkg-1"]]),
+      },
+      missingTickets: new Set([`${ROOT}/crates/doors-core/Tickets.json`]),
+    });
+    assert.throws(
+      () => readWorkspaceForStagePlan(ROOT, parseStagePlan("make,plan"), io),
+      (error: unknown) =>
+        error instanceof WorkspaceGateError && error.code === "MISSING_TICKETS",
     );
   });
 });

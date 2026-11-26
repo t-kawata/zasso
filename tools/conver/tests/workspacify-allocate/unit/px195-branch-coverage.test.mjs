@@ -16,6 +16,7 @@ import { buildValidManifest, materializeSeedFixture, makeDecisions } from '../he
 import { runFinalize } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function silent(callback) {
   const stdout = process.stdout.write;
   const stderr = process.stderr.write;
@@ -100,7 +101,7 @@ test('C003 reload reports a missing manifest, a missing seed and a sparse expect
     // Publish, then delete a seed the expectation still lists.
     const decisionsRoot = fixture.dir;
     stageAllocateDecisions(decisionsRoot, makeDecisions(fixture.manifest));
-    silent(() => runFinalize(['finalize', fixture.manifestPath]));
+    silent(() => runFinalize(['finalize'], fixture.dir));
     const published = JSON.parse(readFileSync(join(fixture.dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'));
     rmSync(join(fixture.dir, 'crates/protocol/beta/RFC-SEED.md'));
     const afterDelete = reloadAndVerify({ workspaceRoot: fixture.dir, plan, manifest: fixture.manifest, manifestPath: fixture.manifestPath, expected: published });

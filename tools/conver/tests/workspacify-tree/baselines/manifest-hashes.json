@@ -52,9 +52,9 @@
     "normative-words.md": "1217d5fd3a10cf739859d2ee3946d830db21d64c35bc6690f14cf05fdf5ccee9",
     "objects-table.md": "88efa60b124d3ae35203aecb3ca2453fb21bdd0f0b901e66f781982a7f0f67fd",
     "ownerless-model.json": "c4c79ea44cdc3d736e5ce7401cfcf7474d2cdd4da744aef0ee198ce5d87cda69",
-    "pair:gaia-like-spec.md+gaia-decisions.json": "2e161fd200f00b5e8b50023d30e9af31be758338cee5304c73f0727da4a275ae",
-    "pair:long-spec.md+decisions-long-ok.json": "ea403b5bd125d089e57dfa80ecc28501f6db6a5529cebd354ab80cdf4809c3d9",
-    "pair:objects-table.md+decisions-complete.json": "1458bcfa05e856b8341b6ebecd9050dff0dcf0c82b2c276c4a6e763a0856a886",
+    "pair:gaia-like-spec.md+gaia-decisions.json": "295fef740ef2cbccabbb4707f9550bfefba66e80b5b4622543d8972cb8f0b833",
+    "pair:long-spec.md+decisions-long-ok.json": "5dbb474644055e758dd3022c060f46646b4ea4a057db3fa3e2c682c5f9d97d7e",
+    "pair:objects-table.md+decisions-complete.json": "4c2e2800d404b812321a5d7705fb1fbf9d0e8115e5bde6de8b4e660d2392327a",
     "small-spec.md": "7d1ee55ad9066b2550fe8f936959422ea0c1300baea8cb2ddc7f523b4d71026b"
   },
   "commandFileDigests": {
@@ -95,6 +95,7 @@
         "## Why",
         "## Design Principles",
         "## Workflow",
+        "### Step 0 — Unmarked incomplete implementations (mandatory, additive)",
         "### Step 1 — Enumerate",
         "### Step 2 — Group into units (AI judgment — the only non-deterministic step)",
         "### Step 3 — Author the units decision file",
@@ -103,34 +104,32 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "675777edb39b7ea708c3c47ce4eea86556d6b412e59d26378d5593b7390a9d2a",
-      "documentDigest": "0117ae168e0c9cc072ed266e497aa73c38dce1c9efd41a955320d9e4c35837bc"
+      "documentDigest": "d2cd19932576c31ce6ba2fc799f9a18cffa03b0e65a8059a85c3ac7f912ff6c1"
     },
     "crystalize-readme": {
       "headings": [
         "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
-        "# /crystalize-readme <graph-path>",
+        "# /crystalize-readme",
         "## Language Protocol",
         "## Arguments",
-        "## Preflight: Output Path Derivation and Execution Mode Determination (Deterministic)",
-        "## Marker Classification (Single Source of Truth: `validate-marker-grammar.js`)",
-        "## Workflow Steps",
-        "### Step 0: Read sourceFile",
-        "### Step 1: Grill — Hierarchical Headings (Table of Contents)",
-        "#### 1-1. In refine mode, if `README.md exists: yes`, read the existing README.md and use it as prerequisite information for the heading proposals in 1-2 below (propose with the goal of refining and updating by referencing the previous headings and content). The finalized heading set is re-emitted to README.md in 1-8, and all sections are re-analyzed in Step 2. In fresh mode, skip 1-1.",
-        "#### 1-2. **Heading proposals (non-deterministic)**: The AI synthesizes each usage-focused TOC heading based on `sourceFile`. Each heading takes the form `{id, heading, contentOptions[], recommendation, reason, existingIds}` and carries a \"content proposal\" answerable with A/B/C or Yes/No. `existingIds` is the full set of existing node IDs (indicating that the parent exists). Each proposal must clearly state **the AI's recommendation and its reason**.",
-        "#### 1-3. **Validation gate (deterministic, mandatory)**: Validate every proposal with `validate-toc-proposal.js` **before presenting it to the user**. Restructure until `valid:true`; never present an unvalidated proposal.",
-        "#### 1-4. **Record proposals**: Record the validated proposal JSON in CRYSTALIZE-Status.json via `propose-heading`.",
-        "#### 1-5. **User response**: The user answers **with A/B/C/Yes/No per ID**. Free comments are also allowed. If a free comment is received, re-run the 1-2 heading proposals later in line with its content.",
-        "#### 1-6. **Record confirmations**: For each answer, record the confirmed content via `confirm-heading`. `confirmedContent` is the content of the chosen option.",
-        "#### 1-7. **Completion condition**: Do not proceed until all heading items and their content are finalized. Repeat the revision and re-proposal of heading suggestions from 1-2 above until everything is finalized. After all nodes are finalized, complete Step 1 with `end-step 1`. **The final heading must always be \"Examples（implementation samples）spec and design\"**.",
-        "#### 1-8. **Skeleton output (end of Step 1, deterministic)**: Mechanically output the finalized heading set + the examples section to README.md via script. The `<::TEMPLATE-README::>` marker is automatically attached to each usage section, and the `<::TEMPLATE-EXAMPLES::>` marker to the examples section.",
-        "### Step 2: Section-by-Section Inspection Loop",
-        "### Step 3: Examples-Specific Step (After Loop Exit)",
+        "## Preflight: derive the graph and the boundary paths (deterministic)",
+        "## Marker Classification (single source: `validate-marker-grammar.js`)",
+        "## Workflow",
+        "### Step 0: Read the source RFC",
+        "### Step 1: Derive and set the TOC (non-interactive)",
+        "#### 1-1. Collect evidence",
+        "#### 1-2. Derive the candidate TOC",
+        "#### 1-3. Finalize and validate",
+        "#### 1-4. Plan refine and emit the skeleton",
+        "#### 1-5. End Step 1",
+        "### Step 2: Section-by-section inspection loop",
+        "### Step 3: Examples and workspace README",
+        "### Convergence policy",
         "## Reverse rotation only — the return path from a RESIDUE to its scenario and its route"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "7f1b9519ce815cec7ada9d0523d4b64627e1f44818ff2c432707aca5c1a55220"
+      "documentDigest": "c19ac6afc3989e8e1589e580a816f721fc1efcc7dcff8e3b19d47577647113c3"
     },
     "drill-rfc-down": {
       "headings": [
@@ -178,7 +177,7 @@
         "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /find-omissions",
         "## Language Protocol",
-        "## Pre-flight — argument + consolidation prerequisite validation (mandatory)",
+        "## Pre-flight — graph artifact + unfinished-run + consolidation validation (mandatory)",
         "## Overview",
         "## How the Script Works",
         "## ABC Inspection Criteria",
@@ -186,6 +185,9 @@
         "### Criterion B — Violation Detection",
         "### Criterion C — Test Precision",
         "## Step-by-Step Inspection Procedure",
+        "### Step 0 — Deterministic detection and judgment ledger (mandatory, additive)",
+        "### Step 0.1–0.5 — v3 measured coverage full flow (non-interactive)",
+        "### Step 0.45 — Legacy artifact migration (automatic)",
         "### Step 1 — Re-ticketize the consolidated units (mandatory)",
         "### Step 2 — Run the script",
         "### Step 3 — Understand the ticket",
@@ -198,13 +200,15 @@
         "### Step 7 — Repeat",
         "### Step 8 — Clean up",
         "# Step 9 — Merge into Tickets.json",
+        "# Step 9.5 — Verify the condensed merge (all paths)",
+        "# Step 9.6 — Rebase omission convergence and rewrite markers",
         "# Step 10 — Rename phases",
         "# Step 11 — Clean up transient consolidation artifacts (full success only)",
         "## Reverse rotation only — the return path from an omission to its uncertainty"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "3dbd941ac554c27f67158fc250d689582bc1a52dbb904ca2c96ccd82ed033038"
+      "documentDigest": "52fbb2a022b5a078f8b1e28ebe69f324977fbffd353bd33ad6c313eb6cdd981d"
     },
     "graphify-rfc": {
       "headings": [
@@ -302,6 +306,7 @@
         "#### Reference — Implementation Order (TDD Red-Green-Refactor)",
         "#### Test Field Reference",
         "### Step 5: Design and source code investigation",
+        "### Step 5.5: Rust interface law scope (conditional)",
         "### Step 6: Replace template markers",
         "### Step 7: Contracts verification",
         "### Step 8: STUB enumeration and validation (mandatory)",
@@ -311,7 +316,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "4103243b7a1ede0649c2ef564b3b3d8667fe3a984c0c4ad2527cc48bdbaf57a2"
+      "documentDigest": "24d75e188333bb85897b277c90dd66fc58ac14aae1c9f49f4a6f75cb8b8d16bc"
     },
     "plan-ticket": {
       "headings": [
@@ -328,6 +333,7 @@
         "### Step 0: Status gate — verify ticket is ready for planning",
         "### Step 1: Existence check + retrieve ticket information",
         "### Step 2: Explore and understand design information, related design information, related ticket information, and source code",
+        "### Step 2.5: Rust interface law phase plan (conditional)",
         "### Step 3: Crime and stub inspection (mandatory — First-Class Rule)",
         "### Step 3.5 — Phase 1.5: Contract-to-test-code translation (mandatory)",
         "### Step 4: Formulate the plan",
@@ -339,7 +345,7 @@
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "c3f1df74f936d58cf4d0b6b4ca8c92bb89ebd2c00944de3e02d890d3b3bd4677",
-      "documentDigest": "cdf23a3c3106b453af765310b4d82327dc9fedd625bd77c1efa479241dd2b940"
+      "documentDigest": "ae344cc8e7aa1ba3d471e757c0a63f8219d310af3b2583e1e41b670e1385569c"
     },
     "resolve-ticket": {
       "headings": [
@@ -353,6 +359,7 @@
         "### Step 1",
         "### Step 2",
         "### Step 3",
+        "### Step 3.5: Rust interface law repair (conditional)",
         "### Step 4",
         "### Step 5",
         "### Step 6",
@@ -361,11 +368,12 @@
         "### Step 9 (mandatory)",
         "### Step 10",
         "## Done",
-        "## Run history finish"
+        "## Run history finish",
+        "## Design Amendment Rule (never stop)"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "b0a5d1c949d1b8fb2b0897b7d1c12ee96a18d53cfd5ce98a569fb6c7d90349c8",
-      "documentDigest": "99a69e35206db45ad9dbfe25bb4288c7ee1e5ef95941abdeb2421c94a0d92884"
+      "documentDigest": "794a825b3da34933806e0460043287fdb8c4e3c90d58ee7ccc374c6ad2c76b5c"
     },
     "review-ticket": {
       "headings": [
@@ -383,6 +391,7 @@
         "### Step 3",
         "### Step 4",
         "### Step 5 (mandatory, no skip)",
+        "### Step 5.5: Rust interface law re-verification (conditional)",
         "### Step 6",
         "### Step 7",
         "### Step 8",
@@ -392,11 +401,12 @@
         "### Step 10c",
         "### Step 11",
         "### Step 12 (commit only, no push)",
-        "## Done"
+        "## Done",
+        "## Design Amendment Rule (never stop)"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "b0a5d1c949d1b8fb2b0897b7d1c12ee96a18d53cfd5ce98a569fb6c7d90349c8",
-      "documentDigest": "679ac04a75e847440597810758878b7f4a62f481a115e053adae2d3340503e3d"
+      "documentDigest": "cbf0a9208ca62f79fe7ac35318811ed2a2f1f362c6f3d1ed4375cdb7cceeb2bf"
     },
     "split-to-tickets": {
       "headings": [
@@ -454,6 +464,7 @@
         "## Workflow",
         "### Step 0: Status gate — verify ticket is ready for implementation",
         "### Step 1: Block unless /plan-ticket was executed immediately before in the same session",
+        "### Step 1.5: Read the condensation ledger (conditional)",
         "### Step 2: Record implementation start date",
         "### Step 3: Emergency crime resolution (highest priority — First-Class Rule)",
         "### Step 4: Resolve stubs",
@@ -471,14 +482,16 @@
         "### Step 5c: Validate target resolution (mandatory)",
         "### Step 6: Active search for incomplete implementations (mandatory)",
         "### Step 7: Compilation verification and testing",
+        "### Step 7.5: Rust interface law gate (conditional)",
         "### Step 8: Quality check",
         "### Step 9: Save implementation results",
         "#### Re-export spec file with implementation locations",
-        "### Step 10: Transition to done"
+        "### Step 10: Transition to done",
+        "## Design Amendment Rule (never stop)"
       ],
       "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
-      "documentDigest": "f7313998fa7857f3066b80b28808d811f46112399541ff203b7cb547d15802cc"
+      "documentDigest": "773ef76b14ab0b32af7212af41411bdd07ba00915924a230dd67fab13086a22b"
     },
     "workspacify-allocate": {
       "headings": [

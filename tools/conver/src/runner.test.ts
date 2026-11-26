@@ -37,6 +37,7 @@ import type { TicketsJson } from "./tickets.js";
 import { commandHistory } from "./command-history.js";
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 interface Fixture {
   directory: string;
   ticketsPath: string;
@@ -273,6 +274,51 @@ describe("runPackageLoop — strict order and cwd", () => {
     assert.strictEqual(recorded.phases.length, 1);
     assert.strictEqual(recorded.phases[0]?.packageComplete, true);
     assert.strictEqual(recorded.stops.length, 0);
+  });
+
+  it("C007 stops at the first action whose stage -T did not select", async () => {
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded = emptyRecorded();
+    await assert.rejects(
+      () =>
+        runPackageLoop(
+          fixture.packageEntry,
+          options({
+            selectedImplementationStages: new Set(["make", "plan", "start", "review"]),
+          }),
+          deps(fixture, recorded, advanceStatus),
+        ),
+      (error: unknown) => error instanceof LoopStoppedError,
+    );
+    assert.deepStrictEqual(recorded.commands.map((entry) => entry.command), [
+      "/make-ticket P0-1",
+      "/plan-ticket P0-1",
+      "/start-ticket P0-1",
+      "/review-ticket P0-1",
+    ]);
+    assert.match(recorded.stops[0]?.reason ?? "", /resolve/);
+  });
+
+  it("C007 is a no-op when every implementation stage is selected", async () => {
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded = emptyRecorded();
+    const processed = await runPackageLoop(
+      fixture.packageEntry,
+      options({
+        selectedImplementationStages: new Set([
+          "make",
+          "plan",
+          "start",
+          "review",
+          "resolve",
+          "consolidate",
+          "find",
+        ]),
+      }),
+      deps(fixture, recorded, advanceStatus),
+    );
+    assert.strictEqual(processed, 1);
+    assert.strictEqual(recorded.commands.map((entry) => entry.command).at(-1), "/find-omissions");
   });
 
   it("C003 reports every ticket command to the display hooks before and after execution", async () => {

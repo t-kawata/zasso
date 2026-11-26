@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -39,7 +40,7 @@ test('errors: WorkSpacifyTreeError carries gateId and exitCode', () => {
 
 test('C001 fs-safe: readSpecInput returns bytes for an existing regular file', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-read-'));
-  const specPath = join(dir, 'spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, '# Title\n## A\n');
   const out = readSpecInput(specPath);
   assert.equal(out.absPath, specPath);

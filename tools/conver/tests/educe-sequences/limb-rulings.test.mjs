@@ -31,14 +31,15 @@ const CHECK_ID = 'adjudication-cites-a-declared-limb';
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const RAIL_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail');
 const FIXTURE_ROOT = new URL('./fixtures/spec/', import.meta.url).pathname;
-const SPEC_PATH = join(FIXTURE_ROOT, 'ledger.md');
+const SPEC_PATH = join(FIXTURE_ROOT, 'SYSTEM-DESIGN.md');
 
 const spec = readSpecification(SPEC_PATH);
-const golden = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger-sequences.json'), 'utf8'));
+const golden = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'SYSTEM-DESIGN-sequences.json'), 'utf8'));
 const RUN_INPUT = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger.run.json'), 'utf8'));
 
 /** The verdicts this check reports over an artifact, and nothing else's. */
 // [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function refusalsFor(artifact) {
   return checkAll({ specLines: spec.lines, artifact }).verdicts.filter((verdict) => verdict.check === CHECK_ID);
 }
@@ -74,9 +75,9 @@ function rulingOn(subject, limb) {
 }
 
 /** Apply one reading to a scratch copy of the artifact, and report the reader's refusal. */
-// [::TICKET::] PX-267 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-267 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-267, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-267|PX-454) --for-spec --no-implementation-order`.
 function applyRuling(reading) {
-  const artifactPath = join(mkdtempSync(join(tmpdir(), 'px267-limb-')), 'ledger-sequences.json');
+  const artifactPath = join(mkdtempSync(join(tmpdir(), 'px267-limb-')), 'SYSTEM-DESIGN-sequences.json');
   writeArtifact(artifactPath, golden);
   return applyReadings({ artifactPath, readings: [reading], artifact: golden, specLines: spec.lines });
 }

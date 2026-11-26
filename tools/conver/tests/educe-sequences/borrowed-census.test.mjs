@@ -37,8 +37,8 @@ import { suppliedDocumentsOf } from '../../.claude/scripts/educe-sequences/rail/
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/census');
-const SPEC_PATH = join(FIXTURE, 'ledger.md');
-const GOLDEN_PATH = join(FIXTURE, 'ledger-sequences.json');
+const SPEC_PATH = join(FIXTURE, 'SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(FIXTURE, 'SYSTEM-DESIGN-sequences.json');
 const RUN_INPUT_PATH = join(FIXTURE, 'ledger.run.json');
 const RUN_DIRECTORY = join(FIXTURE, 'educe-sequences');
 const RUN_RAIL = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/run.mjs');
@@ -55,6 +55,7 @@ const SUPPLIED = suppliedDocumentsOf(RUN_DIRECTORY);
  * re-derivation, and it has nothing to read. */
 // [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function verify(artifact) {
   return checkAll({ specLines: spec.lines, artifact, recorded: { supplied: SUPPLIED } });
 }
@@ -98,12 +99,12 @@ function driverReadings() {
 }
 
 /** A run directory whose specification and supplied material are the fixture's. */
-// [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-248, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-248|PX-454) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'px248-census-'));
-  copyFileSync(SPEC_PATH, join(root, 'ledger.md'));
+  copyFileSync(SPEC_PATH, join(root, 'SYSTEM-DESIGN.md'));
   cpSync(RUN_DIRECTORY, join(root, 'educe-sequences'), { recursive: true });
-  return { specPath: join(root, 'ledger.md'), directory: join(root, 'educe-sequences') };
+  return { root, specPath: join(root, 'SYSTEM-DESIGN.md'), directory: join(root, 'educe-sequences') };
 }
 
 /** Declare the given source enumerations, keeping the rest of the declaration as it stands. */
@@ -321,7 +322,7 @@ test('C003 phase 10 refuses while an escaped operation was never attacked', () =
     { subject: 'LedgerStatus', outcome: 'escaped', position: 'suppliedRule', line: 55, quote: 'the ledger status is supplied by the rule', why: 'the specification states no act for it', reader: 'span' },
   ]));
 
-  const through = spawnSync('node', [PHASE, 'through', run.specPath, '10'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const through = spawnSync('node', [PHASE, 'through', '', '10'], { cwd: run.root, encoding: 'utf8' });
   const reported = `${through.stdout}${through.stderr}`;
 
   assert.match(reported, /LedgerStatus/, 'the escaped operation is named by the phase that attacks rulings');
@@ -413,17 +414,17 @@ test('C006 an artifact that borrows no census names the denominator as absent', 
 
 test('IT the product path verifies the census the golden artifact records, and refuses a gapped artifact naming the member', () => {
   const run = scratchRun();
-  const artifactIn = run.specPath.replace(/ledger\.md$/, 'ledger-sequences.json');
+  const artifactIn = run.specPath.replace(/SYSTEM-DESIGN\.md$/, 'SYSTEM-DESIGN-sequences.json');
   copyFileSync(GOLDEN_PATH, artifactIn);
 
-  const verified = spawnSync('node', [RUN_RAIL, run.specPath], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const verified = spawnSync('node', [RUN_RAIL], { cwd: run.root, encoding: 'utf8' });
   assert.equal(verified.status, 0, `${verified.stdout}${verified.stderr}`);
   assert.match(verified.stdout, /census=3 \(reached 2, excused 1\)/, 'the product path prints the borrowed denominator as the census it is');
 
   const gapped = golden();
   gapped.operations = gapped.operations.filter((operation) => operation.id !== 'Admit');
   writeFileSync(artifactIn, `${JSON.stringify(gapped, null, 2)}\n`);
-  const refused = spawnSync('node', [RUN_RAIL, run.specPath], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const refused = spawnSync('node', [RUN_RAIL], { cwd: run.root, encoding: 'utf8' });
   const reported = `${refused.stdout}${refused.stderr}`;
 
   assert.notEqual(refused.status, 0);
@@ -435,7 +436,7 @@ test('C001 the driver refuses a declaration whose supplied census is absent, and
   const run = scratchRun();
   declare(run.directory, RUN_INPUT.declaration.sourceEnumerations);
 
-  const refused = spawnSync('node', [PHASE, 'run', run.specPath, '6'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const refused = spawnSync('node', [PHASE, 'run', '', '6'], { cwd: run.root, encoding: 'utf8' });
   const reported = `${refused.stdout}${refused.stderr}`;
 
   assert.match(reported, /phase\s+6|ledger-registry\.md|ledger-entries\.md/);

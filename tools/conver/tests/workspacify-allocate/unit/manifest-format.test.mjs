@@ -17,6 +17,7 @@ import { buildValidManifest, materializeSeedFixture } from '../helpers/build-val
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function clone(manifest) {
   return JSON.parse(JSON.stringify(manifest));
 }
@@ -130,7 +131,7 @@ test('C001 validate announces the interruption in English for a format-invalid m
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     manifest.workspace.packages[0].layer = 'nonsense-layer';
     writeFileSync(manifestPath, JSON.stringify(manifest));
-    const result = spawnSync(process.execPath, [RUN, 'validate', manifestPath], { encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN, 'validate'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(result.status, 0);
     assert.equal(JSON.parse(result.stdout).gateId, 'G0');
     assert.ok(result.stderr.includes('interrupted'), result.stderr);

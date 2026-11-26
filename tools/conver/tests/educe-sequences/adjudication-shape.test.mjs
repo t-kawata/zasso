@@ -35,15 +35,16 @@ const CHECK = 'every-adjudication-is-in-the-declared-shape';
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const RAIL_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail');
 const FIXTURE_ROOT = new URL('./fixtures/spec/', import.meta.url).pathname;
-const SPEC_PATH = join(FIXTURE_ROOT, 'ledger.md');
+const SPEC_PATH = join(FIXTURE_ROOT, 'SYSTEM-DESIGN.md');
 const STATUS = { phases: [], readings: {}, history: [] };
 
 const spec = readSpecification(SPEC_PATH);
-const golden = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger-sequences.json'), 'utf8'));
+const golden = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'SYSTEM-DESIGN-sequences.json'), 'utf8'));
 const RUN_INPUT = JSON.parse(readFileSync(join(FIXTURE_ROOT, 'ledger.run.json'), 'utf8'));
 
 /** The verdicts this check reports over an artifact, and nothing else's. */
 // [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function verdictsFor(artifact) {
   return checkAll({ specLines: spec.lines, artifact }).verdicts.filter((verdict) => verdict.check === CHECK);
 }
@@ -163,7 +164,7 @@ test('C002 the committed fixtures are what the composer makes of their own run i
   // what composition carries for that collection is what this ticket changed.
   for (const fixture of ['spec', 'census']) {
     const directory = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures', fixture);
-    const specPath = join(directory, 'ledger.md');
+    const specPath = join(directory, 'SYSTEM-DESIGN.md');
     const { declaration, readings } = JSON.parse(readFileSync(join(directory, 'ledger.run.json'), 'utf8'));
     const composed = buildArtifact({
       specPath,
@@ -174,7 +175,7 @@ test('C002 the committed fixtures are what the composer makes of their own run i
       suppliedDocuments: suppliedDocumentsOf(join(directory, 'educe-sequences')),
     });
 
-    assert.equal(`${JSON.stringify(composed, null, 2)}\n`, readFileSync(join(directory, 'ledger-sequences.json'), 'utf8'), fixture);
+    assert.equal(`${JSON.stringify(composed, null, 2)}\n`, readFileSync(join(directory, 'SYSTEM-DESIGN-sequences.json'), 'utf8'), fixture);
   }
 });
 
@@ -264,10 +265,10 @@ test('C004 a ruling that answered nothing is refused for the limb it left empty'
 // ---------------------------------------------------------------------------
 
 /** The phase-12 gate over a scratch run directory holding the artifact the caller names. */
-// [::TICKET::] PX-268 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-268 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-268, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-268|PX-454) --for-spec --no-implementation-order`.
 function phaseTwelveOver(adjudicateLines) {
   const directory = mkdtempSync(join(tmpdir(), 'px268-gate-'));
-  const artifactPath = join(directory, 'ledger-sequences.json');
+  const artifactPath = join(directory, 'SYSTEM-DESIGN-sequences.json');
   writeFileSync(artifactPath, `${JSON.stringify(golden, null, 2)}\n`);
   if (adjudicateLines !== null) writeFileSync(join(directory, 'readings-adjudicate.jsonl'), adjudicateLines);
   const phase = PHASES.find((candidate) => candidate.id === 12);

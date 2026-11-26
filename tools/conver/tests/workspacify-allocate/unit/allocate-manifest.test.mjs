@@ -32,14 +32,14 @@ function silent(callback) {
   }
 }
 
-// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-215|PX-454) --for-spec --no-implementation-order`.
 function fixture() {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   const decisions = makeDecisions(manifest);
   const decisionsRoot = dir;
   stageAllocateDecisions(decisionsRoot, decisions);
   // The manifest describes a published workspace, so publish one first.
-  silent(() => runFinalize(['finalize', manifestPath]));
+  silent(() => runFinalize(['finalize'], dir));
   const parsedByPackage = new Map(decisions.seeds.map((seed) => [seed.packageId, { contractEdges: seed.contractEdges }]));
   const contractIndex = buildContractIndex({ parsedByPackage, manifest });
   const graph = buildIntegrationGraph({ contractIndex, manifest });

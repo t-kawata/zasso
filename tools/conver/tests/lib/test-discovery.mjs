@@ -75,6 +75,31 @@ export const REQUIRED_NODE_MAJOR = 22;
 export const BASELINE_FAILURE_COUNT = 14;
 
 /**
+ * The `project-js-cjs` failures this repository has accepted.
+ *
+ * Measured 2026-11-26 on the commit before PX-454: 13 failing tests across these
+ * nine files, none of them related to the stage pipeline. They stay recorded here
+ * rather than repaired in PX-454, and the gate remains strict at file granularity:
+ * a new failing file, a baseline file that stops failing, or a changed total fails
+ * the run, so this record must shrink when the defects are repaired.
+ */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+export const PROJECT_JS_CJS_BASELINE = Object.freeze({
+  files: Object.freeze([
+    'tests/amend-rfc-up/guide-verifier.test.cjs',
+    'tests/amend-rfc-up/law-skill-verifier.test.cjs',
+    'tests/change-record.test.cjs',
+    'tests/merge-contracts-to-tickets.test.cjs',
+    'tests/scope-extensions.test.cjs',
+    'tests/tickets/condense-preservation.test.cjs',
+    'tests/tickets/condense-split-step.test.cjs',
+    'tests/tickets/e2e-legacy-migration.test.cjs',
+    'tests/tickets/ticket-identity-renumber.test.cjs',
+  ]),
+  failures: 13,
+});
+
+/**
  * The environment marker that tells a nested aggregate it is nested.
  *
  * The aggregate runs the `.mjs` surface, and a test in that surface runs the
@@ -453,23 +478,32 @@ export function summariseSurface({ name, files, totals, selected = true }) {
     tests: totals?.tests ?? 0,
     pass: totals?.pass ?? 0,
     fail: totals?.fail ?? 0,
+    failedFiles: totals?.failedFiles ?? [],
     status,
   };
 }
 
 /**
- * Whether a surface's failure count is the one the repository has accepted.
+ * Whether a surface's failures are the ones the repository has accepted.
  *
- * The tolerance belongs to the legacy surface alone. A failure in any other
- * surface is unexpected by definition, because those surfaces are green today and
- * a green suite that goes red is the signal this whole runner exists to carry.
+ * The legacy surface is tolerated by count, because its 14 failures are a measured
+ * set that predates this runner. The project surface is tolerated by file and by
+ * total: every failing file must be one of the nine recorded ones, and the total
+ * must be the recorded 13. Any other surface has no tolerance at all.
  *
  * @param {string} surfaceName
  * @param {number} failCount
+ * @param {string[]} [failedFiles] — project-root-relative paths of failing files
  * @returns {boolean}
  */
-export function isWithinBaseline(surfaceName, failCount) {
-  return surfaceName === SURFACE_NAMES.CLAUDE_TESTS && failCount <= BASELINE_FAILURE_COUNT;
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+export function isWithinBaseline(surfaceName, failCount, failedFiles = []) {
+  if (surfaceName === SURFACE_NAMES.CLAUDE_TESTS) return failCount <= BASELINE_FAILURE_COUNT;
+  if (surfaceName !== SURFACE_NAMES.PROJECT_JS_CJS) return false;
+  if (failCount !== PROJECT_JS_CJS_BASELINE.failures) return false;
+  if (failedFiles.length !== PROJECT_JS_CJS_BASELINE.files.length) return false;
+  const allowed = new Set(PROJECT_JS_CJS_BASELINE.files);
+  return failedFiles.every((file) => allowed.has(file));
 }
 
 /**
@@ -481,9 +515,15 @@ export function isWithinBaseline(surfaceName, failCount) {
  */
 export function unexpectedFailuresOf(surfaceName, totals) {
   if (totals === null || totals.fail === 0) return [];
-  if (isWithinBaseline(surfaceName, totals.fail)) return [];
+  const failedFiles = totals.failedFiles ?? [];
+  if (isWithinBaseline(surfaceName, totals.fail, failedFiles)) return [];
   const tolerated = surfaceName === SURFACE_NAMES.CLAUDE_TESTS ? ` (baseline ${BASELINE_FAILURE_COUNT})` : '';
-  return [`${surfaceName} reported ${totals.fail} failing test(s)${tolerated}`];
+  const allowed = new Set(PROJECT_JS_CJS_BASELINE.files);
+  const named = surfaceName === SURFACE_NAMES.PROJECT_JS_CJS
+    ? failedFiles.filter((file) => !allowed.has(file))
+    : [];
+  const detail = named.length === 0 ? '' : ` — unexpected file(s): ${named.join(', ')}`;
+  return [`${surfaceName} reported ${totals.fail} failing test(s)${tolerated}${detail}`];
 }
 
 /**

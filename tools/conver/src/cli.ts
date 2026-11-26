@@ -22,7 +22,8 @@ export function normalizeBaseUrl(rawUrl: string): string {
   return trimmed === "" ? DEFAULT_BASE_URL : trimmed.replace(/\/+$/, "");
 }
 
-// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export interface CliOptions {
   apiKey: string;
   model: string;
@@ -45,9 +46,11 @@ export interface CliOptions {
   dashboardIntervalSeconds: number;
   /** Watcher 設定ファイルへのパス。指定がない場合は未定義（通常モード） */
   watcherConfig?: string;
+  /** Raw -T stage list. Undefined means the default implementation plan. */
+  tasks?: string;
 }
 
-// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404, PX-413, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404|PX-413|PX-454) --for-spec --no-implementation-order`.
 function showUsage(): void {
   process.stdout.write(`conver.js ${VERSION} — ACP-based ticket processing pipeline (provider-agnostic)
 
@@ -70,6 +73,9 @@ Options:
                              Bind review in same session (default: 1)
   -w, --watcher <path>       Watcher config JSON path (exits 0 at the endpoint)
   -n, --no-find <0|1>        Skip find after all done; consolidate still runs (default: 0)
+  -T, --tasks <stages>       Contiguous stage slice to run (default: make,plan,start,review,resolve,consolidate,find)
+                             Stages: workspacify,educe,explain,grill,smooth,graphify,boundify,split,make,plan,
+                             start,review,resolve,consolidate,find,crystalize; repeatable stages accept :N
   --max-find-rounds <num>    Find executions allowed per package before stopping (default: 5)
   --no-dashboard             Disable the fixed progress header
   --dashboard-interval <sec> Header poll interval in seconds (default: 5)
@@ -106,6 +112,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       timeout: { type: "string", default: String(DEFAULT_COMMAND_TIMEOUT_SECONDS) },
       "bind-review-in-one-session": { type: "string", short: "b", default: "1" },
       "no-find": { type: "string", short: "n", default: "0" },
+      tasks: { type: "string", short: "T" },
       "max-find-rounds": { type: "string", default: String(MAX_FIND_ROUNDS) },
       "no-dashboard": { type: "boolean", default: false },
       "dashboard-interval": { type: "string", default: "5" },
@@ -153,5 +160,6 @@ export function parseCliOptions(argv: string[]): CliOptions {
     noDashboard: parsed.values["no-dashboard"],
     dashboardIntervalSeconds: clampDashboardInterval(parsed.values["dashboard-interval"]),
     watcherConfig: parsed.values.watcher,
+    tasks: parsed.values.tasks,
   };
 }

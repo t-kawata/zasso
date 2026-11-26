@@ -32,11 +32,10 @@ Record the printed absolute path as `CLAUDE_DIR`. In every later bash block, use
 
 | Context | Language |
 |---|---|
-| Chat, proposals, explanations addressing the user | Japanese only |
+| Chat, proposals, explanations addressing user | Japanese only |
 | Code comments | English |
 | Design docs, plans, tasks | English |
 | Runtime logs | English |
-| Generated package and workspace README | English only |
 | Every other non-user-directed context | English |
 
 ## Arguments

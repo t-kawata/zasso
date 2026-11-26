@@ -239,7 +239,7 @@ test('naming every chapter in a package responsibility lets the same input compl
 test('the CLI gate reads the headings and refuses the unowned chapters', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-chapter-coverage-'));
   try {
-    const specPath = join(dir, 'spec.md');
+    const specPath = join(dir, 'SYSTEM-DESIGN.md');
     writeFileSync(
       specPath,
       [
@@ -286,7 +286,7 @@ test('the CLI gate reads the headings and refuses the unowned chapters', () => {
     };
     stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions }));
 
-    const refused = spawnSync(process.execPath, [RUN_SCRIPT, 'gate', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const refused = spawnSync(process.execPath, [RUN_SCRIPT, 'gate'], { cwd: dir, encoding: 'utf8' });
     const refusedReport = JSON.parse(readFileSyncLine(refused.stdout));
     assert.notEqual(refused.status, 0, refused.stdout + refused.stderr);
     assert.equal(refusedReport.finalAudit.uncovered_chapter_count, 2);
@@ -294,7 +294,7 @@ test('the CLI gate reads the headings and refuses the unowned chapters', () => {
     assert.ok(refused.stderr.includes('S20'), refused.stderr);
 
     // finalize shares prepareForwardPipeline, so the publish path must refuse too.
-    const refusedPublish = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const refusedPublish = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(refusedPublish.status, 0, refusedPublish.stdout + refusedPublish.stderr);
     assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), false, 'a refused finalize must publish nothing');
 
@@ -305,13 +305,13 @@ test('the CLI gate reads the headings and refuses the unowned chapters', () => {
     ];
     stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions }));
 
-    const accepted = spawnSync(process.execPath, [RUN_SCRIPT, 'gate', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const accepted = spawnSync(process.execPath, [RUN_SCRIPT, 'gate'], { cwd: dir, encoding: 'utf8' });
     const acceptedReport = JSON.parse(readFileSyncLine(accepted.stdout));
     assert.equal(accepted.status, 0, accepted.stdout + accepted.stderr);
     assert.equal(acceptedReport.finalAudit.uncovered_chapter_count, 0);
     assert.equal(acceptedReport.status, GATE_STATUS.COMPLETE);
 
-    const published = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const published = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(published.status, 0, published.stdout + published.stderr);
     assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), true, 'a complete finalize publishes the manifest');
   } finally {
@@ -319,6 +319,7 @@ test('the CLI gate reads the headings and refuses the unowned chapters', () => {
   }
 });
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function readFileSyncLine(stdout) {
   return stdout.split('\n').find((line) => line.startsWith('{')) ?? '{}';
 }

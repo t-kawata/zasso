@@ -6,8 +6,8 @@
 // runs one of these subcommands, reads its exit code, and follows the back-edge the
 // refusal named.
 //
-// The product path is untouched: `run.mjs <spec-file>` still writes the one artifact and
-// still derives its location from the argument alone. This file drives the phases that
+// The product path keeps its shape: `run.mjs` still writes the one artifact and
+// still derives its location from the fixed SYSTEM-DESIGN.md alone. This file drives the phases that
 // lead to that artifact, and keeps its working state beside the specification, in a
 // directory named for this tool, so that a reader of the specification can find the
 // declaration and the readings the artifact was built from.
@@ -33,7 +33,7 @@ import { ADHOC_DIRECTORY, loadAdhocChecks, promoteRecord, railExitTemplate, read
 
 /** The usage every refusal ends with, so a caller learns the shape without reading code. */
 const USAGE = [
-  'usage: node rail/phase.mjs <subcommand> <spec-file> [argument]',
+  'usage: node rail/phase.mjs <subcommand> [argument] (the spec is SYSTEM-DESIGN.md)',
   '  begin                      open the next generation, or verify an unchanged one',
   '  status                     report every phase and what it is waiting for',
   '  brief <name>               render one reader brief, naming the run worklist',
@@ -41,31 +41,16 @@ const USAGE = [
   '  through [last-phase]       run from the first unfinished phase to the last',
   '  report                     print the closing report',
   '  scaffold <check> <defect>  write a check for a defect class with no analogue',
-  '  promote <record> <spec>    propose lifting a rail exit into the declared checks',
+  '  promote <record> <second-spec>  propose lifting a rail exit into the declared checks',
 ].join('\n');
 
-/** Resolve the specification argument, refusing everything else. */
+/** Resolve the fixed specification, refusing a supplied argument. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function resolveSpec(argv) {
   const parsed = parseSpecArgument([argv[0]]);
   if (!parsed.ok) return { ok: false, reason: parsed.reason };
   return { ok: true, specPath: parsed.specPath, spec: readSpecification(parsed.specPath) };
-}
-
-/**
- * The invocation split into its one argument and the material that follows it.
- *
- * `/educe-sequences <spec-file>` takes one positional argument. Everything after the
- * first whitespace-delimited token — guidance typed into the invocation, and paths to
- * artifacts produced before this command existed — is material for the reading rather
- * than an argument, so it is separated here instead of being refused as a second one.
- */
-// [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
-function splitInvocation(text) {
-  const trimmed = String(text ?? '').trim();
-  const boundary = trimmed.search(/\s/);
-  if (boundary === -1) return { specText: trimmed, material: '' };
-  return { specText: trimmed.slice(0, boundary), material: trimmed.slice(boundary).trim() };
 }
 
 /**
@@ -127,9 +112,14 @@ function namedPathsIn(material) {
  * visible as a different digest), how much material was filed, how much of the inherited
  * material no longer cites the text, and which phase comes next.
  */
-// [::TICKET::] PX-242, PX-243, PX-244, PX-245, PX-254 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-245|PX-254) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-242, PX-243, PX-244, PX-245, PX-254, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244|PX-245|PX-254|PX-454) --for-spec --no-implementation-order`.
 function beginCommand(rest) {
-  const { specText, material } = splitInvocation(rest.join(' '));
+  // The first token is the empty specification slot the command file writes; everything
+  // after it is material. Joining and re-splitting the argv would drop that empty first
+  // token and read the material as the specification, which is the argument this command
+  // no longer takes.
+  const [specText = '', ...materialTokens] = rest;
+  const material = materialTokens.join(' ');
   const parsed = parseSpecArgument([specText]);
   if (!parsed.ok) {
     process.stderr.write(`refused: ${parsed.reason}\n`);

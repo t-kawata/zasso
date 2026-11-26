@@ -31,11 +31,12 @@ import { DEFAULT_WIDTH, FOLD_SEPARATOR, MIN_WIDTH, displayColumns, foldToBreak, 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/census');
 const PHASE_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
-const ARTIFACT = join(FIXTURE, 'ledger-sequences.json');
-const RENDER_PATH = join(FIXTURE, 'ledger-sequences.md');
+const ARTIFACT = join(FIXTURE, 'SYSTEM-DESIGN-sequences.json');
+const RENDER_PATH = join(FIXTURE, 'SYSTEM-DESIGN-sequences.md');
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
 // [::TICKET::] PX-250 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-250 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(ARTIFACT, 'utf8'));
 }
@@ -782,14 +783,14 @@ test('C007 the driver renders a brief that carries the tree of the artifact in h
   // `phase.mjs brief <spec> <role>`, and the tree is built there, from whatever artifact the
   // run directory holds. A defect only the entry point can see is one every unit test misses.
   const root = mkdtempSync(join(tmpdir(), 'px252-driver-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   const specFixture = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec');
-  copyFileSync(join(specFixture, 'ledger.md'), specPath);
-  copyFileSync(join(specFixture, 'ledger-sequences.json'), join(root, 'ledger-sequences.json'));
+  copyFileSync(join(specFixture, 'SYSTEM-DESIGN.md'), specPath);
+  copyFileSync(join(specFixture, 'SYSTEM-DESIGN-sequences.json'), join(root, 'SYSTEM-DESIGN-sequences.json'));
   mkdirSync(join(root, 'educe-sequences'), { recursive: true });
 
   try {
-    const rendered = spawnSync('node', [PHASE_SCRIPT, 'brief', specPath, 'span'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    const rendered = spawnSync('node', [PHASE_SCRIPT, 'brief', '', 'span'], { cwd: root, encoding: 'utf8' });
 
     assert.equal(rendered.status, 0, rendered.stderr);
     assert.equal(rendered.stdout.includes('▸ admission'), true, 'the brief carries the tree the run has');

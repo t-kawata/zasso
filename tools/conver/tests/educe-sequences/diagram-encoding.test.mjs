@@ -40,22 +40,23 @@ const RAIL = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail');
 
 /** The artifact carrying a borrowed census, which is the one the checks read. */
 const CENSUS = join(FIXTURES, 'census');
-const CENSUS_SPEC = readSpecification(join(CENSUS, 'ledger.md'));
+const CENSUS_SPEC = readSpecification(join(CENSUS, 'SYSTEM-DESIGN.md'));
 const SUPPLIED = suppliedDocumentsOf(join(CENSUS, 'educe-sequences'));
 
 /** The artifact with no supplied material beside it, which the product paths can verify alone. */
 const PLAIN = join(FIXTURES, 'spec');
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
-// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-249|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function golden() {
-  return JSON.parse(readFileSync(join(CENSUS, 'ledger-sequences.json'), 'utf8'));
+  return JSON.parse(readFileSync(join(CENSUS, 'SYSTEM-DESIGN-sequences.json'), 'utf8'));
 }
 
 /** The golden artifact of the fixture the product paths are driven over. */
-// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-249|PX-454) --for-spec --no-implementation-order`.
 function plainGolden() {
-  return JSON.parse(readFileSync(join(PLAIN, 'ledger-sequences.json'), 'utf8'));
+  return JSON.parse(readFileSync(join(PLAIN, 'SYSTEM-DESIGN-sequences.json'), 'utf8'));
 }
 
 /**
@@ -65,12 +66,12 @@ function plainGolden() {
  * written has to start from a state where nothing is there, and copying the committed bytes
  * in would make every such assertion pass for the wrong reason.
  */
-// [::TICKET::] PX-249 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-249 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-249, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-249|PX-454) --for-spec --no-implementation-order`.
 function scratch(fixture) {
   const root = mkdtempSync(join(tmpdir(), `px249-${fixture}-`));
   cpSync(join(FIXTURES, fixture), root, { recursive: true });
-  rmSync(join(root, 'ledger-sequences.md'), { force: true });
-  return { root, specPath: join(root, 'ledger.md'), artifactPath: join(root, 'ledger-sequences.json'), renderPath: join(root, 'ledger-sequences.md') };
+  rmSync(join(root, 'SYSTEM-DESIGN-sequences.md'), { force: true });
+  return { root, specPath: join(root, 'SYSTEM-DESIGN.md'), artifactPath: join(root, 'SYSTEM-DESIGN-sequences.json'), renderPath: join(root, 'SYSTEM-DESIGN-sequences.md') };
 }
 
 /** An artifact whose first step names no target, which is what the drawability check refuses. */
@@ -286,7 +287,7 @@ test('C004 a refused rendering writes nothing and leaves the artifact byte-ident
   writeFileSync(run.artifactPath, `${JSON.stringify(undrawable(plainGolden()), null, 2)}\n`);
   const committed = readFileSync(run.artifactPath, 'utf8');
 
-  const refused = await renderCommand([run.specPath]);
+  const refused = await renderCommand([], { cwd: run.root });
 
   assert.equal(refused.exitCode, RENDER_EXIT.REFUSED);
   assert.equal(refused.renderingPath, null);
@@ -298,25 +299,26 @@ test('C004 a refused rendering writes nothing and leaves the artifact byte-ident
 test('C004 the command writes the rendering of an artifact that passes, and the bytes are a re-render', async () => {
   const run = scratch('spec');
 
-  const written = await renderCommand([run.specPath]);
+  const written = await renderCommand([], { cwd: run.root });
 
   assert.equal(written.exitCode, RENDER_EXIT.OK);
   assert.equal(written.renderingPath, run.renderPath);
   assert.equal(readFileSync(run.renderPath, 'utf8'), renderArtifact(plainGolden()));
 });
 
-test('C004 the argument contract is unchanged and a stale artifact is refused', async () => {
+test('C004 the no-argument contract is enforced and a stale artifact is refused', async () => {
   const run = scratch('spec');
+  const withoutSpecification = mkdtempSync(join(tmpdir(), 'px249-nospec-'));
 
-  assert.equal((await renderCommand([])).exitCode, RENDER_EXIT.MISUSED, 'no argument');
-  assert.equal((await renderCommand([run.specPath, run.artifactPath])).exitCode, RENDER_EXIT.MISUSED, 'two arguments');
+  assert.equal((await renderCommand([], { cwd: withoutSpecification })).exitCode, RENDER_EXIT.MISUSED, 'a workspace root with no fixed specification');
+  assert.equal((await renderCommand([run.artifactPath, run.artifactPath])).exitCode, RENDER_EXIT.MISUSED, 'two arguments');
   assert.equal((await renderCommand([join(run.root, 'absent.md')])).exitCode, RENDER_EXIT.MISUSED, 'a path that does not exist');
   assert.equal((await renderCommand([run.root])).exitCode, RENDER_EXIT.MISUSED, 'a directory');
 
   const stale = { ...plainGolden(), spec: { ...plainGolden().spec, sha256: '0'.repeat(64) } };
   writeFileSync(run.artifactPath, `${JSON.stringify(stale, null, 2)}\n`);
 
-  const refused = await renderCommand([run.specPath]);
+  const refused = await renderCommand([], { cwd: run.root });
 
   assert.equal(refused.exitCode, RENDER_EXIT.REFUSED);
   assert.match(refused.reason, /artifact records spec sha256/);
@@ -326,9 +328,9 @@ test('C004 the argument contract is unchanged and a stale artifact is refused', 
 test('C004 a specification with no artifact beside it is refused, naming the path', async () => {
   const run = scratch('spec');
   const empty = mkdtempSync(join(tmpdir(), 'px249-empty-'));
-  copyFileSync(run.specPath, join(empty, 'ledger.md'));
+  copyFileSync(run.specPath, join(empty, 'SYSTEM-DESIGN.md'));
 
-  const refused = await renderCommand([join(empty, 'ledger.md')]);
+  const refused = await renderCommand([], { cwd: empty });
 
   assert.equal(refused.exitCode, RENDER_EXIT.REFUSED);
   assert.equal(refused.renderingPath, null);
@@ -350,8 +352,8 @@ test('C005 both product surfaces call one verification and name the same first r
   assert.equal(rail('run.mjs').split('loadAdhocChecks(').length - 1, 1, 'the verification is not duplicated in run.mjs');
   assert.equal(rail('render.mjs').split('loadAdhocChecks(').length - 1, 0, 'the rendering reaches the checks through the shared verification');
 
-  const throughRun = await runCommand([run.specPath], { runInput: null });
-  const throughRender = await renderCommand([run.specPath]);
+  const throughRun = await runCommand([], { cwd: run.root, runInput: null });
+  const throughRender = await renderCommand([], { cwd: run.root });
 
   assert.equal(throughRun.exitCode, 1);
   assert.equal(throughRender.exitCode, RENDER_EXIT.REFUSED);
@@ -367,7 +369,7 @@ test('C005 a run holding readings replaces an artifact that fails a check rather
   writeFileSync(run.artifactPath, `${JSON.stringify(undrawable(golden()), null, 2)}\n`);
   const readings = JSON.parse(readFileSync(join(CENSUS, 'ledger.run.json'), 'utf8'));
 
-  const rebuilt = await runCommand([run.specPath], { runInput: readings });
+  const rebuilt = await runCommand([], { cwd: run.root, runInput: readings });
 
   assert.equal(rebuilt.exitCode, 0, 'the run clears the ground and judges what it built');
   assert.deepEqual(JSON.parse(readFileSync(run.artifactPath, 'utf8')), golden());
@@ -378,7 +380,7 @@ test('C005 the verification re-derives the pins rather than only reading the art
   const tampered = { ...plainGolden(), pins: { ...plainGolden().pins, predicate: { ...plainGolden().pins.predicate, limbs: ['a limb no line carries'] } } };
   writeFileSync(run.artifactPath, `${JSON.stringify(tampered, null, 2)}\n`);
 
-  const refused = await renderCommand([run.specPath]);
+  const refused = await renderCommand([], { cwd: run.root });
 
   assert.equal(refused.exitCode, RENDER_EXIT.REFUSED);
   assert.equal(existsSync(run.renderPath), false);
@@ -390,8 +392,8 @@ test('C005 the verification re-derives the pins rather than only reading the art
 
 test('C006 the two committed renderings are byte-equal to a re-render of their artifacts', () => {
   for (const fixture of ['spec', 'census']) {
-    const artifact = JSON.parse(readFileSync(join(FIXTURES, fixture, 'ledger-sequences.json'), 'utf8'));
-    const committedPath = join(FIXTURES, fixture, 'ledger-sequences.md');
+    const artifact = JSON.parse(readFileSync(join(FIXTURES, fixture, 'SYSTEM-DESIGN-sequences.json'), 'utf8'));
+    const committedPath = join(FIXTURES, fixture, 'SYSTEM-DESIGN-sequences.md');
 
     assert.deepEqual(checkRenderFreshness({ artifact, committedPath }), { ok: true, files: [] }, `${fixture} is regenerated`);
   }

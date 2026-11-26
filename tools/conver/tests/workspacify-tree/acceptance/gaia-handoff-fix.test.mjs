@@ -21,6 +21,7 @@ import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function run(args, cwd) {
   return spawnSync(process.execPath, [RUN_SCRIPT, ...args], { cwd, encoding: 'utf8' });
 }
@@ -28,7 +29,7 @@ function run(args, cwd) {
 // [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners appear and parity passes', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-fix-'));
-  const specPath = join(dir, 'spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(
     specPath,
     '# S\n\n## Object Catalog\n\n| object | kind |\n|--------|------|\n| RuleRecord | record |\n\n## Rules\n\n不変条件: balance >= 0.\nエラーコード E1.\n検査対象: ledger.\n'
@@ -54,7 +55,7 @@ test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners
       approvals: [],
       semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' },
     } }));
-  const result = run(['finalize', `--spec=${specPath}`], dir);
+  const result = run(['finalize'], dir);
   assert.equal(result.status, 0, result.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   const categories = manifest.workspace.ownership.entries.map((entry) => `${entry.category}:${entry.inventory_ref}`);
@@ -68,7 +69,7 @@ test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and complete coverage completes', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-fix-'));
-  const specPath = join(dir, 'multi.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(
     specPath,
     '# M\n\n## Alpha\n\n| object | kind |\n|--------|------|\n| AlphaRecord | record |\n\n## Beta\n\n| object | kind |\n|--------|------|\n| BetaRecord | record |\n'
@@ -116,11 +117,11 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
     } }) });
 
   stageTreeDecisions(dir, broken);
-  const brokenRun = run(['gate', `--spec=${specPath}`], dir);
+  const brokenRun = run(['gate'], dir);
   assert.notEqual(brokenRun.status, 0, 'edge without boundary fails');
 
   stageTreeDecisions(dir, full);
-  const result = run(['finalize', `--spec=${specPath}`], dir);
+  const result = run(['finalize'], dir);
   assert.equal(result.status, 0, result.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.equal(manifest.status, 'COMPLETE');
@@ -130,11 +131,11 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
 
 test('review C005 [@verifies C005]: ambiguous normative terms require approvals to finalize', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-review-'));
-  const specPath = join(dir, 'amb.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, '# T\n\n## Rules\n\nMUST NOT 禁止\n');
   const base = { workspace: [], tree: [], ownership: [], dependencies: [], boundaries: [], adapters: { ports: [], databasePolicy: { applicable: false } } };
   stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: { ...base, approvals: [] } }));
-  const blocked = run(['finalize', `--spec=${specPath}`], dir);
+  const blocked = run(['finalize'], dir);
   assert.notEqual(blocked.status, 0, 'ambiguous terms without approvals must be blocked');
   assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), false, 'no manifest on blocked run');
 
@@ -142,17 +143,17 @@ test('review C005 [@verifies C005]: ambiguous normative terms require approvals 
     { decisionId: 'MUST NOT', rationale: 'explicitly normative', approver: 'ai' },
     { decisionId: '禁止', rationale: 'explicitly normative', approver: 'ai' },
   ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } } }));
-  const ok = run(['finalize', `--spec=${specPath}`], dir);
+  const ok = run(['finalize'], dir);
   assert.equal(ok.status, 0, ok.stdout);
 });
 
 test('claim C005 [@verifies C005]: claim candidates require approval and owner to complete', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-claim-'));
-  const specPath = join(dir, 'claims.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, '# T\n\n## Claims\n\n```text\nclaim_order_validity\nStateProofEnvelope\n```\n');
   const base = { tree: [], ownership: [], dependencies: [], boundaries: [], adapters: { ports: [], databasePolicy: { applicable: false } } };
   stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: { ...base, workspace: [], approvals: [] } }));
-  const blocked = run(['finalize', `--spec=${specPath}`], dir);
+  const blocked = run(['finalize'], dir);
   assert.notEqual(blocked.status, 0, 'claims without approvals must be blocked');
 
   const pkg = { id: 'pkg-p', name: 'p', path: 'crates/protocol/p', layer: 'protocol', kind: 'production-library', responsibilities: ['own'], seed_required: true, owns: { objects: [], claims: ['claim-000001', 'claim-000002'], invariants: [], state_machines: [], error_codes: [], required_tests: [] } };
@@ -164,6 +165,6 @@ test('claim C005 [@verifies C005]: claim candidates require approval and owner t
     { decisionId: 'claim_order_validity', rationale: 'explicit claim', approver: 'ai' },
     { decisionId: 'StateProofEnvelope', rationale: 'explicit proof', approver: 'ai' },
   ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } } }));
-  const ok = run(['finalize', `--spec=${specPath}`], dir);
+  const ok = run(['finalize'], dir);
   assert.equal(ok.status, 0, ok.stdout);
 });

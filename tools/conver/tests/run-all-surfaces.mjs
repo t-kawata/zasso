@@ -86,6 +86,7 @@ const SURFACE_TIMEOUT_MS = 15 * 60 * 1000;
  * — so they are never reported as the same thing.
  */
 // [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 class SurfaceUnavailableError extends Error {}
 
 /**
@@ -233,6 +234,7 @@ function relativeTo(projectRoot, file) {
  * @returns {{ totals: {tests:number,pass:number,fail:number}, executedFiles: string[], output: string }}
  */
 // [::TICKET::] PX-204 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-204 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function runProjectSurface(projectRoot, files) {
   const args = buildNodeTestArgs(files);
   if (args.length === 0) return { totals: { tests: 0, pass: 0, fail: 0 }, executedFiles: [], output: '' };
@@ -249,7 +251,40 @@ function runProjectSurface(projectRoot, files) {
   }
 
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
-  return { totals: parseNodeTestTotals(output), executedFiles: files, output };
+  return {
+    totals: { ...parseNodeTestTotals(output), failedFiles: failingFilesIn(output, projectRoot) },
+    executedFiles: files,
+    output,
+  };
+}
+
+/**
+ * The test files that reported a failure, as paths relative to the project root.
+ *
+ * `node --test`'s spec reporter prints one `✖ <absolute path> (<duration>)` line per
+ * failing file before it lists the individual tests. Only those lines are file
+ * names; the nested `✖ <test name>` lines are not paths and are ignored, which is
+ * why the absolute-path test is the discriminator rather than the marker alone.
+ */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function failingFilesIn(output, projectRoot) {
+  const files = new Set();
+  for (const line of output.split('\n')) {
+    const trimmed = line.trim();
+    // A file that failed to load is reported as a file; a file whose tests failed
+    // is reported in the per-test summary as `test at <path>:<line>:<col>`.
+    const located = /^test at (.+?):\d+:\d+$/.exec(trimmed);
+    if (located !== null) {
+      files.add(located[1]);
+      continue;
+    }
+    const fileLevel = /^✖ (.+?) \(\d+(?:\.\d+)?ms\)$/.exec(trimmed);
+    if (fileLevel === null) continue;
+    const subject = fileLevel[1];
+    if (!subject.startsWith(`${projectRoot}/`)) continue;
+    files.add(relativeTo(projectRoot, subject));
+  }
+  return [...files].sort();
 }
 
 /** How many deferred names the Markdown report lists before it summarises the rest. */

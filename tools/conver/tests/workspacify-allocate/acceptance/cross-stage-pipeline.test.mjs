@@ -31,6 +31,7 @@ const ALLOCATE_RUN = join(ROOT, '.claude/scripts/workspacify-allocate/run.mjs');
 const SPEC_FIXTURE = join(ROOT, 'tests/workspacify-tree/fixtures/gaia-like-spec.md');
 
 /** Harvest the candidate ids the stage-1 extractor actually produces. */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function harvestCandidateIds(specPath) {
   const sourceText = readFileSync(specPath, 'utf8');
   const headings = buildHeadingTree(sourceText.split('\n'), undefined, { sourceText });
@@ -121,7 +122,7 @@ function stageTwoDecisions(manifest) {
 test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose segment included', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wt-196-cross-'));
   try {
-    const specPath = join(dir, 'spec.md');
+    const specPath = join(dir, 'SYSTEM-DESIGN.md');
     cpSync(SPEC_FIXTURE, specPath);
     const objectIds = harvestCandidateIds(specPath);
     assert.ok(objectIds.length >= 2, 'the fixture specification yields at least two objects');
@@ -130,7 +131,7 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     // line names the specification and nothing else.
     stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) }));
 
-    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(stageOne.status, 0, stageOne.stdout + stageOne.stderr);
 
     const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
@@ -146,11 +147,11 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
 
     stageAllocateDecisions(dir, stageTwoDecisions(manifest));
 
-    for (const stage of [['validate', manifestPath], ['plan', manifestPath]]) {
-      const run = spawnSync(process.execPath, [ALLOCATE_RUN, ...stage], { encoding: 'utf8' });
+    for (const stage of [['validate'], ['plan']]) {
+      const run = spawnSync(process.execPath, [ALLOCATE_RUN, ...stage], { cwd: dir, encoding: 'utf8' });
       assert.equal(run.status, 0, `${stage[0]}: ${run.stdout}${run.stderr}`);
     }
-    const finalize = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize', manifestPath], { encoding: 'utf8' });
+    const finalize = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(finalize.status, 0, finalize.stdout + finalize.stderr);
     const summary = JSON.parse(finalize.stdout);
     assert.equal(summary.published, true);
@@ -170,7 +171,8 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     // that holds the decisions document the run read: staging is swept, the authored
     // input of record is not.
     assert.deepEqual(readdirSync(dir).sort(), [
-      'WORKSPACIFY-ALLOCATE-MANIFEST.json', 'WORKSPACIFY-TREE-MANIFEST.json', 'crates', 'spec.md', 'workspacify',
+      '.conver-history.jsonl', 'SYSTEM-DESIGN.md', 'WORKSPACIFY-ALLOCATE-MANIFEST.json',
+      'WORKSPACIFY-TREE-MANIFEST.json', 'crates', 'workspacify',
     ]);
 
     // The seeds carry the contract on both sides and reference the published manifest.
@@ -196,14 +198,14 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
 
     // A stage-1 residual dropped from the loop stops the run and names the candidate.
     stageAllocateDecisions(dir, { ...stageTwoDecisions(manifest), self_grill: { ...stageTwoDecisions(manifest).self_grill, residual: [] } });
-    const dropped = spawnSync(process.execPath, [ALLOCATE_RUN, 'gate', manifestPath], { encoding: 'utf8' });
+    const dropped = spawnSync(process.execPath, [ALLOCATE_RUN, 'gate'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(dropped.status, 0, 'an empire that forgets a stage-1 question must not pass');
     assert.ok((dropped.stdout + dropped.stderr).includes(carried[0].candidate_id), dropped.stdout + dropped.stderr);
 
     // A second run is BLOCKED and leaves the published workspace untouched.
     // Staged again: the finalize above published, and a published run sweeps the document.
     stageAllocateDecisions(dir, stageTwoDecisions(manifest));
-    const second = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize', manifestPath], { encoding: 'utf8' });
+    const second = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(second.status, 0);
     assert.equal(readFileSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'), `${JSON.stringify(allocateManifest, null, 2)}\n`);
   } finally {
@@ -214,12 +216,12 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
 test('C002 a stage-2 run refuses a stage-1 manifest that does not declare segment material', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wt-196-cross-'));
   try {
-    const specPath = join(dir, 'spec.md');
+    const specPath = join(dir, 'SYSTEM-DESIGN.md');
     cpSync(SPEC_FIXTURE, specPath);
     const objectIds = harvestCandidateIds(specPath);
     assert.ok(objectIds.length >= 2, 'the fixture specification yields at least two objects');
     stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) }));
-    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(stageOne.status, 0, stageOne.stdout + stageOne.stderr);
 
     const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
@@ -231,7 +233,7 @@ test('C002 a stage-2 run refuses a stage-1 manifest that does not declare segmen
     }
     writeFileSync(manifestPath, JSON.stringify(manifest));
 
-    const validate = spawnSync(process.execPath, [ALLOCATE_RUN, 'validate', manifestPath], { encoding: 'utf8' });
+    const validate = spawnSync(process.execPath, [ALLOCATE_RUN, 'validate'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(validate.status, 0);
     assert.match(validate.stdout + validate.stderr, /owned_inventory_ids/);
   } finally {

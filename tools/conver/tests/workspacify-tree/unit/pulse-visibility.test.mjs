@@ -16,13 +16,24 @@ const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUN = join(ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const SPEC = join(ROOT, 'tests/workspacify-tree/fixtures/gaia-like-spec.md');
 
-function runExtract(specPath) {
-  return spawnSync(process.execPath, [RUN, 'extract', specPath], { encoding: 'utf8' });
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function runExtract(cwd) {
+  return spawnSync(process.execPath, [RUN, 'extract'], { cwd, encoding: 'utf8' });
+}
+
+/** A scratch workspace root holding the gaia-like specification under the fixed name. */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function scratchSpec() {
+  const dir = mkdtempSync(join(tmpdir(), 'wst-pulse-'));
+  cpSync(SPEC, join(dir, 'SYSTEM-DESIGN.md'));
+  return dir;
 }
 
 // [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C004 extract prints the pulse candidates the gate will require to be settled', () => {
-  const result = runExtract(SPEC);
+  const dir = scratchSpec();
+  const result = runExtract(dir);
+  rmSync(dir, { recursive: true, force: true });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const stats = JSON.parse(result.stdout);
   assert.equal(typeof stats.harvested, 'number', 'the existing statistics stay');
@@ -41,16 +52,15 @@ test('C004 extract prints the pulse candidates the gate will require to be settl
 test('C004 the printed candidates are the ones the gate refuses to publish without', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-202-pulse-'));
   try {
-    const specPath = join(dir, 'spec.md');
-    cpSync(SPEC, specPath);
-    const stats = JSON.parse(runExtract(specPath).stdout);
+    cpSync(SPEC, join(dir, 'SYSTEM-DESIGN.md'));
+    const stats = JSON.parse(runExtract(dir).stdout);
     // An empty decisions payload is refused, and the refusal names exactly the printed candidates.
     stageTreeDecisions(dir, {
       workspace: [], tree: [], ownership: [], dependencies: [], boundaries: [],
       adapters: { ports: [], databasePolicy: { applicable: false } }, approvals: [],
       semantic_review: { status: 'APPROVED', statement: 'probe', approver: 'px-202' },
     });
-    const gate = spawnSync(process.execPath, [RUN, 'gate', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const gate = spawnSync(process.execPath, [RUN, 'gate'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(gate.status, 0);
     assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), false);
     for (const id of stats.spec_pulse.candidate_ids) {
@@ -62,14 +72,18 @@ test('C004 the printed candidates are the ones the gate refuses to publish witho
 });
 
 test('C004 a specification that cannot be read still fails at parse, with no pulse printed', () => {
-  const result = runExtract(join(tmpdir(), 'wst-202-does-not-exist.md'));
+  const dir = mkdtempSync(join(tmpdir(), 'wst-202-nospec-'));
+  const result = runExtract(dir);
+  rmSync(dir, { recursive: true, force: true });
   assert.notEqual(result.status, 0);
   assert.equal(result.stdout.includes('spec_pulse'), false);
 });
 
 test('C004 the same specification always yields the same candidates in the same order', () => {
-  const first = JSON.parse(runExtract(SPEC).stdout);
-  const second = JSON.parse(runExtract(SPEC).stdout);
+  const dir = scratchSpec();
+  const first = JSON.parse(runExtract(dir).stdout);
+  const second = JSON.parse(runExtract(dir).stdout);
+  rmSync(dir, { recursive: true, force: true });
   assert.deepEqual(first.spec_pulse.candidate_ids, second.spec_pulse.candidate_ids);
   assert.deepEqual(
     first.spec_pulse.candidates.map((candidate) => candidate.observation),

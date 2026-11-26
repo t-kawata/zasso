@@ -14,37 +14,38 @@ import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs'
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
-function runCli(args) {
-  return spawnSync(process.execPath, [RUN, ...args], { encoding: 'utf8' });
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function runCli(args, cwd) {
+  return spawnSync(process.execPath, [RUN, ...args], { cwd, encoding: 'utf8' });
 }
 
 // [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('IT validate -> plan -> packet -> gate -> finalize publishes the real tree and seeds', () => {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   try {
-    const validate = runCli(['validate', manifestPath]);
+    const validate = runCli(['validate'], dir);
     assert.equal(validate.status, 0, validate.stderr);
     assert.ok(validate.stdout.includes('"status":"PASS"'));
 
-    const plan = runCli(['plan', manifestPath]);
+    const plan = runCli(['plan'], dir);
     assert.equal(plan.status, 0, plan.stderr);
     assert.ok(plan.stdout.includes('"plannedDirectoryCount"'));
 
-    const packet = runCli(['packet', manifestPath]);
+    const packet = runCli(['packet'], dir);
     assert.equal(packet.status, 0, packet.stderr);
     assert.ok(packet.stdout.includes('"packets"'));
 
     // Staged at the derived path: the command line names the manifest and nothing else.
     stageAllocateDecisions(dir, makeDecisions(manifest));
 
-    const gate = runCli(['gate', manifestPath]);
+    const gate = runCli(['gate'], dir);
     assert.equal(gate.status, 0, gate.stderr);
     assert.ok(gate.stdout.includes('"status":"COMPLETE"'));
 
     // Staged again, because the gate above did not publish but a finalize that does
     // sweeps the document.
     stageAllocateDecisions(dir, makeDecisions(manifest));
-    const finalize = runCli(['finalize', manifestPath]);
+    const finalize = runCli(['finalize'], dir);
     assert.equal(finalize.status, 0, finalize.stderr);
     assert.ok(finalize.stdout.includes('"published":true'));
     assert.ok(finalize.stdout.includes('"seedCount":2'));

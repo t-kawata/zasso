@@ -34,6 +34,7 @@ const DECISIONS_NAME = 'decisions-complete.json';
  * the measurement rather than the other way round.
  */
 // [::TICKET::] P22-11, PX-214, PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(P22-11|PX-214|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function buildReverseWorkspace() {
   const decisions = JSON.parse(readFileSync(join(FIXTURES, DECISIONS_NAME), 'utf8'));
   const packagePath = decisions.workspace[0].path;
@@ -272,8 +273,8 @@ test('UT-11 no field is added to the GRAPH: the reverse rotation writes to the m
     // else in the root is what the subject already held.
     assert.deepEqual(
       readdirSync(workspace.out).filter((name) => !beforeRun.has(name)).sort(),
-      ['ORIGIN-LONG-SPEC.md', MANIFEST_FILE_NAME],
-      'the run adds the fifth layer and the specification it is read against, and nothing else',
+      ['.conver-history.jsonl', 'ORIGIN-LONG-SPEC.md', MANIFEST_FILE_NAME],
+      'the run adds the fifth layer, the specification it is read against, and the run-history record',
     );
   } finally {
     rmSync(workspace.dir, { recursive: true, force: true });
@@ -312,10 +313,11 @@ test('IT-7 T3 grounds the nodes the graph really carries, and names the ones it 
 test('IT-2 the forward rotation still reaches COMPLETE and carries no reverse provenance', () => {
   const out = mkdtempSync(join(tmpdir(), 'workspacify-tree-forward-'));
   try {
+    copyFileSync(join(FIXTURES, SPEC_NAME), join(out, 'SYSTEM-DESIGN.md'));
     stageTreeDecisionsFrom(out, join(FIXTURES, DECISIONS_NAME));
     const run = spawnSync(
       process.execPath,
-      [RUN_SCRIPT, 'finalize', `--spec=${join(FIXTURES, SPEC_NAME)}`],
+      [RUN_SCRIPT, 'finalize'],
       { cwd: out, encoding: 'utf8' },
     );
     assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`);

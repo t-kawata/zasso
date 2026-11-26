@@ -1,9 +1,10 @@
-// The material an invocation carries after the specification path (PX-242, contract C006).
+// The material an invocation carries after the empty specification token (PX-242, contract C006).
 //
-// `/educe-sequences <spec-file>` takes one positional argument, and PX-240 made that a
-// statement about products rather than about everything the run touches: the artifact's
-// location is settled by the specification path alone. Guidance typed after that path,
-// and a pre-existing artifact produced outside this command, are therefore not arguments.
+// `/educe-sequences` takes no specification argument, and PX-240 made the product
+// statement about the fixed SYSTEM-DESIGN.md rather than about everything the run
+// touches: the artifact's location is settled by that fixed path alone. Guidance typed
+// after the empty first token, and a pre-existing artifact produced outside this
+// command, are therefore not arguments.
 // They are filed here, beside the specification, so that what a run guarantees is settled
 // by the specification *and* the material together — and so that a reader of the
 // specification can find the hint the reading was taken with.
@@ -28,6 +29,7 @@ export const MATERIAL_FILE = 'material.md';
  * share a name across invocations and the digest has to be able to tell them apart.
  */
 // [::TICKET::] PX-242, PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-242|PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function digestOfFile(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }

@@ -27,10 +27,10 @@ import {
 } from '../../.claude/scripts/educe-sequences/rail/harness.mjs';
 import { readArtifactSchema, readSpecification, validateArtifactShape } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 
-const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+const SPEC_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
 // [::TICKET::] PX-240 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-240 --for-spec --no-implementation-order`.
-const GOLDEN_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
-const RENDER_PATH = new URL('./fixtures/spec/ledger-sequences.md', import.meta.url).pathname;
+const GOLDEN_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url).pathname;
+const RENDER_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.md', import.meta.url).pathname;
 
 const spec = readSpecification(SPEC_PATH);
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
@@ -162,13 +162,13 @@ test('C014 the committed rendering is byte-equal to a re-render of the artifact'
 
 test('C014 a hand-edited rendering fails the freshness check and names the file', () => {
   const directory = mkdtempSync(join(tmpdir(), 'educe-render-'));
-  const edited = join(directory, 'ledger-sequences.md');
+  const edited = join(directory, 'SYSTEM-DESIGN-sequences.md');
   writeFileSync(edited, `${renderArtifact(golden)}\nhand edited\n`);
 
   const outcome = checkRenderFreshness({ artifact: golden, committedPath: edited });
 
   assert.equal(outcome.ok, false);
-  assert.match(outcome.files[0], /ledger-sequences\.md/);
+  assert.match(outcome.files[0], /SYSTEM-DESIGN-sequences\.md/);
 });
 
 test('C015 a consumer implementing every declared operation passes both directions', () => {
@@ -241,6 +241,7 @@ test('C012 the artifact carries the schema version a consumer must hold', () => 
 
 /** A check's verdicts over an artifact, so a test names the check it is asking about. */
 // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function verdictsOf(artifact, id) {
   return checkAll({ specLines: spec.lines, artifact }).verdicts.filter((verdict) => verdict.check === id);
 }

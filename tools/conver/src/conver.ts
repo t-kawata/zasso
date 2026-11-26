@@ -1,8 +1,24 @@
 // conver.ts — process entry: the 5-layer workspace gate, watcher and loop.
+import path from "node:path";
 import { parseCliOptions } from "./cli.js";
 import type { CliOptions } from "./cli.js";
-import { allPackagesAreEndpoint, runWorkspaceLoop } from "./runner.js";
+import {
+  allPackagesAreEndpoint,
+  isRecoverableError,
+  retryPolicy,
+  retryWithBackoff,
+  runWorkspaceLoop,
+} from "./runner.js";
 import type { WorkspaceLoopOptions, WorkspaceLoopResult } from "./runner.js";
+import { runCommand, withSession } from "./session.js";
+import {
+  isDefaultImplementationPlan,
+  parseStagePlan,
+  StagePlanError,
+} from "./stage-plan.js";
+import type { StageName, StagePlan } from "./stage-plan.js";
+import { runStagePlan } from "./stage-engine.js";
+import type { StageEngineDeps, StageRunRecord } from "./stage-engine.js";
 import { loadWatcherConfig } from "./watcher.js";
 import type { WatcherConfig } from "./watcher.js";
 import { isWithinTimeWindow } from "./step-timer.js";
@@ -10,11 +26,14 @@ import { CronScheduler } from "./cron-scheduler.js";
 import { createTerminationHandle } from "./termination.js";
 import {
   readWorkspace,
+  readWorkspaceForStagePlan,
+  resolveStageWorkspaceRoot,
   resolveWorkspaceRoot,
   validateImplementationOrder,
   WorkspaceGateError,
 } from "./workspace.js";
 import type { WorkspaceModel } from "./workspace.js";
+import { CANONICAL_STAGE_DEFINITIONS } from "./stage-plan.js";
 import {
   resolvePackageSelection,
   resolveRequestedPackages,
@@ -41,6 +60,7 @@ const DEFAULT_TERMINAL_ROWS = 24;
  * Format the -P selection for the startup banner. An omitted selection runs
  * every package, so it says "(all)" rather than echoing an empty list.
  */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function formatTargetPackages(requested: readonly string[]): string {
   const unique = [...new Set(requested)];
   return unique.length === 0 ? "(all)" : unique.join(", ");
@@ -86,7 +106,109 @@ async function runNormalMode(
   await runWorkspaceLoop(buildLoopOptions(cli, model, display));
 }
 
-// [::TICKET::] PX-403, PX-404, PX-408, PX-413, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413|PX-449) --for-spec --no-implementation-order`.
+/** The canonical index of make; every stage before it is an upstream stage. */
+const MAKE_STAGE_INDEX = CANONICAL_STAGE_DEFINITIONS.findIndex(
+  (definition) => definition.name === "make",
+);
+
+/** True when the plan selects a stage that runs before the implementation group. */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function hasUpstreamStage(plan: StagePlan): boolean {
+  return plan.selections.some(
+    (selection) =>
+      CANONICAL_STAGE_DEFINITIONS.findIndex(
+        (definition) => definition.name === selection.name,
+      ) < MAKE_STAGE_INDEX,
+  );
+}
+
+/**
+ * Run a non-default -T plan.
+ *
+ * The implementation group is delegated to the existing loop through the stage
+ * engine, so the make..find path itself is unchanged. The model is re-read after
+ * workspacify and split because those stages create the inputs the next stage
+ * reads.
+ */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+async function runStageMode(
+  cli: CliOptions,
+  plan: StagePlan,
+  root: string,
+  initialModel: WorkspaceModel,
+  display?: DisplayHooks,
+): Promise<void> {
+  const sessionConfig = { apiKey: cli.apiKey, model: cli.model, baseUrl: cli.baseUrl };
+  const runOptions = {
+    timeoutMs: cli.timeoutMs,
+    verbose: cli.verbose,
+    ...(display === undefined
+      ? {}
+      : { onUpdate: display.onUpdate, onFlush: display.onFlush }),
+  };
+  const deps: StageEngineDeps = {
+    runStageCommand: async (input) => {
+      await retryWithBackoff(
+        () =>
+          withSession(input.cwd, sessionConfig, async (session) => {
+            await runCommand(session, input.command, {
+              ...runOptions,
+              promptOverride: input.promptOverride,
+            });
+          }),
+        {
+          maxAttempts: retryPolicy.maxAttempts,
+          baseDelayMs: retryPolicy.baseDelayMs,
+          maxDelayMs: retryPolicy.maxDelayMs,
+          jitterMs: retryPolicy.jitterMs,
+          isRetryable: isRecoverableError,
+        },
+      );
+    },
+    runImplementationLoop: (options) => runWorkspaceLoop(options),
+    readWorkspace: (planToRead, orderStartStage) =>
+      readWorkspaceForStagePlan(root, planToRead, undefined, orderStartStage),
+  };
+  const stageHooks = {
+    onStageStart: (record: StageRunRecord) => {
+      const target = record.packageId === null ? record.cwd : `${record.cwd} package=${record.packageId}`;
+      process.stdout.write(`[stage] ${record.stage} round=${record.round} ${target}\n`);
+    },
+  };
+
+  const first = plan.selections[0];
+  if (first?.name === "workspacify") {
+    await runStagePlan({
+      plan: { selections: [first] },
+      workspace: initialModel,
+      options: buildLoopOptions(cli, initialModel, display),
+      deps,
+      ...stageHooks,
+    });
+    const reloaded = readWorkspaceForStagePlan(root, plan, undefined, "educe");
+    const rest: StagePlan = { selections: plan.selections.slice(1) };
+    if (rest.selections.length > 0) {
+      await runStagePlan({
+        plan: rest,
+        workspace: reloaded,
+        options: buildLoopOptions(cli, reloaded, display),
+        deps,
+        ...stageHooks,
+      });
+    }
+    return;
+  }
+
+  await runStagePlan({
+    plan,
+    workspace: initialModel,
+    options: buildLoopOptions(cli, initialModel, display),
+    deps,
+    ...stageHooks,
+  });
+}
+
+// [::TICKET::] PX-403, PX-404, PX-408, PX-413, PX-449, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413|PX-449|PX-454) --for-spec --no-implementation-order`.
 type WatcherModeResult = "terminated" | "endpoint" | "config-error";
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
@@ -188,17 +310,48 @@ async function runWatcherMode(
 export async function main(): Promise<void> {
   const options = parseCliOptions(process.argv);
 
+  let plan: StagePlan;
+  try {
+    plan = parseStagePlan(options.tasks);
+  } catch (error) {
+    if (error instanceof StagePlanError) {
+      process.stderr.write(`conver.js — invalid -T plan: ${error.message}\n`);
+      process.exit(1);
+      return;
+    }
+    throw error;
+  }
+
+  // The watcher endpoint is defined by the implementation group's ticket and
+  // boundary state; an upstream stage or a partial implementation block has no
+  // endpoint to wait for, so the watcher is kept on the existing path only.
+  const usesDefaultPlan = isDefaultImplementationPlan(plan);
+  if (options.watcherConfig !== undefined && !usesDefaultPlan) {
+    process.stderr.write(
+      "conver.js — -w/--watcher requires the default -T plan; the endpoint is defined only for the implementation group\n",
+    );
+    process.exit(1);
+    return;
+  }
+
   if (options.apiKey === "") {
     process.stderr.write(
       "警告: -k/--api-key が未指定です（keyless プロバイダー向け）。認証が必要なプロバイダーでは指定してください。\n",
     );
   }
 
-  let model: WorkspaceModel;
+  let model!: WorkspaceModel;
   try {
-    const root = resolveWorkspaceRoot(process.cwd());
-    validateImplementationOrder(root);
-    model = readWorkspace(root);
+    if (usesDefaultPlan) {
+      const root = resolveWorkspaceRoot(process.cwd());
+      validateImplementationOrder(root);
+      model = readWorkspace(root);
+    } else {
+      const root = resolveStageWorkspaceRoot(process.cwd(), plan);
+      model = plan.selections[0]?.name === "workspacify"
+        ? { root, name: path.basename(root), packages: [] }
+        : readWorkspaceForStagePlan(root, plan, undefined, plan.selections[0]!.name);
+    }
   } catch (error) {
     if (!(error instanceof WorkspaceGateError)) {
       throw error;
@@ -302,6 +455,7 @@ export async function main(): Promise<void> {
   process.stdout.write(`  timeoutMs=${options.timeoutMs}\n`);
   process.stdout.write(`  noFind=${options.noFind}\n`);
   process.stdout.write(`  maxFindRounds=${options.maxFindRounds}\n`);
+  process.stdout.write(`  tasks=${options.tasks ?? "(default)"}\n`);
   process.stdout.write(`  watcherConfig=${options.watcherConfig}\n`);
 
   try {
@@ -312,8 +466,10 @@ export async function main(): Promise<void> {
       // A config error already exited with 1 and must not be re-exited as 0
       // when process.exit is replaced by a test double.
       if (result === "terminated" || result === "endpoint") lifecycle.shutdown(0);
-    } else {
+    } else if (usesDefaultPlan) {
       await runNormalMode(options, model, display);
+    } else {
+      await runStageMode(options, plan, model.root, model, display);
     }
   } catch (error) {
     if (error instanceof LoopStoppedError) {

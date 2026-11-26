@@ -26,12 +26,12 @@ import { SOURCE_SHAPES, establishPins, extractMembers } from '../../.claude/scri
 import { MATERIAL_FILE, suppliedDocumentsOf, suppliedFilesOf } from '../../.claude/scripts/educe-sequences/rail/supplied.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SPEC_SOURCE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
+const SPEC_SOURCE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
 const RUN_INPUT = JSON.parse(readFileSync(join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.run.json'), 'utf8'));
 
 /** The borrowed-census fixture: the declaration and the material it names, which agree. */
 const CENSUS_ROOT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/census');
-const CENSUS_SPEC = join(CENSUS_ROOT, 'ledger.md');
+const CENSUS_SPEC = join(CENSUS_ROOT, 'SYSTEM-DESIGN.md');
 const CENSUS_SUPPLIED = join(CENSUS_ROOT, 'educe-sequences/supplied');
 const CENSUS_RUN_INPUT = JSON.parse(readFileSync(join(CENSUS_ROOT, 'ledger.run.json'), 'utf8'));
 
@@ -53,10 +53,11 @@ const REGISTRY_PIN = Object.freeze({
  * occurs nowhere — so a scratch declaration would fail the gate for a reason this file
  * is not about.
  */
-// [::TICKET::] PX-264 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-264 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-264, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-264|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-census-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   const spec = readSpecification(specPath);
   const run = startRun({ specPath, spec });
@@ -182,7 +183,7 @@ test('PX-264 C001 C002 C004 the borrowed-census fixture still closes phase 4 aft
   // pair is what says the change is additive rather than a second rule about the same
   // material; asserting only on the scratch declaration would leave that unsaid.
   const root = mkdtempSync(join(tmpdir(), 'educe-census-fixture-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(CENSUS_SPEC, specPath);
   const spec = readSpecification(specPath);
   const directory = join(root, 'educe-sequences');

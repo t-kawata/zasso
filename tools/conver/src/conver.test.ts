@@ -3,7 +3,8 @@
 import { describe, it, mock, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 interface MockCli {
   apiKey: string;
   model: string;
@@ -18,6 +19,7 @@ interface MockCli {
   bindReviewInOneSession: boolean;
   noFind: boolean;
   watcherConfig?: string;
+  tasks?: string;
 }
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -120,6 +122,8 @@ mock.module("./workspace.js", {
       if (state.gateError) throw state.gateError;
       return state.workspace.root;
     },
+    resolveStageWorkspaceRoot: () => state.workspace.root,
+    readWorkspaceForStagePlan: () => state.workspace,
     validateImplementationOrder: () => {},
     readWorkspace: () => state.workspace,
     WorkspaceGateError: MockWorkspaceGateError,
@@ -133,6 +137,9 @@ mock.module("./runner.js", {
       return state.runResult;
     },
     allPackagesAreEndpoint: () => state.allPackagesEndpoint,
+    isRecoverableError: () => false,
+    retryPolicy: { maxAttempts: 1, baseDelayMs: 0, maxDelayMs: 0, jitterMs: 0 },
+    retryWithBackoff: async (operation: () => Promise<unknown>) => operation(),
     LoopStoppedError: MockLoopStoppedError,
   },
 });

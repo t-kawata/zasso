@@ -232,7 +232,7 @@ test('PX-188 C004 [PX-188 @verifies C004]: a failing reconstruction gate yields 
 
 test('PX-188 C004 [PX-188 @verifies C004]: entry parity rejects a non-COMPLETE status and non-zero final audit', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-parity-'));
-  const specPath = join(dir, 'spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, '# S\n');
   const statusManifest = { artifact_kind: 'workspacify-tree-manifest', status: 'REVIEW' };
   const statusResult = checkTreeEntryGate(statusManifest, specPath);
@@ -246,7 +246,7 @@ test('PX-188 C004 [PX-188 @verifies C004]: entry parity rejects a non-COMPLETE s
 
 test('PX-188 C004 [PX-188 @verifies C004]: entry parity reports a tree missing a declared package path', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-parity-'));
-  const specPath = join(dir, 'spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, '# S\n');
   const manifest = {
     artifact_kind: 'workspacify-tree-manifest',
@@ -258,6 +258,7 @@ test('PX-188 C004 [PX-188 @verifies C004]: entry parity reports a tree missing a
   assert.ok(result.errors.some((entry) => entry.includes('missing from the workspace tree')));
 });
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function specSegments(sourceText) {
   const headings = buildHeadingTree(sourceText.split('\n'), undefined, { sourceText });
   const segmented = segmentAtHeadings({ sourceText, headings }, { segmentLevel: 2 });

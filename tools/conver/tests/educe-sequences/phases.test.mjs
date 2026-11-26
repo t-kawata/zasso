@@ -31,9 +31,9 @@ import { railExitTemplate, readCasesFile, scaffoldCheck } from '../../.claude/sc
 import { loopsFor, phaseState, readingOf, runDirectoryFor } from '../../.claude/scripts/educe-sequences/rail/run-state.mjs';
 import { pathToFileURL } from 'node:url';
 
-const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+const SPEC_SOURCE = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
-const GOLDEN_SOURCE = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
+const GOLDEN_SOURCE = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 const TAGS = Object.values(PHASE_TAGS);
 
@@ -41,10 +41,11 @@ const TAGS = Object.values(PHASE_TAGS);
 const TOOL_ROOT = new URL('../../.claude/scripts/educe-sequences', import.meta.url).pathname;
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scratch() {
   const root = mkdtempSync(join(tmpdir(), 'educe-phases-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   return { root, specPath };
 }
@@ -125,7 +126,7 @@ test('the run writes the artifact the one-argument contract derives from the spe
 
   assert.equal(context.artifactPath, artifactPathFor(specPath));
   const artifact = JSON.parse(readFileSync(context.artifactPath, 'utf8'));
-  assert.equal(artifact.spec.path, 'ledger.md');
+  assert.equal(artifact.spec.path, 'SYSTEM-DESIGN.md');
   assert.equal(artifact.sequences.find((entry) => entry.id === 'settlement').neighbour, 'settlement-replays-admission');
 });
 
@@ -362,7 +363,7 @@ test('C015 a status belonging to another specification is refused by name', () =
 
   assert.equal(conflicted.resumed, false);
   assert.notEqual(conflicted.refused, undefined);
-  assert.match(conflicted.refused, /ledger\.md/);
+  assert.match(conflicted.refused, /SYSTEM-DESIGN\.md/);
 });
 
 test('a run whose [read] phases are signed or vacuous is reported complete', () => {

@@ -22,9 +22,10 @@ function runCli(args, cwd = CONVER_ROOT) {
   return spawnSync(process.execPath, [RUN_SCRIPT, ...args], { cwd, encoding: 'utf8' });
 }
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function makeWorkingSpecDir() {
   const dir = mkdtempSync(join(tmpdir(), 'wst-pipe-'));
-  cpSync(join(FIXTURES, 'long-spec.md'), join(dir, 'long-spec.md'));
+  cpSync(join(FIXTURES, 'long-spec.md'), join(dir, 'SYSTEM-DESIGN.md'));
   return dir;
 }
 
@@ -36,7 +37,9 @@ test('cli C003 [@verifies C003]: no arguments prints usage and exits non-zero', 
 });
 
 test('cli C003 [@verifies C003]: parse subcommand returns the node exit code', () => {
-  const parseResult = runCli(['parse', join(FIXTURES, 'small-spec.md')]);
+  const dir = mkdtempSync(join(tmpdir(), 'wst-parse-'));
+  cpSync(join(FIXTURES, 'small-spec.md'), join(dir, 'SYSTEM-DESIGN.md'));
+  const parseResult = runCli(['parse'], dir);
   assert.equal(parseResult.status, 0);
   const parsed = JSON.parse(parseResult.stdout);
   assert.equal(parsed.status, 'PASS');
@@ -46,7 +49,7 @@ test('cli C003 [@verifies C003]: parse subcommand returns the node exit code', (
 test('pipeline C003 invariant [@verifies C003]: successful finalize publishes exactly one manifest into the spec directory', () => {
   const dir = makeWorkingSpecDir();
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-long-ok.json'));
-  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`], dir);
+  const result = runCli(['finalize'], dir);
   assert.equal(result.status, 0, result.stdout);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), true);
@@ -57,7 +60,7 @@ test('pipeline C003 invariant [@verifies C003]: successful finalize publishes ex
 test('pipeline C004 [@verifies C004]: an invalid decision input prevents COMPLETE', () => {
   const dir = makeWorkingSpecDir();
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-review-open.json'));
-  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`], dir);
+  const result = runCli(['finalize'], dir);
   assert.notEqual(result.status, 0);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), false);
@@ -72,10 +75,10 @@ test('pipeline C004 [@verifies C004]: an invalid decision input prevents COMPLET
 test('PX-389 C001: finalize publishes a grounded prose-formula segment claim', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-px389-'));
   const specText = `${readFileSync(join(FIXTURES, 'objects-table.md'), 'utf8')}\n\n## Beta\n\n\\[ 1+1=2 \\]\n`;
-  const specPath = join(dir, 'spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, specText);
 
-  const extract = runCli(['extract', specPath], dir);
+  const extract = runCli(['extract'], dir);
   assert.equal(extract.status, 0, extract.stdout + extract.stderr);
   const extractJson = JSON.parse(extract.stdout.split('\n').find((line) => line.startsWith('{')));
   const pulseCandidates = extractJson.spec_pulse.candidates;
@@ -108,7 +111,7 @@ test('PX-389 C001: finalize publishes a grounded prose-formula segment claim', (
   }];
   stageTreeDecisions(dir, decisions);
 
-  const result = runCli(['finalize', `--spec=${specPath}`], dir);
+  const result = runCli(['finalize'], dir);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
 
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));

@@ -43,11 +43,12 @@ import { appendHistory } from '../../.claude/scripts/educe-sequences/rail/run-st
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const RAIL_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail');
-const GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger-sequences.json');
-const GOLDEN_SPEC = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
+const GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN-sequences.json');
+const GOLDEN_SPEC = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
 // [::TICKET::] PX-245 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-245 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function goldenArtifact() {
   return JSON.parse(readFileSync(GOLDEN_ARTIFACT, 'utf8'));
 }
@@ -467,18 +468,18 @@ test('C002 an unreadable file answers "nothing on record" rather than stopping t
   // say — and for that question a file that cannot be read and a file that is not there
   // have the same answer. Neither may take down a path that would otherwise finish.
   const root = mkdtempSync(join(tmpdir(), 'educe-unreadable-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(GOLDEN_SPEC, specPath);
-  copyFileSync(GOLDEN_ARTIFACT, join(root, 'ledger-sequences.json'));
+  copyFileSync(GOLDEN_ARTIFACT, join(root, 'SYSTEM-DESIGN-sequences.json'));
   const runDirectory = join(root, 'educe-sequences');
   mkdirSync(runDirectory, { recursive: true });
   // A record that parses as a prefix of itself. The rail no longer writes one — the status
   // is replaced rather than written into — so this stands for what a hand, a half-finished
   // copy or an older run can still leave beside a specification.
-  writeFileSync(join(runDirectory, 'status.json'), '{ "spec": { "path": "ledger.md"');
+  writeFileSync(join(runDirectory, 'status.json'), '{ "spec": { "path": "SYSTEM-DESIGN.md"');
 
-  const verified = spawnSync('node', [join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/run.mjs'), specPath], {
-    cwd: PROJECT_ROOT,
+  const verified = spawnSync('node', [join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/run.mjs')], {
+    cwd: root,
     encoding: 'utf8',
   });
 
@@ -490,12 +491,12 @@ test('C002 an unreadable file answers "nothing on record" rather than stopping t
 
 test('C002 begin opens a generation over an unreadable artifact rather than throwing', () => {
   const root = mkdtempSync(join(tmpdir(), 'educe-unreadable-artifact-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(GOLDEN_SPEC, specPath);
-  writeFileSync(join(root, 'ledger-sequences.json'), '{ "schema_version": 1,');
+  writeFileSync(join(root, 'SYSTEM-DESIGN-sequences.json'), '{ "schema_version": 1,');
 
-  const begun = spawnSync('node', [join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs'), 'begin', specPath], {
-    cwd: PROJECT_ROOT,
+  const begun = spawnSync('node', [join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs'), 'begin', ''], {
+    cwd: root,
     encoding: 'utf8',
   });
 

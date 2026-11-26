@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -24,11 +25,11 @@ import { stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 // [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('entry parity C005 [@verifies C005]: a gaia-like spec yields a manifest that passes the ALLOCATE entry gate', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-parity-'));
-  const specPath = join(dir, 'gaia-like-spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], {
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize'], {
     cwd: dir,
     encoding: 'utf8',
   });

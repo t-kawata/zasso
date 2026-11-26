@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +13,7 @@ import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs'
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function runCli(args, options = {}) {
   return spawnSync(process.execPath, [RUN, ...args], { encoding: 'utf8', ...options });
 }
@@ -25,18 +27,23 @@ test('C001 unknown subcommand and missing arguments exit non-zero with a guide',
   assert.notEqual(runCli(['gate', 'some.json']).status, 0);
 });
 
-test('C001 validate rejects a missing manifest file with a non-zero exit', () => {
-  const result = runCli(['validate', join('/tmp', 'does-not-exist-alloc.json')]);
-  assert.notEqual(result.status, 0);
-  assert.ok(result.stderr.includes('guide'));
+test('C001 validate rejects a workspace root with no fixed manifest', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'alloc-nospec-'));
+  try {
+    const result = runCli(['validate'], { cwd: dir });
+    assert.notEqual(result.status, 0);
+    assert.ok(result.stderr.includes('guide'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('C001 validate rejects an unreadable / non-JSON manifest', () => {
   const dir = materializeSeedFixture().dir;
   try {
-    const emptyPath = join(dir, 'empty.json');
+    const emptyPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
     writeFileSync(emptyPath, '');
-    assert.notEqual(runCli(['validate', emptyPath]).status, 0);
+    assert.notEqual(runCli(['validate'], { cwd: dir }).status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -45,7 +52,7 @@ test('C001 validate rejects an unreadable / non-JSON manifest', () => {
 test('C001 packet rejects an unknown --package target', () => {
   const { dir, manifestPath } = materializeSeedFixture();
   try {
-    const result = runCli(['packet', manifestPath, '--package=ghost']);
+    const result = runCli(['packet', '--package=ghost'], { cwd: dir });
     assert.notEqual(result.status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -56,7 +63,7 @@ test('C003 gate BLOCKs when semantic_review is not APPROVED', () => {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   try {
     stageAllocateDecisions(dir, makeDecisions(manifest, { approved: false }));
-    const result = runCli(['gate', manifestPath]);
+    const result = runCli(['gate'], { cwd: dir });
     assert.notEqual(result.status, 0);
     assert.ok(result.stderr.includes('semantic_review'));
   } finally {
@@ -71,7 +78,7 @@ test('C002 finalize BLOCKs on an existing non-empty planned directory and preser
     mkdirSync(join(dir, 'crates', 'protocol', 'alpha'), { recursive: true });
     writeFileSync(join(dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'keep');
     stageAllocateDecisions(dir, makeDecisions(manifest));
-    const result = runCli(['finalize', manifestPath]);
+    const result = runCli(['finalize'], { cwd: dir });
     assert.notEqual(result.status, 0);
     assert.equal(readFileSync(join(dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'utf8'), 'keep');
   } finally {
@@ -83,7 +90,7 @@ test('C002 finalize schema-invalid decisions exits non-zero', () => {
   const { dir, manifestPath } = materializeSeedFixture();
   try {
     stageAllocateDecisions(dir, { seeds: [] }); // missing semantic_review
-    const result = runCli(['finalize', manifestPath]);
+    const result = runCli(['finalize'], { cwd: dir });
     assert.notEqual(result.status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });

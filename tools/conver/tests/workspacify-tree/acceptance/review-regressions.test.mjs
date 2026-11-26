@@ -56,10 +56,10 @@ function decisionsFor(objectIds) {
 }
 
 /** Run finalize over a payload built from the base decisions through one mutation. */
-// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-215|PX-454) --for-spec --no-implementation-order`.
 function finalizeWith(mutate) {
   const dir = mkdtempSync(join(tmpdir(), 'wst-202-reg-'));
-  const specPath = join(dir, 'spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   cpSync(SPEC_FIXTURE, specPath);
   const sourceText = readFileSync(specPath, 'utf8');
   const headings = buildHeadingTree(sourceText.split('\n'), undefined, { sourceText });
@@ -68,7 +68,7 @@ function finalizeWith(mutate) {
   const decisions = mutate(decisionsFor(objectIds));
   const settled = settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) });
   stageTreeDecisions(dir, settled);
-  const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
   return { dir, result, manifestPath: join(dir, 'WORKSPACIFY-TREE-MANIFEST.json') };
 }
 

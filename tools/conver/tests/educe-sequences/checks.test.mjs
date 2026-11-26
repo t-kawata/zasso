@@ -1,4 +1,5 @@
 // [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // The check constructor library (PX-241, contracts C001, C002).
 // @verifies C001
 // @verifies C002
@@ -27,9 +28,10 @@ import { CHECKS, checkAll } from '../../.claude/scripts/educe-sequences/rail/eng
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 import { flattenPins } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
 // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 
-const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
-const GOLDEN_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
+const SPEC_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
+const GOLDEN_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url).pathname;
 
 const spec = readSpecification(SPEC_PATH);
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));

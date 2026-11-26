@@ -20,9 +20,9 @@ import { suppliedDocumentsOf } from '../../.claude/scripts/educe-sequences/rail/
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/census');
-const SPEC_PATH = join(FIXTURE, 'ledger.md');
-const GOLDEN_PATH = join(FIXTURE, 'ledger-sequences.json');
-const RENDER_PATH = join(FIXTURE, 'ledger-sequences.md');
+const SPEC_PATH = join(FIXTURE, 'SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(FIXTURE, 'SYSTEM-DESIGN-sequences.json');
+const RENDER_PATH = join(FIXTURE, 'SYSTEM-DESIGN-sequences.md');
 
 const spec = readSpecification(SPEC_PATH);
 const SUPPLIED = suppliedDocumentsOf(join(FIXTURE, 'educe-sequences'));
@@ -33,6 +33,7 @@ const SUPPLIED = suppliedDocumentsOf(join(FIXTURE, 'educe-sequences'));
  * cannot be judged without the material it names: the check that would answer is the
  * re-derivation, and it has nothing to read. */
 // [::TICKET::] PX-248 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-248 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function verify(artifact) {
   return checkAll({ specLines: spec.lines, artifact, recorded: { supplied: SUPPLIED } });
 }

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-192, PX-202 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-192|PX-202) --for-spec --no-implementation-order`.
 // PX-192 @verifies C001 C003 C004 C005
 // Fixtures for the stage-1 hand-off proofs: a manifest that carries the DAG
@@ -137,7 +138,7 @@ export function buildValidTreeManifest(overrides = {}) {
 export function materializeTreeFixture(overrides = {}) {
   const built = buildValidTreeManifest(overrides);
   const dir = mkdtempSync(join(tmpdir(), 'wst-192-'));
-  const specPath = join(dir, 'spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, DEFAULT_SPEC_TEXT);
   return { ...built, dir, specPath };
 }

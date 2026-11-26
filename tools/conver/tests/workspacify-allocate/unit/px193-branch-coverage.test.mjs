@@ -21,6 +21,7 @@ import { validateDecisionsAuthoringSurface } from '../../../.claude/scripts/work
 import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 import { computeSelfHash } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function boundary() {
   return buildValidManifest().manifest.dependencies.boundaries[0];
 }
@@ -239,11 +240,11 @@ test('run.mjs C001/C003/C004: in-process handlers over a real fixture', () => {
         process.stderr.write = stderr;
       }
     };
-    assert.doesNotThrow(() => quiet(() => runValidate(['validate', fixture.manifestPath])));
-    assert.doesNotThrow(() => quiet(() => runPlan(['plan', fixture.manifestPath])));
-    assert.doesNotThrow(() => quiet(() => runPacket(['packet', fixture.manifestPath, '--package=pkg-b'])));
-    assert.doesNotThrow(() => quiet(() => runGate(['gate', fixture.manifestPath])));
-    assert.doesNotThrow(() => quiet(() => runFinalize(['finalize', fixture.manifestPath])));
+    assert.doesNotThrow(() => quiet(() => runValidate(['validate'], fixture.dir)));
+    assert.doesNotThrow(() => quiet(() => runPlan(['plan'], fixture.dir)));
+    assert.doesNotThrow(() => quiet(() => runPacket(['packet', '--package=pkg-b'], fixture.dir)));
+    assert.doesNotThrow(() => quiet(() => runGate(['gate'], fixture.dir)));
+    assert.doesNotThrow(() => quiet(() => runFinalize(['finalize'], fixture.dir)));
 
     // The published seed carries the machine block and the provider-side contract.
     const seedText = readFileSync(join(fixture.dir, 'crates/protocol/alpha/RFC-SEED.md'), 'utf8');
@@ -254,7 +255,7 @@ test('run.mjs C001/C003/C004: in-process handlers over a real fixture', () => {
 
     // A decisions payload that authors a machine section is rejected before rendering.
     stageAllocateDecisions(decisionsRoot, { ...makeDecisions(fixture.manifest), seeds: [{ packageId: 'pkg-a', aiSections: { ...baseAiSections(), 1: 'nope' } }] });
-    assert.throws(() => runGate(['gate', fixture.manifestPath]), (error) => error.gateId === 'G3');
+    assert.throws(() => runGate(['gate'], fixture.dir), (error) => error.gateId === 'G3');
 
     // The published set is the tree, the seeds and the allocate manifest.
     assert.equal(existsSync(join(fixture.dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json')), true);
@@ -318,13 +319,13 @@ test('run.mjs C002/C005: failure paths stay typed and publish nothing', () => {
 
     // Malformed decisions JSON is rejected at the decisions load.
     stageAllocateDecisions(decisionsRoot, '{ not json');
-    assert.throws(() => runGate(['gate', fixture.manifestPath]), (error) => error.gateId === 'G3');
+    assert.throws(() => runGate(['gate'], fixture.dir), (error) => error.gateId === 'G3');
 
     // A non-fresh workspace blocks finalize before anything is staged.
     mkdirSync(join(fixture.dir, 'crates', 'protocol', 'alpha'), { recursive: true });
     writeFileSync(join(fixture.dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'keep');
     stageAllocateDecisions(decisionsRoot, makeDecisions(fixture.manifest));
-    assert.throws(() => runFinalize(['finalize', fixture.manifestPath]), (error) => error.gateId !== undefined);
+    assert.throws(() => runFinalize(['finalize'], fixture.dir), (error) => error.gateId !== undefined);
     assert.equal(readFileSync(join(fixture.dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'utf8'), 'keep');
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
@@ -365,7 +366,7 @@ test('run.mjs C001: a package without responsibilities blocks the reference bloc
     const decisionsRoot = fixture.dir;
     stageAllocateDecisions(decisionsRoot, makeDecisions(stripped));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath]),
+      () => runGate(['gate'], fixture.dir),
       (error) => error.gateId !== undefined && /responsibilit/i.test(error.message),
     );
   } finally {

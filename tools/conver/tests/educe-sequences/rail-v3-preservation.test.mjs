@@ -8,11 +8,12 @@ import { runCommand } from '../../.claude/scripts/smooth-sequences/run.mjs';
 import { materializeSmoothWorkspace, minimalV2Artifact, minimalV3Artifact } from '../smooth-sequences/helpers/workspace-fixture.mjs';
 
 // [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
-const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+const SPEC_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 
 /** A typed contract with every field the v3 schema requires. */
 // [::TICKET::] PX-294 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-294 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function typedContract() {
   return { pre: [], post: [], invariants: [], consumes: [], produces: [], errors: [], crosses: [] };
 }

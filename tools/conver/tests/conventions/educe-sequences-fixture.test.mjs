@@ -19,12 +19,13 @@ import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/lo
 const FIXTURES = fileURLToPath(new URL('../educe-sequences/fixtures/', import.meta.url));
 const CORPUS_ROOT = join(FIXTURES, 'gaia');
 const MANIFEST_PATH = join(CORPUS_ROOT, 'MANIFEST.json');
-const SPEC_PATH = join(FIXTURES, 'spec', 'ledger.md');
-const GOLDEN_PATH = join(FIXTURES, 'spec', 'ledger-sequences.json');
-const RENDER_PATH = join(FIXTURES, 'spec', 'ledger-sequences.md');
+const SPEC_PATH = join(FIXTURES, 'spec', 'SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(FIXTURES, 'spec', 'SYSTEM-DESIGN-sequences.json');
+const RENDER_PATH = join(FIXTURES, 'spec', 'SYSTEM-DESIGN-sequences.md');
 
 /** Every file beneath a root, as paths relative to it. */
 // [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function filesBeneath(root, prefix = '') {
   const found = [];
   for (const name of readdirSync(root)) {

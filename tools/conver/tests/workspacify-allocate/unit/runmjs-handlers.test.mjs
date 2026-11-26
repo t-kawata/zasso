@@ -16,6 +16,7 @@ import { computeSelfHash } from '../../../.claude/scripts/workspacify-tree/lib/r
 import { runDagChecks } from '../../../.claude/scripts/workspacify-tree/lib/dag.mjs';
 import { tmpdir } from 'node:os';
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function rewriteManifest(path, mutate) {
   const manifest = JSON.parse(readFileSync(path, 'utf8'));
   mutate(manifest);
@@ -41,7 +42,7 @@ function silent(callback) {
 test('C001 runValidate succeeds on a locked manifest and throws without an argument', () => {
   const { dir, manifestPath } = materializeSeedFixture();
   try {
-    assert.doesNotThrow(() => silent(() => runValidate(['validate', manifestPath])));
+    assert.doesNotThrow(() => silent(() => runValidate(['validate'], dir)));
     assert.throws(() => runValidate(['validate']), (e) => e.gateId !== undefined);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -51,9 +52,9 @@ test('C001 runValidate succeeds on a locked manifest and throws without an argum
 test('C001 runPlan succeeds on a fresh workspace and BLOCKs on an existing file', () => {
   const { dir, manifestPath } = materializeSeedFixture();
   try {
-    assert.doesNotThrow(() => silent(() => runPlan(['plan', manifestPath])));
+    assert.doesNotThrow(() => silent(() => runPlan(['plan'], dir)));
     writeFileSync(join(dir, 'crates'), 'blocker'); // ancestor file => unsafe/BLOCKED
-    assert.throws(() => runPlan(['plan', manifestPath]), (e) => e.gateId !== undefined);
+    assert.throws(() => runPlan(['plan'], dir), (e) => e.gateId !== undefined);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -62,9 +63,9 @@ test('C001 runPlan succeeds on a fresh workspace and BLOCKs on an existing file'
 test('C001 runPacket returns all packages and honours --package', () => {
   const { dir, manifestPath } = materializeSeedFixture();
   try {
-    assert.doesNotThrow(() => silent(() => runPacket(['packet', manifestPath])));
-    assert.doesNotThrow(() => silent(() => runPacket(['packet', manifestPath, '--package=pkg-a'])));
-    assert.throws(() => runPacket(['packet', manifestPath, '--package=ghost']), (e) => e.message.includes('not in the manifest catalog'));
+    assert.doesNotThrow(() => silent(() => runPacket(['packet'], dir)));
+    assert.doesNotThrow(() => silent(() => runPacket(['packet', '--package=pkg-a'], dir)));
+    assert.throws(() => runPacket(['packet', '--package=ghost'], dir), (e) => e.message.includes('not in the manifest catalog'));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -76,16 +77,16 @@ test('C003 runGate requires APPROVED and complete decisions', () => {
     // Staged at the derived path before each run: the document is the channel, and
     // the command line names nothing.
     stageAllocateDecisions(dir, makeDecisions(manifest));
-    assert.doesNotThrow(() => silent(() => runGate(['gate', manifestPath])));
+    assert.doesNotThrow(() => silent(() => runGate(['gate'], dir)));
 
     stageAllocateDecisions(dir, makeDecisions(manifest, { approved: false }));
-    assert.throws(() => runGate(['gate', manifestPath]), (e) => e.gateId === 'G5');
+    assert.throws(() => runGate(['gate'], dir), (e) => e.gateId === 'G5');
 
     // A decisions payload missing one package's seed content throws G3.
     const partial = makeDecisions(manifest);
     partial.seeds = partial.seeds.slice(0, 1);
     stageAllocateDecisions(dir, partial);
-    assert.throws(() => runGate(['gate', manifestPath]), (e) => e.gateId === 'G3');
+    assert.throws(() => runGate(['gate'], dir), (e) => e.gateId === 'G3');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -103,7 +104,7 @@ test('error-path handler branches throw typed errors', () => {
   const badDir = materializeSeedFixture();
   try {
     stageAllocateDecisions(badDir.dir, '{ nope');
-    assert.throws(() => runGate(['gate', badDir.manifestPath]), (e) => e.gateId === 'G3');
+    assert.throws(() => runGate(['gate'], badDir.dir), (e) => e.gateId === 'G3');
   } finally {
     rmSync(badDir.dir, { recursive: true, force: true });
   }
@@ -115,7 +116,7 @@ test('error-path handler branches throw typed errors', () => {
     const tampered = JSON.parse(readFileSync(tamperDir.manifestPath, 'utf8'));
     tampered.integrity.manifest_hash = '0'.repeat(64);
     writeFileSync(tamperDir.manifestPath, JSON.stringify(tampered));
-    assert.throws(() => runValidate(['validate', tamperDir.manifestPath]), (e) => e.gateId === 'G0');
+    assert.throws(() => runValidate(['validate'], tamperDir.dir), (e) => e.gateId === 'G0');
   } finally {
     rmSync(tamperDir.dir, { recursive: true, force: true });
   }
@@ -126,7 +127,7 @@ test('error-path handler branches throw typed errors', () => {
     rewriteManifest(inconsistentDir.manifestPath, (m) => {
       m.workspace.packages.push({ id: 'pkg-c', name: 'gamma', path: 'crates/protocol/gamma', layer: 'protocol', kind: 'production-library', seed_required: true, owns: {} });
     });
-    assert.throws(() => runPlan(['plan', inconsistentDir.manifestPath]), (e) => e.gateId === 'G2');
+    assert.throws(() => runPlan(['plan'], inconsistentDir.dir), (e) => e.gateId === 'G2');
   } finally {
     rmSync(inconsistentDir.dir, { recursive: true, force: true });
   }
@@ -135,7 +136,7 @@ test('error-path handler branches throw typed errors', () => {
   const symlinkDir = materializeSeedFixture();
   try {
     symlinkSync(outside, join(symlinkDir.dir, 'crates'), 'dir');
-    assert.throws(() => runPlan(['plan', symlinkDir.manifestPath]), (e) => e.gateId !== undefined);
+    assert.throws(() => runPlan(['plan'], symlinkDir.dir), (e) => e.gateId !== undefined);
   } finally {
     rmSync(symlinkDir.dir, { recursive: true, force: true });
   }
@@ -147,7 +148,7 @@ test('error-path handler branches throw typed errors', () => {
     rewriteManifest(finalizeBadDir.manifestPath, (m) => {
       m.workspace.packages.push({ id: 'pkg-c', name: 'gamma', path: 'crates/protocol/gamma', layer: 'protocol', kind: 'production-library', seed_required: true, owns: {} });
     });
-    assert.throws(() => runFinalize(['finalize', finalizeBadDir.manifestPath]), (e) => e.gateId === 'G2');
+    assert.throws(() => runFinalize(['finalize'], finalizeBadDir.dir), (e) => e.gateId === 'G2');
   } finally {
     rmSync(finalizeBadDir.dir, { recursive: true, force: true });
   }
@@ -156,7 +157,7 @@ test('error-path handler branches throw typed errors', () => {
   try {
     stageAllocateDecisions(finalizeSymDir.dir, makeDecisions(JSON.parse(readFileSync(finalizeSymDir.manifestPath, 'utf8'))));
     symlinkSync(outside, join(finalizeSymDir.dir, 'crates'), 'dir');
-    assert.throws(() => runFinalize(['finalize', finalizeSymDir.manifestPath]), (e) => e.gateId !== undefined);
+    assert.throws(() => runFinalize(['finalize'], finalizeSymDir.dir), (e) => e.gateId !== undefined);
   } finally {
     rmSync(finalizeSymDir.dir, { recursive: true, force: true });
   }
@@ -175,7 +176,7 @@ test('error-path handler branches throw typed errors', () => {
       m.dependencies.dag = runDagChecks({ packages: m.workspace.packages, edges: [] });
     });
     stageAllocateDecisions(skipDir.dir, makeDecisions(JSON.parse(readFileSync(skipDir.manifestPath, 'utf8'))));
-    assert.doesNotThrow(() => silent(() => runGate(['gate', skipDir.manifestPath])));
+    assert.doesNotThrow(() => silent(() => runGate(['gate'], skipDir.dir)));
   } finally {
     rmSync(skipDir.dir, { recursive: true, force: true });
   }
@@ -189,7 +190,7 @@ test('C002/C005 runFinalize publishes tree + seeds and BLOCKs on re-run', () => 
     // Staged again before the re-run, because a finalize that publishes sweeps the
     // document: the allocate manifest is the record of what was decided.
     stageAllocateDecisions(dir, makeDecisions(manifest));
-    assert.doesNotThrow(() => silent(() => runFinalize(['finalize', manifestPath])));
+    assert.doesNotThrow(() => silent(() => runFinalize(['finalize'], dir)));
     assert.ok(existsSync(join(dir, 'crates', 'protocol', 'alpha', 'RFC-SEED.md')));
     const publishedManifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'));
     assert.equal(publishedManifest.artifact_kind, 'workspacify-allocate-manifest');
@@ -198,7 +199,7 @@ test('C002/C005 runFinalize publishes tree + seeds and BLOCKs on re-run', () => 
     assert.equal(parseSeed(seedText).headings.length, SEED_REQUIRED_SECTIONS.length);
     // Re-run is BLOCKED because planned directories are now non-empty.
     stageAllocateDecisions(dir, makeDecisions(manifest));
-    assert.throws(() => silent(() => runFinalize(['finalize', manifestPath])), (e) => e.gateId !== undefined);
+    assert.throws(() => silent(() => runFinalize(['finalize'], dir)), (e) => e.gateId !== undefined);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

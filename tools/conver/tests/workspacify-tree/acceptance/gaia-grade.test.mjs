@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -23,11 +24,11 @@ import { stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 // [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('gaia-grade C001/C002 [@verifies C001][@verifies C002]: dependency discipline and conformance are emitted', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-g2-'));
-  const specPath = join(dir, 'gaia-like-spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize'], { cwd: dir, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
 
@@ -57,10 +58,10 @@ test('gaia-grade C003 [@verifies C003]: a contract boundary carries ContractEdge
 
 test('gaia-grade C004 [@verifies C004]: the published manifest passes the extended entry gate', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-g2-'));
-  const specPath = join(dir, 'gaia-like-spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize'], { cwd: dir, encoding: 'utf8' });
   assert.equal(result.status, 0);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), true);

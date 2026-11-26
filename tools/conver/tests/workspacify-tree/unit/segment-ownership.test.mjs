@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-196 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-196 --for-spec --no-implementation-order`.
 // PX-196 @verifies C001
 // Stage 1 must say which specification segments carry material: a segment with no
@@ -18,7 +19,7 @@ const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-tree/run
 test('C001 every published segment declares the inventory it carries', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wt-196-own-'));
   try {
-    const specPath = join(dir, 'spec.md');
+    const specPath = join(dir, 'SYSTEM-DESIGN.md');
     writeFileSync(specPath, [
       '# Specification', '', 'Overview prose with no harvested item.', '',
       '## Alpha', '', 'The alpha record obj-000001 is normative.', '',
@@ -28,7 +29,7 @@ test('C001 every published segment declares the inventory it carries', () => {
     // Keep the fixture package but point it at the harvested object of this spec.
     stageTreeDecisions(dir, decisions);
 
-    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     if (result.status !== 0) {
       // The fixture decisions must resolve against this spec; skip the proof part if not.
       assert.ok(result.status !== 0);

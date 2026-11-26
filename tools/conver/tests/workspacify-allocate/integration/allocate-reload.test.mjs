@@ -30,11 +30,11 @@ function silent(callback) {
   }
 }
 
-// [::TICKET::] PX-215 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-215 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-215, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-215|PX-454) --for-spec --no-implementation-order`.
 function publish() {
   const fixture = materializeSeedFixture();
   const decisionsPath = stageAllocateDecisions(fixture.dir, makeDecisions(fixture.manifest));
-  silent(() => runFinalize(['finalize', fixture.manifestPath]));
+  silent(() => runFinalize(['finalize'], fixture.dir));
   return { ...fixture, decisionsPath, plan: { relativeDirs: ['crates', 'crates/protocol', 'crates/protocol/alpha', 'crates/protocol/beta'] } };
 }
 
@@ -110,7 +110,7 @@ test('C003 a published seed that lost its grill question is detected through the
       packageId: 'pkg-a',
     });
     const decisionsPath = stageAllocateDecisions(fixture.dir, decisions);
-    silent(() => runFinalize(['finalize', fixture.manifestPath]));
+    silent(() => runFinalize(['finalize'], fixture.dir));
 
     const allocatePath = join(fixture.dir, ALLOCATE_MANIFEST_FILE_NAME);
     const published = JSON.parse(readFileSync(allocatePath, 'utf8'));

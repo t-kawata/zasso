@@ -17,26 +17,27 @@ import { join } from 'node:path';
 
 import { EXIT, runCommand } from '../../.claude/scripts/educe-sequences/rail/run.mjs';
 
-const FIXTURE_SPEC = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
-const GOLDEN_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
+const FIXTURE_SPEC = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
+const GOLDEN_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 
 /** A directory holding one copy of the specification, so a write never reaches the fixture. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scratchSpec() {
   const directory = mkdtempSync(join(tmpdir(), 'educe-run-'));
-  const specPath = join(directory, 'ledger.md');
+  const specPath = join(directory, 'SYSTEM-DESIGN.md');
   copyFileSync(FIXTURE_SPEC, specPath);
-  return { directory, specPath, artifactPath: join(directory, 'ledger-sequences.json') };
+  return { directory, specPath, artifactPath: join(directory, 'SYSTEM-DESIGN-sequences.json') };
 }
 
 /** A run whose output is captured rather than printed. */
-// [::TICKET::] PX-240, PX-241, PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-244|PX-243) --for-spec --no-implementation-order`.
-async function quietly(argv, runInput) {
+// [::TICKET::] PX-240, PX-241, PX-244, PX-243, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-244|PX-243|PX-454) --for-spec --no-implementation-order`.
+async function quietly(argv, runInput, cwd) {
   const out = [];
   const err = [];
-  const result = await runCommand(argv, { runInput, stdout: (line) => out.push(line), stderr: (line) => err.push(line) });
+  const result = await runCommand(argv, { runInput, cwd, stdout: (line) => out.push(line), stderr: (line) => err.push(line) });
   return { ...result, out: out.join('\n'), err: err.join('\n') };
 }
 
@@ -56,10 +57,10 @@ test('C013 a rebuild refuses an adjudication outside the declared vocabulary, an
   // The phase path proves the adjudicate readings before it composes; the rebuild path reads
   // the same file, so it is held to the same proof rather than to a check that happens to
   // notice afterwards. What the reader gets either way is the field and the words allowed.
-  const { specPath, artifactPath } = scratchSpec();
+  const { directory, specPath, artifactPath } = scratchSpec();
   const foreign = { ...RUN_INPUT, readings: { ...RUN_INPUT.readings, adjudications: [{ subject: 's1', outcome: 'schema_block', reader: 'adjudicate' }] } };
 
-  const result = await quietly([specPath], foreign);
+  const result = await quietly([], foreign, directory);
 
   assert.equal(result.exitCode, EXIT.REFUSED);
   assert.equal(existsSync(artifactPath), false, 'a refused rebuild leaves nothing behind');
@@ -72,10 +73,10 @@ test('C013 a rebuild refuses an adjudication outside the declared vocabulary, an
 
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
-test('C010 a run with one argument writes the artifact beside the specification', async () => {
-  const { specPath, artifactPath } = scratchSpec();
+test('C010 a run with no argument writes the artifact beside the fixed specification', async () => {
+  const { directory, specPath, artifactPath } = scratchSpec();
 
-  const result = await quietly([specPath], RUN_INPUT);
+  const result = await quietly([], RUN_INPUT, directory);
 
   assert.equal(result.exitCode, EXIT.OK);
   assert.equal(result.artifactPath, artifactPath);
@@ -86,14 +87,14 @@ test('C010 a run with one argument writes the artifact beside the specification'
 
 // [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('C011 a pin that no longer re-derives is refused by its pin, and a check names its subject', async () => {
-  const { specPath, artifactPath } = scratchSpec();
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  const { directory, specPath, artifactPath } = scratchSpec();
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
 
   const tampered = JSON.parse(readFileSync(artifactPath, 'utf8'));
   tampered.pins.predicate.line = 1;
   writeFileSync(artifactPath, `${JSON.stringify(tampered, null, 2)}\n`);
 
-  const result = await quietly([specPath]);
+  const result = await quietly([], undefined, directory);
 
   assert.equal(result.exitCode, EXIT.REFUSED);
   assert.match(result.err, /^refused: predicate: line 1 does not carry every limb/m);
@@ -101,22 +102,22 @@ test('C011 a pin that no longer re-derives is refused by its pin, and a check na
 });
 
 test('IT1 a run that has read nothing is refused at the first [read] phase and writes nothing', async () => {
-  const { specPath, artifactPath } = scratchSpec();
+  const { directory, specPath, artifactPath } = scratchSpec();
 
-  const result = await quietly([specPath], null);
+  const result = await quietly([], null, directory);
 
   assert.equal(result.exitCode, EXIT.REFUSED);
   assert.match(result.err, /first \[read\] phase carries no signed reading/);
   assert.equal(existsSync(artifactPath), false, 'the shape was performed and nothing was written');
 });
 
-test('C010 zero arguments, two arguments, a directory and an extensionless path are refused with nothing written', async () => {
+test('C010 a non-empty specification argument is refused with nothing written', async () => {
   const { directory, specPath, artifactPath } = scratchSpec();
   const extensionless = join(directory, 'noext');
   writeFileSync(extensionless, 'nothing\n');
 
-  for (const argv of [[], [specPath, specPath], [directory], [extensionless]]) {
-    const result = await quietly(argv, RUN_INPUT);
+  for (const argv of [[specPath], [specPath, specPath], [directory], [extensionless]]) {
+    const result = await quietly(argv, RUN_INPUT, directory);
 
     assert.equal(result.exitCode, EXIT.MISUSED, JSON.stringify(argv));
     assert.equal(result.artifactPath, null);
@@ -125,19 +126,19 @@ test('C010 zero arguments, two arguments, a directory and an extensionless path 
 });
 
 test('C011 a second run over an unchanged specification writes a byte-identical artifact', async () => {
-  const { specPath, artifactPath } = scratchSpec();
+  const { directory, specPath, artifactPath } = scratchSpec();
 
-  await quietly([specPath], RUN_INPUT);
+  await quietly([], RUN_INPUT, directory);
   const first = digestOf(artifactPath);
-  await quietly([specPath], RUN_INPUT);
+  await quietly([], RUN_INPUT, directory);
 
   assert.equal(digestOf(artifactPath), first, 'idempotence is asserted by digest, not by parsed fields');
 });
 
 test('C013 a run records the specification digest and line count, recomputed independently', async () => {
-  const { specPath, artifactPath } = scratchSpec();
+  const { directory, specPath, artifactPath } = scratchSpec();
 
-  await quietly([specPath], RUN_INPUT);
+  await quietly([], RUN_INPUT, directory);
   const recorded = JSON.parse(readFileSync(artifactPath, 'utf8')).spec;
   const bytes = readFileSync(specPath);
 
@@ -147,12 +148,12 @@ test('C013 a run records the specification digest and line count, recomputed ind
 });
 
 test('C013 a verification whose specification digest no longer matches is refused, naming both', async () => {
-  const { specPath, artifactPath } = scratchSpec();
-  await quietly([specPath], RUN_INPUT);
+  const { directory, specPath, artifactPath } = scratchSpec();
+  await quietly([], RUN_INPUT, directory);
   const recorded = JSON.parse(readFileSync(artifactPath, 'utf8')).spec.sha256;
 
   writeFileSync(specPath, `${readFileSync(specPath, 'utf8')}\n`);
-  const result = await quietly([specPath], null);
+  const result = await quietly([], null, directory);
 
   assert.equal(result.exitCode, EXIT.REFUSED);
   assert.match(result.err, new RegExp(recorded));
@@ -163,10 +164,10 @@ test('C013 a verification whose specification digest no longer matches is refuse
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 test('C013 a verification of an existing artifact needs only the specification path', async () => {
-  const { specPath } = scratchSpec();
-  await quietly([specPath], RUN_INPUT);
+  const { directory, specPath } = scratchSpec();
+  await quietly([], RUN_INPUT, directory);
 
-  const result = await quietly([specPath], null);
+  const result = await quietly([], null, directory);
 
   assert.equal(result.exitCode, EXIT.OK);
   assert.match(result.out, /checksRun=32 of 32/);
@@ -174,8 +175,8 @@ test('C013 a verification of an existing artifact needs only the specification p
 
 // [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 test('PX-260 the artifact states the demand, and names no package that owes it', async () => {
-  const { specPath, artifactPath } = scratchSpec();
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  const { directory, specPath, artifactPath } = scratchSpec();
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
 
   const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
 
@@ -192,7 +193,7 @@ test('PX-261 a passing run records what the workspace still owes, beside the spe
   const { directory, specPath, artifactPath } = scratchSpec();
   const recordPath = join(directory, 'educe-sequences', 'demand.json');
 
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
 
   const record = JSON.parse(readFileSync(recordPath, 'utf8'));
   assert.deepEqual(Object.keys(record.facts.counts), ['operations', 'sequences', 'boundaries', 'surfaces']);
@@ -204,11 +205,11 @@ test('PX-261 a passing run records what the workspace still owes, beside the spe
 test('PX-261 a second run over an unchanged specification writes a byte-identical demand record and leaves the artifact alone', async () => {
   const { directory, specPath, artifactPath } = scratchSpec();
   const recordPath = join(directory, 'educe-sequences', 'demand.json');
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
   const firstRecord = readFileSync(recordPath, 'utf8');
   const artifactBefore = digestOf(artifactPath);
 
-  assert.equal((await quietly([specPath])).exitCode, EXIT.OK);
+  assert.equal((await quietly([], undefined, directory)).exitCode, EXIT.OK);
 
   assert.equal(readFileSync(recordPath, 'utf8'), firstRecord);
   assert.equal(digestOf(artifactPath), artifactBefore, 'the verification leaves the document it verified byte-identical');
@@ -216,11 +217,11 @@ test('PX-261 a second run over an unchanged specification writes a byte-identica
 
 test('PX-261 a refused run writes no demand record', async () => {
   const { directory, specPath, artifactPath } = scratchSpec();
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
   rmSync(join(directory, 'educe-sequences', 'demand.json'));
   writeFileSync(artifactPath, `${JSON.stringify({ ...JSON.parse(readFileSync(artifactPath, 'utf8')), steps: [] }, null, 2)}\n`);
 
-  const refused = await quietly([specPath]);
+  const refused = await quietly([], undefined, directory);
 
   assert.equal(refused.exitCode, EXIT.REFUSED);
   assert.equal(existsSync(join(directory, 'educe-sequences', 'demand.json')), false);
@@ -228,18 +229,18 @@ test('PX-261 a refused run writes no demand record', async () => {
 
 // [::TICKET::] PX-260 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-260 --for-spec --no-implementation-order`.
 test('PX-260 a second run over an unchanged specification states the same demand, byte for byte', async () => {
-  const { specPath, artifactPath } = scratchSpec();
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  const { directory, specPath, artifactPath } = scratchSpec();
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
   const first = readFileSync(artifactPath);
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
 
   assert.equal(digestOf(artifactPath), createHash('sha256').update(first).digest('hex'));
 });
 
 test('C011 the artifact a run produces equals the committed golden record', async () => {
-  const { specPath, artifactPath } = scratchSpec();
+  const { directory, specPath, artifactPath } = scratchSpec();
 
-  await quietly([specPath], RUN_INPUT);
+  await quietly([], RUN_INPUT, directory);
   const produced = JSON.parse(readFileSync(artifactPath, 'utf8'));
 
   // Nothing is normalised away: a run in a throwaway directory must produce the same
@@ -256,7 +257,7 @@ test('C003 a run that borrowed no census writes the denominator and exits 0, bec
   const { directory, specPath } = scratchSpec();
   const recordPath = join(directory, 'educe-sequences', 'demand.json');
 
-  const result = await quietly([specPath], RUN_INPUT);
+  const result = await quietly([], RUN_INPUT, directory);
 
   assert.equal(result.exitCode, EXIT.OK, 'a missing denominator is not a refusal');
   assert.doesNotMatch(result.err, /^refused: /m, 'the refusal is the gate sentence, and the rail does not use it');
@@ -273,7 +274,7 @@ test('C003 the record states which axes are unstated, so the absence is written 
   const { directory, specPath } = scratchSpec();
   const recordPath = join(directory, 'educe-sequences', 'demand.json');
 
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
 
   const record = JSON.parse(readFileSync(recordPath, 'utf8'));
   assert.equal(Array.isArray(record.coverage.denominatorGaps), true);
@@ -286,7 +287,7 @@ test('C003 the record states which axes are unstated, so the absence is written 
 test('C003 the recorded gaps are exactly the axes the record states as unstated, so the two cannot drift', async () => {
   const { directory, specPath } = scratchSpec();
 
-  assert.equal((await quietly([specPath], RUN_INPUT)).exitCode, EXIT.OK);
+  assert.equal((await quietly([], RUN_INPUT, directory)).exitCode, EXIT.OK);
 
   const record = JSON.parse(readFileSync(recordPath(directory), 'utf8'));
   // The surfaces axis is the one whose statement and whose placement are the same act, so an axis

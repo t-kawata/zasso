@@ -19,6 +19,7 @@ const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-tree/run
 const CANDIDATES = [{ id: 'review-000001', kind: 'unnecessary_serialization', packages: ['pkg-a', 'pkg-b'], edge_ref: 'pkg-b->pkg-a', observation: 'x.', evidence_refs: ['pkg-b->pkg-a'] }];
 const EDGES = [{ from: 'pkg-b', to: 'pkg-a' }];
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function review(overrides = {}) {
   return { candidate_id: 'review-000001', decision: 'keep', rationale: 'the edge carries the record the consumer needs', alternatives: ['replace the edge with a port'], ...overrides };
 }
@@ -73,7 +74,7 @@ test('C002 a decision that contradicts the published graph is refused', () => {
 test('C003 the CLI publishes the review set and merges its residuals into the hand-off', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-200-'));
   try {
-    const specPath = join(dir, 'spec.md');
+    const specPath = join(dir, 'SYSTEM-DESIGN.md');
     writeFileSync(specPath, '# S\n\n## Object Catalog\n\n| object | kind |\n|--------|------|\n| RuleRecord | record |\n');
     // A forbidden edge that declares an alternative is one review candidate the
     // published graph cannot dismiss: the detour it names is already available.
@@ -101,7 +102,7 @@ test('C003 the CLI publishes the review set and merges its residuals into the ha
     };
     stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: settled }));
 
-    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stdout + result.stderr);
     const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
     assert.equal(manifest.stage2_handoff.dependency_reviews.length, review_.candidates.length);
@@ -114,7 +115,7 @@ test('C003 the CLI publishes the review set and merges its residuals into the ha
     // An undecided candidate stops the run and names the candidate.
     // Staged again: the run above published, and a published run sweeps the document.
     stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: { ...settled, dependency_reviews: [] } }));
-    const blocked = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const blocked = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(blocked.status, 0);
     assert.ok((blocked.stdout + blocked.stderr).includes(review_.candidates[0].id), blocked.stdout + blocked.stderr);
     assert.ok((blocked.stdout + blocked.stderr).includes('no recorded decision'), blocked.stdout + blocked.stderr);

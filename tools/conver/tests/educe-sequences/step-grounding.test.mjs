@@ -25,21 +25,22 @@ import { digestOf, readArtifact, readSpecification, writeArtifact } from '../../
 import { applyReadings } from '../../.claude/scripts/educe-sequences/rail/reading.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
-const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger-sequences.json');
+const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN-sequences.json');
 
 const spec = readSpecification(SPEC_PATH);
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
 // [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
 
 /** A scratch artifact path, so a test that writes one writes nothing committed. */
-// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-246|PX-454) --for-spec --no-implementation-order`.
 function scratchArtifactPath() {
-  return join(mkdtempSync(join(tmpdir(), 'px246-grounding-')), 'ledger-sequences.json');
+  return join(mkdtempSync(join(tmpdir(), 'px246-grounding-')), 'SYSTEM-DESIGN-sequences.json');
 }
 
 /** The verdicts one check raised over an artifact, by check id. */

@@ -34,8 +34,8 @@ import { writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/re
 import { runCommand } from '../../.claude/scripts/educe-sequences/rail/run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
-const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger-sequences.json');
+const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN-sequences.json');
 const RUN_INPUT_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.run.json');
 const COMMAND_PATH = join(PROJECT_ROOT, '.claude/commands/educe-sequences.md');
 const PHASE = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
@@ -46,6 +46,7 @@ const RUN_INPUT = JSON.parse(readFileSync(RUN_INPUT_PATH, 'utf8'));
 
 /** The artifact the fixture's own readings compose, read fresh so no test mutates it. */
 // [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
@@ -84,17 +85,17 @@ function rulingOn(subject, reason) {
  * Phase 9 requires phase 8, so a run entered directly at the phase under test would be
  * refused for its order rather than for the name that left.
  */
-// [::TICKET::] PX-253 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-253 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-253, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-253|PX-454) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'px253-merge-'));
-  copyFileSync(SPEC_PATH, join(root, 'ledger.md'));
+  copyFileSync(SPEC_PATH, join(root, 'SYSTEM-DESIGN.md'));
   const directory = join(root, 'educe-sequences');
   mkdirSync(directory, { recursive: true });
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
 
-  assert.equal(spawnSync('node', [PHASE, 'begin', specPath], { encoding: 'utf8' }).status, 0);
-  assert.equal(spawnSync('node', [PHASE, 'run', specPath, '1'], { encoding: 'utf8' }).status, 0);
-  return { specPath, directory, artifactPath: join(root, 'ledger-sequences.json') };
+  assert.equal(spawnSync('node', [PHASE, 'begin', ''], { cwd: root, encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'run', '', '1'], { cwd: root, encoding: 'utf8' }).status, 0);
+  return { root, specPath, directory, artifactPath: join(root, 'SYSTEM-DESIGN-sequences.json') };
 }
 
 /**
@@ -175,11 +176,11 @@ test('C001 the refusal names the subject and both remedies', () => {
 test('C001 a refused generation leaves the artifact byte-identical', () => {
   const run = scratchRun();
   writeGeneration(run);
-  assert.equal(spawnSync('node', [PHASE, 'through', run.specPath, '9'], { encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'through', '', '9'], { cwd: run.root, encoding: 'utf8' }).status, 0);
   const before = digestOf(run.artifactPath);
 
   writeGeneration(run, mergedReadings({ dropped: 'Admit', kept: 'Settle' }));
-  const refused = spawnSync('node', [PHASE, 'run', run.specPath, '9'], { encoding: 'utf8' });
+  const refused = spawnSync('node', [PHASE, 'run', '', '9'], { cwd: run.root, encoding: 'utf8' });
 
   assert.notEqual(refused.status, 0, 'a merge that dropped a name is refused');
   assert.match(refused.stdout, /Admit was named by the artifact this generation replaces/);
@@ -222,11 +223,11 @@ test('C002 a ruling that is no longer made is not a name the generation is held 
 test('C002 a merge that carries a ruling is written rather than refused', () => {
   const run = scratchRun();
   writeGeneration(run);
-  assert.equal(spawnSync('node', [PHASE, 'through', run.specPath, '9'], { encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'through', '', '9'], { cwd: run.root, encoding: 'utf8' }).status, 0);
   const before = digestOf(run.artifactPath);
 
   writeGeneration(run, mergedReadings({ dropped: 'Admit', kept: 'Settle', ruling: rulingOn('Admit', 'merged into Settle') }));
-  const merged = spawnSync('node', [PHASE, 'run', run.specPath, '9'], { encoding: 'utf8' });
+  const merged = spawnSync('node', [PHASE, 'run', '', '9'], { cwd: run.root, encoding: 'utf8' });
 
   assert.equal(merged.status, 0, merged.stdout + merged.stderr);
   assert.notEqual(digestOf(run.artifactPath), before, 'the merge is written');
@@ -251,12 +252,13 @@ test('C003 a first generation has nothing to compare', () => {
 
 test('C003 the product path compares the artifact beside the specification only when the digests agree', () => {
   const run = scratchRun();
-  const first = spawnSync('node', [RUN_RAIL, run.specPath], { input: JSON.stringify(runInputFor()), encoding: 'utf8' });
+  const first = spawnSync('node', [RUN_RAIL], { cwd: run.root, input: JSON.stringify(runInputFor()), encoding: 'utf8' });
   assert.equal(first.status, 0, first.stdout + first.stderr);
 
   const edited = readFileSync(run.specPath, 'utf8').replace('# Settlement Ledger Specification', '# Settlement Ledger Specification.');
   writeFileSync(run.specPath, edited);
-  const second = spawnSync('node', [RUN_RAIL, run.specPath], {
+  const second = spawnSync('node', [RUN_RAIL], {
+    cwd: run.root,
     input: JSON.stringify(runInputFor(mergedReadings({ dropped: 'Admit', kept: 'Settle' }))),
     encoding: 'utf8',
   });
@@ -307,13 +309,14 @@ test('C005 the command file states the merge procedure and the refusal it produc
 test('C006 the phase driver and the product path name the same subject', () => {
   const run = scratchRun();
   writeGeneration(run);
-  assert.equal(spawnSync('node', [PHASE, 'through', run.specPath, '9'], { encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'through', '', '9'], { cwd: run.root, encoding: 'utf8' }).status, 0);
 
   const merged = mergedReadings({ dropped: 'Admit', kept: 'Settle' });
   writeGeneration(run, merged);
 
-  const throughPhase = spawnSync('node', [PHASE, 'run', run.specPath, '9'], { encoding: 'utf8' });
-  const throughProduct = spawnSync('node', [RUN_RAIL, run.specPath], {
+  const throughPhase = spawnSync('node', [PHASE, 'run', '', '9'], { cwd: run.root, encoding: 'utf8' });
+  const throughProduct = spawnSync('node', [RUN_RAIL], {
+    cwd: run.root,
     input: JSON.stringify(runInputFor(merged)),
     encoding: 'utf8',
   });
@@ -329,9 +332,10 @@ test('C006 the product path answers with verdicts shaped like every other refusa
   // named. An array of bare strings would answer `undefined` to both without failing.
   const run = scratchRun();
   writeGeneration(run);
-  assert.equal(spawnSync('node', [PHASE, 'through', run.specPath, '9'], { encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'through', '', '9'], { cwd: run.root, encoding: 'utf8' }).status, 0);
 
-  const result = await runCommand([run.specPath], {
+  const result = await runCommand([], {
+    cwd: run.root,
     runInput: runInputFor(mergedReadings({ dropped: 'Admit', kept: 'Settle' })),
     stdout: () => {},
     stderr: () => {},

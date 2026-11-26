@@ -54,9 +54,9 @@ const COMMAND_PATH = join(PROJECT_ROOT, '.claude/commands/educe-sequences.md');
 const RAIL_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail');
 const ENGINE_PATH = join(RAIL_DIRECTORY, 'engine.mjs');
 const TOOL_ROOT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences');
-const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+const SPEC_SOURCE = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
-const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger-sequences.json', import.meta.url), 'utf8'));
+const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url), 'utf8'));
 
 const DEFECT = 'an entry that carries no outcome and was never adjudicated';
 const CHECK_NAME = 'ledger-drift';
@@ -70,10 +70,11 @@ const CHECK_MUTATION = `    const next = structuredClone(artifact);
     return next;`;
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-244, PX-243 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-244, PX-243, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-244|PX-243|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-adhoc-run-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   return { root, specPath, spec: readSpecification(specPath), directory: join(root, 'educe-sequences') };
 }
@@ -367,11 +368,11 @@ test('C004 a promotion of a record that does not exist is refused by name', () =
 });
 
 test('IT the promote subcommand prints the proposal and the file a splice must edit', () => {
-  const { specPath, directory } = scaffoldedRun();
+  const { root, specPath, directory } = scaffoldedRun();
   const id = readRailExits(railExitStoreFor(directory))[0].id;
   const before = digestOfTree(TOOL_ROOT);
 
-  const promoted = spawnSync('node', [PHASE_SCRIPT, 'promote', specPath, id, '/tmp/second.md'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const promoted = spawnSync('node', [PHASE_SCRIPT, 'promote', '', id, '/tmp/second.md'], { cwd: root, encoding: 'utf8' });
 
   assert.equal(promoted.status, 0, promoted.stderr);
   assert.equal(promoted.stdout.includes(id), true);
@@ -380,7 +381,7 @@ test('IT the promote subcommand prints the proposal and the file a splice must e
   assert.equal(digestOfTree(TOOL_ROOT), before);
   assert.equal(readRailExits(railExitStoreFor(directory))[0].promoted, true);
 
-  const refused = spawnSync('node', [PHASE_SCRIPT, 'promote', specPath, id, ''], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const refused = spawnSync('node', [PHASE_SCRIPT, 'promote', '', id, ''], { cwd: root, encoding: 'utf8' });
   assert.equal(refused.status, 2);
   assert.match(refused.stderr, /second specification/);
 });
@@ -448,15 +449,15 @@ test('IT a record added between generations is a change the next begin sees', ()
 // ---------------------------------------------------------------------------
 
 test('IT the product path reports the same check counts as the phase driver', async () => {
-  const { specPath, directory } = scaffoldedRun();
+  const { root, specPath, directory } = scaffoldedRun();
 
-  const product = await runCommand([specPath], { runInput: RUN_INPUT });
+  const product = await runCommand([], { cwd: root, runInput: RUN_INPUT });
 
   assert.equal(product.exitCode, EXIT.OK, JSON.stringify(product.verdicts));
   assert.equal(product.summary.checksDeclared, ENGINE_DECLARED_CHECK_COUNT + 1);
   assert.equal(product.summary.checksAdhoc, 1);
 
-  const driver = spawnSync('node', [PHASE_SCRIPT, 'report', specPath], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const driver = spawnSync('node', [PHASE_SCRIPT, 'report', ''], { cwd: root, encoding: 'utf8' });
   const counts = /checksRun=(\d+) of (\d+)/.exec(driver.stdout);
   assert.equal(Number(counts[1]), product.summary.checksRun);
   assert.equal(Number(counts[2]), product.summary.checksDeclared);
@@ -464,14 +465,14 @@ test('IT the product path reports the same check counts as the phase driver', as
   assert.equal(readdirSync(directory).includes('adhoc'), true);
 });
 
-test('C006 the one-argument contract and the exit codes are unchanged', async () => {
-  const { directory, specPath } = scratchRun();
+test('C006 the no-argument contract and the exit codes are unchanged', async () => {
+  const { root, directory, specPath } = scratchRun();
   const extensionless = join(directory, 'noext');
   mkdirSync(directory, { recursive: true });
   writeFileSync(extensionless, 'nothing\n');
 
-  for (const argv of [[], [specPath, specPath], [directory], [extensionless]]) {
-    const refused = await runCommand(argv, { runInput: RUN_INPUT });
+  for (const argv of [[specPath], [specPath, specPath], [directory], [extensionless]]) {
+    const refused = await runCommand(argv, { cwd: root, runInput: RUN_INPUT });
     assert.equal(refused.exitCode, EXIT.MISUSED, JSON.stringify(argv));
     assert.equal(refused.artifactPath, null);
   }
@@ -479,10 +480,10 @@ test('C006 the one-argument contract and the exit codes are unchanged', async ()
 });
 
 test('C006 the product path refuses while an ad-hoc module cannot be loaded', async () => {
-  const { specPath, directory } = scaffoldedRun();
+  const { root, specPath, directory } = scaffoldedRun();
   writeFileSync(join(directory, ADHOC_DIRECTORY, 'broken.mjs'), 'export const check = {');
 
-  const refused = await runCommand([specPath], { runInput: RUN_INPUT });
+  const refused = await runCommand([], { cwd: root, runInput: RUN_INPUT });
 
   assert.equal(refused.exitCode, EXIT.REFUSED);
   assert.match(refused.verdicts.map((verdict) => verdict.reason ?? '').join(' '), /broken/);
@@ -490,7 +491,7 @@ test('C006 the product path refuses while an ad-hoc module cannot be loaded', as
 
 // [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
 test('IT a scaffolded check that reddens an artifact refuses the checks phase', async () => {
-  const { specPath, directory } = scaffoldedRun();
+  const { root, specPath, directory } = scaffoldedRun();
   // The outcomes withdrawn are the ones a step realized. An entry a reader ruled not a
   // sequence carries a ruling rather than a claim, and withdrawing it would ask the
   // artifact to derive an operation for a region the reading says holds none.
@@ -512,8 +513,8 @@ test('IT a scaffolded check that reddens an artifact refuses the checks phase', 
 // [::TICKET::] PX-348 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-348 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
 test('IT the golden run still writes the golden artifact, and its counts are the engine own', () => {
-  const { specPath } = scratchRun();
-  const run = spawnSync('node', [join(RAIL_DIRECTORY, 'run.mjs'), specPath], { cwd: PROJECT_ROOT, encoding: 'utf8', input: JSON.stringify(RUN_INPUT) });
+  const { root, specPath } = scratchRun();
+  const run = spawnSync('node', [join(RAIL_DIRECTORY, 'run.mjs')], { cwd: root, encoding: 'utf8', input: JSON.stringify(RUN_INPUT) });
 
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(JSON.parse(readFileSync(artifactPathFor(specPath), 'utf8')), golden);

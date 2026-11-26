@@ -38,6 +38,7 @@ const ANALYSIS_DIRECTORY = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'a
 const DESIGN_TEXT = readFileSync(DESIGN_PATH, 'utf8');
 
 /** The text between two `###` headings, exclusive of both. */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function sectionBetween(fromHeading, toHeading) {
   const from = DESIGN_TEXT.indexOf(fromHeading);
   const to = DESIGN_TEXT.indexOf(toHeading, from + 1);
@@ -178,7 +179,7 @@ test('§5.3 lists every section the command file carries', () => {
  */
 const EDUCE_DESIGN_TEXT = readFileSync(join(PROJECT_ROOT, 'docs', 'EDUCE-SEQUENCES-DESIGN.md'), 'utf8');
 const EDUCE_CORPUS = join(PROJECT_ROOT, 'tests', 'educe-sequences', 'fixtures', 'gaia');
-const EDUCE_GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests', 'educe-sequences', 'fixtures', 'spec', 'ledger-sequences.json');
+const EDUCE_GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests', 'educe-sequences', 'fixtures', 'spec', 'SYSTEM-DESIGN-sequences.json');
 
 test('the educe-sequences document states the corpus size the corpus has', () => {
   const stated = /The corpus holds (\d+) files totalling (\d+) bytes/.exec(EDUCE_DESIGN_TEXT);

@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-192 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-192 --for-spec --no-implementation-order`.
 // PX-192 @verifies C004
 // Package responsibilities are the source of the seed's "role in the whole
@@ -72,13 +73,13 @@ test('C004 the gate pipeline fails G3 with a message naming the package', () => 
 test('C004 the CLI refuses a decision input whose package declares no responsibilities', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-192-resp-'));
   try {
-    const specPath = join(dir, 'spec.md');
+    const specPath = join(dir, 'SYSTEM-DESIGN.md');
     cpSync(join(process.cwd(), 'tests/workspacify-tree/fixtures/gaia-like-spec.md'), specPath);
     const decisions = JSON.parse(readFileSync(join(process.cwd(), 'tests/workspacify-tree/fixtures/gaia-decisions.json'), 'utf8'));
     decisions.workspace = decisions.workspace.map((pkg) => ({ ...pkg, responsibilities: [] }));
     stageTreeDecisions(dir, decisions);
 
-    const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(result.status, 0, 'finalize must not succeed without responsibilities');
     assert.ok(
       /decision schema|responsibilit/i.test(result.stdout + result.stderr),

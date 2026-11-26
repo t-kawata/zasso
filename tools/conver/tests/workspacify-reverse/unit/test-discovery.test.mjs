@@ -20,6 +20,7 @@ import {
   AGGREGATE_DEPTH_ENV,
   BASELINE_FAILURE_COUNT,
   CLAUDE_TESTS_ROOT,
+  PROJECT_JS_CJS_BASELINE,
   EXCLUDED_DIRECTORIES,
   REQUIRED_NODE_MAJOR,
   SELF_TEST_FILE_NAMES,
@@ -240,11 +241,45 @@ test('UT-11b a fifteenth legacy failure is unexpected and fails the run', () => 
   assert.equal(exitCodeForRun({ failures }), 1);
 });
 
-test('UT-11c a failure in any other surface is unexpected at any count', () => {
-  assert.equal(isWithinBaseline(SURFACE_NAMES.PROJECT_MJS, 1), false, 'the tolerance belongs to the legacy surface alone');
+test('UT-11c a failure in a surface with no declared baseline is unexpected at any count', () => {
+  assert.equal(isWithinBaseline(SURFACE_NAMES.PROJECT_MJS, 1), false, 'project-mjs carries no baseline');
   const failures = unexpectedFailuresOf(SURFACE_NAMES.PROJECT_MJS, { tests: 3, pass: 2, fail: 1 });
   assert.equal(failures.length, 1);
   assert.equal(exitCodeForRun({ failures }), 1);
+});
+
+test('UT-11e the declared project baseline is thirteen failures across nine files and is tolerated', () => {
+  const tolerated = unexpectedFailuresOf(SURFACE_NAMES.PROJECT_JS_CJS, {
+    tests: 2984,
+    pass: 2971,
+    fail: PROJECT_JS_CJS_BASELINE.failures,
+    failedFiles: PROJECT_JS_CJS_BASELINE.files,
+  });
+  assert.deepEqual(tolerated, []);
+  assert.equal(
+    isWithinBaseline(SURFACE_NAMES.PROJECT_JS_CJS, PROJECT_JS_CJS_BASELINE.failures, PROJECT_JS_CJS_BASELINE.files),
+    true,
+  );
+});
+
+test('UT-11f a new failing file or a changed project total is unexpected and named', () => {
+  const withNewFile = [...PROJECT_JS_CJS_BASELINE.files, 'tests/scope-new.test.cjs'];
+  assert.equal(
+    isWithinBaseline(SURFACE_NAMES.PROJECT_JS_CJS, PROJECT_JS_CJS_BASELINE.failures, withNewFile),
+    false,
+  );
+  const failures = unexpectedFailuresOf(SURFACE_NAMES.PROJECT_JS_CJS, {
+    tests: 2985,
+    pass: 2971,
+    fail: PROJECT_JS_CJS_BASELINE.failures,
+    failedFiles: withNewFile,
+  });
+  assert.equal(failures.length, 1);
+  assert.match(failures[0], /scope-new\.test\.cjs/);
+  assert.equal(
+    isWithinBaseline(SURFACE_NAMES.PROJECT_JS_CJS, PROJECT_JS_CJS_BASELINE.failures + 1, PROJECT_JS_CJS_BASELINE.files),
+    false,
+  );
 });
 
 test('UT-11d a missing file fails the run even when every executed test passed', () => {

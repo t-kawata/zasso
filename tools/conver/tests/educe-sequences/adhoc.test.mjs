@@ -26,8 +26,8 @@ import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/lo
 const WORK = () => mkdtempSync(join(tmpdir(), 'educe-adhoc-'));
 // [::TICKET::] PX-240 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-240 --for-spec --no-implementation-order`.
 
-const spec = readSpecification(new URL('./fixtures/spec/ledger.md', import.meta.url).pathname);
-const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger-sequences.json', import.meta.url), 'utf8'));
+const spec = readSpecification(new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname);
+const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url), 'utf8'));
 
 const DEFECT = 'an operation bound to a window because a name appeared near it';
 
@@ -128,6 +128,7 @@ test('a template names the reader and the verifier, so the count can be checked 
 
 /** A scaffold whose two bodies have been written, the way an author would write them. */
 // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scaffoldAndFill({ check = 'window-binding', body, mutation }) {
   const directory = WORK();
   const written = scaffoldCheck({ directory, check, defect: DEFECT, refuses: 'a verdict reached from a window' });

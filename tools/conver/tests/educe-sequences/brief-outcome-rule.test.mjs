@@ -21,11 +21,12 @@ import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/lo
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const BRIEF = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/briefs/uncovered.md');
-const GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger-sequences.json');
-const GOLDEN_SPEC = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
+const GOLDEN_ARTIFACT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN-sequences.json');
+const GOLDEN_SPEC = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
 const DRAWN_CHECK = 'every-step-belongs-to-a-drawn-sequence';
 
 // [::TICKET::] PX-251 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-251 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function goldenArtifact() {
   return JSON.parse(readFileSync(GOLDEN_ARTIFACT, 'utf8'));
 }

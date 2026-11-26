@@ -61,6 +61,8 @@ import {
   InvalidTicketStatusError,
 } from "./next-action.js";
 import type { CommandName, NextAction, PackageProgress } from "./next-action.js";
+import { stageForCommand } from "./stage-plan.js";
+import type { StageName } from "./stage-plan.js";
 import {
   commandHistory,
   StopRequestedError,
@@ -79,6 +81,7 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
 /** The display layer's hooks; absent in non-TTY/plain runs. */
 // [::TICKET::] PX-404, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-449) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export interface DisplayHooks {
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
   onUpdate(update: SessionUpdate): void;
@@ -92,7 +95,7 @@ export interface DisplayHooks {
   onCommandEnd?(): void;
 }
 
-// [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-404, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-404|PX-454) --for-spec --no-implementation-order`.
 export interface LoopOptions {
   apiKey: string;
   model: string;
@@ -108,6 +111,11 @@ export interface LoopOptions {
   noFind?: boolean;
   /** Overrides {@link MAX_FIND_ROUNDS} for every package in this run. */
   maxFindRounds?: number;
+  /**
+   * When defined, the implementation loop stops at the first action whose stage is
+   * outside this set. Undefined keeps the existing behavior exactly.
+   */
+  selectedImplementationStages?: ReadonlySet<StageName>;
   watcherConfig?: WatcherConfig;
   display?: DisplayHooks;
 }
@@ -512,6 +520,16 @@ function deriveActionForNextStep(
     if (error instanceof InvalidTicketStatusError) return action;
     throw error;
   }
+}
+
+/** The implementation stage an action belongs to, or null for completion. */
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+function stageForNextAction(action: NextAction): StageName | null {
+  if (action.kind === "command") return stageForCommand(action.command);
+  if (action.kind === "resolve") return "resolve";
+  if (action.kind === "consolidate") return "consolidate";
+  if (action.kind === "find") return "find";
+  return null;
 }
 
 // [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
@@ -1083,6 +1101,28 @@ export async function runPackageLoop(
       }
 
       if (action.kind === "complete") break;
+
+      // A -T block that starts inside the implementation group must not skip an
+      // unselected stage: skipping would advance the ticket out of order. The
+      // default path passes no set, so this branch is unreachable there.
+      const selectedStage = stageForNextAction(action);
+      if (
+        selectedStage !== null &&
+        options.selectedImplementationStages !== undefined &&
+        !options.selectedImplementationStages.has(selectedStage)
+      ) {
+        return await stopAndThrow(
+          options,
+          pkg,
+          deps,
+          stopContextFor({
+            options,
+            pkg,
+            action,
+            reason: `stage ${selectedStage} is not selected by -T`,
+          }),
+        );
+      }
 
       if (action.kind === "command") {
         await runTicketStep({ pkg, options, action, state, deps });

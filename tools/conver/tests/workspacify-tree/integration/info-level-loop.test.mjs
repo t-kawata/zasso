@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -51,17 +52,17 @@ test('doc C004 [@verifies C004]: output contract retained and removed notes stay
 
 test('loop C003 [@verifies C003]: incomplete decisions fail the gate, complete decisions reach entry-parity', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-loop-'));
-  const specPath = join(dir, 'gaia-like-spec.md');
+  const specPath = join(dir, 'SYSTEM-DESIGN.md');
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
 
   // Incomplete decisions: no ownership/approvals/tree -> gate must not pass.
   stageTreeDecisions(dir, { workspace: [], ownership: [], dependencies: [], adapters: {}, approvals: [] });
-  const incomplete = spawnSync(process.execPath, [RUN_SCRIPT, 'gate', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+  const incomplete = spawnSync(process.execPath, [RUN_SCRIPT, 'gate'], { cwd: dir, encoding: 'utf8' });
   assert.notEqual(incomplete.status, 0);
 
   // Complete decisions -> finalize COMPLETE and entry gate ok.
   stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
-  const finalize = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
+  const finalize = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize'], { cwd: dir, encoding: 'utf8' });
   assert.equal(finalize.status, 0, finalize.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.equal(manifest.status, 'COMPLETE');

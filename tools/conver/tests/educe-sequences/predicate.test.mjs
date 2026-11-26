@@ -27,8 +27,8 @@ import { INQUEST_LENSES, INQUEST_QUESTIONS, missingReadingFields } from '../../.
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const RAIL_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail');
-const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
-const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger-sequences.json');
+const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN-sequences.json');
 const PHASE_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
 const RUN_DECLARATION = JSON.parse(readFileSync(join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.run.json'), 'utf8')).declaration;
 
@@ -36,6 +36,7 @@ const spec = readSpecification(SPEC_PATH);
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
 // [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
@@ -57,9 +58,9 @@ function ruling(predicateLimb) {
 }
 
 /** Apply one ruling to a scratch artifact and report the refusal, if any. */
-// [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-246, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-246|PX-454) --for-spec --no-implementation-order`.
 function applyOne(reading) {
-  const artifactPath = join(mkdtempSync(join(tmpdir(), 'px246-predicate-')), 'ledger-sequences.json');
+  const artifactPath = join(mkdtempSync(join(tmpdir(), 'px246-predicate-')), 'SYSTEM-DESIGN-sequences.json');
   writeArtifact(artifactPath, golden());
   return applyReadings({ artifactPath, readings: [reading], artifact: golden(), specLines: spec.lines });
 }
@@ -165,15 +166,15 @@ test('C005 no module under rail/ compares the census or a coverage count to a nu
 
 test('C004 the brief the command file asks for carries the predicate, on the path that asks for it', () => {
   // The unit tests render a brief by handing the renderer a predicate. The command file
-  // does not: it runs `phase.mjs brief <spec> <role>`, and a defect that only the entry
+  // does not: it runs `phase.mjs brief "" <role>`, and a defect that only the entry
   // point can see is a defect every unit test passes over.
   const root = mkdtempSync(join(tmpdir(), 'px246-brief-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_PATH, specPath);
   mkdirSync(join(root, 'educe-sequences'), { recursive: true });
   writeFileSync(join(root, 'educe-sequences', 'declaration.json'), `${JSON.stringify({ ...RUN_DECLARATION, sectionLevel: 2 }, null, 2)}\n`);
 
-  const rendered = spawnSync('node', [PHASE_SCRIPT, 'brief', specPath, 'span'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const rendered = spawnSync('node', [PHASE_SCRIPT, 'brief', '', 'span'], { cwd: root, encoding: 'utf8' });
 
   assert.equal(rendered.status, 0, rendered.stderr);
   assert.equal(rendered.stdout.includes('cancellation'), true, 'the limbs reach the reader');
@@ -190,10 +191,10 @@ test('C004 a brief asked for before the declaration exists states what to declar
   // This is the state Step 2 runs in: the brief is what asks for the declaration, so a
   // brief that required one would make the phase that produces it unreachable.
   const root = mkdtempSync(join(tmpdir(), 'px246-brief-none-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_PATH, specPath);
 
-  const rendered = spawnSync('node', [PHASE_SCRIPT, 'brief', specPath, 'span'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const rendered = spawnSync('node', [PHASE_SCRIPT, 'brief', '', 'span'], { cwd: root, encoding: 'utf8' });
 
   assert.equal(rendered.status, 0, rendered.stderr);
   assert.equal(rendered.stdout.includes('states no predicate yet'), true);

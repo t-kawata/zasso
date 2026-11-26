@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-191 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-191 --for-spec --no-implementation-order`.
 // PX-191 @verifies C002 C003 C005
 import { test } from 'node:test';
@@ -20,7 +21,7 @@ test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with gr
   try {
     stageAllocateDecisions(dir, makeDecisions(manifest));
 
-    const finalize = spawnSync(process.execPath, [RUN, 'finalize', manifestPath], { encoding: 'utf8' });
+    const finalize = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(finalize.status, 0, finalize.stderr);
     const summary = JSON.parse(finalize.stdout);
     assert.equal(summary.published, true);
@@ -54,7 +55,7 @@ test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with gr
     // document is not re-staged: the first finalize left it in place, which is the
     // point of the retention rule, so this run is refused for the fresh-workspace
     // policy and for nothing else.
-    const second = spawnSync(process.execPath, [RUN, 'finalize', manifestPath], { encoding: 'utf8' });
+    const second = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(second.status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -74,7 +75,7 @@ test('C005 acceptance: a host project root holding unrelated directories still p
     writeFileSync(join(dir, '.gitignore'), 'node_modules\n');
     stageAllocateDecisions(dir, makeDecisions(manifest));
 
-    const finalize = spawnSync(process.execPath, [RUN, 'finalize', manifestPath], { encoding: 'utf8' });
+    const finalize = spawnSync(process.execPath, [RUN, 'finalize'], { cwd: dir, encoding: 'utf8' });
     assert.equal(finalize.status, 0, finalize.stderr);
     const summary = JSON.parse(finalize.stdout);
     assert.equal(summary.published, true, "the reload scan must not report the operator's own directories");

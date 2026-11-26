@@ -27,7 +27,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -133,8 +133,9 @@ test('IT — the pinned decisions input is the reading that was taken, byte for 
 test('IT C001 boundary — a representative whose spec carries no claim is reported as not proved, with the gate and the reason named', () => {
   const published = publishOriginSpec(ZERO_CLAIM);
   try {
+    copyFileSync(published.specPath, join(published.source.root, 'SYSTEM-DESIGN.md'));
     stageTreeDecisionsFrom(published.source.root, decisionsPathFor(ZERO_CLAIM, PROJECT_ROOT));
-    const refused = runChain('workspacify-tree/run.mjs', ['gate', `--spec=${published.specPath}`], { cwd: published.source.root });
+    const refused = runChain('workspacify-tree/run.mjs', ['gate'], { cwd: published.source.root });
     const refusal = JSON.parse(refused.stdout);
 
     assert.equal(refusal.status, 'REVIEW_REQUIRED', 'a zero-claim subject is not proved rather than presented as complete');

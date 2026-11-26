@@ -9,11 +9,12 @@ import { readFileSync } from 'node:fs';
 import { buildArtifact } from '../../.claude/scripts/educe-sequences/rail/artifact.mjs';
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 
-const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+const SPEC_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
 
 /** Compose the ledger artifact from its recorded readings. */
 // [::TICKET::] PX-383 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-383 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function compose(overrides = {}) {
   return buildArtifact({
     specPath: SPEC_PATH,

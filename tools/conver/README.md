@@ -275,29 +275,29 @@ flowchart TD
 - かつて受けていた引数（`--out` / `--through` / `--query`）は**名前で拒否**されます。黙って落とされた問いは、答えられた問いと全く同じに見えるためです
 - **出力**: `ORIGIN-LONG-SPEC.json` と、そこから描画した Markdown
 
-#### `/workspacify-tree <仕様書パス>`
+#### `/workspacify-tree`
 
 長い Markdown 仕様書を解析し、**stage one** の正典 `WORKSPACIFY-TREE-MANIFEST.json` を**カレントディレクトリ**に発行します。この時点では実装しません。
 
-- **引数**: `<path-to-specification.md>`（ATX 見出しを1つ以上含む）。**これだけは隠せません** — パターン4 では、空のプロジェクトに仕様書の在処を導出する材料が無いためです
+- **入力**: 引数は取りません。仕様書はワークスペースルートの固定名 `SYSTEM-DESIGN.md`（ATX 見出しを1つ以上含む）です。スクリプトが存在チェック込みで導出し、非空の引数は名前で拒否します
 - **6 Step**: `parse`（G0/G1 入力ロック）→ `extract`（G2 要求インベントリのハーベスト）→ decision JSON 執筆 → `gate`（G3/G4 自己修復ループ）→ `finalize`（G5 原子的公開）→ report
 - **ゲート階層**: G0 入力ロック → G1 構造 → G2 要求インベントリ → G3 ワークスペース（カタログ／owner 一意性／過分割／必須責務／**番号付き章の被覆**）→ G4 依存（DAG／層規則／循環／**実装順序の証明**）→ G5 成果物完全性。**親が PASS でない子は決して PASS にならない**
 - **番号付き章の被覆**: 仕様書が `S00`, `S01`, ... と番号を振った章は、少なくとも1つのパッケージ責任文がその章番号を名指ししていなければ G3 が拒否します。`spec_defects` は観測を片付ける記録であり、ディレクトリを割り当てる owner ではないため、代用できません。残数は `finalAudit.uncovered_chapter_count` に出ます
 - AI が書く decisions 文書は `workspacify/tree/DECISIONS.json` から読みます。これは**staging**（成功した publish が機械的に削除する中間成果物）で、記録は公開された manifest です
 - **逆対応（リバースモード）**: 既存ディレクトリ構造を完全に守って manifest を生成します
 
-#### `/workspacify-allocate <TREEマニフェストパス>`
+#### `/workspacify-allocate`
 
-**stage two**。stage one の manifest を唯一の引数に、**manifest と同じディレクトリ**に実ディレクトリツリーを生成し、各パッケージディレクトリへ**ちょうど1つ** `RFC-SEED.md` を置きます。
+**stage two**。stage one の manifest を唯一の入力に、**manifest と同じディレクトリ**に実ディレクトリツリーを生成し、各パッケージディレクトリへ**ちょうど1つ** `RFC-SEED.md` を置きます。
 
-- **引数**: `<path-to-WORKSPACIFY-TREE-MANIFEST.json>`。**これも隠せません** — そのディレクトリが**ワークスペースルートそのもの**（`workspaceRoot = dirname(manifestPath)`）で、標準的な場所に置くと生成物が予約ルートの中に出来て**4パターンすべてが破綻**します
+- **入力**: 引数は取りません。manifest はワークスペースルートの固定名 `WORKSPACIFY-TREE-MANIFEST.json` です。スクリプトが存在チェック込みで導出し、非空の引数は名前で拒否します。`--package` は `packet` サブコマンドの選択子です
 - **ゲート階層**: G0 入力ロック → G2 転送基礎・安全性 → G3 seed レンダ・局所検査 → **G3.7 self-grill と residual の到達** → G4 双方向契約 → G5 **WIG**（Workspace Integration Graph: 誰も履行できない結合・二重 owner・二重変更・検証者なき証明を違反として検出）＋実装順序 → G6 公開・reload・cleanup
 - **self-grill** は、AI が自分自身を敵対的に5焦点（`implementer` / `counterpart` / `test` / `grill` / `adversarial`）でレビューし、最終パスで findings が 0 になるまで収束させる機構です。解けなかった問いだけが **residual** となり、後段の人間 grill へ構造的に引き継がれます。`TODO` / `TBD` / `ask the human` / `waiting for approval` 等は**全文禁止**
 - **出力は3種のみ**: 実ディレクトリツリー / 各パッケージの `RFC-SEED.md` / `WORKSPACIFY-ALLOCATE-MANIFEST.json`
 - AI が書く decisions 文書は `workspacify/allocate/DECISIONS.json` から読みます（tree と同じく staging）
 - **逆対応（リバースモード）**: 既存構造を守ったまま、全ディレクトリへ `RFC-SEED.md` を配置します
 
-**引数の面の規則**（適合ループの3コマンドに共通）: **引数は、隠すことが4パターンのいずれかを破綻させない限り隠蔽します。** 生存するのは `/workspacify-tree` の仕様書パスと `/workspacify-allocate` のマニフェストパスの2つだけで、どちらも「隠すと4パターンのどれかが入力を持てなくなる」ため残っています。それ以外の、パスを自分で導出できる引数（出力先・グラフ・実測値・サイドカー・差分・事前分割・decisions の在処）はすべて撤回され、**名前で拒否**されます。**撤退と拒否は同じ規則の裏表**です — 黙って無視された引数は「効かなかった」と読めますが、黙って落とされた問いは「答えられた問い」と全く同じに見えるためです。`workspacify-order` と `/educe-sequences` の引数は下記のとおりで、この規則の対象外です。
+**引数の面の規則**（適合ループの3コマンドに共通）: 仕様書と stage-one manifest は**ワークスペースルートの固定名**（`SYSTEM-DESIGN.md` / `WORKSPACIFY-TREE-MANIFEST.json`）としてスクリプト内部で導出され、**引数としては受け取りません**。非空の引数は名前で拒否されます。パスを自分で導出できる引数（出力先・グラフ・実測値・サイドカー・差分・事前分割・decisions の在処）もすべて受け付けず、**名前で拒否**されます。**撤退と拒否は同じ規則の裏表**です — 黙って無視された引数は「効かなかった」と読めますが、黙って落とされた問いは「答えられた問い」と全く同じに見えるためです。`workspacify-order` は実装順の表示・検査のための任意の seed path だけを受け取り、`/educe-sequences` は固定 `SYSTEM-DESIGN.md` のみを読みます。
 
 #### `workspacify-order`（`.claude/scripts/workspacify-order/run.mjs`）
 
@@ -307,13 +307,13 @@ flowchart TD
 - **表示は検査でもあります**。実装順が公開済みの `implementation_order` と食い違えば描画を拒否します。サイドカー（`IMPLEMENTATION-ORDER.json` / `WORKSPACIFY-IMPLEMENTATION-ORDER.json`）が古い場合も `STALE_IMPLEMENTATION_ORDER` で拒否します。サイドカーも成果物も無い場合はビルド順を表示し、**ビルド順であることを明示**します
 - 各ディレクトリの行には、上流から `edu` / `exp` / `gri` / `seq` / `smo` と `gra` / `bou` / `spl` の進捗印が並びます。**表示された順序は、そのまま安全な実装順**です
 
-#### `/educe-sequences <仕様書パス>`
+#### `/educe-sequences`
 
-仕様書から**網羅的なシーケンスとオペレーション**を抽出し、`<spec>-sequences.json` を仕様書の隣に発行します。18フェーズ・31の宣言チェック・3つのタグ（`[det]` / `[read]` / `[ad-hoc]`）で、全行がどれかのエントリに属し、各ステップが引用行に裏づけられるまで収束させます。
+ワークスペースルートの固定 `SYSTEM-DESIGN.md` から**網羅的なシーケンスとオペレーション**を抽出し、`SYSTEM-DESIGN-sequences.json` をワークスペースルートに発行します。18フェーズ・31の宣言チェック・3つのタグ（`[det]` / `[read]` / `[ad-hoc]`）で、全行がどれかのエントリに属し、各ステップが引用行に裏づけられるまで収束させます。
 
 - **schema v3** ではステップごとの型付き契約（`pre` / `post` / `invariants` / `consumes` / `produces` / `errors` / `crosses`）と `operations[].registry_contribution` を持ちます。v2 も読めますが、`/smooth-sequences` は v3 の証拠面が無いものを合格させません
 - **台帳は仕様書の純関数**で、ディレクトリもパッケージも知りません。誰が何を負うかは `/grill-me-for-rfc` の射影（`SEQUENCES.md` / `SEQUENCES.json`）と `/smooth-sequences` が決めます
-- 実行ディレクトリは**仕様書のあるディレクトリ**です。`educe-sequences/` に run 状態・readings・`demand.json`・archive を置きます
+- 実行ディレクトリは**ワークスペースルート**（固定 `SYSTEM-DESIGN.md` のあるディレクトリ）です。`educe-sequences/` に run 状態・readings・`demand.json`・archive を置きます
 
 ### 上流ループ（人間＋AI 実行）
 
@@ -611,11 +611,17 @@ node .claude/skills/<name>-okf/dist/skill.mjs required --entry <concept-id>
 
 ## conver.js — ACP ベースのチケット処理パイプライン
 
-`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御し、**ワークスペースルート**からパッケージディレクトリを安全な実装順に移動しながら、各 `Tickets.json` のチケットを make → plan → start → review → resolve → consolidate-stubs → find の順で自動実行します。
+`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御します。既定では**ワークスペースルート**からパッケージディレクトリを安全な実装順に移動しながら、各 `Tickets.json` のチケットを make → plan → start → review → resolve → consolidate-stubs → find の順で自動実行します。`-T` を渡すと、workspacify から crystalize までの任意の連続区間を同じ順序で実行します。
 
 ### 使用方法
 
-conver は **ワークスペースルート**（`WORKSPACIFY-TREE-MANIFEST.json`、`WORKSPACIFY-ALLOCATE-MANIFEST.json`、`WORKSPACIFY-IMPLEMENTATION-ORDER.json` があるディレクトリ）で実行します。パッケージディレクトリ内からは実行できません。4層ループの単一ディレクトリ実行はサポートしません。
+conver は **ワークスペースルート** で実行します。必要な入力は `-T` の先頭段階で決まります。
+
+- **既定（`-T` 省略、または make 以降から開始）**: `WORKSPACIFY-TREE-MANIFEST.json`・`WORKSPACIFY-ALLOCATE-MANIFEST.json`・`WORKSPACIFY-IMPLEMENTATION-ORDER.json` と、全パッケージの `Tickets.json` が必要です。パッケージディレクトリ内からは実行できません。
+- **workspacify から開始**: ワークスペースルートの `SYSTEM-DESIGN.md` だけが必要です。
+- **educe から split までで開始**: tree manifest と allocate manifest が必要です。`Tickets.json` はまだ不要です。
+
+4層ループの単一ディレクトリ実行はサポートしません。
 
 ```bash
 cd ~/shyme/doors
@@ -648,13 +654,31 @@ node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 | `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
 | `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。endpoint で exit 0） | — |
 | `-n`, `--no-find` | 全 reviewed 後の find をスキップ（consolidate は実行）（0/1） | `0` |
+| `-T`, `--tasks` | 実行する段階の連続区間。正準順序の部分列のみ。再実行可能な段階だけが `:N` を受け取る | `make,plan,start,review,resolve,consolidate,find` |
 | `--max-find-rounds` | パッケージごとに find を実行できる回数。上限到達で停止して Slack 通知 | `5` |
 | `--no-dashboard` | 固定進捗ヘッダーを無効化 | 無効（ヘッダー表示） |
 | `--dashboard-interval` | ヘッダーのポーリング間隔（秒） | `5` |
 | `-h`, `--help` | ヘルプ表示 | — |
 | `--version` | バージョン表示 | — |
 
-`-t/--tickets` と `-x/--max-retries` は廃止しました。チケットはパッケージごとに導出し、再送は3回のエスカレーションに固定されています。
+チケットはパッケージごとに導出し、再送は3回のエスカレーションに固定されています。
+
+### `-T` — パイプライン全体の選択実行
+
+`-T` は、次の正準順序の**連続した部分列**を実行します。
+
+```
+workspacify, educe, explain, grill, smooth, graphify, boundify, split,
+make, plan, start, review, resolve, consolidate, find, crystalize
+```
+
+- **連続性**: 段階を飛ばした区間（gap）、逆順、重複は起動時に拒否され、セッションは開始されません。
+- **`:N`**: 再実行可能な段階（educe, grill, smooth, graphify, boundify, split, crystalize）だけが回数を受け取ります。それ以外の段階に `:N` を付けると拒否されます。パッケージスコープの N は全パッケージを N 周、ワークスペーススコープ（workspacify, educe, smooth）の N は N 回連続実行です。
+- **workspacify**: `/workspacify-tree` → `/workspacify-allocate` を1段階として順に実行します。`/workspacify-reverse` は含まれません。
+- **cwd**: workspacify, educe, smooth はワークスペースルート、それ以外はパッケージルートで実行します。
+- **実装順**: split より前は `WORKSPACIFY-ALLOCATE-MANIFEST.json` の `implementation_order.levels`、make 以降は `WORKSPACIFY-IMPLEMENTATION-ORDER.json` の `implementationOrder.levels` を読みます。workspacify と split の後は入力を読み直します。
+- **非対話**: 選択した段階は完了記録の有無で飛ばされません。educe には固定 `SYSTEM-DESIGN.md` の契約を、explain と grill には人間の判断を求めず最後まで完了する指示を conver が付加します。
+- **既定との互換**: `-T` を省略するか既定値（`make,plan,start,review,resolve,consolidate,find`）を渡した場合、既存の実装ループと同一の経路を通ります。`-w` は既定計画でのみ使用できます。
 
 ### 実行アーキテクチャ — 5層・厳格順序
 
@@ -929,7 +953,7 @@ CRYSTALIZE-Status.json
 
 #### 要求台帳（`/educe-sequences` の成果物）
 
-`/workspacify-allocate` のあと、上流ループの前に、仕様書から**網羅的なシーケンスとオペレーション**を抽出し、`<spec>-sequences.json` として1枚にまとめます。これは4つの内側のループが読む**要求台帳**であり、第四の整合性（実装が完全に一致すること）を、単位IDに対する述語として測れるようにするものです。
+`/workspacify-allocate` のあと、上流ループの前に、仕様書から**網羅的なシーケンスとオペレーション**を抽出し、`SYSTEM-DESIGN-sequences.json` として1枚にまとめます。これは4つの内側のループが読む**要求台帳**であり、第四の整合性（実装が完全に一致すること）を、単位IDに対する述語として測れるようにするものです。
 
 台帳は仕様書の純関数であり、ディレクトリを知りません。どのパッケージがどの単位を実装するかは、台帳と `WORKSPACIFY-TREE-MANIFEST.json` の接合から決まります。接合した結果はパッケージディレクトリの`SEQUENCES.md` / `SEQUENCES.json` として置かれ、RFC に書くべき単位がそこから漏れなく読めます。
 台帳が与えられていない場合、`/grill-me-for-rfc` と4つの内側のループの動作は一切変わりません。`/smooth-sequences` は台帳を持つ workspacify ワークスペースだけを対象にします。
@@ -1055,7 +1079,7 @@ workspacify/（予約ルート・終端レイアウトの外。文書倉庫）
 ├── tree/      DECISIONS.json（staging — 成功した publish が機械的に掃除する）
 └── allocate/  DECISIONS.json（同上）
 
-<spec>-sequences.json（/educe-sequences の成果物・仕様書の隣）
+SYSTEM-DESIGN-sequences.json（/educe-sequences の成果物・ワークスペースルート）
 ├── sequences[] / steps[] / operations[] / boundary_grounds[]
 ├── steps[].contract: { pre, post, invariants, consumes, produces, errors, crosses }
 └── operations[].registry_contribution / allowed_status_transitions / boundary_effects
@@ -1128,7 +1152,7 @@ EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
 | stage one（`/workspacify-tree`） | `parse` / `extract` / `gate` / `finalize` の4段と G0〜G5。仕様書の分割・候補のハーベスト・ワークスペース設計・owner 一意性・過分割の検査・依存 DAG と実装順序の証明・原子的公開 |
 | stage two（`/workspacify-allocate`） | G0〜G6。マニフェストの受け取り検証（自己ハッシュと仕様書の再ハッシュ）・ディレクトリ計画・seed の描画と読み戻し・self-grill と residual の到達・双方向契約・WIG・公開と reload と後片付け |
 | 実装順の表示・検査（`workspacify-order/run.mjs`） | ビルド順（stage one の DAG）と実装順（シーケンス・ステップ契約・境界契約から導出）を別概念として描画する。公開済みの `implementation_order` と食い違う場合、またはサイドカーが古い場合は描画を拒否する。引数は0個または `RFC-SEED.md` 1個。実行履歴に記録するのはコマンド実行時のみで、その場合は `--record` を付ける（手元の目視では付けないので記録されない） |
-| 要求台帳（`/educe-sequences`） | 仕様書を18フェーズ・31宣言チェックで走査し、全行をエントリへ割り当て、各ステップを引用行に接地させ、`<spec>-sequences.json` を書く。schema v3 は型付きステップ契約と `registry_contribution` を持つ。run 状態は `educe-sequences/` に隔離する |
+| 要求台帳（`/educe-sequences`） | 仕様書を18フェーズ・31宣言チェックで走査し、全行をエントリへ割り当て、各ステップを引用行に接地させ、`SYSTEM-DESIGN-sequences.json` を書く。schema v3 は型付きステップ契約と `registry_contribution` を持つ。run 状態は `educe-sequences/` に隔離する |
 | 共有される規約 | 予約ルートの名前は1箇所で宣言され、逆回転の出力先と「どの走査もその名前へ降りない」規則の両方がそこから導出される。staging の decisions 文書は公開の成功時に削除され、パッケージの走査からは予約ルートが除外される |
 
 ### 受理ゲート（`.claude/scripts/smooth-sequences/`）
@@ -1301,15 +1325,15 @@ install.js -t /path/to/target/.claude
 作業を始める前に、プロジェクトがどのパターンで入るかを決めます（基準は**ディスク上に既に存在する conver の足場だけ**です）。
 
 - **既存実装がある（パターン1・2・3）**: `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` の順に実行し、`ORIGIN-LONG-SPEC` から manifest を作り、全パッケージディレクトリへ `RFC-SEED.md` を置きます
-- **空＋仕様書（パターン4）**: `/workspacify-tree <仕様書パス>` → `/workspacify-allocate <TREEマニフェストパス>` の2つだけです（逆回転は不要）
+- **空＋仕様書（パターン4）**: `/workspacify-tree` → `/workspacify-allocate` の2つだけです（逆回転は不要）
 
-分割が確定したら、**ワークスペースルート**で `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、表示された実装順が安全であることを確認します。仕様書がある場合は、続けて `/educe-sequences <仕様書パス>` で全シーケンス・全オペレーションの台帳を作ります。
+分割が確定したら、**ワークスペースルート**で `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、表示された実装順が安全であることを確認します。仕様書がある場合は、続けて `/educe-sequences` で全シーケンス・全オペレーションの台帳を作ります。
 
 以後の手順2は**パッケージディレクトリごと**に、手順3は**ワークスペースルート**で、手順4〜7は**パッケージディレクトリごと**に実行します（ルートも path `.` の1パッケージです）。
 
 ### スラッシュコマンド経由（Claude Code 内）
 
-1. `/educe-sequences <仕様書パス>` で要求台帳（`<spec>-sequences.json`）を作る（仕様書がある場合）
+1. `/educe-sequences` で要求台帳（`SYSTEM-DESIGN-sequences.json`）を作る（仕様書がある場合）
 2. `/explain-seed` に `RFC-SEED.md` を説明させ（事実と説明の2文書）、`/grill-me-for-rfc` で設計判断を確定し、RFC 設計書を書く。台帳を material として渡すと、パッケージぶんの `SEQUENCES.md` / `SEQUENCES.json` が射影される
 3. `/smooth-sequences` をワークスペースルートで実行し、列挙・契約・配布の閉包を受理する。`pass` しなければ graphify へ進めない
 4. `/graphify-rfc` で RFC を論理グラフ化（`RFC-GRAPH.json`）。Step 0 が `SMOOTH-VERDICT.json` を固定する
@@ -1347,7 +1371,7 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 > 適合ループを回す場合、手順1の「モジュール単位に切る」は `/workspacify-tree` → `/workspacify-allocate` が機械的に行い、訓練は**各ディレクトリに `RFC-SEED.md` が置かれた状態**から始まります（手順2以降は、指定された実行ディレクトリで実行します）。
 
 1. ターゲットの開発をモジュール単位に設計として切る（必ず安全な I/O 境界で切り、ディレクトリが独立する単位）
-2. ワークスペースルートで `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、実装順を確認する。仕様書があるなら `/educe-sequences <仕様書パス>` で全シーケンス・全オペレーションを台帳化する
+2. ワークスペースルートで `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、実装順を確認する。仕様書があるなら `/educe-sequences` で全シーケンス・全オペレーションを台帳化する
 3. /explain-seed で RFC-SEED.md を説明させ（事実と説明の2文書）、続いて /grill-me-for-rfc でモジュール単位の RFC を生成 -> RFC を必ず全部読め。
 4. 全パッケージの grill が終わったら、ワークスペースルートで /smooth-sequences を実行し、`pass` になるまで修復する
 5. /graphify-rfc -> /boundify-graph -> /split-to-tickets（上流パイプライン）を手動で実行し、

@@ -33,6 +33,7 @@ import {
 // resolver's parent walk covers both layouts.
 const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
 
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function defaultResolveAcpBinary(): string | null {
   return resolveAcpBinaryForProcess(DIRNAME);
 }
@@ -57,12 +58,14 @@ export interface AcpSession {
 }
 
 // runCommand のオプション
-// [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-454) --for-spec --no-implementation-order`.
 export interface RunCommandOptions {
   timeoutMs: number;
   verbose: boolean;
   /** Repetition escalation level appended to the prompt (0 = none). */
   escalationLevel?: number;
+  /** Stage-specific override appended after the shared directive (undefined = none). */
+  promptOverride?: string;
   /** Receives every session/update notification before it is interpreted. */
   onUpdate?: (update: acp.SessionUpdate) => void;
   /** Called when the prompt turn ends, so a renderer can flush buffered text. */
@@ -351,7 +354,9 @@ export async function runCommand(
     // Promise.resolve で包むのは、テストのモック prompt が非 Promise を
     // 返す場合にも .catch を安全に呼べるようにするため。
     void Promise.resolve(
-      acpSession.session.prompt(composePrompt(command, options.escalationLevel ?? 0)),
+      acpSession.session.prompt(
+        composePrompt(command, options.escalationLevel ?? 0, options.promptOverride),
+      ),
     ).catch(() => {
       // エラーは nextUpdate() 経由で拾われるためここでは握りつぶさない。
     });

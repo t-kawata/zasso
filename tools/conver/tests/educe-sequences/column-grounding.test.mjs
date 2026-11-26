@@ -12,12 +12,13 @@ import { CHECKS, checkAll, pinnedColumnGroundingProblems } from '../../.claude/s
 import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/load.mjs';
 
 const COLUMN = 'required_proof_classes';
-const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
-const GOLDEN_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
+const SPEC_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
+const GOLDEN_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url).pathname;
 const specLines = ['the proof classes are designer supplied'];
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 
 // [::TICKET::] PX-300 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-300 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function artifact(operation) {
   return {
     pins: { columns: [{ name: COLUMN, decidedBy: 'literalInLine' }] },

@@ -71295,6 +71295,213 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-26",
           "reviewed_at": "2026-11-26T05:45:31.938Z"
+        },
+        {
+          "id": 454,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "conver.js: drive workspacify through crystalize end-to-end via -T, fixed SYSTEM-DESIGN.md inputs, and unconditional non-interactive execution",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-454.md",
+          "background": "### Goal\nExtend conver.js so one run can execute the complete pipeline from /workspacify-tree through /crystalize-readme, selected by -T, with strict cwd and stage-order discipline.\n\n### Purpose\nMake conver.js the complete self-driving pipeline driver rather than an implementation-only loop; every command it sends must complete without human judgment.\n\n### Motivation\nThe upstream design stages are manual today. Dynamic path arguments (spec-file, tree manifest) and human-directed questions (explain, grill) block unattended execution. The three forward command scripts must therefore derive fixed workspace-root inputs, and conver must send an overriding non-interactive directive to the two stages whose command documents still allow a human question.\n\n### Constraints\n- The existing make,plan,start,review,resolve,consolidate,find loop must not change; the work is additive.\n- -T accepts only a contiguous slice of the canonical order; gaps, reordering, duplicates, and counts on non-repeatable stages are startup errors.\n- Only workspacify, educe and smooth execute at the workspace root; every other stage executes at the package root.\n- A package-scoped count N means N full rounds over all packages; a workspace-scoped count N means N consecutive runs.\n- Selected stages and repetitions are never skipped because a record says they are complete.\n- /workspacify-reverse is out of scope; reverse subcommands keep their existing arguments.\n- The command documents receive only minimal argument-contract edits; no new shell commands are added to them.",
+          "default_files": [
+            "src/cli.ts",
+            "src/cli.test.ts",
+            "src/conver.ts",
+            "src/workspace.ts",
+            "src/workspace.test.ts",
+            "src/runner.ts",
+            "src/runner.test.ts",
+            "src/command-history.ts",
+            "src/command-history.test.ts",
+            "src/session.ts",
+            "src/session.test.ts",
+            "src/stage-plan.ts",
+            "src/stage-plan.test.ts",
+            "src/stage-engine.ts",
+            "src/stage-engine.test.ts",
+            ".claude/scripts/educe-sequences/rail/paths.mjs",
+            ".claude/scripts/educe-sequences/rail/phase.mjs",
+            ".claude/scripts/educe-sequences/rail/run.mjs",
+            ".claude/scripts/workspacify-tree/run.mjs",
+            ".claude/scripts/workspacify-allocate/run.mjs",
+            ".claude/commands/educe-sequences.md",
+            ".claude/commands/workspacify-tree.md",
+            ".claude/commands/workspacify-allocate.md",
+            "tests/workspacify-allocate/integration/argument-surface.test.mjs",
+            "tests/workspacify-tree/integration/argument-surface.test.mjs",
+            "tests/educe-sequences/paths.test.mjs",
+            "tests/conventions/educe-sequences-command.test.mjs",
+            "Makefile"
+          ],
+          "notes": "- Implementation steps: (1) fixed-path argument abolition with tests; (2) -T parser/validator; (3) opt-in prompt override channel with a byte-identical default test; (4) stage engine with cwd and N semantics tests; (5) stage-aware entry gate and order source; (6) integration regression proof for the default -T; (7) minimal command-document edits.\n- Risks: cwd leakage across stages; accidental change to the existing make..find prompt; the split sidecar appearing only after the last package; the argument-surface guards reading printUsage and the archived design document.\n- Caveats: -P applies only to the implementation loop; -w is refused when an upstream stage is selected; reverse subcommands keep their current argument surfaces; the full CRITICAL block is never re-added to a stage that already carries it.\n- Open items: none.\n- Future improvements: stage-aware dashboard for upstream stages and a watcher endpoint for pre-split stages.\nLaw: not applicable — target paths are Node/TypeScript and .claude/scripts, not crates/** interface roles.\nImplementation summary:\n- Changed files: src/{cli,conver,workspace,runner,command-history,session}.ts, new src/{stage-plan,stage-engine}.ts, three rail/run scripts, three command docs, Makefile, and the matching tests.\n- Key changes: -T contiguous-slice validation; stage-aware cwd and gate; one-round-per-package N semantics; opt-in prompt overrides; fixed SYSTEM-DESIGN.md/manifest inputs; no record-based skipping.\n- Test results: npx tsc clean; make test-conver 472 passed; mjs impact set 32 passed; quality checks 0 issues; verify-red-coverage 8/8 contracts covered.\nReview report:\n- Argument abolition now covers the production surface and the test surface: the three forward commands take no spec/manifest argument, and the conver, educe, workspacify-tree and workspacify-allocate suites derive the fixed name from cwd.\n- README documents -T/--tasks, the canonical contiguous slice, :N semantics, cwd discipline, gate changes and the default-path compatibility.\n- Command files carry no argument-hint and no wording that implies a pre-change state; the three reviewed commands state only current behavior.\n- The reverse regression gate now invokes the forward tree/allocate stages with the fixed contract; the frozen baseline was recaptured for the intentional forward changes.\n- Pre-existing reverse-suite baseline failures remain (7 failures: PX-142 baseline and reverse command-procedure expectations); they are outside PX-454 and unchanged by it.\nReview report update: the reverse suite is green (1462/1462). The two reverse-side blockers are resolved. crystalize-readme and its two installs now share the canonical Language Protocol table; the English-only README rule remains stated at line 19 and is enforced by validate-readme-language.js. The project-js-cjs surface's 13 pre-existing failures are declared in tests/lib/test-discovery.mjs by file and total: a new failing file, a missing baseline file, or a changed total fails the run, so the record must shrink when the defects are repaired. The PX-142 baseline test now passes with claude-tests 14 and project-js-cjs 13 recorded.",
+          "invariants": "- [Normal establishment] The -T schema is the canonical sequence workspacify,educe:?,explain,grill:?,smooth:?,graphify:?,boundify:?,split:?,make,plan,start,review,resolve,consolidate,find,crystalize:?; a concrete -T is a contiguous slice of it, and repeatable stages accept a positive count.\n- [Error invariant] Unknown, duplicate, out-of-order, gapped, or count-on-non-repeatable tokens exit conver before any session opens; a missing fixed input fails closed with a named error.\n- [Internal state invariant] The existing make..find loop, status transitions, resolve cadence, boundary handling, and default prompt composition remain byte-identical when the default -T is used.\n- [Boundary invariant] Workspace-scoped stages (workspacify, educe, smooth) execute with cwd = workspace root; every other stage executes with cwd = the package root, and process.cwd is restored after every stage.",
+          "scope": [
+            "Scope of changes: add -T/--tasks to src/cli.ts and a pure stage-plan parser/validator in src/stage-plan.ts; add a stage executor in src/stage-engine.ts; make the entry gate stage-aware in src/conver.ts and src/workspace.ts; add opt-in prompt overrides in src/command-history.ts and src/session.ts; remove the dynamic spec/manifest arguments from .claude/scripts/educe-sequences/rail/paths.mjs, .claude/scripts/workspacify-tree/run.mjs and .claude/scripts/workspacify-allocate/run.mjs; make minimal argument-contract edits to .claude/commands/educe-sequences.md, .claude/commands/workspacify-tree.md and .claude/commands/workspacify-allocate.md.",
+            "Out of scope: /workspacify-reverse is not added to conver; drill and amend are not added to -T; the existing make/plan/start/review/resolve/consolidate/find loop logic is not changed; the reverse subcommands of workspacify-tree and workspacify-allocate keep their current arguments; -P continues to select only the implementation loop; -w is refused when a stage before make is selected.",
+            "Affected areas: CLI surface (new -T option), startup gate (stage-dependent manifests and Tickets), ACP session cwd (workspace root vs package root), prompt composition (opt-in overrides), order source (allocate manifest before split, sidecar after split), and the three forward command scripts (fixed input paths)."
+          ],
+          "testUnit": [
+            "UT: [Normal] C001 parses the canonical -T schema workspacify,educe:?,explain,grill:?,smooth:?,graphify:?,boundify:?,split:?,make,plan,start,review,resolve,consolidate,find,crystalize:? and the default make,plan,start,review,resolve,consolidate,find into an ordered stage plan; repeatable tokens accept :N and default to 1.",
+            "UT: [Normal] C002 opens the ACP session with cwd = workspace root for workspacify, educe and smooth, and cwd = package directory for explain, grill, graphify, boundify, split, make through find, and crystalize.",
+            "UT: [Normal] C003 runs a workspace-scoped stage N consecutive times at the root, and a package-scoped stage N full rounds over every selected package in implementation order, never N consecutive times on one package.",
+            "UT: [Normal] C004 proves the default -T path composes the current prompt, uses the current session cwd, derives the current next action, and keeps the current resolve cadence, boundary handling and status transitions.",
+            "UT: [Normal] C005 resolves SYSTEM-DESIGN.md for workspacify-tree and educe-sequences, and WORKSPACIFY-TREE-MANIFEST.json for workspacify-allocate, from the workspace root cwd with an existence check; reverse mode keeps its existing arguments.",
+            "UT: [Normal] C006 adds the full CRITICAL NON-INTERACTIVE END-TO-END EXECUTION block only to explain and grill, adds the chosen_default skip prohibition to grill, adds only the fixed-argument override to educe, and leaves every other stage prompt unchanged.",
+            "UT: [Normal] C007 executes every selected stage exactly N times even when a status, history record or artifact says it is complete.",
+            "UT: [Normal] C008 selects the workspace gate and order source from the first selected stage; pre-split order uses the allocate manifest implementation_order.levels and post-split order uses WORKSPACIFY-IMPLEMENTATION-ORDER.json.",
+            "UT: [Error] C001 rejects unknown, duplicate, out-of-order, gapped and count-on-non-repeatable -T tokens before any session opens; the default is used only when -T is absent.",
+            "UT: [Error] C005 rejects a non-empty argument to the three forward commands and rejects a missing SYSTEM-DESIGN.md or WORKSPACIFY-TREE-MANIFEST.json with a named error.",
+            "UT: [Error] C008 fails closed when the first selected stage required manifests or tickets are missing, while the default make..find path still uses the existing workspace gate.",
+            "UT: [Boundary] C001 accepts a single-token -T and the exact full schema, and rejects a one-stage gap such as make,start and a reversed pair such as smooth,educe.",
+            "UT: [Boundary] C003 treats N=1 as one pass and rejects N<1; C007 never skips the Nth repetition.",
+            "UT: [Boundary] C006 leaves the default composePrompt output byte-identical and adds no full block to a stage whose command document already carries it.",
+            "UT: [Invariant] C002 asserts process.cwd is restored after every stage and no workspace/package cwd crosses.",
+            "UT: [Invariant] C004 asserts the existing runner and command-history behavior is unchanged under the default -T.",
+            "UT: [Invariant] C006 asserts the full CRITICAL block is absent from every stage except explain and grill.",
+            "UT: [Invariant] C008 asserts the default make..find path calls the existing workspace gate function unchanged.",
+            "UT: [Normal] C001 precondition: a -T string is supplied, or the default make,plan,start,review,resolve,consolidate,find is used; both forms parse into an ordered stage plan and the default is selected only when -T is absent.",
+            "UT: [Invariant] C004 precondition: the default -T make,plan,start,review,resolve,consolidate,find is used; the composed prompt, session cwd, next-action derivation, resolve cadence, boundary handling and status transitions equal the current implementation."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] C001 + C002 + C003: a fake ACP session records every command and cwd; a full -T workspacify,educe,explain,grill,smooth,graphify,boundify,split,make,plan,start,review,resolve,consolidate,find,crystalize run is asserted in canonical order with correct cwd and repetition counts.",
+            "IT: [Verification] C004: run the default -T through runWorkspaceLoop with the existing test seams and assert the prompt, cwd and derived actions equal the current baseline.",
+            "IT: [Prerequisites] C005: invoke the three forward scripts from a temporary workspace root containing SYSTEM-DESIGN.md or WORKSPACIFY-TREE-MANIFEST.json; assert success, and assert the reverse subcommand still accepts its existing surface.",
+            "IT: [Related tickets] C006 + C007: a fake session asserts explain and grill receive the full block and grill receives the chosen_default skip prohibition, while make through find receive the unchanged prompt; the executor runs every selected repetition even when a record exists.",
+            "IT: [Integration point] C008: start at workspacify with only SYSTEM-DESIGN.md, start at educe with TREE and ALLOCATE, start at make with the existing gate, and start at crystalize with Tickets.json and RFC-GRAPH.json; assert the order source switches after split."
+          ],
+          "testExceptions": [
+            "IT/UT exception: cannot test the real claude-agent-acp child process deterministically; the session seam withSession and runCommand is injected, and every stage, cwd and prompt assertion is made against that seam. This is an external-process boundary, not a design defect, and the existing session wrapper tests cover the spawn path."
+          ],
+          "instrumentation": "- [Logging] Log stage start/end with stage name, cwd, round index and repetition index; log the order source (allocate build order vs implementation sidecar) and the prompt override kind.\n- [Metrics] Count stages executed, workspace consecutive runs, package rounds, packages per round, and overrides applied.\n- [Error tracking] Named errors carry stage, cwd, expected artifact and the exact token or path that failed; no raw stack trace reaches the operator.\n- [Health check] After each stage, assert the stage's expected artifact exists; a missing artifact stops before the next stage with a named error.\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: conver 472/472, educe-sequences 672/672, workspacify-tree 418/418, workspacify-allocate 318/318\nAnnotation verify: 100 files, 0 missing, 0 ambiguous\nContracts: 1/1 fulfilled (100%)\nTests: workspacify-reverse 1462/1462 (claude-tests baseline 14, project-js-cjs baseline 13 declared by file).",
+          "acceptanceCriteria": [
+            "Happy path: a -T run selects a contiguous slice, executes every selected stage in canonical order with the correct cwd and N repetitions, and completes the full workspacify through crystalize pipeline without human input.",
+            "Error case: an invalid -T token or a missing fixed input exits conver non-zero with a named error before or at the affected stage; no partial session is opened for an invalid plan.",
+            "Edge case: the default -T make,plan,start,review,resolve,consolidate,find is byte-identical to the current prompt, cwd and action derivation; explain and grill self-complete without human input, and grill does not use chosen_default to skip a decision."
+          ],
+          "investigation": "- CLI: src/cli.ts:93-157 parseCliOptions uses node:util parseArgs; CliOptions is src/cli.ts:26-48; showUsage is src/cli.ts:51-78. -T is unused.\n- Loop: src/next-action.ts:80-85 maps todo/made/planned/done to make/plan/start/review; src/next-action.ts:125-163 derives resolve, ticket command, consolidate, find, complete. src/runner.ts:934-1214 is runPackageLoop; src/runner.ts:1221-1264 is runWorkspaceLoop. Every command runs at pkg.directory (src/runner.ts:628, 940-941).\n- Session: src/session.ts:122-146 spawnAgent takes cwd; src/session.ts:218-226 withSession(cwd). runCommand always calls composePrompt (src/session.ts:354).\n- Prompt: src/command-history.ts:19-25 CROSS_PACKAGE_DIRECTIVE already forbids human judgment and requires cross-package completion; src/command-history.ts:94-101 composePrompt appends it to every command.\n- Stages: .claude/scripts/conver/progress-gif/loop.js:4-8 STAGE_ORDER; loop.js:34 WORKSPACE_STAGES = {educe, smooth}; .claude/scripts/conver/progress-gif/history.js:45-49 HISTORY_STAGES.\n- Order: .claude/scripts/workspacify-order/lib/levels.mjs:528-545 uses sidecar implementationOrder, then artifact derivation, then build levels from the allocate manifest; .claude/scripts/workspacify-order/lib/workspace.mjs resolveWorkspaceRoot requires TREE+ALLOCATE only. .claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs:74 records implementation_order.levels.\n- Entry gate: src/workspace.ts:12-17 requires TREE+ALLOCATE+ORDER; src/workspace.ts:100-122 root resolver requires all three; src/workspace.ts:227-267 readWorkspace requires ORDER and every package Tickets.json. This refuses a pre-split start.\n- Split sidecar: .claude/commands/split-to-tickets.md:512-516 writes WORKSPACIFY-IMPLEMENTATION-ORDER.json only after every package is split; the per-package sidecar is written at :510.\n- Argument surfaces: .claude/scripts/educe-sequences/rail/paths.mjs parseSpecArgument refuses zero/empty arguments; .claude/scripts/educe-sequences/rail/phase.mjs:47-52 resolveSpec; .claude/scripts/workspacify-tree/run.mjs:117-160 main and runParse; :210 and :266 require --spec for gate/finalize; .claude/scripts/workspacify-allocate/run.mjs:98 loadLockedInput, :381 manifest positional, :800 printUsage.\n- Existing guards: tests/workspacify-tree/integration/argument-surface.test.mjs and tests/workspacify-allocate/integration/argument-surface.test.mjs assert the spec/manifest survivor rationale and read printUsage; tests/educe-sequences/paths.test.mjs asserts zero/empty argument refusal; tests/conventions/educe-sequences-command.test.mjs asserts the command file contract.\n- Non-interactive docs: educe, smooth, graphify, boundify, split, make, plan, start, review, resolve, consolidate, find, crystalize, workspacify-tree and workspacify-allocate carry CRITICAL; explain and grill do not. grill can currently record chosen_default when no answer arrives (grill-me-for-rfc/normative-decision.js:437-470), which the override must forbid as a skip.\n- cwd facts: educe README.md:316 says the execution directory is the spec directory; smooth-sequences.md:62/86/95 says workspace root; crystalize-readme.md:56-61 says package directory; split-to-tickets.md:94 writes Tickets.json beside RFC.md; consolidate-stubs.md:52 and find-omissions.md:175 use the Tickets.json root.",
+          "boyScoutPlan": "- Extract the pure stage-plan parser and validator into src/stage-plan.ts with verb-phrase functions (parseStagePlan, validateContiguousSlice, defaultStagePlan) and domain types (StageName, StagePlan, StageSelection).\n- Extract the executor into src/stage-engine.ts with one responsibility per function (runWorkspaceStage, runPackageRound, resolveStageOrderSource, assertStagePrecondition).\n- Replace command-name literals with a named stage-to-command table and named constants for SYSTEM_DESIGN_FILE_NAME and WORKSPACIFY_TREE_MANIFEST_FILE_NAME.\n- Name cwd decisions with domain terms (workspaceRootCwd, packageRootCwd) and restore process.cwd in a finally block.\n- No swallowed errors: every missing artifact or invalid plan raises a named error carrying the stage, cwd and expected path.\n- Update touched comments to state why the existing make..find path must remain byte-identical and why the override is opt-in.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "conver.js CLI -T option -> validated stage plan (operator selection)",
+              "precondition": "A -T string is supplied, or the default make,plan,start,review,resolve,consolidate,find is used.",
+              "postcondition": "The parser returns an ordered stage plan whose tokens form a contiguous slice of the canonical schema and whose repeatable stages carry a positive count.",
+              "invariant": "Unknown, duplicate, out-of-order, gapped, or count-on-non-repeatable tokens raise a named error before any session opens."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "stage plan -> ACP session working directory",
+              "precondition": "A stage plan selects a workspace-scoped or package-scoped stage.",
+              "postcondition": "The executor opens the ACP session with cwd = workspace root for workspacify, educe and smooth, and cwd = package directory for every other stage.",
+              "invariant": "No package-scoped command runs at the workspace root and no workspace-scoped command runs at a package root; process.cwd is restored after every stage."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "stage plan repetition count N -> package rounds and workspace consecutive runs",
+              "precondition": "A repeatable stage carries a count N greater than or equal to one.",
+              "postcondition": "A workspace-scoped stage runs N consecutive times at the root; a package-scoped stage runs N full rounds over every selected package in implementation order.",
+              "invariant": "A package-scoped stage is never run N consecutive times on one package."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "default -T -> existing runWorkspaceLoop and runPackageLoop",
+              "precondition": "The default -T make,plan,start,review,resolve,consolidate,find is used.",
+              "postcondition": "The composed prompt, session cwd, next-action derivation, resolve cadence, boundary handling and status transitions equal the current implementation.",
+              "invariant": "No additive stage-plan or prompt-override code changes the default make..find path."
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "conver stage -> forward command script argument surface",
+              "precondition": "workspacify-tree, workspacify-allocate or educe-sequences is invoked with no argument or an empty token.",
+              "postcondition": "The forward script resolves SYSTEM-DESIGN.md for workspacify-tree and educe-sequences, or WORKSPACIFY-TREE-MANIFEST.json for workspacify-allocate, at the workspace root cwd and verifies existence before proceeding.",
+              "invariant": "A non-empty argument is refused, and reverse mode keeps its existing arguments."
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "stage -> composePrompt override",
+              "precondition": "A stage is executed through runCommand.",
+              "postcondition": "explain and grill receive the full CRITICAL NON-INTERACTIVE END-TO-END EXECUTION block plus, for grill, the prohibition on chosen_default skipping; educe receives only the fixed-argument override; every other stage receives exactly the current composePrompt output.",
+              "invariant": "The full CRITICAL block is never added to a stage whose command document already carries it or that does not need a rule override."
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "stage plan -> executor repetition control",
+              "precondition": "A stage plan selects a stage and a repetition count N.",
+              "postcondition": "The executor runs the stage exactly N times per the cwd and repetition rules, regardless of existing status, history or artifact presence.",
+              "invariant": "No selected stage or repetition is skipped because a record says it is complete."
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "first selected stage -> workspace gate and order source",
+              "precondition": "The first selected stage is workspacify, educe, make through find, or crystalize.",
+              "postcondition": "The gate requires only the artifacts the first selected stage needs; pre-split order comes from the allocate manifest implementation_order.levels and post-split order from WORKSPACIFY-IMPLEMENTATION-ORDER.json, with the model re-read after split.",
+              "invariant": "The default make..find path uses the existing workspace gate unchanged."
+            }
+          ],
+          "created_at": "2026-11-26",
+          "updated_at": "2026-11-26",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-26T07:22:41.198Z",
+          "planTestCode": [
+            "UT: [Normal] C001 — canonical full slice and default plan\n```ts\nconst full = parseStagePlan(\"workspacify,educe:2,explain,grill:3,smooth,graphify,boundify,split,make,plan,start,review,resolve,consolidate,find,crystalize:2\", cwd);\nassert.deepStrictEqual(full.selections.map(s => s.name), [\"workspacify\",\"educe\",\"explain\",\"grill\",\"smooth\",\"graphify\",\"boundify\",\"split\",\"make\",\"plan\",\"start\",\"review\",\"resolve\",\"consolidate\",\"find\",\"crystalize\"]);\nassert.strictEqual(full.selections.find(s => s.name === \"educe\")?.count, 2);\nconst fallback = parseStagePlan(undefined, cwd);\nassert.deepStrictEqual(fallback.selections.map(s => s.name), [\"make\",\"plan\",\"start\",\"review\",\"resolve\",\"consolidate\",\"find\"]);\nassert.strictEqual(fallback.selections.every(s => s.count === 1), true);\n```",
+            "UT: [Error] C001 — unknown, duplicate, gapped, reversed and count-on-non-repeatable tokens throw before any session\n```ts\nfor (const raw of [\"make,start\", \"smooth,educe\", \"make,,plan\", \"make,plan,make\", \"make:2\", \"explain:2\", \"find:2\", \"nope\", \"educe:0\", \"educe:-1\"]) {\n  assert.throws(() => parseStagePlan(raw, cwd), (error: unknown) => error instanceof StagePlanError, raw);\n}\n```",
+            "UT: [Normal] C002 — workspace stages use the root cwd, package stages use the package cwd\n```ts\nconst cwds: string[] = [];\nconst fakeDeps = { withSession: async (cwd: string, _config: unknown, fn: (s: unknown) => Promise<void>) => { cwds.push(cwd); await fn({}); } };\nawait runStagePlan({ plan: parseStagePlan(\"educe,explain,grill\", cwd), workspace, selectedPackages: [pkgA, pkgB], deps: fakeDeps });\nassert.strictEqual(cwds[0], workspace.root);\nassert.deepStrictEqual(cwds.slice(1), [pkgA.directory, pkgB.directory, pkgA.directory, pkgB.directory]);\nassert.strictEqual(process.cwd(), originalCwd);\n```",
+            "UT: [Normal] C003 — a package stage with N runs N full rounds, and a workspace stage runs N consecutive times\n```ts\nconst seen: string[] = [];\nawait runStagePlan({ plan: parseStagePlan(\"grill:2\", cwd), workspace, selectedPackages: [pkgA, pkgB], deps: recordDeps(seen) });\nassert.deepStrictEqual(seen.filter(x => x.startsWith(\"grill\")), [\"grill:1:pkg-a\",\"grill:1:pkg-b\",\"grill:2:pkg-a\",\"grill:2:pkg-b\"]);\nconst workspaceSeen: string[] = [];\nawait runStagePlan({ plan: parseStagePlan(\"smooth:2\", cwd), workspace, selectedPackages: [pkgA], deps: recordDeps(workspaceSeen) });\nassert.deepStrictEqual(workspaceSeen.filter(x => x.startsWith(\"smooth\")), [\"smooth:1:root\",\"smooth:2:root\"]);\nassert.throws(() => parseStagePlan(\"grill:0\", cwd), (error: unknown) => error instanceof StagePlanError);\n```",
+            "UT: [Invariant] C004 — the default -T path keeps the current prompt, cwd and next action byte-identical\n```ts\nconst expectedPrompt = \"/make-ticket P0-1\\n\\n\" + CROSS_PACKAGE_DIRECTIVE + \"\\n\" + COMPLETION_REPORT_DIRECTIVE;\nassert.strictEqual(composePrompt(\"/make-ticket P0-1\", 0), expectedPrompt);\nconst defaultPlan = parseStagePlan(undefined, cwd);\nassert.strictEqual(isDefaultImplementationPlan(defaultPlan), true);\nassert.deepStrictEqual(deriveNextAction(tickets, progress), currentDeriveNextAction(tickets, progress));\n```",
+            "UT: [Normal] C005 — the three forward scripts derive fixed inputs and refuse a non-empty argument\n```ts\nconst root = mkdtempSync(join(tmpdir(), \"px454-\"));\nwriteFileSync(join(root, \"SYSTEM-DESIGN.md\"), \"# design\\n\");\nassert.deepStrictEqual(parseSpecArgument([], root), { ok: true, specPath: join(root, \"SYSTEM-DESIGN.md\") });\nassert.deepStrictEqual(parseSpecArgument([\"\"], root), { ok: true, specPath: join(root, \"SYSTEM-DESIGN.md\") });\nassert.strictEqual(parseSpecArgument([\"dynamic.md\"], root).ok, false);\nassert.strictEqual(parseSpecArgument([], join(root, \"missing\")).ok, false);\n```",
+            "UT: [Normal] C006 — only explain and grill receive the full CRITICAL block, educe receives the fixed-argument override, and every other stage is unchanged\n```ts\nconst explain = composePrompt(\"/explain-seed\", 0, EXPLAIN_OVERRIDE);\nassert.ok(explain.includes(\"# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION\"));\nassert.ok(explain.includes(\"complete\"));\nconst grill = composePrompt(\"/grill-me-for-rfc\", 0, GRILL_OVERRIDE);\nassert.ok(grill.includes(\"chosen_default\"));\nconst educe = composePrompt(\"/educe-sequences\", 0, EDUCE_OVERRIDE);\nassert.ok(educe.includes(\"SYSTEM-DESIGN.md\"));\nassert.strictEqual(composePrompt(\"/make-ticket P0-1\", 0), \"/make-ticket P0-1\\n\\n\" + CROSS_PACKAGE_DIRECTIVE + \"\\n\" + COMPLETION_REPORT_DIRECTIVE);\nassert.ok(!composePrompt(\"/make-ticket P0-1\", 0).includes(\"# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION\"));\n```",
+            "UT: [Normal] C007 — every selected repetition runs even when a record says complete\n```ts\nlet runs = 0;\nconst deps = { runCommand: async () => { runs += 1; }, withSession: async (_cwd, _config, fn) => fn({}) };\nawait runStagePlan({ plan: parseStagePlan(\"grill:3\", cwd), workspace, selectedPackages: [pkgA, pkgB], deps, readStatus: () => ({ state: \"DONE\" }) });\nassert.strictEqual(runs, 6);\n```",
+            "UT: [Normal] C008 — the gate and order source follow the first selected stage\n```ts\nconst preSplit = resolveStageOrderSource({ root, plan: parseStagePlan(\"educe,explain\", root) });\nassert.deepStrictEqual(preSplit.levels, readJson(join(root, \"WORKSPACIFY-ALLOCATE-MANIFEST.json\")).implementation_order.levels);\nconst postSplit = resolveStageOrderSource({ root, plan: parseStagePlan(\"make,plan\", root) });\nassert.deepStrictEqual(postSplit.levels, readJson(join(root, \"WORKSPACIFY-IMPLEMENTATION-ORDER.json\")).implementationOrder.levels);\nassert.strictEqual(resolveStageGate(\"workspacify\").requiresSystemDesign, true);\nassert.strictEqual(resolveStageGate(\"educe\").requiresTreeAndAllocate, true);\nassert.strictEqual(resolveStageGate(\"make\").requiresExistingWorkspaceGate, true);\n```"
+          ],
+          "planned_at": "2026-11-26T07:25:51.449Z",
+          "startedAt": "2026-11-26",
+          "changes": [
+            {
+              "before": "conver.js ran only the implementation group with no stage selector",
+              "after": "-T selects a contiguous slice of the canonical stage order; default remains make,plan,start,review,resolve,consolidate,find",
+              "description": "Added -T/--tasks to src/cli.ts and the pure parser/validator in src/stage-plan.ts"
+            },
+            {
+              "before": "every command ran at the package directory",
+              "after": "workspacify, educe and smooth run at the workspace root; all other stages run at the package root",
+              "description": "Added src/stage-engine.ts with the stage table, cwd discipline, N repetitions and post-stage artifact checks"
+            },
+            {
+              "before": "a pre-split workspace could not start conver",
+              "after": "the gate is stage-aware: SYSTEM-DESIGN.md anchors workspacify, TREE+ALLOCATE anchor educe, the existing gate anchors make..find",
+              "description": "Added resolveStageWorkspaceRoot, resolveStageOrderSource and readWorkspaceForStagePlan to src/workspace.ts; readWorkspace is unchanged"
+            },
+            {
+              "before": "runWorkspaceLoop had no selected-stage filter",
+              "after": "a selected-stage filter stops at the first unselected action; undefined keeps the existing path",
+              "description": "Added selectedImplementationStages to src/runner.ts"
+            },
+            {
+              "before": "composePrompt had no stage-specific override",
+              "after": "explain and grill receive the full CRITICAL block (grill also forbids chosen_default skipping); educe receives only the fixed-argument override; every other stage is byte-identical",
+              "description": "Added opt-in promptOverride to src/command-history.ts and src/session.ts"
+            },
+            {
+              "before": "educe-sequences required a dynamic spec-file argument",
+              "after": "the fixed SYSTEM-DESIGN.md at the workspace root is resolved; a non-empty argument is refused",
+              "description": "Changed parseSpecArgument in .claude/scripts/educe-sequences/rail/paths.mjs"
+            },
+            {
+              "before": "workspacify-tree required a spec argument and workspacify-allocate a manifest argument",
+              "after": "the forward commands resolve SYSTEM-DESIGN.md and WORKSPACIFY-TREE-MANIFEST.json at the workspace root; reverse mode is unchanged",
+              "description": "Changed the forward handlers and usage in both run.mjs scripts; updated the three command documents minimally"
+            },
+            {
+              "before": "the new stage tests were not in the unit target",
+              "after": "make test-conver runs dist/stage-plan.test.js and dist/stage-engine.test.js",
+              "description": "Updated the Makefile test-conver recipe"
+            }
+          ],
+          "done_at": "2026-11-26T07:39:28.823Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-26",
+          "reviewed_at": "2026-11-26T08:18:36.022Z"
         }
       ]
     },

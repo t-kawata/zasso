@@ -9,11 +9,16 @@ import {
   composePrompt,
   COMPLETION_REPORT_DIRECTIVE,
   CROSS_PACKAGE_DIRECTIVE,
+  EDUCE_FIXED_SPEC_OVERRIDE,
   ESCALATION_MESSAGES,
+  EXPLAIN_OVERRIDE,
+  GRILL_OVERRIDE,
+  NON_INTERACTIVE_OVERRIDE,
 } from "./command-history.js";
 import type { CommandExecution } from "./command-history.js";
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function execution(overrides: Partial<CommandExecution> = {}): CommandExecution {
   return {
     workspace: "doors",
@@ -101,5 +106,37 @@ describe("composePrompt", () => {
         }
       }
     }
+  });
+});
+
+// @verifies C006
+describe("prompt overrides", () => {
+  it("C006: leaves the default composition byte-identical", () => {
+    const expected = `/make-ticket P0-1\n\n${CROSS_PACKAGE_DIRECTIVE}\n${COMPLETION_REPORT_DIRECTIVE}`;
+    assert.strictEqual(composePrompt("/make-ticket P0-1", 0), expected);
+    assert.strictEqual(
+      composePrompt("/make-ticket P0-1", 0).includes(NON_INTERACTIVE_OVERRIDE),
+      false,
+    );
+  });
+
+  it("C006: appends an override after the existing directives", () => {
+    const prompt = composePrompt("/explain-seed", 0, EXPLAIN_OVERRIDE);
+    assert.ok(prompt.startsWith("/explain-seed\n\n"));
+    assert.ok(prompt.endsWith(`\n\n${EXPLAIN_OVERRIDE}`));
+    assert.ok(prompt.includes(CROSS_PACKAGE_DIRECTIVE));
+  });
+
+  it("C006: explain and grill carry the full non-interactive block, and grill forbids chosen_default skipping", () => {
+    assert.ok(EXPLAIN_OVERRIDE.includes(NON_INTERACTIVE_OVERRIDE));
+    assert.ok(GRILL_OVERRIDE.includes(NON_INTERACTIVE_OVERRIDE));
+    assert.ok(GRILL_OVERRIDE.includes("chosen_default"));
+    assert.ok(EXPLAIN_OVERRIDE.includes("Answer every direction question"));
+    assert.ok(NON_INTERACTIVE_OVERRIDE.startsWith("# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION"));
+  });
+
+  it("C006: educe carries only the fixed-argument override", () => {
+    assert.ok(EDUCE_FIXED_SPEC_OVERRIDE.includes("SYSTEM-DESIGN.md"));
+    assert.strictEqual(EDUCE_FIXED_SPEC_OVERRIDE.includes(NON_INTERACTIVE_OVERRIDE), false);
   });
 });

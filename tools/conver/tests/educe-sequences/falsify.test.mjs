@@ -17,8 +17,8 @@ import { suppliedDocumentsOf } from '../../.claude/scripts/educe-sequences/rail/
 // [::TICKET::] PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-241 --for-spec --no-implementation-order`.
 
 const FIXTURE_ROOT = new URL('./fixtures/spec/', import.meta.url).pathname;
-const spec = readSpecification(new URL('./fixtures/spec/ledger.md', import.meta.url).pathname);
-const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger-sequences.json', import.meta.url), 'utf8'));
+const spec = readSpecification(new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname);
+const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url), 'utf8'));
 
 // This artifact borrows no census, so it is judged without material and the corpus below is
 // correct as it stands. That is also why the corpus could not see the omission the PX-267
@@ -68,6 +68,7 @@ test('C005 a case whose named check never fired is reported as carrying no verdi
 
 /** The golden artifact with its operation vocabulary renamed away from the fixture's. */
 // [::TICKET::] PX-246 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-246 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function renamedVocabulary() {
   const renamed = structuredClone(golden);
   const rename = new Map([['Admit', 'ZenithAdmit'], ['Settle', 'ZenithSettle']]);
@@ -140,8 +141,8 @@ test('C007 the counter-mutation runs over an artifact that binds a single step t
 // over a specification that does.
 
 const CENSUS_ROOT = new URL('./fixtures/census/', import.meta.url).pathname;
-const censusSpec = readSpecification(`${CENSUS_ROOT}ledger.md`);
-const censusGolden = JSON.parse(readFileSync(`${CENSUS_ROOT}ledger-sequences.json`, 'utf8'));
+const censusSpec = readSpecification(`${CENSUS_ROOT}SYSTEM-DESIGN.md`);
+const censusGolden = JSON.parse(readFileSync(`${CENSUS_ROOT}SYSTEM-DESIGN-sequences.json`, 'utf8'));
 const CENSUS_SUPPLIED = suppliedDocumentsOf(`${CENSUS_ROOT}educe-sequences`);
 
 /** What a run that borrowed a census hands the harness: the artifact and the material. */
@@ -185,7 +186,7 @@ test('PX-267 every counter-mutation stays green over an artifact that borrows a 
 
 test('PX-267 phase 16 hands the harness the material the run recorded', () => {
   const ctx = buildContext({
-    specPath: `${CENSUS_ROOT}ledger.md`,
+    specPath: `${CENSUS_ROOT}SYSTEM-DESIGN.md`,
     spec: censusSpec,
     run: { directory: `${CENSUS_ROOT}educe-sequences`, status: {} },
   });

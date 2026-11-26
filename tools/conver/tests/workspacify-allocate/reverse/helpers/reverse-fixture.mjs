@@ -237,6 +237,9 @@ export function fingerprintTree(root) {
       // the analysis descends into it — and a fingerprint that counted it would
       // report the run's own staging as a change to the project.
       if (entry.isDirectory() && entry.name === RESERVED_ROOT_NAME) continue;
+      // The run-history record is the run's own log, not a project artifact: a
+      // fingerprint that counted it would report every run as a change.
+      if (entry.isFile() && entry.name === '.conver-history.jsonl') continue;
       const relPath = rel ? `${rel}/${entry.name}` : entry.name;
       const absolute = join(abs, entry.name);
       if (entry.isDirectory()) {
@@ -271,6 +274,7 @@ export function isDirectory(path) {
 }
 
 // [::TICKET::] P22-12 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }

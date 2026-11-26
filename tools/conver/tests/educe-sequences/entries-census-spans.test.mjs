@@ -44,9 +44,9 @@ import { measureCoverage } from '../../.claude/scripts/sequences-slice/lib/oblig
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CENSUS_ROOT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/census');
-const SPEC_PATH = join(CENSUS_ROOT, 'ledger.md');
+const SPEC_PATH = join(CENSUS_ROOT, 'SYSTEM-DESIGN.md');
 const RUN_DIRECTORY = join(CENSUS_ROOT, 'educe-sequences');
-const GOLDEN_PATH = join(CENSUS_ROOT, 'ledger-sequences.json');
+const GOLDEN_PATH = join(CENSUS_ROOT, 'SYSTEM-DESIGN-sequences.json');
 const CENSUS_RUN_INPUT = JSON.parse(readFileSync(join(CENSUS_ROOT, 'ledger.run.json'), 'utf8'));
 
 const spec = readSpecification(SPEC_PATH);
@@ -66,6 +66,7 @@ const CENSUS_SPANS = Object.freeze(['1-23', '24-26', '27-33', '34-35', '36-48', 
 /** The entries census rewritten as spans, one row per span, in the same file. */
 // [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function spanDocument(spans) {
   const rows = spans.map((span, index) => JSON.stringify({ region: `region-${index + 1}`, span }));
   return ['```json', ...rows, '```', ''].join('\n');
@@ -134,16 +135,16 @@ function entryVerdicts(artifact, supplied = SPAN_SUPPLIED) {
 }
 
 /** A run directory whose specification and material are the fixture's, with the census rewritten. */
-// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-266|PX-454) --for-spec --no-implementation-order`.
 function spanRun() {
   const root = mkdtempSync(join(tmpdir(), 'px266-spans-'));
-  copyFileSync(SPEC_PATH, join(root, 'ledger.md'));
+  copyFileSync(SPEC_PATH, join(root, 'SYSTEM-DESIGN.md'));
   cpSync(RUN_DIRECTORY, join(root, 'educe-sequences'), { recursive: true });
   const directory = join(root, 'educe-sequences');
   writeFileSync(join(directory, 'supplied', ENTRIES_FILE), SPAN_CENSUS);
   const declaration = { ...CENSUS_RUN_INPUT.declaration, sourceEnumerations: [OPERATIONS_PIN, SPAN_PIN] };
   writeFileSync(join(directory, 'declaration.json'), `${JSON.stringify(declaration, null, 2)}\n`);
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   const run = { specPath, spec, directory, status: startRun({ specPath, spec }).status };
   return { ...run, declaration };
 }

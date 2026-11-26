@@ -57,15 +57,16 @@ const PHASE_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/ph
 const COMMAND_PATH = join(PROJECT_ROOT, '.claude/commands/educe-sequences.md');
 const COMMAND = readFileSync(COMMAND_PATH, 'utf8');
 const BRIEF_PATH = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/briefs/inquest.md');
-const SPEC_SOURCE = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
+const SPEC_SOURCE = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
 const RUN_INPUT = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger.run.json', import.meta.url), 'utf8'));
-const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/ledger-sequences.json', import.meta.url), 'utf8'));
+const golden = JSON.parse(readFileSync(new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url), 'utf8'));
 
 /** The predicate as a brief receives it, so the audit renders with its criterion. */
-const PREDICATE = predicateFor(golden.pins.predicate.limbs, readSpecification(new URL('./fixtures/spec/ledger.md', import.meta.url).pathname).lines);
+const PREDICATE = predicateFor(golden.pins.predicate.limbs, readSpecification(new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname).lines);
 
 /** Whitespace collapsed, which is how a quote broken across a line break is compared. */
 // [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function normalised(text) {
   return String(text).replace(/\s+/g, ' ').trim();
 }
@@ -79,10 +80,10 @@ const PHASE_IDENTITY = Object.freeze([
 ]);
 
 /** A throwaway specification, so no test writes into the committed fixture. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-243, PX-244, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-454) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-inquest-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   return { root, specPath, spec: readSpecification(specPath), directory: join(root, 'educe-sequences') };
 }
@@ -177,9 +178,9 @@ function contextThrough(id, declaration = RUN_INPUT.declaration) {
 }
 
 /** Run the phase driver as the command file runs it. */
-// [::TICKET::] PX-243, PX-244 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244) --for-spec --no-implementation-order`.
-function phase(argv) {
-  return spawnSync('node', [PHASE_SCRIPT, ...argv], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+// [::TICKET::] PX-243, PX-244, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-243|PX-244|PX-454) --for-spec --no-implementation-order`.
+function phase(argv, cwd) {
+  return spawnSync('node', [PHASE_SCRIPT, ...argv], { cwd, encoding: 'utf8' });
 }
 
 /** The verdicts one check returned, out of a whole block. */
@@ -526,7 +527,7 @@ test('the inquest does not enter the artifact', () => {
 // ---------------------------------------------------------------------------
 
 test('IT through reaches every phase in order over a seeded audit, and the report prints the counts', () => {
-  const { specPath, spec, directory } = scratchRun();
+  const { root, specPath, spec, directory } = scratchRun();
   const run = startRun({ specPath, spec });
   seed(directory, spec.lines, RUN_INPUT.declaration);
 
@@ -536,14 +537,14 @@ test('IT through reaches every phase in order over a seeded audit, and the repor
   assert.equal(outcome.results.length, 18);
   assert.deepEqual(outcome.results.map((result) => result.id), Array.from({ length: 18 }, (_, index) => index + 1));
 
-  const reported = phase(['report', specPath]);
+  const reported = phase(['report', ''], root);
   assert.equal(reported.status, 0, reported.stderr);
   assert.match(reported.stdout, new RegExp(`inquestAsked=${subjectsOf(RUN_INPUT.declaration).length * INQUEST_LENSES.length}`));
   assert.match(reported.stdout, /\*\*complete\*\*/);
 });
 
 test('IT an unanswered pair refuses phase 13 by name and the check block is refused entry', () => {
-  const { specPath, spec, directory } = scratchRun();
+  const { root, specPath, spec, directory } = scratchRun();
   const run = startRun({ specPath, spec });
   const subject = RUN_INPUT.declaration.sections[2].id;
   const lens = INQUEST_LENSES[3];
@@ -562,7 +563,7 @@ test('IT an unanswered pair refuses phase 13 by name and the check block is refu
   assert.equal(blocked.reason, 'phase 13 is not done');
   assert.equal(blocked.exitCode, 1);
 
-  const driven = phase(['through', specPath]);
+  const driven = phase(['through', ''], root);
   assert.equal(driven.status, 1, 'the run stops rather than printing a green block');
   assert.equal(/checksRun=/.test(driven.stdout), false);
 });
@@ -575,7 +576,7 @@ test('IT the brief the renderer accepts for the audit is the one the command fil
 });
 
 test('IT every surface judges the same audit, so the report cannot report complete over a refusal', async () => {
-  const { specPath, spec, directory } = scratchRun();
+  const { root, specPath, spec, directory } = scratchRun();
   const run = startRun({ specPath, spec });
   seed(directory, spec.lines, RUN_INPUT.declaration);
   writeInquest(directory, coveringAnswers(spec.lines, RUN_INPUT.declaration, { overrides: { quote: 'a phrase no line of this document carries' } }));
@@ -584,8 +585,8 @@ test('IT every surface judges the same audit, so the report cannot report comple
   assert.equal(existsSync(artifactPathFor(specPath)), true, 'the block is built over an artifact that exists');
 
   const checksPhase = runPhase(14, context);
-  const product = await runCommand([specPath], { runInput: null });
-  const reported = phase(['report', specPath]);
+  const product = await runCommand([], { cwd: root, runInput: null });
+  const reported = phase(['report', ''], root);
 
   assert.equal(checksPhase.ok, false, 'the checks phase refuses a misquoted answer');
   assert.equal(product.exitCode, 1, 'so does the product path');
@@ -595,7 +596,7 @@ test('IT every surface judges the same audit, so the report cannot report comple
 });
 
 test('IT the block judges the audit a real run hands it, so a misquoted answer reddens phase 14', () => {
-  const { specPath, spec, directory } = scratchRun();
+  const { root, specPath, spec, directory } = scratchRun();
   const run = startRun({ specPath, spec });
   seed(directory, spec.lines, RUN_INPUT.declaration);
   writeInquest(directory, coveringAnswers(spec.lines, RUN_INPUT.declaration, { overrides: { quote: 'a phrase no line of this document carries' } }));
@@ -609,7 +610,7 @@ test('IT the block judges the audit a real run hands it, so a misquoted answer r
 });
 
 test('IT the audit is recorded in the generation history, so the next generation can compare', () => {
-  const { specPath, spec, directory } = scratchRun();
+  const { root, specPath, spec, directory } = scratchRun();
   const run = startRun({ specPath, spec });
   seed(directory, spec.lines, RUN_INPUT.declaration);
   const context = buildContext({ specPath, spec, run: { directory, status: run.status } });

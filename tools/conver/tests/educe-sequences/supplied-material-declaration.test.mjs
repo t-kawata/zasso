@@ -41,14 +41,14 @@ import { suppliedDocumentsOf, suppliedFilesOf, MATERIAL_FILE } from '../../.clau
 import { denominatorOf, gapsIn } from '../../.claude/scripts/sequences-slice/lib/obligation-denominator.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SPEC_SOURCE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
+const SPEC_SOURCE = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
 const RUN_INPUT = JSON.parse(readFileSync(join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.run.json'), 'utf8'));
 
 /** The borrowed-census fixture: the declaration, the material it names, and the artifact. */
 const CENSUS_ROOT = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/census');
-const CENSUS_SPEC = join(CENSUS_ROOT, 'ledger.md');
+const CENSUS_SPEC = join(CENSUS_ROOT, 'SYSTEM-DESIGN.md');
 const CENSUS_SUPPLIED = join(CENSUS_ROOT, 'educe-sequences/supplied');
-const CENSUS_GOLDEN = JSON.parse(readFileSync(join(CENSUS_ROOT, 'ledger-sequences.json'), 'utf8'));
+const CENSUS_GOLDEN = JSON.parse(readFileSync(join(CENSUS_ROOT, 'SYSTEM-DESIGN-sequences.json'), 'utf8'));
 const CENSUS_RUN_INPUT = JSON.parse(readFileSync(join(CENSUS_ROOT, 'ledger.run.json'), 'utf8'));
 
 /** The census document shape: one fence whose every row carries the field. */
@@ -81,10 +81,11 @@ const CHECKER_DECLARATION = Object.freeze({
  * nowhere — so a scratch declaration would fail the gate for a reason this file is not about.
  */
 // [::TICKET::] PX-288 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-288 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-265, PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-265, PX-266, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-265|PX-266|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'educe-declaration-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_SOURCE, specPath);
   const spec = readSpecification(specPath);
   const run = startRun({ specPath, spec });
@@ -124,10 +125,10 @@ function evaluatePhase(phaseId, { specPath, spec, directory, status }) {
  * that drive a run need a declaration whose enumerations occur in the document, and because a
  * run that was given material is the case this ticket is about.
  */
-// [::TICKET::] PX-266 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-266 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-266, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-266|PX-454) --for-spec --no-implementation-order`.
 function fixtureRun(prefix, documents) {
   const root = mkdtempSync(join(tmpdir(), prefix));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(CENSUS_SPEC, specPath);
   const spec = readSpecification(specPath);
   const directory = join(root, 'educe-sequences');

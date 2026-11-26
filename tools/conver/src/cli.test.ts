@@ -1,3 +1,4 @@
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-151 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-151 --for-spec --no-implementation-order`.
 // cli.test.ts — parseCliOptions のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
@@ -74,6 +75,17 @@ describe("parseCliOptions", () => {
       const argv = ["node", "conver.js", "-k", "k", "-s", "s", "--max-find-rounds", raw];
       assert.strictEqual(parseCliOptions(argv).maxFindRounds, 5, `raw=${raw}`);
     }
+  });
+
+  it("C001: -T accepts the raw stage list and is absent by default", () => {
+    const short = ["node", "conver.js", "-k", "k", "-s", "s", "-T", "make,plan"];
+    assert.strictEqual(parseCliOptions(short).tasks, "make,plan");
+
+    const long = ["node", "conver.js", "-k", "k", "-s", "s", "--tasks", "educe:2,explain"];
+    assert.strictEqual(parseCliOptions(long).tasks, "educe:2,explain");
+
+    const absent = ["node", "conver.js", "-k", "k", "-s", "s"];
+    assert.strictEqual(parseCliOptions(absent).tasks, undefined);
   });
 
   it("-w /path/to/config.json で watcherConfig に格納される", () => {

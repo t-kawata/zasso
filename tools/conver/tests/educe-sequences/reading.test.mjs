@@ -25,8 +25,8 @@ import {
 } from '../../.claude/scripts/educe-sequences/rail/reading.mjs';
 import { selectNeighbourFor } from '../../.claude/scripts/educe-sequences/rail/pins.mjs';
 
-const SPEC_PATH = new URL('./fixtures/spec/ledger.md', import.meta.url).pathname;
-const GOLDEN_PATH = new URL('./fixtures/spec/ledger-sequences.json', import.meta.url).pathname;
+const SPEC_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN.md', import.meta.url).pathname;
+const GOLDEN_PATH = new URL('./fixtures/spec/SYSTEM-DESIGN-sequences.json', import.meta.url).pathname;
 const BRIEFS_ROOT = new URL('../../.claude/scripts/educe-sequences/briefs', import.meta.url).pathname;
 /** The fifth brief template, read so a test can remove a clause from it. */
 const ADHOC_BRIEF_PATH = new URL('../../.claude/scripts/educe-sequences/briefs/adhoc.md', import.meta.url).pathname;
@@ -39,10 +39,11 @@ const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 const PREDICATE = predicateFor(golden.pins.predicate.limbs, spec.lines);
 
 /** A throwaway artifact path holding the golden artifact, so a write cannot touch the fixture. */
-// [::TICKET::] PX-240, PX-241 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-240, PX-241, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-240|PX-241|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function scratchArtifact() {
   const directory = mkdtempSync(join(tmpdir(), 'educe-reading-'));
-  const path = join(directory, 'ledger-sequences.json');
+  const path = join(directory, 'SYSTEM-DESIGN-sequences.json');
   copyFileSync(GOLDEN_PATH, path);
   return path;
 }

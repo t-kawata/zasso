@@ -28,8 +28,8 @@ import { readSpecification } from '../../.claude/scripts/educe-sequences/rail/lo
 import { writeReadingsFile } from '../../.claude/scripts/educe-sequences/rail/readings.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.md');
-const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger-sequences.json');
+const SPEC_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN.md');
+const GOLDEN_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/SYSTEM-DESIGN-sequences.json');
 const RUN_INPUT_PATH = join(PROJECT_ROOT, 'tests/educe-sequences/fixtures/spec/ledger.run.json');
 const DESIGN_DOC = join(PROJECT_ROOT, 'docs/EDUCE-SEQUENCES-DESIGN.md');
 const PHASE = join(PROJECT_ROOT, '.claude/scripts/educe-sequences/rail/phase.mjs');
@@ -40,6 +40,7 @@ const RUN_INPUT = JSON.parse(readFileSync(RUN_INPUT_PATH, 'utf8'));
 
 /** The golden artifact, read fresh so no test can hand another a mutated one. */
 // [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function golden() {
   return JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 }
@@ -60,17 +61,17 @@ function coveredLines(spans) {
  * Phase 5 requires phase 1, so a run entered directly at the gate the test is about would
  * be refused for its order rather than for its coverage.
  */
-// [::TICKET::] PX-247 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-247 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-247, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-247|PX-454) --for-spec --no-implementation-order`.
 function scratchRun() {
   const root = mkdtempSync(join(tmpdir(), 'px247-lines-'));
-  copyFileSync(SPEC_PATH, join(root, 'ledger.md'));
+  copyFileSync(SPEC_PATH, join(root, 'SYSTEM-DESIGN.md'));
   const directory = join(root, 'educe-sequences');
   mkdirSync(directory, { recursive: true });
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
 
-  assert.equal(spawnSync('node', [PHASE, 'begin', specPath], { encoding: 'utf8' }).status, 0);
-  assert.equal(spawnSync('node', [PHASE, 'run', specPath, '1'], { encoding: 'utf8' }).status, 0);
-  return { specPath, directory };
+  assert.equal(spawnSync('node', [PHASE, 'begin', ''], { cwd: root, encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync('node', [PHASE, 'run', '', '1'], { cwd: root, encoding: 'utf8' }).status, 0);
+  return { root, specPath, directory };
 }
 
 /** Declare the given entries, keeping every other section of the declaration as the fixture states it. */
@@ -153,7 +154,7 @@ test('C002 phase 5 refuses a declaration whose entries leave a line to nobody, n
     { id: 'b', kind: 'entry', firstLine: 5, lastLine: spec.lineCount },
   ]);
 
-  const refused = spawnSync('node', [PHASE, 'run', run.specPath, '5'], { encoding: 'utf8' });
+  const refused = spawnSync('node', [PHASE, 'run', '', '5'], { cwd: run.root, encoding: 'utf8' });
 
   assert.equal(refused.status, 1);
   assert.match(refused.stdout, /line 4 belongs to no entry, so nothing was read there/);
@@ -164,7 +165,7 @@ test('C002 phase 5 passes the same document once an entry covers the line', () =
   const run = scratchRun();
   declare(run.directory, [{ id: 'all', kind: 'entry', firstLine: 1, lastLine: spec.lineCount }]);
 
-  const passed = spawnSync('node', [PHASE, 'run', run.specPath, '5'], { encoding: 'utf8' });
+  const passed = spawnSync('node', [PHASE, 'run', '', '5'], { cwd: run.root, encoding: 'utf8' });
 
   assert.equal(passed.status, 0);
   assert.match(passed.stdout, /entries cover every line/);
@@ -176,7 +177,7 @@ test('C002 the rule is over the document, not the partition: a line before the f
   // heading still leaves the two lines of the title block to nobody.
   declare(run.directory, [{ id: 'sections-only', kind: 'entry', firstLine: 3, lastLine: spec.lineCount }]);
 
-  const refused = spawnSync('node', [PHASE, 'run', run.specPath, '5'], { encoding: 'utf8' });
+  const refused = spawnSync('node', [PHASE, 'run', '', '5'], { cwd: run.root, encoding: 'utf8' });
 
   assert.equal(refused.status, 1);
   assert.match(refused.stdout, /line 1 belongs to no entry/);
@@ -214,15 +215,15 @@ test('C003 an artifact with no verdict covers every line, and the check count fo
 
 test('C003 the product path refuses a gapped artifact, names the range, and leaves it byte-identical', () => {
   const root = mkdtempSync(join(tmpdir(), 'px247-product-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_PATH, specPath);
-  const artifactPath = join(root, 'ledger-sequences.json');
+  const artifactPath = join(root, 'SYSTEM-DESIGN-sequences.json');
   const gapped = golden();
   gapped.sequences = gapped.sequences.filter((sequence) => sequence.id !== 'front-matter');
   writeFileSync(artifactPath, `${JSON.stringify(gapped, null, 2)}\n`);
   const committed = readFileSync(artifactPath, 'utf8');
 
-  const verified = spawnSync('node', [RUN_RAIL, specPath], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const verified = spawnSync('node', [RUN_RAIL], { cwd: root, encoding: 'utf8' });
   const reported = `${verified.stdout}${verified.stderr}`;
 
   assert.notEqual(verified.status, 0, 'a verification that refuses exits non-zero');
@@ -233,7 +234,7 @@ test('C003 the product path refuses a gapped artifact, names the range, and leav
 
 test('C003 the generation path refuses a declaration whose entries leave a gap, and names the range', () => {
   const root = mkdtempSync(join(tmpdir(), 'px247-generate-'));
-  const specPath = join(root, 'ledger.md');
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   copyFileSync(SPEC_PATH, specPath);
   // The entry and every reading about it are withdrawn together, so the artifact is
   // assembled and it is the coverage rule that refuses it rather than a reading that
@@ -249,8 +250,8 @@ test('C003 the generation path refuses a declaration whose entries leave a gap, 
     },
   };
 
-  const verified = spawnSync('node', [RUN_RAIL, specPath], {
-    cwd: PROJECT_ROOT,
+  const verified = spawnSync('node', [RUN_RAIL], {
+    cwd: root,
     encoding: 'utf8',
     input: JSON.stringify(gapped),
   });
@@ -268,7 +269,7 @@ test('C003 the check and the phase-5 gate name the same first unread line', () =
   const run = scratchRun();
   declare(run.directory, withoutFrontMatter.map(({ id, kind, firstLine, lastLine }) => ({ id, kind, firstLine, lastLine })));
 
-  const refused = spawnSync('node', [PHASE, 'run', run.specPath, '5'], { encoding: 'utf8' });
+  const refused = spawnSync('node', [PHASE, 'run', '', '5'], { cwd: run.root, encoding: 'utf8' });
   const named = /line (\d+) belongs to no entry/.exec(refused.stdout);
   const gapped = { ...tiled, sequences: withoutFrontMatter };
   const [verdict] = verdictsOf(gapped, 'every-line-belongs-to-an-entry');
@@ -297,7 +298,7 @@ test('IT the checks gate names the subject of the verdict it refuses on', () => 
   writeReadingsFile(join(run.directory, 'readings-span.jsonl'), claiming);
   writeReadingsFile(join(run.directory, 'readings-adjudicate.jsonl'), RUN_INPUT.readings.adjudications);
 
-  const through = spawnSync('node', [PHASE, 'through', run.specPath, '9'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+  const through = spawnSync('node', [PHASE, 'through', '', '9'], { cwd: run.root, encoding: 'utf8' });
 
   assert.match(through.stdout, /^phase\s+9 \[det\] FAIL/m);
   assert.match(through.stdout, /every-operation-reached: front-matter — /);
