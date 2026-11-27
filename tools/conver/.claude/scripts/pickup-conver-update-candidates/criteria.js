@@ -1,3 +1,4 @@
+// [::TICKET::] PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-458 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
 'use strict';
 
@@ -59,6 +60,24 @@ const CHANGE_TYPES = Object.freeze(['added', 'modified', 'deleted', 'renamed']);
 /** The five facts a candidate must state; one missing fact means it is unspecified. */
 const REQUIRED_CANDIDATE_FIELDS = Object.freeze(['symptom', 'remedy', 'scope', 'risk', 'verification']);
 
+/** The only fields update may change; location and evidence require delete and recreate. */
+const UPDATABLE_FIELDS = Object.freeze([
+  'primaryCriterion',
+  'secondaryCriteria',
+  'generalization',
+  'adaptationPlan',
+  'impact',
+  'confidence',
+  'riskLevel',
+  'status',
+  'note',
+  'symptom',
+  'remedy',
+  'scope',
+  'risk',
+  'verification',
+]);
+
 /** How many candidates the Markdown view shows before the explicit remainder. */
 const DISPLAY_LIMIT = 50;
 
@@ -75,5 +94,6 @@ module.exports = {
   GENERALIZATIONS,
   CHANGE_TYPES,
   REQUIRED_CANDIDATE_FIELDS,
+  UPDATABLE_FIELDS,
   DISPLAY_LIMIT,
 };

@@ -10,37 +10,27 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const criteria = require('./criteria.js');
 const schema = require('./schema.js');
 const store = require('./store.js');
 const scan = require('./scan.js');
 const render = require('./render.js');
 const { createFinding, renderFinding } = require('../lib/repair-finding.js');
 
-const UPDATABLE_FIELDS = Object.freeze([
-  'primaryCriterion',
-  'secondaryCriteria',
-  'generalization',
-  'adaptationPlan',
-  'impact',
-  'confidence',
-  'riskLevel',
-  'status',
-  'note',
-  'symptom',
-  'remedy',
-  'scope',
-  'risk',
-  'verification',
-]);
+const UPDATABLE_FIELDS = criteria.UPDATABLE_FIELDS;
+const STDIN_SENTINEL = '-';
 
 // [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
 function defaultClaudeDir(workspace) {
   return path.join(path.resolve(workspace), '.claude');
 }
 
-// [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
-function readJsonFile(file) {
-  return JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
+// [::TICKET::] PX-457, PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-457|PX-458) --for-spec --no-implementation-order`.
+function readJsonInput(source) {
+  const raw = source === STDIN_SENTINEL
+    ? fs.readFileSync(0, 'utf8')
+    : fs.readFileSync(path.resolve(source), 'utf8');
+  return JSON.parse(raw);
 }
 
 // [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
@@ -81,12 +71,12 @@ function persistLedger(workspace, ledger) {
  * @param {{workspace?:string, candidate:object|string, claudeDir?:string, upstreamRef?:string}} options
  * @returns {object}
  */
-// [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-457, PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-457|PX-458) --for-spec --no-implementation-order`.
 function createCandidate(options) {
   const workspace = path.resolve(options.workspace || process.cwd());
   let candidate;
   try {
-    candidate = typeof options.candidate === 'string' ? readJsonFile(options.candidate) : options.candidate;
+    candidate = typeof options.candidate === 'string' ? readJsonInput(options.candidate) : options.candidate;
   } catch (error) {
     return {
       ok: false,
@@ -278,7 +268,7 @@ function parseArguments(argv) {
   return options;
 }
 
-// [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-457, PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-457|PX-458) --for-spec --no-implementation-order`.
 function dispatch(command, options, workspace, claudeDir) {
   switch (command) {
     case 'scan':
@@ -290,7 +280,9 @@ function dispatch(command, options, workspace, claudeDir) {
     case 'show':
       return { command, ...showCandidate({ workspace, id: options.id }) };
     case 'update':
-      return { command, ...updateCandidate({ workspace, id: options.id, patch: options.patch ? readJsonFile(options.patch) : {} }) };
+      return { command, ...updateCandidate({ workspace, id: options.id, patch: options.patch ? readJsonInput(options.patch) : {} }) };
+    case 'schema':
+      return { command, ok: true, ...schema.describeSchema() };
     case 'delete':
       return { command, ...deleteCandidate({ workspace, id: options.id }) };
     case 'render':
@@ -300,8 +292,8 @@ function dispatch(command, options, workspace, claudeDir) {
         ok: false,
         code: 'ERROR:unknown-subcommand',
         cause: 'Unknown subcommand: ' + String(command),
-        action: 'Use scan, create, list, show, update, delete, or render with --workspace <dir>.',
-        verify: 'node .claude/scripts/pickup-conver-update-candidates/cli.js list --workspace .',
+        action: 'Use scan, schema, create, list, show, update, delete, or render with --workspace <dir>.',
+        verify: 'node .claude/scripts/pickup-conver-update-candidates/cli.js schema',
       };
   }
 }
@@ -347,7 +339,7 @@ function renderCandidateDetail(candidate) {
   ].join('\n');
 }
 
-// [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-457, PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-457|PX-458) --for-spec --no-implementation-order`.
 function emitHuman(result) {
   switch (result.command) {
     case 'scan':
@@ -357,8 +349,14 @@ function emitHuman(result) {
       }
       process.stdout.write('# changed files\n\n');
       for (const file of result.files) {
-        process.stdout.write(`- ${file.file} (${file.changeType}) ${file.hunkHeader}\n`);
+        const fence = render.fenceFor(file.diff);
+        process.stdout.write(
+          `## ${file.file} (${file.changeType}) ${file.hunkHeader}\n\n${fence}diff\n${file.diff}${fence}\n\n`
+        );
       }
+      return;
+    case 'schema':
+      process.stdout.write(render.renderSchemaMarkdown(result) + '\n');
       return;
     case 'create':
       process.stdout.write(result.status === 'created'

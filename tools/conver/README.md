@@ -516,12 +516,13 @@ reviewed チケットの**契約（Contracts）がテストコードへ正確に
 
 conver がインストールされたプロジェクトの `.claude` に生じた局所変更を、conver 本体へ還流させる候補として抽出します。開発活動そのものを入力にする自己進化ループの入口です。
 
-- **走査範囲**: リポジトリ直下の `.claude` のみ。`git diff --stat @{u} -- .claude` が空でも untracked ファイルがあれば候補対象になります。`.claude` 外は完全に対象外です
+- **走査範囲**: リポジトリ直下の `.claude` のみ。`git diff --stat @{u} -- .claude` が空でも untracked ファイルがあれば候補対象になります。`.claude` 外は完全に対象外です。`scan` は変更ファイルごとに差分本体を fenced block で出力するため、AI は別コマンドで差分を取り直す必要がありません
 - **判定**: G1〜G6 の必須ゲート、10 の価値カテゴリ、X1〜X8 の除外基準、S-R-G-R-V（Symptom / Remedy / Generality / Risk / Verification）の完全性をハンク単位で適用します。汎用吸収すべきと判断したものだけが候補になります
+- **スキーマ参照**: `schema` サブコマンドが、全ゲート・除外の規則文、価値カテゴリ、必須の location / evidence フィールド、enum、`create` が自動計算する項目、`update` のホワイトリストを出力します。`criteria.js` と `schema.js` から導出されるため、実装ファイルを読まずに候補を書けます
 - **出力**: ワークスペース直下の `CONVER-UPDATE-CANDIDATES.json`（厳格スキーマ・全件）と `CONVER-UPDATE-CANDIDATES.md`（JSON から自動生成・上限付き表示）。JSON が唯一の真実で、Markdown は手編集しません
 - **記録**: 候補は `criteriaVersion 1.0.0` とともに記録され、`sha256` の内容指紋で重複を排除します。基準外の変更は stdout にだけ表示され、JSON には残しません
 - **fail-closed**: upstream が未設定なら推測せず停止します。`.claude` 外を指すパスは symlink を含めて拒否します
-- **CRUD**: `scan` / `create` / `list` / `show` / `update` / `delete` / `render`。失敗はすべて修復指示（Cause / Artifact / Field / Action / Verify）付きで返ります
+- **CRUD**: `scan` / `schema` / `create` / `list` / `show` / `update` / `delete` / `render`。`create` は `--candidate=-`、`update` は `--patch=-` で stdin から JSON を読めるため、一時ファイルが不要です。失敗はすべて修復指示（Cause / Artifact / Field / Action / Verify）付きで返ります
 
 ### ナレッジスキル生成（AI 自動実行）
 

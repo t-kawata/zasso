@@ -72170,6 +72170,173 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-27",
           "reviewed_at": "2026-11-27T06:07:00.770Z"
+        },
+        {
+          "id": 458,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Harden pickup-conver-update-candidates: diff delivery, schema reference, stdin CRUD",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-458.md",
+          "background": "### Goal\nMake the pickup-conver-update-candidates command self-sufficient for an AI: the diff body, the candidate schema, and the correction path are delivered by the CLI and named by the command, without reading implementation files or guessing.\n\n### Purpose\nThe PX-457 command mechanized storage but left three knowledge gaps. The AI saw file names and hunk headers, not the diff. The AI was told to write a candidate JSON without being told its fields. The AI had no update or delete path and had to manage a temporary file. A command that requires reading its own implementation is not a command; it is a hint.\n\n### Motivation\nA real review of PX-457 confirmed all three gaps against the source. The user asked for every defect and unkindness to be resolved. Mechanizing the delivery surface is cheaper and safer than writing more prose into the command, and it keeps the telegraphic budget.\n\n### Constraints\n- The command document stays English-only, telegraphic, information-complete, and within 120 lines.\n- The schema output is derived from criteria.js and schema.js, never hand-copied.\n- Stdin and file inputs share one validation path.\n- No new dependency; CommonJS under .claude/scripts and .test.cjs tests.\n- The criteria taxonomy and acceptance rules do not change.\n- Excluded changes remain stdout-only and never persist.",
+          "scope": [
+            "**Scope of changes (each change comprehensively):**\n- `.claude/scripts/pickup-conver-update-candidates/cli.js` — modify: scan human output prints each changed file heading followed by its complete diff inside a fence longer than any backtick run; add a `schema` subcommand that prints gates with rule text, exclusions with rule text, value categories, required location and evidence fields, enums, computed-by-create fields, and the update whitelist; accept `--candidate=-` for create and `--patch=-` for update, reading JSON from stdin through the same parser and validation path as a file.\n- `.claude/scripts/pickup-conver-update-candidates/schema.js` — add: describeSchema() returning the reference data (location fields, required completeness fields, evidence fields, enums, computed fields, update whitelist) derived from criteria.js; no hand-copied list.\n- `.claude/scripts/pickup-conver-update-candidates/criteria.js` — add: UPDATABLE_FIELDS as the single authority for the update whitelist; cli.js re-exports it for compatibility.\n- `.claude/scripts/pickup-conver-update-candidates/render.js` — add: export fenceFor(text) and renderSchemaMarkdown(description); use fenceFor in candidate patches so scan and render share one fence rule.\n- `.claude/commands/pickup-conver-update-candidates.md` — modify: Step 0 runs `cli.js schema`; Step 1 states that scan prints fenced diffs; Step 3 creates from stdin with a compact example; Step 4 corrects with update/delete and inspects with list/show; one line points to `schema` for full rule text. Stay under 120 lines.\n- `README.md` — modify: document the schema subcommand, per-file diff output, and stdin options.\n- `tests/pickup-conver-update-candidates/schema-command.test.cjs` — add: schema human and JSON output, determinism, and agreement with the validator.\n- `tests/pickup-conver-update-candidates/crud.test.cjs` — add: create --candidate=- and update --patch=- through spawned stdin, plus invalid stdin errors.\n- `tests/pickup-conver-update-candidates/scan.test.cjs` — add: spawned scan human output contains the diff and a fence longer than a triple-backtick run.\n- `tests/pickup-conver-update-candidates/command-doc.test.cjs` — add: the command names schema, diffs, create, update, delete, list, and show; still English-only and within 120 lines.\n- Data schema: no ledger schema change; the schema subcommand describes the existing candidate contract.\n- Dependencies: none added.\n- Config/env: none added; stdin is the only new input channel.",
+            "**Out of scope (intentionally excluded):**\n- Changing any gate, category, exclusion, completeness rule, or acceptance criterion.\n- Absorbing candidates into the conver development repository.\n- Automatic semantic judgment; the AI still judges and the script still enforces structure.\n- A cross-project merge or weaker fingerprint.\n- Modifying PX-457's reviewed implementation beyond the delivery surface listed above.",
+            "**Affected areas:**\n- Every project that installs conver: the command becomes self-sufficient; no existing subcommand changes meaning.\n- `scan` human output gains diff bodies; `--json` output is unchanged.\n- New `schema` subcommand adds a read-only surface.\n- `create`/`update` accept stdin in addition to files; file behavior is unchanged.\n- Tests: the existing pickup surface grows by one file and several cases."
+          ],
+          "testUnit": [
+            "UT: [Normal] scan human output prints each file heading and a fenced diff containing the added line.",
+            "UT: [Normal] scan human output chooses a fence longer than a backtick run inside the diff.",
+            "UT: [Normal] schema human output names G1-G6 with their rule text and X1-X8 with their rule text.",
+            "UT: [Normal] schema human output names all 10 value categories, the required location and evidence fields, the computed-by-create fields, and the update whitelist.",
+            "UT: [Normal] schema output is byte-identical across two runs.",
+            "UT: [Normal] schema --json emits a parseable object with gates, exclusions, categories, required fields, computed fields, and updateWhitelist.",
+            "UT: [Normal] create --candidate=- reads the candidate JSON from stdin and creates CUC-0001.",
+            "UT: [Normal] update --patch=- reads the patch JSON from stdin and updates the note.",
+            "UT: [Error] create --candidate=- with invalid JSON reports ERROR:candidate-unreadable and writes nothing.",
+            "UT: [Error] update --patch=- with an unknown field reports ERROR:field-not-updatable and writes nothing.",
+            "UT: [Boundary] a diff containing a triple-backtick line is fenced with four backticks.",
+            "UT: [Boundary] describeSchema always carries every enum and rule; an empty result is impossible.",
+            "UT: [Invariant] the update whitelist comes from criteria.js in both the CLI and the schema output.",
+            "UT: [Invariant] the command document names schema, scan diffs, create, update, delete, list, and show.",
+            "UT: [Invariant] the command document stays English-only and within 120 lines.",
+            "UT: [Contract] @verifies C001 scan prints the complete diff for every listed file inside a collision-safe fence.",
+            "UT: [Contract] @verifies C002 the schema output names every gate rule, exclusion rule, category, required field, computed field, and update whitelist entry.",
+            "UT: [Contract] @verifies C003 create --candidate=- validates and persists stdin exactly as a file input.",
+            "UT: [Contract] @verifies C004 update --patch=- applies the whitelist, whole-record revalidation, and Markdown re-render exactly as a file patch.",
+            "UT: [Contract] @verifies C005 the command document plus the schema subcommand lets an AI find diffs, learn the schema, create, correct, list, and delete without reading implementation files.",
+            "UT: [Contract] @verifies C006 one update whitelist constant in criteria.js feeds both the CLI and the schema output.",
+            "UT: [Contract clause] @verifies C001 — precondition: A changed file carries a diff that may contain backtick runs; postcondition: scan prints the diff inside a fence longer than any backtick run in it; invariant: Every listed changed file is followed by its complete diff.",
+            "UT: [Contract clause] @verifies C002 — precondition: The schema subcommand runs against criteriaVersion 1.0.0; postcondition: the output names every gate rule, exclusion rule, category, required field, computed field, and update whitelist entry; invariant: The schema output is derived from criteria.js and schema.js, never hand-copied.",
+            "UT: [Contract clause] @verifies C003 — precondition: create is invoked with --candidate=- and a JSON document on stdin; postcondition: the candidate is validated and persisted exactly as if it came from a file; invariant: Stdin and file inputs take the same validation path.",
+            "UT: [Contract clause] @verifies C004 — precondition: update is invoked with --patch=- and a JSON document on stdin; postcondition: the whitelist, whole-record revalidation, and Markdown re-render apply exactly as for a file patch; invariant: Stdin and file patches share one update path.",
+            "UT: [Contract clause] @verifies C005 — precondition: An AI reads only the command document; postcondition: it can find diffs, learn the candidate schema, create, correct, list, and delete without reading implementation files; invariant: The command document plus the schema subcommand is self-sufficient.",
+            "UT: [Contract clause] @verifies C006 — precondition: The update whitelist is defined in criteria.js; postcondition: cli.js and the schema output both read the same constant; invariant: One whitelist, one authority.",
+            "UT: [Acceptance] [Happy path] Running scan shows each changed file with its fenced diff; running schema shows every gate and exclusion rule plus the candidate fields, enums, computed values, and update whitelist; running create with --candidate=- writes a valid candidate without a temporary file.\n[Happy path detail] The command document uses all three and stays within 120 lines.",
+            "UT: [Acceptance] [Error case] Invalid stdin JSON for create exits 1 with ERROR:candidate-unreadable and writes nothing; an unknown patch field for update exits 1 with ERROR:field-not-updatable and leaves the ledger unchanged.",
+            "UT: [Acceptance] [Edge case] A diff containing a triple-backtick line is rendered inside a four-backtick fence; schema output is byte-identical across runs; the command document remains English-only."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] scan, schema, create stdin, update stdin, delete, and render share one CLI and one ledger.",
+            "IT: [Verification] a candidate created through stdin can be corrected through update stdin and deleted through delete, with Markdown regenerated each time.",
+            "IT: [Verification] every required field in the schema output is rejected by the validator when omitted.",
+            "IT: [Prerequisites] tests spawn the CLI with piped stdin and temporary git repositories; no network access is required.",
+            "IT: [Related tickets] PX-457 introduced the command and is reviewed; this ticket hardens only its delivery surface."
+          ],
+          "default_files": [
+            ".claude/commands/pickup-conver-update-candidates.md",
+            ".claude/scripts/pickup-conver-update-candidates/criteria.js",
+            ".claude/scripts/pickup-conver-update-candidates/schema.js",
+            ".claude/scripts/pickup-conver-update-candidates/render.js",
+            ".claude/scripts/pickup-conver-update-candidates/cli.js",
+            "tests/pickup-conver-update-candidates/schema-command.test.cjs",
+            "tests/pickup-conver-update-candidates/crud.test.cjs",
+            "tests/pickup-conver-update-candidates/scan.test.cjs",
+            "tests/pickup-conver-update-candidates/command-doc.test.cjs",
+            "README.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] Running scan shows each changed file with its fenced diff; running schema shows every gate and exclusion rule plus the candidate fields, enums, computed values, and update whitelist; running create with --candidate=- writes a valid candidate without a temporary file.\n[Happy path detail] The command document uses all three and stays within 120 lines.",
+            "[Error case] Invalid stdin JSON for create exits 1 with ERROR:candidate-unreadable and writes nothing; an unknown patch field for update exits 1 with ERROR:field-not-updatable and leaves the ledger unchanged.",
+            "[Edge case] A diff containing a triple-backtick line is rendered inside a four-backtick fence; schema output is byte-identical across runs; the command document remains English-only."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "scan -> human output",
+              "precondition": "A changed file carries a diff that may contain backtick runs",
+              "postcondition": "scan prints the diff inside a fence longer than any backtick run in it",
+              "invariant": "Every listed changed file is followed by its complete diff"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "schema -> criteria",
+              "precondition": "The schema subcommand runs against criteriaVersion 1.0.0",
+              "postcondition": "the output names every gate rule, exclusion rule, category, required field, computed field, and update whitelist entry",
+              "invariant": "The schema output is derived from criteria.js and schema.js, never hand-copied"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "create -> stdin",
+              "precondition": "create is invoked with --candidate=- and a JSON document on stdin",
+              "postcondition": "the candidate is validated and persisted exactly as if it came from a file",
+              "invariant": "Stdin and file inputs take the same validation path"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "update -> stdin",
+              "precondition": "update is invoked with --patch=- and a JSON document on stdin",
+              "postcondition": "the whitelist, whole-record revalidation, and Markdown re-render apply exactly as for a file patch",
+              "invariant": "Stdin and file patches share one update path"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "command document -> AI",
+              "precondition": "An AI reads only the command document",
+              "postcondition": "it can find diffs, learn the candidate schema, create, correct, list, and delete without reading implementation files",
+              "invariant": "The command document plus the schema subcommand is self-sufficient"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "criteria -> CLI and schema",
+              "precondition": "The update whitelist is defined in criteria.js",
+              "postcondition": "cli.js and the schema output both read the same constant",
+              "invariant": "One whitelist, one authority"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) move UPDATABLE_FIELDS to criteria.js; 2) add describeSchema(); 3) add fenceFor and renderSchemaMarkdown; 4) extend cli.js with scan diffs, schema, and stdin; 5) rewrite the command document; 6) update README; 7) tests first per unit, then Green, then Refactor.\n- [Risks] stdout diff bodies can be large; the command must consume the scan output directly rather than re-printing it. The 120-line budget is tight; compress by pointing to schema for rule text.\n- [Caveats] stdin and file inputs share one parser; `-` is the only special filename. The schema output is derived, so a taxonomy change needs no second edit.\n- [Open items] Whether scan should offer a `--max-diff-lines` cap in a future ticket.\n- [Future improvements] A `--stdin` alias convention across other CLI commands.\n- [Law] not applicable: no crates/** interface unit and no interface scope.\nPX-458 implementation summary:\n- Files: cli.js, schema.js, criteria.js, render.js, command document, README.md, 4 test files.\n- Tests: 74/74 pass (was 63).\n- Quality: 0 issues; conventions pass; node --check on every file.\n- E2E: scan shows diffs; schema shows rules; stdin create/update/delete verified in a temp repo.\n- Command document: 103 lines, English-only.\nReview report (PX-458):\n- Static quality check: passed (0 issues)\n- Translatability: fenceFor, describeSchema, readJsonInput are verb phrases; no generic variables or debug output\n- Tests: 74/74 pass\n- Contract gates: verify-final-contracts and validate-ticket-targets pass\n- Issues found and fixed: scan human output now delivers diffs; schema subcommand delivers the full criteria and candidate contract; create/update accept stdin; UPDATABLE_FIELDS has one authority; the command names schema, diffs, create, update, delete, list, and show\n- Command document: 103 lines, English-only\n- Pre-existing annotation gap: install.js:154/249 belong to uncommitted README-install work predating PX-457; intentionally not annotated for PX-458 to avoid false provenance",
+          "invariants": "- [Normal condition] scan human output shows every changed file with its complete diff; schema output shows every gate, exclusion, category, field, computed value, and update whitelist entry.\n- [Error invariant] Invalid stdin JSON or an unknown patch field writes nothing and leaves the ledger byte-identical.\n- [Internal state invariant] The schema output is a pure function of criteria.js and schema.js; the update whitelist exists once.\n- [Boundary invariant] A diff containing any run of backticks is fenced with a longer run; the command document stays within the 120-line budget.",
+          "testExceptions": [],
+          "instrumentation": "- [Logging] stderr failures keep the repair-finding shape; stdout carries Markdown or one JSON line with --json.\n- [Metrics] schema output reports counts for gates, exclusions, categories, required fields, and computed fields.\n- [Error tracking] invalid stdin is reported as ERROR:candidate-unreadable; unknown patches as ERROR:field-not-updatable.\n- [Health check] schema and scan are read-only; create and update remain atomic.\nReview verification: 74/74 tests pass; static quality 0 issues; conventions pass; E2E scan/schema/stdin verified in a temporary git repository.",
+          "investigation": "- PX-457 review confirmed three defects against source. `cli.js` `emitHuman` for scan prints only `- <file> (<changeType>) <hunkHeader>`; the `diff` field exists in the result but is never printed. The command's Step 2 says inspect every diff without a command.\n- The candidate contract lives in `schema.js` (`validateCandidate`, `validateLocation`, `validateEvidence`) and `criteria.js` (`REQUIRED_CANDIDATE_FIELDS`, enums). The command never states it; `create` accepts `--candidate=<file>` only.\n- `UPDATABLE_FIELDS` is defined in `cli.js:19`; `schema.js` and any schema output would otherwise duplicate it. Moving it to `criteria.js` gives one authority.\n- `render.js` computes a fence inline in `renderCandidate`; extracting `fenceFor` lets scan reuse the same collision rule.\n- `cli.js` `readJsonFile` reads only a path; `--candidate=-` and `--patch=-` can read fd 0 with the same parse path.\n- Tests spawn the CLI with `spawnSync(process.execPath, [...], { input })`, which supports stdin without a shell.\n- The command-document test already enforces English-only and 120 lines; new requirements must fit that budget.\n- `README.md` has a harness-evolution section that must name the new subcommand and options.\n- No RFC graph or formula artifacts exist for this package; pipelineAvailable is false.",
+          "boyScoutPlan": "- Keep `fenceFor` a pure function of text; both scan output and candidate patches call it.\n- Keep `describeSchema` derived from `criteria.js`; no duplicated enum arrays in the renderer or CLI.\n- Name the stdin sentinel once as a constant; never compare raw `'-'` in more than one place.\n- Keep `renderSchemaMarkdown` a pure function; no timestamps or environment reads.\n- Reuse `readJsonFile` and add `readJsonInput` with one parse path; no duplicated JSON.parse error handling.\n- Remove the inline fence arithmetic from `renderCandidate` in favor of `fenceFor`.\n- No generic names; no swallowed errors; every failure keeps a repair action.",
+          "created_at": "2026-11-27",
+          "updated_at": "2026-11-27",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-27T06:13:17.689Z",
+          "planTestCode": [
+            "UT: C001 — scan prints complete fenced diffs\n```js\nconst run = spawnSync(process.execPath, [CLI_PATH, 'scan', '--workspace', workspace, '--claude-dir', path.join(workspace, '.claude')], { cwd: workspace, encoding: 'utf8' });\nassert.equal(run.status, 0);\nassert.ok(run.stdout.includes('```diff'));\nassert.ok(run.stdout.includes('+module.exports = 2;'));\n```",
+            "UT: C001 — scan fence grows past a triple-backtick diff\n```js\nfs.writeFileSync(path.join(workspace, '.claude', 'scripts', 'sample.js'), 'const tick = \"```\";\\n');\nconst run = spawnSync(process.execPath, [CLI_PATH, 'scan', '--workspace', workspace, '--claude-dir', path.join(workspace, '.claude')], { cwd: workspace, encoding: 'utf8' });\nassert.ok(run.stdout.includes('````diff'));\n```",
+            "UT: C002 — schema names every rule and field\n```js\nconst run = spawnSync(process.execPath, [CLI_PATH, 'schema', '--json'], { encoding: 'utf8' });\nconst description = JSON.parse(run.stdout);\nassert.deepEqual(description.gates.map((gate) => gate.id), ['G1', 'G2', 'G3', 'G4', 'G5', 'G6']);\nassert.deepEqual(description.exclusions.map((exclusion) => exclusion.id), ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8']);\nassert.deepEqual(description.categories, criteria.VALUE_CATEGORIES);\nassert.ok(description.required.includes('symptom'));\nassert.ok(description.computed.includes('evidence.contentFingerprint'));\nassert.deepEqual(description.updateWhitelist, criteria.UPDATABLE_FIELDS);\n```",
+            "UT: C003 — create reads stdin\n```js\nconst run = spawnSync(process.execPath, [CLI_PATH, 'create', '--workspace', workspace, '--candidate=-', '--json'], { cwd: workspace, encoding: 'utf8', input: JSON.stringify(baseCandidate()) });\nassert.equal(run.status, 0);\nassert.equal(JSON.parse(run.stdout).status, 'created');\nassert.equal(store.loadLedger(workspace).ledger.candidates.length, 1);\n```",
+            "UT: C003 — invalid stdin writes nothing\n```js\nconst run = spawnSync(process.execPath, [CLI_PATH, 'create', '--workspace', workspace, '--candidate=-'], { cwd: workspace, encoding: 'utf8', input: '{not json' });\nassert.equal(run.status, 1);\nassert.ok(run.stderr.includes('ERROR:candidate-unreadable'));\nassert.equal(fs.existsSync(store.ledgerPath(workspace)), false);\n```",
+            "UT: C004 — update reads stdin\n```js\nscanAndCreateOne(workspace);\nconst run = spawnSync(process.execPath, [CLI_PATH, 'update', '--workspace', workspace, '--id=CUC-0001', '--patch=-', '--json'], { cwd: workspace, encoding: 'utf8', input: JSON.stringify({ note: 'from stdin' }) });\nassert.equal(run.status, 0);\nassert.equal(JSON.parse(run.stdout).candidate.note, 'from stdin');\nassert.ok(fs.readFileSync(store.markdownPath(workspace), 'utf8').includes('from stdin'));\n```",
+            "UT: C004 — unknown stdin patch field writes nothing\n```js\nscanAndCreateOne(workspace);\nconst before = fs.readFileSync(store.ledgerPath(workspace), 'utf8');\nconst run = spawnSync(process.execPath, [CLI_PATH, 'update', '--workspace', workspace, '--id=CUC-0001', '--patch=-'], { cwd: workspace, encoding: 'utf8', input: JSON.stringify({ contentFingerprint: 'sha256:bad' }) });\nassert.equal(run.status, 1);\nassert.ok(run.stderr.includes('ERROR:field-not-updatable'));\nassert.equal(fs.readFileSync(store.ledgerPath(workspace), 'utf8'), before);\n```",
+            "UT: C005 — the command document is self-sufficient\n```js\nconst doc = fs.readFileSync(path.join(REPO_ROOT, '.claude', 'commands', 'pickup-conver-update-candidates.md'), 'utf8');\nfor (const token of ['schema', '--candidate=-', '--patch=-', 'update', 'delete', 'list', 'show']) assert.ok(doc.includes(token), token);\nassert.equal(doc.split('\\n').length <= 120, true);\nassert.equal(/[ぁ-んァ-ン一-龥]/.test(doc), false);\n```",
+            "UT: C006 — one update whitelist feeds CLI and schema\n```js\nconst criteria = require('../../.claude/scripts/pickup-conver-update-candidates/criteria.js');\nconst cli = require('../../.claude/scripts/pickup-conver-update-candidates/cli.js');\nconst schema = require('../../.claude/scripts/pickup-conver-update-candidates/schema.js');\nassert.deepEqual(cli.UPDATABLE_FIELDS, criteria.UPDATABLE_FIELDS);\nassert.deepEqual(schema.describeSchema().updateWhitelist, criteria.UPDATABLE_FIELDS);\n```"
+          ],
+          "planned_at": "2026-11-27T06:13:35.752Z",
+          "changes": [
+            {
+              "before": "scan listed file names and hunk headers only.",
+              "after": "scan prints every changed file followed by its complete diff in a collision-safe fence.",
+              "description": "Diff delivery."
+            },
+            {
+              "before": "the candidate schema existed only in implementation files.",
+              "after": "schema subcommand prints gates, exclusions, categories, fields, enums, computed values, and update whitelist; --json emits the same data.",
+              "description": "Schema reference."
+            },
+            {
+              "before": "create and update required a temporary JSON file.",
+              "after": "create --candidate=- and update --patch=- read stdin through the same parser and validation path.",
+              "description": "Stdin CRUD."
+            },
+            {
+              "before": "UPDATABLE_FIELDS lived in cli.js.",
+              "after": "criteria.js owns it; cli.js and schema output share the constant.",
+              "description": "One whitelist authority."
+            },
+            {
+              "before": "the command document named neither schema nor correction commands.",
+              "after": "it runs schema, states scan yields diffs, creates from stdin, and covers update/delete/list/show.",
+              "description": "Command document self-sufficiency."
+            }
+          ],
+          "done_at": "2026-11-27T06:16:04.704Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-27",
+          "reviewed_at": "2026-11-27T06:16:23.970Z"
         }
       ]
     },

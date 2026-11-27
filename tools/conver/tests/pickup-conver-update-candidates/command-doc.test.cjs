@@ -1,3 +1,4 @@
+// [::TICKET::] PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-458 --for-spec --no-implementation-order`.
 'use strict';
 
 /**
@@ -96,4 +97,11 @@ test('the command frontmatter declares a description and disables model invocati
   assert.ok(document.startsWith('---\n'));
   assert.ok(document.includes('description:'));
   assert.ok(document.includes('disable-model-invocation: true'));
+});
+
+test('C005 the command document names the delivery commands and stdin', () => {
+  const document = readCommand();
+  for (const token of ['schema', '--candidate=-', '--patch=-', 'update', 'delete', 'list', 'show']) {
+    assert.ok(document.includes(token), token);
+  }
 });

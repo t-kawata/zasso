@@ -36,12 +36,18 @@ function summarize(candidates) {
   return [...counts.entries()].sort((left, right) => left[0].localeCompare(right[0]));
 }
 
-// [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
+/** A fence longer than any backtick run in the text, so content cannot close it. */
+// [::TICKET::] PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-458 --for-spec --no-implementation-order`.
+function fenceFor(text) {
+  const runs = String(text).match(/`+/g) || [];
+  const longestRun = runs.reduce((longest, run) => Math.max(longest, run.length), 0);
+  return '`'.repeat(Math.max(3, longestRun + 1));
+}
+
+// [::TICKET::] PX-457, PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-457|PX-458) --for-spec --no-implementation-order`.
 function renderCandidate(candidate) {
   const patch = candidate.evidence.patch;
-  const backtickRuns = String(patch).match(/`+/g) || [];
-  const longestRun = backtickRuns.reduce((longest, run) => Math.max(longest, run.length), 0);
-  const fence = '`'.repeat(Math.max(3, longestRun + 1));
+  const fence = fenceFor(patch);
   return [
     `### ${candidate.id} — ${candidate.primaryCriterion} — ${candidate.location.file}:${candidate.location.lineStart}`,
     '',
@@ -109,8 +115,46 @@ function renderMarkdown(ledger) {
   return lines.join('\n') + '\n';
 }
 
+/**
+ * Render the candidate contract as Markdown.
+ *
+ * @param {object} description — schema.describeSchema()
+ * @returns {string}
+ */
+// [::TICKET::] PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-458 --for-spec --no-implementation-order`.
+function renderSchemaMarkdown(description) {
+  const lines = [
+    `# candidate schema — criteriaVersion ${description.criteriaVersion}`,
+    '',
+    `schemaVersion: ${description.schemaVersion}`,
+    '',
+    '## Gates',
+    ...description.gates.map((gate) => `- ${gate.id}: ${gate.rule}`),
+    '',
+    '## Exclusions',
+    ...description.exclusions.map((exclusion) => `- ${exclusion.id}: ${exclusion.rule}`),
+    '',
+    '## Value categories',
+    ...description.categories.map((category) => `- ${category}`),
+    '',
+    '## Candidate fields',
+    `- required: ${description.required.join(', ')}`,
+    `- location: ${description.locationRequired.join(', ')}`,
+    `- evidence: ${description.evidenceRequired.join(', ')}`,
+    `- computed by create (do not supply): ${description.computed.join(', ')}`,
+    `- update whitelist: ${description.updateWhitelist.join(', ')}`,
+    '',
+    '## Enums',
+    ...Object.entries(description.enums).map(([field, values]) => `- ${field}: ${values.join(' | ')}`),
+    '',
+  ];
+  return lines.join('\n') + '\n';
+}
+
 module.exports = {
   renderMarkdown,
+  renderSchemaMarkdown,
+  fenceFor,
   rankImpact,
   compareCandidates,
 };

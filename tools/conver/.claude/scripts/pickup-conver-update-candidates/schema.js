@@ -280,8 +280,49 @@ function computeContentFingerprint(file, patch) {
   return 'sha256:' + digest;
 }
 
+/**
+ * Describe the candidate contract for humans and machines.
+ *
+ * The description is derived from criteria.js so a taxonomy change needs no
+ * second edit. It is the only source an AI needs before writing a candidate.
+ *
+ * @returns {object}
+ */
+// [::TICKET::] PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-458 --for-spec --no-implementation-order`.
+function describeSchema() {
+  return {
+    schemaVersion: criteria.SCHEMA_VERSION,
+    criteriaVersion: criteria.CRITERIA_VERSION,
+    gates: criteria.ADMISSION_GATES.map((gate) => ({ id: gate.id, rule: gate.rule })),
+    exclusions: criteria.EXCLUSION_CODES.map((exclusion) => ({ id: exclusion.id, rule: exclusion.rule })),
+    categories: [...criteria.VALUE_CATEGORIES],
+    required: [...criteria.REQUIRED_CANDIDATE_FIELDS],
+    locationRequired: ['file', 'hunkHeader', 'lineStart', 'lineEnd'],
+    evidenceRequired: ['patch', 'upstreamRef', 'upstreamCommit', 'diffStat', 'extractCommand', 'observedAt'],
+    enums: {
+      changeType: [...criteria.CHANGE_TYPES],
+      status: [...criteria.STATUSES],
+      impact: [...criteria.IMPACTS],
+      confidence: [...criteria.CONFIDENCES],
+      riskLevel: [...criteria.RISK_LEVELS],
+      generalization: [...criteria.GENERALIZATIONS],
+    },
+    computed: [
+      'id',
+      'evidence.contentFingerprint',
+      'evidence.observedAt',
+      'evidence.upstreamRef',
+      'status',
+      'note',
+      'adaptationPlan',
+    ],
+    updateWhitelist: [...criteria.UPDATABLE_FIELDS],
+  };
+}
+
 module.exports = {
   isInside,
   validateCandidate,
   computeContentFingerprint,
+  describeSchema,
 };

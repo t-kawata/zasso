@@ -1,3 +1,4 @@
+// [::TICKET::] PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-458 --for-spec --no-implementation-order`.
 'use strict';
 
 /**
@@ -12,7 +13,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { initRepoWithoutUpstream, initRepoWithUpstream } = require('./fixtures.cjs');
+const { REPO_ROOT, initRepoWithoutUpstream, initRepoWithUpstream } = require('./fixtures.cjs');
+const { spawnSync } = require('node:child_process');
+
+const CLI_PATH = path.join(REPO_ROOT, '.claude', 'scripts', 'pickup-conver-update-candidates', 'cli.js');
 
 const scan = require(path.join(
   __dirname,
@@ -86,4 +90,17 @@ test('a change outside .claude is never listed', () => {
   const result = scan.scanClaudeDir({ workspace, claudeDir: claudeDirOf(workspace) });
   assert.equal(result.ok, true);
   assert.equal(result.status, 'skipped:no-changes');
+});
+
+test('scan human output includes each file diff inside a collision-safe fence', () => {
+  const { workspace } = initRepoWithUpstream();
+  fs.writeFileSync(path.join(workspace, '.claude', 'scripts', 'sample.js'), 'const tick = "```";\n');
+  const run = spawnSync(
+    process.execPath,
+    [CLI_PATH, 'scan', '--workspace', workspace, '--claude-dir', path.join(workspace, '.claude')],
+    { cwd: workspace, encoding: 'utf8' }
+  );
+  assert.equal(run.status, 0);
+  assert.ok(run.stdout.includes('````diff'));
+  assert.ok(run.stdout.includes('+const tick = "```";'));
 });

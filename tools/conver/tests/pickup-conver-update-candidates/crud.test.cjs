@@ -1,3 +1,4 @@
+// [::TICKET::] PX-458 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-458 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-457 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-457 --for-spec --no-implementation-order`.
 'use strict';
 
@@ -195,4 +196,57 @@ test('C011 the CLI emits one JSON line when --json is passed', () => {
   const parsed = JSON.parse(run.stdout.trim());
   assert.equal(parsed.status, 'created');
   assert.equal(parsed.id, 'CUC-0001');
+});
+
+test('create --candidate=- reads the candidate from stdin', () => {
+  const { workspace } = initRepoWithUpstream();
+  const run = spawnSync(
+    process.execPath,
+    [CLI_PATH, 'create', '--workspace', workspace, '--candidate=-', '--json'],
+    { cwd: workspace, encoding: 'utf8', input: JSON.stringify(baseCandidate()) }
+  );
+  assert.equal(run.status, 0);
+  const parsed = JSON.parse(run.stdout);
+  assert.equal(parsed.status, 'created');
+  assert.equal(parsed.id, 'CUC-0001');
+  assert.equal(store.loadLedger(workspace).ledger.candidates.length, 1);
+});
+
+test('create --candidate=- with invalid JSON writes nothing', () => {
+  const { workspace } = initRepoWithUpstream();
+  const run = spawnSync(
+    process.execPath,
+    [CLI_PATH, 'create', '--workspace', workspace, '--candidate=-'],
+    { cwd: workspace, encoding: 'utf8', input: '{not json' }
+  );
+  assert.equal(run.status, 1);
+  assert.ok(run.stderr.includes('ERROR:candidate-unreadable'));
+  assert.equal(fs.existsSync(store.ledgerPath(workspace)), false);
+});
+
+test('update --patch=- reads the patch from stdin and re-renders', () => {
+  const { workspace } = initRepoWithUpstream();
+  cli.createCandidate({ workspace, candidate: baseCandidate() });
+  const run = spawnSync(
+    process.execPath,
+    [CLI_PATH, 'update', '--workspace', workspace, '--id=CUC-0001', '--patch=-', '--json'],
+    { cwd: workspace, encoding: 'utf8', input: JSON.stringify({ note: 'from stdin' }) }
+  );
+  assert.equal(run.status, 0);
+  assert.equal(JSON.parse(run.stdout).candidate.note, 'from stdin');
+  assert.ok(fs.readFileSync(store.markdownPath(workspace), 'utf8').includes('from stdin'));
+});
+
+test('update --patch=- with an unknown field writes nothing', () => {
+  const { workspace } = initRepoWithUpstream();
+  cli.createCandidate({ workspace, candidate: baseCandidate() });
+  const before = fs.readFileSync(store.ledgerPath(workspace), 'utf8');
+  const run = spawnSync(
+    process.execPath,
+    [CLI_PATH, 'update', '--workspace', workspace, '--id=CUC-0001', '--patch=-'],
+    { cwd: workspace, encoding: 'utf8', input: JSON.stringify({ contentFingerprint: 'sha256:bad' }) }
+  );
+  assert.equal(run.status, 1);
+  assert.ok(run.stderr.includes('ERROR:field-not-updatable'));
+  assert.equal(fs.readFileSync(store.ledgerPath(workspace), 'utf8'), before);
 });
