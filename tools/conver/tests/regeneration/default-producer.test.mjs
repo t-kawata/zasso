@@ -33,7 +33,10 @@ import {
 /** Seed the live debt baseline from the staged artifact, as a real repair would. */
 // [::TICKET::] PX-288, PX-292, PX-293 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-288|PX-292|PX-293) --for-spec --no-implementation-order`.
 function seedLiveBaseline(workspace, opened) {
-  runCommand([opened.stagingRoot, '--legacy'], { stdout: () => {}, stderr: () => {} });
+  // The post-commit check runs the closure detector. A legacy baseline has no
+  // closure blocked entries, so the same workspace would read as increased debt
+  // at commit time. Measure the baseline in the mode it will be compared against.
+  runCommand([opened.stagingRoot], { stdout: () => {}, stderr: () => {}, allowTransaction: opened.transactionId });
   mkdirSync(join(workspace.root, 'smooth-sequences'), { recursive: true });
   copyFileSync(
     join(opened.stagingRoot, 'smooth-sequences', 'SMOOTH-SEQUENCES.json'),
