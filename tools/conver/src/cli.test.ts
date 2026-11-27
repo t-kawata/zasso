@@ -9,6 +9,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseCliOptions, normalizeBaseUrl } from "./cli.js";
+import * as cliModule from "./cli.js";
+
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+const FULL_STAGE_PLAN =
+  "workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,make,plan,start,review,resolve,consolidate,find,crystalize,drill";
 
 describe("parseCliOptions", () => {
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
@@ -260,5 +265,13 @@ describe("dashboard flags", () => {
       parseCliOptions(["node", "conver.js", "-k", "k", "-s", "s", "--dashboard-interval", "999"]).dashboardIntervalSeconds,
       60,
     );
+  });
+});
+
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+describe("usageText", () => {
+  it("C001: names the full default stage plan", () => {
+    const usage = (cliModule as { usageText?: () => string }).usageText?.() ?? "";
+    assert.ok(usage.includes(FULL_STAGE_PLAN), "the usage must name the default plan");
   });
 });

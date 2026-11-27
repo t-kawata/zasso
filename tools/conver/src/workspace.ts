@@ -387,6 +387,49 @@ export interface StageOrderSource {
 }
 
 /**
+ * True when both stage-one manifests parse and declare COMPLETE.
+ *
+ * The initial model and the workspacify counter share this rule: a manifest
+ * that exists but is incomplete is not a workspace the pipeline can process,
+ * so workspacify still owes its run.
+ */
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+export function hasCompleteStageManifests(
+  root: string,
+  io: Pick<WorkspaceIo, "readJson"> = nodeIo,
+): boolean {
+  try {
+    asCompleteManifest(io.readJson(path.join(root, TREE_MANIFEST)), TREE_MANIFEST);
+    asCompleteManifest(io.readJson(path.join(root, ALLOCATE_MANIFEST)), ALLOCATE_MANIFEST);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The initial model a -T plan runs against.
+ *
+ * A workspacify start may be a fresh workspace, so an absent or incomplete
+ * manifest pair means workspacify still owes its run and the package list is
+ * not available yet. A complete pair is the workspace the rest of the plan
+ * processes; the educe gate is the first stage that can read it.
+ */
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+export function readInitialWorkspaceForPlan(
+  root: string,
+  plan: StagePlan,
+  io: WorkspaceIo = nodeIo,
+): WorkspaceModel {
+  const first = plan.selections[0]?.name ?? "make";
+  if (first === "workspacify" && !hasCompleteStageManifests(root, io)) {
+    return { root, name: path.basename(root), packages: [] };
+  }
+  const orderStartStage = first === "workspacify" ? "educe" : first;
+  return readWorkspaceForStagePlan(root, plan, io, orderStartStage);
+}
+
+/**
  * The order the stage that is about to run must use.
  *
  * Before split the authority is the allocate manifest's recorded build order;

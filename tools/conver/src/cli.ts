@@ -2,6 +2,7 @@
 import { parseArgs } from "node:util";
 import { VERSION } from "./settings.js";
 import { MAX_FIND_ROUNDS } from "./find-policy.js";
+import { DEFAULT_STAGE_PLAN_RAW } from "./stage-plan.js";
 
 // プロバイダー非依存化（PX-151）: -u/--url 未指定時の既定の Anthropic 互換エンドポイント。
 // 後方互換のため従来の DeepSeek エンドポイントを維持する。
@@ -51,8 +52,9 @@ export interface CliOptions {
 }
 
 // [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404, PX-413, PX-454, PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404|PX-413|PX-454|PX-455) --for-spec --no-implementation-order`.
-function showUsage(): void {
-  process.stdout.write(`conver.js ${VERSION} — ACP-based ticket processing pipeline (provider-agnostic)
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+export function usageText(): string {
+  return `conver.js ${VERSION} — ACP-based ticket processing pipeline (provider-agnostic)
 
 Usage:
   node dist/conver.js -k <api_key> -s <webhook_url> [options]
@@ -71,16 +73,22 @@ Options:
   --timeout <seconds>        Command timeout in seconds (default: ${DEFAULT_COMMAND_TIMEOUT_SECONDS})
   -b, --bind-review-in-one-session <0|1>
                              Bind review in same session (default: 1)
-  -w, --watcher <path>       Watcher config JSON path (exits 0 at the endpoint)
+  -w, --watcher <path>       Watcher config JSON path (exits 0 at the endpoint; requires
+                             -T make,plan,start,review,resolve,consolidate,find)
   -n, --no-find <0|1>        Skip find after all done; consolidate still runs (default: 0)
-  -T, --tasks <stages>       Contiguous stage slice to run (default: make,plan,start,review,resolve,consolidate,find)
+  -T, --tasks <stages>       Contiguous stage slice to run (default: ${DEFAULT_STAGE_PLAN_RAW})
                              Stages: workspacify,educe,explain,grill,smooth,graphify,boundify,split,make,plan,
                              start,review,resolve,consolidate,find,crystalize,drill; repeatable stages accept :N
   --max-find-rounds <num>    Find executions allowed per package before stopping (default: 5)
   --no-dashboard             Disable the fixed progress header
   --dashboard-interval <sec> Header poll interval in seconds (default: 5)
   -h, --help                 Show this message
-  --version                  Show version number\n`);
+  --version                  Show version number\n`;
+}
+
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+function showUsage(): void {
+  process.stdout.write(usageText());
 }
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.

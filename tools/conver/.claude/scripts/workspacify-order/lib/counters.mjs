@@ -42,17 +42,18 @@ export const FIRST_GENERATION = 1;
 export const EXPLAIN_SEED_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
 
 /**
- * The workspacify stage is one run when both manifests exist.
+ * The workspacify stage is one run when both manifests declare COMPLETE.
  *
  * The two manifests are published together by one forward run, so their joint
- * presence is the whole count a non-repeatable stage needs: 1 means done, 0
- * means not done. No run history is consulted.
+ * completion is the whole count a non-repeatable stage needs: 1 means done, 0
+ * means not done. An incomplete or unreadable manifest still owes the run, and
+ * no run history is consulted.
  */
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
 export function readWorkspacifyRuns(root) {
-  return existsSync(join(root, TREE_MANIFEST_FILE_NAME))
-    && existsSync(join(root, ALLOCATE_MANIFEST_FILE_NAME))
-    ? 1
-    : 0;
+  const tree = readJsonFile(join(root, TREE_MANIFEST_FILE_NAME)).value;
+  const allocate = readJsonFile(join(root, ALLOCATE_MANIFEST_FILE_NAME)).value;
+  return tree?.status === 'COMPLETE' && allocate?.status === 'COMPLETE' ? 1 : 0;
 }
 
 /** The explain stage is one run when its artifact exists. */

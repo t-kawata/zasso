@@ -43,12 +43,19 @@ function createStageStatus(directory: string, stem: string, suffix: string, runs
 }
 
 describe("readStageExecutionCount", () => {
-  it("reads the workspacify presence from the two manifests", () => {
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C002: reads the workspacify completion from both manifest statuses", () => {
     const root = createRoot();
     assert.equal(readStageExecutionCount("workspacify", { root }), 0);
-    writeJson(join(root, "WORKSPACIFY-TREE-MANIFEST.json"), {});
-    writeJson(join(root, "WORKSPACIFY-ALLOCATE-MANIFEST.json"), {});
+    writeJson(join(root, "WORKSPACIFY-TREE-MANIFEST.json"), { status: "COMPLETE" });
+    writeJson(join(root, "WORKSPACIFY-ALLOCATE-MANIFEST.json"), { status: "COMPLETE" });
     assert.equal(readStageExecutionCount("workspacify", { root }), 1);
+
+    writeJson(join(root, "WORKSPACIFY-TREE-MANIFEST.json"), { status: "INCOMPLETE" });
+    assert.equal(readStageExecutionCount("workspacify", { root }), 0);
+
+    writeFileSync(join(root, "WORKSPACIFY-TREE-MANIFEST.json"), "{not json", "utf8");
+    assert.equal(readStageExecutionCount("workspacify", { root }), 0);
   });
 
   it("reads the root generations for educe and smooth", () => {

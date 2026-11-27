@@ -7,6 +7,8 @@ import {
   SYSTEM_DESIGN_FILE_NAME,
   TREE_MANIFEST,
   WorkspaceGateError,
+  hasCompleteStageManifests,
+  readInitialWorkspaceForPlan,
   readWorkspace,
   readWorkspaceForStagePlan,
   resolveStageOrderSource,
@@ -312,6 +314,60 @@ describe("stage-aware workspace gate", () => {
       () => readWorkspaceForStagePlan(ROOT, parseStagePlan("make,plan"), io),
       (error: unknown) =>
         error instanceof WorkspaceGateError && error.code === "MISSING_TICKETS",
+    );
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C001: a workspacify plan reads the complete manifests at initialization", () => {
+    const io = fakeIo({
+      files: new Set([ROOT]),
+      manifests: {
+        [`${ROOT}/${TREE_MANIFEST}`]: tree([
+          { id: "pkg-1", name: "doors-core", path: "crates/doors-core" },
+          { id: "pkg-2", name: "doors-operation", path: "crates/doors-operation" },
+        ]),
+        [`${ROOT}/${ALLOCATE_MANIFEST}`]: allocateWithOrder([["pkg-2"], ["pkg-1"]]),
+      },
+    });
+
+    const model = readInitialWorkspaceForPlan(ROOT, parseStagePlan("workspacify,educe:2"), io);
+
+    assert.deepStrictEqual(model.packages.map((entry) => entry.id), ["pkg-2", "pkg-1"]);
+    assert.strictEqual(hasCompleteStageManifests(ROOT, io), true);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C001: a manifest that is not COMPLETE yields the empty model", () => {
+    const io = fakeIo({
+      files: new Set([ROOT]),
+      manifests: {
+        [`${ROOT}/${TREE_MANIFEST}`]: { status: "INCOMPLETE", workspace: { packages: [] } },
+        [`${ROOT}/${ALLOCATE_MANIFEST}`]: allocate(),
+      },
+    });
+
+    const model = readInitialWorkspaceForPlan(ROOT, parseStagePlan("workspacify,educe"), io);
+
+    assert.deepStrictEqual(model.packages, []);
+    assert.strictEqual(hasCompleteStageManifests(ROOT, io), false);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C001: complete manifests without an implementation order fail fast", () => {
+    const io = fakeIo({
+      files: new Set([ROOT]),
+      manifests: {
+        [`${ROOT}/${TREE_MANIFEST}`]: tree([
+          { id: "pkg-1", name: "doors-core", path: "crates/doors-core" },
+        ]),
+        [`${ROOT}/${ALLOCATE_MANIFEST}`]: allocate(),
+      },
+    });
+
+    assert.throws(
+      () => readInitialWorkspaceForPlan(ROOT, parseStagePlan("workspacify"), io),
+      (error: unknown) =>
+        error instanceof WorkspaceGateError && error.code === "INCOMPLETE_MANIFEST",
     );
   });
 });

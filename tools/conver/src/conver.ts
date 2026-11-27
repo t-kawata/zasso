@@ -1,5 +1,4 @@
 // conver.ts — process entry: the 5-layer workspace gate, watcher and loop.
-import path from "node:path";
 import { parseCliOptions } from "./cli.js";
 import type { CliOptions } from "./cli.js";
 import {
@@ -12,7 +11,7 @@ import {
 import type { WorkspaceLoopOptions, WorkspaceLoopResult } from "./runner.js";
 import { runCommand, withSession } from "./session.js";
 import {
-  isDefaultImplementationPlan,
+  isImplementationGroupPlan,
   parseStagePlan,
   StagePlanError,
 } from "./stage-plan.js";
@@ -26,6 +25,7 @@ import { isWithinTimeWindow } from "./step-timer.js";
 import { CronScheduler } from "./cron-scheduler.js";
 import { createTerminationHandle } from "./termination.js";
 import {
+  readInitialWorkspaceForPlan,
   readWorkspace,
   readWorkspaceForStagePlan,
   resolveStageWorkspaceRoot,
@@ -131,7 +131,7 @@ function hasUpstreamStage(plan: StagePlan): boolean {
  * workspacify and split because those stages create the inputs the next stage
  * reads.
  */
-// [::TICKET::] PX-454, PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454, PX-455, PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455|PX-456) --for-spec --no-implementation-order`.
 async function runStageMode(
   cli: CliOptions,
   plan: StagePlan,
@@ -167,8 +167,12 @@ async function runStageMode(
       );
     },
     runImplementationLoop: (options) => runWorkspaceLoop(options),
-    readWorkspace: (planToRead, orderStartStage) =>
-      readWorkspaceForStagePlan(root, planToRead, undefined, orderStartStage),
+    readWorkspace: (planToRead, orderStartStage) => {
+      // The implementation group is entered with the published order, so the
+      // same sidecar gate the default path runs applies here too.
+      if (orderStartStage === "make") validateImplementationOrder(root);
+      return readWorkspaceForStagePlan(root, planToRead, undefined, orderStartStage);
+    },
   };
   const stageHooks = {
     onStageStart: (record: StageRunRecord) => {
@@ -196,7 +200,7 @@ async function runStageMode(
   });
 }
 
-// [::TICKET::] PX-403, PX-404, PX-408, PX-413, PX-449, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413|PX-449|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-403, PX-404, PX-408, PX-413, PX-449, PX-454, PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413|PX-449|PX-454|PX-456) --for-spec --no-implementation-order`.
 type WatcherModeResult = "terminated" | "endpoint" | "config-error";
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
@@ -313,10 +317,11 @@ export async function main(): Promise<void> {
   // The watcher endpoint is defined by the implementation group's ticket and
   // boundary state; an upstream stage or a partial implementation block has no
   // endpoint to wait for, so the watcher is kept on the existing path only.
-  const usesDefaultPlan = isDefaultImplementationPlan(plan);
-  if (options.watcherConfig !== undefined && !usesDefaultPlan) {
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  const usesImplementationGroupPlan = isImplementationGroupPlan(plan);
+  if (options.watcherConfig !== undefined && !usesImplementationGroupPlan) {
     process.stderr.write(
-      "conver.js — -w/--watcher requires the default -T plan; the endpoint is defined only for the implementation group\n",
+      "conver.js — -w/--watcher requires the implementation group; pass -T make,plan,start,review,resolve,consolidate,find with -w\n",
     );
     process.exit(1);
     return;
@@ -330,15 +335,13 @@ export async function main(): Promise<void> {
 
   let model!: WorkspaceModel;
   try {
-    if (usesDefaultPlan) {
+    if (usesImplementationGroupPlan) {
       const root = resolveWorkspaceRoot(process.cwd());
       validateImplementationOrder(root);
       model = readWorkspace(root);
     } else {
       const root = resolveStageWorkspaceRoot(process.cwd(), plan);
-      model = plan.selections[0]?.name === "workspacify"
-        ? { root, name: path.basename(root), packages: [] }
-        : readWorkspaceForStagePlan(root, plan, undefined, plan.selections[0]!.name);
+      model = readInitialWorkspaceForPlan(root, plan);
     }
   } catch (error) {
     if (!(error instanceof WorkspaceGateError)) {
@@ -454,7 +457,7 @@ export async function main(): Promise<void> {
       // A config error already exited with 1 and must not be re-exited as 0
       // when process.exit is replaced by a test double.
       if (result === "terminated" || result === "endpoint") lifecycle.shutdown(0);
-    } else if (usesDefaultPlan) {
+    } else if (usesImplementationGroupPlan) {
       await runNormalMode(options, model, display);
     } else {
       await runStageMode(options, plan, model.root, model, display);

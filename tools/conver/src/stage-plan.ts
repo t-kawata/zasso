@@ -47,7 +47,7 @@ export interface StagePlan {
   readonly selections: readonly StageSelection[];
 }
 
-// [::TICKET::] PX-454, PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454, PX-455, PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455|PX-456) --for-spec --no-implementation-order`.
 export type StagePlanErrorCode =
   | "UNKNOWN_STAGE"
   | "DUPLICATE_STAGE"
@@ -68,7 +68,13 @@ export class StagePlanError extends Error {
   }
 }
 
-export const DEFAULT_STAGE_PLAN_RAW = "make,plan,start,review,resolve,consolidate,find";
+// The default expresses the intended end-to-end run. The implementation group
+// remains available as an explicit slice, and the watcher requires it because
+// its endpoint is defined by the implementation group's boundary state.
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+export const DEFAULT_STAGE_PLAN_RAW =
+  "workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1," +
+  "make,plan,start,review,resolve,consolidate,find,crystalize,drill";
 
 // The order is the single authority: the engine, the CLI validator and the tests
 // all read this array rather than repeating the sequence.
@@ -166,7 +172,8 @@ export function resolveStageGate(name: StageName): StageGate {
 }
 
 /** True when the plan is exactly the implementation group with no repetition. */
-export function isDefaultImplementationPlan(plan: StagePlan): boolean {
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+export function isImplementationGroupPlan(plan: StagePlan): boolean {
   if (plan.selections.length !== IMPLEMENTATION_STAGES.length) return false;
   return plan.selections.every(
     (selection, index) =>
@@ -174,10 +181,13 @@ export function isDefaultImplementationPlan(plan: StagePlan): boolean {
   );
 }
 
+/** @deprecated Use isImplementationGroupPlan; the default plan is the full pipeline. */
+export const isDefaultImplementationPlan = isImplementationGroupPlan;
+
 /**
  * Parse a -T value into a plan.
  *
- * An absent or empty value is the default implementation plan. Every other token
+ * An absent or empty value is the default full-pipeline plan. Every other token
  * must name a stage, may carry a count only on a repeatable stage, and the whole
  * list must be a contiguous slice of the canonical order.
  */

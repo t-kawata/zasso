@@ -71753,6 +71753,154 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-27",
           "reviewed_at": "2026-11-27T02:22:19.381Z"
+        },
+        {
+          "id": 456,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make the stage-plan run read the workspace and keep the implementation order",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-456.md",
+          "background": "### Goal\nA -T plan that starts at workspacify must read the workspace it already has, run every selected stage against the real package list, and hand the implementation loop the published implementation order.\n\n### Purpose\nThe PX-455 stage engine decides one action at a time from an immutable snapshot. That design is correct only if the snapshot carries the packages. A plan starting at workspacify begins with an empty model because workspacify may create the manifests; when the manifests already exist the stage is skipped, so no later action ever replaces the empty model. The same skip leaves the implementation loop on the allocate build order because the make-gate re-read is attached to the split action.\n\n### Motivation\nRunning `conver.js -T workspacify,...,drill` against the five existing workspaces executed zero commands on crystal and doors, one command on rtx, and failed the gate on gaia and loom. The pipeline reported workspace-complete while 78 doors tickets and every crystal ticket were untouched. The default -T must also become the full pipeline so a bare invocation expresses the intended end-to-end run.\n\n### Constraints\n- Keep the PX-455 one-action-at-a-time reducer; do not reintroduce a command list.\n- Keep the counters as the authority for upstream completion; only the workspacify reading changes from existence to COMPLETE status.\n- The implementation loop must keep using the ORDER sidecar; a missing or stale sidecar is a fail-fast gate, never a fallback to the build order.\n- The watcher endpoint remains defined only for the implementation group, so -w requires an explicit implementation-group -T.",
+          "scope": [
+            "src/workspace.ts — add `hasCompleteStageManifests(root, io)` (reads TREE and ALLOCATE and returns true only when both parse and carry status COMPLETE) and `readInitialWorkspaceForPlan(root, plan, io)` (returns an empty model only when the first stage is workspacify and the manifests are not complete; otherwise reads with the educe gate for a workspacify start or with the first stage otherwise). Before → after: the inline empty-model three-way moves out of conver.ts into one tested function.",
+            "src/conver.ts — replace the inline `packages: []` construction with `readInitialWorkspaceForPlan`; keep the watcher gate but change its refusal to name the explicit `-T make,plan,start,review,resolve,consolidate,find`; the default plan now takes the stage-mode path.",
+            "src/stage-engine.ts — before delegating to the implementation loop, re-read the model with the make gate so a skipped split cannot leave build order in force; track the last executed stage action signature and throw `STAGE_NOT_ADVANCING` when the identical action is derived again without its counter advancing; add the error code.",
+            "src/stage-plan.ts — `DEFAULT_STAGE_PLAN_RAW` becomes `workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,make,plan,start,review,resolve,consolidate,find,crystalize,drill`; rename `isDefaultImplementationPlan` to `isImplementationGroupPlan` (keep the old name as an alias for one release). API: the exported constant value changes and a new alias is exported.",
+            "src/cli.ts — usage states the new default and the full stage list; the -T description keeps the repeatable-count rule.",
+            ".claude/scripts/workspacify-order/lib/counters.mjs — `readWorkspacifyRuns` returns 1 only when TREE and ALLOCATE both parse and carry status COMPLETE; any missing, unreadable or incomplete manifest returns 0. Before → after: existence-only 1 → status-aware 1/0.",
+            "Tests — workspace.test.ts (initial model), stage-counters.test.ts (COMPLETE reading), stage-engine.test.ts (pre-implement make read, no-progress stop, 23-package order), stage-plan.test.ts (new default), cli.test.ts (usage), conver.test.ts (watcher refusal).",
+            "Build — regenerate dist/conver.js with scripts/build-conver.mjs and copy it to .claude/scripts/conver/conver.js; check-bundle-fresh must pass.",
+            "Out of scope: the five external workspaces and their SYSTEM-DESIGN.md / .claude sync are operational steps recorded in notes, not repository changes.",
+            "Out of scope: extending the watcher to a full-pipeline plan; the endpoint is defined by the implementation group's boundary state.",
+            "Affected impact: every no -T invocation now runs upstream, ship and evolve; existing -w callers must pass the implementation-group -T explicitly."
+          ],
+          "default_files": [
+            "src/workspace.ts",
+            "src/conver.ts",
+            "src/stage-engine.ts",
+            "src/stage-plan.ts",
+            "src/cli.ts",
+            ".claude/scripts/workspacify-order/lib/counters.mjs",
+            "src/workspace.test.ts",
+            "src/stage-counters.test.ts",
+            "src/stage-engine.test.ts",
+            "src/stage-plan.test.ts",
+            "src/cli.test.ts",
+            "src/conver.test.ts"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a workspacify-start plan on a workspace whose tree and allocate manifests are COMPLETE reads the package list at initialization, and a stage-engine fixture proves zero upstream actions, one implementation delegation, one crystalize per package and one drill per package before workspace-complete",
+            "Error case: incomplete or unreadable manifests yield an empty initial model and a workspacify run, and a stage whose counter never advances stops with STAGE_NOT_ADVANCING instead of looping",
+            "Edge case: when split is skipped the implementation delegate receives the model read with the make gate, an omitted -T parses to the full 17-stage plan, and -w without an explicit implementation-group -T is refused with an actionable message"
+          ],
+          "invariants": "- [Normal condition] For a workspacify-start plan, the initial model is either empty (both manifests are not COMPLETE) or built from the complete manifests through the educe gate.\n- [Error invariant] A manifest read or parse failure yields count 0 and an empty initial model; it never fabricates a package list or a completed stage.\n- [Internal state invariant] The stage-action signature guard stops only two consecutive identical stage actions; the implement delegate and the post-drill re-entry are exempt.\n- [Boundary invariant] The implementation loop always receives a model read with the make gate; a missing or stale ORDER sidecar fails fast instead of falling back to build order.",
+          "testUnit": [
+            "UT: [Normal] C001 — with TREE and ALLOCATE COMPLETE, readInitialWorkspaceForPlan returns the allocate implementation_order packages in order. Precondition: the plan's first stage is workspacify and both WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json parse with status COMPLETE. Postcondition: the returned model's packages equal the allocate implementation_order levels flattened, in that order. Invariant: the model is never empty when both manifests are COMPLETE.",
+            "UT: [Error] C001 — a manifest that is not COMPLETE yields an empty model; the model is empty only when the precondition (both COMPLETE) is false.",
+            "UT: [Edge] C001 — COMPLETE manifests without an implementation order throw INCOMPLETE_MANIFEST rather than fabricating a package list.",
+            "UT: [Normal] C002 — Precondition: the workspace root holds both manifests. Postcondition: returns 1 when both statuses are COMPLETE and 0 when either is missing, unreadable or not COMPLETE. readStageExecutionCount('workspacify') returns 1 for the COMPLETE pair.",
+            "UT: [Error] C002 — TREE INCOMPLETE, TREE malformed and ALLOCATE missing each return 0: a manifest that is missing, unreadable or not COMPLETE never yields 1. Invariant: existence of a manifest alone never proves a workspacify run.",
+            "UT: [Normal] C003 — a plan that skips split calls the readWorkspace dependency with orderStartStage 'make' immediately before runImplementationLoop. Precondition: the plan selects an implementation stage and the last structural re-read was the educe gate (split skipped or not selected). Postcondition: the model passed to runImplementationLoop was read with orderStartStage make.",
+            "UT: [Invariant] C003 — a spy on readWorkspace records no build-order model reaching runImplementationLoop; the implementation loop never runs on the allocate build order.",
+            "UT: [Error] C004 — a fixed snapshot whose counter never reaches the target throws STAGE_NOT_ADVANCING on the second identical derivation and runs the stage command once. Precondition: a stage action runs and its counter remains below the target. Postcondition: the next identical (layer, stage, package, round) derivation throws StageEngineError STAGE_NOT_ADVANCING. Invariant: the engine never re-executes the same stage action consecutively.",
+            "UT: [Normal] C004 — after a stage advances its counter the next derivation is a different action, so the guard does not fire.",
+            "UT: [Normal] a 23-package all-endpoint fixture yields zero upstream actions, one implementation delegation, 23 crystalize actions and 23 drill actions, then complete with reason workspace-complete.",
+            "UT: [Boundary] grill target 2 with one package at generation 1 and the rest at 2 produces exactly one round-2 action for that package.",
+            "UT: [Normal] parseStagePlan(undefined) equals the full 17-stage plan with the declared counts; an explicit implementation-group plan still parses and isImplementationGroupPlan returns true for it.",
+            "UT: [Error] -w with the default full plan exits 1 and the message names the explicit implementation-group -T.",
+            "UT: [Acceptance] Happy path: a workspacify-start plan on a workspace whose tree and allocate manifests are COMPLETE reads the package list at initialization, and a stage-engine fixture proves zero upstream actions, one implementation delegation, one crystalize per package and one drill per package before workspace-complete.",
+            "UT: [Acceptance] Error case: incomplete or unreadable manifests yield an empty initial model and a workspacify run, and a stage whose counter never advances stops with STAGE_NOT_ADVANCING instead of looping.",
+            "UT: [Acceptance] Edge case: when split is skipped the implementation delegate receives the model read with the make gate, an omitted -T parses to the full 17-stage plan, and -w without an explicit implementation-group -T is refused with an actionable message."
+          ],
+          "testIntegration": [
+            "IT: StageEngine + workspace fixture — a temp workspace with COMPLETE manifests, allocate order, counts and endpoint boundary records drives runStagePlan through the recorded action log without opening an ACP session; the log matches zero upstream, implement once, crystalize per package, drill per package, complete.",
+            "IT: verification surface — tests/workspacify-reverse/integration/verification-surface.test.mjs C003 runs claude-tests and project-js-cjs and must exit 0 after the bundle rebuild.",
+            "IT: bundle freshness — node tests/check-bundle-fresh.mjs must report the committed .claude/scripts/conver/conver.js byte-identical to a fresh src build.",
+            "IT: real workspace observation — `conver.js -T workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,find` on ~/shyme/crystal reports packages=23 and runs zero commands before the implementation endpoint, proving the initialization read without an ACP command."
+          ],
+          "testExceptions": [],
+          "instrumentation": "- Logging: the existing [pipeline] line already names stage, package, decision and counts; STAGE_NOT_ADVANCING prints the stage, package, round and the observed counter.\n- Metrics: no new metric; the action log is the observable.\n- Error tracking: StageEngineError gains the code STAGE_NOT_ADVANCING; WorkspaceGateError codes are unchanged.\n- Health check: check-bundle-fresh and the three test surfaces.\nStatic quality check: passed\nTranslatability: no issues\nTests: 544 conver unit tests, 632 project tests, 22 counter/bundle tests passed",
+          "notes": "- Implementation steps: Red tests → workspace.ts helpers → conver.ts wiring → counters.mjs COMPLETE reading → stage-engine make read and guard → stage-plan default → cli usage → typecheck/test-conver → build + bundle-fresh → install.\n- Risks: the default -T change makes a bare invocation run the full pipeline; -w callers must pass the implementation-group plan. The no-progress guard must not fire on the legitimate implement re-entry after drill; it is scoped to stage actions.\n- Caveats: the initial empty model remains correct for a fresh workspace; workspacify runs and the existing post-action re-read populates it. readWorkspacifyRuns now reads both manifests; a malformed manifest is treated as not complete and the stage reruns.\n- Open items: gaia needs SYSTEM-DESIGN.md (copy of GaiaSekkeiShiyousho_v32.md); loom needs an authored SYSTEM-DESIGN.md; distribution to ~/shyme/* is an operational step after the build.\n- Future improvements: a --dry-run that prints the derived action sequence without ACP would make this class of defect observable before a real run.\n- Law: not applicable (target paths are src/*.ts and .mjs, not crates/**).\nImplementation summary:\n- Changed files: src/workspace.ts, src/conver.ts, src/stage-engine.ts, src/stage-plan.ts, src/cli.ts, .claude/scripts/workspacify-order/lib/counters.mjs, README.md and the six test files.\n- Tests: 544 conver unit tests pass; 632 conver/workspacify-order project tests pass; 22 counter/bundle tests pass; check-conventions and check-path-emission pass; check-bundle-fresh passes after rebuilding .claude/scripts/conver/conver.js.\n- Real-workspace observation: on ~/shyme/crystal the rebuilt bundle reported packages=23, skipped 118 stage/package pairs, delegated the implementation loop once and completed with runs=0 (the previous bundle reported packages=0).\n\nReview report:\n- Static quality check: 0 issues on the six changed source files.\n- Translatability: no generic variables, magic numbers, debug output or noun-only function names in the added lines.\n- Annotation: 13 changed source files carry PX-456 provenance; zero AMBIGUOUS markers.\n- Contracts: C001-C004 pass verify-final-contracts; reverify certificate written with two identical zero-finding runs.\n- Build: tsc clean; bundle rebuilt and check-bundle-fresh passes; check-conventions and check-path-emission pass.\n- Real-workspace evidence: ~/shyme/crystal reports packages=23, 118 skipped stage/package pairs, one implementation delegation, runs=0 (previous bundle: packages=0).\n- Behavior change: -T omitted now runs the full pipeline; -w requires the explicit implementation-group plan.\n",
+          "investigation": "- src/conver.ts:298-341 — main parses the plan, calls resolveStageWorkspaceRoot, and initializes `{ root, name, packages: [] }` when the first stage is workspacify; the model is passed to runStagePlan.\n- src/stage-engine.ts:296-407 — the loop reads a snapshot before each action; the workspace is re-read only when the executed stage is workspacify, split or drill (createsWorkspaceInputs, 230-232; 404-406). A skipped workspacify executes no action, so the re-read never happens.\n- src/pipeline-action.ts:191-231 — deriveUpstreamAction iterates rootCounts for root-scoped stages and snapshot.packages for package-scoped stages; with an empty package list every package stage is vacuous.\n- src/stage-counters.ts:47-80 — readStageExecutionCount delegates workspacify to readWorkspacifyRuns; decideStageRun runs when the count is null or below the target.\n- .claude/scripts/workspacify-order/lib/counters.mjs:51-60 — readWorkspacifyRuns returns 1 when both manifests exist, without reading their status, so an incomplete or corrupt manifest is counted complete.\n- src/workspace.ts:302-317, 396-442 — readWorkspace requires the ORDER sidecar and Tickets; readWorkspaceForStagePlan chooses build order before the implementation gate and sidecar order from make onward.\n- src/stage-plan.ts:71-93, 169-175 — canonical stage table and isDefaultImplementationPlan; src/cli.ts:76-83 usage; the default raw plan currently stops at find.\n- Reproduction (2026-11-27): the current bundle reported packages=0, skipped workspacify/educe/smooth and completed with runs=0 on crystal and doors; gaia/loom failed the SYSTEM-DESIGN gate; the deployed workspace bundle (0.0.572) rejected `drill` as an unknown stage.",
+          "boyScoutPlan": "- Extract hasCompleteStageManifests so the status rule has one name and is shared by the initial read and the counter.\n- Rename isDefaultImplementationPlan to isImplementationGroupPlan; the old name stops claiming to be the default.\n- Name the stage-action signature as a local function (stageActionSignature) instead of an inline template string.\n- Replace the inline `packages: []` construction with readInitialWorkspaceForPlan, removing a literal from conver.ts.\n- Do not swallow manifest read errors: the helper treats them as not complete, and the subsequent workspacify run surfaces the producer's own refusal.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "src/workspace.ts#readInitialWorkspaceForPlan",
+              "precondition": "the plan's first stage is workspacify and both WORKSPACIFY-TREE-MANIFEST.json and WORKSPACIFY-ALLOCATE-MANIFEST.json parse with status COMPLETE",
+              "postcondition": "the returned model's packages equal the allocate manifest implementation_order levels flattened, in that order",
+              "invariant": "the model is never empty when both manifests are COMPLETE"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "counters.mjs#readWorkspacifyRuns",
+              "precondition": "the workspace root holds both manifests",
+              "postcondition": "returns 1 when both statuses are COMPLETE and 0 when either is missing, unreadable or not COMPLETE",
+              "invariant": "existence of a manifest alone never proves a workspacify run"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "src/stage-engine.ts#runStagePlan",
+              "precondition": "the plan selects an implementation stage and the last structural re-read was the educe gate (split skipped or not selected)",
+              "postcondition": "the model passed to runImplementationLoop was read with orderStartStage make",
+              "invariant": "the implementation loop never runs on the allocate build order"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "src/stage-engine.ts#runStagePlan",
+              "precondition": "a stage action runs and its counter remains below the target",
+              "postcondition": "the next identical (layer, stage, package, round) derivation throws StageEngineError STAGE_NOT_ADVANCING",
+              "invariant": "the engine never re-executes the same stage action consecutively"
+            }
+          ],
+          "created_at": "2026-11-27",
+          "updated_at": "2026-11-27",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-27T04:00:48.265Z",
+          "planTestCode": [
+            "UT: [Normal] C001 — initial model reads the complete manifests\n```ts\nconst plan = parseStagePlan(\"workspacify\");\nconst tree = { status: \"COMPLETE\", workspace: { packages: [pkgA, pkgB] } };\nconst allocate = { status: \"COMPLETE\", implementation_order: { levels: [[\"pkg-b\"], [\"pkg-a\"]] } };\nconst model = readInitialWorkspaceForPlan(ROOT, plan, fakeIo({\n  files: new Set([join(ROOT, TREE_MANIFEST), join(ROOT, ALLOCATE_MANIFEST), join(ROOT, SYSTEM_DESIGN_FILE_NAME)]),\n  manifests: { [join(ROOT, TREE_MANIFEST)]: tree, [join(ROOT, ALLOCATE_MANIFEST)]: allocate },\n}));\nassert.deepStrictEqual(model.packages.map((pkg) => pkg.id), [\"pkg-b\", \"pkg-a\"]);\n```",
+            "UT: [Error] C001 — a manifest that is not COMPLETE yields the empty model\n```ts\nconst incomplete = { status: \"INCOMPLETE\", workspace: { packages: [pkgA] } };\nconst model = readInitialWorkspaceForPlan(ROOT, parseStagePlan(\"workspacify\"), fakeIo({\n  files: new Set([join(ROOT, TREE_MANIFEST), join(ROOT, ALLOCATE_MANIFEST)]),\n  manifests: { [join(ROOT, TREE_MANIFEST)]: incomplete, [join(ROOT, ALLOCATE_MANIFEST)]: { status: \"COMPLETE\" } },\n}));\nassert.deepStrictEqual(model.packages, []);\n```",
+            "UT: [Edge] C001 — complete manifests without an implementation order fail fast\n```ts\nassert.throws(\n  () => readInitialWorkspaceForPlan(ROOT, parseStagePlan(\"workspacify\"), fakeIo({\n    files: new Set([join(ROOT, TREE_MANIFEST), join(ROOT, ALLOCATE_MANIFEST)]),\n    manifests: {\n      [join(ROOT, TREE_MANIFEST)]: { status: \"COMPLETE\", workspace: { packages: [pkgA] } },\n      [join(ROOT, ALLOCATE_MANIFEST)]: { status: \"COMPLETE\" },\n    },\n  })),\n  (error: unknown) => error instanceof WorkspaceGateError && error.code === \"INCOMPLETE_MANIFEST\",\n);\n```",
+            "UT: [Normal] C002 — COMPLETE manifests count as one workspacify run\n```ts\nwriteFileSync(join(root, \"WORKSPACIFY-TREE-MANIFEST.json\"), JSON.stringify({ status: \"COMPLETE\" }));\nwriteFileSync(join(root, \"WORKSPACIFY-ALLOCATE-MANIFEST.json\"), JSON.stringify({ status: \"COMPLETE\" }));\nassert.equal(readStageExecutionCount(\"workspacify\", { root }), 1);\n```",
+            "UT: [Error] C002 — incomplete or unreadable manifests count as zero\n```ts\nwriteFileSync(join(root, \"WORKSPACIFY-TREE-MANIFEST.json\"), JSON.stringify({ status: \"INCOMPLETE\" }));\nwriteFileSync(join(root, \"WORKSPACIFY-ALLOCATE-MANIFEST.json\"), JSON.stringify({ status: \"COMPLETE\" }));\nassert.equal(readStageExecutionCount(\"workspacify\", { root }), 0);\nwriteFileSync(join(root, \"WORKSPACIFY-TREE-MANIFEST.json\"), \"{not json\");\nassert.equal(readStageExecutionCount(\"workspacify\", { root }), 0);\n```",
+            "UT: [Normal] C003 — a skipped split still reads the implementation order\n```ts\nconst state = createFakeState({ counts: new Map([[key(\"split\", \"/ws/a\"), 1], [key(\"split\", \"/ws/b\"), 1]]) });\nconst fake = createFakeDeps(state);\nawait runStagePlan({ plan: parseStagePlan(\"split,make\"), workspace: workspace(), options: loopOptions(), deps: fake.deps });\nassert.deepStrictEqual(fake.calls, [\"make\", \"loop\"]);\n```",
+            "UT: [Invariant] C003 — the loop never receives the build-order model\n```ts\nlet loopPackages: string[] = [];\nconst state = createFakeState({ counts: new Map([[key(\"split\", \"/ws/a\"), 1], [key(\"split\", \"/ws/b\"), 1]]) });\nconst fake = createFakeDeps(state, {\n  readWorkspace: (_plan, stage) => stage === \"make\" ? workspace() : { ...workspace(), packages: [...workspace().packages].reverse() },\n  runImplementationLoop: async (options) => {\n    loopPackages = options.workspace.packages.map((pkg) => pkg.id);\n    return { processed: 1, allSelectedComplete: true };\n  },\n});\nawait runStagePlan({ plan: parseStagePlan(\"split,make\"), workspace: workspace(), options: loopOptions(), deps: fake.deps });\nassert.deepStrictEqual(loopPackages, [\"pkg-a\", \"pkg-b\"]);\n```",
+            "UT: [Error] C004 — a counter that never advances stops the engine\n```ts\nconst records: StageCommandInput[] = [];\nconst fake = createFakeDeps(createFakeState());\nconst deps = { ...fake.deps, runStageCommand: async (input: StageCommandInput) => { records.push(input); } };\nawait assert.rejects(\n  runStagePlan({ plan: parseStagePlan(\"educe:2\"), workspace: workspace(), options: loopOptions(), deps }),\n  (error: unknown) => error instanceof StageEngineError && error.code === \"STAGE_NOT_ADVANCING\",\n);\nassert.equal(records.filter((record) => record.stage === \"educe\").length, 1);\n```",
+            "UT: [Normal] C004 — an advancing counter is not stopped\n```ts\nconst fake = createFakeDeps(createFakeState());\nawait runStagePlan({ plan: parseStagePlan(\"educe:2\"), workspace: workspace(), options: loopOptions(), deps: fake.deps });\nassert.equal(fake.records.filter((record) => record.stage === \"educe\").length, 2);\n```"
+          ],
+          "planned_at": "2026-11-27T04:01:59.897Z",
+          "changes": [
+            {
+              "before": "a workspacify-start plan initialized an empty package model and never re-read it when workspacify was already complete",
+              "after": "readInitialWorkspaceForPlan reads the COMPLETE manifests at startup; a fresh workspace keeps the empty model",
+              "description": "conver.ts now calls the new workspace helper"
+            },
+            {
+              "before": "readWorkspacifyRuns counted manifest existence as a completed stage",
+              "after": "it returns 1 only when both manifests declare COMPLETE",
+              "description": "counters.mjs status-aware reading"
+            },
+            {
+              "before": "the implementation loop used the allocate build order when split was skipped",
+              "after": "the engine re-reads with the make gate immediately before the delegate and validates the order tool",
+              "description": "stage-engine.ts pre-implement read"
+            },
+            {
+              "before": "a stage whose counter never advanced looped forever",
+              "after": "a consecutive identical stage action throws STAGE_NOT_ADVANCING",
+              "description": "stage-engine.ts signature guard"
+            },
+            {
+              "before": "the default -T stopped at find",
+              "after": "the default is the full 17-stage plan and isImplementationGroupPlan names the explicit group",
+              "description": "stage-plan.ts and cli.ts usage"
+            }
+          ],
+          "completedAt": "2026-11-27",
+          "done_at": "2026-11-27T04:07:50.033Z",
+          "rfcDiscrepancies": [],
+          "reviewed_at": "2026-11-27T04:09:04.118Z"
         }
       ]
     },

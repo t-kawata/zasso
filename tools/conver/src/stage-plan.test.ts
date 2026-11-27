@@ -14,6 +14,7 @@ import {
   DEFAULT_STAGE_PLAN_RAW,
   StagePlanError,
   isDefaultImplementationPlan,
+  isImplementationGroupPlan,
   parseStagePlan,
   resolveStageGate,
   stageDefinition,
@@ -38,19 +39,24 @@ describe("parseStagePlan", () => {
     assert.strictEqual(plan.selections.find((selection) => selection.name === "make")?.count, 1);
   });
 
-  it("C001: an absent -T uses the default implementation plan", () => {
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C001: an absent -T is the full pipeline plan", () => {
     for (const raw of [undefined, ""] as const) {
       const plan = parseStagePlan(raw);
-      assert.deepStrictEqual(plan.selections.map((selection) => selection.name), [
-        "make",
-        "plan",
-        "start",
-        "review",
-        "resolve",
-        "consolidate",
-        "find",
-      ]);
-      assert.strictEqual(plan.selections.every((selection) => selection.count === 1), true);
+      assert.deepStrictEqual(
+        plan.selections.map((selection) => selection.name),
+        CANONICAL_NAMES,
+      );
+      const countOf = (name: string) =>
+        plan.selections.find((selection) => selection.name === name)?.count;
+      assert.strictEqual(countOf("educe"), 2);
+      assert.strictEqual(countOf("grill"), 2);
+      assert.strictEqual(countOf("smooth"), 2);
+      assert.strictEqual(countOf("graphify"), 1);
+      assert.strictEqual(countOf("boundify"), 1);
+      assert.strictEqual(countOf("split"), 1);
+      assert.strictEqual(countOf("crystalize"), 1);
+      assert.strictEqual(countOf("drill"), 1);
     }
   });
 
@@ -94,11 +100,17 @@ describe("parseStagePlan", () => {
     }
   });
 
-  it("C001: the default plan is exactly the implementation group", () => {
-    const plan = parseStagePlan(DEFAULT_STAGE_PLAN_RAW);
-    assert.strictEqual(isDefaultImplementationPlan(plan), true);
-    assert.strictEqual(isDefaultImplementationPlan(parseStagePlan("make,plan")), false);
-    assert.strictEqual(isDefaultImplementationPlan(parseStagePlan("split,make,plan,start,review,resolve,consolidate,find")), false);
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C001: the implementation-group predicate recognises only the full group", () => {
+    const group = parseStagePlan("make,plan,start,review,resolve,consolidate,find");
+    assert.strictEqual(isImplementationGroupPlan(group), true);
+    assert.strictEqual(isImplementationGroupPlan(parseStagePlan(DEFAULT_STAGE_PLAN_RAW)), false);
+    assert.strictEqual(isImplementationGroupPlan(parseStagePlan("make,plan")), false);
+    assert.strictEqual(
+      isImplementationGroupPlan(parseStagePlan("split,make,plan,start,review,resolve,consolidate,find")),
+      false,
+    );
+    assert.strictEqual(isDefaultImplementationPlan(group), true, "the deprecated alias still answers");
   });
 });
 

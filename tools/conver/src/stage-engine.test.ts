@@ -326,21 +326,184 @@ describe("runStagePlan — command contract", () => {
       "/split-to-tickets",
       "/split-to-tickets",
     ]);
-    assert.deepStrictEqual(fake.calls, ["make", "make", "loop"]);
+    assert.deepStrictEqual(fake.calls, ["make", "make", "make", "loop"]);
     assert.deepStrictEqual(fake.selected(), ["make", "plan"]);
   });
 
-  it("delegates the default implementation plan as one no-filter loop", async () => {
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("delegates the implementation group as one no-filter loop", async () => {
     const fake = createFakeDeps(createFakeState());
     await runStagePlan({
-      plan: parseStagePlan(undefined),
+      plan: parseStagePlan("make,plan,start,review,resolve,consolidate,find"),
       workspace: workspace(),
       options: loopOptions(),
       deps: fake.deps,
     });
     assert.strictEqual(fake.records.length, 0);
-    assert.deepStrictEqual(fake.calls, ["loop"]);
+    assert.deepStrictEqual(fake.calls, ["make", "loop"]);
     assert.strictEqual(fake.selected(), undefined);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C003: a skipped split still reads the implementation order before the loop", async () => {
+    const state = createFakeState({
+      counts: new Map([
+        [key("split", "/ws/a"), 1],
+        [key("split", "/ws/b"), 1],
+      ]),
+    });
+    const fake = createFakeDeps(state);
+
+    await runStagePlan({
+      plan: parseStagePlan("split,make"),
+      workspace: workspace(),
+      options: loopOptions(),
+      deps: fake.deps,
+    });
+
+    assert.deepStrictEqual(fake.calls, ["make", "loop"]);
+    assert.strictEqual(fake.records.some((record) => record.stage === "split"), false);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C003: the loop never receives the build-order model", async () => {
+    let loopPackages: string[] = [];
+    const state = createFakeState({
+      counts: new Map([
+        [key("split", "/ws/a"), 1],
+        [key("split", "/ws/b"), 1],
+      ]),
+    });
+    const fake = createFakeDeps(state, {
+      readWorkspace: (_plan, orderStartStage) =>
+        orderStartStage === "make"
+          ? workspace()
+          : { ...workspace(), packages: [...workspace().packages].reverse() },
+      runImplementationLoop: async (options) => {
+        loopPackages = options.workspace.packages.map((pkg) => pkg.id);
+        return { processed: 1, allSelectedComplete: true };
+      },
+    });
+
+    await runStagePlan({
+      plan: parseStagePlan("split,make"),
+      workspace: workspace(),
+      options: loopOptions(),
+      deps: fake.deps,
+    });
+
+    assert.deepStrictEqual(loopPackages, ["pkg-a", "pkg-b"]);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C004: a stage whose counter never advances stops instead of looping", async () => {
+    const records: StageCommandInput[] = [];
+    const fake = createFakeDeps(createFakeState());
+    const deps: StageEngineDeps = {
+      ...fake.deps,
+      runStageCommand: async (input) => {
+        records.push(input);
+      },
+    };
+
+    await assert.rejects(
+      runStagePlan({
+        plan: parseStagePlan("educe:2"),
+        workspace: workspace(),
+        options: loopOptions(),
+        deps,
+      }),
+      (error: unknown) => error instanceof StageEngineError && error.code === "STAGE_NOT_ADVANCING",
+    );
+    assert.strictEqual(records.filter((record) => record.stage === "educe").length, 1);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C004: an advancing counter is not stopped", async () => {
+    const fake = createFakeDeps(createFakeState());
+    await runStagePlan({
+      plan: parseStagePlan("educe:2"),
+      workspace: workspace(),
+      options: loopOptions(),
+      deps: fake.deps,
+    });
+    assert.strictEqual(fake.records.filter((record) => record.stage === "educe").length, 2);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C001: grill round 2 runs only for a package below the target", async () => {
+    const state = createFakeState({
+      counts: new Map([
+        [key("grill", "/ws/a"), 1],
+        [key("grill", "/ws/b"), 2],
+      ]),
+    });
+    const fake = createFakeDeps(state);
+
+    await runStagePlan({
+      plan: parseStagePlan("grill:2"),
+      workspace: workspace(),
+      options: loopOptions(),
+      deps: fake.deps,
+    });
+
+    assert.deepStrictEqual(
+      fake.records.map((record) => `${record.round}:${record.packageId}`),
+      ["2:pkg-a"],
+    );
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C003: the full plan skips upstream at target and ships every package", async () => {
+    const packages = Array.from({ length: 23 }, (_, index) =>
+      packageEntry(`pkg-${index}`, `pkg-${index}`),
+    );
+    const model: WorkspaceModel = { root: "/ws", name: "ws", packages };
+    const counts = new Map<string, number>([
+      [key("workspacify", "/ws"), 1],
+      [key("educe", "/ws"), 2],
+      [key("smooth", "/ws"), 2],
+    ]);
+    for (const pkg of packages) {
+      counts.set(key("explain", pkg.directory), 1);
+      counts.set(key("grill", pkg.directory), 2);
+      counts.set(key("graphify", pkg.directory), 1);
+      counts.set(key("boundify", pkg.directory), 1);
+      counts.set(key("split", pkg.directory), 1);
+    }
+    const state = createFakeState({
+      counts,
+      endpoints: new Set(packages.map((pkg) => pkg.id)),
+    });
+    const fake = createFakeDeps(state, {}, model);
+
+    await runStagePlan({
+      plan: parseStagePlan(
+        "workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,make,plan,start,review,resolve,consolidate,find,crystalize,drill",
+      ),
+      workspace: model,
+      options: loopOptions(model),
+      deps: fake.deps,
+    });
+
+    const upstreamStages = new Set([
+      "workspacify",
+      "educe",
+      "explain",
+      "grill",
+      "smooth",
+      "graphify",
+      "boundify",
+      "split",
+    ]);
+    assert.strictEqual(
+      fake.records.filter((record) => upstreamStages.has(record.stage)).length,
+      0,
+    );
+    assert.strictEqual(fake.calls.filter((call) => call === "loop").length, 1);
+    assert.strictEqual(fake.records.filter((record) => record.stage === "crystalize").length, 23);
+    assert.strictEqual(fake.records.filter((record) => record.stage === "drill").length, 23);
+    assert.strictEqual(fake.records.at(-1)?.stage, "drill");
   });
 
   it("reports skip, run, delegate and complete decisions with metrics", async () => {

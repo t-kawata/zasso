@@ -123,6 +123,7 @@ mock.module("./workspace.js", {
       return state.workspace.root;
     },
     resolveStageWorkspaceRoot: () => state.workspace.root,
+    readInitialWorkspaceForPlan: () => state.workspace,
     readWorkspaceForStagePlan: () => state.workspace,
     validateImplementationOrder: () => {},
     readWorkspace: () => state.workspace,
@@ -239,6 +240,7 @@ beforeEach(() => {
   state.termination = createDeferred();
   state.callback = null;
   state.cli.watcherConfig = undefined;
+  state.cli.tasks = "make,plan,start,review,resolve,consolidate,find";
   state.cli.packages = [];
   state.runtimeCheck = { blocked: false, message: "" };
   state.runResult = { processed: 0, allSelectedComplete: false };
@@ -396,6 +398,24 @@ describe("main", () => {
     state.watcherError = new Error("bad config");
     await main();
     assert.deepStrictEqual(state.exitCalls, [1]);
+  });
+
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  it("C001: refuses -w when the plan is the full default", async () => {
+    mockExit();
+    state.cli.watcherConfig = "/tmp/watcher.json";
+    state.cli.tasks = undefined;
+    const stderr = captureStream(process.stderr);
+    try {
+      await main();
+    } finally {
+      stderr.restore();
+    }
+    assert.deepStrictEqual(state.exitCalls, [1]);
+    assert.ok(
+      stderr.chunks.join("").includes("make,plan,start,review,resolve,consolidate,find"),
+      "the refusal must name the explicit implementation-group -T",
+    );
   });
 });
 

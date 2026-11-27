@@ -29,8 +29,11 @@ import type { WorkspaceModel, WorkspacePackage } from "./workspace.js";
 
 const IMPLEMENTATION_STAGE_SET = new Set<StageName>(IMPLEMENTATION_STAGES);
 
-// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
-export type StageEngineErrorCode = "MISSING_STAGE_INPUT" | "MISSING_STAGE_ARTIFACT";
+// [::TICKET::] PX-455, PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-455|PX-456) --for-spec --no-implementation-order`.
+export type StageEngineErrorCode =
+  | "MISSING_STAGE_INPUT"
+  | "MISSING_STAGE_ARTIFACT"
+  | "STAGE_NOT_ADVANCING";
 
 export class StageEngineError extends Error {
   constructor(
@@ -239,6 +242,22 @@ function reReadStartStage(plan: StagePlan, stage: StageName): StageName {
   return plan.selections[0]?.name ?? "make";
 }
 
+/**
+ * The identity of one stage action.
+ *
+ * Two consecutive derivations of the same identity mean the counter did not
+ * advance: the stage would run forever otherwise.
+ */
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+function stageActionSignature(action: {
+  layer: string;
+  stage: StageName;
+  packageId: string | null;
+  round: number;
+}): string {
+  return `${action.layer}:${action.stage}:${action.packageId ?? ""}:${action.round}`;
+}
+
 // [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 interface StageActionInput {
   action: Extract<PipelineAction, { kind: "stage" }>;
@@ -311,6 +330,7 @@ export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
   let runs = 0;
   let skips = 0;
   let cycles = 0;
+  let lastStageSignature: string | null = null;
   const ranPairs = new Set<string>();
   const skippedPairs = new Set<string>();
 
@@ -356,6 +376,11 @@ export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
       state = step.nextState;
 
       if (step.action.kind === "implement") {
+        // The implementation loop must see the published implementation order.
+        // Re-reading here covers a skipped split, whose own re-read never runs.
+        // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+        model = input.deps.readWorkspace(input.plan, "make");
+        lastStageSignature = null;
         input.onPipelineStep?.({
           phase: "implement",
           stage: null,
@@ -376,6 +401,16 @@ export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
         state = advanceAfterImplementation(state, outcome);
         continue;
       }
+
+      // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+      const stageSignature = stageActionSignature(step.action);
+      if (stageSignature === lastStageSignature) {
+        throw new StageEngineError(
+          "STAGE_NOT_ADVANCING",
+          `stage ${step.action.stage} (package ${step.action.packageId ?? "-"}, round ${step.action.round}) was derived again without its counter advancing`,
+        );
+      }
+      lastStageSignature = stageSignature;
 
       runs += 1;
       ranPairs.add(`${step.action.stage}:${step.action.packageId ?? ""}`);

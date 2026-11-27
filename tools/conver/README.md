@@ -611,15 +611,16 @@ node .claude/skills/<name>-okf/dist/skill.mjs required --entry <concept-id>
 
 ## conver.js — ACP ベースのチケット処理パイプライン
 
-`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御します。既定では**ワークスペースルート**からパッケージディレクトリを安全な実装順に移動しながら、各 `Tickets.json` のチケットを make → plan → start → review → resolve → consolidate-stubs → find の順で自動実行します。`-T` を渡すと、workspacify から drill までの任意の連続区間を同じ順序で実行します。
+`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御します。既定では **workspacify から drill までの全段**を、ワークスペースルートとパッケージディレクトリを安全な実装順に移動しながら実行します。`-T` を渡すと、正準順序の任意の連続区間（例: 実装グループのみ `make,plan,start,review,resolve,consolidate,find`）を同じ順序で実行します。
 
 ### 使用方法
 
 conver は **ワークスペースルート** で実行します。必要な入力は `-T` の先頭段階で決まります。
 
-- **既定（`-T` 省略、または make 以降から開始）**: `WORKSPACIFY-TREE-MANIFEST.json`・`WORKSPACIFY-ALLOCATE-MANIFEST.json`・`WORKSPACIFY-IMPLEMENTATION-ORDER.json` と、全パッケージの `Tickets.json` が必要です。パッケージディレクトリ内からは実行できません。
-- **workspacify から開始**: ワークスペースルートの `SYSTEM-DESIGN.md` だけが必要です。
+- **既定（`-T` 省略）**: workspacify 起点の全段計画です。ワークスペースルートの `SYSTEM-DESIGN.md` だけが必要で、マニフェストは workspacify が生成します（既に両方が `COMPLETE` なら読み込んで続行）。
+- **workspacify から開始**: 同上。`SYSTEM-DESIGN.md` が必要です。
 - **educe から split までで開始**: tree manifest と allocate manifest が必要です。`Tickets.json` はまだ不要です。
+- **make 以降から開始（実装グループ）**: `WORKSPACIFY-TREE-MANIFEST.json`・`WORKSPACIFY-ALLOCATE-MANIFEST.json`・`WORKSPACIFY-IMPLEMENTATION-ORDER.json` と、全パッケージの `Tickets.json` が必要です。`-w` はこの計画でのみ使用できます。
 
 4層ループの単一ディレクトリ実行はサポートしません。
 
@@ -630,13 +631,15 @@ node "$(git rev-parse --show-toplevel)/.claude/scripts/conver/conver.js" -k <api
 node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 ```
 
-起動時に次を検証し、失敗した場合はセッションを開始せずに終了します。
+実装グループ（make 以降）の計画では、起動時に次を検証し、失敗した場合はセッションを開始せずに終了します。
 
 - 3つのルートマニフェストの存在と `COMPLETE`
 - `workspacify-order/run.mjs` が実装順を受理すること（`--record` なし）
 - 全パッケージに `Tickets.json` が存在すること
 - パッケージ指定が一意に解決できること
 - 指定が未完了の先行パッケージを飛ばさないこと
+
+workspacify 起点の計画は `SYSTEM-DESIGN.md` の存在だけを、educe 起点の計画は tree manifest と allocate manifest を検証します。
 
 ### CLI オプション
 
@@ -654,7 +657,7 @@ node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 | `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
 | `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。endpoint で exit 0） | — |
 | `-n`, `--no-find` | 全 reviewed 後の find をスキップ（consolidate は実行）（0/1） | `0` |
-| `-T`, `--tasks` | 実行する段階の連続区間。正準順序の部分列のみ。再実行可能な段階だけが `:N` を受け取る | `make,plan,start,review,resolve,consolidate,find` |
+| `-T`, `--tasks` | 実行する段階の連続区間。正準順序の部分列のみ。再実行可能な段階だけが `:N` を受け取る | `workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,make,plan,start,review,resolve,consolidate,find,crystalize,drill` |
 | `--max-find-rounds` | パッケージごとに find を実行できる回数。上限到達で停止して Slack 通知 | `5` |
 | `--no-dashboard` | 固定進捗ヘッダーを無効化 | 無効（ヘッダー表示） |
 | `--dashboard-interval` | ヘッダーのポーリング間隔（秒） | `5` |
@@ -680,7 +683,7 @@ make, plan, start, review, resolve, consolidate, find, crystalize, drill
 - **位相**: 適合・上流の後、全パッケージが実装 endpoint（全チケット終端かつ find がチケットを追加しない digest 一致）に達して初めて出荷へ進みます。crystalize は全パッケージに順に実行し、それが終わってから drill を全パッケージに順に実行します。drill 後に全パッケージの ticket-set digest を比較し、1つでも変化があれば実装へ戻り、変化がなければ完了します。crystalize と drill は回数や実行済みフラグではなく、この位相到達でのみ実行されます。
 - **drill**: `/drill-rfc-down` を**引数なし**でパッケージルートから実行します。`crystalize` を含まない `-T drill` は拒否されます。
 - **非対話**: 適合・上流の段階は記録済み回数で skip されます。educe には固定 `SYSTEM-DESIGN.md` の契約を、explain・grill・drill には人間の判断を求めず最後まで完了する指示を conver が付加します。
-- **既定との互換**: `-T` を省略するか既定値（`make,plan,start,review,resolve,consolidate,find`）を渡した場合、既存の実装ループと同一の経路を通ります。`-w` は既定計画でのみ使用できます。
+- **既定との互換**: `-T` を省略した場合は全段計画を実行します。実装グループだけを実行したい場合は `-T make,plan,start,review,resolve,consolidate,find` を明示します。`-w` は実装グループ計画でのみ使用できます。
 
 ### 実行アーキテクチャ — 5層・厳格順序
 
